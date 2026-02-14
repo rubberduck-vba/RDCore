@@ -6,6 +6,7 @@ using RDCore.Server.Services;
 using RDCore.Server.States;
 using RDCore.Workspace.Services;
 using RDCore.Workspace.States;
+using System.IO.Abstractions;
 using System.Reflection;
 
 namespace RDCore.Server;
@@ -35,6 +36,9 @@ internal class ServerApp(ServerOptions options) : IDisposable
     private void ConfigureServices(IServiceCollection services)
     {
         services
+            .AddSingleton<System.IO.Abstractions.IPath, PathWrapper>()
+            .AddSingleton<System.IO.Abstractions.IFile, FileWrapper>()
+            .AddSingleton<System.IO.Abstractions.IDirectory, DirectoryWrapper>()
             .AddSingleton(provider => CancellationTokenSource)
             .AddSingleton(provider => Options)
             .AddSingleton(provider => Info.Version!)

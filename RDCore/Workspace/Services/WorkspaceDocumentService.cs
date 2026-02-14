@@ -18,7 +18,9 @@ internal interface IWorkspaceDocumentService
     void Create(string relativePath);
 }
 
-internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProvider, ILogger<WorkspaceDocumentService> logger) : IWorkspaceDocumentService
+internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProvider, ILogger<WorkspaceDocumentService> logger,
+    System.IO.Abstractions.IPath ioPath,
+    System.IO.Abstractions.IFile ioFile) : IWorkspaceDocumentService
 {
     private readonly Dictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
@@ -34,9 +36,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     {
         try
         {
-            if (File.Exists(relativePath))
+            if (ioFile.Exists(relativePath))
             {
-                var content = await File.ReadAllTextAsync(relativePath);
+                var content = await ioFile.ReadAllTextAsync(relativePath);
                 var document = new WorkspaceDocument(relativePath, _workspaceRoot, content);
                 documentStateProvider.OnDocumentLoaded(document.Id);
 
@@ -66,7 +68,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Create(string relativePath)
     {
-        var id = new TextDocumentIdentifier(new Uri(Path.Combine(_workspaceRoot, relativePath)));
+        var id = new TextDocumentIdentifier(new Uri(ioPath.Combine(_workspaceRoot, relativePath)));
         if (_documents.ContainsKey(id))
         {
             logger.LogWarning("Workspace document at '{relativePath}' already exists and cannot be created.", relativePath);
@@ -162,8 +164,8 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
             try
             {
-                var path = Path.Combine(_workspaceRoot, document.FileName);
-                await File.WriteAllTextAsync(path, document.Text);
+                var path = ioPath.Combine(_workspaceRoot, document.FileName);
+                await ioFile.WriteAllTextAsync(path, document.Text);
 
                 _documents[id] = workspaceDocument.AsInitialVersion();
 
@@ -186,9 +188,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         if (currentState is LoadedDocumentState or OpenedDocumentState
             && _documents.TryGetValue(id, out var d) && d is WorkspaceDocument document)
         {
-            var relativePath = Path.GetRelativePath(_workspaceRoot, document.Id.Uri.GetFileSystemPath());
-            var newRelativePath = Path.Combine(Path.GetDirectoryName(relativePath)!, newName);
-            var newId = new TextDocumentIdentifier(new Uri(Path.Combine(_workspaceRoot, newRelativePath)));
+            var relativePath = ioPath.GetRelativePath(_workspaceRoot, document.Id.Uri.GetFileSystemPath());
+            var newRelativePath = ioPath.Combine(ioPath.GetDirectoryName(relativePath)!, newName);
+            var newId = new TextDocumentIdentifier(new Uri(ioPath.Combine(_workspaceRoot, newRelativePath)));
 
             _documents.Remove(id);
             _documents[newId] = new WorkspaceDocument(newRelativePath, document.Text, document.Version);
