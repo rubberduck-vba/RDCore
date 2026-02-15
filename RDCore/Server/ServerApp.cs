@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Configuration;
+using RDCore.Server.Commands;
 using RDCore.Server.Services;
 using RDCore.Server.States;
 using RDCore.Workspace.Services;
@@ -49,6 +50,16 @@ internal class ServerApp(ServerOptions options) : IDisposable
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IProjectFileService, ProjectFileService>()
             .AddSingleton<IWorkspaceDocumentService, WorkspaceDocumentService>()
+
+            .AddSingleton<AddReferenceCommand>()
+            .AddSingleton<RemoveReferenceCommand>()
+
+            .AddSingleton<IEnumerable<ServerCommand>>(provider =>
+            [
+                provider.GetRequiredService<AddReferenceCommand>(),
+                provider.GetRequiredService<RemoveReferenceCommand>(),
+            ])
+
             .AddSingleton<IEnumerable<SupportedLanguage>>(provider => [SupportedLanguage.VBA])
             .AddSingleton<TextDocumentSelector>(provider => SupportedLanguage.VBA.ToTextDocumentSelector())
 

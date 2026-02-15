@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.Configuration;
 using RDCore.Server.Handlers.Document;
 using RDCore.Server.Handlers.Lifecycle;
+using RDCore.Server.Handlers.Workspace;
 using RDCore.Server.Services;
 using RDCore.Server.States;
 using RDCore.Workspace.Services;
@@ -94,6 +95,7 @@ internal class LanguageServerApp(
             .WithHandler<DidOpenTextDocumentHandler>()
             .WithHandler<DidCloseTextDocumentHandler>()
             .WithHandler<DidChangeTextDocumentHandler>()
+            .WithHandler<ExecuteCommandHandler>()
             .OnStarted(OnLanguageServerStartedAsync)
             .OnInitialize(OnLanguageServerInitializeAsync)
             .OnInitialized(OnLanguageServerInitializedAsync)
