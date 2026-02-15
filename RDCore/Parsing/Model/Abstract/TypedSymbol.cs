@@ -1,6 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Abstract;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Abstract;
 
@@ -9,8 +10,8 @@ namespace RDCore.Parsing.Model.Abstract;
 /// </summary>
 internal abstract record class TypedSymbol : Symbol
 {
-    protected TypedSymbol(Uri workspaceRoot, string name, Accessibility accessibility, SymbolKind kind, Uri? parentUri = null)
-        : base(workspaceRoot, name, kind, parentUri)
+    protected TypedSymbol(Uri workspaceRoot, string name, SymbolKind kind, Accessibility accessibility, Uri? parentUri = default, Range? range = default, Range? selectionRange = default)
+        : base(workspaceRoot, name, kind, range, selectionRange, parentUri)
     {
         Accessibility = accessibility;
         ResolvedType = UnresolvedType.VBType;

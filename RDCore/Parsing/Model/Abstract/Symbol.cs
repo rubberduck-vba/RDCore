@@ -24,5 +24,7 @@ internal abstract record class Symbol : DocumentSymbol
     public Uri Uri { get; init; }
     public Uri ParentUri { get; init; }
 
+    public bool IsUserDefined => Range is not null;
+
     public Symbol WithChildren(IEnumerable<Symbol> children) => this with { Children = Container.From(children.OfType<DocumentSymbol>()) };
 }

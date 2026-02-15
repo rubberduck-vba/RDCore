@@ -1,20 +1,15 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Parsing.Model.Abstract;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Types.Complex;
 
 internal abstract record class VBTypeMember : TypedSymbol
 {
-    protected VBTypeMember(Uri uri, string name, SymbolKind kind, Accessibility accessibility, Uri? parentUri = default)
-        : this(uri, name, kind, accessibility, parentUri, isUserDefined: true)
-    {
-    }
-
-    protected VBTypeMember(Uri uri, string name, SymbolKind kind, Accessibility accessibility, Uri? parentUri = default, bool isUserDefined = false, bool isHidden = false)
-        : base(uri, name, accessibility, kind, parentUri)
+    protected VBTypeMember(Uri uri, string name, SymbolKind kind, Accessibility accessibility, Uri? parentUri = default, Range? range = default, Range? selectionRange = default, bool isHidden = false)
+        : base(uri, name, kind, accessibility, parentUri, range, selectionRange)
     {
         Uri = uri;
-        IsUserDefined = isUserDefined;
         Name = name;
         Kind = kind;
         Accessibility = accessibility;
@@ -23,7 +18,6 @@ internal abstract record class VBTypeMember : TypedSymbol
         DocString = string.Empty;
     }
 
-    public bool IsUserDefined { get; init; }
     public bool IsHidden { get; init; }
 
     public string DocString { get; init; }
