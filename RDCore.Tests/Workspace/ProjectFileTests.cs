@@ -2,7 +2,7 @@
 using RDCore.Workspace;
 using System.Text.Json;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Workspace;
 
 [TestClass]
 public sealed class ProjectFileTests

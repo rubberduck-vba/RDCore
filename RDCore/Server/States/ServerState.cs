@@ -28,9 +28,15 @@ internal record class RunningServerState : ServerState
     {
         Trace = trace;
     }
+
+    protected RunningServerState(InitializeTrace trace = InitializeTrace.Messages, ServerStateValue state = ServerStateValue.Running) : base(state)
+    {
+        Trace = trace;
+    }
+
     public InitializeTrace Trace { get; }
 }
-internal record class RunningVerboseServerState : RunningServerState { public RunningVerboseServerState() : base(InitializeTrace.Verbose) { } }
-internal record class RunningTracelessServerState : RunningServerState { public RunningTracelessServerState() : base(InitializeTrace.Off) { } }
+internal record class RunningVerboseServerState : RunningServerState { public RunningVerboseServerState() : base(InitializeTrace.Verbose, ServerStateValue.RunningVerbose) { } }
+internal record class RunningTracelessServerState : RunningServerState { public RunningTracelessServerState() : base(InitializeTrace.Off, ServerStateValue.RunningTraceless) { } }
 internal record class ShuttingDownServerState : ServerState { public ShuttingDownServerState() : base(ServerStateValue.ShuttingDown) { } }
 internal record class ExitingServerState : ServerState { public ExitingServerState() : base(ServerStateValue.Exiting) { } }

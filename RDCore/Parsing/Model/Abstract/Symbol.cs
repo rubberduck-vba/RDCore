@@ -3,7 +3,6 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Abstract;
 
-
 internal abstract record class Symbol : DocumentSymbol
 {
     protected Symbol(Uri workspaceRoot, string name, SymbolKind kind, Uri? parentUri = default)
@@ -18,7 +17,7 @@ internal abstract record class Symbol : DocumentSymbol
         Range = range!;
         SelectionRange = selectionRange ?? Range;
 
-        ParentUri = parentUri ?? new($"lsp://symbols/{kind}");
+        ParentUri = parentUri ?? workspaceRoot;
         Uri = new Uri(ParentUri, name);
     }
 

@@ -1,6 +1,6 @@
 ﻿namespace RDCore.Server.States;
 
-internal enum ServerStateValue
+public enum ServerStateValue
 {
     /// <summary>
     /// Server process has started but the language server has not yet been initialized.
@@ -14,6 +14,14 @@ internal enum ServerStateValue
     /// Language server is running and ready to handle client requests.
     /// </summary>
     Running,
+    /// <summary>
+    /// Language server is running and ready to handle client requests with trace-level logs enabled.
+    /// </summary>
+    RunningVerbose,
+    /// <summary>
+    /// Language server is running and ready to handle client requests with tracing disabled.
+    /// </summary>
+    RunningTraceless,
     /// <summary>
     /// Server has received a shutdown request and is in the process of cleanly shutting down the language server.
     /// </summary>

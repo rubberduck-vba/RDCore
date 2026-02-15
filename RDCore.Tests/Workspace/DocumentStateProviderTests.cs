@@ -1,7 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Workspace.States;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Workspace;
 
 [TestClass]
 public sealed class DocumentStateProviderTests
