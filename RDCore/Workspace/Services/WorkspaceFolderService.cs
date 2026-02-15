@@ -19,7 +19,7 @@ internal class WorkspaceFolderService(
 
     public void Create(ProjectFile model)
     {
-        var rootUri = model.WorkspaceUri;
+        var rootUri = model.Uri;
         if (!ioDirectory.Exists(rootUri))
         {
             ioDirectory.CreateDirectory(rootUri);

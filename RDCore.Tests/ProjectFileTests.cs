@@ -86,7 +86,7 @@ public sealed class ProjectFileTests
         var result = JsonSerializer.Deserialize<ProjectFile>(serialized)!;
 
         // assert
-        Assert.AreEqual(string.Empty, result.WorkspaceUri);
+        Assert.AreEqual(string.Empty, result.Uri);
     }
 
     [TestMethod]

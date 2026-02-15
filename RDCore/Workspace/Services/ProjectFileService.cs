@@ -7,7 +7,7 @@ internal interface IProjectFileService
     ProjectFile Project { get; }
 
     Task SaveAsync();
-    Task LoadAsync(string workspaceUri);
+    Task LoadAsync(string Uri);
 
     void AddReference(RDCoreReference reference);
     void RemoveReference(RDCoreReference reference);
@@ -31,13 +31,13 @@ internal class ProjectFileService(
     private ProjectFile _projectFile = default!;
     public ProjectFile Project => _projectFile;
 
-    public async Task LoadAsync(string workspaceUri)
+    public async Task LoadAsync(string Uri)
     {
-        var path = ioPath.Combine(workspaceUri, ProjectFile.FileName);
+        var path = ioPath.Combine(Uri, ProjectFile.FileName);
         using var stream = ioFile.Open(path, FileMode.Open);
         if (await JsonSerializer.DeserializeAsync<ProjectFile>(stream) is ProjectFile project)
         {
-            _projectFile = project.WithWorkspaceUri(workspaceUri);
+            _projectFile = project.WithUri(Uri);
         }
 
         throw new InvalidOperationException("Project file could not be deserialized from specified workspace root.");
@@ -45,7 +45,7 @@ internal class ProjectFileService(
 
     public async Task SaveAsync()
     {
-        var path = ioPath.Combine(Project.WorkspaceUri, ProjectFile.FileName);
+        var path = ioPath.Combine(Project.Uri, ProjectFile.FileName);
         if (_projectFile.IsDirty || !ioFile.Exists(path))
         {
             using var stream = ioFile.Open(path, FileMode.Create);
@@ -55,10 +55,15 @@ internal class ProjectFileService(
 
     public void AddSourceFile(WorkspaceDocument document, DocClassType? classType = default)
     {
+        if (Project.ProjectInfo.Modules.Any(e => e.Name == document.Name))
+        {
+            throw new InvalidOperationException($"A module named '{document.Name}' already exists in this project.");
+        }
+
         var module = new RDCoreModule
         {
             Name = document.Name,
-            RelativeUri = ioPath.GetRelativePath(Project.WorkspaceUri, document.Id.Uri.GetFileSystemPath()),
+            RelativeUri = ioPath.GetRelativePath(Project.Uri, document.Id.Uri.GetFileSystemPath()),
             Super = classType
         };
 
@@ -69,7 +74,7 @@ internal class ProjectFileService(
     {
         var file = new RDCoreFile
         {
-            RelativeUri = ioPath.GetRelativePath(Project.WorkspaceUri, document.Id.Uri.GetFileSystemPath())
+            RelativeUri = ioPath.GetRelativePath(Project.Uri, document.Id.Uri.GetFileSystemPath())
         };
         AddDocument(file);
     }

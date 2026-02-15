@@ -11,13 +11,13 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     public static readonly string FileName = ".rdproj";
 
     public ProjectFile() { }
-    public ProjectFile(string workspaceUri) : this(workspaceUri, new()) { }
-    public ProjectFile(string workspaceUri, RDCoreProject project)
+    public ProjectFile(string uri) : this(uri, new()) { }
+    public ProjectFile(string uri, RDCoreProject project)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(workspaceUri, nameof(workspaceUri));
+        ArgumentException.ThrowIfNullOrWhiteSpace(uri, nameof(uri));
         ArgumentNullException.ThrowIfNull(project, nameof(project));
 
-        WorkspaceUri = workspaceUri;
+        Uri = uri;
         ProjectInfo = project;
         Version = ServerApp.Info.Version!.ToString(3);
         IsDirty = false;
@@ -26,7 +26,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     {
         ArgumentNullException.ThrowIfNull(source, nameof(source));
 
-        WorkspaceUri = source.WorkspaceUri;
+        Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
         Version = ServerApp.Info.Version!.ToString(3);
         IsDirty = false;
@@ -45,7 +45,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     /// This property is assigned on load rather than de/serialized, and serves as the workspace root everything else is relative to.
     /// </remarks>
     [JsonIgnore]
-    public string WorkspaceUri { get; init; } = string.Empty;
+    public string Uri { get; init; } = string.Empty;
     /// <summary>
     /// The <c>RDCore.ServerApp</c> version that this project was created with.
     /// </summary>
@@ -55,7 +55,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     /// </summary>
     public RDCoreProject ProjectInfo { get; init; } = new RDCoreProject();
 
-    public ProjectFile WithWorkspaceUri(string uri) => this with { WorkspaceUri = uri };
+    public ProjectFile WithUri(string uri) => this with { Uri = uri };
 
     public ProjectFile WithReference(RDCoreReference reference) => this with { ProjectInfo = ProjectInfo.WithReference(reference), IsDirty = true };
     public ProjectFile WithModule(RDCoreModule module) => this with { ProjectInfo = ProjectInfo.WithModule(module), IsDirty = true };
@@ -67,8 +67,8 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     public ProjectFile WithoutDocument(RDCoreFile document) => this with { ProjectInfo = ProjectInfo.WithoutDocument(document), IsDirty = true };
     public ProjectFile WithoutFolder(string folder) => this with { ProjectInfo = ProjectInfo.WithoutFolder(folder), IsDirty = true };
 
-    public override int GetHashCode() => WorkspaceUri.GetHashCode();
-    public bool Equals(ProjectFile? other) => other?.WorkspaceUri is string uri && WorkspaceUri.Equals(uri);
+    public override int GetHashCode() => Uri.GetHashCode();
+    public bool Equals(ProjectFile? other) => other?.Uri is string uri && Uri.Equals(uri);
 }
 
 internal record class RDCoreProject
@@ -138,7 +138,7 @@ internal record class RDCoreFile : IEquatable<RDCoreFile>
     public string Extension => RelativeUri[^RelativeUri.LastIndexOf('.')..];
 
     [JsonIgnore]
-    public string DefaultName => Path.GetFileNameWithoutExtension(RelativeUri.Replace('\\', '/').Split('/').Last());
+    public string DefaultName => Path.GetFileNameWithoutExtension(RelativeUri.Split(Path.PathSeparator).Last());
 
     public override int GetHashCode() => RelativeUri.GetHashCode();
 

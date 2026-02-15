@@ -79,12 +79,12 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     public async Task AddExistingFileAsync(string sourcePath, string? destinationFolder = default, string? destinationName = default)
     {
         var filename = destinationName ?? ioPath.GetFileName(sourcePath);
-        var absoluteDestinationPath = ioPath.Combine(projectFileService.Project.WorkspaceUri, destinationFolder ?? string.Empty, filename);
+        var absoluteDestinationPath = ioPath.Combine(projectFileService.Project.Uri, destinationFolder ?? string.Empty, filename);
         ioFile.Copy(sourcePath, absoluteDestinationPath, overwrite: true);
 
         var extension = ioPath.GetExtension(sourcePath).ToLowerInvariant();
 
-        var document = new WorkspaceDocument(ioPath.GetRelativePath(projectFileService.Project.WorkspaceUri, absoluteDestinationPath), projectFileService.Project.WorkspaceUri);
+        var document = new WorkspaceDocument(ioPath.GetRelativePath(projectFileService.Project.Uri, absoluteDestinationPath), projectFileService.Project.Uri);
         _ = await documentService.TryLoadAsync(document.RelativePath);
 
         if (SourceExtensions.Contains(extension))
@@ -99,11 +99,11 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
     public async Task AddNewFileAsync(string name, string? destinationFolder = default)
     {
-        var fullPath = ioPath.Combine(projectFileService.Project.WorkspaceUri, destinationFolder ?? string.Empty, name);
+        var fullPath = ioPath.Combine(projectFileService.Project.Uri, destinationFolder ?? string.Empty, name);
         var extension = ioPath.GetExtension(name).ToLowerInvariant();
         ioFile.Create(fullPath);
 
-        var document = new WorkspaceDocument(ioPath.GetRelativePath(projectFileService.Project.WorkspaceUri, fullPath), projectFileService.Project.WorkspaceUri);
+        var document = new WorkspaceDocument(ioPath.GetRelativePath(projectFileService.Project.Uri, fullPath), projectFileService.Project.Uri);
         _ = await documentService.TryLoadAsync(document.RelativePath);
 
         if (SourceExtensions.Contains(extension))
@@ -118,7 +118,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
     public void AddFolder(string relativePath)
     {
-        var fullPath = ioPath.Combine(projectFileService.Project.WorkspaceUri, relativePath);
+        var fullPath = ioPath.Combine(projectFileService.Project.Uri, relativePath);
         ioDirectory.CreateDirectory(fullPath);
 
         projectFileService.AddFolder(relativePath);
@@ -126,7 +126,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
     public void RemoveFile(TextDocumentIdentifier id, bool actuallyDelete = false)
     {
-        var workspaceRoot = projectFileService.Project.WorkspaceUri;
+        var workspaceRoot = projectFileService.Project.Uri;
         var absolutePath = id.Uri.GetFileSystemPath();
         var relativeUri = ioPath.GetRelativePath(workspaceRoot, absolutePath);
 
@@ -156,7 +156,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
 
     public void RemoveFolder(string relativePath, bool actuallyDelete = false)
     {
-        var fullPath = ioPath.Combine(projectFileService.Project.WorkspaceUri, relativePath);
+        var fullPath = ioPath.Combine(projectFileService.Project.Uri, relativePath);
         if (actuallyDelete && ioDirectory.Exists(fullPath))
         {
             ioDirectory.Delete(fullPath, recursive: true);
