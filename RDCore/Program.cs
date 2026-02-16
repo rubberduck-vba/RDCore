@@ -22,7 +22,7 @@ public class Program
         catch (OperationCanceledException)
         {
             // suppressed; normal exit
-            Console.WriteLine("Quack!");
+            Console.WriteLine("💙 Quack!");
         }
         catch (Exception exception)
         {
