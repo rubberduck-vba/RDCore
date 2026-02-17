@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBBooleanType : VBIntrinsicType<bool>
+internal sealed record class VBBooleanType : VBIntrinsicType<bool>
 {
     private static readonly VBBooleanType _type = new();
 
@@ -24,4 +24,6 @@ internal record class VBBooleanType : VBIntrinsicType<bool>
             VBStringType.TypeInfo,
             VBVariantType.TypeInfo
         ];
+
+    public override string? DefToken => Tokens.DefBool;
 }

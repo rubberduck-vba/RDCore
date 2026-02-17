@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBDoubleType : VBIntrinsicType<double>, INumericType
+internal sealed record class VBDoubleType : VBIntrinsicType<double>, INumericType
 {
     private static readonly VBDoubleType _type = new();
 
@@ -12,4 +12,5 @@ internal record class VBDoubleType : VBIntrinsicType<double>, INumericType
     public static VBDoubleType TypeInfo => _type;
 
     public override VBTypedValue DefaultValue { get; } = VBDoubleValue.Zero;
+    public override string? DefToken => Tokens.DefDbl;
 }

@@ -12,4 +12,6 @@ internal record class VBCurrencyType : VBIntrinsicType<decimal>, INumericType
     public static VBCurrencyType TypeInfo => _type;
 
     public override VBTypedValue DefaultValue { get; } = VBCurrencyValue.Zero;
+
+    public override string? DefToken => Tokens.DefCur;
 }

@@ -3,11 +3,10 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class UnresolvedType : VBType
+internal record class VoidType : VBType
 {
-    public static VBType VBType { get; } = new UnresolvedType();
+    public static VBType VBType { get; } = new VoidType();
+    private VoidType() : base(typeof(void), string.Empty, isHidden: true) { }
 
     public override VBTypedValue DefaultValue => VBVoidValue.Void;
-
-    public UnresolvedType() : base(UnresolvedType.VBType) { }
 }

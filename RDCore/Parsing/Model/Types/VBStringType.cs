@@ -11,10 +11,13 @@ internal record class VBStringType : VBIntrinsicType<string?>
     public static VBStringType TypeInfo => _type;
 
     public override VBTypedValue DefaultValue => VBStringValue.VBNullString;
-    public override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
+    public sealed override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
+    public override string? DefToken => Tokens.DefStr;
 }
 
-internal record class VBFixedStringType : VBStringType
+internal sealed record class VBFixedStringType : VBStringType
 {
     public int Length { get; init; }
+    public override string? DefToken => default;
+    public override VBTypedValue DefaultValue => new VBStringValue { Value = new string(' ', Length) };
 }

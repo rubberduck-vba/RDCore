@@ -1,10 +1,10 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.Server.ProtocolExtensions;
 
 namespace RDCore.Parsing.Model.Abstract;
 
 internal abstract record class ModuleSymbol : Symbol
 {
-    protected ModuleSymbol(Uri workspaceRoot, string name, SymbolKind kind, Uri? parentUri = null)
+    protected ModuleSymbol(Uri workspaceRoot, string name, SymbolKindExt kind, Uri? parentUri = null)
         : base(workspaceRoot, name, kind, parentUri)
     {
     }

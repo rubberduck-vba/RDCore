@@ -3,13 +3,11 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBAnyType : VBIntrinsicType<object?>
+internal sealed record class VBAnyType : VBIntrinsicType<object?>
 {
     private static readonly VBAnyType _type = new();
 
-    private VBAnyType() : base(Tokens.Any)
-    {
-    }
+    private VBAnyType() : base(Tokens.Any) { }
 
     public static VBAnyType TypeInfo => _type;
 

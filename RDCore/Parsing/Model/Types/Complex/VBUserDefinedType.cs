@@ -1,12 +1,12 @@
 ﻿using RDCore.Parsing.Model.Abstract;
+using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Members;
 using RDCore.Parsing.Model.Values;
 using System.Collections.Immutable;
 
 namespace RDCore.Parsing.Model.Types.Complex;
 
-internal record class VBUserDefinedType : VBType, IVBDeclaredType, IVBMemberOwnerType
+internal sealed record class VBUserDefinedType : VBType, IVBDeclaredType, IVBMemberOwnerType
 {
     public VBUserDefinedType(string name, Symbol declaration, Symbol[]? definitions = null, IEnumerable<VBUserDefinedTypeMember>? members = null)
         : base(typeof(object), name, isUserDefined: true)

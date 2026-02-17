@@ -3,25 +3,12 @@ using System.Collections.Immutable;
 
 namespace RDCore.Parsing.Model.Types.Abstract;
 
-internal record class VBTypeDesc : VBType
-{
-    private static readonly VBTypeDesc _type = new(nameof(VBType));
-
-    public VBTypeDesc(string name)
-        : base(typeof(Type), name, isUserDefined: false, isHidden: true)
-    {
-    }
-
-    public static VBTypeDesc TypeInfo => _type;
-    public override VBTypedValue DefaultValue { get; } = new VBTypeDescValue(VBVariantType.TypeInfo);
-}
-
 /// <summary>
 /// A base abstract class representing any VB data type.
 /// </summary>
 internal abstract record class VBType
 {
-    public VBType(Type? managedType, string name, bool isUserDefined = false, bool isHidden = false)
+    protected VBType(Type? managedType, string name, bool isUserDefined = false, bool isHidden = false)
     {
         ManagedType = managedType;
         Name = name;
@@ -30,7 +17,7 @@ internal abstract record class VBType
     }
 
     /// <summary>
-    /// The underlying managed type that represents this VB type, if any.
+    /// The underlying managed (.net) type that represents this VB type, if any.
     /// </summary>
     public Type? ManagedType { get; init; }
 
@@ -58,7 +45,7 @@ internal abstract record class VBType
     public virtual bool RuntimeBinding { get; } = false;
 
     /// <summary>
-    /// Gets the default managed value for this data type.
+    /// Gets the default value for this data type.
     /// </summary>
     public abstract VBTypedValue DefaultValue { get; }
 

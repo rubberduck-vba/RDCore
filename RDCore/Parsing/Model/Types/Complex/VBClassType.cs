@@ -9,11 +9,14 @@ namespace RDCore.Parsing.Model.Types.Complex;
 /// </summary>
 internal record class VBClassType : VBType, IVBMemberOwnerType
 {
-    public VBClassType(string name, bool isUserDefined = false, IEnumerable<VBTypeMember>? members = null, bool isHidden = false)
-        : base(typeof(object), name, isUserDefined, isHidden)
+    public VBClassType(ClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMember>? members = null, bool isHidden = false)
+        : base(typeof(object), symbol.Name, isUserDefined, isHidden)
     {
+        Symbol = symbol;
         Members = [.. members ?? []];
     }
+
+    public ClassModuleSymbol Symbol { get; }
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.

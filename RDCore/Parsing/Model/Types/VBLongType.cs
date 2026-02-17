@@ -11,4 +11,5 @@ internal record class VBLongType : VBIntrinsicType<int>, INumericType
     public static VBLongType TypeInfo => _type;
 
     public override VBTypedValue DefaultValue { get; } = VBLongValue.Zero;
+    public override string? DefToken => Tokens.DefLng;
 }

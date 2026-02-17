@@ -13,4 +13,5 @@ internal record class VBObjectType : VBIntrinsicType<Guid>
     public override bool RuntimeBinding { get; } = true;
     public override VBTypedValue DefaultValue { get; } = VBObjectValue.Nothing;
     public override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
+    public override string? DefToken => Tokens.DefObj;
 }

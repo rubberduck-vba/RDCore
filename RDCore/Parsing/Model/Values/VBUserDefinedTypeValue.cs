@@ -1,7 +1,7 @@
 ﻿using RDCore.Parsing.Model.Abstract;
+using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types.Abstract;
 using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Members;
 
 namespace RDCore.Parsing.Model.Values;
 

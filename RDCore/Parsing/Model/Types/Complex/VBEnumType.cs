@@ -1,12 +1,12 @@
 ﻿using RDCore.Parsing.Model.Abstract;
+using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Members;
 using RDCore.Parsing.Model.Values;
 using System.Collections.Immutable;
 
 namespace RDCore.Parsing.Model.Types.Complex;
 
-internal record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclaredType
+internal sealed record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclaredType
 {
     public VBEnumType(string name, Symbol declaration, Symbol[]? definitions = null, IEnumerable<VBEnumMember>? members = null, bool isUserDefined = false)
         : base(typeof(int), name, isUserDefined)

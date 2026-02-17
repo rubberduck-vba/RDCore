@@ -29,4 +29,10 @@
     <PackageReference Include="System.IO.Abstractions" Version="22.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="Parsing\Model\Types\UnresolvedType.cs">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Compile>
+  </ItemGroup>
+
 </Project>

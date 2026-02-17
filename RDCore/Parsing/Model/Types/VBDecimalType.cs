@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBDecimalType : VBIntrinsicType<decimal>, INumericType
+internal sealed record class VBDecimalType : VBIntrinsicType<decimal>, INumericType
 {
     private static readonly VBDecimalType _type = new();
 

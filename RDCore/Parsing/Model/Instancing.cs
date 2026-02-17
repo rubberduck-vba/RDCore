@@ -1,4 +1,4 @@
-﻿namespace RDCore.Parsing.Model.Abstract;
+﻿namespace RDCore.Parsing.Model;
 
 internal enum Instancing
 {

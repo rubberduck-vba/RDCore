@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBByteType : VBIntrinsicType<byte>, INumericType
+internal sealed record class VBByteType : VBIntrinsicType<byte>, INumericType
 {
     private static readonly VBByteType _type = new();
 
@@ -11,4 +11,5 @@ internal record class VBByteType : VBIntrinsicType<byte>, INumericType
 
     public static VBByteType TypeInfo => _type;
     public override VBByteValue DefaultValue { get; } = new();
+    public override string? DefToken => Tokens.DefByte;
 }

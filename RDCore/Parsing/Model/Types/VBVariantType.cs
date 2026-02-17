@@ -20,4 +20,6 @@ internal record class VBVariantType : VBIntrinsicType<object?>
     public override bool RuntimeBinding { get; } = true;
     public override VBVariantValue DefaultValue => new(Subtype.DefaultValue);
     public override VBType[] ConvertsSafelyToTypes { get; } = [];
+
+    public override string? DefToken => Tokens.DefVar;
 }

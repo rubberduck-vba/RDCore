@@ -1,17 +1,18 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Abstract;
 
 internal abstract record class Symbol : DocumentSymbol
 {
-    protected Symbol(Uri workspaceRoot, string name, SymbolKind kind, Uri? parentUri = default)
+    protected Symbol(Uri workspaceRoot, string name, SymbolKindExt kind, Uri? parentUri = default)
         : this(workspaceRoot, name, kind, default, default, parentUri) { }
 
-    protected Symbol(Uri workspaceRoot, string name, SymbolKind kind, Range? range, Range? selectionRange, Uri? parentUri = default)
+    protected Symbol(Uri workspaceRoot, string name, SymbolKindExt kind, Range? range, Range? selectionRange, Uri? parentUri = default)
     {
         Name = name;
-        Kind = kind;
+        Kind = (SymbolKind)kind;
         Children = [];
 
         Range = range!;

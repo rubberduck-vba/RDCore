@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBEmptyType : VBIntrinsicType<int?>
+internal sealed record class VBEmptyType : VBIntrinsicType<int?>
 {
     private static readonly VBEmptyType _type = new();
 

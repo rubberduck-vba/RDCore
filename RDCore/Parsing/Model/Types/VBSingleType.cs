@@ -11,4 +11,5 @@ internal record class VBSingleType : VBIntrinsicType<float>, INumericType
     public static VBSingleType TypeInfo => _type;
 
     public override VBTypedValue DefaultValue { get; } = VBSingleValue.Zero;
+    public override string? DefToken => Tokens.DefSng;
 }

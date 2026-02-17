@@ -3,11 +3,11 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBArrayType : VBIntrinsicType<object[]>, IEnumerableType
+internal sealed record class VBArrayType : VBIntrinsicType<object[]>, IEnumerableType
 {
     private static readonly VBArrayType _type = new();
 
-    public VBArrayType(VBArrayValue? declaredValue = null) : base("Array")
+    private VBArrayType(VBArrayValue? declaredValue = null) : base("Array")
     {
         DeclaredValue = declaredValue ?? (VBResizableArrayValue)DefaultValue;
     }

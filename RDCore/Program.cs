@@ -26,7 +26,7 @@ public class Program
         }
         catch (Exception exception)
         {
-            // this is an unexpected exit.. and we don't have a logger anymore.
+            // unexpected exit.. and we don't have a logger anymore.
             // hopefully a warning was logged somewhere along the way...
             // this is just a last resort to make it known something went wrong.
             Console.WriteLine(exception);

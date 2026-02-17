@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBDateType : VBIntrinsicType<DateTime>
+internal sealed record class VBDateType : VBIntrinsicType<DateTime>
 {
     private static readonly VBDateType _type = new();
 
@@ -12,4 +12,5 @@ internal record class VBDateType : VBIntrinsicType<DateTime>
 
     public override VBTypedValue DefaultValue { get; } = VBDateValue.Zero;
     public override VBType[] ConvertsSafelyToTypes { get; } = [VBStringType.TypeInfo, VBVariantType.TypeInfo];
+    public override string? DefToken => Tokens.DefDate;
 }
