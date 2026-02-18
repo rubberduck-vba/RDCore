@@ -12,7 +12,7 @@ internal sealed class VBExecutionContext(WorkspaceDocument doc, SymbolTable glob
 
     private readonly List<Diagnostic> _diagnostics = [];
     public ImmutableArray<Diagnostic> Diagnostics => [.. _diagnostics];
-    public ScopeContext CurrentScope { get; private set; } = new ScopeContext(doc.RootScope);
+    public ScopeContext CurrentScope { get; private set; } = default!;
 
     public void AddDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
 

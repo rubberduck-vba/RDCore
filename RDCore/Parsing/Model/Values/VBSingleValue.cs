@@ -23,4 +23,7 @@ internal record class VBSingleValue : VBNumericTypedValue,
     public override double NumericValue { get; init; }
 
     public new VBSingleValue WithValue(double value) => this with { NumericValue = (float)value };
+
+    public bool Equals(IVBTypedValue<VBSingleValue, float>? other) => Value == other?.Value;
+    public override int GetHashCode() => Value.GetHashCode();
 }

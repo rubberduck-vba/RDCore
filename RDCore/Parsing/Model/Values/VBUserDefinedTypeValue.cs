@@ -17,4 +17,7 @@ internal record class VBUserDefinedTypeValue : VBTypedValue,
 
     public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeMember>()
         .Sum(member => member.ResolvedType!.DefaultValue.Size);
+
+    public bool Equals(IVBTypedValue<VBUserDefinedTypeValue, Guid>? other) => Value == other?.Value;
+    public override int GetHashCode() => Value.GetHashCode();
 }
