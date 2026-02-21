@@ -33,7 +33,7 @@ internal static class SymbolOperation
 
         // MS-VBAL 5.4.1.2: Numeric String Conversions
         // If one operand is a String and the other is a numeric, the String operand is converted to a Double.
-        // RDC00109 is issued for each such implicit coercion.
+        // RDC00109 is issued for each such implicit coercion, twice if both sides require numeric coercion.
         var lhsNumeric = VBDoubleValue.Zero;
         var rhsNumeric = VBDoubleValue.Zero;
 

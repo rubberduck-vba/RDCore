@@ -9,8 +9,6 @@ namespace RDCore.Parsing.Model.Expressions.Operators;
 
 internal abstract record class OperatorSymbol : StaticSymbol
 {
-
-
     protected OperatorSymbol(string name, BinaryOperation operation, VBType? vbType = default)
         : base(name, SymbolKindExt.Operator, vbType)
     {

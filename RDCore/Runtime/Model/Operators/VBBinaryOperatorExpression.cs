@@ -1,5 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Parsing.Model.Expressions.Operators;
+using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Runtime.Model.Operators;
 
@@ -15,13 +16,10 @@ internal record class VBBinaryOperatorExpression : VBOperatorExpression
     public ValuedExpression Left { get; init; }
     public ValuedExpression Right { get; init; }
 
-    //public VBTypedValue Evaluate(VBExecutionContext context)
-    //{
-    //    return SymbolOperation.EvaluateBinaryOpResult(
-    //        context,
-    //        Symbol,
-    //        Left.ResultValue,
-    //        Right.ResultValue
-    //    );
-    //}
+    public override VBTypedValue Evaluate(VBExecutionContext context)
+    {
+        var lhsValue = Left.Evaluate(context);
+        var rhsValue = Right.Evaluate(context);
+        return Symbol.Execute(context, this, lhsValue, rhsValue);
+    }
 }
