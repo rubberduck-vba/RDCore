@@ -8,5 +8,5 @@ internal sealed record class UnresolvedType : VBType
 
     public override VBTypedValue DefaultValue => VBVoidValue.Void;
 
-    public UnresolvedType() : base(UnresolvedType.VBType) { }
+    public UnresolvedType() : base(typeof(object), nameof(UnresolvedType)) { }
 }

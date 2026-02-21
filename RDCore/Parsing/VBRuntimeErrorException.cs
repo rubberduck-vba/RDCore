@@ -202,7 +202,7 @@ internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string
 
     public Range Location { get; } = location;
     public int VBErrorNumber { get; } = VBErrorNumber;
-    RDCoreDiagnosticId RDCoreDiagnosticId => (RDCoreDiagnosticId)VBErrorNumber;
+    public RDCoreDiagnosticId RDCoreDiagnosticId => (RDCoreDiagnosticId)VBErrorNumber;
     public string? Verbose { get; } = verbose;
 
     public (int, string) Deconstruct(out int vbErrorNumber, out string message) =>

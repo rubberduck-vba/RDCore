@@ -34,8 +34,8 @@ internal static class SymbolOperation
         // MS-VBAL 5.4.1.2: Numeric String Conversions
         // If one operand is a String and the other is a numeric, the String operand is converted to a Double.
         // RDC00109 is issued for each such implicit coercion, twice if both sides require numeric coercion.
-        var lhsNumeric = VBDoubleValue.Zero;
-        var rhsNumeric = VBDoubleValue.Zero;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : VBDoubleValue.Zero;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : VBDoubleValue.Zero;
 
         if (lhs is VBStringValue lhsString)
         {
@@ -58,7 +58,7 @@ internal static class SymbolOperation
 
         // MS-VBAL 5.6.9.4: Addition Operator Promotion Table
         // "The result type is determined by the types of the operands..."
-        var targetType = GetPromotedType(lhs.TypeInfo, rhs.TypeInfo);
+        var targetType = GetPromotedType(lhsNumeric.TypeInfo, rhsNumeric.TypeInfo);
 
         // MS-VBAL 5.6.9.4: Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
