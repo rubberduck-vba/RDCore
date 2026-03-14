@@ -97,7 +97,7 @@ public class SymbolOperationTests
         var lhsValue = new VBDoubleValue().WithValue(lhs);
         var rhsValue = new VBDoubleValue().WithValue(rhs);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.LogicalAnd, null!, null!, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, null!, null!, TestLocation);
 
         var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue, rhsValue);
 
@@ -112,7 +112,7 @@ public class SymbolOperationTests
         var lhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
         var rhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.LogicalAnd, lhsValue, rhsValue, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, lhsValue, rhsValue, TestLocation);
 
         var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
 
