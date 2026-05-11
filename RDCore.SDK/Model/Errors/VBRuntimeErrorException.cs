@@ -1,162 +1,125 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.Server;
+using System.Diagnostics;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.SDK.Model.Errors;
+namespace RDCore.Parsing;
 
-/// <summary>
-/// Represents a run-time error raised by user code.
-/// </summary>
-/// <param name="Symbol">The symbol that raised the user error.</param>
-/// <param name="Number"></param>
-/// <param name="Description"></param>
-/// <param name="Source"></param>
-public class VBApplicationErrorException(BoundSymbol Symbol, int Number, string Description, string Source)
-    : ApplicationException(Description)
+internal class VBRuntimeErrorTypeMismatchException(Range? location, string? verbose = null)
+    : VBRuntimeErrorException(location, 13, "Type mismatch", verbose)
+{ }
+
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
+internal class VBRuntimeErrorException(Range? location, int VBErrorNumber, string? message = null, string? verbose = null)
+    : ApplicationException($"Runtime error '{VBErrorNumber}': {message ?? (VBRuntimeErrors.TryGetValue(VBErrorNumber, out var errMessage) ? errMessage : VBRuntimeErrors[-1])}")//, IDiagnosticSource
 {
-    public BoundSymbol Symbol { get; } = Symbol;
+    private string DebuggerDisplay => $"[{RDCoreDiagnosticId.ToDiagnosticCode()}] Error {VBErrorNumber}: {Message}{(Verbose is null ? string.Empty : " | " + Verbose)}";
 
-    // TODO swap this for the ErrObject data
-    public int ErrorNumber { get; } = Number;
-    public string Description { get; } = Description;
-    public string ErrorSource { get; } = Source;
-}
-
-/// <summary>
-/// A run-time error caused by an unhandled user error.
-/// </summary>
-/// <param name="exception">The unhandled user error.</param>
-public class VBRuntimeErrorUnhandledUserErrorException(VBApplicationErrorException exception)
-    : VBRuntimeErrorException(exception.Symbol.Range, exception.ErrorNumber, exception.Description);
-
-/// <summary>
-/// An unspecified, implementation-dependent runtime error raised when an inconsistent internal state is reached.
-/// </summary>
-/// <remarks>
-/// Seeing this error in the wild would indicate a bug in the implementation. This exception must be explicitly instantiated.
-/// </remarks>
-public class VBRuntimeErrorInternalErrorException(string? verbose = null)
-    : VBRuntimeErrorException(null!, (int)VBRuntimeErrorId.InternalError, verbose: verbose) { }
-
-public class VBRuntimeErrorTypeMismatchException(Range location, string? verbose = null)
-    : VBRuntimeErrorException(location, (int)VBRuntimeErrorId.TypeMismatch, verbose: verbose) { }
-
-public class VBRuntimeErrorDivisionByZeroException(Range location, string? verbose = null)
-    : VBRuntimeErrorException(location, (int)VBRuntimeErrorId.DivisionByZero, verbose: verbose) { }
-
-public class VBRuntimeErrorOverflowException(Range location, string? verbose = null)
-    : VBRuntimeErrorException(location, (int)VBRuntimeErrorId.Overflow, verbose: verbose) { }
-
-public class VBRuntimeErrorObjectRequiredException(Range location, string? verbose = null)
-    : VBRuntimeErrorException(location, (int)VBRuntimeErrorId.ObjectRequired, verbose: verbose) { }
-
-public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? message = null, string? verbose = null)
-    : ApplicationException($"Runtime error '{VBErrorNumber}': {message ?? (VBRuntimeErrors.TryGetValue((VBRuntimeErrorId)VBErrorNumber, out var errMessage) ? errMessage : VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError])}")
-{
-    public static string GetErrorString(int errorNumber) => VBRuntimeErrors.TryGetValue((VBRuntimeErrorId)errorNumber, out var message) ? message : VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError];
+    public static string GetErrorString(int errorNumber) => VBRuntimeErrors.TryGetValue(errorNumber, out var message) ? message : VBRuntimeErrors[-1];
 
     /// <summary>
-    /// The Classic-VB runtime error numbers and messages - <strong>do not localize</strong>. not here anyway.
+    /// The Classic-VB runtime error numbers and messages - <strong>do not localize</strong>.
     /// </summary>
-    public static readonly Dictionary<VBRuntimeErrorId, string> VBRuntimeErrors = new()
+    public static readonly Dictionary<int, string> VBRuntimeErrors = new()
     {
-        [VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError] = "Application-defined or object-defined error",
-        [VBRuntimeErrorId.ReturnWithoutGoSub] = "Return without GoSub",
-        [VBRuntimeErrorId.InvalidProcedureCallOrArgument] = "Invalid procedure call or argument",
-        [VBRuntimeErrorId.Overflow] = "Overflow",
-        [VBRuntimeErrorId.OutOfMemory] = "Out of memory",
-        [VBRuntimeErrorId.SubscriptOutOfRange] = "Subscript out of range",
-        [VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked] = "This array is fixed or temporarily locked",
-        [VBRuntimeErrorId.DivisionByZero] = "Division by zero",
-        [VBRuntimeErrorId.TypeMismatch] = "Type mismatch",
-        [VBRuntimeErrorId.OutOfStringSpace] = "Out of string space",
-        [VBRuntimeErrorId.ExpressionTooComplex] = "Expression too complex",
-        [VBRuntimeErrorId.CantPerformRequestedOperation] = "Can't perform requested operation",
-        [VBRuntimeErrorId.UserInterruptOccurred] = "User interrupt occurred",
-        [VBRuntimeErrorId.ResumeWithoutError] = "Resume without error",
-        [VBRuntimeErrorId.OutOfStackSpace] = "Out of stack space",
-        [VBRuntimeErrorId.SubOrFunctionNotDefined] = "Sub or Function not defined",
-        [VBRuntimeErrorId.TooManyDllApplicationClients] = "Too many DLL application clients",
-        [VBRuntimeErrorId.ErrorInLoadingDll] = "Error in loading DLL",
-        [VBRuntimeErrorId.BaddDllCallingConvention] = "Bad DLL calling convention",
-        [VBRuntimeErrorId.InternalError] = "Internal error",
-        [VBRuntimeErrorId.BadFileNameOrNumber] = "Bad file name or number",
-        [VBRuntimeErrorId.FileNotFound] = "File not found",
-        [VBRuntimeErrorId.BadFileMode] = "Bad file mode",
-        [VBRuntimeErrorId.FileAlreadyOpen] = "File already open",
-        [VBRuntimeErrorId.DeviceIOError] = "Device I/O error",
-        [VBRuntimeErrorId.FileAlreadyExists] = "File already exists",
-        [VBRuntimeErrorId.BadRecordLength] = "Bad record length",
-        [VBRuntimeErrorId.DiskFull] = "Disk full",
-        [VBRuntimeErrorId.InputPastEndOfFile] = "Input past end of file",
-        [VBRuntimeErrorId.BadRecordNumber] = "Bad record number",
-        [VBRuntimeErrorId.TooManyFiles] = "Too many files",
-        [VBRuntimeErrorId.DeviceUnavailable] = "Device unavailable",
-        [VBRuntimeErrorId.PermissionDenied] = "Permission denied",
-        [VBRuntimeErrorId.DiskNotReady] = "Disk not ready",
-        [VBRuntimeErrorId.CantRenameWithDifferentDrive] = "Can't rename with different drive",
-        [VBRuntimeErrorId.PathOrFileAccessError] = "Path/File access error",
-        [VBRuntimeErrorId.PathNotFound] = "Path not found",
-        [VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet] = "Object variable or With block variable not set",
-        [VBRuntimeErrorId.ForLoopNotInitialized] = "For loop not initialized",
-        [VBRuntimeErrorId.InvalidPatternString] = "Invalid pattern string",
-        [VBRuntimeErrorId.InvalidUseOfNull] = "Invalid use of Null",
-        [VBRuntimeErrorId.UnableToSinkEvents] = "Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports",
-        [VBRuntimeErrorId.CannotCallFriendFunction] = "Can not call friend function on object which is not an instance of defining class",
-        [VBRuntimeErrorId.PropertyOrMethodCallReferenceToPrivateObject] = "A property or method call cannot include a reference to a private object, either as an argument or as a return value",
-        [VBRuntimeErrorId.InvalidFileFormat] = "Invalid file format",
-        [VBRuntimeErrorId.CantCreateNecessaryTemporaryFile] = "Can't create necessary temporary file",
-        [VBRuntimeErrorId.InvalidFormatInResourceFile] = "Invalid format in resource file",
-        [VBRuntimeErrorId.InvalidPropertyValue] = "Invalid property value",
-        [VBRuntimeErrorId.InvalidPropertyArrayIndex] = "Invalid property array index",
-        [VBRuntimeErrorId.SetNotSupportedAtRuntime] = "Set not supported at runtime",
-        [VBRuntimeErrorId.SetNotSupportedReadOnlyProperty] = "Set not supported (read-only property)",
-        [VBRuntimeErrorId.NeedPropertyArrayIndex] = "Need property array index",
-        [VBRuntimeErrorId.SetNotPermitted] = "Set not permitted",
-        [VBRuntimeErrorId.GetNotSupportedAtRuntime] = "Get not supported at runtime",
-        [VBRuntimeErrorId.GetNotSupportedWriteOnlyProperty] = "Get not supported (write-only property)",
-        [VBRuntimeErrorId.PropertyNotFound] = "Property not found",
-        [VBRuntimeErrorId.PropertyOrMethodNotFound] = "Property or method not found",
-        [VBRuntimeErrorId.ObjectRequired] = "Object required",
-        [VBRuntimeErrorId.ActiveXComponentCantCreateObject] = "ActiveX component can't create object",
-        [VBRuntimeErrorId.ClassDoesNotSupportAutomation] = "Class does not support Automation or does not support expected interface",
-        [VBRuntimeErrorId.FileOrClassNameNotFoundAutomation] = "File name or class name not found during Automation operation",
-        [VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod] = "Object doesn't support this property or method",
-        [VBRuntimeErrorId.AutomationError] = "Automation error",
-        [VBRuntimeErrorId.ConnectionToTypeLibraryLost] = "Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.",
-        [VBRuntimeErrorId.AutomationObjectDoesNotHaveDefaultValue] = "Automation object does not have a default value",
-        [VBRuntimeErrorId.ObjectDoesntSupportThisAction] = "Object doesn't support this action",
-        [VBRuntimeErrorId.ObjectDoesntSupportNamedArguments] = "Object doesn't support named arguments",
-        [VBRuntimeErrorId.ObjectDoesntSupportCurrentLocaleSettings] = "Object doesn't support current locale setting",
-        [VBRuntimeErrorId.NamedArgumentNotFound] = "Named argument not found",
-        [VBRuntimeErrorId.ArgumentNotOptional] = "Argument not optional",
-        [VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment] = "Wrong number of arguments or invalid property assignment",
-        [VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject] = "Property let procedure not defined and property get procedure did not return an object",
-        [VBRuntimeErrorId.InvalidOrdinal] = "Invalid ordinal",
-        [VBRuntimeErrorId.SpecifiedDllFunctionNotFound] = "Specified DLL function not found",
-        [VBRuntimeErrorId.CodeResourceNotFound] = "Code resource not found",
-        [VBRuntimeErrorId.CodeResourceLockError] = "Code resource lock error",
-        [VBRuntimeErrorId.KeyAlreadyAssociatedWithAnElementOfCollection] = "This key is already associated with an element of this collection",
-        [VBRuntimeErrorId.VariableUsesAutomationTypeNotSupported] = "Variable uses an Automation type not supported in Visual Basic",
-        [VBRuntimeErrorId.ObjectOrClassDoesNotSupportSetOfEvents] = "Object or class does not support the set of events.",
-        [VBRuntimeErrorId.InvalidClipboardFormat] = "Invalid clipboard format",
-        [VBRuntimeErrorId.MethodOrDataMemberNotFound] = "Method or data member not found",
-        [VBRuntimeErrorId.RemoteMachineNotAvailable] = "The remote machine does not exist or is unavailable",
-        [VBRuntimeErrorId.ClassNotRegistered] = "Class not registered on local machine",
-        [VBRuntimeErrorId.InvalidPicture] = "Invalid picture",
-        [VBRuntimeErrorId.PrinterError] = "Printer error",
-        [VBRuntimeErrorId.CantSaveFileToTemp] = "Can't save file to TEMP",
-        [VBRuntimeErrorId.SearchTextNotFound] = "Search text not found",
-        [VBRuntimeErrorId.ReplacementsTooLong] = "Replacements too long"
+        [-1] = "Application-defined or object-defined error",
+
+        [3] = "Return without GoSub",
+        [5] = "Invalid procedure call or argument",
+        [6] = "Overflow",
+        [7] = "Out of memory",
+        [9] = "Subscript out of range",
+        [10] = "This array is fixed or temporarily locked",
+        [11] = "Division by zero",
+        [13] = "Type mismatch",
+        [14] = "Out of string space",
+        [16] = "Expression too complex",
+        [17] = "Can't perform requested operation",
+        [18] = "User interrupt occurred",
+        [20] = "Resume without error",
+        [28] = "Out of stack space",
+        [35] = "Sub or Function not defined",
+        [47] = "Too many DLL application clients",
+        [48] = "Error in loading DLL",
+        [49] = "Bad DLL calling convention",
+        [51] = "Internal error",
+        [52] = "Bad file name or number",
+        [53] = "File not found",
+        [54] = "Bad file mode",
+        [55] = "File already open",
+        [57] = "Devise I/O error",
+        [58] = "File already exists",
+        [59] = "Bad record length",
+        [61] = "Disk full",
+        [62] = "Input past end of file",
+        [63] = "Bad record number",
+        [67] = "Too many files",
+        [68] = "Device unavailable",
+        [70] = "Permission denied",
+        [71] = "Disk not ready",
+        [74] = "Can't rename with different drive",
+        [75] = "Path/File access error",
+        [76] = "Path not found",
+        [91] = "Object variable or With block variable not set",
+        [92] = "For loop not initialized",
+        [93] = "Invalid pattern string",
+        [94] = "Invalid use of Null",
+        [96] = "Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports",
+        [97] = "Can not call friend function on object which is not an instance of defining class",
+        [98] = "A property or method call cannot include a reference to a private object, either as an argument or as a return value",
+        [321] = "Invalid file format",
+        [322] = "Can't create necessary temporary file",
+        [325] = "Invalid format in resource file",
+        [380] = "Invalid property value",
+        [381] = "Invalid property array index",
+        [382] = "Set not supported at runtime",
+        [383] = "Set not supported (read-only property)",
+        [385] = "Need property array index",
+        [387] = "Set not permitted",
+        [393] = "Get not supported at runtime",
+        [394] = "Get not supported (write-only property)",
+        [422] = "Property not found",
+        [423] = "Property or method not found",
+        [424] = "Object required",
+        [429] = "ActiveX component can't create object",
+        [430] = "Class does not support Automation or does not support expected interface",
+        [432] = "File name or class name not found during Automation operation",
+        [438] = "Object doesn't support this property or method",
+        [440] = "Automation error",
+        [442] = "Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.",
+        [443] = "Automation object does not have a default value",
+        [445] = "Object doesn't support this action",
+        [446] = "Object doesn't support named arguments",
+        [447] = "Object doesn't support current locale setting",
+        [448] = "Named argument not found",
+        [449] = "Argument not optional",
+        [450] = "Wrong number of arguments or invalid property assignment",
+        [451] = "Property let procedure not defined and property get procedure did not return an object",
+        [452] = "Invalid ordinal",
+        [453] = "Specified DLL function not found",
+        [454] = "Code resource not found",
+        [455] = "Code resource lock error",
+        [457] = "This key is already associated with an element of this collection",
+        [458] = "Variable uses an Automation type not supported in Visual Basic",
+        [459] = "Object or class does not support the set of events.",
+        [460] = "Invalid clipboard format",
+        [461] = "Method or data member not found",
+        [462] = "The remote machine does not exist or is unavailable",
+        [463] = "Class not registered on local machine",
+        [481] = "Invalid picture",
+        [482] = "Printer error",
+        [735] = "Can't save file to TEMP",
+        [744] = "Search text not found",
+        [746] = "Replacements too long"
     };
 
     #region Classic-VB run-time errors
     public static VBRuntimeErrorException ReturnWithoutGoSub(Range location, string? verbose = null) => new(location, 3, verbose: verbose);
     public static VBRuntimeErrorException InvalidProcedureCallOrArgument(Range location, string? verbose = null) => new(location, 5, verbose: verbose);
-    public static VBRuntimeErrorException Overflow(Range? location, string? verbose = null) => new VBRuntimeErrorOverflowException(location, verbose);
+    public static VBRuntimeErrorException Overflow(Range location, string? verbose = null) => new(location, 6, verbose: verbose);
     public static VBRuntimeErrorException OutOfMemory(Range location, string? verbose = null) => new(location, 7, verbose: verbose);
     public static VBRuntimeErrorException SubscriptOutOfRange(Range location, string? verbose = null) => new(location, 9, verbose: verbose);
     public static VBRuntimeErrorException ArrayIsFixedOrLocked(Range location, string? verbose = null) => new(location, 10, verbose: verbose);
-    public static VBRuntimeErrorException DivisionByZero(Range location, string? verbose = null) => new VBRuntimeErrorDivisionByZeroException(location, verbose);
+    public static VBRuntimeErrorException DivisionByZero(Range location, string? verbose = null) => new(location, 11, verbose: verbose);
     public static VBRuntimeErrorException TypeMismatch(Range location, string? verbose = null) => new VBRuntimeErrorTypeMismatchException(location, verbose);
     public static VBRuntimeErrorException OutOfStringSpace(Range location, string? verbose = null) => new(location, 14, verbose: verbose);
     public static VBRuntimeErrorException ExpressionTooComplex(Range location, string? verbose = null) => new(location, 16, verbose: verbose);
@@ -168,7 +131,7 @@ public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? 
     public static VBRuntimeErrorException TooManyDllApplicationClients(Range location, string? verbose = null) => new(location, 47, verbose: verbose);
     public static VBRuntimeErrorException ErrorLoadingDll(Range location, string? verbose = null) => new(location, 48, verbose: verbose);
     public static VBRuntimeErrorException BadDllCallingConvention(Range location, string? verbose = null) => new(location, 49, verbose: verbose);
-    public static VBRuntimeErrorException publicError(Range location, string? verbose = null) => new(location, 51, verbose: verbose);
+    public static VBRuntimeErrorException InternalError(Range location, string? verbose = null) => new(location, 51, verbose: verbose);
     public static VBRuntimeErrorException BadFileNameOrNumber(Range location, string? verbose = null) => new(location, 52, verbose: verbose);
     public static VBRuntimeErrorException FileNorFound(Range location, string? verbose = null) => new(location, 53, verbose: verbose);
     public static VBRuntimeErrorException BadFileMode(Range location, string? verbose = null) => new(location, 54, verbose: verbose);
@@ -238,11 +201,12 @@ public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? 
     public static VBRuntimeErrorException SearchTextNotFound(Range location, string? verbose = null) => new(location, 744, verbose: verbose);
     public static VBRuntimeErrorException ReplacementsTooLong(Range location, string? verbose = null) => new(location, 746, verbose: verbose);
 
-    public static VBRuntimeErrorException ApplicationDefinedError(Range location, int number = 1004, string? verbose = null) => new(location, number, VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError], verbose);
+    public static VBRuntimeErrorException ApplicationDefinedError(Range location, int number = 1004, string? verbose = null) => new(location, number, VBRuntimeErrors[-1], verbose);
     #endregion
 
     public Range? Location { get; } = location;
     public int VBErrorNumber { get; } = VBErrorNumber;
+    public RDCoreDiagnosticId RDCoreDiagnosticId => (RDCoreDiagnosticId)VBErrorNumber;
     public string? Verbose { get; } = verbose;
 
     public (int, string) Deconstruct(out int vbErrorNumber, out string message) =>
