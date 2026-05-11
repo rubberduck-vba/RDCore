@@ -1,4 +1,5 @@
 ﻿using RDCore.Parsing.Model.Symbols;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.Parsing.Model.Values;
 
@@ -10,26 +11,35 @@ internal record class VBFixedStringValue : VBStringValue
         Length = length;
     }
 
+    public VBFixedStringValue(VBStringValue value)
+        : base(value.Symbol)
+    {
+        Length = value.Length;
+        Value = FixLength(value.Value, Length);
+    }
+
     public override int Length { get; }
+
+    public VBFixedStringValue WithFixedValue(string value) => new(WithValue(value));
 
     public override VBStringValue WithValue(string? value)
     {
-        value ??= string.Empty;
-        if (value.Length > Length)
-        {
-            // here VBA silently truncates the value, where specs say the string shouldn't be assignable.
-            // we should issue a diagnostic about the truncated string, but we don't have an execution context here.
-            // ...and throwing a VBRuntimeErrorException would be a break vs what the VBE does, so
-            // it's on *callers* to issue a diagnostic if the resulting string differs from the input value.
-            value = value[..Length];
-        }
-        else if (value.Length < Length)
-        {
-            // here VBA silently pads the value with Chr(32), where specs say the string shouldn't be assignable.
-            // same as above, except issue a diagnostic about the implicit padding instead of implicit truncation.
-            value = value.PadRight(Length, ' ');
-        }
+        var fixedValue = FixLength(value, Length);
+        return this with { Value = fixedValue };
+    }
 
-        return this with { Value = value };
+    private static string FixLength(string? value, int length)
+    {
+        // MS-VBAL 5.5.1.2.5 let-coercion to String*length (fixed-length strings)
+        value ??= string.Empty;
+        if (value.Length > length)
+        {
+            value = value[..length];
+        }
+        else if (value.Length < length)
+        {
+            value = value.PadRight(length, ' ');
+        }
+        return value;
     }
 }

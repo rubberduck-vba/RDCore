@@ -17,7 +17,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Parsing\Services\" />
+    <Compile Remove="Parsing\Services\**" />
+    <EmbeddedResource Remove="Parsing\Services\**" />
+    <None Remove="Parsing\Services\**" />
   </ItemGroup>
 
   <ItemGroup>

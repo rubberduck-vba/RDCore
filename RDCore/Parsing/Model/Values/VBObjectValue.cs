@@ -1,6 +1,7 @@
 ﻿using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
+using System.Diagnostics;
 
 namespace RDCore.Parsing.Model.Values;
 
@@ -22,8 +23,9 @@ internal record class VBObjectValue : VBTypedValue,
 
     public bool IsNothing() => Value == Nothing.Value;
 
-    public VBDoubleValue? AsCoercedNumeric(int depth = 0) => LetCoerce(depth) is INumericValue value ? value.AsDouble() : null;
-    public VBStringValue? AsCoercedString(int depth = 0) => LetCoerce(depth) is VBStringValue value ? value : null;
+    public VBDoubleValue? AsCoercedNumeric(ref int depth) => LetCoerce(ref depth) is INumericValue value ? value.AsDouble() : null;
+    public VBStringValue? AsCoercedString(ref int depth) => LetCoerce(ref depth) is VBStringValue value ? value : null;
+    public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) => LetCoerce(ref depth) is VBStringValue value ? new VBFixedStringValue(value) : null;
 
     /// <summary>
     /// Implicit default member call coerces the object reference into an intrinsic value.
@@ -31,16 +33,18 @@ internal record class VBObjectValue : VBTypedValue,
     /// <remarks>
     /// Let coercion is recursive: a class type's default member may be another class type with a default member.
     /// </remarks>
-    public VBTypedValue LetCoerce(int depth = 0)
+    public VBTypedValue LetCoerce(ref int depth)
     {
         if (depth >= 9) // TODO configure
         {
-            throw VBRuntimeErrorException.OutOfStackSpace(Symbol?.SelectionRange!, $"Recursive `Let` coercion did not resolve a typed value, {depth} levels deep.");
+            var localDepth = depth;
+            Debug.Assert(false); // we really shouldn't get to this point
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.OutOfStackSpace(symbol.SelectionRange!, $"Recursive `Let` coercion did not resolve a typed value, {localDepth} levels deep."));
         }
 
         if (IsNothing())
         {
-            throw VBRuntimeErrorException.ObjectVariableNotSet(Symbol?.SelectionRange!, $"Recursive `Let` coercion requires the object reference to be assigned so that the default member can be invoked.");
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.ObjectVariableNotSet(symbol.SelectionRange!, $"Recursive `Let` coercion requires the object reference to be assigned so that the default member can be invoked."));
         }
 
         if (TypeInfo is VBClassType classType && classType.DefaultMember != null)
@@ -50,7 +54,8 @@ internal record class VBObjectValue : VBTypedValue,
             {
                 if (member.ResolvedType is INumericCoercion coercibleNumeric)
                 {
-                    var value = coercibleNumeric.AsCoercedNumeric(depth);
+                    depth++;
+                    var value = coercibleNumeric.AsCoercedNumeric(ref depth);
                     if (symbol != null && value != null)
                     {
                         return new VBDoubleValue(symbol).WithValue(value.Value);
@@ -58,7 +63,8 @@ internal record class VBObjectValue : VBTypedValue,
                 }
                 else if (member.ResolvedType is IStringCoercion coercibleString)
                 {
-                    var value = coercibleString.AsCoercedString(depth);
+                    depth++;
+                    var value = coercibleString.AsCoercedString(ref depth);
                     if (symbol != null && value != null)
                     {
                         return value;
@@ -66,7 +72,11 @@ internal record class VBObjectValue : VBTypedValue,
                 }
             }
         }
-        throw VBRuntimeErrorException.ObjectDoesntSupportPropertyOrMethod(Symbol?.SelectionRange!, $"`Let` coercion requires an object type that defines a default member, but none was found.");
+
+        ThrowWithSymbol(symbol => VBRuntimeErrorException.ObjectDoesntSupportPropertyOrMethod(symbol.SelectionRange!, $"`Let` coercion requires an object type that defines a default member, but none was found."));
+
+        Debug.Assert(false);
+        return default!; // throw?
     }
 
     public bool Equals(IVBTypedValue<VBObjectValue, VBLongPtrValue>? other) => Value.Equals(other?.Value);

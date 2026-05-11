@@ -4,6 +4,11 @@ namespace RDCore.Parsing.Model.Types;
 
 internal record class VBSingleType : VBIntrinsicType<float>, INumericType
 {
+    /// <summary>
+    /// The number of significant digits retained in a String representation of a value of this type.
+    /// </summary>
+    public const int SignificantIntegerDigits = 7;
+
     private static readonly VBSingleType _type = new();
 
     private VBSingleType() : base(Tokens.Single) { }

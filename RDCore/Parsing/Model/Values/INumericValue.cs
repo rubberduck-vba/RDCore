@@ -30,10 +30,21 @@ internal interface INumericValue<VBTValue> : INumericValue
 
 internal interface INumericCoercion
 {
-    VBDoubleValue? AsCoercedNumeric(int depth = 0);
+    VBDoubleValue? AsCoercedNumeric(ref int depth);
 }
 
 internal interface IStringCoercion
 {
-    VBStringValue? AsCoercedString(int depth = 0);
+    VBStringValue? AsCoercedString(ref int depth);
+    VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth);
+}
+
+internal interface IBooleanCoercion
+{
+    VBBooleanValue AsCoercedBoolean(ref int depth);
+}
+
+internal interface IDateCoercion
+{
+    VBDateValue AsCoercedDate(ref int depth);
 }

@@ -126,7 +126,7 @@ internal record class RDCoreDiagnostic : Diagnostic
             Message = vbError.Message,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = vbError.Location,
+            Range = vbError.Location!, // FIXME this is wrong
         };
     }
 

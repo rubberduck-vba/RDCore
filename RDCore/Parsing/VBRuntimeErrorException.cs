@@ -4,8 +4,12 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing;
 
+internal class VBRuntimeErrorTypeMismatchException(Range? location, string? verbose = null)
+    : VBRuntimeErrorException(location, 13, "Type mismatch", verbose)
+{ }
+
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string? message = null, string? verbose = null)
+internal class VBRuntimeErrorException(Range? location, int VBErrorNumber, string? message = null, string? verbose = null)
     : ApplicationException($"Runtime error '{VBErrorNumber}': {message ?? (VBRuntimeErrors.TryGetValue(VBErrorNumber, out var errMessage) ? errMessage : VBRuntimeErrors[-1])}")//, IDiagnosticSource
 {
     private string DebuggerDisplay => $"[{RDCoreDiagnosticId.ToDiagnosticCode()}] Error {VBErrorNumber}: {Message}{(Verbose is null ? string.Empty : " | " + Verbose)}";
@@ -116,7 +120,7 @@ internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string
     public static VBRuntimeErrorException SubscriptOutOfRange(Range location, string? verbose = null) => new(location, 9, verbose: verbose);
     public static VBRuntimeErrorException ArrayIsFixedOrLocked(Range location, string? verbose = null) => new(location, 10, verbose: verbose);
     public static VBRuntimeErrorException DivisionByZero(Range location, string? verbose = null) => new(location, 11, verbose: verbose);
-    public static VBRuntimeErrorException TypeMismatch(Range location, string? verbose = null) => new(location, 13, verbose: verbose);
+    public static VBRuntimeErrorException TypeMismatch(Range location, string? verbose = null) => new VBRuntimeErrorTypeMismatchException(location, verbose);
     public static VBRuntimeErrorException OutOfStringSpace(Range location, string? verbose = null) => new(location, 14, verbose: verbose);
     public static VBRuntimeErrorException ExpressionTooComplex(Range location, string? verbose = null) => new(location, 16, verbose: verbose);
     public static VBRuntimeErrorException CantPerformRequestedOperation(Range location, string? verbose = null) => new(location, 17, verbose: verbose);
@@ -200,7 +204,7 @@ internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string
     public static VBRuntimeErrorException ApplicationDefinedError(Range location, int number = 1004, string? verbose = null) => new(location, number, VBRuntimeErrors[-1], verbose);
     #endregion
 
-    public Range Location { get; } = location;
+    public Range? Location { get; } = location;
     public int VBErrorNumber { get; } = VBErrorNumber;
     public RDCoreDiagnosticId RDCoreDiagnosticId => (RDCoreDiagnosticId)VBErrorNumber;
     public string? Verbose { get; } = verbose;

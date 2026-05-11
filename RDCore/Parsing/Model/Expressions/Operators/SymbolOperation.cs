@@ -34,7 +34,7 @@ internal static class SymbolOperation
 
     private static VBType GetPromotedType(VBType lhs, VBType rhs)
     {
-        // MS-VBAL 5.6.9.4: Type Promotion Hierarchy
+        // Type Promotion Hierarchy
         // Double > Single > Long > Integer > Byte
         if (lhs is VBDoubleType || rhs is VBDoubleType)
         {
@@ -66,16 +66,17 @@ internal static class SymbolOperation
         VBTypedValue value,
         Func<VBTypedValue, VBTypedValue> op)
     {
-        // MS-VBAL 5.6.3: Null Propagation
+        // Null Propagation
         if (value is VBNullValue)
         {
             return VBNullValue.Null;
         }
 
-        // MS-VBAL 5.4.3.8: Let-Coercion
-        var effectiveValue = value is VBObjectValue obj ? obj.LetCoerce() : value;
+        // Let-Coercion
+        var coercionDepth = 0;
+        var effectiveValue = value is VBObjectValue obj ? obj.LetCoerce(ref coercionDepth) : value;
 
-        // MS-VBAL 5.6.7 Empty Coercion
+        // Empty Coercion
         if (effectiveValue is VBEmptyValue)
         {
             effectiveValue = VBIntegerValue.Zero;
@@ -86,7 +87,7 @@ internal static class SymbolOperation
             throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.SelectionRange!);
         }
 
-        // MS-VBAL 5.6.7: Unary + and - on Empty results in 0 (Integer)
+        // Unary + and - on Empty results in 0 (Integer)
         // Note: Parentheses on Empty stays Empty until an operator touches it.
         return op(effectiveValue);
     }
@@ -104,25 +105,59 @@ internal static class SymbolOperation
         lhsNumeric = default!;
         rhsNumeric = default!;
 
-        // MS-VBAL 5.6.9.4: If either operand is Null, the result is Null.
+        // MS-VBAL 5.5.1.2.10 Let-coercion from Null
+        // if either operand is Null and the other is a UDT or resizable array value, throw a type mismatch.
+        // MS-VBAL 5.6.9.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+        // --- so, Null is irrelevant then - 5.6.3 takes precedence in the context of a binary operation.
+        if (lhs is VBNullValue && (rhs is VBResizableArrayValue || rhs is VBUserDefinedTypeValue))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(rhs.Symbol?.Range!);
+        }
+        if (rhs is VBNullValue && (lhs is VBResizableArrayValue || lhs is VBUserDefinedTypeValue))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(lhs.Symbol!.Range!);
+        }
+
+        // ...otherwise if either operand is Null, the result is Null.
         if (lhs is VBNullValue || rhs is VBNullValue)
         {
             targetType = VBNullType.TypeInfo;
             return VBNullValue.Null;
         }
 
-        // MS-VBAL 5.6.9.4: If both operands are Empty, the result is an Integer 0.
+        // MS-VBAL 5.5.1.2.11 Let-coercion from Empty
+        // If both operands are Empty, the result is an Integer 0.
         if (lhs is VBEmptyValue && rhs is VBEmptyValue)
         {
             targetType = VBIntegerType.TypeInfo;
             return VBIntegerValue.Zero;
         }
 
-        // MS-VBAL 5.4.1.2: Numeric String Conversions
+        // MS-VBAL 5.6.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+
+        if (lhs is VBErrorValue && rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+        if (lhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+
+        // Numeric String Conversions
         // If one operand is a String and the other is a numeric, the String operand is converted to a Double.
         // RDC00109 is issued for each such implicit coercion, twice if both sides require numeric coercion.
-        lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric()!;
-        rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric()!;
+        var lhsCoercionDepth = 0;
+        lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+
+        var rhsCoercionDepth = 0;
+        rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
 
         if (lhs is VBStringValue)
         {
@@ -134,7 +169,7 @@ internal static class SymbolOperation
             context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
         }
 
-        // MS-VBAL 5.6.9.4: determine the target type
+        // determine the target type
         if (lhs is VBBooleanValue && rhs is VBBooleanValue)
         {
             targetType = VBBooleanType.TypeInfo;
@@ -147,7 +182,7 @@ internal static class SymbolOperation
         // calculate the numeric result
         var resultValue = op(lhsNumeric.NumericValue, rhsNumeric.NumericValue);
 
-        // MS-VBAL 5.6.9.4: Overflow Check [VBR0006]
+        // Overflow check [VBR0006]
         if (targetType is INumericType)
         {
             return (VBTypedValue)((VBNumericTypedValue)targetType.CreateValue(expression.Symbol)).WithValue(resultValue);
@@ -172,7 +207,7 @@ internal static class SymbolOperation
         if (lhs is VBStringValue && rhs is VBStringValue)
         {
             // if both operands are strings, then this is a concatenation, not an addition.
-            // RDC11006 is issued for the ambiguous concatenation operator usage.
+            // a diagnostic is issued for the ambiguous concatenation operator usage.
             context.AddDiagnostic(RDCoreDiagnostic.AmbiguousConcatenation(expression.Symbol.Range!));
         }
 
@@ -182,7 +217,7 @@ internal static class SymbolOperation
             out rhsNumeric,
             out var targetType);
 
-        // MS-VBAL 5.6.9.4: Date Math Rule
+        // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
         if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
         {
@@ -207,7 +242,7 @@ internal static class SymbolOperation
             out var rhsNumeric,
             out var targetType);
 
-        // MS-VBAL 5.6.9.4: Date Math Rule
+        // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
         if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
         {
@@ -231,7 +266,6 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        // MS-VBAL 5.6.9.2
         if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
         {
             throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The multiplication operator does not accept Date parameters.");
@@ -251,7 +285,6 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        // MS-VBAL 5.6.9.2
         if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
         {
             throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The multiplication operator does not accept Date parameters.");
@@ -368,7 +401,8 @@ internal static class SymbolOperation
         VBTypedValue value) =>
     EvaluateUnaryOp(context, expression, value, v =>
     {
-        var num = ((VBNumericTypedValue)v).AsCoercedNumeric();
+        var depth = 0;
+        var num = ((VBNumericTypedValue)v).AsCoercedNumeric(ref depth);
         return num.WithValue(~(long)num.NumericValue);
     });
 
@@ -385,7 +419,8 @@ internal static class SymbolOperation
             out var targetType);
 
         var numericResult = result as VBNumericTypedValue;
-        var coercedResult = (result as INumericCoercion)?.AsCoercedNumeric();
+        var depth = 0;
+        var coercedResult = (result as INumericCoercion)?.AsCoercedNumeric(ref depth);
         {
             if (numericResult is null && coercedResult != null)
             {

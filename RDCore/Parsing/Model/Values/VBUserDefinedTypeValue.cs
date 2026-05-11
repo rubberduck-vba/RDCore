@@ -15,6 +15,7 @@ internal record class VBUserDefinedTypeValue : VBTypedValue,
 
     public VBLongPtrValue Value { get; }
 
+    // +padding...
     public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeMember>()
         .Sum(member => member.ResolvedType!.DefaultValue.Size);
 

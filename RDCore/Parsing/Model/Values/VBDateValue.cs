@@ -25,14 +25,35 @@ internal record class VBDateValue : VBTypedValue,
     public DateTime Value { get; init; } = default;
     public override int Size => 8;
 
-    public VBDoubleValue AsCoercedNumeric(int depth = 0) => new VBDoubleValue(Symbol).WithValue(SerialValue);
-    public VBStringValue AsCoercedString(int depth = 0) => new VBStringValue(Symbol).WithValue(Value.ToString("M/dd/yyyy hh:mm:ss tt"));
+    public VBDoubleValue AsCoercedNumeric(ref int depth) => new VBDoubleValue(Symbol).WithValue(SerialValue);
+    public VBStringValue? AsCoercedString(ref int depth)
+    {
+        if (Value.Date.Equals(VBDateValue.Zero.Value.Date))
+        {
+            // MS-VBAL 5.5.1.2.4: Let-coercion to String / from Date
+            // if the date value is zero, output is the LongTime format per regional settings.
+            return new VBStringValue(Symbol).WithValue(Value.ToString("T", CultureInfo));
+        }
+
+        // otherwise output is the ShortDate format per regional settings.
+        return new VBStringValue(Symbol).WithValue(Value.ToString("d", CultureInfo));
+    }
+
+    public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth)
+    {
+        if (AsCoercedString(ref depth) is VBStringValue stringValue)
+        {
+            return new VBFixedStringValue(length, stringValue.Symbol).WithFixedValue(stringValue.Value);
+        }
+
+        return default;
+    }
 
     public VBDateValue WithValue(DateTime value)
     {
         if (value > MaxValue.Value || value < MinValue.Value)
         {
-            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**.");
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**."));
         }
         return this with { Value = value };
     }
@@ -41,12 +62,10 @@ internal record class VBDateValue : VBTypedValue,
     {
         if (value > MaxSerial || value < MinSerial)
         {
-            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**.");
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**."));
         }
         return this with { Value = Zero.Value.AddDays(value) };
     }
-
-    public override string ToString() => Value.ToString("yyyy-MM-dd hh:mm:ss tt");
 
     public bool Equals(IVBTypedValue<VBDateValue, DateTime>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

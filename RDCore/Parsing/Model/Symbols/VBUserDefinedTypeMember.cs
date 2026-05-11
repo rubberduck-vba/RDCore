@@ -4,6 +4,9 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Symbols;
 
+/// <summary>
+/// Describes a UDT as a member of its parent module.
+/// </summary>
 internal record class VBUserDefinedTypeMember : VBTypeMemberSymbol
 {
     public VBUserDefinedTypeMember(Uri workspaceUri, string name, Range range, Range selectionRange, Uri parentUri)

@@ -11,8 +11,8 @@ internal record class VBErrorValue : VBTypedValue,
         Value = value;
     }
 
-    public static VBErrorValue None => (VBErrorValue)VBErrorType.TypeInfo.DefaultValue;
-    public static VBErrorValue MinValue => None;
+    public static VBErrorValue None => new() { Value = 0 };
+    public static VBErrorValue MinValue => new() { Value = ushort.MinValue };
     public static VBErrorValue MaxValue => new() { Value = ushort.MaxValue };
 
     public int Value { get; init; }
