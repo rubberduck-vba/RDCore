@@ -109,7 +109,7 @@ internal static class SymbolOperation
         // if either operand is Null and the other is a UDT or resizable array value, throw a type mismatch.
         // MS-VBAL 5.6.9.3 runtime semantics
         // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
-        // --- so, Null is irrelevant then - 5.6.3 takes precedence in the context of a binary operation.
+        // --- so, Null is irrelevant then - 5.6.9.3 takes precedence in the context of a binary operation.
         if (lhs is VBNullValue && (rhs is VBResizableArrayValue || rhs is VBUserDefinedTypeValue))
         {
             throw VBRuntimeErrorException.TypeMismatch(rhs.Symbol?.Range!);
@@ -182,14 +182,16 @@ internal static class SymbolOperation
         // calculate the numeric result
         var resultValue = op(lhsNumeric.NumericValue, rhsNumeric.NumericValue);
 
-        // Overflow check [VBR0006]
+        // Overflow checks [VBR0006]
         if (targetType is INumericType)
         {
-            return (VBTypedValue)((VBNumericTypedValue)targetType.CreateValue(expression.Symbol)).WithValue(resultValue);
+            return (VBTypedValue)((VBNumericTypedValue)targetType.CreateValue(expression.Symbol))
+                .WithValue(resultValue);
         }
         else
         {
-            return ((VBBooleanValue)targetType.CreateValue(expression.Symbol)).WithValue(resultValue);
+            return ((VBBooleanValue)targetType.CreateValue(expression.Symbol))
+                .WithValue(resultValue);
         }
     }
 
@@ -266,16 +268,25 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
-        {
-            throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The multiplication operator does not accept Date parameters.");
-        }
-
-        return EvaluateNumericBinaryOp(context, expression, lhs, rhs,
+        var resultValue = EvaluateNumericBinaryOp(context, expression, lhs, rhs,
             (left, right) => left * right,
             out var lhsNumeric,
             out var rhsNumeric,
             out var targetType);
+
+        // Date Math Rule
+        // "If one operand is a Date and the other is numeric, the result is a Date."
+        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        {
+            // Date math is effectively Double math re-wrapped
+            var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
+
+            // If both are dates, return Double. If only one is a date, return Date.
+            return new VBDoubleValue(expression.Symbol).WithValue(diff);
+        }
+
+        return resultValue;
     }
 
     public static VBTypedValue EvaluateBinaryExponentiation(
@@ -285,11 +296,6 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
-        {
-            throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The multiplication operator does not accept Date parameters.");
-        }
-
         return EvaluateNumericBinaryOp(context, expression, lhs, rhs,
             (left, right) => Math.Pow(left, right),
             out var lhsNumeric,
@@ -304,17 +310,79 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        // MS-VBAL 5.6.9.2
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        // MS-VBAL 5.5.1.2.10 Let-coercion from Null
+        // if either operand is Null and the other is a UDT or resizable array value, throw a type mismatch.
+        // MS-VBAL 5.6.9.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+        // --- so, Null is irrelevant then - 5.6.9.3 takes precedence in the context of a binary operation.
+        if (lhs is VBNullValue && (rhs is VBResizableArrayValue || rhs is VBUserDefinedTypeValue))
         {
-            throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The division operator does not accept Date parameters.");
+            throw VBRuntimeErrorException.TypeMismatch(rhs.Symbol?.Range!);
+        }
+        if (rhs is VBNullValue && (lhs is VBResizableArrayValue || lhs is VBUserDefinedTypeValue))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(lhs.Symbol!.Range!);
         }
 
-        return EvaluateNumericBinaryOp(context, expression, lhs, rhs,
-            (left, right) => left / right,
-            out var lhsNumeric,
-            out var rhsNumeric,
-            out var targetType);
+        // ...otherwise if either operand is Null, the result is Null.
+        if (lhs is VBNullValue || rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
+
+        // MS-VBAL 5.5.1.2.11 Let-coercion from Empty
+        // If both operands are Empty, the result is an Integer 0.
+        if (lhs is VBEmptyValue && rhs is VBEmptyValue)
+        {
+            return VBIntegerValue.Zero;
+        }
+
+        // MS-VBAL 5.6.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+
+        if (lhs is VBErrorValue && rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+        if (lhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+
+        var lhsCoercionDepth = 0;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+
+        var rhsCoercionDepth = 0;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+
+        if (rhsNumeric.NumericValue == 0)
+        {
+            throw VBRuntimeErrorException.DivisionByZero(expression.Location.Range);
+        }
+
+        var resultValue = EvaluateNumericBinaryOp(context, expression, lhs, rhs,
+             (left, right) => left / right,
+             out lhsNumeric,
+             out rhsNumeric,
+             out var targetType);
+
+        // Date Math Rule
+        // "If one operand is a Date and the other is numeric, the result is a Date."
+        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        {
+            // Date math is effectively Double math re-wrapped
+            var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
+
+            // If both are dates, return Double. If only one is a date, return Date.
+            return new VBDoubleValue(expression.Symbol).WithValue(diff);
+        }
+
+        return resultValue;
     }
 
     public static VBTypedValue EvaluateBinaryIntegerDivision(
@@ -324,17 +392,36 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        // MS-VBAL 5.6.9.2
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        var lhsCoercionDepth = 0;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+
+        var rhsCoercionDepth = 0;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+
+        if (rhsNumeric.NumericValue == 0)
         {
-            throw VBRuntimeErrorException.TypeMismatch(expression.Symbol?.Range!, "The integer division operator does not accept Date parameters.");
+            throw VBRuntimeErrorException.DivisionByZero(expression.Location.Range);
         }
 
-        return EvaluateNumericBinaryOp(context, expression, lhs, rhs,
+        var resultValue = EvaluateNumericBinaryOp(context, expression, lhs, rhs,
             (left, right) => (int)Math.Round(left, 0, MidpointRounding.ToEven) / (int)Math.Round(right, 0, MidpointRounding.ToEven),
-            out var lhsNumeric,
-            out var rhsNumeric,
+            out lhsNumeric,
+            out rhsNumeric,
             out var targetType);
+
+        // Date Math Rule
+        // "If one operand is a Date and the other is numeric, the result is a Date."
+        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        {
+            // Date math is effectively Double math re-wrapped
+            var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
+
+            // If both are dates, return Double. If only one is a date, return Date.
+            return new VBDoubleValue(expression.Symbol).WithValue(diff);
+        }
+
+        return resultValue;
     }
 
     public static VBTypedValue EvaluateBinaryModulo(

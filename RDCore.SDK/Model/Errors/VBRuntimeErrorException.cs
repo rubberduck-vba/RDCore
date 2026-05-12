@@ -4,12 +4,12 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing;
 
-internal class VBRuntimeErrorTypeMismatchException(Range? location, string? verbose = null)
+internal class VBRuntimeErrorTypeMismatchException(Range location, string? verbose = null)
     : VBRuntimeErrorException(location, 13, "Type mismatch", verbose)
 { }
 
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal class VBRuntimeErrorException(Range? location, int VBErrorNumber, string? message = null, string? verbose = null)
+internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string? message = null, string? verbose = null)
     : ApplicationException($"Runtime error '{VBErrorNumber}': {message ?? (VBRuntimeErrors.TryGetValue(VBErrorNumber, out var errMessage) ? errMessage : VBRuntimeErrors[-1])}")//, IDiagnosticSource
 {
     private string DebuggerDisplay => $"[{RDCoreDiagnosticId.ToDiagnosticCode()}] Error {VBErrorNumber}: {Message}{(Verbose is null ? string.Empty : " | " + Verbose)}";

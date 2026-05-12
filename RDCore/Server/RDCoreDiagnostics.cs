@@ -138,47 +138,47 @@ internal record class RDCoreDiagnostic : Diagnostic
 
     /* [RDC]: RDCore language Server diagnostics */
     public static Diagnostic EnumerationOverArray(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Information, RDCoreDiagnosticId.EnumerationOverArray, "Array enumeration would be more efficient using a For...Next loop");
+        CreateDiagnostic(range, DiagnosticSeverity.Information, RDCoreDiagnosticId.EnumerationOverArray, RDCoreDiagnosticsResources.EnumerationOverArray_Message);
     public static Diagnostic AmbiguousConcatenation(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.AmbiguousConcatenation, "Both operands are `String` values; consider using the `&` string concatenation operator instead.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.AmbiguousConcatenation, RDCoreDiagnosticsResources.AmbiguousConcatenation_Message);
     public static Diagnostic PreferErrRaiseOverErrorStatement(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.PreferErrRaiseOverErrorStatement, "Consider using the `Err.Raise` method instead of the legacy `Error` statement to raise run-time errors.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.PreferErrRaiseOverErrorStatement, RDCoreDiagnosticsResources.PreferErrRaiseOverErrorStatement_Message);
     public static Diagnostic ImplicitStringCoercion(Range range, VBType fromType) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitStringCoercion, $"Implicit `String` coercion from `{fromType.Name}`; consider using an explicit type conversion.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitStringCoercion, RDCoreDiagnosticsResources.ImplicitStringCoercion_Message.Replace("{fromType.Name}", fromType.Name));
     public static Diagnostic ImplicitNumericCoercion(Range range, VBType fromType, VBType toType) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitNumericCoercion, $"Implicit numeric coercion (`{toType.Name}`) from `{fromType.Name}`; consider using an explicit type conversion.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitNumericCoercion, RDCoreDiagnosticsResources.ImplicitNumericCoercion_Message.Replace("{fromType.Name}", fromType.Name).Replace("{toType.Name}", toType.Name));
     public static Diagnostic ImplicitLetCoercion(Range range, VBType fromType, VBType toType) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitLetCoercion, $"Implicit `Let` coercion (`{toType.Name}`) from `{fromType.Name}`; consider invoking the object's default member explicitly.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitLetCoercion, RDCoreDiagnosticsResources.ImplicitLetCoercion_message.Replace("{fromType.Name}", fromType.Name).Replace("{toType.Name}", toType.Name));
     public static Diagnostic SuspiciousValueAssignment(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.SuspiciousValueAssignment, "Suspicious value assignment; since both LHS and RHS are object types, it looks like a reference assignment may have been intended. Are you missing a `Set` keyword?");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.SuspiciousValueAssignment, RDCoreDiagnosticsResources.SuspiciousValueAssignment_Message);
     public static Diagnostic ImplicitNarrowingConversion(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitNarrowingConversion, "Implicit narrowing conversion; possible arithmetic overflow. Consider using a larger data type.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitNarrowingConversion, RDCoreDiagnosticsResources.ImplicitNarrowingConversion_Message);
     public static Diagnostic ImplicitWideningConversion(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitWideningConversion, "Implicit widening conversion; consider using an explicit type conversion.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitWideningConversion, RDCoreDiagnosticsResources.ImplicitWideningConversion_Message);
     public static Diagnostic ImplicitDateSerialConversion(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitDateSerialConversion, "Implicit DateSerial conversion; consider using `VBA.DateTime` module functions to perform date and time operations.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.ImplicitDateSerialConversion, RDCoreDiagnosticsResources.ImplicitDateSerialConversion_Message);
     public static Diagnostic TypeCastConversion(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.TypeCastConversion, "Assignment is converting RHS to a compatible interface type.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.TypeCastConversion, RDCoreDiagnosticsResources.TypeCastConversion_Message);
 
     public static Diagnostic UnintendedConstantExpression(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.UnintendedConstantExpression, "Possibly unintended constant expression; this operation does not affect the value.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.UnintendedConstantExpression, RDCoreDiagnosticsResources.UnintendedConstantExpression_Message);
 
     public static Diagnostic EmptyIfBlock(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Information, RDCoreDiagnosticId.EmptyIfBlock, "Empty If block; consider reversing the conditional expression.");
+        CreateDiagnostic(range, DiagnosticSeverity.Information, RDCoreDiagnosticId.EmptyIfBlock, RDCoreDiagnosticsResources.EmptyIfBlock_Message);
 
     public static Diagnostic EmptyCodeBlock(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.EmptyCodeBlock, "Empty code block; implement a body or consider removing it.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.EmptyCodeBlock, RDCoreDiagnosticsResources.EmptyCodeBlock_Message);
 
     public static Diagnostic BitwiseOperator(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.BitwiseOperator, "Bitwise operator; the result of this operation is resolved using bitwise arithmetics.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.BitwiseOperator, RDCoreDiagnosticsResources.BitwiseOperator_Message);
     public static Diagnostic LateBoundMemberAccess(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.LateBoundMemberAccess, "Late bound member access; VBA resolves this member call at run-time, consider using a more specific type if possible.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.LateBoundMemberAccess, RDCoreDiagnosticsResources.LateBoundMemberAccess_Message);
 
     public static Diagnostic UnresolvedLateBoundMemberAccess(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Error, RDCoreDiagnosticId.UnresolvedLateBoundMemberAccess, "Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time.");
+        CreateDiagnostic(range, DiagnosticSeverity.Error, RDCoreDiagnosticId.UnresolvedLateBoundMemberAccess, RDCoreDiagnosticsResources.UnresolvedLateBoundMemberAccess_Message);
 
     public static Diagnostic SllFailure(Range range) =>
-        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.SllFailure, "SLL parser prediction mode failed here; if possible, rephrasing this instruction could improve parsing performance.");
+        CreateDiagnostic(range, DiagnosticSeverity.Hint, RDCoreDiagnosticId.SllFailure, RDCoreDiagnosticsResources.SllFailure_Message);
     public static Diagnostic SyntaxError(Range range, string message) =>
         CreateDiagnostic(range, DiagnosticSeverity.Error, RDCoreDiagnosticId.SyntaxError, message);
 }
