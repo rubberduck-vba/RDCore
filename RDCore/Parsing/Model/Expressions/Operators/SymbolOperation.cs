@@ -298,11 +298,28 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
-        return EvaluateNumericBinaryOp(context, expression, lhs, rhs,
-            (left, right) => Math.Pow(left, right),
-            out var lhsNumeric,
-            out var rhsNumeric,
-            out var targetType);
+        static double func(double left, double right) => Math.Pow(left, right);
+
+        var resultValue = EvaluateNumericBinaryOp(context, expression, lhs, rhs,
+             func,
+             out var lhsNumeric,
+             out var rhsNumeric,
+             out var targetType,
+             VBDoubleType.TypeInfo);
+
+        if (resultValue is not VBNullValue)
+        {
+            if (lhs.TypeInfo is VBDateType)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+            }
+            if (rhs.TypeInfo is VBDateType)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
+            }
+        }
+
+        return resultValue;
     }
 
     public static VBTypedValue EvaluateBinaryDivision(
