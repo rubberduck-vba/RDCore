@@ -213,8 +213,8 @@ public class AdditionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateAddition(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocation);
-        var rhsValue = Wrap(rhs, TestLocation);
+        var lhsValue = Wrap(lhs, TestLocationLHS);
+        var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsValue, rhsValue, TestLocation);
 
         return SymbolOperation.EvaluateBinaryAddition(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);

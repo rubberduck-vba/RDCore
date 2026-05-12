@@ -99,11 +99,13 @@ internal static class SymbolOperation
         Func<double, double, double> op,
         out VBNumericTypedValue lhsNumeric,
         out VBNumericTypedValue rhsNumeric,
-        out VBType targetType
+        out VBType targetType,
+        VBType? targetTypeOverride = default
         )
     {
         lhsNumeric = default!;
         rhsNumeric = default!;
+        targetType = targetTypeOverride!;
 
         // MS-VBAL 5.5.1.2.10 Let-coercion from Null
         // if either operand is Null and the other is a UDT or resizable array value, throw a type mismatch.
@@ -159,24 +161,24 @@ internal static class SymbolOperation
         var rhsCoercionDepth = 0;
         rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
 
-        if (lhs is VBStringValue)
-        {
-            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Left.Location.Range, lhs.TypeInfo, VBDoubleType.TypeInfo));
-        }
-
-        if (rhs is VBStringValue)
-        {
-            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
-        }
-
         // determine the target type
         if (lhs is VBBooleanValue && rhs is VBBooleanValue)
         {
             targetType = VBBooleanType.TypeInfo;
         }
-        else
+        else if (targetType == default)
         {
             targetType = GetPromotedType(lhsNumeric.TypeInfo, rhsNumeric.TypeInfo);
+        }
+
+        if (lhs is VBStringValue)
+        {
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Left.Location.Range, lhs.TypeInfo, targetType));
+        }
+
+        if (rhs is VBStringValue)
+        {
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Right.Location.Range, rhs.TypeInfo, targetType));
         }
 
         // calculate the numeric result
@@ -221,7 +223,7 @@ internal static class SymbolOperation
 
         // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (resultValue is not VBNullValue && (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType))
         {
             // Date math is effectively Double math re-wrapped
             context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
@@ -246,7 +248,7 @@ internal static class SymbolOperation
 
         // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (resultValue is not VBNullValue && (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType))
         {
             // Date math is effectively Double math re-wrapped
             var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
@@ -276,7 +278,7 @@ internal static class SymbolOperation
 
         // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (resultValue is not VBNullValue && (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType))
         {
             // Date math is effectively Double math re-wrapped
             var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
@@ -368,18 +370,19 @@ internal static class SymbolOperation
              (left, right) => left / right,
              out lhsNumeric,
              out rhsNumeric,
-             out var targetType);
+             out var targetType,
+             VBDoubleType.TypeInfo);
 
-        // Date Math Rule
-        // "If one operand is a Date and the other is numeric, the result is a Date."
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (resultValue is not VBNullValue)
         {
-            // Date math is effectively Double math re-wrapped
-            var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
-            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
-
-            // If both are dates, return Double. If only one is a date, return Date.
-            return new VBDoubleValue(expression.Symbol).WithValue(diff);
+            if (lhs.TypeInfo is VBDateType)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+            }
+            if (rhs.TypeInfo is VBDateType)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
+            }
         }
 
         return resultValue;
@@ -392,33 +395,124 @@ internal static class SymbolOperation
         VBTypedValue rhs
         )
     {
+        // MS-VBAL 5.5.1.2.10 Let-coercion from Null
+        // if either operand is Null and the other is a UDT or resizable array value, throw a type mismatch.
+        // MS-VBAL 5.6.9.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+        // --- so, Null is irrelevant then - 5.6.9.3 takes precedence in the context of a binary operation.
+        if (lhs is VBNullValue && (rhs is VBResizableArrayValue || rhs is VBUserDefinedTypeValue))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(rhs.Symbol?.Range!);
+        }
+        if (rhs is VBNullValue && (lhs is VBResizableArrayValue || lhs is VBUserDefinedTypeValue))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(lhs.Symbol!.Range!);
+        }
+
+        // ...otherwise if either operand is Null, the result is Null.
+        if (lhs is VBNullValue || rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
+
+        // MS-VBAL 5.5.1.2.11 Let-coercion from Empty
+        // If both operands are Empty, the result is an Integer 0.
+        if (lhs is VBEmptyValue && rhs is VBEmptyValue)
+        {
+            return VBIntegerValue.Zero;
+        }
+
+        // MS-VBAL 5.6.3 runtime semantics
+        // if the value type of any operand is an array, UDT, or Error, raise error 13 type mismatch.
+
+        if (lhs is VBErrorValue && rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+        if (lhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBErrorValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+
         var lhsCoercionDepth = 0;
         var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
 
         var rhsCoercionDepth = 0;
         var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
 
-        if (rhsNumeric.NumericValue == 0)
+        var actualRHS = (int)Math.Round(rhsNumeric?.NumericValue ?? 0, 0, MidpointRounding.ToEven);
+        if (actualRHS == 0)
         {
             throw VBRuntimeErrorException.DivisionByZero(expression.Location.Range);
         }
 
+        static int func(double left, double right) => (int)Math.Round(left, 0, MidpointRounding.ToEven) / (int)Math.Round(right, 0, MidpointRounding.ToEven);
+
+        // integer division effective value type breaks all the rules!
+        VBType? typeOverride = lhs switch
+        {
+            VBByteValue 
+                when rhs is VBEmptyValue => VBIntegerType.TypeInfo,
+            
+            VBEmptyValue 
+                when rhs is VBByteValue => VBIntegerType.TypeInfo,
+            
+            VBBooleanValue or VBIntegerValue 
+                when rhs is VBNumericTypedValue and not VBLongLongValue => VBIntegerType.TypeInfo,
+            
+            VBIntegerValue or VBDateValue
+                when rhs is VBDateValue => VBLongType.TypeInfo,
+
+            VBStringValue 
+            or VBDateValue 
+            or VBSingleValue 
+            or VBDoubleValue 
+            or VBDecimalValue 
+                when rhs is VBNumericTypedValue and not VBLongLongValue => VBLongType.TypeInfo,
+
+            VBNumericTypedValue and not VBLongLongValue 
+                when rhs is VBSingleValue 
+                         or VBDoubleValue 
+                         or VBDecimalValue 
+                         or VBStringValue 
+                         or VBDateValue => VBLongType.TypeInfo,
+
+            VBLongLongValue 
+                when rhs is VBNumericTypedValue 
+                         or VBStringValue 
+                         or VBDateValue 
+                         or VBEmptyValue => VBLongLongType.TypeInfo,
+
+            VBNumericTypedValue 
+            or VBStringValue 
+            or VBDateValue 
+            or VBEmptyValue 
+                when rhs is VBLongLongValue => VBLongLongType.TypeInfo,
+
+            // otherwise we let the regular binary operator rules apply.. whatever is left of them.
+            _ => default
+        };
+
         var resultValue = EvaluateNumericBinaryOp(context, expression, lhs, rhs,
-            (left, right) => (int)Math.Round(left, 0, MidpointRounding.ToEven) / (int)Math.Round(right, 0, MidpointRounding.ToEven),
+            (left, right) => func(left, right),
             out lhsNumeric,
             out rhsNumeric,
-            out var targetType);
+            out var targetType,
+            typeOverride);
 
         // Date Math Rule
         // "If one operand is a Date and the other is numeric, the result is a Date."
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (lhs.TypeInfo is VBDateType)
         {
-            // Date math is effectively Double math re-wrapped
-            var diff = lhsNumeric.NumericValue - rhsNumeric.NumericValue;
-            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
-
-            // If both are dates, return Double. If only one is a date, return Date.
-            return new VBDoubleValue(expression.Symbol).WithValue(diff);
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+        }
+        if (rhs.TypeInfo is VBDateType)
+        {
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
         }
 
         return resultValue;
@@ -437,9 +531,13 @@ internal static class SymbolOperation
             out var rhsNumeric,
             out var targetType);
 
-        if (lhs.TypeInfo is VBDateType || rhs.TypeInfo is VBDateType)
+        if (lhs.TypeInfo is VBDateType)
         {
-            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Symbol?.Range!));
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+        }
+        if (rhs.TypeInfo is VBDateType)
+        {
+            context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
         }
 
         return result;

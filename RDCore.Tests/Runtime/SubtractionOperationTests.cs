@@ -204,8 +204,8 @@ public class SubtractionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateSubtraction(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocation);
-        var rhsValue = Wrap(rhs, TestLocation);
+        var lhsValue = Wrap(lhs, TestLocationLHS);
+        var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Subtraction, lhsValue, rhsValue, TestLocation);
 
         return SymbolOperation.EvaluateBinarySubtraction(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);

@@ -13,6 +13,7 @@ internal abstract record class VBType
     {
         [typeof(VBIntegerType)] = symbol => new VBIntegerValue(symbol),
         [typeof(VBLongType)] = symbol => new VBLongValue(symbol),
+        [typeof(VBLongLongType)] = symbol => new VBLongLongValue(symbol),
         [typeof(VBDoubleType)] = symbol => new VBDoubleValue(symbol),
         [typeof(VBStringType)] = symbol => new VBStringValue(symbol),
         [typeof(VBBooleanType)] = symbol => new VBBooleanValue(symbol),
