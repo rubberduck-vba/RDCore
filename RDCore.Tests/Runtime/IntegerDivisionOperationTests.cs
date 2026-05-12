@@ -50,9 +50,9 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
     [DataRow(null, 5)]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, 1.23d)]   // MS-VBAL: Null * Any -> Null
-    //[DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
-    //[DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
-    //[DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
+    [DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
+    [DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
+    [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
     public void EvaluateIntegerDivision_NullOperand_ResultIsNull(object lhs, object rhs)
     {
         // note: coercing the result to any other type would throw.
@@ -87,8 +87,8 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    //[DataRow(-1, "DateTime.Now")]
-    //[DataRow("DateTime.Now", 1)]
+    [DataRow(-1, "DateTime.Now")]
+    [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
     public void EvaluateIntegerDivision_DateTime_ReturnsLong(object lhs, object rhs)
     {
@@ -133,8 +133,8 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
 
     [TestMethod]
     [DataRow(-32767, 0.5d, "VBR00011")]
-    //[DataRow("1.5", 1, 2)]
-    //[DataRow(10, 1.5d, 5)]
+    [DataRow("1.5", 1, 2)]
+    [DataRow(10, 1.5d, 5)]
     public void EvaluateIntegerDivision_NumericCoercion(object lhs, object rhs, object expected)
     {
         try

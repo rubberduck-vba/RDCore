@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBLongPtrType : VBIntrinsicType<int>, INumericType
+internal record class VBLongPtrType : VBIntrinsicType<int>
 {
     private static readonly VBLongPtrType _type = new();
 
