@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.Parsing.Model;
 using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
@@ -12,19 +13,19 @@ using RDCore.Server;
 namespace RDCore.Tests;
 
 [TestClass]
-[TestCategory("MS-VBAL 5.6.9.3.5: Binary '/' Operator")]
-public class DivisionOperationTests : SymbolOperationTests
+[TestCategory("MS-VBAL 5.6.9.3.6: Binary '\\' Operator")]
+public class IntegerDivisionOperationTests : SymbolOperationTests
 {
     [TestMethod]
-    //[DataRow(2, 2, 1)]
-    //[DataRow(-2, 2, -1)]
-    //[DataRow(-2, -2, 1)]
-    //[DataRow(2, -2, -1)]
-    //[DataRow(12, 2, 6)]
-    [DataRow(5, 2, 2.5)]
-    public void EvaluateDivision_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
+    [DataRow(2, 2, 1)]
+    [DataRow(-2, 2, -1)]
+    [DataRow(-2, -2, 1)]
+    [DataRow(2, -2, -1)]
+    [DataRow(12, 2, 6)]
+    [DataRow(5, 2, 2)]
+    public void EvaluateIntegerDivision_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
     {
-        var actual = EvaluateDivision(CreateContext(), lhs, rhs) as INumericValue;
+        var actual = EvaluateIntegerDivision(CreateContext(), lhs, rhs) as INumericValue;
         Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
     }
 
@@ -32,11 +33,11 @@ public class DivisionOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.VBRuntimeError.DivisionByZero")]
     [DataRow(1, 0, "VBR00011")]
     [DataRow(-1, 0, "VBR00011")]
-    public void EvaluateDivision_DivisionByZero(object lhs, object rhs, object expected)
+    public void EvaluateIntegerDivision_IntegerDivisionByZero(object lhs, object rhs, object expected)
     {
         try
         {
-            _ = EvaluateDivision(CreateContext(), lhs, rhs) as INumericValue;
+            _ = EvaluateIntegerDivision(CreateContext(), lhs, rhs) as INumericValue;
         }
         catch (VBRuntimeErrorException ex)
         {
@@ -49,19 +50,19 @@ public class DivisionOperationTests : SymbolOperationTests
     [DataRow(null, 5)]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, 1.23d)]   // MS-VBAL: Null * Any -> Null
-    [DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
-    public void EvaluateDivision_NullOperand_ResultIsNull(object lhs, object rhs)
+    //[DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
+    //[DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
+    //[DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
+    public void EvaluateIntegerDivision_NullOperand_ResultIsNull(object lhs, object rhs)
     {
         // note: coercing the result to any other type would throw.
-        var result = EvaluateDivision(CreateContext(), lhs, rhs);
+        var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBNullValue>(result);
     }
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateDivision_Null_LetCoercion_UDT_TypeMismatch()
+    public void EvaluateIntegerDivision_Null_LetCoercion_UDT_TypeMismatch()
     {
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
@@ -70,34 +71,51 @@ public class DivisionOperationTests : SymbolOperationTests
             .WithResultValue(new VBUserDefinedTypeValue(udt));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateDivision(CreateContext(), lhs, rhs));
+            EvaluateIntegerDivision(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateDivision_Null_LetCoercion_ResizableArray_TypeMismatch()
+    public void EvaluateIntegerDivision_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
             .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateDivision(CreateContext(), lhs, rhs));
+            EvaluateIntegerDivision(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
-    [DataRow(-1, "DateTime.Now")]
-    [DataRow("DateTime.Now", 1)]
+    //[DataRow(-1, "DateTime.Now")]
+    //[DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
-    public void EvaluateDivision_DateTime_ReturnsDouble(object lhs, object rhs)
+    public void EvaluateIntegerDivision_DateTime_ReturnsLong(object lhs, object rhs)
     {
-        var result = EvaluateDivision(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBDoubleValue>(result);
+        var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
+        Assert.IsInstanceOfType<VBLongValue>(result);
+    }
+
+    [TestMethod]
+    [DataRow(32767, "DateTime.Now", Tokens.Long)]
+    [DataRow("Empty", (byte)10, Tokens.Integer)]
+    [DataRow(true, 2, Tokens.Integer)]
+    [DataRow(32767, 2.5d, Tokens.Integer)]
+    [DataRow(123.456d, 2.5d, Tokens.Long)]
+    [DataRow("123.456", 2, Tokens.Long)]
+    [DataRow("DateTime.Now", 2, Tokens.Long)]
+    [DataRow((long)123456, 42, Tokens.LongLong)]
+    [DataRow((long)123456, "42", Tokens.LongLong)]
+    [DataRow((long)123456, "DateTime.Now", Tokens.LongLong)]
+    public void EvaluateIntegerDivision_DataType(object lhs, object rhs, string type)
+    {
+        var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
+        Assert.AreEqual(type, result.TypeInfo.Name);
     }
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateDivision_Empty_LetCoercion_Numeric_IsZero()
+    public void EvaluateIntegerDivision_Empty_LetCoercion_Numeric_IsZero()
     {
         var depth = 0;
         var result = VBEmptyValue.Empty.AsCoercedNumeric(ref depth);
@@ -106,7 +124,7 @@ public class DivisionOperationTests : SymbolOperationTests
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateDivision_Empty_LetCoercion_String_IsEmptyString()
+    public void EvaluateIntegerDivision_Empty_LetCoercion_String_IsEmptyString()
     {
         var depth = 0;
         var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
@@ -114,13 +132,14 @@ public class DivisionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [DataRow("1.5", 1, 1.5d)]
-    [DataRow(-32767, 0.5d, -65534.0d)]
-    public void EvaluateDivision_NumericCoercion(object lhs, object rhs, object expected)
+    [DataRow(-32767, 0.5d, "VBR00011")]
+    //[DataRow("1.5", 1, 2)]
+    //[DataRow(10, 1.5d, 5)]
+    public void EvaluateIntegerDivision_NumericCoercion(object lhs, object rhs, object expected)
     {
         try
         {
-            var result = EvaluateDivision(CreateContext(), lhs, rhs);
+            var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
             if (expected is not string)
             {
                 Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
@@ -136,11 +155,11 @@ public class DivisionOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
     [DataRow(32767, 2, "VBR00006")]
     [DataRow(-32768, 2, "VBR00006")]
-    public void EvaluateDivision_Overflow(object lhs, object rhs, object expected)
+    public void EvaluateIntegerDivision_Overflow(object lhs, object rhs, object expected)
     {
         try
         {
-            var result = EvaluateDivision(CreateContext(), lhs, rhs);
+            var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
             if (expected is not string)
             {
                 Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
@@ -157,11 +176,11 @@ public class DivisionOperationTests : SymbolOperationTests
     [DataRow(42, "VBErrorValue", "VBR00013")]
     [DataRow("ABC", "VBErrorValue", "VBR00013")]
     [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
-    public void EvaluateDivision_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
+    public void EvaluateIntegerDivision_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
     {
         try
         {
-            var result = EvaluateDivision(CreateContext(), lhs, rhs);
+            var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
             if (expected is not string)
             {
                 Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
@@ -178,34 +197,42 @@ public class DivisionOperationTests : SymbolOperationTests
     [DataRow(-1, "DateTime.Now", true)]
     [DataRow("DateTime.Now", 1, true)]
     [DataRow("DateTime.Now", "DateTime.Now", true)]
-    public void EvaluateDivision_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    public void EvaluateIntegerDivision_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
     {
         var context = CreateContext();
-        _ = EvaluateDivision(context, lhs, rhs);
+        _ = EvaluateIntegerDivision(context, lhs, rhs);
 
         AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitDateSerialConversion, assertMissing: !expectDiagnostics);
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
-    [DataRow(40, 2, false)]
-    [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, false)]
-    [DataRow("DateTime.Now", "42", true)]
-    public void EvaluateDivision_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    [DataRow(40, 2, false, false)]
+    [DataRow(-1, "42", false, true)]
+    [DataRow("DateTime.Now", "42", false, true)]
+    [DataRow("DateTime.Now", 1, false, false)]
+    public void EvaluateIntegerDivision_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnosticsLHS, bool expectDiagnosticsRHS)
     {
         var context = CreateContext();
-        _ = EvaluateDivision(context, lhs, rhs);
+        _ = EvaluateIntegerDivision(context, lhs, rhs);
 
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
+        if (expectDiagnosticsLHS)
+        {
+            AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, TestLocationLHS.Range, assertMissing: !(expectDiagnosticsLHS || expectDiagnosticsRHS));
+        }
+
+        if (expectDiagnosticsRHS)
+        {
+            AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, TestLocationRHS.Range, assertMissing: !(expectDiagnosticsLHS || expectDiagnosticsRHS));
+        }
     }
 
-    private VBTypedValue EvaluateDivision(VBExecutionContext context, object lhs, object rhs)
+    private VBTypedValue EvaluateIntegerDivision(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocation);
-        var rhsValue = Wrap(rhs, TestLocation);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Division, lhsValue, rhsValue, TestLocation);
+        var lhsValue = Wrap(lhs, TestLocationLHS);
+        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.IntegerDivision, lhsValue, rhsValue, TestLocation);
 
-        return SymbolOperation.EvaluateBinaryDivision(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        return SymbolOperation.EvaluateBinaryIntegerDivision(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
     }
 }

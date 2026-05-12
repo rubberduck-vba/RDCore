@@ -15,7 +15,28 @@ public abstract class SymbolOperationTests
 {
 
     internal VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
-    internal Location TestLocation { get; } = new() { Uri = "file:///a:/test/file", Range = new Range(1, 1, 1, 1) };
+    /// <summary>
+    /// For the sake of a test involving a binary operator, the location of the LHS symbol or
+    /// in the case of a unary operator, the location of the expression.
+    /// </summary>
+    /// <remarks>
+    /// Consistency with the actual length of the values is not relevant here.
+    /// </remarks>
+    internal Location TestLocationLHS { get; } = new() { Uri = "file:///a:/test/file#rhs", Range = new Range(1, 1, 1, 1) };
+    /// <summary>
+    /// For the sake of a test, the location of the operator symbol.
+    /// </summary>
+    /// <remarks>
+    /// Consistency with the actual length of the values is not relevant here.
+    /// </remarks>
+    internal Location TestLocation { get; } = new() { Uri = "file:///a:/test/file#op", Range = new Range(1, 2, 1, 2) };
+    /// <summary>
+    /// For the sake of a test involving a binary operator, the location of the RHS symbol.
+    /// </summary>
+    /// <remarks>
+    /// Consistency with the actual length of the values is not relevant here.
+    /// </remarks>
+    internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
 
     internal ValuedExpression Wrap(object? val, Location location)
     {
@@ -24,21 +45,26 @@ public abstract class SymbolOperationTests
             return exp;
         }
 
-        var dateHelper = (string s) => DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new LiteralExpression<VBDateValue>(location).WithResultValue(new VBDateValue().WithValue(dateValue)) : null;
+        ValuedExpression? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
+            DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
+            ? new LiteralExpression<VBDateValue>(location).WithResultValue(new VBDateValue().WithValue(dateValue)) 
+            : null : null;
 
         // Helper to turn MSTest DataRow objects into RDCore VBTypedValues
         return val switch
         {
-            "UDT" => new LiteralExpression<VBUserDefinedTypeValue>(location).WithResultValue(VBLongPtrValue.Zero),
             VBTypedValue value => new LiteralExpression<VBTypedValue>(location).WithResultValue(value),
+            "UDT" => new LiteralExpression<VBUserDefinedTypeValue>(location).WithResultValue(VBLongPtrValue.Zero),
             "DateTime.Now" => new LiteralExpression<VBDateValue>(location).WithResultValue(VBDateValue.FromSerial(43452)),
             "VBErrorValue" => new LiteralExpression<VBErrorValue>(location).WithResultValue(VBErrorType.TypeInfo.DefaultValue),
-            null => new LiteralExpression<VBObjectValue>(location).WithResultValue(VBNullValue.Null),
             "Empty" => new LiteralExpression<VBEmptyValue>(location).WithResultValue(VBEmptyValue.Empty),
-            string s => new LiteralExpression<VBStringValue>(location).WithResultValue(new VBStringValue().WithValue(s)),
+            bool b => new LiteralExpression<VBBooleanValue>(location).WithResultValue(new VBBooleanValue().WithValue(b)),
+            byte v => new LiteralExpression<VBByteValue>(location).WithResultValue(new VBByteValue().WithValue(v)),
+            string s => dateHelper(s) ?? new LiteralExpression<VBStringValue>(location).WithResultValue(new VBStringValue().WithValue(s)),
             int i => new LiteralExpression<VBIntegerValue>(location).WithResultValue(new VBIntegerValue().WithValue(i)),
+            long i => new LiteralExpression<VBLongLongValue>(location).WithResultValue(new VBLongLongValue().WithValue(i)),
             double d => new LiteralExpression<VBDoubleValue>(location).WithResultValue(new VBDoubleValue().WithValue(d)),
+            null => new LiteralExpression<VBObjectValue>(location).WithResultValue(VBNullValue.Null),
             _ => throw new NotSupportedException()
         };
     }
@@ -48,11 +74,21 @@ public abstract class SymbolOperationTests
     /// </summary>
     /// <remarks>
     /// Specify <c>assertMissing:true</c> to assert that the specified diagnostic was specifically <strong>not</strong> issued.
+    /// Specify a <c>location</c> to assert that the specified diagnostic was issued for that specific location.
     /// </remarks>
-    internal void AssertDiagnostic(VBExecutionContext context, RDCoreDiagnosticId id, bool assertMissing = false)
+    internal static void AssertDiagnostic(VBExecutionContext context, RDCoreDiagnosticId id, Range? location = default, bool assertMissing = false)
     {
         var code = id.ToDiagnosticCode();
-        Assert.AreEqual(!assertMissing, context.Diagnostics.Any(e => e.Code == code));
+        var diagnostics = context.Diagnostics.Where(e => e.Code == code);
+
+        if (!assertMissing && location is not null)
+        {
+            Assert.IsTrue(diagnostics.Any(e => e.Range.Equals(location)));
+        }
+        else
+        {
+            Assert.AreEqual(!assertMissing, diagnostics.Any());
+        }
     }
 
     [TestMethod]
