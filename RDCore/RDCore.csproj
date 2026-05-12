@@ -35,6 +35,27 @@
     <Compile Update="Parsing\Model\Types\UnresolvedType.cs">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="Server\RDCoreDiagnosticsResources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>RDCoreDiagnosticsResources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Server\RDCoreDiagnosticsResources.en-US.resx">
+      <Generator></Generator>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Server\RDCoreDiagnosticsResources.fr-CA.resx">
+      <Generator></Generator>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Server\RDCoreDiagnosticsResources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>RDCoreDiagnosticsResources.Designer.cs</LastGenOutput>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

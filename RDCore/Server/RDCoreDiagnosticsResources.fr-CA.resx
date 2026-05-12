@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AmbiguousConcatenation_Message" xml:space="preserve">
+    <value>Les deux opérandes sont des 'String'; utiliser l'opérateur de concaténation '&amp;' rendrait l'intention plus explicite ici.</value>
+  </data>
+  <data name="BitwiseOperator_Message" xml:space="preserve">
+    <value>Le résultat de cette opération est obtenu en utilisant une arithmétique sur la représentation binaire (en bits) des opérandes. Ceci peut produire des résultats surprenants si on s'attendait ici à une logique conventionnelle. Si l'opération binaire n'est pas intentionnelle, elle pourrait cacher un bug.</value>
+  </data>
+  <data name="EmptyCodeBlock_Message" xml:space="preserve">
+    <value>Bloc de code vide inutile; implémenter un corps, ou en considérer la suppression.</value>
+  </data>
+  <data name="EmptyIfBlock_Message" xml:space="preserve">
+    <value>Bloc conditionnel vide; inverser l'expression de la condition en permettrait la simplification.</value>
+  </data>
+  <data name="EnumerationOverArray_Message" xml:space="preserve">
+    <value>L'énumération d'un tableau est inefficace et serait plus performante en utilisant plutôt une structure `For...Next` et un accès indiciel.</value>
+  </data>
+  <data name="ImplicitDateSerialConversion_Message" xml:space="preserve">
+    <value>Conversion `DateSerial` implicite; utiliser les fonctions du module `VBA.DateTime` pour effectuer des opérations sur des dates/heures rendrait l'intention plus explicite et simplifierait la lecture en élevant un peu le niveau d'abstraction.</value>
+  </data>
+  <data name="ImplicitLetCoercion_message" xml:space="preserve">
+    <value>Coercion `Let` implicite (`{toType.Name}`) de `{fromType.Name}`; invoquer explicitement les membres visés évite les appels implicites "magiques" qui sont difficiles à suivre et à comprendre sans tracer d'obscurs attributs cachés.</value>
+  </data>
+  <data name="ImplicitNarrowingConversion_Message" xml:space="preserve">
+    <value>Conversion implicite (réduction), d'un type numérique à un autre dont la capacité est moindre - attention, un dépassement arithmétique (overflow) est techniquement possible ici.</value>
+  </data>
+  <data name="ImplicitNumericCoercion_Message" xml:space="preserve">
+    <value>Coercion numérique implicite (`{toType.Name}`) from `{fromType.Name}`; l'utilisation d'une fonction de conversion explicite améliorerait la traçabilité des types impliqués.</value>
+  </data>
+  <data name="ImplicitStringCoercion_Message" xml:space="preserve">
+    <value>Coercion `String` implicite depuis `{fromType.Name}`; considérez l'utilisation d'une fonction de conversion explicite (par exemple `CStr`) pour rendre cette opération plus intentionnelle.</value>
+  </data>
+  <data name="ImplicitWideningConversion_Message" xml:space="preserve">
+    <value>Conversion implicite (élargissement), d'un type numérique à un autre dont la capacité est supérieure; l'utilisation d'une fonction de conversion explicite rendrait l'opération plus intentionnelle.</value>
+  </data>
+  <data name="LateBoundMemberAccess_Message" xml:space="preserve">
+    <value>Appel à liaison tardive (late binding): VBA ne validera pas cet appel au moment de la compilation, ce qui peut produire des erreurs qui seraient évitables en utilisant un type plus spécifique que `Variant` ou `Object`, lorsque c'est possible.</value>
+  </data>
+  <data name="PreferErrRaiseOverErrorStatement_Message" xml:space="preserve">
+    <value>Utiliser la méthode `Err.Raise` pour soulever des erreurs à l'exécution plutôt que l'instruction `Error`, qui comme plusieurs autres instructions existe pour fins de rétro-compatibilité avec des itérations du langage BASIC plus anciennes encore.</value>
+  </data>
+  <data name="SllFailure_Message" xml:space="preserve">
+    <value>Le mode de prédiction SLL de l'analyseur a échoué ici; si possible, reformuler cette instruction pourrait améliorer les performances du serveur de langage.</value>
+  </data>
+  <data name="SuspiciousValueAssignment_Message" xml:space="preserve">
+    <value>Assignation de valeur suspecte: les deux côtés de l'opérateur étant des objets, on dirait vraiment ici que l'intention était plutôt d'effectuer une assignation de référence. Possible qu'il y manque le mot-clé `Set`?</value>
+  </data>
+  <data name="TypeCastConversion_Message" xml:space="preserve">
+    <value>Cette assignation convertit l'objet de droite (RHS) en une interface compatible d'un autre type.</value>
+  </data>
+  <data name="UnintendedConstantExpression_Message" xml:space="preserve">
+    <value>Expression constante possiblement non-intentionnelle; cette opération n'affecte pas la valeur.</value>
+  </data>
+  <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
+    <value>Appel à liaison tardive non résolu: il semble que cet appel pourrait soulever l'erreur d'exécution 438 (VBR00438).</value>
+  </data>
+</root>

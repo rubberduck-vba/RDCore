@@ -1,0 +1,222 @@
+using RDCore.Parsing;
+using RDCore.Parsing.Model.Expressions.Operators;
+using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Types;
+using RDCore.Parsing.Model.Types.Complex;
+using RDCore.Parsing.Model.Values;
+using RDCore.Runtime;
+using RDCore.Runtime.Model;
+using RDCore.Runtime.Model.Operators;
+using RDCore.Server;
+
+namespace RDCore.Tests;
+
+[TestClass]
+[TestCategory("MS-VBAL 5.6.9.3.2: Binary '+' Operator")]
+public class AdditionOperationTests : SymbolOperationTests
+{
+    [TestMethod]
+    [DataRow(2, 2, 4)]
+    [DataRow(-2, 2, 0)]
+    [DataRow(-2, -2, -4)]
+    [DataRow(2, -2, 0)]
+    [DataRow(0, 2, 2)]
+    [DataRow(2, 0, 2)]
+    [DataRow(0, 0, 0)]
+    public void EvaluateAddition_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
+    {
+        var actual = EvaluateAddition(CreateContext(), lhs, rhs) as INumericValue;
+        Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    [DataRow(null, 5)]   // MS-VBAL: Null + Any -> Null
+    [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null + Any -> Null
+    [DataRow(null, 1.23d)]   // MS-VBAL: Null + Any -> Null
+    [DataRow(5, null)]   // MS-VBAL: Any + Null -> Null
+    [DataRow("Empty", null)]   // MS-VBAL: Any + Null -> Null
+    [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any + Null -> Null
+    public void EvaluateAddition_NullOperand_ResultIsNull(object lhs, object rhs)
+    {
+        // note: coercing the result to any other type would throw.
+        var result = EvaluateAddition(CreateContext(), lhs, rhs);
+        Assert.IsInstanceOfType<VBNullValue>(result);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    public void EvaluateAddition_Null_LetCoercion_UDT_TypeMismatch()
+    {
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression<VBUserDefinedTypeValue>(TestLocation)
+            .WithResultValue(new VBUserDefinedTypeValue(udt));
+            
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateAddition(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    public void EvaluateAddition_Null_LetCoercion_ResizableArray_TypeMismatch()
+    {
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
+            .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateAddition(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
+    public void EvaluateAddition_Empty_LetCoercion_Numeric_IsZero()
+    {
+        var depth = 0;
+        var result = VBEmptyValue.Empty.AsCoercedNumeric(ref depth);
+        Assert.AreEqual(0, result.Value);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
+    public void EvaluateAddition_Empty_LetCoercion_String_IsEmptyString()
+    {
+        var depth = 0;
+        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
+        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
+    }
+
+    [TestMethod]
+    [DataRow("1.5", 1, 2.5d)]         // String + Integer -> Double
+    [DataRow("1.5", "1", "1.51")]         // String + String -> String
+    [DataRow(32767, 1.0, 32768.0d)]   // Integer + Double -> Double (Safe)
+    public void EvaluateAddition_NumericCoercion(object lhs, object rhs, object expected)
+    {
+        try
+        {
+            var result = EvaluateAddition(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
+    [DataRow(32767, 1, "VBR00006")]
+    [DataRow(-32768, -1, "VBR00006")]
+    public void EvaluateAddition_Overflow(object lhs, object rhs, object expected)
+    {
+        try
+        {
+            var result = EvaluateAddition(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
+    [DataRow(42, "VBErrorValue", "VBR00013")]
+    [DataRow("ABC", "VBErrorValue", "VBR00013")]
+    [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
+    public void EvaluateAddition_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
+    {
+        try
+        {
+            var result = EvaluateAddition(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
+    }
+
+    [TestMethod]
+    [DataRow(-1, "DateTime.Now")]
+    [DataRow("DateTime.Now", 1)]
+    [DataRow("DateTime.Now", "DateTime.Now")]
+    public void EvaluateAddition_DateTime_ReturnsDateTime(object lhs, object rhs)
+    {
+        var result = EvaluateAddition(CreateContext(), lhs, rhs);
+
+        Assert.IsInstanceOfType<VBDateValue>(result);
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.ImplicitDateSerialConversion")]
+    [DataRow(-1, "DateTime.Now", true)]
+    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", "DateTime.Now", true)]
+    public void EvaluateAddition_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateAddition(context, lhs, rhs);
+
+        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitDateSerialConversion, assertMissing: !expectDiagnostics);
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.ImplicitNumericCoercion")]
+    [DataRow(40, 2, false)]
+    [DataRow(-1, "42", true)]
+    [DataRow("DateTime.Now", 1, false)]
+    [DataRow("DateTime.Now", "42", true)]
+    public void EvaluateAddition_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateAddition(context, lhs, rhs);
+
+        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.AmbiguousConcatenation")]
+    [DataRow(40, 2, false)]
+    [DataRow(-2, "42", false)]
+    [DataRow("-2", 42, false)]
+    [DataRow("42", "-2", true)]
+    [DataRow("10", "2", true)]
+    public void EvaluateAddition_AmbiguousConcatenationDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateAddition(context, lhs, rhs);
+
+        AssertDiagnostic(context, RDCoreDiagnosticId.AmbiguousConcatenation, assertMissing: !expectDiagnostics);
+    }
+
+    [TestMethod]
+    public void EvaluateAddition_BothEmpty_ResultsIsIntegerZero()
+    {
+        var result = EvaluateAddition(CreateContext(), "Empty", "Empty");
+
+        Assert.IsInstanceOfType<VBIntegerValue>(result);
+        Assert.AreEqual(0, ((VBIntegerValue)result).Value);
+    }
+
+    private VBTypedValue EvaluateAddition(VBExecutionContext context, object lhs, object rhs)
+    {
+        var lhsValue = Wrap(lhs, TestLocation);
+        var rhsValue = Wrap(rhs, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsValue, rhsValue, TestLocation);
+
+        return SymbolOperation.EvaluateBinaryAddition(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+    }
+}
