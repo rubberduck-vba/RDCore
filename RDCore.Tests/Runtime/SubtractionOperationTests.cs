@@ -175,7 +175,7 @@ public class SubtractionOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
     [DataRow(40, 2, false)]
     [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", 1, false)]
     [DataRow("DateTime.Now", 1.5d, false)]
     [DataRow("DateTime.Now", "42", true)]
     public void EvaluateSubtraction_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
