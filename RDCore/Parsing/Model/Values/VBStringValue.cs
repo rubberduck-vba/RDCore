@@ -65,7 +65,7 @@ internal record class VBStringValue : VBTypedValue,
     public VBStringValue AsCoercedString(ref int depth) => this;
     public VBFixedStringValue AsCoercedFixedLengthString(int length, ref int depth) => new VBFixedStringValue(length, this.Symbol).WithFixedValue(this.Value);
 
-    public VBDoubleValue AsCoercedNumeric(ref int depth)
+    public VBDoubleValue AsCoercedDouble(ref int depth)
     {
         if (double.TryParse(Value, CultureInfo, out var coerced))
         {
@@ -99,7 +99,7 @@ internal record class VBStringValue : VBTypedValue,
             // otherwise the result is let-coerced a Double value
             // which is then let-coerced to a Boolean value:
             depth++;
-            return AsCoercedNumeric(ref depth).AsCoercedBoolean(ref depth);
+            return AsCoercedDouble(ref depth).AsCoercedBoolean(ref depth);
         }
     }
 

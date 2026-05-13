@@ -1,5 +1,5 @@
-﻿using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types;
+﻿using RDCore.Parsing.Model.Types;
+using RDCore.Runtime;
 
 namespace RDCore.Parsing.Model.Values;
 
@@ -8,15 +8,14 @@ internal record class VBEmptyValue : VBTypedValue,
     INumericCoercion,
     IStringCoercion
 {
-    public VBEmptyValue(Symbol? symbol = null)
-        : base(VBEmptyType.TypeInfo, symbol) { }
+    public VBEmptyValue(): base(VBEmptyType.TypeInfo, GlobalSymbols.Empty) { }
 
     public static VBEmptyValue Empty { get; } = new VBEmptyValue();
 
     public nint Value => nint.Zero;
     public override int Size => sizeof(int);
 
-    public VBDoubleValue AsCoercedNumeric(ref int depth) => VBDoubleValue.Zero;
+    public VBDoubleValue AsCoercedDouble(ref int depth) => VBDoubleValue.Zero;
     public VBStringValue AsCoercedString(ref int depth) => VBStringValue.ZeroLengthString;
     public VBFixedStringValue AsCoercedFixedLengthString(int length, ref int depth) => new(AsCoercedString(ref depth));
 

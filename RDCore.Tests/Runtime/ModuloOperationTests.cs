@@ -116,7 +116,7 @@ public class ModuloOperationTests : SymbolOperationTests
     public void EvaluateModulo_Empty_LetCoercion_Numeric_IsZero()
     {
         var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedNumeric(ref depth);
+        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
         Assert.AreEqual(0, result.Value);
     }
 

@@ -25,7 +25,7 @@ internal record class VBDateValue : VBTypedValue,
     public DateTime Value { get; init; } = default;
     public override int Size => 8;
 
-    public VBDoubleValue AsCoercedNumeric(ref int depth) => new VBDoubleValue(Symbol).WithValue(SerialValue);
+    public VBDoubleValue AsCoercedDouble(ref int depth) => new VBDoubleValue(Symbol).WithValue(SerialValue);
     public VBStringValue? AsCoercedString(ref int depth)
     {
         if (Value.Date.Equals(VBDateValue.Zero.Value.Date))

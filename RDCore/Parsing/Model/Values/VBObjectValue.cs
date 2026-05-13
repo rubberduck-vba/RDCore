@@ -23,7 +23,7 @@ internal record class VBObjectValue : VBTypedValue,
 
     public bool IsNothing() => Value == Nothing.Value;
 
-    public VBDoubleValue? AsCoercedNumeric(ref int depth) => LetCoerce(ref depth) is INumericValue value ? value.AsDouble() : null;
+    public VBDoubleValue? AsCoercedDouble(ref int depth) => LetCoerce(ref depth) is INumericValue value ? value.AsDouble() : null;
     public VBStringValue? AsCoercedString(ref int depth) => LetCoerce(ref depth) is VBStringValue value ? value : null;
     public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) => LetCoerce(ref depth) is VBStringValue value ? new VBFixedStringValue(value) : null;
 
@@ -55,7 +55,7 @@ internal record class VBObjectValue : VBTypedValue,
                 if (member.ResolvedType is INumericCoercion coercibleNumeric)
                 {
                     depth++;
-                    var value = coercibleNumeric.AsCoercedNumeric(ref depth);
+                    var value = coercibleNumeric.AsCoercedDouble(ref depth);
                     if (symbol != null && value != null)
                     {
                         return new VBDoubleValue(symbol).WithValue(value.Value);
