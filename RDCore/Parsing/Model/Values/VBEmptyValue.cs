@@ -10,7 +10,7 @@ internal record class VBEmptyValue : VBTypedValue,
 {
     public VBEmptyValue(): base(VBEmptyType.TypeInfo, GlobalSymbols.Empty) { }
 
-    public static VBEmptyValue Empty { get; } = new VBEmptyValue();
+    public static VBEmptyValue Empty { get; } = new() { TypeInfo = VBEmptyType.TypeInfo, Symbol = GlobalSymbols.Empty };
 
     public nint Value => nint.Zero;
     public override int Size => sizeof(int);

@@ -10,9 +10,9 @@ internal sealed record class VBDoubleValue : VBNumericTypedValue,
     public VBDoubleValue(Symbol? symbol = null)
         : base(VBDoubleType.TypeInfo, symbol) { }
 
-    public static VBDoubleValue MinValue { get; } = new VBDoubleValue { NumericValue = double.MinValue * Math.Pow(10, -4) };
-    public static VBDoubleValue MaxValue { get; } = new VBDoubleValue { NumericValue = double.MaxValue * Math.Pow(10, -4) };
-    public static VBDoubleValue Zero { get; } = new VBDoubleValue { NumericValue = 0 };
+    public static VBDoubleValue MinValue => new(){ NumericValue = double.MinValue * Math.Pow(10, -4), TypeInfo = VBDoubleType.TypeInfo };
+    public static VBDoubleValue MaxValue => new(){ NumericValue = double.MaxValue * Math.Pow(10, -4), TypeInfo = VBDoubleType.TypeInfo };
+    public static VBDoubleValue Zero => new(){ NumericValue = 0, TypeInfo = VBDoubleType.TypeInfo };
 
     VBDoubleValue INumericValue<VBDoubleValue>.MinValue => MinValue;
     VBDoubleValue INumericValue<VBDoubleValue>.Zero => Zero;
