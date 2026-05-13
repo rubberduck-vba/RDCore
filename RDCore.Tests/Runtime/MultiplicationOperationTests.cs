@@ -1,5 +1,4 @@
 using RDCore.Parsing;
-using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
@@ -180,7 +179,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
     [DataRow(40, 2, false)]
     [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", 1, false)]
     [DataRow("DateTime.Now", 1.2d, false)]
     [DataRow("DateTime.Now", "42", true)]
     public void EvaluateMultiplication_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
@@ -189,6 +188,21 @@ public class MultiplicationOperationTests : SymbolOperationTests
         _ = EvaluateMultiplication(context, lhs, rhs);
 
         AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.ImplicitWideningNumericConversion")]
+    [DataRow(40, 2, false)] // Integer * Integer => Integer
+    [DataRow(-1, "42", true)]
+    [DataRow("DateTime.Now", 1, true)] // Date * Integer => Double
+    [DataRow("DateTime.Now", 1.2d, false)]
+    [DataRow("DateTime.Now", "42", false)]
+    public void EvaluateMultiplication_ImplicitWideningConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateMultiplication(context, lhs, rhs);
+
+        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitWideningConversion, assertMissing: !expectDiagnostics);
     }
 
 

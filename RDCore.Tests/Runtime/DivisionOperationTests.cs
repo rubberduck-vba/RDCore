@@ -1,5 +1,4 @@
 using RDCore.Parsing;
-using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
@@ -7,6 +6,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -204,8 +204,10 @@ public class DivisionOperationTests : SymbolOperationTests
     {
         var lhsValue = Wrap(lhs, TestLocation);
         var rhsValue = Wrap(rhs, TestLocation);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Division, lhsValue, rhsValue, TestLocation);
 
-        return SymbolOperation.EvaluateBinaryDivision(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
+        var semantics = new DivisionOperatorRuntimeSemantics();
+
+        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

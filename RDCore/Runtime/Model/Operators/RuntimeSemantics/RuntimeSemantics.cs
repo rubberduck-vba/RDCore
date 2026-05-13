@@ -35,7 +35,18 @@ internal abstract record class RuntimeSemantics
                 {
                     if (operands.Length == 1)
                     {
-                        context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        if (operand is not VBNumericTypedValue)
+                        {
+                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        }
+                        else if (operand.Size < validOperand.Size)
+                        {
+                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(expression.Location.Range));
+                        }
+                        else if (operand.Size > validOperand.Size)
+                        {
+                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(expression.Location.Range));
+                        }
                     }
                     else if (expression is VBBinaryOperatorExpression op)
                     {
@@ -45,9 +56,17 @@ internal abstract record class RuntimeSemantics
                             {
                                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Left.Location.Range));
                             }
-                            else
+                            else if (operand is not VBNumericTypedValue)
                             {
                                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Left.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            }
+                            else if (operand.Size < validOperand.Size)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(op.Left.Location.Range));
+                            }
+                            else if (operand.Size > validOperand.Size)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(op.Left.Location.Range));
                             }
                         }
                         else if (validOperands.Count == 1)
@@ -56,9 +75,17 @@ internal abstract record class RuntimeSemantics
                             {
                                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Right.Location.Range));
                             }
-                            else
+                            else if (operand is not VBNumericTypedValue)
                             {
                                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Right.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            }
+                            else if (operand.Size < validOperand.Size)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(op.Right.Location.Range));
+                            }
+                            else if (operand.Size > validOperand.Size)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(op.Right.Location.Range));
                             }
                         }
                     }
