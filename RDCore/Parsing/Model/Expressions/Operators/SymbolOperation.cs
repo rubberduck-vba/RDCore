@@ -5,7 +5,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model.Operators;
 using RDCore.Server;
-using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 using System.Text;
 
 namespace RDCore.Parsing.Model.Expressions.Operators;
@@ -55,6 +55,141 @@ internal abstract record class UnaryArithmeticOperatorStaticSemantics : Arithmet
 }
 
 /// <summary>
+/// MS-VBAL 5.6.9.3.1 Unary '-' Operator (static semantics)
+/// </summary>
+internal record class UnaryMinusOperatorStaticSemantics : UnaryArithmeticOperatorStaticSemantics
+{
+    protected override VBType? DetermineOperatorStaticType(VBType operand)
+    {
+        if (operand is VBByteType)
+        {
+            return VBIntegerType.TypeInfo;
+        }
+
+        return base.DetermineOperatorStaticType(operand);
+    }
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.3.1 Unary '-' Operator (runtime semantics)
+/// </summary>
+internal record class UnaryMinusOperatorRuntimeSemantics : UnaryOperatorRuntimeSemantics
+{
+    protected override VBType? DetermineOperatorEffectiveType(VBType operand)
+    {
+        if (operand is VBByteType)
+        {
+            return VBIntegerType.TypeInfo;
+        }
+
+        return base.DetermineOperatorEffectiveType(operand);
+    }
+
+    protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBOperatorExpression expression, VBType effectiveType, VBTypedValue[] operands)
+    {
+        var operand = operands[0];
+        
+        if (effectiveType is VBByteType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBByteValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBIntegerType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBIntegerValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBLongType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBLongValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBLongLongType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBLongLongValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBSingleType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBSingleValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBDoubleType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBDoubleValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBCurrencyType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBCurrencyValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBDecimalType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBNumericTypedValue coercedNumeric)
+            {
+                var doubleValue = 0 - coercedNumeric.NumericValue;
+                return new VBDecimalValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+
+        else if (effectiveType is VBDateType)
+        {
+            var depth = 0;
+            if (operand is INumericCoercion coercibleNumeric && coercibleNumeric.AsCoercedDouble(ref depth) is VBDoubleValue coercedDouble)
+            {
+                // the Double value is the operand subtracted from 0.
+                // the result is the Double value Let-coerced to Date.
+                // if coercion to Date overflows and the operand is Variant, the result is the Double value.
+                var doubleValue = 0 - coercedDouble.Value;
+                if (operand is VBVariantValue && (doubleValue < VBDateValue.MinSerial || doubleValue > VBDateValue.MaxSerial))
+                {
+                    return new VBDoubleValue(expression.Symbol).WithValue(doubleValue);
+                }
+
+                return new VBDateValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBNullType)
+        {
+            return VBNullValue.Null;
+        }
+
+        Debug.Assert(false); // something is wrong, we shouldn't be here.
+        throw new InvalidOperationException();
+    }
+}
+
+/// <summary>
 /// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.
 /// </summary>
 internal abstract record class BinaryArithmeticOperatorStaticSemantics : ArithmeticOperatorStaticSemantics
@@ -73,34 +208,34 @@ internal abstract record class BinaryArithmeticOperatorStaticSemantics : Arithme
     {
         return lhs switch
         {
-            (VBByteType) when rhs is (VBByteType) => VBByteType.TypeInfo,
+            VBByteType when rhs is VBByteType => VBByteType.TypeInfo,
 
-            (VBBooleanType or VBIntegerType) when rhs is (VBByteType or VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType) when lhs is (VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
+            VBBooleanType or VBIntegerType when rhs is VBByteType or VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType when lhs is VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
 
-            (VBLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType) => VBLongType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBLongType) when rhs is (VBLongType) => VBLongType.TypeInfo,
+            VBLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBLongType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBLongType => VBLongType.TypeInfo,
 
-            (VBLongLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType) => VBLongLongType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType) when rhs is (VBLongLongType) => VBLongLongType.TypeInfo,
+            VBLongLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType => VBLongLongType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
-            (VBSingleType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType) => VBSingleType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBLongType) when rhs is (VBSingleType) => VBSingleType.TypeInfo,
+            VBSingleType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBSingleType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBSingleType => VBSingleType.TypeInfo,
 
-            (VBSingleType) when rhs is (VBLongType or VBLongLongType) => VBDoubleType.TypeInfo,
-            (VBLongType or VBLongLongType) when rhs is (VBSingleType) => VBDoubleType.TypeInfo,
+            VBSingleType when rhs is VBLongType or VBLongLongType => VBDoubleType.TypeInfo,
+            VBLongType or VBLongLongType when rhs is VBSingleType => VBDoubleType.TypeInfo,
 
-            (VBDoubleType or VBStringType or VBFixedStringType) when rhs is (INumericType or VBStringType or VBFixedStringType) => VBDoubleType.TypeInfo,
-            (INumericType or VBStringType or VBFixedStringType) when rhs is (VBDoubleType or VBStringType or VBFixedStringType) => VBDoubleType.TypeInfo,
+            VBDoubleType or VBStringType or VBFixedStringType when rhs is INumericType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
+            INumericType or VBStringType or VBFixedStringType when rhs is VBDoubleType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
 
-            (VBCurrencyType) when rhs is (INumericType or VBStringType or VBFixedStringType) => VBCurrencyType.TypeInfo,
-            (INumericType or VBStringType or VBFixedStringType) when lhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+            VBCurrencyType when rhs is INumericType or VBStringType or VBFixedStringType => VBCurrencyType.TypeInfo,
+            INumericType or VBStringType or VBFixedStringType when lhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
 
-            (VBDateType) when rhs is (INumericType or VBStringType or VBFixedStringType or VBDateType) => VBDateType.TypeInfo,
-            (INumericType or VBStringType or VBFixedStringType or VBDateType) when lhs is (VBDateType) => VBDateType.TypeInfo,
+            VBDateType when rhs is INumericType or VBStringType or VBFixedStringType or VBDateType => VBDateType.TypeInfo,
+            INumericType or VBStringType or VBFixedStringType or VBDateType when lhs is (VBDateType) => VBDateType.TypeInfo,
 
-            (VBVariantType) when rhs is not (VBArrayType or VBUserDefinedType) => VBVariantType.TypeInfo,
-            not (VBArrayType or VBUserDefinedType) when rhs is (VBVariantType) => VBVariantType.TypeInfo,
+            VBVariantType when rhs is not (VBArrayType or VBUserDefinedType) => VBVariantType.TypeInfo,
+            not (VBArrayType or VBUserDefinedType) when rhs is VBVariantType => VBVariantType.TypeInfo,
 
             _ => default
         };
@@ -119,6 +254,107 @@ internal record class AdditionOperatorStaticSemantics : BinaryArithmeticOperator
 internal abstract record class RuntimeSemantics
 {
     public abstract VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes);
+    public VBTypedValue? Evaluate(VBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands)
+    {
+        var effectiveType = DetermineEffectiveType([.. operands.Select(op => op.TypeInfo)]);
+        if (effectiveType is null)
+        {
+            // the operation is invalid
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+
+        var validOperands = new List<VBTypedValue>();
+        if (expression is VBBinaryOperatorExpression binaryOp)
+        {
+            CheckTypeMismatch(binaryOp, operands[0], operands[1]);
+        }
+        else
+        {
+            CheckTypeMismatch(expression, operands[0]);
+        }
+
+        foreach (var operand in operands) 
+        {
+            if (operand is not VBNullValue && LetCoerceNonNullOperand(effectiveType, operand) is VBTypedValue validOperand)
+            {
+                if (!validOperand.TypeInfo.Equals(operand.TypeInfo))
+                {
+                    if (operands.Length == 1)
+                    {
+                        context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                    }
+                    else if (expression is VBBinaryOperatorExpression op)
+                    {
+                        if (validOperands.Count == 0)
+                        {
+                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Left.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        }
+                        else if (validOperands.Count == 1)
+                        {
+                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Right.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        }
+                    }
+                }
+                validOperands.Add(validOperand);
+            }
+            else
+            {
+                validOperands.Add(operand);
+            }
+        }
+
+        return EvaluateOperationResult(context, expression, effectiveType, [.. validOperands]);
+    }
+
+    protected abstract VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBOperatorExpression expression, VBType effectiveType, VBTypedValue[] operands);
+
+    protected virtual void CheckTypeMismatch(VBOperatorExpression expression, VBTypedValue operand)
+    {
+        if (operand is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+    }
+
+    protected virtual void CheckTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        if (lhs is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+    }
+
+    protected virtual VBTypedValue? LetCoerceNonNullOperand(VBType effectiveType, VBTypedValue operand)
+    {
+        VBTypedValue? letCoercedOperand = null;
+        if (effectiveType is VBStringType && operand is IStringCoercion coercibleString)
+        {
+            var depth = 0;
+            letCoercedOperand = coercibleString.AsCoercedString(ref depth);
+        }
+        if (effectiveType is VBBooleanType && operand is IBooleanCoercion coercibleBoolean)
+        {
+            var depth = 0;
+            letCoercedOperand = coercibleBoolean.AsCoercedBoolean(ref depth);
+        }
+        if (effectiveType is VBDateType && operand is IDateCoercion coercibleDate)
+        {
+            var depth = 0;
+            letCoercedOperand = coercibleDate.AsCoercedDate(ref depth)
+                .AsCoercedDouble(ref depth); // date operands are let-coerced to Double before operation evaluation
+        }
+        if (effectiveType is INumericType && operand is INumericCoercion coercibleNumeric)
+        {
+            var depth = 0;
+            letCoercedOperand = coercibleNumeric.AsCoercedDouble(ref depth);
+        }
+
+        return letCoercedOperand ?? operand;
+    }
 }
 
 internal abstract record class ArithmeticOperatorRuntimeSemantics : RuntimeSemantics { }
@@ -168,45 +404,148 @@ internal abstract record class BinaryOperatorRuntimeSemantics : ArithmeticOperat
     {
         return lhs switch
         {
-            (VBByteType) when rhs is (VBByteType or VBEmptyType) => VBByteType.TypeInfo,
-            (VBByteType or VBEmptyType) when rhs is (VBByteType) => VBByteType.TypeInfo,
+            VBByteType when rhs is VBByteType or VBEmptyType => VBByteType.TypeInfo,
+            VBByteType or VBEmptyType when rhs is VBByteType => VBByteType.TypeInfo,
 
-            (VBBooleanType or VBIntegerType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType) => VBIntegerType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType) when rhs is (VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
-            (VBEmptyType) when rhs is (VBEmptyType) => VBIntegerType.TypeInfo,
+            VBBooleanType or VBIntegerType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBEmptyType => VBIntegerType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBEmptyType when rhs is VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
+            VBEmptyType when rhs is VBEmptyType => VBIntegerType.TypeInfo,
 
-            (VBLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType) => VBLongType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType) when rhs is (VBLongType) => VBLongType.TypeInfo,
+            VBLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType => VBLongType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType when rhs is VBLongType => VBLongType.TypeInfo,
 
-            (VBLongLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType) => VBLongLongType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType) when rhs is (VBLongLongType) => VBLongLongType.TypeInfo,
+            VBLongLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType => VBLongLongType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
-            (VBSingleType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType) => VBSingleType.TypeInfo,
-            (VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType) when rhs is (VBSingleType) => VBSingleType.TypeInfo,
+            VBSingleType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType => VBSingleType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType when rhs is VBSingleType => VBSingleType.TypeInfo,
 
-            (VBSingleType) when rhs is (VBLongType or VBLongLongType) => VBDoubleType.TypeInfo,
-            (VBLongType or VBLongLongType) when rhs is (VBSingleType) => VBDoubleType.TypeInfo,
-            (VBDoubleType or VBStringType) when rhs is (INumericType or VBStringType or VBEmptyType) => VBDoubleType.TypeInfo,
-            (INumericType or VBStringType or VBEmptyType) when rhs is (VBDoubleType or VBStringType) => VBDoubleType.TypeInfo,
+            VBSingleType when rhs is VBLongType or VBLongLongType => VBDoubleType.TypeInfo,
+            VBLongType or VBLongLongType when rhs is VBSingleType => VBDoubleType.TypeInfo,
+            VBDoubleType or VBStringType when rhs is INumericType or VBStringType or VBEmptyType => VBDoubleType.TypeInfo,
+            INumericType or VBStringType or VBEmptyType when rhs is VBDoubleType or VBStringType => VBDoubleType.TypeInfo,
 
-            (VBCurrencyType) when rhs is (INumericType or VBCurrencyType or VBStringType or VBEmptyType) => VBCurrencyType.TypeInfo,
-            (INumericType or VBStringType or VBEmptyType) when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+            VBCurrencyType when rhs is INumericType or VBCurrencyType or VBStringType or VBEmptyType => VBCurrencyType.TypeInfo,
+            INumericType or VBStringType or VBEmptyType when rhs is VBCurrencyType => VBCurrencyType.TypeInfo,
 
             // date values are let-coerced to VBDoubleValue
-            (VBDateType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType) => VBDateType.TypeInfo,
-            (INumericType or VBStringType or VBDateType or VBEmptyType) when rhs is (VBDateType) => VBDateType.TypeInfo,
+            VBDateType when rhs is INumericType or VBStringType or VBDateType or VBEmptyType => VBDateType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType when rhs is VBDateType => VBDateType.TypeInfo,
 
-            (VBDecimalType) when rhs is (INumericType or VBCurrencyType or VBStringType or VBEmptyType) => VBCurrencyType.TypeInfo,
-            (INumericType or VBStringType or VBEmptyType) when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+            VBDecimalType when rhs is INumericType or VBCurrencyType or VBStringType or VBEmptyType => VBCurrencyType.TypeInfo,
+            INumericType or VBStringType or VBEmptyType when rhs is VBCurrencyType => VBCurrencyType.TypeInfo,
 
-            (VBNullType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType) => VBNullType.TypeInfo,
-            (INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType) when rhs is (VBNullType) => VBNullType.TypeInfo,
+            VBNullType when rhs is INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType => VBNullType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType when rhs is VBNullType => VBNullType.TypeInfo,
 
-            (VBErrorType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType) => VBErrorType.TypeInfo,
-            (INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType) when rhs is (VBErrorType) => VBErrorType.TypeInfo,
+            VBErrorType when rhs is INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType => VBErrorType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType when rhs is VBErrorType => VBErrorType.TypeInfo,
 
             _ => default
         };
+    }
+}
+
+internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
+{
+    protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
+    {
+        if (lhs is VBStringType && rhs is VBStringType)
+        {
+            return VBStringType.TypeInfo;
+        }
+
+        return base.DetermineOperatorEffectiveType(lhs, rhs);
+    }
+
+    protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBOperatorExpression expression, VBType effectiveType, VBTypedValue[] operands)
+    {
+        var lhs = operands[0];
+        var rhs = operands[1];
+        var binaryOp = (VBBinaryOperatorExpression)expression;
+
+        if (effectiveType is INumericType)
+        {
+            var depth = 0;
+            var numericLhs = lhs is VBNumericTypedValue lhsNum 
+                ? lhsNum.NumericValue 
+                : lhs is INumericCoercion lhsCoercion
+                    ? lhsCoercion.AsCoercedDouble(ref depth)?.NumericValue
+                    : null;
+
+            depth = 0;
+            var numericRhs = rhs is VBNumericTypedValue rhsNum
+                ? rhsNum.NumericValue
+                : rhs is INumericCoercion rhsCoercion
+                    ? rhsCoercion.AsCoercedDouble(ref depth)?.NumericValue
+                    : null;
+
+            if (lhs is not VBNumericTypedValue)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(binaryOp.Left.Location.Range, lhs.TypeInfo, VBDoubleType.TypeInfo));
+            }
+            if (rhs is not VBNumericTypedValue)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(binaryOp.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
+            }
+
+            if (numericLhs.HasValue && numericRhs.HasValue)
+            {
+                var result = numericLhs.Value + numericRhs.Value;
+                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
+            }
+        }
+        else if (effectiveType is VBDateType)
+        {
+            var lhsDepth = 0;
+            var rhsDepth = 0;
+            if (lhs is INumericCoercion lhsCoercibleNumeric && lhsCoercibleNumeric.AsCoercedDouble(ref lhsDepth) is VBDoubleValue lhsCoercedDouble &&
+                rhs is INumericCoercion rhsCoercibleNumeric && rhsCoercibleNumeric.AsCoercedDouble(ref rhsDepth) is VBDoubleValue rhsCoercedDouble)
+            {
+                if (lhs is VBDateValue)
+                {
+                    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(binaryOp.Left.Location.Range));
+                }
+                if (rhs is VBDateValue)
+                {
+                    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(binaryOp.Right.Location.Range));
+                }
+
+                // the Double value is the sum of the operands.
+                // the result is the Double value Let-coerced to Date.
+                // if coercion to Date overflows and either operand is Variant (or both), the result is the Double value.
+                var doubleValue = lhsCoercedDouble.Value + rhsCoercedDouble.Value;
+                if ((doubleValue < VBDateValue.MinSerial || doubleValue > VBDateValue.MaxSerial) &&
+                    lhs is VBVariantValue || rhs is VBVariantValue)
+                {
+                    return new VBDoubleValue(expression.Symbol).WithValue(doubleValue);
+                }
+
+                return new VBDateValue(expression.Symbol).WithValue(doubleValue);
+            }
+        }
+        else if (effectiveType is VBStringType)
+        {
+            var lhsDepth = 0;
+            var rhsDepth = 0;
+            if (lhs is IStringCoercion lhsCoercibleString && lhsCoercibleString.AsCoercedString(ref lhsDepth) is VBStringValue lhsCoercedString &&
+                rhs is IStringCoercion rhsCoercibleString && rhsCoercibleString.AsCoercedString(ref rhsDepth) is VBStringValue rhsCoercedString)
+            {
+                if (lhs is VBStringValue && rhs is VBStringValue)
+                {
+                    context.AddDiagnostic(RDCoreDiagnostic.AmbiguousConcatenation(expression.Location.Range));
+                }
+
+                var result = $"{lhsCoercedString.Value}{rhsCoercedString.Value}";
+                return new VBStringValue(expression.Symbol).WithValue(result);
+            }
+        }
+        else if (effectiveType is VBNullType)
+        {
+            return VBNullValue.Null;
+        }
+
+        return default;
     }
 }
 
@@ -358,10 +697,10 @@ internal static class SymbolOperation
         // If one operand is a String and the other is a numeric, the String operand is converted to a Double.
         // RDC00109 is issued for each such implicit coercion, twice if both sides require numeric coercion.
         var lhsCoercionDepth = 0;
-        lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+        lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedDouble(ref lhsCoercionDepth)!;
 
         var rhsCoercionDepth = 0;
-        rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+        rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedDouble(ref rhsCoercionDepth)!;
 
         // determine the target type
         if (lhs is VBBooleanValue && rhs is VBBooleanValue)
@@ -676,10 +1015,10 @@ internal static class SymbolOperation
         }
 
         var lhsCoercionDepth = 0;
-        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedDouble(ref lhsCoercionDepth)!;
 
         var rhsCoercionDepth = 0;
-        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedDouble(ref rhsCoercionDepth)!;
 
         if (rhsNumeric.NumericValue == 0)
         {
@@ -759,10 +1098,10 @@ internal static class SymbolOperation
         }
 
         var lhsCoercionDepth = 0;
-        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedDouble(ref lhsCoercionDepth)!;
 
         var rhsCoercionDepth = 0;
-        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedDouble(ref rhsCoercionDepth)!;
 
         var actualRHS = (int)Math.Round(rhsNumeric?.NumericValue ?? 0, 0, MidpointRounding.ToEven);
         if (actualRHS == 0)
@@ -890,10 +1229,10 @@ internal static class SymbolOperation
         }
 
         var lhsCoercionDepth = 0;
-        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedNumeric(ref lhsCoercionDepth)!;
+        var lhsNumeric = lhs.TypeInfo is INumericType ? (VBNumericTypedValue)lhs : ((INumericCoercion)lhs).AsCoercedDouble(ref lhsCoercionDepth)!;
 
         var rhsCoercionDepth = 0;
-        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedNumeric(ref rhsCoercionDepth)!;
+        var rhsNumeric = rhs.TypeInfo is INumericType ? (VBNumericTypedValue)rhs : ((INumericCoercion)rhs).AsCoercedDouble(ref rhsCoercionDepth)!;
 
         var actualRHS = (int)Math.Round(rhsNumeric?.NumericValue ?? 0, 0, MidpointRounding.ToEven);
         if (actualRHS == 0)
@@ -1011,7 +1350,7 @@ internal static class SymbolOperation
     EvaluateUnaryOp(context, expression, value, v =>
     {
         var depth = 0;
-        var num = ((VBNumericTypedValue)v).AsCoercedNumeric(ref depth);
+        var num = ((VBNumericTypedValue)v).AsCoercedDouble(ref depth);
         return num.WithValue(~(long)num.NumericValue);
     });
 
@@ -1029,7 +1368,7 @@ internal static class SymbolOperation
 
         var numericResult = result as VBNumericTypedValue;
         var depth = 0;
-        var coercedResult = (result as INumericCoercion)?.AsCoercedNumeric(ref depth);
+        var coercedResult = (result as INumericCoercion)?.AsCoercedDouble(ref depth);
         {
             if (numericResult is null && coercedResult != null)
             {

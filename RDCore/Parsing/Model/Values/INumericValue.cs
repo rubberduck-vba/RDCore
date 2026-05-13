@@ -30,7 +30,7 @@ internal interface INumericValue<VBTValue> : INumericValue
 
 internal interface INumericCoercion
 {
-    VBDoubleValue? AsCoercedNumeric(ref int depth);
+    VBDoubleValue? AsCoercedDouble(ref int depth);
 }
 
 internal interface IStringCoercion

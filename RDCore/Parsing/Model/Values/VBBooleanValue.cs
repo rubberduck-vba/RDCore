@@ -16,7 +16,7 @@ internal record class VBBooleanValue : VBTypedValue, IVBTypedValue<VBBooleanValu
     public bool Value { get; init; } = default;
     public override int Size { get; } = 16;
 
-    public VBDoubleValue? AsCoercedNumeric(ref int depth) => new VBDoubleValue(Symbol).WithValue(-1 * Convert.ToDouble(Value));
+    public VBDoubleValue? AsCoercedDouble(ref int depth) => new VBDoubleValue(Symbol).WithValue(-1 * Convert.ToDouble(Value));
     public VBStringValue? AsCoercedString(ref int depth) => new VBStringValue(Symbol).WithValue(ToString());
     public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) => AsCoercedString(ref depth) is VBStringValue value ? new(value) : null;
 

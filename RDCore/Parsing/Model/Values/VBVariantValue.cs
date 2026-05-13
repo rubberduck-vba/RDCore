@@ -14,8 +14,8 @@ internal record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValu
     public object? Value { get; init; } = default;
     public override int Size => nint.Size;
 
-    public VBDoubleValue? AsCoercedNumeric(ref int depth) =>
-        ((VBVariantType)TypeInfo).Subtype is INumericCoercion coercibleNumeric ? coercibleNumeric.AsCoercedNumeric(ref depth) : null;
+    public VBDoubleValue? AsCoercedDouble(ref int depth) =>
+        ((VBVariantType)TypeInfo).Subtype is INumericCoercion coercibleNumeric ? coercibleNumeric.AsCoercedDouble(ref depth) : null;
 
     public VBStringValue? AsCoercedString(ref int depth) =>
         ((VBVariantType)TypeInfo).Subtype is IStringCoercion coercibleString ? coercibleString.AsCoercedString(ref depth) : null;

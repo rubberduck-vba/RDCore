@@ -19,8 +19,8 @@ internal abstract record class VBType
         [typeof(VBBooleanType)] = symbol => new VBBooleanValue(symbol),
         [typeof(VBDateType)] = symbol => new VBDateValue(symbol),
         [typeof(VBVariantType)] = symbol => new VBVariantValue(VBEmptyValue.Empty, symbol),
-        [typeof(VBNullType)] = symbol => new VBNullValue(symbol),
-        [typeof(VBEmptyType)] = symbol => new VBEmptyValue(symbol),
+        [typeof(VBNullType)] = symbol => new VBNullValue(),
+        [typeof(VBEmptyType)] = symbol => new VBEmptyValue(),
         [typeof(VBObjectType)] = symbol => new VBObjectValue(symbol)
     };
 

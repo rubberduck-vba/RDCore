@@ -22,7 +22,7 @@ namespace RDCore.Server {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class RDCoreDiagnosticsResources {
+    public class RDCoreDiagnosticsResources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace RDCore.Server {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("RDCore.Server.RDCoreDiagnosticsResources", typeof(RDCoreDiagnosticsResources).Assembly);
@@ -51,7 +51,7 @@ namespace RDCore.Server {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Les deux opérandes sont des &apos;String&apos;; utiliser l&apos;opérateur de concaténation &apos;&amp;&apos; rendrait l&apos;intention plus explicite ici..
         /// </summary>
-        internal static string AmbiguousConcatenation_Message {
+        public static string AmbiguousConcatenation_Message {
             get {
                 return ResourceManager.GetString("AmbiguousConcatenation_Message", resourceCulture);
             }
@@ -72,7 +72,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Le résultat de cette opération est obtenu en utilisant une arithmétique sur la représentation binaire (en bits) des opérandes. Ceci peut produire des résultats surprenants si on s&apos;attendait ici à une logique conventionnelle. Si l&apos;opération binaire n&apos;est pas intentionnelle, elle pourrait cacher un bug..
         /// </summary>
-        internal static string BitwiseOperator_Message {
+        public static string BitwiseOperator_Message {
             get {
                 return ResourceManager.GetString("BitwiseOperator_Message", resourceCulture);
             }
@@ -81,7 +81,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Bloc de code vide inutile; implémenter un corps, ou en considérer la suppression..
         /// </summary>
-        internal static string EmptyCodeBlock_Message {
+        public static string EmptyCodeBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyCodeBlock_Message", resourceCulture);
             }
@@ -90,7 +90,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Bloc conditionnel vide; inverser l&apos;expression de la condition en permettrait la simplification..
         /// </summary>
-        internal static string EmptyIfBlock_Message {
+        public static string EmptyIfBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyIfBlock_Message", resourceCulture);
             }
@@ -99,7 +99,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to L&apos;énumération d&apos;un tableau est inefficace et serait plus performante en utilisant plutôt une structure `For...Next` et un accès indiciel..
         /// </summary>
-        internal static string EnumerationOverArray_Message {
+        public static string EnumerationOverArray_Message {
             get {
                 return ResourceManager.GetString("EnumerationOverArray_Message", resourceCulture);
             }
@@ -108,7 +108,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Conversion `DateSerial` implicite; utiliser les fonctions du module `VBA.DateTime` pour effectuer des opérations sur des dates/heures rendrait l&apos;intention plus explicite et simplifierait la lecture en élevant un peu le niveau d&apos;abstraction..
         /// </summary>
-        internal static string ImplicitDateSerialConversion_Message {
+        public static string ImplicitDateSerialConversion_Message {
             get {
                 return ResourceManager.GetString("ImplicitDateSerialConversion_Message", resourceCulture);
             }
@@ -117,7 +117,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Coercion `Let` implicite (`{toType.Name}`) de `{fromType.Name}`; invoquer explicitement les membres visés évite les appels implicites &quot;magiques&quot; qui sont difficiles à suivre et à comprendre sans tracer d&apos;obscurs attributs cachés..
         /// </summary>
-        internal static string ImplicitLetCoercion_message {
+        public static string ImplicitLetCoercion_message {
             get {
                 return ResourceManager.GetString("ImplicitLetCoercion_message", resourceCulture);
             }
@@ -126,7 +126,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Conversion implicite (réduction), d&apos;un type numérique à un autre dont la capacité est moindre - attention, un dépassement arithmétique (overflow) est techniquement possible ici..
         /// </summary>
-        internal static string ImplicitNarrowingConversion_Message {
+        public static string ImplicitNarrowingConversion_Message {
             get {
                 return ResourceManager.GetString("ImplicitNarrowingConversion_Message", resourceCulture);
             }
@@ -135,7 +135,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Coercion numérique implicite (`{toType.Name}`) from `{fromType.Name}`; l&apos;utilisation d&apos;une fonction de conversion explicite améliorerait la traçabilité des types impliqués..
         /// </summary>
-        internal static string ImplicitNumericCoercion_Message {
+        public static string ImplicitNumericCoercion_Message {
             get {
                 return ResourceManager.GetString("ImplicitNumericCoercion_Message", resourceCulture);
             }
@@ -144,7 +144,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Coercion `String` implicite depuis `{fromType.Name}`; considérez l&apos;utilisation d&apos;une fonction de conversion explicite (par exemple `CStr`) pour rendre cette opération plus intentionnelle..
         /// </summary>
-        internal static string ImplicitStringCoercion_Message {
+        public static string ImplicitStringCoercion_Message {
             get {
                 return ResourceManager.GetString("ImplicitStringCoercion_Message", resourceCulture);
             }
@@ -153,7 +153,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Conversion implicite (élargissement), d&apos;un type numérique à un autre dont la capacité est supérieure; l&apos;utilisation d&apos;une fonction de conversion explicite rendrait l&apos;opération plus intentionnelle..
         /// </summary>
-        internal static string ImplicitWideningConversion_Message {
+        public static string ImplicitWideningConversion_Message {
             get {
                 return ResourceManager.GetString("ImplicitWideningConversion_Message", resourceCulture);
             }
@@ -162,7 +162,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Appel à liaison tardive (late binding): VBA ne validera pas cet appel au moment de la compilation, ce qui peut produire des erreurs qui seraient évitables en utilisant un type plus spécifique que `Variant` ou `Object`, lorsque c&apos;est possible..
         /// </summary>
-        internal static string LateBoundMemberAccess_Message {
+        public static string LateBoundMemberAccess_Message {
             get {
                 return ResourceManager.GetString("LateBoundMemberAccess_Message", resourceCulture);
             }
@@ -171,7 +171,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Utiliser la méthode `Err.Raise` pour soulever des erreurs à l&apos;exécution plutôt que l&apos;instruction `Error`, qui comme plusieurs autres instructions existe pour fins de rétro-compatibilité avec des itérations du langage BASIC plus anciennes encore..
         /// </summary>
-        internal static string PreferErrRaiseOverErrorStatement_Message {
+        public static string PreferErrRaiseOverErrorStatement_Message {
             get {
                 return ResourceManager.GetString("PreferErrRaiseOverErrorStatement_Message", resourceCulture);
             }
@@ -180,7 +180,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Le mode de prédiction SLL de l&apos;analyseur a échoué ici; si possible, reformuler cette instruction pourrait améliorer les performances du serveur de langage..
         /// </summary>
-        internal static string SllFailure_Message {
+        public static string SllFailure_Message {
             get {
                 return ResourceManager.GetString("SllFailure_Message", resourceCulture);
             }
@@ -189,7 +189,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Assignation de valeur suspecte: les deux côtés de l&apos;opérateur étant des objets, on dirait vraiment ici que l&apos;intention était plutôt d&apos;effectuer une assignation de référence. Possible qu&apos;il y manque le mot-clé `Set`?.
         /// </summary>
-        internal static string SuspiciousValueAssignment_Message {
+        public static string SuspiciousValueAssignment_Message {
             get {
                 return ResourceManager.GetString("SuspiciousValueAssignment_Message", resourceCulture);
             }
@@ -198,7 +198,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Cette assignation convertit l&apos;objet de droite (RHS) en une interface compatible d&apos;un autre type..
         /// </summary>
-        internal static string TypeCastConversion_Message {
+        public static string TypeCastConversion_Message {
             get {
                 return ResourceManager.GetString("TypeCastConversion_Message", resourceCulture);
             }
@@ -207,7 +207,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Expression constante possiblement non-intentionnelle; cette opération n&apos;affecte pas la valeur..
         /// </summary>
-        internal static string UnintendedConstantExpression_Message {
+        public static string UnintendedConstantExpression_Message {
             get {
                 return ResourceManager.GetString("UnintendedConstantExpression_Message", resourceCulture);
             }
@@ -216,7 +216,7 @@ namespace RDCore.Server {
         /// <summary>
         ///   Looks up a localized string similar to Appel à liaison tardive non résolu: il semble que cet appel pourrait soulever l&apos;erreur d&apos;exécution 438 (VBR00438)..
         /// </summary>
-        internal static string UnresolvedLateBoundMemberAccess_Message {
+        public static string UnresolvedLateBoundMemberAccess_Message {
             get {
                 return ResourceManager.GetString("UnresolvedLateBoundMemberAccess_Message", resourceCulture);
             }

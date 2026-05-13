@@ -22,7 +22,7 @@ internal abstract record class VBNumericTypedValue : VBTypedValue,
 
     public abstract double NumericValue { get; init; }
 
-    public virtual VBDoubleValue AsCoercedNumeric(ref int depth) => AsDouble();
+    public virtual VBDoubleValue AsCoercedDouble(ref int depth) => AsDouble();
     public virtual VBStringValue AsCoercedString(ref int depth)
     {
         var isNegative = NumericValue < 0;

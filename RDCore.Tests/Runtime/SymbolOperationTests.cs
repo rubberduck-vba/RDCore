@@ -64,7 +64,7 @@ public abstract class SymbolOperationTests
             int i => new LiteralExpression<VBIntegerValue>(location).WithResultValue(new VBIntegerValue().WithValue(i)),
             long i => new LiteralExpression<VBLongLongValue>(location).WithResultValue(new VBLongLongValue().WithValue(i)),
             double d => new LiteralExpression<VBDoubleValue>(location).WithResultValue(new VBDoubleValue().WithValue(d)),
-            null => new LiteralExpression<VBObjectValue>(location).WithResultValue(VBNullValue.Null),
+            null => new LiteralExpression<VBNullValue>(location).WithResultValue(VBNullValue.Null),
             _ => throw new NotSupportedException()
         };
     }
