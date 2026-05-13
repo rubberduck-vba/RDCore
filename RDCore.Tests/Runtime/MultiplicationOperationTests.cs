@@ -7,6 +7,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -179,7 +180,8 @@ public class MultiplicationOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
     [DataRow(40, 2, false)]
     [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, false)]
+    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", 1.2d, false)]
     [DataRow("DateTime.Now", "42", true)]
     public void EvaluateMultiplication_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
     {
@@ -195,7 +197,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
         var lhsValue = Wrap(lhs, TestLocationLHS);
         var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
-
-        return SymbolOperation.EvaluateBinaryMultiplication(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        var semantics = new MultiplicationOperatorRuntimeSemantics();
+        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }
