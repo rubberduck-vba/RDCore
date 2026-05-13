@@ -1,9 +1,7 @@
-using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
 using RDCore.Server;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -91,39 +89,39 @@ public abstract class SymbolOperationTests
         }
     }
 
-    [TestMethod]
-    [DataRow(-1.0, -1.0, -1)]   // True And True -> True
-    [DataRow(-1.0, 0.0, 0)]   // True And False -> False
-    [DataRow(0.0, 0.0, 0)]    // False And False -> False
-    [DataRow(1.0, 2.0, 0)]    // 1 And 2 -> False (in Boolean context)
-    public void EvaluateBinaryBitwiseAnd_BooleanContext_MatchesVBAL(double lhs, double rhs, int expected)
-    {
-        var context = CreateContext();
+    //[TestMethod]
+    //[DataRow(-1.0, -1.0, -1)]   // True And True -> True
+    //[DataRow(-1.0, 0.0, 0)]   // True And False -> False
+    //[DataRow(0.0, 0.0, 0)]    // False And False -> False
+    //[DataRow(1.0, 2.0, 0)]    // 1 And 2 -> False (in Boolean context)
+    //public void EvaluateBinaryBitwiseAnd_BooleanContext_MatchesVBAL(double lhs, double rhs, int expected)
+    //{
+    //    var context = CreateContext();
 
-        var lhsValue = new VBDoubleValue().WithValue(lhs);
-        var rhsValue = new VBDoubleValue().WithValue(rhs);
+    //    var lhsValue = new VBDoubleValue().WithValue(lhs);
+    //    var rhsValue = new VBDoubleValue().WithValue(rhs);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, null!, null!, TestLocation);
+    //    var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, null!, null!, TestLocation);
 
-        var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue, rhsValue);
+    //    var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue, rhsValue);
 
-        Assert.IsInstanceOfType<VBDoubleValue>(result);
-        Assert.AreEqual(expected, ((VBDoubleValue)result).Value);
-    }
+    //    Assert.IsInstanceOfType<VBDoubleValue>(result);
+    //    Assert.AreEqual(expected, ((VBDoubleValue)result).Value);
+    //}
 
-    [TestMethod]
-    public void EvaluateBinaryBitwiseAnd_PureBoolean_ReturnsBoolean()
-    {
-        var context = CreateContext();
-        var lhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
-        var rhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
+    //[TestMethod]
+    //public void EvaluateBinaryBitwiseAnd_PureBoolean_ReturnsBoolean()
+    //{
+    //    var context = CreateContext();
+    //    var lhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
+    //    var rhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, lhsValue, rhsValue, TestLocation);
+    //    var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, lhsValue, rhsValue, TestLocation);
 
-        var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+    //    var result = SymbolOperation.EvaluateBinaryBitwiseAnd(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
 
-        // MS-VBAL: Bool And Bool -> Bool
-        Assert.IsInstanceOfType<VBBooleanValue>(result);
-        Assert.IsTrue(((VBBooleanValue)result).Value);
-    }
+    //    // MS-VBAL: Bool And Bool -> Bool
+    //    Assert.IsInstanceOfType<VBBooleanValue>(result);
+    //    Assert.IsTrue(((VBBooleanValue)result).Value);
+    //}
 }

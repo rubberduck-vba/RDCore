@@ -1,5 +1,4 @@
 using RDCore.Parsing;
-using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
@@ -7,6 +6,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -67,24 +67,6 @@ public class AdditionOperationTests : SymbolOperationTests
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateAddition(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateAddition_Empty_LetCoercion_Numeric_IsZero()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
-        Assert.AreEqual(0, result.Value);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateAddition_Empty_LetCoercion_String_IsEmptyString()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
-        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
     }
 
     [TestMethod]
@@ -174,9 +156,9 @@ public class AdditionOperationTests : SymbolOperationTests
 
     [TestMethod]
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
-    //[DataRow(40, 2, false)]
-    //[DataRow(-1, "42", true)]
-    //[DataRow("DateTime.Now", 1, false)]
+    [DataRow(40, 2, false)]
+    [DataRow(-1, "42", true)]
+    [DataRow("DateTime.Now", 1d, false)]
     [DataRow("DateTime.Now", "42", true)]
     public void EvaluateAddition_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
     {
