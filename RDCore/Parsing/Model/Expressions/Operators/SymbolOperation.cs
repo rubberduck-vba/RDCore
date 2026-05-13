@@ -5,6 +5,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model.Operators;
 using RDCore.Server;
+using System.Text;
 
 namespace RDCore.Parsing.Model.Expressions.Operators;
 
@@ -197,6 +198,107 @@ internal static class SymbolOperation
         }
     }
 
+
+    public static VBTypedValue EvaluateBinaryConcat(
+        VBExecutionContext context,
+        VBBinaryOperatorExpression expression,
+        VBTypedValue lhs,
+        VBTypedValue rhs
+        )
+    {
+        if (lhs is VBNullValue && rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
+        else if (lhs is VBNullValue)
+        {
+            lhs = VBStringValue.VBNullString;
+        }
+        else if (rhs is VBNullValue)
+        {
+            rhs = VBStringValue.VBNullString;
+        }
+
+        VBStringValue lhsString = default!;
+        if (lhs is VBResizableArrayValue lhsArray && lhsArray.ItemType == VBByteType.TypeInfo)
+        {
+            // MS-VBAL 5.5.1.2.6 Let-coercion to and from resizable Byte()
+            // TODO verify about fixed-size Byte()
+            var bytes = lhsArray.Dimensions[0].State
+                .OfType<VBByteValue>()
+                .Select(e => e.Value)
+                .ToArray();
+
+            // spec says it's implementation-defined, but also that
+            // let-coercion from Byte() array should be through StrConv (stdlib).
+            // so... TODO here.
+            var value = Encoding.ASCII.GetString(bytes);
+            lhsString = new VBStringValue(lhs.Symbol).WithValue(value);
+        }
+
+        if (lhs is VBStringValue lhsStringValue)
+        {
+            lhsString = lhsStringValue;
+        }
+        else if(lhs is IStringCoercion lhsCoercible)
+        {
+            var depth = 0;
+            if (lhsCoercible.AsCoercedString(ref depth) is VBStringValue lhsCoerced)
+            {
+                // do we issue a diagnostic here?
+                //context.AddDiagnostic(RDCoreDiagnostic.ImplicitStringCoercion(expression.Left.Location.Range, lhs.TypeInfo));
+                lhsString = lhsCoerced;
+            }
+        }
+        if (lhsString == default)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+
+        VBStringValue rhsString = default!;
+        if (rhs is VBResizableArrayValue rhsArray && rhsArray.ItemType == VBByteType.TypeInfo)
+        {
+            // MS-VBAL 5.5.1.2.6 Let-coercion to and from resizable Byte()
+            // TODO verify about fixed-size Byte()
+            var bytes = rhsArray.Dimensions[0].State
+                .OfType<VBByteValue>()
+                .Select(e => e.Value)
+                .ToArray();
+
+            // spec says it's implementation-defined, but also that
+            // let-coercion from Byte() array should be through StrConv (stdlib).
+            // so... TODO here.
+            var value = Encoding.ASCII.GetString(bytes);
+            rhsString = new VBStringValue(rhs.Symbol).WithValue(value);
+        }
+
+        if (rhs is VBStringValue rhsStringValue)
+        {
+            rhsString = rhsStringValue;
+        }
+        else if (rhs is IStringCoercion rhsCoercible)
+        {
+            var depth = 0;
+            if (rhsCoercible.AsCoercedString(ref depth) is VBStringValue rhsCoerced)
+            {
+                // do we issue a diagnostic here?
+                //context.AddDiagnostic(RDCoreDiagnostic.ImplicitStringCoercion(expression.Right.Location.Range, rhs.TypeInfo));
+                rhsString = rhsCoerced;
+            }
+        }
+        if (rhsString == default)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+
+        if (lhsString != default && rhsString != default)
+        {
+            var result = $"{lhsString.Value}{rhsString.Value}";
+            return new VBStringValue(expression.Symbol).WithValue(result);
+        }
+
+        throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+    }
 
     public static VBTypedValue EvaluateBinaryAddition(
         VBExecutionContext context,

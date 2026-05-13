@@ -34,6 +34,7 @@ internal static class GlobalSymbols
         new BitwiseImpOperatorSymbol(),
         new BitwiseEqvOperatorSymbol(),
         new IsRefEqOperatorSymbol(),
+        new ConcatOperatorSymbol(),
 
         new MemberAccessOperatorSymbol(),
     ];
@@ -52,6 +53,7 @@ internal static class GlobalSymbols
     public static readonly BinaryOperatorSymbol BitwiseEqv = Operators.OfType<BitwiseEqvOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol IsRefEquals = Operators.OfType<IsRefEqOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol MemberAccess = Operators.OfType<MemberAccessOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol Concat = Operators.OfType<ConcatOperatorSymbol>().Single();
 
     public static readonly UnaryOperatorSymbol Parentheses = Operators.OfType<ParenthesizedExpressionOperatorSymbol>().Single();
     public static readonly UnaryOperatorSymbol UnaryMinus = Operators.OfType<UnaryMinusOperatorSymbol>().Single();

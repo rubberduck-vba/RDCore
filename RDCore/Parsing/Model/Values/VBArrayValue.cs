@@ -6,7 +6,7 @@ namespace RDCore.Parsing.Model.Values;
 
 internal abstract record class VBArrayValue : VBTypedValue
 {
-    public VBArrayValue((int lBound, int uBound)[] dimensions, VBType? itemType = null, Symbol? symbol = null)
+    protected VBArrayValue((int lBound, int uBound)[] dimensions, VBType? itemType = null, Symbol? symbol = null)
         : base(VBArrayType.TypeInfo, symbol)
     {
         ItemType = itemType ?? VBVariantType.TypeInfo;
