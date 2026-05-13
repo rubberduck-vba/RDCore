@@ -43,11 +43,25 @@ internal abstract record class RuntimeSemantics
                     {
                         if (validOperands.Count == 0)
                         {
-                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Left.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            if (operand.TypeInfo is VBDateType)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Left.Location.Range));
+                            }
+                            else
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Left.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            }
                         }
                         else if (validOperands.Count == 1)
                         {
-                            context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Right.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            if (operand.TypeInfo is VBDateType)
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Right.Location.Range));
+                            }
+                            else
+                            {
+                                context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Right.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            }
                         }
                     }
                 }

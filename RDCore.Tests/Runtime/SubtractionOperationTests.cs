@@ -7,6 +7,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -68,24 +69,6 @@ public class SubtractionOperationTests : SymbolOperationTests
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateSubtraction(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateSubtraction_Empty_LetCoercion_Numeric_IsZero()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
-        Assert.AreEqual(0, result.Value);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateSubtraction_Empty_LetCoercion_String_IsEmptyString()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
-        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
     }
 
     [TestMethod]
@@ -192,7 +175,8 @@ public class SubtractionOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
     [DataRow(40, 2, false)]
     [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, false)]
+    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", 1.5d, false)]
     [DataRow("DateTime.Now", "42", true)]
     public void EvaluateSubtraction_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
     {
@@ -207,7 +191,7 @@ public class SubtractionOperationTests : SymbolOperationTests
         var lhsValue = Wrap(lhs, TestLocationLHS);
         var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Subtraction, lhsValue, rhsValue, TestLocation);
-
-        return SymbolOperation.EvaluateBinarySubtraction(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        var semantics = new SubtractionOperatorRuntimeSematics();
+        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

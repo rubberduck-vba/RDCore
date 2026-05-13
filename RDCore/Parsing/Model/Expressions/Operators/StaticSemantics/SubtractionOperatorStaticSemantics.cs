@@ -3,15 +3,15 @@
 namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.StaticSemantics;
 
 /// <summary>
-/// MS-VBAL 5.6.9.3.2 Binary '+' Operator
+/// MS-VBAL 5.6.9.3.3 Binary '-' Operator
 /// </summary>
-internal record class AdditionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
+internal record class SubtractionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
 {
     protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {
-        if (lhs is VBStringType && rhs is VBStringType)
+        if (lhs is VBDateType && rhs is VBDateType)
         {
-            return VBStringType.TypeInfo;
+            return VBDoubleType.TypeInfo;
         }
 
         return base.DetermineOperatorStaticType(lhs, rhs);

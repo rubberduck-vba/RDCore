@@ -4,13 +4,13 @@ using RDCore.Server;
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 
-internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
+internal record class SubtractionOperatorRuntimeSematics : BinaryOperatorRuntimeSemantics
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
     {
-        if (lhs is VBStringType && rhs is VBStringType)
+        if (lhs is VBDateType && rhs is VBDateType)
         {
-            return VBStringType.TypeInfo;
+            return VBDoubleType.TypeInfo;
         }
 
         return base.DetermineOperatorEffectiveType(lhs, rhs);
@@ -25,8 +25,8 @@ internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSe
         if (effectiveType is INumericType)
         {
             var depth = 0;
-            var numericLhs = lhs is VBNumericTypedValue lhsNum 
-                ? lhsNum.NumericValue 
+            var numericLhs = lhs is VBNumericTypedValue lhsNum
+                ? lhsNum.NumericValue
                 : lhs is INumericCoercion lhsCoercion
                     ? lhsCoercion.AsCoercedDouble(ref depth)?.NumericValue
                     : null;
@@ -46,10 +46,18 @@ internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSe
             {
                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(binaryOp.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
             }
+            if (lhs is VBDateValue)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(binaryOp.Left.Location.Range));
+            }
+            if (rhs is VBDateValue)
+            {
+                context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(binaryOp.Right.Location.Range));
+            }
 
             if (numericLhs.HasValue && numericRhs.HasValue)
             {
-                var result = numericLhs.Value + numericRhs.Value;
+                var result = numericLhs.Value - numericRhs.Value;
                 return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
             }
         }
@@ -69,10 +77,10 @@ internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSe
                     context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(binaryOp.Right.Location.Range));
                 }
 
-                // the Double value is the sum of the operands.
+                // the Double value subtracts RHS from LHS.
                 // the result is the Double value Let-coerced to Date.
                 // if coercion to Date overflows and either operand is Variant (or both), the result is the Double value.
-                var doubleValue = lhsCoercedDouble.Value + rhsCoercedDouble.Value;
+                var doubleValue = lhsCoercedDouble.Value - rhsCoercedDouble.Value;
                 if ((doubleValue < VBDateValue.MinSerial || doubleValue > VBDateValue.MaxSerial) &&
                     lhs is VBVariantValue || rhs is VBVariantValue)
                 {
@@ -80,22 +88,6 @@ internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSe
                 }
 
                 return new VBDateValue(expression.Symbol).WithValue(doubleValue);
-            }
-        }
-        else if (effectiveType is VBStringType)
-        {
-            var lhsDepth = 0;
-            var rhsDepth = 0;
-            if (lhs is IStringCoercion lhsCoercibleString && lhsCoercibleString.AsCoercedString(ref lhsDepth) is VBStringValue lhsCoercedString &&
-                rhs is IStringCoercion rhsCoercibleString && rhsCoercibleString.AsCoercedString(ref rhsDepth) is VBStringValue rhsCoercedString)
-            {
-                if (lhs is VBStringValue && rhs is VBStringValue)
-                {
-                    context.AddDiagnostic(RDCoreDiagnostic.AmbiguousConcatenation(expression.Location.Range));
-                }
-
-                var result = $"{lhsCoercedString.Value}{rhsCoercedString.Value}";
-                return new VBStringValue(expression.Symbol).WithValue(result);
             }
         }
         else if (effectiveType is VBNullType)
