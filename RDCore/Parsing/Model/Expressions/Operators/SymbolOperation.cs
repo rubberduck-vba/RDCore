@@ -5,9 +5,210 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model.Operators;
 using RDCore.Server;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace RDCore.Parsing.Model.Expressions.Operators;
+
+/// <summary>
+/// A type hierarchy to compose the semantic layer and cleanly separate static and runtime semantics, to clean up <c>SymbolOperation</c>.
+/// </summary>
+internal abstract record class StaticSemantics
+{
+    public abstract VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes);
+}
+
+internal abstract record class ArithmeticOperatorStaticSemantics : StaticSemantics
+{
+}
+
+/// <summary>
+/// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.
+/// </summary>
+internal abstract record class UnaryArithmeticOperatorStaticSemantics : ArithmeticOperatorStaticSemantics
+{
+    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorStaticType(operandDeclaredTypes[0]);
+
+    /// <summary>
+    /// MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics) 
+    /// The operator has the declared type returned by this method, based on the declared type of its operands.
+    /// </summary>
+    /// <param name="operand">The declared type of the operand.</param>
+    /// <returns><c>null</c> if no type is statically valid.</returns>
+    protected virtual VBType? DetermineOperatorStaticType(VBType operand)
+    {
+        return operand switch
+        {
+            VBByteType => VBByteType.TypeInfo,
+            VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
+            VBLongType => VBLongType.TypeInfo,
+            VBLongLongType => VBLongLongType.TypeInfo,
+            VBSingleType => VBSingleType.TypeInfo,
+            VBDoubleType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo, // note: fixed string inherits string
+            VBCurrencyType => VBCurrencyType.TypeInfo,
+            VBDateType => VBDateType.TypeInfo,
+            VBVariantType => VBVariantType.TypeInfo,
+            _ => default
+        };
+    }
+}
+
+/// <summary>
+/// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.
+/// </summary>
+internal abstract record class BinaryArithmeticOperatorStaticSemantics : ArithmeticOperatorStaticSemantics
+{
+    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
+
+    /// <summary>
+    /// MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics) 
+    /// The operator has the declared type returned by this method, based on the declared type of its operands.
+    /// </summary>
+    /// <param name="lhs">The declared type of the LHS operand.</param>
+    /// <param name="rhs">The declared type of the RHS operand.</param>
+    /// <returns><c>null</c> if no type is statically valid.</returns>
+    protected virtual VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
+    {
+        return lhs switch
+        {
+            (VBByteType) when rhs is (VBByteType) => VBByteType.TypeInfo,
+
+            (VBBooleanType or VBIntegerType) when rhs is (VBByteType or VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType) when lhs is (VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
+
+            (VBLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType) => VBLongType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBLongType) when rhs is (VBLongType) => VBLongType.TypeInfo,
+
+            (VBLongLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType) => VBLongLongType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType) when rhs is (VBLongLongType) => VBLongLongType.TypeInfo,
+
+            (VBSingleType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType) => VBSingleType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBLongType) when rhs is (VBSingleType) => VBSingleType.TypeInfo,
+
+            (VBSingleType) when rhs is (VBLongType or VBLongLongType) => VBDoubleType.TypeInfo,
+            (VBLongType or VBLongLongType) when rhs is (VBSingleType) => VBDoubleType.TypeInfo,
+
+            (VBDoubleType or VBStringType or VBFixedStringType) when rhs is (INumericType or VBStringType or VBFixedStringType) => VBDoubleType.TypeInfo,
+            (INumericType or VBStringType or VBFixedStringType) when rhs is (VBDoubleType or VBStringType or VBFixedStringType) => VBDoubleType.TypeInfo,
+
+            (VBCurrencyType) when rhs is (INumericType or VBStringType or VBFixedStringType) => VBCurrencyType.TypeInfo,
+            (INumericType or VBStringType or VBFixedStringType) when lhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+
+            (VBDateType) when rhs is (INumericType or VBStringType or VBFixedStringType or VBDateType) => VBDateType.TypeInfo,
+            (INumericType or VBStringType or VBFixedStringType or VBDateType) when lhs is (VBDateType) => VBDateType.TypeInfo,
+
+            (VBVariantType) when rhs is not (VBArrayType or VBUserDefinedType) => VBVariantType.TypeInfo,
+            not (VBArrayType or VBUserDefinedType) when rhs is (VBVariantType) => VBVariantType.TypeInfo,
+
+            _ => default
+        };
+    }
+}
+
+internal record class AdditionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
+{
+    protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
+    {
+        return base.DetermineOperatorStaticType(lhs, rhs);
+    }
+}
+
+
+internal abstract record class RuntimeSemantics
+{
+    public abstract VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes);
+}
+
+internal abstract record class ArithmeticOperatorRuntimeSemantics : RuntimeSemantics { }
+internal abstract record class UnaryOperatorRuntimeSemantics : ArithmeticOperatorRuntimeSemantics
+{
+    public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorEffectiveType(operandDeclaredTypes[0]);
+
+    /// <summary>
+    /// MS-VBAL 5.6.9.3 Arithmetic Operators (runtime semantics) 
+    /// The operator has the declared type returned by this method, based on the declared type of its operands.
+    /// </summary>
+    /// <param name="operand">The declared type of the operand.</param>
+    /// <returns><c>null</c> if no type is statically valid.</returns>
+    protected virtual VBType? DetermineOperatorEffectiveType(VBType operand)
+    {
+        return operand switch
+        {
+            VBByteType => VBByteType.TypeInfo,
+            VBBooleanType or VBIntegerType or VBEmptyType => VBIntegerType.TypeInfo,
+            VBLongType => VBLongType.TypeInfo,
+            VBLongLongType => VBLongLongType.TypeInfo,
+            VBSingleType => VBSingleType.TypeInfo,
+            VBDoubleType or VBStringType => VBDoubleType.TypeInfo, // note: fixed string inherits string
+            VBCurrencyType => VBCurrencyType.TypeInfo,
+            VBDateType => VBDateType.TypeInfo,
+            VBDecimalType => VBDecimalType.TypeInfo,
+            VBNullType => VBNullType.TypeInfo,
+            _ => default
+        };
+    }
+}
+
+internal abstract record class BinaryOperatorRuntimeSemantics : ArithmeticOperatorRuntimeSemantics
+{
+    public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorEffectiveType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
+
+    /// <summary>
+    /// MS-VBAL 5.6.9.3 Arithmetic Operators (runtime semantics) 
+    /// The operator has the declared type returned by this method, based on the declared type of its operands.
+    /// </summary>
+    /// <param name="lhs">The declared type of the operand on the left side of the operator.</param>
+    /// <param name="rhs">The declared type of the operand on the right side of the operator.</param>
+    /// <returns><c>null</c> if no type is statically valid.</returns>
+    protected virtual VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
+    {
+        return lhs switch
+        {
+            (VBByteType) when rhs is (VBByteType or VBEmptyType) => VBByteType.TypeInfo,
+            (VBByteType or VBEmptyType) when rhs is (VBByteType) => VBByteType.TypeInfo,
+
+            (VBBooleanType or VBIntegerType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType) => VBIntegerType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType) when rhs is (VBBooleanType or VBIntegerType) => VBIntegerType.TypeInfo,
+            (VBEmptyType) when rhs is (VBEmptyType) => VBIntegerType.TypeInfo,
+
+            (VBLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType) => VBLongType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType) when rhs is (VBLongType) => VBLongType.TypeInfo,
+
+            (VBLongLongType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType) => VBLongLongType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType) when rhs is (VBLongLongType) => VBLongLongType.TypeInfo,
+
+            (VBSingleType) when rhs is (VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType) => VBSingleType.TypeInfo,
+            (VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType) when rhs is (VBSingleType) => VBSingleType.TypeInfo,
+
+            (VBSingleType) when rhs is (VBLongType or VBLongLongType) => VBDoubleType.TypeInfo,
+            (VBLongType or VBLongLongType) when rhs is (VBSingleType) => VBDoubleType.TypeInfo,
+            (VBDoubleType or VBStringType) when rhs is (INumericType or VBStringType or VBEmptyType) => VBDoubleType.TypeInfo,
+            (INumericType or VBStringType or VBEmptyType) when rhs is (VBDoubleType or VBStringType) => VBDoubleType.TypeInfo,
+
+            (VBCurrencyType) when rhs is (INumericType or VBCurrencyType or VBStringType or VBEmptyType) => VBCurrencyType.TypeInfo,
+            (INumericType or VBStringType or VBEmptyType) when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+
+            // date values are let-coerced to VBDoubleValue
+            (VBDateType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType) => VBDateType.TypeInfo,
+            (INumericType or VBStringType or VBDateType or VBEmptyType) when rhs is (VBDateType) => VBDateType.TypeInfo,
+
+            (VBDecimalType) when rhs is (INumericType or VBCurrencyType or VBStringType or VBEmptyType) => VBCurrencyType.TypeInfo,
+            (INumericType or VBStringType or VBEmptyType) when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+
+            (VBNullType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType) => VBNullType.TypeInfo,
+            (INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType) when rhs is (VBNullType) => VBNullType.TypeInfo,
+
+            (VBErrorType) when rhs is (INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType) => VBErrorType.TypeInfo,
+            (INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType) when rhs is (VBErrorType) => VBErrorType.TypeInfo,
+
+            _ => default
+        };
+    }
+}
 
 internal static class SymbolOperation
 {
