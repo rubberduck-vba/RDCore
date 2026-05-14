@@ -12,7 +12,7 @@ using RDCore.Server;
 namespace RDCore.Tests;
 
 [TestClass]
-[TestCategory("MS-VBAL 5.6.9.4: Binary '&' Operator")]
+[TestCategory("MS-VBAL 5.6.9.4 Binary '&' Operator")]
 public class ConcatOperationTests : SymbolOperationTests
 {
     [TestMethod]

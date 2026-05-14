@@ -13,7 +13,7 @@ namespace RDCore.Tests;
 
 
 [TestClass]
-[TestCategory("MS-VBAL 5.6.9.3.4: Binary '*' Operator")]
+[TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
 public class MultiplicationOperationTests : SymbolOperationTests
 {
     [TestMethod]

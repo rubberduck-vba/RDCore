@@ -25,16 +25,18 @@ internal abstract record class BinaryArithmeticOperatorStaticSemantics : Arithme
             VBByteType when rhs is VBByteType => VBByteType.TypeInfo,
 
             VBBooleanType or VBIntegerType when rhs is VBByteType or VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType when lhs is VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType when rhs is VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
 
             VBLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBLongType.TypeInfo,
             VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBLongType => VBLongType.TypeInfo,
 
-            VBLongLongType when rhs is IIntegralNumericType => VBLongLongType.TypeInfo,
-            IIntegralNumericType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
+            // NOTE: VBBoolean is not present in the VBLongLong MS-VBAL specifications,
+            // but the behavior is observable (and consistent with the rest of the mappings) in MS-VBA (runtime semantics).
+            VBLongLongType when rhs is IIntegralNumericType or VBBooleanType => VBLongLongType.TypeInfo,
+            IIntegralNumericType or VBBooleanType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
-            VBSingleType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBSingleType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBSingleType => VBSingleType.TypeInfo,
+            VBSingleType when rhs is VBByteType or VBBooleanType or VBIntegerType => VBSingleType.TypeInfo,
+            VBByteType or VBBooleanType or VBIntegerType when rhs is VBSingleType => VBSingleType.TypeInfo,
 
             VBSingleType when rhs is VBLongType or VBLongLongType => VBDoubleType.TypeInfo,
             VBLongType or VBLongLongType when rhs is VBSingleType => VBDoubleType.TypeInfo,
@@ -43,10 +45,10 @@ internal abstract record class BinaryArithmeticOperatorStaticSemantics : Arithme
             IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBFixedStringType when rhs is VBDoubleType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
 
             VBCurrencyType when rhs is INumericType or VBStringType or VBFixedStringType => VBCurrencyType.TypeInfo,
-            INumericType or VBStringType or VBFixedStringType when lhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+            INumericType or VBStringType or VBFixedStringType when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
 
             VBDateType when rhs is INumericType or VBStringType or VBFixedStringType or VBDateType => VBDateType.TypeInfo,
-            INumericType or VBStringType or VBFixedStringType or VBDateType when lhs is (VBDateType) => VBDateType.TypeInfo,
+            (INumericType or VBStringType or VBFixedStringType or VBDateType) when rhs is VBDateType => VBDateType.TypeInfo,
 
             VBVariantType when rhs is not (VBArrayType or VBUserDefinedType) => VBVariantType.TypeInfo,
             not (VBArrayType or VBUserDefinedType) when rhs is VBVariantType => VBVariantType.TypeInfo,

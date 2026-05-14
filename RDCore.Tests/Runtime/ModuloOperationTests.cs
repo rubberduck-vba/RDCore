@@ -1,6 +1,5 @@
 using RDCore.Parsing;
 using RDCore.Parsing.Model;
-using RDCore.Parsing.Model.Expressions.Operators;
 using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
@@ -14,7 +13,7 @@ using RDCore.Server;
 namespace RDCore.Tests;
 
 [TestClass]
-[TestCategory("MS-VBAL 5.6.9.3.6: Binary 'Mod' Operator")]
+[TestCategory("MS-VBAL 5.6.9.3.6 Binary 'Mod' Operator")]
 public class ModuloOperationTests : SymbolOperationTests
 {
     [TestMethod]
