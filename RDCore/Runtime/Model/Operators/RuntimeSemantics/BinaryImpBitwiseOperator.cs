@@ -10,27 +10,49 @@ internal record class BinaryImpBitwiseOperator : BinaryBitwiseOperator
 {
     protected override int EvaluateBitwise(int lhs, int rhs)
     {
-        return Convert.ToInt32(~(long)lhs | ~(long)rhs);
+        return (~lhs) | rhs;
     }
 
     protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
-        // TODO refactor this so we can issue diagnostics for bitwise evaluations
-        return lhs switch
+        // NOTE: we ignore the computed effective type, because the runtime semantics are off the values, not just their types.
+
+        if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
-            VBNumericTypedValue lhsNumeric when lhsNumeric.NumericValue == -1 && rhs is VBNullValue 
-                => VBNullValue.Null,
+            if (CoerceAndUnwrapNumericValue(lhs) is double lhsDouble && 
+                CoerceAndUnwrapNumericValue(rhs) is double rhsDouble)
+            {
+                // result is bitwise imp of operands
+                effectiveType = VBIntegerType.TypeInfo;
+                var result = EvaluateBitwise(Convert.ToInt32(lhsDouble), Convert.ToInt32(rhsDouble));
+                return (VBNumericTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
+            }
+        }
+        if (CoerceAndUnwrapNumericValue(lhs) is double lhsNumNegative && lhsNumNegative == -1 && rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
+        if (CoerceAndUnwrapNumericValue(lhs) is double lhsNumeric && lhsNumeric != -1 && rhs is VBNullValue)
+        {
+            // result is bitwise imp of left operand and 0.
+            effectiveType = VBIntegerType.TypeInfo;
+            var result = EvaluateBitwise(Convert.ToInt32(lhsNumeric), 0);
+            return (VBNumericTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
+        }
+        if (lhs is VBNullValue && rhs.TypeInfo is IIntegralNumericType && CoerceAndUnwrapNumericValue(rhs) is double rhsNonZero && rhsNonZero != 0)
+        {
+            // result is the right operand.
+            return rhs;
+        }
+        if (lhs is VBNullValue && CoerceAndUnwrapNumericValue(rhs) is double rhsZero && rhsZero == 0)
+        {
+            return VBNullValue.Null;
+        }
+        if (lhs is VBNullValue && rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
 
-            VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && lhsNumeric.NumericValue != -1 && rhs is VBNullValue 
-                => (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(EvaluateBitwise((int)lhsNumeric.NumericValue, 0)),
-
-            VBNullValue when rhs.TypeInfo is IIntegralNumericType && rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.NumericValue != 0 
-                => rhs,
-
-            VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.NumericValue == 0 
-                => VBNullValue.Null,
-
-            _ => default
-        };
+        return default;
     }
 }

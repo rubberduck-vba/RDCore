@@ -8,12 +8,12 @@ internal abstract record class BinaryBitwiseOperator : BinaryOperatorRuntimeSema
 {
     protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
-        if (lhs is IIntegralNumericType && rhs is IIntegralNumericType)
+        if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
             context.AddDiagnostic(RDCoreDiagnostic.BitwiseOperator(expression.Location.Range));
             if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue && CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
-                var bitwiseResult = EvaluateBitwise(Convert.ToInt32(lhs), Convert.ToInt32(rhs));
+                var bitwiseResult = EvaluateBitwise(Convert.ToInt32(lhsValue), Convert.ToInt32(rhsValue));
                 return new VBIntegerValue(expression.Symbol).WithValue(bitwiseResult);
             }
         }

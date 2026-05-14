@@ -64,5 +64,12 @@ internal record class BitwiseXOrOperatorSymbol() : BinaryOperatorSymbol($"Binary
 internal record class BitwiseImpOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.LogicalImpOp}", SymbolOperation.EvaluateBinaryBitwiseImp) { }
 internal record class BitwiseEqvOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.LogicalEqvOp}", SymbolOperation.EvaluateBinaryBitwiseEqv) { }
 
+internal record class EqualityOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareEqualOp}", default!) { }
+internal record class InequalityOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareNotEqualOp}", default!) { }
+internal record class LessThanOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareLessThanOp}", default!) { }
+internal record class GreaterThanOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareGreaterThanOp}", default!) { }
+internal record class LessThanOrEqualOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareLessThanOrEqualOp}", default!) { }
+internal record class GreaterThanOrEqualOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareGreaterThanOrEqualOp}", default!) { }
+
 internal record class IsRefEqOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.CompareIsOp}", SymbolOperation.EvaluateBinaryIsRefEquality) { }
 internal record class MemberAccessOperatorSymbol() : BinaryOperatorSymbol($"BinaryOp{Tokens.MemberAccess}", SymbolOperation.EvaluateBinaryMemberAccess) { }

@@ -33,6 +33,12 @@ internal static class GlobalSymbols
         new BitwiseXOrOperatorSymbol(),
         new BitwiseImpOperatorSymbol(),
         new BitwiseEqvOperatorSymbol(),
+        new EqualityOperatorSymbol(),
+        new InequalityOperatorSymbol(),
+        new LessThanOperatorSymbol(),
+        new GreaterThanOperatorSymbol(),
+        new LessThanOrEqualOperatorSymbol(),
+        new GreaterThanOrEqualOperatorSymbol(),
         new IsRefEqOperatorSymbol(),
         new ConcatOperatorSymbol(),
 
@@ -51,6 +57,12 @@ internal static class GlobalSymbols
     public static readonly BinaryOperatorSymbol BitwiseXOr = Operators.OfType<BitwiseXOrOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol BitwiseImp = Operators.OfType<BitwiseImpOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol BitwiseEqv = Operators.OfType<BitwiseEqvOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol Equality = Operators.OfType<EqualityOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol Inequality = Operators.OfType<InequalityOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol LessThan = Operators.OfType<LessThanOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol GreaterThan = Operators.OfType<GreaterThanOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol LessThanOrEqual = Operators.OfType<LessThanOrEqualOperatorSymbol>().Single();
+    public static readonly BinaryOperatorSymbol GreaterThanOrEqual = Operators.OfType<GreaterThanOrEqualOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol IsRefEquals = Operators.OfType<IsRefEqOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol MemberAccess = Operators.OfType<MemberAccessOperatorSymbol>().Single();
     public static readonly BinaryOperatorSymbol Concat = Operators.OfType<ConcatOperatorSymbol>().Single();

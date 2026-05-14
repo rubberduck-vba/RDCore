@@ -94,13 +94,21 @@ public class ModuloOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    //[DataRow(-1, "DateTime.Now")]
+    [DataRow("32768", "DateTime.Now")]
     [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
-    public void EvaluateModulo_DateTimeLHS_ReturnsLong(object lhs, object rhs)
+    public void EvaluateModulo_GivenDateTimeLHS_ReturnsLong(object lhs, object rhs)
     {
         var result = EvaluateModulo(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBLongValue>(result);
+    }
+
+    [TestMethod]
+    [DataRow(42, "DateTime.Now")]
+    public void EvaluateModulo_GivenDateTimeRHS_ReturnsInteger(object lhs, object rhs)
+    {
+        var result = EvaluateModulo(CreateContext(), lhs, rhs);
+        Assert.IsInstanceOfType<VBIntegerValue>(result);
     }
 
     [TestMethod]
@@ -112,8 +120,8 @@ public class ModuloOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [DataRow(32767, "DateTime.Now", Tokens.Integer)]
     [DataRow("Empty", (byte)10, Tokens.Integer)]
+    [DataRow(32767, "DateTime.Now", Tokens.Integer)]
     [DataRow(true, 2, Tokens.Integer)]
     [DataRow(32767, 2.5d, Tokens.Integer)]
     [DataRow(123.456d, 2.5d, Tokens.Long)]
@@ -130,8 +138,9 @@ public class ModuloOperationTests : SymbolOperationTests
 
     [TestMethod]
     [DataRow(-32767, 0.5d, "VBR00011")]
-    [DataRow("1.5", 1, 2)]
-    [DataRow(10, 1.5d, 5)]
+    [DataRow("1.5", 1, 0)]
+    [DataRow(10, 1.5d, 0)]
+    [DataRow(11, 4.0d, 3)]
     public void EvaluateModulo_NumericCoercion(object lhs, object rhs, object expected)
     {
         try

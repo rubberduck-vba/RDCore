@@ -20,6 +20,11 @@ internal abstract record class BinaryOperatorRuntimeSemantics : RuntimeSemantics
     /// </returns>
     protected static double? CoerceAndUnwrapNumericValue(VBTypedValue value)
     {
+        if (value is VBNullValue)
+        {
+            return null;
+        }
+
         var depth = 0;
         return value is VBNumericTypedValue numValue
             ? numValue.NumericValue
