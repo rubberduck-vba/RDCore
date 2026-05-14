@@ -6,6 +6,6 @@ internal sealed record class VBVoidValue : VBTypedValue
 {
     public static VBVoidValue Void { get; } = new();
 
-    private VBVoidValue() : base(VoidType.VBType) { }
+    private VBVoidValue() : base(VBVoidType.TypeInfo) { }
     public override int Size => 0;
 }
