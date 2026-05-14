@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 
-internal abstract record class BinaryOperatorRuntimeSemantics : ArithmeticOperatorRuntimeSemantics
+internal abstract record class BinaryOperatorRuntimeSemantics : RuntimeSemantics
 {
     public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorEffectiveType(operandDeclaredTypes[0], operandDeclaredTypes[1]);

@@ -9,12 +9,18 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.7 Binary '^' Operator")]
 public class ExponentOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new ExponentOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBDoubleType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 4)]
     [DataRow(2, 3, 8)]
@@ -165,11 +171,10 @@ public class ExponentOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateExponentiation(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Exponentiation, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new ExponentOperatorRuntimeSemantics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

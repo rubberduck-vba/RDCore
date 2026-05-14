@@ -9,12 +9,20 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
 public class DivisionOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new DivisionOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBSingleType.TypeInfo,
+        VBDoubleType.TypeInfo,
+        VBDecimalType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 1)]
     [DataRow(-2, 2, -1)]
@@ -202,12 +210,10 @@ public class DivisionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateDivision(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocation);
-        var rhsValue = Wrap(rhs, TestLocation);
-
+        var lhsValue = WrapLiteralExpression(lhs, TestLocation);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocation);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
-        var semantics = new DivisionOperatorRuntimeSemantics();
 
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

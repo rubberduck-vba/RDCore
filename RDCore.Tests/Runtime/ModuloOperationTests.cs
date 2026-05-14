@@ -10,12 +10,21 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.6 Binary 'Mod' Operator")]
 public class ModuloOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new ModuloOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBByteType.TypeInfo,
+        VBIntegerType.TypeInfo,
+        VBLongType.TypeInfo,
+        VBLongLongType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(24, 12, 0)]
     [DataRow(15, 2, 1)]
@@ -235,11 +244,10 @@ public class ModuloOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateModulo(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Modulo, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new ModuloOperatorRuntimeSemantics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

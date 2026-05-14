@@ -9,13 +9,26 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
 public class MultiplicationOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new MultiplicationOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBByteType.TypeInfo,
+        VBIntegerType.TypeInfo,
+        VBLongType.TypeInfo,
+        VBLongLongType.TypeInfo,
+        VBSingleType.TypeInfo,
+        VBDoubleType.TypeInfo,
+        VBCurrencyType.TypeInfo,
+        VBDecimalType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 4)]
     [DataRow(-2, 2, -4)]
@@ -208,11 +221,10 @@ public class MultiplicationOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateMultiplication(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new MultiplicationOperatorRuntimeSemantics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

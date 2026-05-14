@@ -9,12 +9,26 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
 public class SubtractionOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new SubtractionOperatorRuntimeSematics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBByteType.TypeInfo,
+        VBIntegerType.TypeInfo,
+        VBLongType.TypeInfo,
+        VBLongLongType.TypeInfo,
+        VBSingleType.TypeInfo,
+        VBDoubleType.TypeInfo,
+        VBCurrencyType.TypeInfo,
+        VBDecimalType.TypeInfo,
+        VBDateType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 0)]
     [DataRow(-2, 2, -4)]
@@ -187,11 +201,10 @@ public class SubtractionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateSubtraction(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Subtraction, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new SubtractionOperatorRuntimeSematics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }
