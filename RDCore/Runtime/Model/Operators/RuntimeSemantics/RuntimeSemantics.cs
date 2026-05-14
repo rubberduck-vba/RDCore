@@ -8,6 +8,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 internal abstract record class RuntimeSemantics
 {
     public abstract VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes);
+
     public VBTypedValue? Evaluate(VBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands)
     {
         var effectiveType = DetermineEffectiveType([.. operands.Select(op => op.TypeInfo)]);
@@ -20,12 +21,12 @@ internal abstract record class RuntimeSemantics
         var validOperands = new List<VBTypedValue>();
         if (expression is VBBinaryOperatorExpression binaryOp)
         {
-            CheckTypeMismatch(binaryOp, operands[0], operands[1]);
+            CheckUdtOrArrayTypeMismatch(binaryOp, operands[0], operands[1]);
             DiagnosePreLetCoerceOperands(context, binaryOp, operands[0], operands[1]);
         }
         else
         {
-            CheckTypeMismatch(expression, operands[0]);
+            CheckUdtOrArrayTypeMismatch(expression, operands[0]);
             DiagnosePreLetCoerceOperands(context, expression, operands[0]);
         }
 
@@ -105,8 +106,10 @@ internal abstract record class RuntimeSemantics
 
     protected abstract VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBOperatorExpression expression, VBType effectiveType, VBTypedValue[] operands);
 
-    protected virtual void CheckTypeMismatch(VBOperatorExpression expression, VBTypedValue operand)
+    protected virtual void CheckUdtOrArrayTypeMismatch(VBOperatorExpression expression, VBTypedValue operand)
     {
+        // NOTE: MS-VBAL does not mention *why* these types are special-cased, but coincidentally these types *must* be passed by reference.
+        // NOTE: virtual because Byte() coercion to and from String needs to override this.
         if (operand is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
         {
             throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
@@ -120,8 +123,11 @@ internal abstract record class RuntimeSemantics
     {
     }
 
-    protected virtual void CheckTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    protected virtual void CheckUdtOrArrayTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
     {
+        // NOTE: MS-VBAL does not mention *why* these types are special-cased, but coincidentally these types *must* be passed by reference.
+        // NOTE: virtual because Byte() coercion to and from String needs to override this.
+
         if (lhs is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
         {
             throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);

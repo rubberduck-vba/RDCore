@@ -1,7 +1,182 @@
 ﻿using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
+using RDCore.Server;
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
+
+internal abstract record class BinaryBitwiseOperator : BinaryOperatorRuntimeSemantics
+{
+    protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        if (lhs is IIntegralNumericType && rhs is IIntegralNumericType)
+        {
+            context.AddDiagnostic(RDCoreDiagnostic.BitwiseOperator(expression.Location.Range));
+            if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue && CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
+            {
+                var bitwiseResult = EvaluateBitwise(Convert.ToInt32(lhs), Convert.ToInt32(rhs));
+                return new VBIntegerValue(expression.Symbol).WithValue(bitwiseResult);
+            }
+        }
+
+        if (lhs is VBNullValue && rhs is VBNullValue)
+        {
+            return VBNullValue.Null;
+        }
+
+        return EvaluateSemanticallly(context, expression, effectiveType, lhs, rhs);
+    }
+
+    /// <summary>
+    /// Evaluates the bitwise evaluation branch of the MS-VBAL specifications for a logical operator.
+    /// </summary>
+    /// <remarks>
+    /// Operands are <strong>explicitly specified</strong> as being evaluated bitwise only given specific operands.
+    /// </remarks>
+    protected abstract int EvaluateBitwise(int lhs, int rhs);
+    /// <summary>
+    /// Evaluates the not-bitwise evaluation branches of the MS-VBAL specifications for a logical operator.
+    /// </summary>
+    /// <remarks>
+    /// Operands are <strong>explicitly specified</strong> as being evaluated bitwise only given specific operands.
+    /// Base implementation has already handled the case where both operands are integers, and the case where they're both <c>Null</c>.
+    /// </remarks>
+    protected abstract VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs);
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.2 Binary 'And' Operator
+/// </summary>
+internal record class BinaryAndBitwiseOperator : BinaryBitwiseOperator
+{
+    protected override int EvaluateBitwise(int lhs, int rhs) => lhs & rhs;
+
+    protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
+        {
+            if (lhsNumeric.NumericValue == 0)
+            {
+                return VBIntegerValue.Zero;
+            }
+            else
+            {
+                return VBNullValue.Null;
+            }
+        }
+        
+        if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
+        {
+            if (rhsNumeric.NumericValue == 0)
+            {
+                return VBIntegerValue.Zero;
+            }
+            else
+            {
+                return VBNullValue.Null;
+            }
+        }
+
+        return default;
+    }
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.3 Binary 'Or' Operator
+/// </summary>
+internal record class BinaryOrBitwiseOperator : BinaryBitwiseOperator
+{
+    protected override int EvaluateBitwise(int lhs, int rhs) => lhs | rhs;
+
+    protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        return lhs switch
+        {
+            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue => lhs,
+            VBNullValue when rhs.TypeInfo is IIntegralNumericType => rhs,
+            _ => default
+        };
+    }
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator
+/// </summary>
+internal record class BinaryXorBitwiseOperator : BinaryBitwiseOperator
+{
+    protected override int EvaluateBitwise(int lhs, int rhs)
+    {
+        unchecked // TODO verify if this should be allowed to overflow (edge case)
+        {
+            return Convert.ToInt32((long)lhs ^ (long)rhs);
+        }
+    }
+
+    protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        return lhs switch
+        {
+            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue => VBNullValue.Null,
+            VBNullValue when rhs.TypeInfo is IIntegralNumericType => VBNullValue.Null,
+            _ => default
+        };
+    }
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator
+/// </summary>
+internal record class BinaryEqvBitwiseOperator : BinaryBitwiseOperator
+{
+    protected override int EvaluateBitwise(int lhs, int rhs)
+    {
+        unchecked // TODO verify if this should be allowed to overflow (edge case)
+        {
+            return Convert.ToInt32(~((long)lhs ^ (long)rhs));
+        }
+    }
+
+    protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        return lhs switch
+        {
+            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue => VBNullValue.Null,
+            VBNullValue when rhs.TypeInfo is IIntegralNumericType => VBNullValue.Null,
+            _ => default
+        };
+    }
+}
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator
+/// </summary>
+internal record class BinaryImpBitwiseOperator : BinaryBitwiseOperator
+{
+    protected override int EvaluateBitwise(int lhs, int rhs)
+    {
+        return Convert.ToInt32(~(long)lhs | ~(long)rhs);
+    }
+
+    protected override VBTypedValue? EvaluateSemanticallly(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        // TODO refactor this so we can issue diagnostics for bitwise evaluations
+        return lhs switch
+        {
+            VBNumericTypedValue lhsNumeric when lhsNumeric.NumericValue == -1 && rhs is VBNullValue 
+                => VBNullValue.Null,
+
+            VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && lhsNumeric.NumericValue != -1 && rhs is VBNullValue 
+                => (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(EvaluateBitwise((int)lhsNumeric.NumericValue, 0)),
+
+            VBNullValue when rhs.TypeInfo is IIntegralNumericType && rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.NumericValue != 0 
+                => rhs,
+
+            VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.NumericValue == 0 
+                => VBNullValue.Null,
+
+            _ => default
+        };
+    }
+}
 
 internal abstract record class BinaryOperatorRuntimeSemantics : RuntimeSemantics
 {
