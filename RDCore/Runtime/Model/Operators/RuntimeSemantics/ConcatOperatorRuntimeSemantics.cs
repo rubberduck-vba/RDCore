@@ -28,7 +28,7 @@ internal record class ConcatOperatorRuntimeSemantics : BinaryOperatorRuntimeSema
         };
     }
 
-    protected override void CheckTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    protected override void CheckUdtOrArrayTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
     {
         // here we must override the TypeMismatch rule, which runs before the result is evaluated.
 
