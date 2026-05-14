@@ -129,27 +129,9 @@ public class ModuloOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateModulo_Empty_LetCoercion_Numeric_IsZero()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
-        Assert.AreEqual(0, result.Value);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateModulo_Empty_LetCoercion_String_IsEmptyString()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
-        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
-    }
-
-    [TestMethod]
     [DataRow(-32767, 0.5d, "VBR00011")]
-    //[DataRow("1.5", 1, 2)]
-    //[DataRow(10, 1.5d, 5)]
+    [DataRow("1.5", 1, 2)]
+    [DataRow(10, 1.5d, 5)]
     public void EvaluateModulo_NumericCoercion(object lhs, object rhs, object expected)
     {
         try

@@ -2,7 +2,7 @@
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 
-internal abstract record class UnaryOperatorRuntimeSemantics : ArithmeticOperatorRuntimeSemantics
+internal abstract record class UnaryOperatorRuntimeSemantics : RuntimeSemantics
 {
     public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorEffectiveType(operandDeclaredTypes[0]);
@@ -22,7 +22,7 @@ internal abstract record class UnaryOperatorRuntimeSemantics : ArithmeticOperato
             VBLongType => VBLongType.TypeInfo,
             VBLongLongType => VBLongLongType.TypeInfo,
             VBSingleType => VBSingleType.TypeInfo,
-            VBDoubleType or VBStringType => VBDoubleType.TypeInfo, // note: fixed string inherits string
+            VBDoubleType or VBStringType => VBDoubleType.TypeInfo,
             VBCurrencyType => VBCurrencyType.TypeInfo,
             VBDateType => VBDateType.TypeInfo,
             VBDecimalType => VBDecimalType.TypeInfo,
@@ -31,3 +31,4 @@ internal abstract record class UnaryOperatorRuntimeSemantics : ArithmeticOperato
         };
     }
 }
+

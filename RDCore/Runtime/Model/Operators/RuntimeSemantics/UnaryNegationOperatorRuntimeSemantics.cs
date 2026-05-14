@@ -7,7 +7,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.3.1 Unary '-' Operator (runtime semantics)
 /// </summary>
-internal record class UnaryMinusOperatorRuntimeSemantics : UnaryOperatorRuntimeSemantics
+internal record class UnaryNegationOperatorRuntimeSemantics : UnaryOperatorRuntimeSemantics
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType operand)
     {
