@@ -17,7 +17,7 @@ internal record class VBVariantType : VBIntrinsicType<object?>
     public static VBVariantType TypeInfo => _type;
 
     public override bool RuntimeBinding { get; } = true;
-    public override VBVariantValue DefaultValue => new(Subtype.DefaultValue);
+    public override VBVariantValue DefaultValue => new(Subtype?.DefaultValue ?? VBEmptyValue.Empty);
     public override VBType[] ConvertsSafelyToTypes { get; } = [];
 
     public override string? DefToken => Tokens.DefVar;

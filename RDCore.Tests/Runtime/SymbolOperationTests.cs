@@ -11,8 +11,7 @@ namespace RDCore.Tests;
 [TestClass]
 public abstract class SymbolOperationTests
 {
-
-    internal VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
+    internal static VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the LHS symbol or
     /// in the case of a unary operator, the location of the expression.
@@ -36,7 +35,7 @@ public abstract class SymbolOperationTests
     /// </remarks>
     internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
 
-    internal ValuedExpression Wrap(object? val, Location location)
+    internal static ValuedExpression Wrap(object? val, Location location)
     {
         if (val is ValuedExpression exp)
         {

@@ -6,7 +6,7 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Parsing.Model.Symbols;
 
-internal record class SymbolProperty<T>(string Name) { }
+public record class SymbolProperty<T>(string Name) { }
 internal static class SymbolProperties
 {
     /// <summary>
@@ -76,7 +76,7 @@ internal static class SymbolProperties
 }
 
 
-internal enum ScopeKind
+public enum ScopeKind
 {
     /// <summary>
     /// A pseudo-scope for pseudo-symbols that aren't allocated in memory, like <c>VBVoidValue</c>.
@@ -100,7 +100,7 @@ internal enum ScopeKind
     Instance,
 }
 
-internal abstract record class Symbol
+public abstract record class Symbol
 {
     /// <summary>
     /// For symbols representing a user workspace project or a referenced library.

@@ -2,7 +2,7 @@
 
 namespace RDCore.Server.ProtocolExtensions;
 
-internal enum SymbolKindExt
+public enum SymbolKindExt
 {
     // NOTE: values 1-18 (from the initial LSP version) are deemed supported if DocumentSymbolClientCapabilities.SymbolKind is not specified.
 

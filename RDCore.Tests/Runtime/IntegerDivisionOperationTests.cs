@@ -13,7 +13,7 @@ using RDCore.Server;
 namespace RDCore.Tests;
 
 [TestClass]
-[TestCategory("MS-VBAL 5.6.9.3.6: Binary '\\' Operator")]
+[TestCategory("MS-VBAL 5.6.9.3.6 Binary '\\' Operator")]
 public class IntegerDivisionOperationTests : SymbolOperationTests
 {
     [TestMethod]
