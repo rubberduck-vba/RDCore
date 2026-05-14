@@ -6,7 +6,7 @@ internal sealed record class VBArrayType : VBIntrinsicType<object[]>, IEnumerabl
 {
     private static readonly VBArrayType _type = new();
 
-    private VBArrayType(VBArrayValue? declaredValue = null) : base("Array")
+    public VBArrayType(VBArrayValue? declaredValue = null) : base("Array")
     {
         DeclaredValue = declaredValue ?? (VBResizableArrayValue)DefaultValue;
     }

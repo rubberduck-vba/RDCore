@@ -3,7 +3,7 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBByteType : VBIntrinsicType<byte>, INumericType
+internal sealed record class VBByteType : VBIntrinsicType<byte>, IIntegralNumericType
 {
     private static readonly VBByteType _type = new();
 

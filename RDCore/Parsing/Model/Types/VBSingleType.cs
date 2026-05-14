@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBSingleType : VBIntrinsicType<float>, INumericType
+internal record class VBSingleType : VBIntrinsicType<float>, IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.

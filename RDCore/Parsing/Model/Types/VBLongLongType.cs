@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBLongLongType : VBIntrinsicType<long>, INumericType
+internal record class VBLongLongType : VBIntrinsicType<long>, IIntegralNumericType
 {
     private static readonly VBLongLongType _type = new();
 

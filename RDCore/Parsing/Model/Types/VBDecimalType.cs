@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBDecimalType : VBIntrinsicType<decimal>, INumericType
+internal sealed record class VBDecimalType : VBIntrinsicType<decimal>, IFixedPointNumericType
 {
     private static readonly VBDecimalType _type = new();
 

@@ -8,6 +8,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -86,16 +87,24 @@ public class ModuloOperationTests : SymbolOperationTests
 
     [TestMethod]
     //[DataRow(-1, "DateTime.Now")]
-    //[DataRow("DateTime.Now", 1)]
+    [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
-    public void EvaluateModulo_DateTime_ReturnsLong(object lhs, object rhs)
+    public void EvaluateModulo_DateTimeLHS_ReturnsLong(object lhs, object rhs)
     {
         var result = EvaluateModulo(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBLongValue>(result);
     }
 
     [TestMethod]
-    [DataRow(32767, "DateTime.Now", Tokens.Long)]
+    [DataRow(10, "DateTime.Now")]
+    public void EvaluateModulo_DateTimeRHS_ReturnsInteger(object lhs, object rhs)
+    {
+        var result = EvaluateModulo(CreateContext(), lhs, rhs);
+        Assert.IsInstanceOfType<VBIntegerValue>(result);
+    }
+
+    [TestMethod]
+    [DataRow(32767, "DateTime.Now", Tokens.Integer)]
     [DataRow("Empty", (byte)10, Tokens.Integer)]
     [DataRow(true, 2, Tokens.Integer)]
     [DataRow(32767, 2.5d, Tokens.Integer)]
@@ -231,6 +240,7 @@ public class ModuloOperationTests : SymbolOperationTests
         var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Modulo, lhsValue, rhsValue, TestLocation);
 
-        return SymbolOperation.EvaluateBinaryModulo(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        var semantics = new ModuloOperatorRuntimeSemantics();
+        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

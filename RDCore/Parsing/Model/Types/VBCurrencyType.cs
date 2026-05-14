@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBCurrencyType : VBIntrinsicType<decimal>, INumericType
+internal record class VBCurrencyType : VBIntrinsicType<decimal>, IFixedPointNumericType
 {
     private static readonly VBCurrencyType _type = new();
 

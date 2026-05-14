@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBDoubleType : VBIntrinsicType<double>, INumericType
+internal sealed record class VBDoubleType : VBIntrinsicType<double>, IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.

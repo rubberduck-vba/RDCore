@@ -1,6 +1,6 @@
 ﻿using RDCore.Parsing.Model.Types;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
 
 /// <summary>
 /// A type hierarchy to compose the semantic layer and cleanly separate static and runtime semantics, to clean up <c>SymbolOperation</c>.

@@ -15,6 +15,14 @@ internal record class VBDateValue : VBTypedValue,
     public static VBDateValue MaxValue { get; } = new() { Value = new DateTime(9999, 12, 31, 23, 59, 59) };
     public static VBDateValue Zero { get; } = new() { Value = new DateTime(1899, 12, 30) };
 
+    /// <summary>
+    /// Overflow check used in operator semantics to check error conditions without throwing exceptions.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if the specified value is outside the range of the data type; <c>false</c> otherwise.
+    /// </returns>
+    public static bool WillOverflow(double value) => value < MinSerial || value > MaxSerial;
+
     public const double MinSerial = -657434;
     public const double MaxSerial = 2958465;
     public static VBDateValue FromSerial(double value) => new() { Value = DateTime.FromOADate(value) };

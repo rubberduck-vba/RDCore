@@ -2,7 +2,7 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBIntegerType : VBIntrinsicType<short>, INumericType
+internal sealed record class VBIntegerType : VBIntrinsicType<short>, IIntegralNumericType
 {
     private static readonly VBIntegerType _type = new();
 

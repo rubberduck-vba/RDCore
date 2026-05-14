@@ -7,6 +7,7 @@ using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
 namespace RDCore.Tests;
@@ -74,27 +75,6 @@ public class ExponentOperationTests : SymbolOperationTests
     {
         var result = EvaluateExponentiation(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBDoubleValue>(result);
-    }
-
-    [TestMethod]
-    [Ignore("test invalide à ajuster")]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateExponentiation_Empty_LetCoercion_Numeric_IsZero()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
-        Assert.AreEqual(0, result.Value);
-    }
-
-    [TestMethod]
-    [Ignore("test invalide à ajuster")]
-
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateBinaryExponentiation_Empty_LetCoercion_String_IsEmptyString()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
-        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
     }
 
     [TestMethod]
@@ -188,8 +168,9 @@ public class ExponentOperationTests : SymbolOperationTests
     {
         var lhsValue = Wrap(lhs, TestLocationLHS);
         var rhsValue = Wrap(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Modulo, lhsValue, rhsValue, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Exponentiation, lhsValue, rhsValue, TestLocation);
 
-        return SymbolOperation.EvaluateBinaryExponentiation(context, expression, lhsValue.ResultValue, rhsValue.ResultValue);
+        var semantics = new ExponentOperatorRuntimeSemantics();
+        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

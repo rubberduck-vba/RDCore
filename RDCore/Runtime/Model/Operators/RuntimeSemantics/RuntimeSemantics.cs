@@ -21,10 +21,12 @@ internal abstract record class RuntimeSemantics
         if (expression is VBBinaryOperatorExpression binaryOp)
         {
             CheckTypeMismatch(binaryOp, operands[0], operands[1]);
+            DiagnosePreLetCoerceOperands(context, binaryOp, operands[0], operands[1]);
         }
         else
         {
             CheckTypeMismatch(expression, operands[0]);
+            DiagnosePreLetCoerceOperands(context, expression, operands[0]);
         }
 
         foreach (var operand in operands) 
@@ -109,6 +111,13 @@ internal abstract record class RuntimeSemantics
         {
             throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
         }
+    }
+
+    protected virtual void DiagnosePreLetCoerceOperands(VBExecutionContext context, VBOperatorExpression expression, VBTypedValue operand)
+    {
+    }
+    protected virtual void DiagnosePreLetCoerceOperands(VBExecutionContext context, VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    {
     }
 
     protected virtual void CheckTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)

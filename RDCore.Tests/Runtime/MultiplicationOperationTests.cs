@@ -211,6 +211,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
         var lhsValue = Wrap(lhs, TestLocationLHS);
         var rhsValue = Wrap(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
+
         var semantics = new MultiplicationOperatorRuntimeSemantics();
         return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }

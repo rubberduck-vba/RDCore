@@ -1,6 +1,8 @@
-﻿using RDCore.Parsing.Model.Symbols;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using System.Collections.Immutable;
+using System.Text;
 
 namespace RDCore.Parsing.Model.Values;
 
@@ -104,7 +106,7 @@ internal record class VBFixedSizeArrayValue<VBT> : VBFixedSizeArrayValue where V
     }
 }
 
-internal record class VBResizableArrayValue : VBArrayValue
+internal record class VBResizableArrayValue : VBArrayValue, IStringCoercion
 {
     public VBResizableArrayValue(int uBound, int lBound, VBType? itemType = null, Symbol? symbol = null)
         : this([(uBound, lBound)], itemType, symbol)
@@ -182,6 +184,34 @@ internal record class VBResizableArrayValue : VBArrayValue
 
         return this with { Dimensions = [.. dimensions.Select(e => new VBArrayDimension(Symbol, ItemType, e.uBound, e.lBound))] };
     }
+
+    public VBStringValue? AsCoercedString(ref int depth)
+    {
+        if (ItemType == VBByteType.TypeInfo)
+        {
+            // MS-VBAL 5.5.1.2.6 Let-coercion to and from resizable Byte()
+            // TODO verify about fixed-size Byte()
+            var bytes = Dimensions[0].State
+                .OfType<VBByteValue>()
+                .Select(e => e.Value)
+                .ToArray();
+
+            // spec says it's implementation-defined, but also that
+            // let-coercion from Byte() array should be through StrConv (stdlib).
+            // so... TODO here.
+            var value = Encoding.ASCII.GetString(bytes);
+            return new VBStringValue(Symbol).WithValue(value);
+        }
+        else if (Symbol?.Range is OmniSharp.Extensions.LanguageServer.Protocol.Models.Range location)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(location);
+        }
+
+        return default;
+    }
+
+    public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) =>
+        AsCoercedString(ref depth) is VBStringValue value ? new VBFixedStringValue(length).WithFixedValue(value.Value) : null;
 }
 
 internal record class VBResizableArrayValue<VBT> : VBResizableArrayValue where VBT : VBType
