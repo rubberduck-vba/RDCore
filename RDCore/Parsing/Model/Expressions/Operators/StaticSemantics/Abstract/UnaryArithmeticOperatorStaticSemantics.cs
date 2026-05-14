@@ -1,6 +1,6 @@
 ﻿using RDCore.Parsing.Model.Types;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
 
 /// <summary>
 /// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.

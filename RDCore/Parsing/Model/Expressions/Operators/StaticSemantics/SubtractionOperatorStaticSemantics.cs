@@ -1,6 +1,7 @@
-﻿using RDCore.Parsing.Model.Types;
+﻿using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+using RDCore.Parsing.Model.Types;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
 
 /// <summary>
 /// MS-VBAL 5.6.9.3.3 Binary '-' Operator

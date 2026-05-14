@@ -1,6 +1,5 @@
 ﻿using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
-using System.Runtime.CompilerServices;
 
 namespace RDCore.Parsing.Model.Values;
 
@@ -18,7 +17,8 @@ internal record class VBBooleanValue : VBTypedValue, IVBTypedValue<VBBooleanValu
 
     public VBDoubleValue? AsCoercedDouble(ref int depth) => new VBDoubleValue(Symbol).WithValue(-1 * Convert.ToDouble(Value));
     public VBStringValue? AsCoercedString(ref int depth) => new VBStringValue(Symbol).WithValue(ToString());
-    public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) => AsCoercedString(ref depth) is VBStringValue value ? new(value) : null;
+    public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) => 
+        AsCoercedString(ref depth) is VBStringValue value ? new VBFixedStringValue(length).WithFixedValue(value.Value) : null;
 
     public VBBooleanValue WithValue(bool value) => this with { Value = value };
     public VBBooleanValue WithValue(int value) => this with { Value = value != 0 };

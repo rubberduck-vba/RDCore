@@ -1,7 +1,7 @@
 ﻿using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
 
 /// <summary>
 /// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.
@@ -30,8 +30,8 @@ internal abstract record class BinaryArithmeticOperatorStaticSemantics : Arithme
             VBLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBLongType.TypeInfo,
             VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBLongType => VBLongType.TypeInfo,
 
-            VBLongLongType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType => VBLongLongType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
+            VBLongLongType when rhs is IIntegralNumericType => VBLongLongType.TypeInfo,
+            IIntegralNumericType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
             VBSingleType when rhs is VBByteType or VBBooleanType or VBIntegerType or VBLongType => VBSingleType.TypeInfo,
             VBByteType or VBBooleanType or VBIntegerType or VBLongType when rhs is VBSingleType => VBSingleType.TypeInfo,
@@ -39,8 +39,8 @@ internal abstract record class BinaryArithmeticOperatorStaticSemantics : Arithme
             VBSingleType when rhs is VBLongType or VBLongLongType => VBDoubleType.TypeInfo,
             VBLongType or VBLongLongType when rhs is VBSingleType => VBDoubleType.TypeInfo,
 
-            VBDoubleType or VBStringType or VBFixedStringType when rhs is INumericType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
-            INumericType or VBStringType or VBFixedStringType when rhs is VBDoubleType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
+            VBDoubleType or VBStringType or VBFixedStringType when rhs is IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
+            IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBFixedStringType when rhs is VBDoubleType or VBStringType or VBFixedStringType => VBDoubleType.TypeInfo,
 
             VBCurrencyType when rhs is INumericType or VBStringType or VBFixedStringType => VBCurrencyType.TypeInfo,
             INumericType or VBStringType or VBFixedStringType when lhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
