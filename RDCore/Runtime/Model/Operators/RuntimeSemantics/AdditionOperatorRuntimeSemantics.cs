@@ -29,7 +29,7 @@ internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSe
                 context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
             }
 
-            if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue && 
+            if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue &&
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
                 var doubleValue = lhsValue + rhsValue;
