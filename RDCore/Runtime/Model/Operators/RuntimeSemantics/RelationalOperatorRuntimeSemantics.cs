@@ -1,4 +1,5 @@
 ﻿using RDCore.Parsing;
+using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
 using System.Text;
@@ -113,6 +114,23 @@ internal sealed record class LikeRelationalOperatorRuntimeSemantics : Relational
         }
         // Full string match, e.g. "abcd" should NOT match "a.c"
         return $"^{regexStr}$";
+    }
+}
+
+internal record class IsRefEqRelationalOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
+{
+    protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs) => VBBooleanType.TypeInfo;
+
+    protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        if (lhs.Symbol != null && lhs is VBObjectValue or VBVariantValue && 
+            rhs.Symbol != null && rhs is VBObjectValue or VBVariantValue)
+        {
+            // TODO revisit this once we actually allocate things
+            var result = lhs.RawAddress == rhs.RawAddress;
+            return new VBBooleanValue(expression.Symbol).WithValue(result);
+        }
+        return default;
     }
 }
 
