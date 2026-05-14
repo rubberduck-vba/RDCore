@@ -2,15 +2,21 @@ using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
 using RDCore.Runtime;
 using RDCore.Runtime.Model;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 public abstract class SymbolOperationTests
 {
+    internal abstract RuntimeSemantics Semantics { get; }
+    internal abstract IEnumerable<VBType> EffectiveTypes { get; }
+
+
+
     internal static VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the LHS symbol or
@@ -35,7 +41,7 @@ public abstract class SymbolOperationTests
     /// </remarks>
     internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
 
-    internal static ValuedExpression Wrap(object? val, Location location)
+    internal static ValuedExpression WrapLiteralExpression(object? val, Location location)
     {
         if (val is ValuedExpression exp)
         {

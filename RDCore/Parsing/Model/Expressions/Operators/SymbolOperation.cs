@@ -231,8 +231,7 @@ internal static class SymbolOperation
 
             // spec says it's implementation-defined, but also that
             // let-coercion from Byte() array should be through StrConv (stdlib).
-            // so... TODO here.
-            var value = Encoding.ASCII.GetString(bytes);
+            var value = Encoding.Unicode.GetString(bytes);
             lhsString = new VBStringValue(lhs.Symbol).WithValue(value);
         }
 
@@ -267,8 +266,7 @@ internal static class SymbolOperation
 
             // spec says it's implementation-defined, but also that
             // let-coercion from Byte() array should be through StrConv (stdlib).
-            // so... TODO here.
-            var value = Encoding.ASCII.GetString(bytes);
+            var value = Encoding.Unicode.GetString(bytes);
             rhsString = new VBStringValue(rhs.Symbol).WithValue(value);
         }
 

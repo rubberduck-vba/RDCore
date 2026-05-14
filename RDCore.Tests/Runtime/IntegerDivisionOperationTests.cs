@@ -10,12 +10,21 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.6 Binary '\\' Operator")]
 public class IntegerDivisionOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new IntegerDivisionOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBByteType.TypeInfo,
+        VBIntegerType.TypeInfo,
+        VBLongType.TypeInfo,
+        VBLongLongType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 1)]
     [DataRow(-2, 2, -1)]
@@ -236,11 +245,10 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateIntegerDivision(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.IntegerDivision, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new IntegerDivisionOperatorRuntimeSemantics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }

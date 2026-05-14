@@ -198,8 +198,7 @@ internal record class VBResizableArrayValue : VBArrayValue, IStringCoercion
 
             // spec says it's implementation-defined, but also that
             // let-coercion from Byte() array should be through StrConv (stdlib).
-            // so... TODO here.
-            var value = Encoding.ASCII.GetString(bytes);
+            var value = Encoding.Unicode.GetString(bytes);
             return new VBStringValue(Symbol).WithValue(value);
         }
         else if (Symbol?.Range is OmniSharp.Extensions.LanguageServer.Protocol.Models.Range location)

@@ -2,10 +2,6 @@
 using RDCore.Parsing.Model.Types.Complex;
 
 namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
-
-/// <summary>
-/// TODO derive static semantics for each operator; they only need to specify their respective exceptions, reading plainly like MS-VBAL.
-/// </summary>
 internal abstract record class BinaryArithmeticOperatorStaticSemantics : ArithmeticOperatorStaticSemantics
 {
     public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)

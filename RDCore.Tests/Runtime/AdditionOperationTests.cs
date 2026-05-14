@@ -9,12 +9,27 @@ using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
 using RDCore.Server;
 
-namespace RDCore.Tests;
+namespace RDCore.Tests.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
 public class AdditionOperationTests : SymbolOperationTests
 {
+    internal override RuntimeSemantics Semantics => new AdditionOperatorRuntimeSemantics();
+    internal override IEnumerable<VBType> EffectiveTypes => [
+        VBByteType.TypeInfo, 
+        VBIntegerType.TypeInfo, 
+        VBLongType.TypeInfo, 
+        VBLongLongType.TypeInfo,
+        VBSingleType.TypeInfo,
+        VBDoubleType.TypeInfo,
+        VBCurrencyType.TypeInfo,
+        VBDecimalType.TypeInfo,
+        VBDateType.TypeInfo,
+        VBStringType.TypeInfo,
+        VBNullType.TypeInfo,
+    ];
+
     [TestMethod]
     [DataRow(2, 2, 4)]
     [DataRow(-2, 2, 0)]
@@ -30,7 +45,7 @@ public class AdditionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     [DataRow(null, 5)]
     [DataRow(null, "#1-1-2026#")]
     [DataRow(null, 1.23d)]
@@ -44,7 +59,7 @@ public class AdditionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateAddition_Null_LetCoercion_UDT_TypeMismatch()
     {
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
@@ -58,7 +73,7 @@ public class AdditionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateAddition_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
@@ -194,11 +209,10 @@ public class AdditionOperationTests : SymbolOperationTests
 
     private VBTypedValue EvaluateAddition(VBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = Wrap(lhs, TestLocationLHS);
-        var rhsValue = Wrap(rhs, TestLocationRHS);
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsValue, rhsValue, TestLocation);
 
-        var semantics = new AdditionOperatorRuntimeSemantics();
-        return semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }
 }
