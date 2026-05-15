@@ -54,12 +54,14 @@ public class DivisionOperationTests : SymbolOperationTests
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    [DataRow(null, 5)]   // MS-VBAL: Null * Any -> Null
-    [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null * Any -> Null
-    [DataRow(null, 1.23d)]   // MS-VBAL: Null * Any -> Null
-    [DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
+    [DataRow(null, null)]
+    [DataRow(null, 5)]
+    [DataRow(null, 1.23d)]
+    [DataRow(null, "#1-1-2026#")]
+    [DataRow(5, null)]
+    [DataRow("Empty", null)]
+    [DataRow(1.23d, null)]
+    [DataRow("#2026-12-31#", null)]
     public void EvaluateDivision_NullOperand_ResultIsNull(object lhs, object rhs)
     {
         // note: coercing the result to any other type would throw.
@@ -108,11 +110,13 @@ public class DivisionOperationTests : SymbolOperationTests
     {
         try
         {
-            var result = EvaluateDivision(CreateContext(), lhs, rhs);
+            var context = CreateContext();
+            var result = EvaluateDivision(context, lhs, rhs);
             if (expected is not string)
             {
                 Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
             }
+
         }
         catch (VBRuntimeErrorException ex)
         {
@@ -124,15 +128,12 @@ public class DivisionOperationTests : SymbolOperationTests
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
     [DataRow(32767, 2, "VBR00006")]
     [DataRow(-32768, 2, "VBR00006")]
+    [DataRow(0, 0, "VBR00006")]
     public void EvaluateDivision_Overflow(object lhs, object rhs, object expected)
     {
         try
         {
             var result = EvaluateDivision(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
         }
         catch (VBRuntimeErrorException ex)
         {
@@ -176,6 +177,9 @@ public class DivisionOperationTests : SymbolOperationTests
 
     [TestMethod]
     [TestCategory("Diagnostics.ImplicitNumericCoercion")]
+    [DataRow("1.5", 1, true)]
+    [DataRow(-32, 0.5d, false)]
+    [DataRow("50", "2", true)]
     [DataRow(40, 2, false)]
     [DataRow(-1, "42", true)]
     [DataRow("DateTime.Now", 1, false)]
