@@ -4,7 +4,7 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Tests.Static;
 
-public abstract class SemanticsTests
+public abstract class StaticSemanticsTests
 {
     internal abstract StaticSemantics Semantics { get; }
 
@@ -144,21 +144,21 @@ public abstract class SemanticsTests
     }
 }
 
-public abstract class UnaryOperatorStaticSemanticsTests : SemanticsTests
+public abstract class UnaryOperatorStaticSemanticsTests : StaticSemanticsTests
 {
     internal void AssertDeterminedDeclaredType(VBType operandDeclaredType, VBType expected) => AssertDeterminedDeclaredType([operandDeclaredType], expected);
 }
 
-public abstract class BinaryOperatorStaticSemanticsTests : SemanticsTests
+public abstract class BinaryOperatorStaticSemanticsTests : StaticSemanticsTests
 {
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateBinaryOperatorStaticSemantics()
     {
-        foreach (var kvp in BinaryOperatorTypeMap.Where(kvp => kvp.Key.Item1 is VBStringType && kvp.Key.Item2 is VBDateType))
+        foreach (var kvp in BinaryOperatorTypeMap)
         {
             var actual = Semantics.DetermineDeclaredType(kvp.Key.Item1, kvp.Key.Item2);
-            Assert.AreEqual(kvp.Value.Name, actual?.Name, $"({kvp.Key.Item1.Name},{kvp.Key.Item2.Name})");
+            Assert.AreEqual(kvp.Value.Name, actual?.Name, $"{Semantics.GetType().Name}({kvp.Key.Item1.Name},{kvp.Key.Item2.Name})");
         }
     }
 
@@ -283,8 +283,16 @@ public sealed class DivisionOperatorStaticSemanticsTests : BinaryOperatorStaticS
         get
         {
             var map = base.BinaryOperatorTypeMap;
+            map[(VBBooleanType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBBooleanType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBBooleanType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBBooleanType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBIntegerType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBByteType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBIntegerType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBIntegerType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
@@ -300,16 +308,6 @@ public sealed class DivisionOperatorStaticSemanticsTests : BinaryOperatorStaticS
             map[(VBBooleanType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBIntegerType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBByteType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBIntegerType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBLongLongType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBDoubleType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBDoubleType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBDoubleType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
@@ -376,23 +374,7 @@ public sealed class IntegerDivisionOperatorStaticSemanticsTests : BinaryOperator
         get
         {
             var map = base.BinaryOperatorTypeMap;
-            map[(VBByteType.TypeInfo, VBBooleanType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBByteType.TypeInfo, VBIntegerType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBByteType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBBooleanType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBIntegerType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBByteType.TypeInfo, VBLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBIntegerType.TypeInfo, VBLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongLongType.TypeInfo, VBByteType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongLongType.TypeInfo, VBIntegerType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongLongType.TypeInfo, VBLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongLongType.TypeInfo, VBLongLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBByteType.TypeInfo, VBLongLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBLongLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBIntegerType.TypeInfo, VBLongLongType.TypeInfo)] = VBLongType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBLongLongType.TypeInfo)] = VBLongType.TypeInfo;
+            // MS-VBAL 5.6.9.3.6.
             map[(VBSingleType.TypeInfo, VBByteType.TypeInfo)] = VBLongType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBBooleanType.TypeInfo)] = VBLongType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBIntegerType.TypeInfo)] = VBLongType.TypeInfo;
@@ -468,28 +450,25 @@ public sealed class ExponentOperatorStaticSemanticsTests : BinaryOperatorStaticS
         get
         {
             var map = base.BinaryOperatorTypeMap;
-            map[(VBByteType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBByteType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBIntegerType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
+            map[(VBIntegerType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBLongType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBIntegerType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongLongType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongLongType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongLongType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongLongType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBIntegerType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBLongType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBByteType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBSingleType.TypeInfo, VBBooleanType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBIntegerType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBByteType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
-            map[(VBBooleanType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBIntegerType.TypeInfo, VBSingleType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBLongType.TypeInfo)] = VBDoubleType.TypeInfo;
             map[(VBSingleType.TypeInfo, VBLongLongType.TypeInfo)] = VBDoubleType.TypeInfo;

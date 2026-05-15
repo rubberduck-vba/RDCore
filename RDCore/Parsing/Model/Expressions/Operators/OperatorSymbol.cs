@@ -34,14 +34,6 @@ internal abstract record class BinaryOperatorSymbol : OperatorSymbol
     }
 }
 
-internal abstract record class BitwiseOperatorSymbol : BinaryOperatorSymbol
-{
-    protected BitwiseOperatorSymbol(string name, StaticSemantics staticSemantics, RuntimeSemantics executionSemantics)
-        : base(name, staticSemantics, executionSemantics)
-    {
-    }
-}
-
 internal record class AdditionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.AdditionOp), new AdditionOperatorStaticSemantics(), new AdditionOperatorRuntimeSemantics()) { }
 internal record class SubtractionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.SubtractionOp), new SubtractionOperatorStaticSemantics(), new SubtractionOperatorRuntimeSematics()) { }
 internal record class MultiplicationOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.MultiplicationOp), new MultiplicationOperatorStaticSemantics(), new MultiplicationOperatorRuntimeSemantics()) { }
