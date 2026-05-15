@@ -93,27 +93,6 @@ public class MultiplicationOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [Ignore("test invalide à ajuster")]
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateMultiplication_Empty_LetCoercion_Numeric_IsZero()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedDouble(ref depth);
-        Assert.AreEqual(0, result.Value);
-    }
-
-    [TestMethod]
-    [Ignore("test invalide à ajuster")]
-
-    [TestCategory("MS-VBAL 5.5.1.2.11: Let-coercion from 'Empty'")]
-    public void EvaluateMultiplication_Empty_LetCoercion_String_IsEmptyString()
-    {
-        var depth = 0;
-        var result = VBEmptyValue.Empty.AsCoercedString(ref depth);
-        Assert.AreEqual(VBStringValue.ZeroLengthString, result);
-    }
-
-    [TestMethod]
     [DataRow("1.5", 1, 1.5d)]
     [DataRow(32767, -2.0d, -65534.0d)]
     public void EvaluateMultiplication_NumericCoercion(object lhs, object rhs, object expected)

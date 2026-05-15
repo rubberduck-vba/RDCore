@@ -1,5 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Parsing.Model.Symbols;
+﻿using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using System.Collections.Immutable;
 using System.Text;

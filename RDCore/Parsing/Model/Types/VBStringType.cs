@@ -19,6 +19,6 @@ internal sealed record class VBFixedStringType : VBStringType
     public int Length { get; init; }
     public override string? DefToken => default;
 
-    private static readonly Lazy<VBStringValue> _defaultValue = new(() => new VBStringValue { Value = new string(' ', Length) }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBStringValue> _defaultValue = new(() => new VBStringValue { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 }
