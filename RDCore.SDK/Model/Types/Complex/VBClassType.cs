@@ -1,28 +1,22 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.Unbound;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
+﻿using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Values;
 using System.Collections.Immutable;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.Parsing.Model.Types.Complex;
 
 /// <summary>
 /// Represents a class type that can be consumed by VB code, not necessarily defined in user code.
 /// </summary>
-public record class VBClassType : VBType, IVBMemberOwnerType
+internal record class VBClassType : VBType, IVBMemberOwnerType
 {
-    public VBClassType(VBClassModuleSymbol symbol, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
-        : base(typeof(object), symbol.Name, isHidden)
+    public VBClassType(ClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
+        : base(typeof(object), symbol.Name, isUserDefined, isHidden)
     {
         Symbol = symbol;
         Members = [.. members ?? []];
     }
 
-    public override int Size => sizeof(int);
-
-    public VBClassModuleSymbol Symbol { get; }
+    public ClassModuleSymbol Symbol { get; }
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.
@@ -42,7 +36,17 @@ public record class VBClassType : VBType, IVBMemberOwnerType
     /// Controlled by the <c>VB_DefaultMember</c> attribute or <c>@DefaultMember</c> annotation.
     /// </remarks>
     public VBTypeMemberSymbol? DefaultMember { get; init; }
+    /// <summary>
+    /// <c>true</c> if this class type is used as an interface (i.e., other classes implement it).
+    /// </summary>
+    /// ...or if it is marked with an @Interface annotation?
+    public bool IsInterface => Subtypes.Length != 0; // || @Interface annotation?
+    /// <summary>
+    /// Whether <c>new</c> instances of this class type can be created outside the project the class is defined in.
+    /// </summary>
+    public bool IsCreatable { get; init; }
 
+    public override VBType[] ConvertsSafelyToTypes => [.. Supertypes, VBVariantType.TypeInfo];
 
     private readonly static Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBObjectValue DefaultValue => _defaultValue.Value;

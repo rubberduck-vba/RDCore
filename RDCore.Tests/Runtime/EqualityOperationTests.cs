@@ -7,7 +7,6 @@ using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
 using RDCore.Runtime.Model.Operators.RuntimeSemantics;
-using RDCore.Server;
 
 namespace RDCore.Tests.Runtime;
 
@@ -101,8 +100,7 @@ public class EqualityOperationTests : SymbolOperationTests
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBUserDefinedTypeValue>(TestLocation)
-            .WithResultValue(new VBUserDefinedTypeValue(udt));
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateEquality(CreateContext(), lhs, rhs));
@@ -113,8 +111,7 @@ public class EqualityOperationTests : SymbolOperationTests
     public void EvaluateEquality_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
-            .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateEquality(CreateContext(), lhs, rhs));

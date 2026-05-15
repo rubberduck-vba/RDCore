@@ -1,6 +1,7 @@
 ﻿using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
+using RDCore.Runtime;
 using System.Diagnostics;
 
 namespace RDCore.Parsing.Model.Values;
@@ -13,10 +14,10 @@ internal record class VBObjectValue : VBTypedValue,
     public VBObjectValue(Symbol? symbol, VBLongPtrValue? address = default)
         : base(VBObjectType.TypeInfo, symbol)
     {
-        Value = address ?? Nothing.Value;
+        Value = address ?? VBLongPtrValue.Zero;
     }
 
-    public static VBObjectValue Nothing { get; } = new VBNothingValue();
+    public static VBObjectValue Nothing { get; } = new VBNothingValue(GlobalSymbols.Nothing);
 
     public VBLongPtrValue Value { get; init; }
     public override int Size => VBLongPtrValue.BitnessAwarePtrSize;

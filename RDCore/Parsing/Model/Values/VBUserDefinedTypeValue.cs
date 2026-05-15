@@ -7,13 +7,11 @@ namespace RDCore.Parsing.Model.Values;
 internal record class VBUserDefinedTypeValue : VBTypedValue,
     IVBTypedValue<VBUserDefinedTypeValue, VBLongPtrValue>
 {
-    public VBUserDefinedTypeValue(VBUserDefinedType type, Symbol? symbol = null)
-        : base(type, symbol)
-    {
-        Value = VBLongPtrValue.Zero;
-    }
+    // primary ctor type mismatch VBUserDefinedType->VBType
+    public VBUserDefinedTypeValue(VBUserDefinedType typeInfo, Symbol? symbol = null)
+        : base(typeInfo, symbol) { }
 
-    public VBLongPtrValue Value { get; }
+    public VBLongPtrValue Value { get; } = VBLongPtrValue.Zero;
 
     // +padding...
     public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeMember>()

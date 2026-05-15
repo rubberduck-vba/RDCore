@@ -1,16 +1,18 @@
 ﻿using RDCore.Parsing.Model.Symbols;
 using RDCore.Parsing.Model.Types;
+using RDCore.Runtime;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBBooleanValue : VBTypedValue, IVBTypedValue<VBBooleanValue, bool>, 
+internal record class VBBooleanValue(Symbol? Symbol = null) : VBTypedValue(VBBooleanType.TypeInfo, Symbol), 
+    IVBTypedValue<VBBooleanValue, bool>, 
     INumericCoercion, IStringCoercion
 {
-    public VBBooleanValue(Symbol? declarationSymbol = null)
-        : base(VBBooleanType.TypeInfo, declarationSymbol) { }
+    private static readonly Lazy<VBBooleanValue> _falseValue = new(() => new VBBooleanValue(GlobalSymbols.False) { Value = false });
+    public static VBBooleanValue False { get; } = _falseValue.Value;
 
-    public static VBBooleanValue False { get; } = new VBBooleanValue { Value = false };
-    public static VBBooleanValue True { get; } = new VBBooleanValue { Value = true };
+    private static readonly Lazy<VBBooleanValue> _trueValue = new(() => new VBBooleanValue(GlobalSymbols.True) { Value = true });
+    public static VBBooleanValue True { get; } = _trueValue.Value;
 
     public bool Value { get; init; } = default;
     public override int Size { get; } = 16;

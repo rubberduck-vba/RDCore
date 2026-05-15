@@ -9,7 +9,6 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.Runtime;
 
-[TestClass]
 public abstract class SymbolOperationTests
 {
     internal abstract RuntimeSemantics Semantics { get; }
@@ -50,24 +49,25 @@ public abstract class SymbolOperationTests
 
         ValuedExpression? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
             DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new LiteralExpression<VBDateValue>(location).WithResultValue(new VBDateValue().WithValue(dateValue)) 
+            ? new LiteralExpression(location, new VBDateValue().WithValue(dateValue)) 
             : null : null;
 
         // Helper to turn MSTest DataRow objects into RDCore VBTypedValues
         return val switch
         {
-            VBTypedValue value => new LiteralExpression<VBTypedValue>(location).WithResultValue(value),
-            "UDT" => new LiteralExpression<VBUserDefinedTypeValue>(location).WithResultValue(VBLongPtrValue.Zero),
-            "DateTime.Now" => new LiteralExpression<VBDateValue>(location).WithResultValue(VBDateValue.FromSerial(43452)),
-            "VBErrorValue" => new LiteralExpression<VBErrorValue>(location).WithResultValue(VBErrorType.TypeInfo.DefaultValue),
-            "Empty" => new LiteralExpression<VBEmptyValue>(location).WithResultValue(VBEmptyValue.Empty),
-            bool b => new LiteralExpression<VBBooleanValue>(location).WithResultValue(new VBBooleanValue().WithValue(b)),
-            byte v => new LiteralExpression<VBByteValue>(location).WithResultValue(new VBByteValue().WithValue(v)),
-            string s => dateHelper(s) ?? new LiteralExpression<VBStringValue>(location).WithResultValue(new VBStringValue().WithValue(s)),
-            int i => new LiteralExpression<VBIntegerValue>(location).WithResultValue(new VBIntegerValue().WithValue(i)),
-            long i => new LiteralExpression<VBLongLongValue>(location).WithResultValue(new VBLongLongValue().WithValue(i)),
-            double d => new LiteralExpression<VBDoubleValue>(location).WithResultValue(new VBDoubleValue().WithValue(d)),
-            null => new LiteralExpression<VBNullValue>(location).WithResultValue(VBNullValue.Null),
+            VBTypedValue value => new LiteralExpression(location, value),
+            "UDT" => new LiteralExpression(location, VBLongPtrValue.Zero),
+            "DateTime.Now" => new LiteralExpression(location, VBDateValue.FromSerial(43452)),
+            "VBErrorValue" => new LiteralExpression(location, VBErrorType.TypeInfo.DefaultValue),
+            bool b => new LiteralExpression(location, new VBBooleanValue().WithValue(b)),
+            byte v => new LiteralExpression(location, new VBByteValue().WithValue(v)),
+            int i => new LiteralExpression(location, new VBIntegerValue().WithValue(i)),
+            long i => new LiteralExpression(location, new VBLongLongValue().WithValue(i)),
+            double d => new LiteralExpression(location, new VBDoubleValue().WithValue(d)),
+            null => new LiteralExpression(location, VBNullValue.Null),
+            "Empty" => new LiteralExpression(location, VBEmptyValue.Empty),
+
+            string s => dateHelper(s) ?? new LiteralExpression(location, new VBStringValue().WithValue(s)),
             _ => throw new NotSupportedException()
         };
     }
@@ -118,8 +118,8 @@ public abstract class SymbolOperationTests
     //public void EvaluateBinaryBitwiseAnd_PureBoolean_ReturnsBoolean()
     //{
     //    var context = CreateContext();
-    //    var lhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
-    //    var rhsValue = new LiteralExpression<VBBooleanValue>(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
+    //    var lhsValue = new LiteralExpression(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
+    //    var rhsValue = new LiteralExpression(TestLocation) { ResultValue = new VBBooleanValue().WithValue(true) }; // -1
 
     //    var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, lhsValue, rhsValue, TestLocation);
 

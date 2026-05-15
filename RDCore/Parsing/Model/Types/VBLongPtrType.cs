@@ -2,13 +2,12 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBLongPtrType : VBIntrinsicType<int>
+internal record class VBLongPtrType() : VBIntrinsicType<int>(Tokens.LongPtr)
 {
-    private static readonly VBLongPtrType _type = new();
+    public static VBLongPtrType TypeInfo { get; } = new();
 
-    public VBLongPtrType() : base(Tokens.LongPtr) { }
-    public static VBLongPtrType TypeInfo => _type;
+    private static readonly Lazy<VBLongPtrValue> _defaultValue = new(() => VBLongPtrValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override VBTypedValue DefaultValue { get; } = VBLongPtrValue.Zero;
     public override VBType[] ConvertsSafelyToTypes { get; } = [VBLongType.TypeInfo, VBLongLongType.TypeInfo, VBVariantType.TypeInfo];
 }

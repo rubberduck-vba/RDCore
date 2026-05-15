@@ -3,14 +3,11 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBDateValue : VBTypedValue,
+internal record class VBDateValue(Symbol? Symbol = null) : VBTypedValue(VBDateType.TypeInfo, Symbol),
     IVBTypedValue<VBDateValue, DateTime>,
     INumericCoercion,
     IStringCoercion
 {
-    public VBDateValue(Symbol? declarationSymbol = null)
-        : base(VBDateType.TypeInfo, declarationSymbol) { }
-
     public static VBDateValue MinValue { get; } = new() { Value = new DateTime(100, 01, 01) };
     public static VBDateValue MaxValue { get; } = new() { Value = new DateTime(9999, 12, 31, 23, 59, 59) };
     public static VBDateValue Zero { get; } = new() { Value = new DateTime(1899, 12, 30) };

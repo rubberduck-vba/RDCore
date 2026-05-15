@@ -76,13 +76,19 @@ internal abstract record class VBType
     public bool IsHidden { get; init; }
 
     /// <summary>
-    /// If <c>true</c>, the type is bound at run-time (i.e. late binding)
+    /// If <c>true</c>, the type is bound using run-time semantics (i.e. late binding).
     /// </summary>
+    /// <remarks>
+    /// <c>false</c> unless overridden in a more specialized type.
+    /// </remarks>
     public virtual bool RuntimeBinding { get; } = false;
 
     /// <summary>
     /// Gets the default value for this data type.
     /// </summary>
+    /// <remarks>
+    /// <strong>IMPORTANT:</strong> derived types MUST initialize this property with a <c>Lazy&lt;T&gt;</c> to avoid static context timing issues.
+    /// </remarks>
     public abstract VBTypedValue DefaultValue { get; }
 
 

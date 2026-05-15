@@ -4,12 +4,11 @@ using RDCore.Runtime;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBNullValue : VBTypedValue, IVBTypedValue<VBNullValue, nint>, 
+internal record class VBNullValue(Symbol? Symbol = null) : VBTypedValue(VBNullType.TypeInfo, Symbol), IVBTypedValue<VBNullValue, nint>, 
     INumericCoercion, IStringCoercion
 {
-    public static VBNullValue Null => new() { TypeInfo = VBNullType.TypeInfo, Symbol = GlobalSymbols.Null };
-    public VBNullValue() : base(VBNullType.TypeInfo, GlobalSymbols.Null) { }
-
+    public static VBNullValue Null => new(GlobalSymbols.Null);
+    
     public nint Value { get; } = nint.Zero;
     public override int Size => 0;
 

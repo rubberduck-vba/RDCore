@@ -3,14 +3,13 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBByteType : VBIntrinsicType<byte>, IIntegralNumericType
+internal sealed record class VBByteType() : VBIntrinsicType<byte>(Tokens.Byte), IIntegralNumericType
 {
-    private static readonly VBByteType _type = new();
+    private static readonly Lazy<VBByteType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBByteType TypeInfo => _instance.Value;
 
-    private VBByteType() : base(Tokens.Byte) { }
-
-    public static VBByteType TypeInfo => _type;
-    public override VBByteValue DefaultValue { get; } = new();
+    private static readonly Lazy<VBByteValue> _defaultValue = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public override VBByteValue DefaultValue => _defaultValue.Value;
     public override string? DefToken => Tokens.DefByte;
 
     public VBNumericTypedValue WithValue(double value, Symbol? symbol = default) => symbol is null
