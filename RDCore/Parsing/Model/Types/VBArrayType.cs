@@ -16,8 +16,7 @@ internal sealed record class VBArrayType : VBIntrinsicType<object[]>, IEnumerabl
 
     public bool IsArray { get; } = true;
 
-    private readonly Lazy<VBTypedValue> _defaultValue = new(() => new VBResizableArrayValue([]), LazyThreadSafetyMode.PublicationOnly);
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+    public override VBTypedValue DefaultValue => DeclaredValue;
 
     public override bool CanPassByValue { get; } = false;
 
