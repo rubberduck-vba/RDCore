@@ -58,4 +58,8 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Semantics\" />
+  </ItemGroup>
+
 </Project>
