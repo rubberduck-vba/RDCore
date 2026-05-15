@@ -47,7 +47,9 @@ internal record class VBClassType : VBType, IVBMemberOwnerType
     public bool IsCreatable { get; init; }
 
     public override VBType[] ConvertsSafelyToTypes => [.. Supertypes, VBVariantType.TypeInfo];
-    public override VBObjectValue DefaultValue { get; } = VBObjectValue.Nothing;
+
+    private readonly static Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
+    public override VBObjectValue DefaultValue => _defaultValue.Value;
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };

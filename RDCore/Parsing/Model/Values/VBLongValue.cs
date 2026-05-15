@@ -3,13 +3,10 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBLongValue : VBNumericTypedValue,
+internal record class VBLongValue(Symbol? Symbol = null) : VBNumericTypedValue(VBLongType.TypeInfo, Symbol),
     IVBTypedValue<VBLongValue, int>,
     INumericValue<VBLongValue>
 {
-    public VBLongValue(Symbol? declarationSymbol = null)
-        : base(VBLongType.TypeInfo, declarationSymbol) { }
-
     public static VBLongValue MinValue { get; } = new VBLongValue { NumericValue = int.MinValue };
     public static VBLongValue MaxValue { get; } = new VBLongValue { NumericValue = int.MaxValue };
     public static VBLongValue Zero { get; } = new VBLongValue { NumericValue = 0 };

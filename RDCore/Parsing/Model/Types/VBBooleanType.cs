@@ -1,15 +1,15 @@
 ﻿using RDCore.Parsing.Model.Values;
+using RDCore.Runtime;
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBBooleanType : VBIntrinsicType<bool>
+internal sealed record class VBBooleanType() : VBIntrinsicType<bool>(Tokens.Boolean)
 {
-    private static readonly VBBooleanType _type = new();
+    private static readonly Lazy<VBBooleanType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBBooleanType TypeInfo => _instance.Value;
 
-    private VBBooleanType() : base(Tokens.Boolean) { }
-    public static VBBooleanType TypeInfo => _type;
-
-    public override VBBooleanValue DefaultValue { get; } = new VBBooleanValue() { Value = false };
+    private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBBooleanValue.False, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
     public override VBType[] ConvertsSafelyToTypes =>
         [
             VBByteType.TypeInfo,

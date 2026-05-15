@@ -4,7 +4,7 @@ using RDCore.Server;
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 
-internal abstract record class BinaryBitwiseOperator : BinaryOperatorRuntimeSemantics
+internal abstract record class BinaryBitwiseOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
 {
     protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {

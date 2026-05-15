@@ -1,13 +1,13 @@
-﻿using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+﻿using RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticContext;
 
 /// <summary>
 /// MS-VBAL 5.6.9.4 Binary '&' Operator (static semantics)
 /// </summary>
-internal record class ConcatOperatorStaticSemantics : StaticSemanticRules
+internal record class ConcatOperatorStaticSemantics : StaticSemantics
 {
     public override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
     {

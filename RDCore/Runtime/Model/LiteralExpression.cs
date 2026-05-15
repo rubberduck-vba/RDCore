@@ -3,15 +3,14 @@ using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Runtime.Model;
 
-internal sealed record class LiteralExpression<TValue> : ValuedExpression
+internal sealed record class LiteralExpression : ValuedExpression
 {
-    public LiteralExpression(Location location, char? typeHint = default)
-        : base(location)
+    public LiteralExpression(Location location, VBTypedValue value, char? typeHint = default)
+        : base(location, value)
     {
         TypeHint = typeHint;
     }
 
     public char? TypeHint { get; init; }
 
-    public override VBTypedValue Evaluate(VBExecutionContext context) => ResultValue;
 }

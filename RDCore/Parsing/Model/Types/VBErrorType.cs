@@ -2,13 +2,14 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBErrorType : VBIntrinsicType<int>
+internal sealed record class VBErrorType() : VBIntrinsicType<int>(Tokens.Error)
 {
-    private static readonly VBErrorType _type = new();
-    private VBErrorType() : base(Tokens.Error) { }
+    private static readonly Lazy<VBErrorType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBErrorType TypeInfo => _instance.Value;
 
-    public static VBErrorType TypeInfo => _type;
+    private static readonly Lazy<VBErrorValue> _defaultValue = new(() => VBErrorValue.None, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override VBTypedValue DefaultValue => VBErrorValue.None;
     public override VBType[] ConvertsSafelyToTypes => [VBVariantType.TypeInfo];
+    public override bool IsDeclarable => false;
 }

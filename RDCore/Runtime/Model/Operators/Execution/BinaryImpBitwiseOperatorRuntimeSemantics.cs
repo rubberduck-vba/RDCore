@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator
 /// </summary>
-internal record class BinaryImpBitwiseOperator : BinaryBitwiseOperator
+internal record class BinaryImpBitwiseOperatorRuntimeSemantics : BinaryBitwiseOperatorRuntimeSemantics
 {
     protected override int EvaluateBitwise(int lhs, int rhs)
     {

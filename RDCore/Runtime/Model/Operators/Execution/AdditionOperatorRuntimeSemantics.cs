@@ -4,7 +4,7 @@ using RDCore.Server;
 
 namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 
-internal record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
+internal sealed record class AdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
     {

@@ -2,15 +2,13 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBDecimalType : VBIntrinsicType<decimal>, IFixedPointNumericType
+internal sealed record class VBDecimalType() : VBIntrinsicType<decimal>(Tokens.Decimal), IFixedPointNumericType
 {
-    private static readonly VBDecimalType _type = new();
+    private static readonly Lazy<VBDecimalType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBDecimalType TypeInfo => _instance.Value;
 
-    private VBDecimalType() : base(Tokens.Decimal) { }
-
-    public static VBDecimalType TypeInfo => _type;
-
-    public override VBTypedValue DefaultValue { get; } = VBDecimalValue.Zero;
+    private static readonly Lazy<VBDecimalValue> _defaultValue = new(() => VBDecimalValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     public override bool IsDeclarable { get; } = false; // "As Decimal" is explicitly specified as illegal.
 }

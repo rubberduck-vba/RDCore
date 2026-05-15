@@ -2,14 +2,13 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBIntegerType : VBIntrinsicType<short>, IIntegralNumericType
+internal sealed record class VBIntegerType() : VBIntrinsicType<short>(Tokens.Integer), IIntegralNumericType
 {
-    private static readonly VBIntegerType _type = new();
+    private static readonly Lazy<VBIntegerType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBIntegerType TypeInfo => _instance.Value;
 
-    private VBIntegerType() : base(Tokens.Integer) { }
+    private static readonly Lazy<VBIntegerValue> _defaultValue = new(() => VBIntegerValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public static VBIntegerType TypeInfo => _type;
-
-    public override VBTypedValue DefaultValue { get; } = VBIntegerValue.Zero;
     public override string? DefToken => Tokens.DefInt;
 }

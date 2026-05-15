@@ -13,13 +13,13 @@ internal abstract record class TypedSymbol : Symbol
         : base(workspaceRoot, name, kind, parentUri, scope)
     {
         Accessibility = accessibility;
-        ResolvedType = UnresolvedType.VBType;
+        ResolvedType = UnresolvedType.TypeInfo;
     }
     protected TypedSymbol(Uri workspaceRoot, ScopeKind scope, string name, SymbolKindExt kind, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange)
         : base(workspaceRoot, scope, name, kind, range, selectionRange, parentUri)
     {
         Accessibility = accessibility;
-        ResolvedType = UnresolvedType.VBType;
+        ResolvedType = UnresolvedType.TypeInfo;
     }
 
     public Accessibility Accessibility { get; init; }

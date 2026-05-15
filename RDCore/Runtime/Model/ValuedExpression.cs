@@ -1,14 +1,20 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Parsing.Model;
+using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
 
 namespace RDCore.Runtime.Model;
 
-internal abstract record class ValuedExpression(Location Location) : BoundExpression(Location)
+internal abstract record class ValuedExpression : BoundExpression
 {
-    public VBTypedValue ResultValue { get; init; } = VBEmptyValue.Empty;
+    protected internal ValuedExpression(Location location, VBTypedValue? resultValue = null)
+        : base(location)
+    {
+        ResultValue = resultValue;
+        StaticDeclaredType = resultValue?.TypeInfo ?? UnresolvedType.TypeInfo;
+    }
 
-    public ValuedExpression WithResultValue(VBTypedValue value) => this with { ResultValue = value, ResultType = value.TypeInfo };
+    public VBTypedValue? ResultValue { get; init; }
 
-    public abstract VBTypedValue Evaluate(VBExecutionContext context);
+    public ValuedExpression WithResultValue(VBTypedValue value) => this with { ResultValue = value, StaticDeclaredType = value.TypeInfo };
 }

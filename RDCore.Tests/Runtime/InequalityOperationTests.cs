@@ -111,8 +111,7 @@ public class InequalityOperationTests : SymbolOperationTests
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBUserDefinedTypeValue>(TestLocation)
-            .WithResultValue(new VBUserDefinedTypeValue(udt));
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateInequality(CreateContext(), lhs, rhs));
@@ -123,8 +122,7 @@ public class InequalityOperationTests : SymbolOperationTests
     public void EvaluateInequality_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
-            .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateInequality(CreateContext(), lhs, rhs));

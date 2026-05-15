@@ -13,5 +13,4 @@ internal sealed record class ParenthesizedExpression : ValuedExpression
 
     public ValuedExpression InnerExpression { get; init; }
 
-    public override VBTypedValue Evaluate(VBExecutionContext context) => InnerExpression.Evaluate(context);
 }

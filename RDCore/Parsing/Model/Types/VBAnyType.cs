@@ -2,15 +2,15 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBAnyType : VBIntrinsicType<object?>
+internal sealed record class VBAnyType() : VBIntrinsicType<object?>(Tokens.Any)
 {
-    private static readonly VBAnyType _type = new();
+    private static readonly Lazy<VBAnyType> _instance = new Lazy<VBAnyType>(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBAnyType TypeInfo => _instance.Value;
 
-    private VBAnyType() : base(Tokens.Any) { }
+    private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBVariantType.TypeInfo.DefaultValue, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public static VBAnyType TypeInfo => _type;
-
-    public override bool RuntimeBinding { get; } = true;
-    public override VBTypedValue DefaultValue => VBVariantType.TypeInfo.DefaultValue;
     public override VBType[] ConvertsSafelyToTypes { get; } = [];
+    public override bool IsDeclarable => false;
+    public override bool RuntimeBinding { get; } = true;
 }

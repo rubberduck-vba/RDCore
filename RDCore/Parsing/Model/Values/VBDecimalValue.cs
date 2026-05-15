@@ -3,13 +3,10 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBDecimalValue : VBNumericTypedValue,
+internal record class VBDecimalValue(Symbol? Symbol = null) : VBNumericTypedValue(VBDecimalType.TypeInfo, Symbol),
     IVBTypedValue<VBDecimalValue, decimal>,
     INumericValue<VBDecimalValue>
 {
-    public VBDecimalValue(Symbol? declarationSymbol = null)
-        : base(VBDecimalType.TypeInfo, declarationSymbol) { }
-
     public static VBDecimalValue MinValue { get; } = new VBDecimalValue { NumericValue = (double)(long.MinValue * Math.Pow(10, -4)) };
     public static VBDecimalValue MaxValue { get; } = new VBDecimalValue { NumericValue = (double)(long.MaxValue * Math.Pow(10, -4)) };
     public static VBDecimalValue Zero { get; } = new VBDecimalValue { NumericValue = 0 };

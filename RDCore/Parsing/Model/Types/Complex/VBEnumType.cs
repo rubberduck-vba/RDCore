@@ -27,7 +27,9 @@ internal sealed record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclare
         VBVariantType.TypeInfo
     ];
 
-    public override VBTypedValue DefaultValue { get; } = VBLongValue.Zero;
+    private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
+
     public Symbol Declaration { get; init; }
     public Symbol[]? Definitions { get; init; }
 

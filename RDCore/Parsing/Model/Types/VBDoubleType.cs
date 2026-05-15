@@ -2,19 +2,17 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBDoubleType : VBIntrinsicType<double>, IFloatingPointNumericType
+internal sealed record class VBDoubleType() : VBIntrinsicType<double>(Tokens.Double), IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.
     /// </summary>
     public const int SignificantIntegerDigits = 15;
 
-    private static readonly VBDoubleType _type = new();
+    private static readonly Lazy<VBDoubleType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBDoubleType TypeInfo => _instance.Value;
 
-    private VBDoubleType() : base(Tokens.Double) { }
-
-    public static VBDoubleType TypeInfo => _type;
-
-    public override VBTypedValue DefaultValue { get; } = VBDoubleValue.Zero;
+    private static readonly Lazy<VBDoubleValue> _defaultValue = new(() => VBDoubleValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
     public override string? DefToken => Tokens.DefDbl;
 }

@@ -11,7 +11,8 @@ internal record class VBStdModuleType : VBType, IVBMemberOwnerType
         Members = [.. members ?? []];
     }
 
-    public override VBTypedValue DefaultValue => VBVoidValue.Void;
+    private static readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
 

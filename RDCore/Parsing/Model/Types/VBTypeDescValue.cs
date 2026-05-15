@@ -1,13 +1,11 @@
-﻿namespace RDCore.Parsing.Model.Types;
+﻿using RDCore.Parsing.Model.Values;
+
+namespace RDCore.Parsing.Model.Types;
 
 /// <summary>
 /// A metatype that describes a type. Not used in many places!
 /// </summary>
-//public record class VBTypeDescValue : VBTypedValue
-//{
-//    public VBTypeDescValue(VBType type) : base(type, null)
-//    {
-//    }
-
-//    public override int Size => sizeof(int);
-//}
+internal record class VBTypeDescValue(VBType type) : VBTypedValue(type)
+{
+    public override int Size => sizeof(int);
+}

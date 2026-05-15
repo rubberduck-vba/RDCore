@@ -35,21 +35,16 @@ internal record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValu
     public override int GetHashCode() => Value?.GetHashCode() ?? 0;
 }
 
-internal record class VBDeferredMemberValue : VBTypedValue
+internal record class VBDeferredMemberValue(Symbol? Symbol = null) : VBTypedValue(VBVariantType.TypeInfo, Symbol)
 {
-    public VBDeferredMemberValue(Symbol? symbol)
-        : base(VBVariantType.TypeInfo, symbol)
-    {
-    }
-
     public override int Size => sizeof(int);
 
     public string Name { get; init; } = string.Empty;
     public VBDeferredMemberValue WithName(string name) => this with { Name = name };
 
+    /// <summary>
+    /// Represents the context of the deferred member value - could be a class or std module value.
+    /// </summary>
     public VBTypedValue? Context { get; init; }
     public VBDeferredMemberValue WithContext(VBTypedValue context) => this with { Context = context };
-
-    public ImmutableArray<Diagnostic> Diagnostics { get; init; } = [];
-    public VBDeferredMemberValue WithDiagnostic(Diagnostic diagnostic) => this with { Diagnostics = [.. Diagnostics, diagnostic] };
 }

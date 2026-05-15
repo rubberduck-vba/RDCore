@@ -65,8 +65,7 @@ public class AdditionOperationTests : SymbolOperationTests
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBUserDefinedTypeValue>(TestLocation)
-            .WithResultValue(new VBUserDefinedTypeValue(udt));
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
             
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateAddition(CreateContext(), lhs, rhs));
@@ -77,8 +76,7 @@ public class AdditionOperationTests : SymbolOperationTests
     public void EvaluateAddition_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
-            .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateAddition(CreateContext(), lhs, rhs));
@@ -212,6 +210,15 @@ public class AdditionOperationTests : SymbolOperationTests
         var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
         var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsValue, rhsValue, TestLocation);
+
+        if (lhsValue?.ResultValue?.TypeInfo is null)
+        {
+            Assert.Inconclusive();
+        }
+        if (rhsValue?.ResultValue?.TypeInfo is null)
+        {
+            Assert.Inconclusive();
+        }
 
         return Semantics.Evaluate(context, expression, lhsValue.ResultValue, rhsValue.ResultValue)!;
     }

@@ -8,7 +8,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.3.6 Binary '\' Operator and 'Mod' Operator (runtime semantics)
 /// </summary>
-internal record class ModuloOperatorRuntimeSemantics : IntegerDivisionOperatorRuntimeSemantics
+internal sealed record class ModuloOperatorRuntimeSemantics : IntegerDivisionOperatorRuntimeSemantics
 {
     protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {

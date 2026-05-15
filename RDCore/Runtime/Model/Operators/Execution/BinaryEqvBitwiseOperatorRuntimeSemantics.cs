@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator
 /// </summary>
-internal record class BinaryEqvBitwiseOperator : BinaryBitwiseOperator
+internal record class BinaryEqvBitwiseOperatorRuntimeSemantics : BinaryBitwiseOperatorRuntimeSemantics
 {
     protected override int EvaluateBitwise(int lhs, int rhs)
     {

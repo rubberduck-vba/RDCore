@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.8.2 Binary 'And' Operator
 /// </summary>
-internal record class BinaryAndBitwiseOperator : BinaryBitwiseOperator
+internal record class BinaryAndBitwiseOperatorRuntimeSemantics : BinaryBitwiseOperatorRuntimeSemantics
 {
     protected override int EvaluateBitwise(int lhs, int rhs) => lhs & rhs;
 

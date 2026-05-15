@@ -61,13 +61,15 @@ internal record class VBDeferredModuleType : VBDeferredType
 {
     public VBDeferredModuleType(string name, Uri uri) : base(name, uri) { }
 
-    public override VBTypedValue DefaultValue => VBVoidValue.Void;
+    private static readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 }
 
 internal record class VBDeferredClassModuleType : VBDeferredType
 {
     public VBDeferredClassModuleType(string name, Uri uri) : base(name, uri) { }
 
-    public override VBTypedValue DefaultValue => VBObjectValue.Nothing;
+    private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 }
 

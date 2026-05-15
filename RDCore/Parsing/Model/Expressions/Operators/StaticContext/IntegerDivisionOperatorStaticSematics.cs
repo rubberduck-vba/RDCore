@@ -1,12 +1,12 @@
-﻿using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+﻿using RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 using RDCore.Parsing.Model.Types;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticContext;
 
 /// <summary>
 /// MS-VBAL 5.6.9.3.6 Binary '\' Operator and 'Mod' Operator (static semantics)
 /// </summary>
-internal record class IntegerDivisionOperatorStaticSematics : BinaryArithmeticOperatorStaticSemantics
+internal sealed record class IntegerDivisionOperatorStaticSematics : BinaryArithmeticOperatorStaticSemantics
 {
     protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {

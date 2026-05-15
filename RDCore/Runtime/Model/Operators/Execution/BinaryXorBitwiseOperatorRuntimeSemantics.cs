@@ -6,7 +6,7 @@ namespace RDCore.Runtime.Model.Operators.RuntimeSemantics;
 /// <summary>
 /// MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator
 /// </summary>
-internal record class BinaryXorBitwiseOperator : BinaryBitwiseOperator
+internal record class BinaryXorBitwiseOperatorRuntimeSemantics : BinaryBitwiseOperatorRuntimeSemantics
 {
     protected override int EvaluateBitwise(int lhs, int rhs)
     {

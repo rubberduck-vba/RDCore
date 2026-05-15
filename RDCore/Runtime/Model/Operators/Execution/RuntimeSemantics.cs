@@ -11,7 +11,8 @@ internal abstract record class RuntimeSemantics
 
     public VBTypedValue? Evaluate(VBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands)
     {
-        var effectiveType = DetermineEffectiveType([.. operands.Select(op => op.TypeInfo)]);
+        var operandTypes = operands.Select(op => op.TypeInfo).ToArray();
+        var effectiveType = DetermineEffectiveType(operandTypes);
         if (effectiveType is null)
         {
             // the operation is invalid

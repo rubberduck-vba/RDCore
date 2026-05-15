@@ -3,13 +3,10 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBCurrencyValue : VBNumericTypedValue,
+internal record class VBCurrencyValue(Symbol? Symbol = null) : VBNumericTypedValue(VBCurrencyType.TypeInfo, Symbol),
     IVBTypedValue<VBCurrencyValue, decimal>,
     INumericValue<VBCurrencyValue>
 {
-    public VBCurrencyValue(Symbol? symbol = null)
-        : base(VBCurrencyType.TypeInfo, symbol) { }
-
     public static VBCurrencyValue MinValue { get; } = new VBCurrencyValue { NumericValue = (double)(long.MinValue * Math.Pow(10, -4)) };
     public static VBCurrencyValue MaxValue { get; } = new VBCurrencyValue { NumericValue = (double)(long.MaxValue * Math.Pow(10, -4)) };
     public static VBCurrencyValue Zero { get; } = new VBCurrencyValue { NumericValue = 0 };

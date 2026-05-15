@@ -4,7 +4,7 @@ namespace RDCore.Parsing.Model.Types;
 
 internal abstract record class VBIntrinsicType : VBType
 {
-    public static ImmutableArray<VBType> IntrinsicTypes =>
+    private static readonly Lazy<ImmutableArray<VBType>> _intrinsicTypes = new(() =>
         [
             VBBooleanType.TypeInfo,
             VBByteType.TypeInfo,
@@ -22,7 +22,8 @@ internal abstract record class VBIntrinsicType : VBType
             VBStringType.TypeInfo,
             VBObjectType.TypeInfo,
             VBVariantType.TypeInfo,
-        ];
+        ], LazyThreadSafetyMode.PublicationOnly);
+    public static ImmutableArray<VBType> IntrinsicTypes => _intrinsicTypes.Value;
 
     public static bool TryResolve(string name, out VBType type)
     {
@@ -36,6 +37,9 @@ internal abstract record class VBIntrinsicType : VBType
     /// <summary>
     /// <c>true</c> for all intrinsic types that are valid in an <c>AsTypeClause</c> declaration.
     /// </summary>
+    /// <remarks>
+    /// Non-declarable types include <c>Decimal</c>, <c>Missing</c>, <c>Empty</c>, <c>Null</c>, and others.
+    /// </remarks>
     public virtual bool IsDeclarable { get; } = true;
 
     /// <summary>
@@ -58,8 +62,5 @@ internal abstract record class VBIntrinsicType : VBType
 
 internal abstract record class VBIntrinsicType<T> : VBIntrinsicType
 {
-    protected VBIntrinsicType(string name)
-        : base(name, typeof(T))
-    {
-    }
+    protected VBIntrinsicType(string name) : base(name, typeof(T)) { }
 }

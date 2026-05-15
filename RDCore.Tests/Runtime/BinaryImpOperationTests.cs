@@ -15,7 +15,7 @@ namespace RDCore.Tests.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
 public class BinaryImpOperationTests : SymbolOperationTests
 {
-    internal override RuntimeSemantics Semantics => new BinaryImpBitwiseOperator();
+    internal override RuntimeSemantics Semantics => new BinaryImpBitwiseOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,
         VBByteType.TypeInfo,
@@ -83,8 +83,7 @@ public class BinaryImpOperationTests : SymbolOperationTests
         var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBUserDefinedTypeValue>(TestLocation)
-            .WithResultValue(new VBUserDefinedTypeValue(udt));
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateImp(CreateContext(), lhs, rhs));
@@ -95,8 +94,7 @@ public class BinaryImpOperationTests : SymbolOperationTests
     public void EvaluateImp_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression<VBResizableArrayValue>(TestLocation)
-            .WithResultValue(new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateImp(CreateContext(), lhs, rhs));

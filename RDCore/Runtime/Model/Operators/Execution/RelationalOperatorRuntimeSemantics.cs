@@ -1,5 +1,5 @@
 ﻿using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Values;
 using System.Text;
@@ -33,7 +33,6 @@ internal sealed record class InequalityRelationalOperatorRuntimeSemantics : Rela
 internal sealed record class LessThanRelationalOperatorRuntimeSemantics : RelationalOperatorRuntimeSemantics
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => lhs.CompareTo(rhs, comparison) < 0;
-
     protected override bool ComparisonOp(double lhs, double rhs) => lhs.CompareTo(rhs) < 0;
 }
 
@@ -43,7 +42,6 @@ internal sealed record class LessThanRelationalOperatorRuntimeSemantics : Relati
 internal sealed record class GreaterThanRelationalOperatorRuntimeSemantics : RelationalOperatorRuntimeSemantics
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => lhs.CompareTo(rhs, comparison) > 0;
-
     protected override bool ComparisonOp(double lhs, double rhs) => lhs.CompareTo(rhs) > 0;
 }
 
@@ -53,7 +51,6 @@ internal sealed record class GreaterThanRelationalOperatorRuntimeSemantics : Rel
 internal sealed record class LessThanEqRelationalOperatorRuntimeSemantics : RelationalOperatorRuntimeSemantics
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => lhs.CompareTo(rhs, comparison) <= 0;
-
     protected override bool ComparisonOp(double lhs, double rhs) => lhs.CompareTo(rhs) <= 0;
 }
 
@@ -63,7 +60,6 @@ internal sealed record class LessThanEqRelationalOperatorRuntimeSemantics : Rela
 internal sealed record class GreaterThanEqRelationalOperatorRuntimeSemantics : RelationalOperatorRuntimeSemantics
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => lhs.CompareTo(rhs, comparison) >= 0;
-
     protected override bool ComparisonOp(double lhs, double rhs) => lhs.CompareTo(rhs) >= 0;
 }
 
@@ -74,16 +70,19 @@ internal sealed record class LikeRelationalOperatorRuntimeSemantics : Relational
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison)
     {
-        var regex = ToRegex(rhs);
-        return Regex.IsMatch(lhs, regex);
-    }
+        var regex = ToRegex(rhs, comparison);
+        var options = comparison == StringComparison.InvariantCultureIgnoreCase
+            ? RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
+            : RegexOptions.CultureInvariant;
 
+        return Regex.IsMatch(lhs, regex, options);
+    }
     protected override bool ComparisonOp(double lhs, double rhs)
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 
-    private static string ToRegex(string likePattern)
+    private static string ToRegex(string likePattern, StringComparison comparison)
     {
         StringBuilder regexStr = new();
         for (var i = 0;  i < likePattern.Length; i++)
@@ -105,6 +104,10 @@ internal sealed record class LikeRelationalOperatorRuntimeSemantics : Relational
                     {
                         regexStr.Append("[^");
                     }
+                    else
+                    {
+                        regexStr.Append(token);
+                    }
                     break;
                 default:
                     regexStr.Append(token);
@@ -117,12 +120,25 @@ internal sealed record class LikeRelationalOperatorRuntimeSemantics : Relational
     }
 }
 
+/// <summary>
+/// MS-VBAL 5.6.9.7 Binary 'Is' Operator
+/// </summary>
 internal record class IsRefEqRelationalOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs) => VBBooleanType.TypeInfo;
 
     protected override VBTypedValue? EvaluateOperationResult(VBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
+        // just to read like MS-VBAL: VBNothingValue is a VBObjectValue (similar w/ string & fixedString)
+        if (lhs is not VBObjectValue and not VBNothingValue)
+        {
+            throw VBRuntimeErrorException.ObjectRequired(expression.Left.Location.Range);
+        }
+        if (rhs is not VBObjectValue and not VBNothingValue)
+        {
+            throw VBRuntimeErrorException.ObjectRequired(expression.Right.Location.Range);
+        }
+
         if (lhs.Symbol != null && lhs is VBObjectValue or VBVariantValue && 
             rhs.Symbol != null && rhs is VBObjectValue or VBVariantValue)
         {

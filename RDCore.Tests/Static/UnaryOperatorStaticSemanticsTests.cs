@@ -1,12 +1,12 @@
-using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
-using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+using RDCore.Parsing.Model.Expressions.Operators.StaticContext;
+using RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Tests.Static;
 
 public abstract class SemanticsTests
 {
-    internal abstract StaticSemanticRules Semantics { get; }
+    internal abstract StaticSemantics Semantics { get; }
 
     internal virtual Dictionary<VBType, VBType> UnaryOperatorTypeMap { get; } = new()
     {
@@ -169,7 +169,7 @@ public abstract class BinaryOperatorStaticSemanticsTests : SemanticsTests
 [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
 public sealed class UnaryNegationOperatorStaticSemanticsTests : UnaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new UnaryNegationOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new UnaryNegationOperatorStaticSemantics();
 
     internal sealed override Dictionary<VBType, VBType> UnaryOperatorTypeMap
     {
@@ -200,7 +200,7 @@ public sealed class UnaryNegationOperatorStaticSemanticsTests : UnaryOperatorSta
 [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
 public sealed class AdditionOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new AdditionOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new AdditionOperatorStaticSemantics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {
@@ -217,7 +217,7 @@ public sealed class AdditionOperatorStaticSemanticsTests : BinaryOperatorStaticS
 [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
 public sealed class SubtractionOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new SubtractionOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new SubtractionOperatorStaticSemantics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {
@@ -234,7 +234,7 @@ public sealed class SubtractionOperatorStaticSemanticsTests : BinaryOperatorStat
 [TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
 public sealed class MultiplicationOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new MultiplicationOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new MultiplicationOperatorStaticSemantics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {
@@ -276,7 +276,7 @@ public sealed class MultiplicationOperatorStaticSemanticsTests : BinaryOperatorS
 [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
 public sealed class DivisionOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new DivisionOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new DivisionOperatorStaticSemantics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {
@@ -369,7 +369,7 @@ public sealed class DivisionOperatorStaticSemanticsTests : BinaryOperatorStaticS
 [TestCategory("MS-VBAL 5.6.9.3.6 Binary 'Mod' Operator")]
 public sealed class IntegerDivisionOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new IntegerDivisionOperatorStaticSematics();
+    internal sealed override StaticSemantics Semantics => new IntegerDivisionOperatorStaticSematics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {
@@ -461,7 +461,7 @@ public sealed class IntegerDivisionOperatorStaticSemanticsTests : BinaryOperator
 [TestCategory("MS-VBAL 5.6.9.3.7 Binary '^' Operator")]
 public sealed class ExponentOperatorStaticSemanticsTests : BinaryOperatorStaticSemanticsTests
 {
-    internal sealed override StaticSemanticRules Semantics => new ExponentOperatorStaticSemantics();
+    internal sealed override StaticSemantics Semantics => new ExponentOperatorStaticSemantics();
 
     internal sealed override Dictionary<(VBType, VBType), VBType> BinaryOperatorTypeMap
     {

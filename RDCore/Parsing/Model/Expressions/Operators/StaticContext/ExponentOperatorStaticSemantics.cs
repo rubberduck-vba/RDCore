@@ -1,13 +1,12 @@
-﻿using RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+﻿using RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 using RDCore.Parsing.Model.Types;
-using RDCore.Parsing.Model.Values;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticContext;
 
 /// <summary>
 /// MS-VBAL 5.6.9.3.7 Binary '^' Operator (static semantics)
 /// </summary>
-internal record class ExponentOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
+internal sealed record class ExponentOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
 {
     protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {

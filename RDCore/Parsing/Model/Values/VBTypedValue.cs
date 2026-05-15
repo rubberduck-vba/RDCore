@@ -10,7 +10,7 @@ internal interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VB
     TValue Value { get; }
 }
 
-internal abstract record class VBRuntimeEntity(Symbol? Symbol)
+internal abstract record class VBRuntimeEntity(VBType TypeInfo, Symbol? Symbol = null)
 {
     /// <summary>
     /// Throws the exception returned by the specified function if <c>Symbol</c> is defined.
@@ -27,13 +27,8 @@ internal abstract record class VBRuntimeEntity(Symbol? Symbol)
     }
 }
 
-internal abstract record class VBTypedValue : VBRuntimeEntity
+internal abstract record class VBTypedValue(VBType TypeInfo, Symbol? Symbol = null) : VBRuntimeEntity(TypeInfo, Symbol)
 {
-    protected VBTypedValue(VBType type, Symbol? symbol = null) : base(symbol)
-    {
-        TypeInfo = type;
-    }
-
     /// <summary>
     /// A static reference to the "en-US" <c>CultureInfo</c> instance that derived values should use to ensure correct string/numeric conversions.
     /// </summary>
@@ -50,8 +45,6 @@ internal abstract record class VBTypedValue : VBRuntimeEntity
     public bool IsWithBlockVariable { get; init; }
 
     public VBVariantValue AsVariant() => new(this, Symbol);
-
-    public VBType TypeInfo { get; init; }
 
     public long RawAddress { get; init; }
     public abstract int Size { get; }

@@ -3,13 +3,10 @@ using RDCore.Parsing.Model.Types;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBLongPtrValue : VBNumericTypedValue,
+internal record class VBLongPtrValue(Symbol? Symbol = null) : VBNumericTypedValue(VBLongPtrType.TypeInfo, Symbol),
     IVBTypedValue<VBLongPtrValue, long>,
     INumericValue<VBLongPtrValue>
 {
-    public VBLongPtrValue(Symbol? declarationSymbol = null)
-        : base(VBLongPtrType.TypeInfo, declarationSymbol) { }
-
     public static bool Is64Bit { get; set; } = true;
     public static int BitnessAwarePtrSize => Is64Bit ? sizeof(long) : sizeof(int);
 

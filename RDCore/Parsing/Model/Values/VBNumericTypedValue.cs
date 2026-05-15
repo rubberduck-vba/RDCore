@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal abstract record class VBNumericTypedValue : VBTypedValue,
+internal abstract record class VBNumericTypedValue(VBType TypeInfo, Symbol? Symbol = null) : VBTypedValue(TypeInfo, Symbol),
     IComparable<INumericValue>, IEquatable<VBNumericTypedValue>,
     INumericValue, INumericCoercion, 
     IStringCoercion, 
@@ -16,9 +16,6 @@ internal abstract record class VBNumericTypedValue : VBTypedValue,
     /// The maximum possible number of significant digits retained in a String representation of a value of this type.
     /// </summary>
     public const int SignificantIntegerDigits = VBDoubleType.SignificantIntegerDigits;
-
-    protected VBNumericTypedValue(VBType type, Symbol? symbol = null)
-        : base(type, symbol) { }
 
     public abstract double NumericValue { get; init; }
 

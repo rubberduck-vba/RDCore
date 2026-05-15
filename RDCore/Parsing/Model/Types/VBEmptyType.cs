@@ -2,13 +2,13 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBEmptyType : VBIntrinsicType<int?>
+internal sealed record class VBEmptyType() : VBIntrinsicType<int?>(Tokens.Empty)
 {
-    private static readonly VBEmptyType _type = new();
+    private static readonly Lazy<VBEmptyType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBEmptyType TypeInfo => _instance.Value;
 
-    private VBEmptyType() : base(Tokens.vbEmpty) { }
-    public static VBEmptyType TypeInfo => _type;
+    private static readonly Lazy<VBEmptyValue> _defaultValue = new(() => VBEmptyValue.Empty, LazyThreadSafetyMode.PublicationOnly);
+    public override VBEmptyValue DefaultValue => _defaultValue.Value;
 
-    public override VBEmptyValue DefaultValue { get; } = VBEmptyValue.Empty;
     public override VBType[] ConvertsSafelyToTypes => [VBVariantType.TypeInfo];
 }

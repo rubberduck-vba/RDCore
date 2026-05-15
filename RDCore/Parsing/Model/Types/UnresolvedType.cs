@@ -2,11 +2,11 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class UnresolvedType : VBType
+internal sealed record class UnresolvedType() : VBType(typeof(object), nameof(UnresolvedType))
 {
-    public static VBType VBType { get; } = new UnresolvedType();
+    private static readonly Lazy<UnresolvedType> _instance = new Lazy<UnresolvedType>(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBType TypeInfo => _instance.Value;
 
-    public override VBTypedValue DefaultValue => VBVoidValue.Void;
-
-    public UnresolvedType() : base(typeof(object), nameof(UnresolvedType)) { }
+    private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 }

@@ -2,14 +2,14 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal sealed record class VBDateType : VBIntrinsicType<DateTime>
+internal sealed record class VBDateType() : VBIntrinsicType<DateTime>(Tokens.Date)
 {
-    private static readonly VBDateType _type = new();
+    private static readonly Lazy<VBDateType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBDateType TypeInfo => _instance.Value;
 
-    private VBDateType() : base(Tokens.Date) { }
-    public static VBDateType TypeInfo => _type;
+    private static readonly Lazy<VBDateValue> _defaultValue = new(() => VBDateValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override VBTypedValue DefaultValue { get; } = VBDateValue.Zero;
     public override VBType[] ConvertsSafelyToTypes { get; } = [VBStringType.TypeInfo, VBVariantType.TypeInfo];
     public override string? DefToken => Tokens.DefDate;
 }

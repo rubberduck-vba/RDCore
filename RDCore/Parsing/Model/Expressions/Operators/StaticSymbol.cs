@@ -7,9 +7,9 @@ namespace RDCore.Parsing.Model.Expressions.Operators;
 
 internal record class StaticSymbol : TypedSymbol
 {
-    public StaticSymbol(string name, SymbolKindExt kind, VBType? vbType = default)
+    public StaticSymbol(string name, SymbolKindExt kind, VBType? typeInfo = default)
         : base(UriExtensions.GlobalUri, ScopeKind.Global, name, kind, Accessibility.Undefined, UriExtensions.GlobalUri, default!, default!)
     {
-        ResolvedType = vbType ?? UnresolvedType.VBType;
+        ResolvedType = typeInfo ?? UnresolvedType.TypeInfo;
     }
 }

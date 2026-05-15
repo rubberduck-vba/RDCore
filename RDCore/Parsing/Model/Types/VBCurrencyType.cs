@@ -2,15 +2,13 @@
 
 namespace RDCore.Parsing.Model.Types;
 
-internal record class VBCurrencyType : VBIntrinsicType<decimal>, IFixedPointNumericType
+internal record class VBCurrencyType() : VBIntrinsicType<decimal>(Tokens.Currency), IFixedPointNumericType
 {
-    private static readonly VBCurrencyType _type = new();
+    private static readonly Lazy<VBCurrencyType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static VBCurrencyType TypeInfo => _instance.Value;
 
-    private VBCurrencyType() : base(Tokens.Currency) { }
-
-    public static VBCurrencyType TypeInfo => _type;
-
-    public override VBTypedValue DefaultValue { get; } = VBCurrencyValue.Zero;
+    private static readonly Lazy<VBCurrencyValue> _defaultValue = new(() => VBCurrencyValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     public override string? DefToken => Tokens.DefCur;
 }

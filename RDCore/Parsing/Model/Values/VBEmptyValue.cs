@@ -1,16 +1,16 @@
-﻿using RDCore.Parsing.Model.Types;
+﻿using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Types;
 using RDCore.Runtime;
 
 namespace RDCore.Parsing.Model.Values;
 
-internal record class VBEmptyValue : VBTypedValue,
+internal record class VBEmptyValue(Symbol? Symbol = null) : VBTypedValue(VBEmptyType.TypeInfo, Symbol),
     IVBTypedValue<VBEmptyValue, nint>,
     INumericCoercion,
     IStringCoercion
 {
-    public VBEmptyValue(): base(VBEmptyType.TypeInfo, GlobalSymbols.Empty) { }
-
-    public static VBEmptyValue Empty { get; } = new() { TypeInfo = VBEmptyType.TypeInfo, Symbol = GlobalSymbols.Empty };
+    private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
+    public static VBEmptyValue Empty { get; } = _emptyValue.Value;
 
     public nint Value => nint.Zero;
     public override int Size => sizeof(int);

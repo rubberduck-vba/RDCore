@@ -1,7 +1,7 @@
 ﻿using RDCore.Parsing.Model.Types;
 using RDCore.Parsing.Model.Types.Complex;
 
-namespace RDCore.Parsing.Model.Expressions.Operators.StaticSemantics.Abstract;
+namespace RDCore.Parsing.Model.Expressions.Operators.StaticContext.Abstract;
 internal abstract record class BinaryArithmeticOperatorStaticSemantics : ArithmeticOperatorStaticSemantics
 {
     public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
