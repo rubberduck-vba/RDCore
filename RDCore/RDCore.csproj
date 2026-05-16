@@ -32,10 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Parsing\Model\Types\UnresolvedType.cs">
+    <Compile Update="Parsing\Model\Types\UnresolvedVBType.cs">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Compile>
-    <Compile Update="Server\RDCoreDiagnosticsResources.Designer.cs">
+    <Compile Update="Semantics\Diagnostics\RDCoreDiagnosticsResources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>RDCoreDiagnosticsResources.resx</DependentUpon>
@@ -51,15 +51,11 @@
       <Generator></Generator>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
-    <EmbeddedResource Update="Server\RDCoreDiagnosticsResources.resx">
+    <EmbeddedResource Update="Semantics\Diagnostics\RDCoreDiagnosticsResources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>RDCoreDiagnosticsResources.Designer.cs</LastGenOutput>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Semantics\" />
   </ItemGroup>
 
 </Project>

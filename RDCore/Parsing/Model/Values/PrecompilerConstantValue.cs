@@ -1,4 +1,6 @@
-﻿namespace RDCore.Parsing.Model.Values;
+﻿using RDCore.Parsing.Model.Values.Intrinsic;
+
+namespace RDCore.Parsing.Model.Values;
 
 internal sealed record class PrecompilerConstantValue : VBIntegerValue
 {

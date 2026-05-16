@@ -1,5 +1,5 @@
-﻿using RDCore.Parsing.Model.Symbols;
-using RDCore.Server;
+﻿using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Semantics.Diagnostics;
 using System.Diagnostics;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 

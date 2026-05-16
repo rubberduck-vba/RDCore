@@ -1,4 +1,4 @@
-﻿using RDCore.Server;
+﻿using RDCore.Semantics.Diagnostics;
 using System.Diagnostics;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -204,7 +204,7 @@ internal class VBRuntimeErrorException(Range location, int VBErrorNumber, string
     public static VBRuntimeErrorException ApplicationDefinedError(Range location, int number = 1004, string? verbose = null) => new(location, number, VBRuntimeErrors[-1], verbose);
     #endregion
 
-    public Range? Location { get; } = location;
+    public Range Location { get; } = location;
     public int VBErrorNumber { get; } = VBErrorNumber;
     public RDCoreDiagnosticId RDCoreDiagnosticId => (RDCoreDiagnosticId)VBErrorNumber;
     public string? Verbose { get; } = verbose;

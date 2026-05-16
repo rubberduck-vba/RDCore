@@ -1,7 +1,7 @@
 ﻿using RDCore.Parsing.Model;
 using RDCore.Parsing.Model.Expressions.Operators;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types;
+using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Parsing.Model.Types.Intrinsic;
 using RDCore.Server.ProtocolExtensions;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;

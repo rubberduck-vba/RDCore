@@ -1,8 +1,9 @@
-﻿using RDCore.Server.ProtocolExtensions;
+﻿using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Server.ProtocolExtensions;
 
 namespace RDCore.Parsing.Model.Symbols;
 
-internal abstract record class DeferredSymbol : Symbol
+internal record class DeferredSymbol : Symbol
 {
     protected DeferredSymbol(Uri workspaceRoot, string name) : base(workspaceRoot, name)
     {

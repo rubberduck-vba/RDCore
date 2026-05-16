@@ -1,4 +1,6 @@
 ﻿using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Parsing.Model.Types.Abstract;
 
 namespace RDCore.Parsing.Model.Types.Complex;
 

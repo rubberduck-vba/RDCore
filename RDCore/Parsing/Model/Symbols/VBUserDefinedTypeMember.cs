@@ -1,4 +1,4 @@
-﻿using RDCore.Parsing.Model.Types.Complex;
+﻿using RDCore.Parsing.Model.Symbols.Abstract;
 using RDCore.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 

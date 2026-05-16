@@ -1,6 +1,6 @@
 ﻿namespace RDCore.Parsing.Model.Expressions.Operators;
 
-// TODO REMOVE
+// TODO migrate to types dedicated to the runtime semantics for member and dictionary access
 
 internal static class SymbolOperation
 {
