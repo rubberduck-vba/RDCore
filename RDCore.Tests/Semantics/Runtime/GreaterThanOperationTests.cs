@@ -1,23 +1,24 @@
-using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime;
-using RDCore.SDK.Semantics.Runtime.Abstract;
-using RDCore.SDK.Semantics.Runtime.Operators;
+using RDCore.Parsing;
+using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Types.Abstract;
+using RDCore.Parsing.Model.Types.Complex;
+using RDCore.Parsing.Model.Types.Intrinsic;
+using RDCore.Parsing.Model.Values.Abstract;
+using RDCore.Parsing.Model.Values.Intrinsic;
+using RDCore.Runtime;
+using RDCore.Runtime.Model;
+using RDCore.Runtime.Model.Operators;
+using RDCore.Semantics.Runtime;
+using RDCore.Semantics.Runtime.Abstract;
+using RDCore.Server;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.5.4 Binary '>' Operator")]
-public class GreaterThanOperationTests : BinaryOperatorOperationTests
+public class GreaterThanOperationTests : SymbolOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.GreaterThan;
-
-    internal override IRuntimeSemantics Semantics => new GreaterThanRelationalOperatorRuntimeSemantics();
+    internal override RuntimeSemantics Semantics => new GreaterThanRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBBooleanType.TypeInfo,
@@ -39,7 +40,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
     [DataRow(10, 20, false)]
     [DataRow(10, 10, false)]
     [DataRow(0, -5, true)]
-    public void Operator_IntegerContext_EvaluatesOp(int lhs, int rhs, bool expected)
+    public void EvaluateGreaterThan_IntegerOperands_CalculatesResult(int lhs, int rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
@@ -50,7 +51,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
     [DataRow(1.5, 2.5, false)]
     [DataRow(1.5, 1.5, false)]
     [DataRow(-2.5, -3.5, true)]
-    public void Operator_DoubleContext_EvaluatesOp(double lhs, double rhs, bool expected)
+    public void EvaluateGreaterThan_DoubleOperands_CalculatesResult(double lhs, double rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
@@ -61,7 +62,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
     [DataRow("apple", "banana", false)]
     [DataRow("apple", "apple", false)]
     [DataRow("aab", "aaa", true)]
-    public void Operator_StringContext_EvaluatesOp(string lhs, string rhs, bool expected)
+    public void EvaluateGreaterThan_StringOperands_CalculatesResult(string lhs, string rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
@@ -88,7 +89,51 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
     }
 
     [TestMethod]
-    [DataRow("20", 10, true)]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateGreaterThan_BothNullOperands_ResultIsNull()
+    {
+        var result = EvaluateGreaterThan(CreateContext(), null, null);
+        Assert.IsInstanceOfType<VBNullValue>(result);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    [DataRow(null, 5)]
+    [DataRow(42, null)]
+    [DataRow(null, "test")]
+    [DataRow("test", null)]
+    public void EvaluateGreaterThan_SingleNullOperand_ResultIsNull(object lhs, object rhs)
+    {
+        var result = EvaluateGreaterThan(CreateContext(), lhs, rhs);
+        Assert.IsInstanceOfType<VBNullValue>(result);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateGreaterThan_Null_LetCoercion_UDT_TypeMismatch()
+    {
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateGreaterThan_Null_LetCoercion_ResizableArray_TypeMismatch()
+    {
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [DataRow("20", 10, true)]   // String "20" coerced to 20
     [DataRow("10", 20, false)]
     public void EvaluateGreaterThan_ImplicitCoercion(object lhs, object rhs, bool expected)
     {
@@ -97,15 +142,22 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
         Assert.AreEqual(expected, ((VBBooleanValue)result).Value);
     }
 
-    private VBTypedValue EvaluateGreaterThan(IVBExecutionContext context, object lhs, object rhs)
+    [TestMethod]
+    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
+    [DataRow(42, "VBErrorValue")]
+    [DataRow("VBErrorValue", 42)]
+    public void EvaluateGreaterThan_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
-        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+    }
 
-        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
-        var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
+    private VBTypedValue EvaluateGreaterThan(VBExecutionContext context, object lhs, object rhs)
+    {
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.GreaterThan, lhsValue, rhsValue, TestLocation);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThan, TestLocation, lhsExpression, rhsExpression);
-        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
     }
 }

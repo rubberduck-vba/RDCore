@@ -1,9 +1,34 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Semantics.Diagnostics;
+using System.Diagnostics;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.SDK.Model.Errors;
+namespace RDCore.Parsing;
 
-public class VBCompileErrorException : ApplicationException
+public enum VBCompileErrorId
+{
+    ForbiddenWithOptionStrict = 9000,
+    SyntaxError,
+    AmbiguousName,
+    VariableNotDefined,
+    DuplicateDeclaration,
+    InvalidUseOfObject,
+    InvalidParamArrayUse,
+    InvalidReDim,
+    ExpectedArray,
+    ExpectedIdentifier,
+    LabelNotDefined,
+    TypeMismatch,
+    UserDefinedTypeNotDefined,
+    ExitDoNotWithinDoLoop,
+    ExitForNotWithinForNext,
+    ExitFunctionNotAllowedInSubOrProperty,
+    ExitPropertyNotAllowedInSubOrFunction,
+    MethodOrDataMemberNotFound,
+}
+
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
+internal class VBCompileErrorException : ApplicationException
 {
     public VBCompileErrorException(Range location, VBCompileErrorId id, string message, string? verbose = null)
         : base($"Compile error: {message}")
@@ -13,8 +38,10 @@ public class VBCompileErrorException : ApplicationException
         Verbose = verbose;
     }
 
+    private string DebuggerDisplay => $"[{VBCompileErrorId.ToDiagnosticCode()}] {Message}{(Verbose is null ? string.Empty : " | " + Verbose)}";
+
     #region Classic-VB compile-time errors
-    // NOTE: VB compile errors are just messages, ID is made up, but it's over 9000.
+    // NOTE: VB compile errors are just messages, ID is made up.
     public static VBCompileErrorException SyntaxError(Range range, string? verbose = null) => new(range, VBCompileErrorId.SyntaxError, "Syntax error", verbose);
     public static VBCompileErrorException InvalidUseOfObject(Range range, string? verbose = null) => new(range, VBCompileErrorId.InvalidUseOfObject, "Invalid use of object", verbose);
     public static VBCompileErrorException VariableNotDefined(Range range, string? verbose = null) => new(range, VBCompileErrorId.VariableNotDefined, "Variable not defined", verbose);
@@ -28,7 +55,7 @@ public class VBCompileErrorException : ApplicationException
     public static VBCompileErrorException ExitDoNotWithinDoLoop(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitDoNotWithinDoLoop, "Exit Do not within Do...Loop", verbose);
     public static VBCompileErrorException ExitForNotWithinForNext(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitForNotWithinForNext, "Exit For not within For...Next", verbose);
     public static VBCompileErrorException ExitFunctionNotAllowedInSubOrProperty(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty, "Exit Function not allowed in Sub or Property", verbose);
-    public static VBCompileErrorException AmbiguousName(BoundSymbol symbol, string? verbose = null) => new(symbol.Range!, VBCompileErrorId.AmbiguousName, $"Ambiguous name detected: {symbol.Name}", verbose);
+    public static VBCompileErrorException AmbiguousName(Symbol symbol, string? verbose = null) => new(symbol.Range!, VBCompileErrorId.AmbiguousName, $"Ambiguous name detected: {symbol.Name}", verbose);
     public static VBCompileErrorException DuplicateDeclaration(Range range, string? verbose = null) => new(range, VBCompileErrorId.DuplicateDeclaration, $"Duplicate declaration in current scope", verbose);
     public static VBCompileErrorException MethodOrDataMemberNotFound(Range range, string? verbose = null) => new(range, VBCompileErrorId.MethodOrDataMemberNotFound, $"Method or data member not found", verbose);
 

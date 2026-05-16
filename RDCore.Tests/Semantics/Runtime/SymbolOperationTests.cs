@@ -1,15 +1,11 @@
-using RDCore.SDK.Model;
-using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.VBProject;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime;
-using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.Parsing.Model.Types.Abstract;
+using RDCore.Parsing.Model.Types.Intrinsic;
+using RDCore.Parsing.Model.Values.Abstract;
+using RDCore.Parsing.Model.Values.Intrinsic;
+using RDCore.Runtime;
+using RDCore.Runtime.Model;
+using RDCore.Semantics.Diagnostics;
+using RDCore.Semantics.Runtime.Abstract;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -17,22 +13,12 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 public abstract class SymbolOperationTests
 {
-    internal abstract IRuntimeSemantics Semantics { get; }
+    internal abstract RuntimeSemantics Semantics { get; }
     internal abstract IEnumerable<VBType> EffectiveTypes { get; }
 
-    protected void AssertVBRuntimeErrorException(VBRuntimeErrorId expected, Exception exception)
-    {
-        if (exception is VBRuntimeErrorException vbError)
-        {
-            Assert.AreEqual((int)expected, vbError.VBErrorNumber);
-        }
-        else
-        {
-            Assert.Fail();
-        }
-    }
 
-    internal static IVBExecutionContext CreateContext(bool is64bit = true) => new VBExecutionContext(default!) { Is64Bit = true };
+
+    internal static VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the LHS symbol or
     /// in the case of a unary operator, the location of the expression.
@@ -40,69 +26,74 @@ public abstract class SymbolOperationTests
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal static Location TestLocationLHS { get; } = new() { Uri = "file:///a:/test/file#rhs", Range = new Range(1, 1, 1, 1) };
+    internal Location TestLocationLHS { get; } = new() { Uri = "file:///a:/test/file#rhs", Range = new Range(1, 1, 1, 1) };
     /// <summary>
     /// For the sake of a test, the location of the operator symbol.
     /// </summary>
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal static Location TestLocation { get; } = new() { Uri = "file:///a:/test/file#op", Range = new Range(1, 2, 1, 2) };
+    internal Location TestLocation { get; } = new() { Uri = "file:///a:/test/file#op", Range = new Range(1, 2, 1, 2) };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the RHS symbol.
     /// </summary>
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal static Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
+    internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
 
-    private static VBUserDefinedTypeValue GetUDT()
+    internal static ValuedExpression WrapLiteralExpression(object? val, Location location)
     {
-        var name = "TestUDT";
-        var symbol = new VBUserDefinedTypeMemberSymbol(
-            TestUri.WorkspaceRoot(),
-            TestUri.TestModuleUserDefinedTypeUri(name),
-            name, 
-            ScopeKind.Module,
-            SymbolOperationTests.TestLocation!.Range,
-            SymbolOperationTests.TestLocation!.Range,
-            AccessModifier.Public);
-        var udt = new VBUserDefinedType(symbol, []);
-        var value = new VBUserDefinedTypeValue(udt, symbol);
-        return value;
-    }
+        if (val is ValuedExpression exp)
+        {
+            return exp;
+        }
 
-    internal static VBTypedValue WrapVBTypedValue(object? value, Location location)
-    {
-        VBTypedValue? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
+        ValuedExpression? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
             DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new VBDateValue(GlobalSymbols.ExtensionSymbols.VBDateZeroValue).WithValue(dateValue)
+            ? new LiteralExpression(location, new VBDateValue().WithValue(dateValue)) 
             : null : null;
 
-        return value switch
+        // Helper to turn MSTest DataRow objects into RDCore VBTypedValues
+        return val switch
         {
-            VBTypedValue typedValue => typedValue,
-            "UDT" =>  GetUDT(),
-            "DateTime.Now" => VBDateType.Zero.WithValue(43452),
-            "VBErrorValue" => VBErrorType.TypeInfo.DefaultValue,
-            Tokens.Empty => VBEmptyValue.Empty,
-            null => VBNullValue.Null,
-            bool boolValue => VBBooleanValue.False.WithValue(boolValue),
-            byte byteValue => VBByteType.Zero.WithValue(byteValue),
-            int intValue => VBIntegerType.Zero.WithValue(intValue),
-            long longValue => VBLongLongType.Zero.WithValue(longValue),
-            double doubleValue => VBDoubleType.Zero.WithValue(doubleValue),
+            VBTypedValue value => new LiteralExpression(location, value),
+            "UDT" => new LiteralExpression(location, VBLongPtrValue.Zero),
+            "DateTime.Now" => new LiteralExpression(location, VBDateValue.FromSerial(43452)),
+            "VBErrorValue" => new LiteralExpression(location, VBErrorType.TypeInfo.DefaultValue),
+            bool b => new LiteralExpression(location, new VBBooleanValue().WithValue(b)),
+            byte v => new LiteralExpression(location, new VBByteValue().WithValue(v)),
+            int i => new LiteralExpression(location, new VBIntegerValue().WithValue(i)),
+            long i => new LiteralExpression(location, new VBLongLongValue().WithValue(i)),
+            double d => new LiteralExpression(location, new VBDoubleValue().WithValue(d)),
+            null => new LiteralExpression(location, VBNullValue.Null),
+            "Empty" => new LiteralExpression(location, VBEmptyValue.Empty),
 
-            // keep string last!
-            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.StaticSymbols.VBEmptyString).WithValue(s),
+            string s => dateHelper(s) ?? new LiteralExpression(location, new VBStringValue().WithValue(s)),
             _ => throw new NotSupportedException()
         };
     }
 
-    internal static VBLiteralExpression WrapLiteralExpression(object? value, Location location)
+    /// <summary>
+    /// Asserts that the specified <c>RDCodeDiagnosticId</c> was issued in the specified execution context.
+    /// </summary>
+    /// <remarks>
+    /// Specify <c>assertMissing:true</c> to assert that the specified diagnostic was specifically <strong>not</strong> issued.
+    /// Specify a <c>location</c> to assert that the specified diagnostic was issued for that specific location.
+    /// </remarks>
+    internal static void AssertDiagnostic(VBExecutionContext context, RDCoreDiagnosticId id, Range? location = default, bool assertMissing = false)
     {
-        var typedValue = WrapVBTypedValue(value, location);
-        return new VBLiteralExpression(location, typedValue);
+        var code = id.ToDiagnosticCode();
+        var diagnostics = context.Diagnostics.Where(e => e.Code == code);
+
+        if (!assertMissing && location is not null)
+        {
+            Assert.IsTrue(diagnostics.Any(e => e.Range.Equals(location)));
+        }
+        else
+        {
+            Assert.AreEqual(!assertMissing, diagnostics.Any());
+        }
     }
 
     //[TestMethod]

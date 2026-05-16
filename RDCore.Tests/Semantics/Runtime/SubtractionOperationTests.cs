@@ -1,21 +1,25 @@
-using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Semantics.Runtime.Abstract;
-using RDCore.SDK.Semantics.Runtime.Operators;
+using RDCore.Parsing;
+using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Types.Abstract;
+using RDCore.Parsing.Model.Types.Complex;
+using RDCore.Parsing.Model.Types.Intrinsic;
+using RDCore.Parsing.Model.Values.Abstract;
+using RDCore.Parsing.Model.Values.Intrinsic;
+using RDCore.Runtime;
+using RDCore.Runtime.Model;
+using RDCore.Runtime.Model.Operators;
+using RDCore.Runtime.Model.Operators.RuntimeSemantics;
+using RDCore.Semantics.Diagnostics;
+using RDCore.Semantics.Runtime;
+using RDCore.Semantics.Runtime.Abstract;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
-public class SubtractionOperationTests : BinaryOperatorOperationTests
+public class SubtractionOperationTests : SymbolOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Subtraction;
-    internal override IRuntimeSemantics Semantics => new BinarySubtractionOperatorRuntimeSematics();
+    internal override RuntimeSemantics Semantics => new BinarySubtractionOperatorRuntimeSematics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBIntegerType.TypeInfo,
@@ -37,10 +41,10 @@ public class SubtractionOperationTests : BinaryOperatorOperationTests
     [DataRow(0, -2, 2)]
     [DataRow(-2, 0, -2)]
     [DataRow(0, 0, 0)]
-    public void Operator_EvaluatesOp(object lhs, object rhs, object expected)
+    public void EvaluateSubtraction_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
     {
-        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as INumericValue;
-        Assert.AreEqual(Convert.ToDouble(expected), actual?.ManagedValue);
+        var actual = EvaluateSubtraction(CreateContext(), lhs, rhs) as INumericValue;
+        Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
     }
 
     [TestMethod]
@@ -51,40 +55,105 @@ public class SubtractionOperationTests : BinaryOperatorOperationTests
     [DataRow(5, null)]   // MS-VBAL: Any - Null -> Null
     [DataRow("Empty", null)]   // MS-VBAL: Any - Null -> Null
     [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any - Null -> Null
-    public void Operator_NullOperand_ResultIsNull(object lhs, object rhs)
+    public void EvaluateSubtraction_NullOperand_ResultIsNull(object lhs, object rhs)
     {
         // note: coercing the result to any other type would throw.
-        var result = EvaluateBinaryOp(CreateContext(), lhs, rhs);
+        var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBNullValue>(result);
     }
 
     [TestMethod]
-    [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
-    [DataRow(32767, -1)]
-    [DataRow(-32768, 1)]
-    public void Operator_EvaluatesOp_Overflow(object lhs, object rhs)
+    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    public void EvaluateSubtraction_Null_LetCoercion_UDT_TypeMismatch()
     {
-        Assert.Throws<VBRuntimeErrorOverflowException>(() => EvaluateBinaryOp(CreateContext(), lhs, rhs));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateSubtraction(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
+    public void EvaluateSubtraction_Null_LetCoercion_ResizableArray_TypeMismatch()
+    {
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateSubtraction(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [DataRow("1.5", 1, 0.5d)]         // String - Integer -> Double
+    [DataRow(32767, -1.0, 32768.0d)]   // Integer.MaxValue - -Double -> Double (Safe)
+    public void EvaluateSubtraction_NumericCoercion(object lhs, object rhs, object expected)
+    {
+        try
+        {
+            var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
+    [DataRow(32767, -1, "VBR00006")]
+    [DataRow(-32768, 1, "VBR00006")]
+    public void EvaluateSubtraction_Overflow(object lhs, object rhs, object expected)
+    {
+        try
+        {
+            var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [DataRow("1.5", "1")]
-    [DataRow(42, "VBErrorValue")]
-    [DataRow("ABC", "VBErrorValue")]
-    [DataRow("VBErrorValue", "VBErrorValue")]
-    public void Operator_EvaluatesOp_TypeMismatch(object lhs, object rhs)
+    [DataRow("1.5", "1", "VBR00013")]
+    [DataRow(42, "VBErrorValue", "VBR00013")]
+    [DataRow("ABC", "VBErrorValue", "VBR00013")]
+    [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
+    public void EvaluateSubtraction_TypeMismatch(object lhs, object rhs, object expected)
     {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateBinaryOp(CreateContext(), lhs, rhs));
+        try
+        {
+            var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
+            if (expected is not string)
+            {
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+            }
+        }
+        catch (VBRuntimeErrorException ex)
+        {
+            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+        }
     }
 
     [TestMethod]
     [DataRow(-1, "DateTime.Now")]
     [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
-    public void Operator_EvaluatesOp_DateTime_ReturnsDateTime(object lhs, object rhs)
+    public void EvaluateSubtraction_DateTime_ReturnsDateTime(object lhs, object rhs)
     {
-        var result = EvaluateBinaryOp(CreateContext(), lhs, rhs);
+        var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
         if (string.Equals(lhs, "DateTime.Now") && string.Equals(rhs, "DateTime.Now"))
         {
             Assert.IsInstanceOfType<VBDoubleValue>(result);
@@ -96,11 +165,48 @@ public class SubtractionOperationTests : BinaryOperatorOperationTests
     }
 
     [TestMethod]
-    public void Operator_EvaluatesOp_OperandsEmpty_ResultsIsIntegerZero()
+    public void EvaluateSubtraction_BothEmpty_ResultsIsIntegerZero()
     {
-        var result = EvaluateBinaryOp(CreateContext(), "Empty", "Empty");
+        var result = EvaluateSubtraction(CreateContext(), "Empty", "Empty");
 
         Assert.IsInstanceOfType<VBIntegerValue>(result);
         Assert.AreEqual(0, ((VBIntegerValue)result).Value);
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.ImplicitDateSerialConversion")]
+    [DataRow(-1, "DateTime.Now", true)]
+    [DataRow("DateTime.Now", 1, true)]
+    [DataRow("DateTime.Now", "DateTime.Now", true)]
+    public void EvaluateSubtraction_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateSubtraction(context, lhs, rhs);
+
+        Assert.AreEqual(expectDiagnostics, context.Diagnostics.Any(e => e.Code == RDCoreDiagnosticId.ImplicitDateSerialConversion.ToDiagnosticCode()));
+    }
+
+    [TestMethod]
+    [TestCategory("Diagnostics.ImplicitNumericCoercion")]
+    [DataRow(40, 2, false)]
+    [DataRow(-1, "42", true)]
+    [DataRow("DateTime.Now", 1, false)]
+    [DataRow("DateTime.Now", 1.5d, false)]
+    [DataRow("DateTime.Now", "42", true)]
+    public void EvaluateSubtraction_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    {
+        var context = CreateContext();
+        _ = EvaluateSubtraction(context, lhs, rhs);
+
+        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
+    }
+
+    private VBTypedValue EvaluateSubtraction(VBExecutionContext context, object lhs, object rhs)
+    {
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Subtraction, lhsValue, rhsValue, TestLocation);
+
+        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
     }
 }

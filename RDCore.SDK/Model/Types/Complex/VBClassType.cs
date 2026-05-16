@@ -1,5 +1,8 @@
 ﻿using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Values;
+using RDCore.Parsing.Model.Symbols.Abstract;
+using RDCore.Parsing.Model.Types.Abstract;
+using RDCore.Parsing.Model.Types.Intrinsic;
+using RDCore.Parsing.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
 namespace RDCore.Parsing.Model.Types.Complex;

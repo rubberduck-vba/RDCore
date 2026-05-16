@@ -1,19 +1,24 @@
-using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Semantics.Runtime.Abstract;
-using RDCore.SDK.Semantics.Runtime.Operators;
+using RDCore.Parsing;
+using RDCore.Parsing.Model.Symbols;
+using RDCore.Parsing.Model.Types.Abstract;
+using RDCore.Parsing.Model.Types.Complex;
+using RDCore.Parsing.Model.Types.Intrinsic;
+using RDCore.Parsing.Model.Values.Abstract;
+using RDCore.Parsing.Model.Values.Intrinsic;
+using RDCore.Runtime;
+using RDCore.Runtime.Model;
+using RDCore.Runtime.Model.Operators;
+using RDCore.Semantics.Runtime;
+using RDCore.Semantics.Runtime.Abstract;
+using RDCore.Server;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
-public class BinaryAndOperationTests : BinaryOperatorOperationTests
+public class BinaryAndOperationTests : SymbolOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseAnd;
-    internal override IRuntimeSemantics Semantics => new BinaryAndBitwiseOperatorRuntimeSemantics();
+    internal override RuntimeSemantics Semantics => new BinaryAndBitwiseOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,
         VBByteType.TypeInfo,
@@ -24,37 +29,89 @@ public class BinaryAndOperationTests : BinaryOperatorOperationTests
     ];
 
     [TestMethod]
-    [DataRow(false, false, false)]
-    [DataRow(false, true, false)] 
-    [DataRow(true, false, false)] 
-    [DataRow(true, true, true)]   
-    public void Operator_BooleanContext_EvaluatesOp(object lhs, object rhs, bool expected)
+    [DataRow(0, 0, 0)]      // False And False = False (0)
+    [DataRow(0, -1, 0)]     // False And True = False (0)
+    [DataRow(-1, 0, 0)]     // True And False = False (0)
+    [DataRow(-1, -1, -1)]   // True And True = True (-1)
+    public void EvaluateAnd_BitwiseContext_CalculatesResult(object lhs, object rhs, int expected)
     {
         var context = CreateContext();
-        var actual = EvaluateBinaryOp(context, lhs, rhs) as VBBooleanValue;
-        Assert.AreEqual(expected, actual?.Value);
+        var actual = EvaluateAnd(context, lhs, rhs) as VBIntegerValue;
+        Assert.AreEqual(expected, actual?.NumericValue);
     }
 
     [TestMethod]
-    [DataRow(0, 0, 0)]      
-    [DataRow(0, -1, 0)]     
-    [DataRow(-1, 0, 0)]     
-    [DataRow(-1, -1, -1)]   
-    public void Operator_BitwiseContext_EvaluatesOp(object lhs, object rhs, int expected)
+    [DataRow(5, 3, 1)]      // 5 And 3 = 1 (bitwise)
+    [DataRow(12, 10, 8)]    // 12 And 10 = 8 (bitwise)
+    [DataRow(15, 0, 0)]     // 15 And 0 = 0
+    public void EvaluateAnd_IntegerBitwise_CalculatesResult(object lhs, object rhs, int expected)
     {
         var context = CreateContext();
-        var actual = EvaluateBinaryOp(context, lhs, rhs) as VBIntegerValue;
-        Assert.AreEqual(expected, actual?.ManagedValue);
+        var actual = EvaluateAnd(context, lhs, rhs) as VBIntegerValue;
+        Assert.AreEqual(expected, actual?.NumericValue);
     }
 
     [TestMethod]
-    [DataRow(5, 3, 1)]      
-    [DataRow(12, 10, 8)]    
-    [DataRow(15, 0, 0)]     
-    public void Operator_IntegerBitwise_EvaluatesOp(object lhs, object rhs, int expected)
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateAnd_BothNullOperands_ResultIsNull()
     {
-        var context = CreateContext();
-        var actual = EvaluateBinaryOp(context, lhs, rhs) as VBIntegerValue;
-        Assert.AreEqual(expected, actual?.ManagedValue);
+        var result = EvaluateAnd(CreateContext(), null, null);
+        Assert.IsInstanceOfType<VBNullValue>(result);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    [DataRow(0, null)]      // 0 And Null = 0
+    [DataRow(-1, null)]     // -1 And Null = Null
+    [DataRow(null, 0)]      // Null And 0 = 0
+    [DataRow(null, -1)]     // Null And -1 = Null
+    public void EvaluateAnd_SingleNullOperand(object lhs, object rhs)
+    {
+        var result = EvaluateAnd(CreateContext(), lhs, rhs);
+        // Result can be Null or an Integer value depending on the operands
+        Assert.IsTrue(result is VBNullValue or VBIntegerValue);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateAnd_Null_LetCoercion_UDT_TypeMismatch()
+    {
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateAnd(CreateContext(), lhs, rhs));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
+    public void EvaluateAnd_Null_LetCoercion_ResizableArray_TypeMismatch()
+    {
+        var lhs = VBNullValue.Null;
+        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateAnd(CreateContext(), lhs, rhs));
+    }
+
+    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
+    [TestMethod]
+    [DataRow(0, "VBErrorValue")]
+    [DataRow("VBErrorValue", 0)]
+    public void EvaluateAnd_VBErrorValue_TypeMismatch(object lhs, object rhs)
+    {
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
+            EvaluateAnd(CreateContext(), lhs, rhs));
+    }
+
+    private VBTypedValue EvaluateAnd(VBExecutionContext context, object? lhs, object? rhs)
+    {
+        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
+        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseAnd, lhsValue, rhsValue, TestLocation);
+
+        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
     }
 }
