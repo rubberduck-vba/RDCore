@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using RDCore.Server.States;
+using RDCore.SDK.Server.Services.States;
 
-namespace RDCore.Server.Handlers.Lifecycle;
+namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
 internal class SetTraceHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : SetTraceHandlerBase
 {

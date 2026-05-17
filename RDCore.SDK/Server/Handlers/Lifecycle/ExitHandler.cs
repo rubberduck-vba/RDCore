@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.General;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Server.States;
+using RDCore.SDK.Server.Services.States;
 
-namespace RDCore.Server.Handlers.Lifecycle;
+namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
 internal class ExitHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ExitHandlerBase
 {

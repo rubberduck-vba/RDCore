@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
-using RDCore.Server.States;
+using RDCore.SDK.Server.Services.States;
 using System.Diagnostics;
 
-namespace RDCore.Server.Services;
+namespace RDCore.SDK.Server.Services;
 
-internal interface IHealthCheckService : IDisposable
+public interface IHealthCheckService : IDisposable
 {
     void Start(long? clientProcessId);
     void Pause();

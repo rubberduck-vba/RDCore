@@ -1,6 +1,6 @@
-﻿namespace RDCore.Server.States;
+﻿namespace RDCore.SDK.Server.Services.States;
 
-internal class InvalidServerStateException : InvalidOperationException
+public class InvalidServerStateException : InvalidOperationException
 {
     public InvalidServerStateException() : base("This operation is invalid in the current server state.") { }
     public InvalidServerStateException(ServerStateValue state)

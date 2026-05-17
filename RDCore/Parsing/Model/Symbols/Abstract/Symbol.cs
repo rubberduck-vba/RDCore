@@ -1,5 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Server.ProtocolExtensions;
+using RDCore.SDK.Server.ProtocolExtensions;
 using System.Collections.Immutable;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 

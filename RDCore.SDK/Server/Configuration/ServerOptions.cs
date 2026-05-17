@@ -1,6 +1,6 @@
 ﻿using CommandLine;
 
-namespace RDCore.Configuration;
+namespace RDCore.SDK.Server.Configuration;
 
 public record class ServerOptions
 {

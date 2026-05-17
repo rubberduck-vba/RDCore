@@ -2,26 +2,20 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
-using RDCore.Server.Commands;
+using RDCore.SDK.Server.Commands;
+using RDCore.SDK.Server.Services;
 
 namespace RDCore.Server.Handlers.Workspace;
 
-internal class ExecuteCommandHandler(IEnumerable<ServerCommand> commands) : ExecuteCommandHandlerBase
+internal class ExecuteCommandHandler(IServerCommandProvider commands) : ExecuteCommandHandlerBase
 {
     public async override Task<Unit> Handle(ExecuteCommandParams request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-
-        var command = commands.SingleOrDefault(e => e.CanHandle(request.Command));
-        if (command is ServerCommand serverCommand)
+        if (commands.GetCommand(request.Command) is ServerCommand command)
         {
-            serverCommand.Execute(request.Arguments);
+            await command.ExecuteAsync(cancellationToken, request.Arguments);
         }
-        else
-        {
-            // command was not found. TODO log something here.
-        }
-
         return await Task.FromResult(Unit.Value);
     }
 
@@ -29,11 +23,8 @@ internal class ExecuteCommandHandler(IEnumerable<ServerCommand> commands) : Exec
     {
         return new ExecuteCommandRegistrationOptions
         {
-            WorkDoneProgress = true,
-            Commands = new Container<string>(
-                nameof(AddReferenceCommand),
-                nameof(RemoveReferenceCommand)
-            )
+            WorkDoneProgress = ClientCapabilities.Window?.WorkDoneProgress.Value ?? false,
+            Commands = Container.From(commands.GetCommandRegistrations())
         };
     }
 }

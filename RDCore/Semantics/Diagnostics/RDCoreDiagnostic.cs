@@ -5,6 +5,8 @@ using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Semantics.Diagnostics;
 
+
+
 internal record class RDCoreDiagnostic : Diagnostic
 {
     private static readonly string CodeDescriptionBaseUrl = "https://rdcore.rubberduckvba.com/diagnostics/";
@@ -51,13 +53,18 @@ internal record class RDCoreDiagnostic : Diagnostic
         };
     }
 
-    /* [VBC]: VB [C]ompile-time errors */
-    public static Diagnostic CompileError(VBCompileErrorException error) => CreateDiagnostic(error);
+    /// <summary>
+    /// Creates and returns a diagnostic with a code that starts with "VBC" for compile-time errors.
+    /// </summary>
+    public static Diagnostic FromCompileError(VBCompileErrorException error) => CreateDiagnostic(error);
 
-    /* [VBR]: VB [R]un-time errors */
-    public static Diagnostic RuntimeError(VBRuntimeErrorException error) => CreateDiagnostic(error);
+    /// <summary>
+    /// Creates and returns a diagnostic with a code that starts with "VBR" for run-time errors.
+    /// </summary>
+    public static Diagnostic FromRuntimeError(VBRuntimeErrorException error) => CreateDiagnostic(error);
 
-    /* [RDC]: RDCore language Server diagnostics */
+    /* [RDC]: RDCore language Server semantic diagnostics */
+
     public static Diagnostic EnumerationOverArray(Range range) =>
         CreateDiagnostic(range, DiagnosticSeverity.Information, RDCoreDiagnosticId.EnumerationOverArray, RDCoreDiagnosticsResources.EnumerationOverArray_Message);
     public static Diagnostic AmbiguousConcatenation(Range range) =>

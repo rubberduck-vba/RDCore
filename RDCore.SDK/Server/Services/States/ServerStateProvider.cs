@@ -1,12 +1,12 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Configuration;
+using RDCore.SDK.Server.Configuration;
 
-namespace RDCore.Server.States;
+namespace RDCore.SDK.Server.Services.States;
 
 /// <summary>
 /// Defines methods for managing and transitioning the operational lifecycle state of a server instance.
 /// </summary>
-internal interface IServerStateProvider
+public interface IServerStateProvider
 {
     /// <summary>
     /// Gets the current <c>ServerState</c>.
@@ -57,7 +57,7 @@ internal interface IServerStateProvider
     ServerInfo ServerInfo { get; }
 }
 
-internal class ServerStateProvider(ServerOptions options) : IServerStateProvider, IDisposable
+public class ServerStateProvider(ServerOptions options) : IServerStateProvider, IDisposable
 {
     private static readonly CancellationTokenSource _processTokenSource = new();
     private static readonly CancellationTokenSource _requestTokenSource = new();

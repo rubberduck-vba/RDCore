@@ -11,5 +11,9 @@ internal interface IEnumerableType
     /// If <c>true</c>, flags <c>For Each</c> iteration as inefficient, for performance diagnostics.
     /// </summary>
     bool IsArray { get; }
+}
+
+internal interface IEnumerableObject : IEnumerableType
+{
     VBReturningMember? NewEnumMember { get; }
 }

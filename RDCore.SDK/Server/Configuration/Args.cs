@@ -1,8 +1,8 @@
 ﻿using CommandLine;
 
-namespace RDCore.Configuration;
+namespace RDCore.SDK.Server.Configuration;
 
-internal static class Args
+public static class Args
 {
     public static ServerOptions Parse(string[] args)
     {

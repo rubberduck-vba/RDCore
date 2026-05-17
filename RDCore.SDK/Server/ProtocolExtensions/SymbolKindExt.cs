@@ -1,6 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.Server.ProtocolExtensions;
+namespace RDCore.SDK.Server.ProtocolExtensions;
 
 public enum SymbolKindExt
 {

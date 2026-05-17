@@ -1,35 +1,37 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
-using RDCore.Server.Handlers.Document;
-using RDCore.Server.Handlers.Lifecycle;
-using RDCore.Server.Handlers.Workspace;
-using RDCore.Server.Services;
-using RDCore.Server.States;
-using RDCore.Workspace.Services;
+using RDCore.SDK.Server.Handlers;
+using RDCore.SDK.Server.Handlers.Lifecycle;
+using RDCore.SDK.Server.Services;
+using RDCore.SDK.Server.Services.States;
 using System.IO.Pipelines;
 using System.IO.Pipes;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 
-namespace RDCore.Server;
+namespace RDCore.SDK.Server;
 
+public record class LanguageServerAppOptions(string PipeName) { }
+
+/// <summary>
+/// Any application that runs an OmniSharp language server, irrespective of its purpose.
+/// </summary>
 internal interface ILanguageServerApp : IDisposable
 {
     ILanguageServer LanguageServer { get; }
     Task RunAsync(IServiceProvider provider);
 }
 
-internal class LanguageServerApp(
+public abstract class LanguageServerApp(IOptions<LanguageServerAppOptions> appSettings,
     IServerStateProvider serverStateProvider,
     IHealthCheckService healthCheckService,
-    IWorkspaceService workspaceService,
     ILogger<LanguageServerApp> logger) : ILanguageServerApp
 {
-    private static string PipeName => "RDCore.Server";
-
     private OmniSharpLanguageServer? Server { get; set; } = default;
 
     private NamedPipeServerStream NamedPipeServerStream { get; set; } = default!;
@@ -44,12 +46,13 @@ internal class LanguageServerApp(
             logger.LogInformation("Starting language server...");
         }
         Server = await OmniSharpLanguageServer.From(ConfigureServer, provider, serverStateProvider.ProcessToken);
+        logger.LogInformation("✅ Language server is connected and ready.");
 
-        logger.LogInformation("✅ Language server is ready and awaiting client initialize request.");
         await Server.WaitForExit;
-
         logger.LogInformation("✅ RunAsync completed; process will now exit.");
     }
+
+    protected abstract void Dispose(bool disposing);
 
     public void Dispose()
     {
@@ -65,11 +68,15 @@ internal class LanguageServerApp(
         {
             disposableServer.Dispose();
         }
+
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     private void ConfigureServer(LanguageServerOptions options)
     {
-        NamedPipeServerStream = new NamedPipeServerStream(PipeName, PipeDirection.InOut,
+        var pipeName = appSettings.Value.PipeName;
+        NamedPipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut,
             serverStateProvider.Options.MaximumInstances,
             PipeTransmissionMode.Byte,
             System.IO.Pipes.PipeOptions.Asynchronous |
@@ -81,7 +88,7 @@ internal class LanguageServerApp(
 
         if (logger.IsEnabled(LogLevel.Trace))
         {
-            logger.LogTrace("Named pipe '{pipeName}' initialized; asynchronously awaiting client connection...", PipeName);
+            logger.LogTrace("Named pipe '{pipeName}' initialized; asynchronously awaiting client connection...", appSettings.Value.PipeName);
         }
         WaitForClientConnectionTask = NamedPipeServerStream.WaitForConnectionAsync(serverStateProvider.ProcessToken);
 
@@ -90,9 +97,6 @@ internal class LanguageServerApp(
             .WithHandler<ExitHandler>()
             .WithHandler<ShutdownHandler>()
             .WithHandler<SetTraceHandler>()
-            .WithHandler<DidOpenTextDocumentHandler>()
-            .WithHandler<DidCloseTextDocumentHandler>()
-            .WithHandler<DidChangeTextDocumentHandler>()
             .WithHandler<ExecuteCommandHandler>()
             .OnStarted(OnLanguageServerStartedAsync)
             .OnInitialize(OnLanguageServerInitializeAsync)
@@ -109,6 +113,11 @@ internal class LanguageServerApp(
 
         logger.LogInformation("✅ ConfigureServer completed.");
     }
+
+    protected abstract Task RegisterServerCapabilitiesAsync(ILanguageServer server, ClientCapabilities clientCapabilities, CancellationToken token);
+    protected virtual async Task OnLanguageServerInitializeCompletedAsync(Uri workspaceUri, CancellationToken token) { }
+
+    protected virtual async Task OnLanguageServerStartedAsync(CancellationToken token) { }
 
     private async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken token)
     {
@@ -127,17 +136,11 @@ internal class LanguageServerApp(
             logger.LogWarning("Initialize request did not specify a client process ID. Skipping client process health checks; this server instance will not automatically exit.");
         }
 
-        // TODO - initialize server capabilities based on the workspace and client capabilities specified in the request
-
-        if ((request.RootUri?.GetFileSystemPath() ?? request.RootPath) is string workspaceRoot)
+        if (request.Capabilities is ClientCapabilities capabilities)
         {
-            await workspaceService.LoadAsync(workspaceRoot);
+            await RegisterServerCapabilitiesAsync(server, capabilities, token);
         }
-        else
-        {
-            logger.LogWarning("⚠️ Initialize request did not specify a workspace root path or URI; an exception will be thrown.");
-            throw InvalidRequestException.For(request);
-        }
+        
 
         logger.LogInformation("✅ OnLanguageServerInitializeAsync handler completed.");
     }

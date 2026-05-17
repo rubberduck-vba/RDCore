@@ -1,5 +1,4 @@
-﻿using RDCore.Parsing.Model.Expressions.Operators.StaticContext;
-using RDCore.Parsing.Model.Types.Abstract;
+﻿using RDCore.Parsing.Model.Types.Abstract;
 using RDCore.Parsing.Model.Types.Intrinsic;
 using RDCore.Parsing.Model.Values.Abstract;
 using RDCore.Parsing.Model.Values.Intrinsic;

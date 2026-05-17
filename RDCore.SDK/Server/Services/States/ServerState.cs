@@ -1,8 +1,8 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.Server.States;
+namespace RDCore.SDK.Server.Services.States;
 
-internal abstract record class ServerState
+public abstract record class ServerState
 {
     public static ServerState Starting { get; } = new StartingServerState();
     public static ServerState Initializing { get; } = new InitializingServerState();
@@ -22,13 +22,13 @@ internal abstract record class ServerState
     public virtual int ExitCode => 1;
 }
 
-internal record class StartingServerState : ServerState
+public record class StartingServerState : ServerState
 {
     public StartingServerState() : base(ServerStateValue.Starting) { }
     public override int ExitCode => 0;
 }
-internal record class InitializingServerState : ServerState { public InitializingServerState() : base(ServerStateValue.Initializing) { } }
-internal record class RunningServerState : ServerState
+public record class InitializingServerState : ServerState { public InitializingServerState() : base(ServerStateValue.Initializing) { } }
+public record class RunningServerState : ServerState
 {
     public RunningServerState(InitializeTrace trace = InitializeTrace.Messages) : base(ServerStateValue.Running)
     {
@@ -42,10 +42,10 @@ internal record class RunningServerState : ServerState
 
     public InitializeTrace Trace { get; }
 }
-internal record class RunningVerboseServerState : RunningServerState { public RunningVerboseServerState() : base(InitializeTrace.Verbose, ServerStateValue.RunningVerbose) { } }
-internal record class RunningTracelessServerState : RunningServerState { public RunningTracelessServerState() : base(InitializeTrace.Off, ServerStateValue.RunningTraceless) { } }
-internal record class ShuttingDownServerState : ServerState { public ShuttingDownServerState() : base(ServerStateValue.ShuttingDown) { } }
-internal record class ExitingServerState : ServerState
+public record class RunningVerboseServerState : RunningServerState { public RunningVerboseServerState() : base(InitializeTrace.Verbose, ServerStateValue.RunningVerbose) { } }
+public record class RunningTracelessServerState : RunningServerState { public RunningTracelessServerState() : base(InitializeTrace.Off, ServerStateValue.RunningTraceless) { } }
+public record class ShuttingDownServerState : ServerState { public ShuttingDownServerState() : base(ServerStateValue.ShuttingDown) { } }
+public record class ExitingServerState : ServerState
 {
     public ExitingServerState(ServerStateValue state) : base(ServerStateValue.Exiting)
     {

@@ -16,10 +16,7 @@ internal record class LetCoercionStaticSemantics : StaticSemantics
     {
         var sourceType = operandDeclaredTypes[0];
         var destinationType = operandDeclaredTypes[1];
-        if (IsLetCoercionInvalid(sourceType, destinationType))
-        {
-            return default;
-        }
+        return IsLetCoercionInvalid(sourceType, destinationType) ? default : destinationType;
     }
 
     private bool IsLetCoercionInvalid(VBType source, VBType destination)
