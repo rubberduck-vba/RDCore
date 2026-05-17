@@ -5,12 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Content Include="logo.ico" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
@@ -22,11 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Model\AST\Statements\" />
-    <Folder Include="Model\Symbols\Statements\" />
-    <Folder Include="Model\Types\Builders\" />
-    <Folder Include="Runtime\Services\" />
-    <Folder Include="Semantics\Diagnostics\" />
+    <Folder Include="Model\" />
   </ItemGroup>
 
 </Project>

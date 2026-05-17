@@ -1,5 +1,5 @@
 ﻿using RDCore.Parsing.Model.Symbols.Abstract;
-using RDCore.Server.ProtocolExtensions;
+using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.Parsing.Model.Symbols;
 

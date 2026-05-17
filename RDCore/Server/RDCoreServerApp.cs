@@ -2,6 +2,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK;
 using RDCore.SDK.Server;
+using RDCore.SDK.Server.Services.States;
 using RDCore.Server.Commands;
 using RDCore.Workspace.Services;
 using RDCore.Workspace.States;
@@ -11,7 +12,7 @@ using IFile = System.IO.Abstractions.IFile;
 
 namespace RDCore.Server;
 
-internal class RDCoreServerApp : ServerApp
+internal class RDCoreServerApp(IServerStateProvider serverStateProvider) : ServerApp(serverStateProvider)
 {
     protected override void ConfigureAppServices(IServiceCollection services)
     {

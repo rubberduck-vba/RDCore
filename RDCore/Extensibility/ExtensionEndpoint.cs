@@ -1,17 +1,20 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Runtime;
+﻿using RDCore.Parsing.Model.Values.Abstract;
+using RDCore.Runtime;
+using RDCore.Runtime.Model.Operators;
+using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace RDCore.Extensibility;
 
 internal interface ISemanticsExtensibility
 {
-    void OnEvaluateOperatorExpression(IVBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands);
+    void OnEvaluateOperatorExpression(VBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands);
 }
 
 internal class SemanticsExtensiblity : ISemanticsExtensibility
 {
-    public void OnEvaluateOperatorExpression(IVBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands)
+    public void OnEvaluateOperatorExpression(VBExecutionContext context, VBOperatorExpression expression, params VBTypedValue[] operands)
     {
         throw new NotImplementedException();
     }

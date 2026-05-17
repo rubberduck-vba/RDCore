@@ -21,7 +21,7 @@ public record class LanguageServerAppOptions(string PipeName) { }
 /// <summary>
 /// Any application that runs an OmniSharp language server, irrespective of its purpose.
 /// </summary>
-public interface ILanguageServerApp : IDisposable
+internal interface ILanguageServerApp : IDisposable
 {
     ILanguageServer LanguageServer { get; }
     Task RunAsync(IServiceProvider provider);
@@ -88,7 +88,7 @@ public abstract class LanguageServerApp(IOptions<LanguageServerAppOptions> appSe
 
         if (logger.IsEnabled(LogLevel.Trace))
         {
-            logger.LogTrace("⏳ Named pipe '{pipeName}' initialized; asynchronously awaiting client connection...", appSettings.Value.PipeName);
+            logger.LogTrace("Named pipe '{pipeName}' initialized; asynchronously awaiting client connection...", appSettings.Value.PipeName);
         }
         WaitForClientConnectionTask = NamedPipeServerStream.WaitForConnectionAsync(serverStateProvider.ProcessToken);
 
@@ -98,9 +98,6 @@ public abstract class LanguageServerApp(IOptions<LanguageServerAppOptions> appSe
             .WithHandler<ShutdownHandler>()
             .WithHandler<SetTraceHandler>()
             .WithHandler<ExecuteCommandHandler>()
-            
-            // TODO add the rest of LSP 3.17 handlers...
-
             .OnStarted(OnLanguageServerStartedAsync)
             .OnInitialize(OnLanguageServerInitializeAsync)
             .OnInitialized(OnLanguageServerInitializedAsync)

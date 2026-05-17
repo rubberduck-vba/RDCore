@@ -1,6 +1,6 @@
 ﻿using RDCore.Semantics.Runtime.Abstract;
 using RDCore.Semantics.Static.Abstract;
-using RDCore.Server.ProtocolExtensions;
+using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.Parsing.Model.Symbols.Abstract;
 

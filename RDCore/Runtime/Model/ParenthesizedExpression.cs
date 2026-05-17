@@ -1,5 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Parsing.Model.Values;
+using RDCore.Semantics.Runtime.Abstract;
+using RDCore.Semantics.Static.Abstract;
 
 namespace RDCore.Runtime.Model;
 
@@ -13,4 +14,7 @@ internal sealed record class ParenthesizedExpression : ValuedExpression
 
     public ValuedExpression InnerExpression { get; init; }
 
+    // TODO
+    public override StaticSemantics StaticSemantics { get; } = default!;
+    public override RuntimeSemantics RuntimeSemantics { get; } = default!;
 }

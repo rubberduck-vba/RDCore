@@ -9,10 +9,9 @@ using RDCore.Runtime;
 using RDCore.Runtime.Model;
 using RDCore.Runtime.Model.Operators;
 using RDCore.Semantics.Diagnostics;
-using RDCore.Semantics.Runtime;
 using RDCore.Semantics.Runtime.Abstract;
+using RDCore.Semantics.Runtime.Operators;
 using System.Text;
-using System.Text.Unicode;
 
 namespace RDCore.Tests.Semantics.Runtime;
 

@@ -4,7 +4,7 @@ using RDCore.SDK.Server.Configuration;
 namespace RDCore.SDK.Server.Services.States;
 
 /// <summary>
-/// Defines methods for managing and transitioning the operational lifecycle state of a <c>ServerApp</c> instance.
+/// Defines methods for managing and transitioning the operational lifecycle state of a server instance.
 /// </summary>
 public interface IServerStateProvider
 {
@@ -57,9 +57,6 @@ public interface IServerStateProvider
     ServerInfo ServerInfo { get; }
 }
 
-/// <summary>
-/// Manages the operational lifecycle state of a <c>ServerApp</c> instance.
-/// </summary>
 public class ServerStateProvider(ServerOptions options) : IServerStateProvider, IDisposable
 {
     private static readonly CancellationTokenSource _processTokenSource = new();

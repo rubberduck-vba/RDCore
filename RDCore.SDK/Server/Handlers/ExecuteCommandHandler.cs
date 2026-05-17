@@ -7,7 +7,7 @@ using RDCore.SDK.Server.Services;
 
 namespace RDCore.SDK.Server.Handlers;
 
-public class ExecuteCommandHandler(IServerCommandProvider CommandProvider) : ExecuteCommandHandlerBase
+internal class ExecuteCommandHandler(IServerCommandProvider CommandProvider) : ExecuteCommandHandlerBase
 {
     public async override Task<Unit> Handle(ExecuteCommandParams request, CancellationToken cancellationToken)
     {
