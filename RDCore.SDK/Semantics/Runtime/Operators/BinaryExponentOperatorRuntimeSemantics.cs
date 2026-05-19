@@ -1,7 +1,7 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -17,8 +17,8 @@ public record class BinaryExponentOperatorRuntimeSemantics : BinaryOperatorRunti
     {
         return lhs switch
         {
-            VBNumericType or VBStringType or VBDateType or VBEmptyType
-                when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType => VBDoubleType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType
+                when rhs is INumericType or VBStringType or VBDateType or VBEmptyType => VBDoubleType.TypeInfo,
 
             _ => base.DetermineOperatorEffectiveType(lhs, rhs)
         };

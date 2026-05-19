@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -12,10 +12,10 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBBooleanValue(Symbol Symbol) : VBTypedValue(VBBooleanType.TypeInfo, Symbol), 
     IVBTypedValue<VBBooleanValue, bool>
 {
-    private static readonly Lazy<VBBooleanValue> _falseValue = new(() => new VBBooleanValue(GlobalSymbols.StaticSymbols.False) { Value = false });
+    private static readonly Lazy<VBBooleanValue> _falseValue = new(() => new VBBooleanValue(GlobalSymbols.False) { Value = false });
     public static VBBooleanValue False { get; } = _falseValue.Value;
 
-    private static readonly Lazy<VBBooleanValue> _trueValue = new(() => new VBBooleanValue(GlobalSymbols.StaticSymbols.True) { Value = true });
+    private static readonly Lazy<VBBooleanValue> _trueValue = new(() => new VBBooleanValue(GlobalSymbols.True) { Value = true });
     public static VBBooleanValue True { get; } = _trueValue.Value;
 
     public bool Value { get; init; } = default;
@@ -30,11 +30,8 @@ public sealed record class VBBooleanValue(Symbol Symbol) : VBTypedValue(VBBoolea
 
 
     // TOOD move to let-coercion semantics:
-    // bool -> numeric
     //public VBDoubleValue? AsCoercedDouble(ref int depth) => new VBDoubleValue(Symbol).WithValue(-1 * Convert.ToDouble(Value));
-    // bool -> string
     //public VBStringValue? AsCoercedString(ref int depth) => new VBStringValue(Symbol).WithValue(ToString());
-    // bool -> string*length
     //public VBFixedStringValue? AsCoercedFixedLengthString(int length, ref int depth) =>
     //    AsCoercedString(ref depth) is VBStringValue value ? new VBFixedStringValue(length).WithFixedValue(value.Value) : null;
 }

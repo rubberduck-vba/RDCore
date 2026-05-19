@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -12,11 +12,15 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBEmptyValue(Symbol Symbol) : VBTypedValue(VBEmptyType.TypeInfo, Symbol), 
     IVBTypedValue<VBEmptyValue, nint>
 {
-    private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.StaticSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
     public static VBEmptyValue Empty { get; } = _emptyValue.Value;
 
     public nint Value => nint.Zero;
     public override int Size => sizeof(int);
+
+    //public VBDoubleValue AsCoercedDouble(ref int depth) => VBDoubleValue.Zero;
+    //public VBStringValue AsCoercedString(ref int depth) => VBStringValue.ZeroLengthString;
+    //public VBFixedStringValue AsCoercedFixedLengthString(int length, ref int depth) => new(AsCoercedString(ref depth));
 
     public bool Equals(IVBTypedValue<VBEmptyValue, nint>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

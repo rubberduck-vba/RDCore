@@ -1,10 +1,32 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Model.Values.Abstract;
+
+public static class VBTypedValueFactory
+{
+    private static readonly Lazy<Dictionary<Type, Func<object, Symbol, VBTypedValue>>> _factories =
+        new(() => new()
+        {
+            [typeof(bool)] = static (value, symbol) => new VBBooleanValue(symbol).WithValue((bool)value),
+            [typeof(byte)] = static (value, symbol) => new VBByteValue(symbol).WithValue((byte)value),
+            [typeof(short)] = static (value, symbol) => new VBIntegerValue(symbol).WithValue((short)value),
+            [typeof(int)] = static (value, symbol) => new VBLongValue(symbol).WithValue((int)value),
+            [typeof(long)] = static (value, symbol) => new VBLongLongValue(symbol).WithValue((long)value),
+            [typeof(float)] = static (value, symbol) => new VBSingleValue(symbol).WithValue((float)value),
+            [typeof(double)] = static (value, symbol) => new VBDoubleValue(symbol).WithValue((double)value),
+            [typeof(decimal)] = static (value, symbol) => new VBCurrencyValue(symbol).WithValue((decimal)value),
+            [typeof(DateTime)] = static (value, symbol) => new VBDateValue(symbol).WithValue((DateTime)value),
+
+        }, LazyThreadSafetyMode.PublicationOnly);
+
+    public static VBTypedValue WrapManagedValue(object value, Symbol symbol)
+    {
+        return _factories.Value[value?.GetType()](value, symbol);
+    }
+}
 
 /// <summary>
 /// Represents any run-time typed value that can be represented with a managed (.net) value.
@@ -20,12 +42,11 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
     /// <summary>
     /// Gets the underlying managed value corresponding to this typed value.
     /// </summary>
-    /// <remarks>
     TValue Value { get; }
 }
 
 /// <summary>
-/// Represents any typed value.
+/// Represents any run-time typed value.
 /// </summary>
 /// <remarks>
 /// This class is at the base of the type hierarchy for all typed values.
@@ -50,11 +71,21 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol Symbol) : VBRu
     public bool IsWithBlockVariable { get; init; }
 
     /// <summary>
+    /// Creates a new <c>VBVariantValue</c> wrapping this typed value.
+    /// </summary>
+    /// <remarks>
+    /// The <c>SubType</c> of the created <c>VBVariant</c> is the <c>TypeInfo</c> of this typed value.
+    /// </remarks>
+    public VBVariantValue AsVariant() => new(this, Symbol);
+
+    /// <summary>
     /// The raw memory address of this typed value.
     /// </summary>
     public long RawAddress { get; init; }
+
     /// <summary>
-    /// The allocated size (in bytes) of this value.
+    /// The size (in bytes) of this typed value.
     /// </summary>
     public abstract int Size { get; }
 }
+

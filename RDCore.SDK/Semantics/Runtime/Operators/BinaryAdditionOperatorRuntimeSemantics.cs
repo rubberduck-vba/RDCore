@@ -1,14 +1,13 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
-public sealed record class BinaryAdditionOperatorRuntimeSemantics() : BinaryOperatorRuntimeSemantics()
+public sealed record class BinaryAdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
     {
@@ -22,13 +21,13 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics() : BinaryOper
 
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
-        if (effectiveType is VBNumericType numericEffectiveType)
+        if (effectiveType is INumericType)
         {
             if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue &&
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
                 var doubleValue = lhsValue + rhsValue;
-                return VBTypedValueFactory.CreateValue(numericEffectiveType, expression.Symbol, doubleValue);
+                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(doubleValue);
             }
         }
         else if (effectiveType is VBDateType)

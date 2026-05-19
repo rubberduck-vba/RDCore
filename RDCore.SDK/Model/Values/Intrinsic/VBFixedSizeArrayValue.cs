@@ -15,5 +15,7 @@ public sealed record class VBFixedSizeArrayValue : VBArrayValue
     /// <param name="symbol"></param>
     /// <param name="itemType"></param>
     public VBFixedSizeArrayValue((int uBound, int lBound)[] dimensions, Symbol symbol, VBType? itemType = null)
-        : base(symbol, dimensions, itemType) { }
+        : base(symbol, dimensions, itemType)
+    {
+    }
 }

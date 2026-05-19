@@ -2,26 +2,19 @@
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.SDK.Model.Types.Intrinsic;
 
 /// <summary>
 /// Represents the <c>Variant</c> subtype given to an optional <c>Variant</c> parameter that was not supplied.
 /// </summary>
-public record class VBMissingType() : VBIntrinsicType<int>(VBTypeNames.VBMissing)
+public record class VBMissingType() : VBIntrinsicType<IntPtr>("<missing>")
 {
     private static readonly Lazy<VBMissingType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// The <c>Missing</c> data type.
-    /// </summary>
-    /// <remarks>
-    /// This data type has no declaration semantics and is only indirectly usable as a <c>Variant</c> subtype.
-    /// </remarks>
     public static VBMissingType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBMissingValue> _defaultValue = new(() => new(GlobalSymbols.StaticSymbols.MissingValue), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBMissingValue> _defaultValue = new(() => new(GlobalSymbols.MissingValue), LazyThreadSafetyMode.PublicationOnly);
     public override VBMissingValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
+    public override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
+    public override bool IsDeclarable => false;
 }

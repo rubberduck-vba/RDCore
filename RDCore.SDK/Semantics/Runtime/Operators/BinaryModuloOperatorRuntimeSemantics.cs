@@ -1,8 +1,7 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -33,7 +32,7 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics : BinaryIntegerD
 
                 // NOTE: we have a whole framework, let's use it. the spec is overstepping its own scope trying to be specific here.
                 var integerValue = Math.DivRem((int)lhsValue, (int)rhsValue).Remainder;
-                return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, integerValue);
+                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(integerValue);
             }
         }
         else if (effectiveType is VBNullType)

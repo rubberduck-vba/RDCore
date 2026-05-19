@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -12,6 +13,15 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.TypeInfo, Symbol),
     IVBTypedValue<VBDateValue, DateTime>
 {
+    private static readonly Lazy<VBDateValue> _minValue = new(() => new(GlobalSymbols.VBDateMinValue) { Value = new DateTime(100, 01, 01) }, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDateValue MinValue => _minValue.Value;
+
+    private static readonly Lazy<VBDateValue> _maxValue = new(() => new(GlobalSymbols.VBDateMaxValue) { Value = new DateTime(9999, 12, 31, 23, 59, 59) }, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDateValue MaxValue => _maxValue.Value;
+
+    private static readonly Lazy<VBDateValue> _zero = new(() => new(GlobalSymbols.VBDateZeroValue) { Value = new DateTime(1899, 12, 30) }, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDateValue Zero => _zero.Value;
+
     /// <summary>
     /// Overflow check used in operator semantics to check error conditions without throwing exceptions.
     /// </summary>
@@ -56,10 +66,9 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     */
     public VBDateValue WithValue(DateTime value)
     {
-        if (value > VBDateType.MaxValue.Value || value < VBDateType.MinValue.Value)
+        if (value > MaxValue.Value || value < MinValue.Value)
         {
-            var location = (Symbol as BoundSymbol)?.SelectionRange;
-            VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**.");
+            VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**.");
         }
         return this with { Value = value };
     }
@@ -68,10 +77,9 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     {
         if (value > MaxSerial || value < MinSerial)
         {
-            var location = (Symbol as BoundSymbol)?.SelectionRange;
-            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**."));
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**."));
         }
-        return this with { Value = VBDateType.Zero.Value.AddDays(value) };
+        return this with { Value = Zero.Value.AddDays(value) };
     }
 
     public bool Equals(IVBTypedValue<VBDateValue, DateTime>? other) => Value == other?.Value;

@@ -1,34 +1,9 @@
-﻿using RDCore.Parsing.Model.Symbols.Abstract;
-using RDCore.Semantics.Diagnostics;
-using System.Diagnostics;
+﻿using RDCore.SDK.Model.Symbols.Abstract;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.Parsing;
+namespace RDCore.SDK.Model.Errors;
 
-public enum VBCompileErrorId
-{
-    ForbiddenWithOptionStrict = 9000,
-    SyntaxError,
-    AmbiguousName,
-    VariableNotDefined,
-    DuplicateDeclaration,
-    InvalidUseOfObject,
-    InvalidParamArrayUse,
-    InvalidReDim,
-    ExpectedArray,
-    ExpectedIdentifier,
-    LabelNotDefined,
-    TypeMismatch,
-    UserDefinedTypeNotDefined,
-    ExitDoNotWithinDoLoop,
-    ExitForNotWithinForNext,
-    ExitFunctionNotAllowedInSubOrProperty,
-    ExitPropertyNotAllowedInSubOrFunction,
-    MethodOrDataMemberNotFound,
-}
-
-[DebuggerDisplay("{DebuggerDisplay,nq}")]
-internal class VBCompileErrorException : ApplicationException
+public class VBCompileErrorException : ApplicationException
 {
     public VBCompileErrorException(Range location, VBCompileErrorId id, string message, string? verbose = null)
         : base($"Compile error: {message}")
@@ -38,10 +13,8 @@ internal class VBCompileErrorException : ApplicationException
         Verbose = verbose;
     }
 
-    private string DebuggerDisplay => $"[{VBCompileErrorId.ToDiagnosticCode()}] {Message}{(Verbose is null ? string.Empty : " | " + Verbose)}";
-
     #region Classic-VB compile-time errors
-    // NOTE: VB compile errors are just messages, ID is made up.
+    // NOTE: VB compile errors are just messages, ID is made up, but it's over 9000.
     public static VBCompileErrorException SyntaxError(Range range, string? verbose = null) => new(range, VBCompileErrorId.SyntaxError, "Syntax error", verbose);
     public static VBCompileErrorException InvalidUseOfObject(Range range, string? verbose = null) => new(range, VBCompileErrorId.InvalidUseOfObject, "Invalid use of object", verbose);
     public static VBCompileErrorException VariableNotDefined(Range range, string? verbose = null) => new(range, VBCompileErrorId.VariableNotDefined, "Variable not defined", verbose);

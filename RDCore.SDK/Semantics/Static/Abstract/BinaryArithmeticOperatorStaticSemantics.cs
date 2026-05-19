@@ -1,16 +1,16 @@
-﻿using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
 /// <summary>
 /// Uses pattern-matching rules to encapsulate binary arithmetic operator static semantics as defined in <strong>MS-VBAL 5.6.9.3</strong>.
 /// </summary>
-public abstract record class BinaryArithmeticOperatorStaticSemantics() : StaticSemantics, IStaticSemantics
+public abstract record class BinaryArithmeticOperatorStaticSemantics : StaticSemantics
 {
-    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
-        => DetermineOperatorStaticType(context, operandDeclaredTypes[0], operandDeclaredTypes[1]);
+    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
 
     /// <summary>
     /// MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics) 
@@ -19,7 +19,7 @@ public abstract record class BinaryArithmeticOperatorStaticSemantics() : StaticS
     /// <param name="lhs">The declared type of the LHS operand.</param>
     /// <param name="rhs">The declared type of the RHS operand.</param>
     /// <returns><c>null</c> if no type is statically valid.</returns>
-    protected virtual VBType? DetermineOperatorStaticType(IVBExecutionContext context, VBType lhs, VBType rhs)
+    protected virtual VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {
         return lhs switch
         {
@@ -45,11 +45,11 @@ public abstract record class BinaryArithmeticOperatorStaticSemantics() : StaticS
             VBDoubleType or VBFixedStringType or VBStringType when rhs is IIntegralNumericType or IFloatingPointNumericType or VBFixedStringType or VBStringType => VBDoubleType.TypeInfo,
             IIntegralNumericType or IFloatingPointNumericType or VBFixedStringType or VBStringType when rhs is VBDoubleType or VBFixedStringType or VBStringType => VBDoubleType.TypeInfo,
 
-            VBCurrencyType when rhs is VBNumericType or VBFixedStringType or VBStringType => VBCurrencyType.TypeInfo,
-            VBNumericType or VBFixedStringType or VBStringType when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
+            VBCurrencyType when rhs is INumericType or VBFixedStringType or VBStringType => VBCurrencyType.TypeInfo,
+            INumericType or VBFixedStringType or VBStringType when rhs is (VBCurrencyType) => VBCurrencyType.TypeInfo,
 
-            VBDateType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType => VBDateType.TypeInfo,
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBDateType.TypeInfo,
+            VBDateType when rhs is INumericType or VBFixedStringType or VBStringType or VBDateType => VBDateType.TypeInfo,
+            INumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBDateType.TypeInfo,
 
             VBVariantType when rhs is not (VBArrayType or VBUserDefinedType) => VBVariantType.TypeInfo,
             not (VBArrayType or VBUserDefinedType) when rhs is VBVariantType => VBVariantType.TypeInfo,

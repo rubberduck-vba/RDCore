@@ -1,22 +1,56 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Expressions.Abstract;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
 /// <summary>
-/// A member of an <c>VBEnumType</c>.
+/// Represents a symbol that has a parent <c>Enum</c> symbol.
 /// </summary>
 /// <remarks>
-/// <c>Enum</c> members are considered <c>Public</c> constant member fields declared <c>As Long</c>; their effective visibility is governed by their parent <c>Enum</c>.
+/// <c>Enum</c> members are considered <c>Public</c> constant fields declared <c>As Long</c>; their effective visibility is governed by their parent <c>Enum</c>.
 /// </remarks>
-/// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
-/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
-/// <param name="Name">The identifier name of the symbol.</param>
-/// <param name="Scope">The allocation scope of the symbol.</param>
-/// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
-/// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
-/// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-public sealed record class VBEnumConstMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, Range Range, Range SelectionRange) 
-    : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, VBLongType.TypeInfo, Range, SelectionRange, AccessModifier.Implicit) { }
+public sealed record class VBEnumConstMemberSymbol : VBReturningMemberSymbol
+{
+    /// <summary>
+    /// Creates a new <c>VBEnumConstMemberSymbol</c> that is not linked to a document location.
+    /// </summary>
+    /// <remarks>
+    /// This constructor is normally used for symbols defined in a referenced project or library.
+    /// </remarks>
+    /// <param name="scope">The allocation scope of the symbol.</param>
+    /// <param name="name">The identifier name of the symbol.</param>
+    /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
+    /// <param name="workspaceRoot"></param>
+    public VBEnumConstMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Uri parentUri, BoundExpression valueExpression)
+        : base(scope, workspaceRoot, name, Accessibility.Public, SymbolKindExt.EnumMember, parentUri)
+    {
+        ResolvedType = VBLongType.TypeInfo;
+        ValueExpression = valueExpression;
+    }
+
+    /// <summary>
+    /// Creates a new <c>VBReturningMemberSymbol</c> that is linked to a document location.
+    /// </summary>
+    /// <remarks>
+    /// This constructor is normally used for symbols defined in the user project's workspace.
+    /// </remarks>
+    /// <param name="scope">The allocation scope of the symbol.</param>
+    /// <param name="name">The identifier name of the symbol.</param>
+    /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
+    /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
+    /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
+    public VBEnumConstMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Uri parentUri, BoundExpression? valueExpression, Range range, Range selectionRange)
+        : base(scope, workspaceRoot, name, Accessibility.Public, SymbolKindExt.EnumMember, parentUri, range, selectionRange)
+    {
+        ResolvedType = VBLongType.TypeInfo;
+        ValueExpression = valueExpression;
+    }
+
+    /// <summary>
+    /// A <c>BoundExpression</c> that may be present at the declaration site to statically set a constant value.
+    /// </summary>
+    public BoundExpression? ValueExpression { get; init; }
+}

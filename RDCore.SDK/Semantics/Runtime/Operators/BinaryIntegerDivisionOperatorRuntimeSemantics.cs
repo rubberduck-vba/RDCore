@@ -1,8 +1,7 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -24,12 +23,12 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics : BinaryOperat
                 when rhs is VBSingleType or VBDoubleType or VBStringType or VBCurrencyType or VBDateType or VBDecimalType => VBIntegerType.TypeInfo,
 
             IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
-                when rhs is VBNumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType => VBLongType.TypeInfo,
-            VBNumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType
+                when rhs is INumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType => VBLongType.TypeInfo,
+            INumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType
                 when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType => VBLongType.TypeInfo,
 
-            VBLongLongType when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType => VBLongLongType.TypeInfo,
-            VBNumericType or VBStringType or VBDateType or VBEmptyType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
+            VBLongLongType when rhs is INumericType or VBStringType or VBDateType or VBEmptyType => VBLongLongType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
             _ => base.DetermineOperatorEffectiveType(lhs, rhs)
         };
@@ -51,7 +50,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics : BinaryOperat
                 // if the quotient is an integer, the result is the quotient.
                 // if the quotient is not an integer, the result is the integer nearest to the quotient that is closer to zero than the quotient.
                 var integerValue = (int)Math.Round(lhsValue, 0, MidpointRounding.ToEven) / divisor;
-                return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, integerValue);
+                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(integerValue);
             }
         }
         else if (effectiveType is VBNullType)

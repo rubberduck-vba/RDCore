@@ -1,33 +1,35 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.SDK.Model.Types.Intrinsic;
 
 /// <summary>
 /// Represents any type of array.
 /// </summary>
-public abstract record class VBArrayType(VBType ItemType) : VBIntrinsicType<object[]>(VBTypeNames.VBArray), IEnumerableType
+public abstract record class VBArrayType : VBIntrinsicType<object[]>, IEnumerableType
 {
-    private static readonly Lazy<VBArrayType> _instance = new(() => new VBResizableArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// Gets an instance of the <c>VBResizableArrayType</c>.
-    /// </summary>
+    // FIXME: recursive references here
+    private static readonly Lazy<VBArrayType> _instance = new(() => new VBResizableArrayType(VBResizableArrayValue.Empty), LazyThreadSafetyMode.PublicationOnly);
     public static VBArrayType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBArrayValue> _defaultValue = new(() => VBResizableArrayValue.Empty, LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// Gets an empty (uninitialized) <c>VBResizableArrayValue</c>.
-    /// </summary>
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+    public VBArrayType(VBArrayValue declaredValue) : base("Array")
+    {
+        DeclaredValue = declaredValue;
+    }
 
-    /// <summary>
-    /// The size of an array pointer.
-    /// </summary>
-    /// <remarks>
-    /// You may be looking for <c>VBArrayValue.Size</c>.
-    /// </remarks>
-    public override int Size => sizeof(int);
+    public VBArrayValue DeclaredValue { get; init; }
+
+    public bool IsArray { get; } = true;
+
+    public override VBTypedValue DefaultValue => DeclaredValue;
+
+    public override bool CanPassByValue { get; } = false;
+
+    public override VBType[] ConvertsSafelyToTypes => [VBVariantType.TypeInfo];
 }
+
+public sealed record class VBResizableArrayType(VBArrayValue DeclaredValue) : VBArrayType(DeclaredValue) { }
+public sealed record class VBResizableByteArrayType() : VBArrayType(VBResizableByteArrayValue.Empty) { }

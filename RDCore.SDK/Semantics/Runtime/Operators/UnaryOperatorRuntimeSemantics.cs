@@ -1,13 +1,12 @@
-﻿using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
 public abstract record class UnaryOperatorRuntimeSemantics : RuntimeSemantics
 {
-    public sealed override VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorEffectiveType(operandDeclaredTypes[0]);
 
     /// <summary>

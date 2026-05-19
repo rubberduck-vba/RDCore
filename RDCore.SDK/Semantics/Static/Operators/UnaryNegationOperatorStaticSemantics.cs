@@ -1,6 +1,5 @@
-﻿using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -10,12 +9,13 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// </summary>
 public sealed record class UnaryNegationOperatorStaticSemantics : UnaryArithmeticOperatorStaticSemantics
 {
-    protected override VBType? DetermineOperatorStaticType(IVBExecutionContext context, VBType operand)
+    protected override VBType? DetermineOperatorStaticType(VBType operand)
     {
-        return operand switch
+        if (operand is VBByteType)
         {
-            VBByteType => VBIntegerType.TypeInfo,
-            _ => base.DetermineOperatorStaticType(context, operand)
-        };
+            return VBIntegerType.TypeInfo;
+        }
+
+        return base.DetermineOperatorStaticType(operand);
     }
 }

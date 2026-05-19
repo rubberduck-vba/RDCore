@@ -1,9 +1,11 @@
-﻿using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Expressions;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
+using System.Diagnostics;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -12,7 +14,7 @@ namespace RDCore.SDK.Semantics.Runtime.Operators;
 /// </summary>
 public record class UnaryNegationOperatorRuntimeSemantics : UnaryOperatorRuntimeSemantics
 {
-    protected VBType? DetermineOperatorEffectiveType(IVBExecutionContext context, VBType operand)
+    protected override VBType? DetermineOperatorEffectiveType(VBType operand)
     {
         if (operand is VBByteType)
         {
@@ -22,9 +24,10 @@ public record class UnaryNegationOperatorRuntimeSemantics : UnaryOperatorRuntime
         return base.DetermineOperatorEffectiveType(operand);
     }
 
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands)
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
     {
         var operand = operands[0];
+        
         //if (effectiveType is VBByteType)
         //{
         //    var depth = 0;

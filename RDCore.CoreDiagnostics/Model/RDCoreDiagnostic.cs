@@ -25,7 +25,7 @@ internal record class RDCoreDiagnostic : Diagnostic
 
     private static Diagnostic CreateDiagnostic(VBCompileErrorException vbError)
     {
-        var code = vbError.ToDiagnosticCode();
+        var code = vbError.VBCompileErrorId.ToDiagnosticCode();
         return new()
         {
             Code = new DiagnosticCode(code),
@@ -39,7 +39,7 @@ internal record class RDCoreDiagnostic : Diagnostic
 
     private static Diagnostic CreateDiagnostic(VBRuntimeErrorException vbError)
     {
-        var code = vbError.ToDiagnosticCode();
+        var code = vbError.VBErrorNumber.ToDiagnosticCode();
         return new()
         {
             Code = new DiagnosticCode(code),

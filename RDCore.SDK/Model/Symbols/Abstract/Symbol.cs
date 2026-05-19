@@ -1,37 +1,56 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Server.ProtocolExtensions;
 using System.Collections.Immutable;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
 /// <summary>
-/// The base <c>Symbol</c> type. All symbols must be addressable with a <c>Uri</c> that is unique across the workspace.
+/// Represents any workspace object that has a name, and maybe a location in a document.
 /// </summary>
 /// <remarks>
-/// The <c>Name</c> of a symbol is not necessarily a valid <em>identifier</em> value.
+/// All symbols minimally define a <c>Uri</c>, a <c>Name</c>, and a <c>SymbolKind</c>.
 /// </remarks>
 public abstract record class Symbol
 {
     /// <summary>
-    /// The base <c>Symbol</c> type. All symbols must be addressable with a <c>Uri</c> that is unique across the workspace.
+    /// For symbols representing a user workspace project or a referenced library.
     /// </summary>
-    /// <remarks>
-    /// The <c>Name</c> of a symbol is not necessarily a valid <em>identifier</em> value.
-    /// </remarks>
     /// <param name="workspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace.</param>
-    /// <param name="parentUri">The <c>Uri</c> of the parent symbol (<c>null</c> for any top-level library/project workspace symbol).</param>
     /// <param name="name">The name of the symbol.</param>
-    /// <param name="scope">The allocation scope of the symbol.</param>
-    /// <param name="kind">A <c>SymbolKind</c> (extensible) metadata value describing the kind of symbol.</param>
-    protected Symbol(Uri workspaceRoot, Uri parentUri, string name, ScopeKind scope, SymbolKindExt kind)
+    protected Symbol(Uri workspaceRoot, string name)
+        : this(workspaceRoot, name, SymbolKindExt.Project)
     {
-        WorkspaceRoot = workspaceRoot;
+    }
+
+    /// <summary>
+    /// For symbols without a <c>Range</c>, e.g. the workspace project's own symbol, module symbols, or symbols from referenced libraries.
+    /// </summary>
+    /// <param name="workspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace.</param>
+    /// <param name="name">The name of the symbol.</param>
+    /// <param name="kind">A <c>SymbolKind</c> (extended, LSP-compliant) metadata value describing the kind of symbol.</param>
+    /// <param name="parentUri">The <c>Uri</c> of the parent symbol (<c>null</c> for the top-level library symbol).</param>
+    protected Symbol(Uri workspaceRoot, string name, SymbolKindExt kind, Uri? parentUri = default, ScopeKind? scope = ScopeKind.Global)
+        : this(workspaceRoot, scope ?? ScopeKind.Global, name, kind, default!, default!, parentUri)
+    {
+    }
+
+    /// <summary>
+    /// For symbols with a <c>Range</c>, i.e. symbols from the workspace project.
+    /// </summary>
+    protected Symbol(Uri workspaceRoot, ScopeKind scope, string name, SymbolKindExt kind, Range range, Range selectionRange, Uri? parentUri = default)
+    {
+        Name = name;
+        Kind = (SymbolKind)kind;
+
+        //IsUserWorkspace = range is not null && selectionRange is not null;
+        ScopeKind = scope;
+
         ParentUri = parentUri ?? workspaceRoot;
         Uri = CreateUri(ParentUri, name);
 
-        Name = name;
-        ScopeKind = scope;
-        Kind = kind;
+        Range = range;
+        SelectionRange = selectionRange ?? Range;
     }
 
     private static Uri CreateUri(Uri parent, string name)
@@ -46,6 +65,31 @@ public abstract record class Symbol
     }
 
     /// <summary>
+    /// The <c>Name</c> of the symbol.
+    /// </summary>
+    public virtual string Name { get; }
+
+    /// <summary>
+    /// LSP-compliant <c>SymbolKind</c> value (may be extended) that the client can use to categorize the symbol.
+    /// </summary>
+    public SymbolKind Kind { get; init; }
+
+    /// <summary>
+    /// An immutable array where each <c>Uri</c> element refers to the <c>Uri</c> of a child symbol.
+    /// </summary>
+    public ImmutableArray<Uri> Children { get; init; }
+
+    /// <summary>
+    /// The entire document <c>Range</c> belonging to this symbol.
+    /// </summary>
+    public Range? Range { get; init; }
+
+    /// <summary>
+    /// The document <c>Range</c> to select when navigating to this symbol.
+    /// </summary>
+    public Range? SelectionRange { get; init; }
+
+    /// <summary>
     /// A <c>Uri</c> that uniquely identifies the symbol.
     /// </summary>
     public Uri Uri { get; init; }
@@ -53,39 +97,9 @@ public abstract record class Symbol
     /// The <c>Uri</c> of the parent symbol.
     /// </summary>
     /// <remarks>
-    /// ⚠️ This property is actually <c>null</c> given a <c>LibrarySymbol</c>.
+    /// This property is actually <c>null</c> given a <c>SymbolKind.Project</c> symbol.
     /// </remarks>
     public Uri ParentUri { get; init; } = default!;
-    /// <summary>
-    /// The <c>Uri</c> of the parent library/project.
-    /// </summary>
-    public Uri WorkspaceRoot { get; init; }
-
-
-    /// <summary>
-    /// The <c>Name</c> of the symbol.
-    /// </summary>
-    public virtual string Name { get; }
-
-    /// <summary>
-    /// Describes the <c>SymbolKind</c>, the type of symbol.
-    /// </summary>
-    /// <remarks>
-    /// Serialized as a simple <c>int</c>; the internal model uses an extended set beyond LSP 3.17 that clients may ignore.
-    /// </remarks>
-    public SymbolKindExt Kind { get; init; }
-    /// <summary>
-    /// Describes the <c>SymbolKind</c>, the type of symbol.
-    /// </summary>
-    /// <remarks>
-    /// Can be used by a LSP client to categorize symbols.
-    /// </remarks>
-    public SymbolKind SymbolKind => (SymbolKind)Kind;
-
-    /// <summary>
-    /// An immutable array where each <c>Uri</c> element refers to the <c>Uri</c> of a child symbol.
-    /// </summary>
-    public ImmutableArray<Uri> Children { get; init; }
 
     /// <summary>
     /// Describes how the runtime manages this symbol in memory.

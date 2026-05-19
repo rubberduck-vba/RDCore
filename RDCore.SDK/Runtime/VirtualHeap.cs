@@ -2,25 +2,67 @@
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Concurrent;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Symbols.Unbound;
-using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime;
 
 /// <summary>
-/// Creates a virtual memory space for an execution context.
+/// A service that manages the run-time memory structure of an execution context.
 /// </summary>
-/// <param name="Is64Bit">The bitness of the runtime environment.</param>
-/// <remarks>If no bitness is specified, uses the bitness of the host process.</remarks>
-public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
+public interface IVirtualHeap
+{
+    /// <summary>
+    /// Creates a new <c>VBObjectValue</c> for the specified <c>Symbol</c>.
+    /// </summary>
+    /// <param name="symbol">The <c>ClassModuleSymbol</c> to instantiate.</param>
+    /// <remarks>
+    /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
+    /// </remarks>
+    VBObjectValue CreateObject(VBClassModuleSymbol symbol);
+    /// <summary>
+    /// Gets the <c>VBTypedValue</c> currently associated with the specified <c>Symbol</c>.
+    /// </summary>
+    /// <param name="symbol">The <c>Symbol</c> to retrieve the currently associated value for.</param>
+    VBTypedValue GetValue(Symbol symbol);
+    /// <summary>
+    /// Associates the specified <c>VBTypedValue</c> value to the specified <c>Symbol</c>.
+    /// </summary>
+    /// <param name="symbol">The <c>Symbol</c> receiving the assignment.</param>
+    /// <param name="value">The <c>VBTypedValue</c> to be assigned.</param>
+    /// <remarks>
+    /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
+    /// </remarks>
+    void SetValue(Symbol symbol, VBTypedValue value);
+    /// <summary>
+    /// Allocates the specified number of bytes (<c>size</c>) under the specified <c>symbolUri</c> at the current memory address pointer.
+    /// </summary>
+    /// <param name="symbolUri">The <c>Uri</c> associated with this allocated memory space.</param>
+    /// <param name="size">The size (bytes) of the allocated memory.</param>
+    /// <returns></returns>
+    /// <remarks>
+    /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
+    /// </remarks>
+    long Allocate(Uri symbolUri, int size);
+    /// <summary>
+    /// Allocates the specified <c>VBTypedValue</c> under the specified <c>symbolUri</c> at the current memory address pointer.
+    /// </summary>
+    /// <param name="symbolUri">The <c>Uri</c> associated with this allocated memory space.</param>
+    /// <param name="value">The <c>VBTypedValue</c> to be allocated.</param>
+    /// <remarks>
+    /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
+    /// </remarks>
+    long Allocate(Uri symbolUri, VBTypedValue value);
+    /// <summary>
+    /// Deallocates the memory space held at the specified <c>Uri</c>.
+    /// </summary>
+    /// <param name="symbolUri">The <c>Uri</c> of the symbol to deallocate.</param>
+    void Deallocate(Uri symbolUri);
+}
+
+public class VirtualHeap() : IVirtualHeap
 {
     private static readonly long _offset = 0x1000;
-    private readonly int _ptrSize = (Is64Bit ?? Environment.Is64BitProcess) ? VBLongPtrType_x64.BitnessAwarePtrSize : VBLongPtrType_x86.BitnessAwarePtrSize;
-
-    public bool Is64Bit { get; } = Is64Bit ?? Environment.Is64BitProcess;
-
     //private static readonly long _addressSpace = 0x10FF; // TODO update from MS-VBAL, if specified
 
     private readonly Stack<ConcurrentDictionary<Symbol, VBTypedValue>> _stackFrames = [];
@@ -33,18 +75,16 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
 
     private long _nextAddress = _offset;
 
-    private readonly ConcurrentDictionary<Uri, Symbol> _symbolTable = [];
-    private readonly ConcurrentDictionary<string, string> _nameTable = [];
-
     private readonly ConcurrentDictionary<long, VBTypedValue> _memoryMap = [];
     private readonly ConcurrentDictionary<Uri, long> _rawAddressMap = [];
 
     public VBObjectValue CreateObject(VBClassModuleSymbol symbol)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, _ptrSize);
+        Interlocked.Add(ref _nextAddress, VBLongPtrValue.BitnessAwarePtrSize);
 
-        var obj = new VBObjectValue(symbol);
+        var pointer = new VBLongPtrValue(symbol) { ManagedValue = address };
+        var obj = new VBObjectValue(symbol, pointer);
 
         _objectHeap[obj] = [];
         _rawAddressMap[symbol.Uri] = address;
@@ -83,7 +123,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     public long Allocate(Uri symbolUri, int size)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, Math.Max(size, _ptrSize));
+        Interlocked.Add(ref _nextAddress, Math.Max(size, VBLongPtrValue.BitnessAwarePtrSize));
 
         _rawAddressMap[symbolUri] = address;
 
@@ -95,7 +135,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     public long Allocate(Uri symbolUri, VBTypedValue value)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, _ptrSize);
+        Interlocked.Add(ref _nextAddress, VBLongPtrValue.BitnessAwarePtrSize);
 
         var addressedValue = value with { RawAddress = address };
 
@@ -125,32 +165,6 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
         }
         //}
     }
-
-    public Symbol? Resolve(string name, ScopeKind scope, Uri handle)
-    {
-        var observerScope = _symbolTable[handle];
-        /// TODO
-        return default;
-    }
-
-    public void Define(Symbol symbol)
-    {
-        _symbolTable[symbol.Uri] = symbol;
-        if (TryGetIdentifierName(symbol.Name, out var caseMatchedName))
-        {
-            // symbol name matched name 
-        }
-
-        var invariantName = symbol.Name.ToLowerInvariant();
-        if (invariantName != symbol.Name)
-        {
-            // TODO inject a semantic flag here somehow.
-        }
-        _nameTable[invariantName] = symbol.Name;
-    }
-
-    private void SetNameTableIdentifier(string identifier) => _nameTable[identifier.ToLowerInvariant()] = identifier;
-    private bool TryGetIdentifierName(string identifier, [MaybeNull]out string name) => _nameTable.TryGetValue(identifier.ToLowerInvariant(), out name);
 }
 
 public class VirtualHeapCorruptionException(string message) : InvalidOperationException(message) { }

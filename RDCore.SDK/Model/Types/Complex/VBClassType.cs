@@ -1,25 +1,25 @@
-﻿using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Symbols.Abstract;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Intrinsic;
+﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
-namespace RDCore.Parsing.Model.Types.Complex;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// Represents a class type that can be consumed by VB code, not necessarily defined in user code.
 /// </summary>
-internal record class VBClassType : VBType, IVBMemberOwnerType
+public record class VBClassType : VBType, IVBMemberOwnerType
 {
-    public VBClassType(ClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
+    public VBClassType(VBClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
         : base(typeof(object), symbol.Name, isUserDefined, isHidden)
     {
         Symbol = symbol;
         Members = [.. members ?? []];
     }
 
-    public ClassModuleSymbol Symbol { get; }
+    public VBClassModuleSymbol Symbol { get; }
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.

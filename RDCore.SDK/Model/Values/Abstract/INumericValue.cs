@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Values.Abstract;
 public interface INumericValue
 {
     /// <summary>
-    /// Gets the managed (.net) internal representation the numeric value. This is always a <c>double</c>.
+    /// Gets the managed representation the numeric value. This is always a <c>double</c>.
     /// </summary>
     double ManagedValue { get; }
 
@@ -36,6 +36,19 @@ public interface INumericValue<VBTValue> : INumericValue
     /// The numeric <c>VBType</c> of this value.
     /// </summary>
     VBType TypeInfo { get; }
+
+    /// <summary>
+    /// The minimum representable value expressed in the <c>VBType</c> of this value.
+    /// </summary>
+    VBTValue MinValue { get; }
+    /// <summary>
+    /// The maximum representable value expressed in the <c>VBType</c> of this value.
+    /// </summary>
+    VBTValue MaxValue { get; }
+    /// <summary>
+    /// The value zero (0) expressed in the <c>VBType</c> of this value.
+    /// </summary>
+    VBTValue Zero { get; }
 }
 
 [Obsolete("This interface should be removed once let-coercion semantics are encapsulated in their own class.")]

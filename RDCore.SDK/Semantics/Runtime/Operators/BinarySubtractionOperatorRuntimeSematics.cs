@@ -1,7 +1,6 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -10,25 +9,55 @@ namespace RDCore.SDK.Semantics.Runtime.Operators;
 
 public record class BinarySubtractionOperatorRuntimeSematics : BinaryOperatorRuntimeSemantics
 {
-    protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs) => lhs 
-        switch {
-            VBDateType when rhs is VBDateType => VBDoubleType.TypeInfo,
-            _ => base.DetermineOperatorEffectiveType(lhs, rhs)
-        };
+    protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
+    {
+        if (lhs is VBDateType && rhs is VBDateType)
+        {
+            return VBDoubleType.TypeInfo;
+        }
+
+        return base.DetermineOperatorEffectiveType(lhs, rhs);
+    }
 
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
-        if (effectiveType is VBNumericType numericEffectiveType)
+        if (effectiveType is INumericType)
         {
+            //if (lhs is not VBNumericTypedValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Left.Location.Range, lhs.TypeInfo, VBDoubleType.TypeInfo));
+            //}
+            //if (rhs is not VBNumericTypedValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Right.Location.Range, rhs.TypeInfo, VBDoubleType.TypeInfo));
+            //}
+            //if (lhs is VBDateValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+            //}
+            //if (rhs is VBDateValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
+            //}
+
             if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue &&
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
                 var doubleValue = lhsValue - rhsValue;
-                return VBTypedValueFactory.CreateValue(numericEffectiveType, expression.Symbol, doubleValue);
+                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(doubleValue);
             }
         }
         else if (effectiveType is VBDateType)
         {
+            //if (lhs is VBDateValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Left.Location.Range));
+            //}
+            //if (rhs is VBDateValue)
+            //{
+            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(expression.Right.Location.Range));
+            //}
+
             if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue &&
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {

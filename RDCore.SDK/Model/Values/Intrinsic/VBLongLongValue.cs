@@ -1,17 +1,21 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
-/// <summary>
-/// Represents a <c>LongLong</c> value.
-/// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
-public sealed record class VBLongLongValue(Symbol Symbol) : VBNumericTypedValue(VBLongLongType.TypeInfo, Symbol),
-    IVBTypedValue<VBLongLongValue, long>, 
+public sealed record class VBLongLongValue(Symbol? Symbol = null) : VBNumericTypedValue(VBLongLongType.TypeInfo, Symbol),
+    IVBTypedValue<VBLongLongValue, long>,
     INumericValue<VBLongLongValue>
 {
+    public static VBLongLongValue MinValue { get; } = new VBLongLongValue { ManagedValue = long.MinValue };
+    public static VBLongLongValue MaxValue { get; } = new VBLongLongValue { ManagedValue = long.MaxValue };
+    public static VBLongLongValue Zero { get; } = new VBLongLongValue { ManagedValue = 0 };
+
+    VBLongLongValue INumericValue<VBLongLongValue>.MinValue => MinValue;
+    VBLongLongValue INumericValue<VBLongLongValue>.Zero => Zero;
+    VBLongLongValue INumericValue<VBLongLongValue>.MaxValue => MaxValue;
+
     public long Value => (long)ManagedValue;
     public override int Size => sizeof(long);
     public override double ManagedValue { get; init; }

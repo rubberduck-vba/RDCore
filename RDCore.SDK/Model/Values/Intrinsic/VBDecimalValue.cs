@@ -1,5 +1,6 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -11,6 +12,19 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBDecimalValue(Symbol Symbol) : VBNumericTypedValue(VBDecimalType.TypeInfo, Symbol),
     IVBTypedValue<VBDecimalValue, decimal>, INumericValue<VBDecimalValue>
 {
+    private static readonly Lazy<VBDecimalValue> _minValue = new(() => new VBDecimalValue(GlobalSymbols.VBDecimalMinValue) { ManagedValue = (double)(long.MinValue * Math.Pow(10, -4))}, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDecimalValue MinValue => _minValue.Value;
+
+    private static readonly Lazy<VBDecimalValue> _maxValue = new(() => new VBDecimalValue(GlobalSymbols.VBDecimalMaxValue) { ManagedValue = (double)(long.MaxValue * Math.Pow(10, -4)) }, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDecimalValue MaxValue => _maxValue.Value;
+
+    private static readonly Lazy<VBDecimalValue> _zero = new(() => new VBDecimalValue(GlobalSymbols.VBDecimalZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
+    public static VBDecimalValue Zero => _zero.Value;
+
+    VBDecimalValue INumericValue<VBDecimalValue>.MinValue => MinValue;
+    VBDecimalValue INumericValue<VBDecimalValue>.Zero => Zero;
+    VBDecimalValue INumericValue<VBDecimalValue>.MaxValue => MaxValue;
+
     public decimal Value => (decimal)ManagedValue;
     public override int Size => 14;
     public override double ManagedValue { get; init; }

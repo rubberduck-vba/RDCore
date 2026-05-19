@@ -1,11 +1,10 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Abstract;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -31,7 +30,7 @@ public record class BinaryImpBitwiseOperatorRuntimeSemantics : BinaryBitwiseOper
                 // result is bitwise imp of operands
                 effectiveType = VBIntegerType.TypeInfo;
                 var result = EvaluateBitwise(Convert.ToInt32(lhsDouble), Convert.ToInt32(rhsDouble));
-                return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, result);
+                return (VBNumericTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
             }
         }
         if (CoerceAndUnwrapNumericValue(lhs) is double lhsNumNegative && lhsNumNegative == -1 && rhs is VBNullValue)
@@ -43,7 +42,7 @@ public record class BinaryImpBitwiseOperatorRuntimeSemantics : BinaryBitwiseOper
             // result is bitwise imp of left operand and 0.
             effectiveType = VBIntegerType.TypeInfo;
             var result = EvaluateBitwise(Convert.ToInt32(lhsNumeric), 0);
-            return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, result);
+            return (VBNumericTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(result);
         }
         if (lhs is VBNullValue && rhs.TypeInfo is IIntegralNumericType && CoerceAndUnwrapNumericValue(rhs) is double rhsNonZero && rhsNonZero != 0)
         {

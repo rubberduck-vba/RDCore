@@ -1,6 +1,7 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -13,17 +14,47 @@ public record class BinaryConcatOperatorRuntimeSemantics : BinaryOperatorRuntime
     {
         return lhs switch 
         {
-            VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
-                when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType => VBStringType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
+                when rhs is INumericType or VBStringType or VBDateType or VBEmptyType => VBStringType.TypeInfo,
 
-            VBNumericType or VBStringType or VBDateType or VBEmptyType
-                when rhs is VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType => VBStringType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType
+                when rhs is INumericType or VBStringType or VBDateType or VBNullType or VBEmptyType => VBStringType.TypeInfo,
 
-            VBResizableByteArrayType when rhs is VBResizableByteArrayType => VBStringType.TypeInfo,
+            // NOTE: on its own switch branch for clarity
+            VBArrayType lhsArray when lhsArray.DeclaredValue.ItemType is VBByteType
+                && rhs is VBArrayType rhsArray && rhsArray.DeclaredValue.ItemType is VBByteType => VBStringType.TypeInfo,
 
             VBNullType when rhs is VBNullType => VBNullType.TypeInfo,
+
             _ => default
         };
+    }
+
+    protected override void CheckUdtOrArrayTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        // here we must override the TypeMismatch rule, which runs before the result is evaluated.
+
+        // base implementation throws a type mismatch given any array type here.
+
+        if (lhs is VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+
+        // ...but we want to allow array values, only if they're resizable byte arrays:
+
+        if (lhs is VBArrayValue && !(lhs is VBResizableArrayValue lhsArray && lhsArray.ItemType is VBByteType))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBArrayValue && !(rhs is VBResizableArrayValue rhsArray && rhsArray.ItemType is VBByteType))
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
     }
 
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)

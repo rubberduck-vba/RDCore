@@ -1,27 +1,27 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.SDK.Model.Types.Intrinsic;
 
-/// <summary>
-/// Represents the <c>String</c> intrinsic data type.
-/// </summary>
-public record class VBStringType() : VBIntrinsicType<string?>(VBTypeNames.VBString)
+public record class VBStringType() : VBIntrinsicType<string?>(Tokens.String)
 {
     private static readonly Lazy<VBStringType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// The <c>String</c> data type.
-    /// </summary>
     public static VBStringType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBStringValue> _defaultValue = new(() => VBStringValue.VBNullString, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
+    
+    public sealed override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
+    public override string? DefToken => Tokens.DefStr;
+}
 
-    /// <summary>
-    /// Gets the size of a string pointer.
-    /// </summary>
-    public override int Size => sizeof(int);
+public sealed record class VBFixedStringType : VBStringType
+{
+    public int Length { get; init; }
+    public override string? DefToken => default;
+
+    private static readonly Lazy<VBStringValue> _defaultValue = new(() => new VBStringValue(GlobalSymbols.VBNullString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
+    public override VBTypedValue DefaultValue => _defaultValue.Value;
 }

@@ -6,5 +6,9 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <summary>
 /// Represents any unary operator static symbol.
 /// </summary>
-public abstract record class UnaryOperatorSymbol(string Token, IStaticSemantics StaticSemantics, IRuntimeSemantics RuntimeSemantics) 
-    : OperatorSymbol(Token, StaticSemantics, RuntimeSemantics) { }
+public abstract record class UnaryOperatorSymbol : OperatorSymbol
+{
+    protected UnaryOperatorSymbol(string token, StaticSemantics staticSemantics, RuntimeSemantics executionSemantics)
+        : base(token, staticSemantics, executionSemantics) { }
+}
+

@@ -22,7 +22,7 @@ public enum VBRuntimeErrorId
     TooManyDllApplicationClients = 47,
     ErrorInLoadingDll = 48,
     BaddDllCallingConvention = 49,
-    InternalError = 51,
+    publicError = 51,
     BadFileNameOrNumber = 52,
     FileNotFound = 53,
     BadFileMode = 54,

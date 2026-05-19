@@ -10,7 +10,7 @@ public enum SymbolKindExt
     //File = SymbolKind.File,
     Module = SymbolKind.Module,
     //Namespace_ = SymbolKind.Namespace,
-    Project = SymbolKind.Namespace,
+    Project = SymbolKind.Package,
     Class = SymbolKind.Class,
     Procedure = SymbolKind.Method,
     Property = SymbolKind.Property,
@@ -43,7 +43,7 @@ public enum SymbolKindExt
     /* 128+: extensions */
 
     /// <summary>
-    /// (Extension) A public kind of symbol that does not reach the client; see <see cref="Model.Symbols.IgnoredSymbol"/>
+    /// (Extension) An public kind of symbol that does not reach the client; see <see cref="Model.Symbols.IgnoredSymbol"/>
     /// </summary>
     Ignored = 128,
 
@@ -51,10 +51,6 @@ public enum SymbolKindExt
     /// (Extension) A symbol that represents an attribute name, hidden in the VBE.
     /// </summary>
     Attribute,
-    /// <summary>
-    /// (Extension) A symbol that represents a module directive (e.g. <c>Option</c> or <c>Def&lt;Type&gt;</c> statements).
-    /// </summary>
-    Directive,
     /// <summary>
     /// (Extension) A symbol that represents a line label.
     /// </summary>
@@ -67,9 +63,4 @@ public enum SymbolKindExt
     /// (Extension) A symbol that represents a <c>Variant</c> literal, i.e. <c>Empty</c>.
     /// </summary>
     VariantLiteral,
-
-    /// <summary>
-    /// (Extension) A symbol that represents a data type descriptor, e.g. the result of a <c>TypeOf</c> operator.
-    /// </summary>
-    TypeDescriptor,
 }

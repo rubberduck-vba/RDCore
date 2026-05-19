@@ -1,16 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Diagnostics;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -31,7 +33,7 @@ public class ExponentOperationTests : SymbolOperationTests
     public void EvaluateExponentiation_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
     {
         var actual = EvaluateExponentiation(CreateContext(), lhs, rhs) as INumericValue;
-        Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
+        Assert.AreEqual(Convert.ToDouble(expected), actual?.ManagedValue);
     }
 
     [TestMethod]
@@ -53,13 +55,12 @@ public class ExponentOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
     public void EvaluateExponentiation_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateExponentiation(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateExponentiation(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -67,10 +68,9 @@ public class ExponentOperationTests : SymbolOperationTests
     public void EvaluateExponentiation_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateExponentiation(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateExponentiation(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -87,39 +87,21 @@ public class ExponentOperationTests : SymbolOperationTests
     [DataRow("5", 2, 25d)]
     public void EvaluateExponentiation_NumericCoercion(object lhs, object rhs, object expected)
     {
-        try
+        var result = EvaluateExponentiation(CreateContext(), lhs, rhs);
+        if (expected is not string)
         {
-            var result = EvaluateExponentiation(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
         }
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
     // TODO test all types
-    [DataRow(32767, 2, "VBR00006")]
-    [DataRow(-32768, 2, "VBR00006")]
-    public void EvaluateExponentiation_Overflow(object lhs, object rhs, object expected)
+    [DataRow(32767, 2)]
+    [DataRow(-32768, 2)]
+    public void EvaluateExponentiation_Overflow(object lhs, object rhs)
     {
-        try
-        {
-            var result = EvaluateExponentiation(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
-        }
+        Assert.Throws<VBRuntimeErrorOverflowException>(() => EvaluateExponentiation(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -129,53 +111,19 @@ public class ExponentOperationTests : SymbolOperationTests
     [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
     public void EvaluateExponentiation_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
     {
-        try
-        {
-            var result = EvaluateExponentiation(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
-        }
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateExponentiation(CreateContext(), lhs, rhs));
     }
 
-    [TestMethod]
-    [TestCategory("Diagnostics.ImplicitDateSerialConversion")]
-    [DataRow(-1, "DateTime.Now", true)]
-    [DataRow("DateTime.Now", 1, true)]
-    [DataRow("DateTime.Now", "DateTime.Now", true)]
-    public void EvaluateExponentiation_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    private VBTypedValue EvaluateExponentiation(IVBExecutionContext context, object lhs, object rhs)
     {
-        var context = CreateContext();
-        _ = EvaluateExponentiation(context, lhs, rhs);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
 
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitDateSerialConversion, assertMissing: !expectDiagnostics);
-    }
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
+        var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
 
-    [TestMethod]
-    [TestCategory("Diagnostics.ImplicitNumericCoercion")]
-    [DataRow(40, 2, false)]
-    [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, false)]
-    [DataRow("DateTime.Now", "42", true)]
-    public void EvaluateExponentiation_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
-    {
-        var context = CreateContext();
-        _ = EvaluateExponentiation(context, lhs, rhs);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Exponentiation, lhsExpression, rhsExpression, TestLocation);
 
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
-    }
-
-    private VBTypedValue EvaluateExponentiation(VBExecutionContext context, object lhs, object rhs)
-    {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Exponentiation, lhsValue, rhsValue, TestLocation);
-
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

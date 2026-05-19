@@ -1,5 +1,6 @@
-﻿using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Errors;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions;
+using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -7,68 +8,163 @@ using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Runtime.Abstract;
 
-/// <summary>
-/// The class at the base of the runtime semantics type hierarchy that implements all the runtime semantic rules defined in MS-VBAL.
-/// </summary>
-public abstract record class RuntimeSemantics() : IRuntimeSemantics
+public enum SemanticOperation
 {
-    /// <summary>
-    /// Determines the <em>effective type</em> of an operation based on the data type of its operands.
-    /// </summary>
-    /// <param name="operandDeclaredTypes">An array containing the declared data types.</param>
-    /// <remarks>
-    /// <param name="context">The execution context and memory space to operate with.</param>
-    /// For unary operators, the operand is expected at index 0. 
-    /// For binary operators, LHS is read at index 0, RHS at index 1.
-    /// </remarks>
-    public abstract VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes);
+    SyntaxError,
+    CompileError,
+    RuntimeError,
+    TypeConversion,
 
-    /// <summary>
-    /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified operands.
-    /// </summary>
-    /// <param name="context">The execution context and memory space to operate with.</param>
-    /// <param name="expression">The expression to be evaluated.</param>
-    /// <param name="operands">The operands of the operation.</param>
-    /// <returns></returns>
-    public VBTypedValue? Evaluate(IVBExecutionContext context, BoundExpression expression, params VBTypedValue[] operands)
+}
+
+[Flags]
+public enum SemanticFlags
+{
+    ConversionImplicit = 1,
+    ConversionWidening = 2,
+    ConversionNarrowing = 4,
+    ConversionNumeric = 8,
+    ConversionDateSerial = 16,
+}
+
+public abstract record class RuntimeSemantics
+{
+    public abstract VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes);
+
+    public VBTypedValue? Evaluate(IVBExecutionContext context, ValuedExpression expression, params VBTypedValue[] operands)
     {
-        var effectiveType = DetermineEffectiveType(context, [.. operands.Select(op => op.TypeInfo)])
-            ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        var operandTypes = operands.Select(op => op.TypeInfo).ToArray();
+        var effectiveType = DetermineEffectiveType(operandTypes);
+        if (effectiveType is null)
+        {
+            // the operation is invalid
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
 
-        var validOperands = operands.Select(operand => 
-            ValidateOperand(context, effectiveType, expression, operand));
+        var validOperands = new List<VBTypedValue>();
+        if (expression is VBBinaryOperatorExpression binaryOp)
+        {
+            CheckUdtOrArrayTypeMismatch(binaryOp, operands[0], operands[1]);
+        }
+        else
+        {
+            CheckUdtOrArrayTypeMismatch(expression, operands[0]);
+        }
+
+        foreach (var operand in operands) 
+        {
+            if (operand is not VBNullValue && LetCoerceNonNullOperand(context, effectiveType, operand) is VBTypedValue validOperand)
+            {
+                if (!validOperand.TypeInfo.Equals(operand.TypeInfo))
+                {
+                    if (operands.Length == 1)
+                    {
+                        //if (operand is not VBNumericTypedValue)
+                        //{
+                        //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(expression.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        //}
+                        //else if (operand.Size < validOperand.Size)
+                        //{
+                        //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(expression.Location.Range));
+                        //}
+                        //else if (operand.Size > validOperand.Size)
+                        //{
+                        //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(expression.Location.Range));
+                        //}
+                    }
+                    else if (expression is VBBinaryOperatorExpression op)
+                    {
+                        if (validOperands.Count == 0)
+                        {
+                        //    if (operand.TypeInfo is VBDateType)
+                        //    {
+                        //        context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Left.Location.Range));
+                        //    }
+                        //    else if (operand is not VBNumericTypedValue)
+                        //    {
+                        //        context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Left.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                        //    }
+                        //    else if (operand.Size < validOperand.Size)
+                        //    {
+                        //        context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(op.Left.Location.Range));
+                        //    }
+                        //    else if (operand.Size > validOperand.Size)
+                        //    {
+                        //        context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(op.Left.Location.Range));
+                        //    }
+                        }
+                        else if (validOperands.Count == 1)
+                        {
+                            //if (operand.TypeInfo is VBDateType)
+                            //{
+                            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitDateSerialConversion(op.Right.Location.Range));
+                            //}
+                            //else if (operand is not VBNumericTypedValue)
+                            //{
+                            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNumericCoercion(op.Right.Location.Range, operand.TypeInfo, validOperand.TypeInfo));
+                            //}
+                            //else if (operand.Size < validOperand.Size)
+                            //{
+                            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitWideningConversion(op.Right.Location.Range));
+                            //}
+                            //else if (operand.Size > validOperand.Size)
+                            //{
+                            //    context.AddDiagnostic(RDCoreDiagnostic.ImplicitNarrowingConversion(op.Right.Location.Range));
+                            //}
+                        }
+                    }
+                }
+                validOperands.Add(validOperand);
+            }
+            else
+            {
+                validOperands.Add(operand);
+            }
+        }
 
         return EvaluateExpressionResult(context, expression, effectiveType, [.. validOperands]);
     }
 
-    /// <summary>
-    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>BoundExpression</c>.
-    /// </summary>
-    /// <param name="context">An execution context and memory space to operate in.</param>
-    /// <param name="expression">Any <c>BoundExpression</c> to be evaluated.</param>
-    /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
-    /// <param name="operands">An array of <c>VBTypedValue</c> containing the operands to work with.</param>
-    /// <returns>
-    /// Returns <c>null</c> if no result could be determined, if no runtime exceptions were thrown.
-    /// </returns>
-    protected abstract VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands);
+    protected abstract VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands);
 
-    private static VBTypedValue ValidateOperand(IVBExecutionContext context, VBType effectiveType, BoundExpression expression, VBTypedValue operand) =>
-        operand is not VBNullValue
-            ? LetCoerceNonNullOperand(context, expression, effectiveType, operand)
-                ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range)
-            : operand;
+    protected virtual void CheckUdtOrArrayTypeMismatch(ValuedExpression expression, VBTypedValue operand)
+    {
+        // NOTE: MS-VBAL does not mention *why* these types are special-cased, but coincidentally these types *must* be passed by reference.
+        // NOTE: virtual because Byte() coercion to and from String needs to override this.
+        if (operand is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
+        }
+    }
 
-    private static VBTypedValue? LetCoerceNonNullOperand(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue operand)
+    protected virtual void CheckUdtOrArrayTypeMismatch(VBBinaryOperatorExpression expression, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        // NOTE: MS-VBAL does not mention *why* these types are special-cased, but coincidentally these types *must* be passed by reference.
+        // NOTE: virtual because Byte() coercion to and from String needs to override this.
+
+        if (lhs is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Left.Location.Range);
+        }
+        if (rhs is VBArrayValue or VBErrorValue or VBUserDefinedTypeValue)
+        {
+            throw VBRuntimeErrorException.TypeMismatch(expression.Right.Location.Range);
+        }
+    }
+
+    protected virtual VBTypedValue? LetCoerceNonNullOperand(IVBExecutionContext context, VBType effectiveType, VBTypedValue operand)
     {
         VBTypedValue? letCoercedOperand = effectiveType.Equals(operand.TypeInfo) ? operand : null;
         if (letCoercedOperand is not null)
         {
-            // if the effective type is the same, we're done here.
             return letCoercedOperand;
         }
 
-        return LetCoercionRuntimeSemantics.Instance
-            .EvaluateExpressionResult(context, expression, effectiveType, [operand]) is VBTypedValue result ? result : operand;
+        if (LetCoercionRuntimeSemantics.GetSemantics(effectiveType) is LetCoercionRuntimeSemantics semantics)
+        {
+            return semantics.EvaluateExpressionResult(context, null!, effectiveType, [operand]);
+        }
+
+        return operand;
     }
 }

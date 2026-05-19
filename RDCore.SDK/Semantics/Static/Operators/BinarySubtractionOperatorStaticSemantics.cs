@@ -1,6 +1,5 @@
-﻿using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -10,12 +9,13 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// </summary>
 public record class BinarySubtractionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
 {
-    protected override VBType? DetermineOperatorStaticType(IVBExecutionContext context, VBType lhs, VBType rhs)
+    protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {
-        return lhs switch
+        if (lhs is VBDateType && rhs is VBDateType)
         {
-            VBDateType when rhs is VBDateType => VBDoubleType.TypeInfo,
-            _ => base.DetermineOperatorStaticType(context, lhs, rhs)
-        };
+            return VBDoubleType.TypeInfo;
+        }
+
+        return base.DetermineOperatorStaticType(lhs, rhs);
     }
 }

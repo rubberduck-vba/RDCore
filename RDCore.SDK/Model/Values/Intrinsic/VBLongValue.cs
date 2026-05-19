@@ -1,18 +1,22 @@
 ﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
-/// <summary>
-/// Represents a <c>Long</c> value.
-/// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
 public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLongType.TypeInfo, Symbol),
     IVBTypedValue<VBLongValue, int>,
     INumericValue<VBLongValue>
 {
+    public static VBLongValue MinValue { get; } = new VBLongValue(GlobalSymbols.VBLongMinValue) { ManagedValue = int.MinValue };
+    public static VBLongValue MaxValue { get; } = new VBLongValue(GlobalSymbols.VBLongMaxValue) { ManagedValue = int.MaxValue };
+    public static VBLongValue Zero { get; } = new VBLongValue(GlobalSymbols.VBLongZeroValue) { ManagedValue = 0 };
+
+    VBLongValue INumericValue<VBLongValue>.MinValue => MinValue;
+    VBLongValue INumericValue<VBLongValue>.Zero => Zero;
+    VBLongValue INumericValue<VBLongValue>.MaxValue => MaxValue;
 
     public int Value => (int)ManagedValue;
     public override int Size => sizeof(int);
@@ -20,10 +24,9 @@ public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLo
 
     public new VBLongValue WithValue(double value)
     {
-        if (value > VBLongType.MaxValue.Value || value < VBLongType.MinValue.Value)
+        if (value > MaxValue.Value || value < MinValue.Value)
         {
-            var location = (Symbol as BoundSymbol)?.SelectionRange;
-            throw VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBLongType.MinValue.Value:N}** and **{VBLongType.MaxValue.Value:N}**.");
+            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value:N}** and **{MaxValue.Value:N}**.");
         }
         return this with { ManagedValue = (int)value };
     }

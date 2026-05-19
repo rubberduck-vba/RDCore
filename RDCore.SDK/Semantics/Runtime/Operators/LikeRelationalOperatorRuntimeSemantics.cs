@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Runtime.Abstract;
+﻿using RDCore.SDK.Semantics.Runtime.Abstract;
 using System.Text;
 using System.Text.RegularExpressions;
 

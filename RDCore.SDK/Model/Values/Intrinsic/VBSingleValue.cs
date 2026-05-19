@@ -1,17 +1,24 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
-/// <summary>
-/// Represents a <c>Single</c> numeric value.
-/// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
-public sealed record class VBSingleValue(Symbol Symbol) : VBNumericTypedValue(VBSingleType.TypeInfo, Symbol),
+public sealed record class VBSingleValue : VBNumericTypedValue,
     IVBTypedValue<VBSingleValue, float>,
     INumericValue<VBSingleValue>
 {
+    public VBSingleValue(Symbol? declarationSymbol = null)
+        : base(VBSingleType.TypeInfo, declarationSymbol) { }
+
+    public static VBSingleValue MinValue { get; } = new VBSingleValue { ManagedValue = float.MinValue };
+    public static VBSingleValue MaxValue { get; } = new VBSingleValue { ManagedValue = float.MaxValue };
+    public static VBSingleValue Zero { get; } = new VBSingleValue { ManagedValue = 0 };
+
+    VBSingleValue INumericValue<VBSingleValue>.MinValue => MinValue;
+    VBSingleValue INumericValue<VBSingleValue>.Zero => Zero;
+    VBSingleValue INumericValue<VBSingleValue>.MaxValue => MaxValue;
+
     public float Value => (float)ManagedValue;
     public override int Size => sizeof(float);
     public override double ManagedValue { get; init; }

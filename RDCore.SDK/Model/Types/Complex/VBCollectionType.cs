@@ -1,5 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.Unbound;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
 
 namespace RDCore.SDK.Model.Types.Complex;
@@ -10,10 +10,10 @@ namespace RDCore.SDK.Model.Types.Complex;
 public record class VBCollectionType : VBClassType, IEnumerableType
 {
     public VBCollectionType(VBClassType vbClass)
-        : this(vbClass.Symbol, vbClass.Members, vbClass.Members.OfType<VBReturningMemberSymbol>().Single(e => e.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum)) { }
+        : this(vbClass.Symbol, vbClass.IsUserDefined, vbClass.Members, vbClass.Members.OfType<VBReturningMemberSymbol>().Single(e => e.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum)) { }
 
-    public VBCollectionType(VBClassModuleSymbol symbol, IEnumerable<VBTypeMemberSymbol>? members = null, VBReturningMemberSymbol? newEnumMember = null)
-        : base(symbol, members)
+    public VBCollectionType(VBClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMemberSymbol>? members = null, VBReturningMemberSymbol? newEnumMember = null)
+        : base(symbol, isUserDefined, members)
     {
         NewEnumMember = newEnumMember;
     }
