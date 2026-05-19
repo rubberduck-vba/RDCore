@@ -21,7 +21,7 @@ public record class LanguageServerAppOptions(string PipeName) { }
 /// <summary>
 /// Any application that runs an OmniSharp language server, irrespective of its purpose.
 /// </summary>
-internal interface ILanguageServerApp : IDisposable
+public interface ILanguageServerApp : IDisposable
 {
     ILanguageServer LanguageServer { get; }
     Task RunAsync(IServiceProvider provider);

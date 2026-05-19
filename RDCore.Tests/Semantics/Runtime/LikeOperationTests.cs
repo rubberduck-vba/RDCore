@@ -1,15 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -96,13 +99,12 @@ public class LikeOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateLike_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateLike(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -110,10 +112,9 @@ public class LikeOperationTests : SymbolOperationTests
     public void EvaluateLike_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateLike(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
     }
 
     [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
@@ -121,17 +122,18 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("hello", "VBErrorValue")]
     public void EvaluateLike_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateLike(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
     }
 
-    private VBTypedValue EvaluateLike(VBExecutionContext context, object lhs, object rhs)
+    private VBTypedValue EvaluateLike(IVBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        // We need a symbol for Like. For now, use a placeholder
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Like, lhsValue, rhsValue, TestLocation);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
 
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
+        var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
+
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Like, lhsExpression, rhsExpression, TestLocation);
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

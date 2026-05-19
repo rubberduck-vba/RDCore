@@ -1,6 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Runtime;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Runtime;
 
 namespace RDCore.Workspace;
 
@@ -74,5 +74,5 @@ internal record class WorkspaceDocument
     /// </summary>
     public WorkspaceDocument AsInitialVersion() => this with { Version = 1 };
 
-    public WorkspaceDocument WithRootScope(ModuleSymbol symbol) => this with { RootScope = new(symbol) };
+    public WorkspaceDocument WithRootScope(VBModuleSymbol symbol) => this with { RootScope = new(symbol) };
 }

@@ -1,15 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -111,13 +114,12 @@ public class GreaterThanOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateGreaterThan_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateGreaterThan(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -125,14 +127,13 @@ public class GreaterThanOperationTests : SymbolOperationTests
     public void EvaluateGreaterThan_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateGreaterThan(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
-    [DataRow("20", 10, true)]   // String "20" coerced to 20
+    [DataRow("20", 10, true)]
     [DataRow("10", 20, false)]
     public void EvaluateGreaterThan_ImplicitCoercion(object lhs, object rhs, bool expected)
     {
@@ -147,16 +148,18 @@ public class GreaterThanOperationTests : SymbolOperationTests
     [DataRow("VBErrorValue", 42)]
     public void EvaluateGreaterThan_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateGreaterThan(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateGreaterThan(CreateContext(), lhs, rhs));
     }
 
-    private VBTypedValue EvaluateGreaterThan(VBExecutionContext context, object lhs, object rhs)
+    private VBTypedValue EvaluateGreaterThan(IVBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.GreaterThan, lhsValue, rhsValue, TestLocation);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
 
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
+        var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
+
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.GreaterThan, lhsExpression, rhsExpression, TestLocation);
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

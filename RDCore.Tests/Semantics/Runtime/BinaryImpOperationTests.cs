@@ -1,15 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -62,7 +65,7 @@ public class BinaryImpOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     [DataRow(0, null)]    // False Imp Null = -1
     [DataRow(null, -1)]   // Null Imp True = -1
-    public void EvaluateImp_SingleNullOperand_NumericValue(object lhs, object rhs)
+    public void EvaluateImp_SingleNullOperand_ManagedValue(object lhs, object rhs)
     {
         var result = EvaluateImp(CreateContext(), lhs, rhs);
         Assert.IsTrue(result is VBNumericTypedValue);
@@ -82,7 +85,7 @@ public class BinaryImpOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateImp_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", Accessibility.Private, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
@@ -96,7 +99,7 @@ public class BinaryImpOperationTests : SymbolOperationTests
     public void EvaluateImp_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateImp(CreateContext(), lhs, rhs));
@@ -125,12 +128,15 @@ public class BinaryImpOperationTests : SymbolOperationTests
             EvaluateImp(CreateContext(), lhs, rhs));
     }
 
-    private VBTypedValue EvaluateImp(VBExecutionContext context, object? lhs, object? rhs)
+    private VBTypedValue EvaluateImp(IVBExecutionContext context, object? lhs, object? rhs)
     {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseImp, lhsValue, rhsValue, TestLocation);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
 
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        var lhsExpression = new LiteralExpression(TestLocationLHS, lhsValue);
+        var rhsExpression = new LiteralExpression(TestLocationRHS, rhsValue);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseImp, lhsExpression, rhsExpression, TestLocation);
+
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

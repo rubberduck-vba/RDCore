@@ -7,7 +7,7 @@ using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
-internal class SetTraceHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : SetTraceHandlerBase
+public class SetTraceHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : SetTraceHandlerBase
 {
     public async override Task<Unit> Handle(SetTraceParams request, CancellationToken cancellationToken)
     {

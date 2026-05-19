@@ -1,15 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -34,9 +37,8 @@ public class BinaryOrOperationTests : SymbolOperationTests
     [DataRow(-1, -1, -1)]   // True Or True = True (-1)
     public void EvaluateOr_BitwiseContext_CalculatesResult(object lhs, object rhs, int expected)
     {
-        var context = CreateContext();
-        var actual = EvaluateOr(context, lhs, rhs) as VBIntegerValue;
-        Assert.AreEqual(expected, actual?.NumericValue);
+        var actual = EvaluateOr(CreateContext(), lhs, rhs) as VBIntegerValue;
+        Assert.AreEqual(expected, actual?.ManagedValue);
     }
 
     [TestMethod]
@@ -45,9 +47,8 @@ public class BinaryOrOperationTests : SymbolOperationTests
     [DataRow(15, 0, 15)]    // 15 Or 0 = 15
     public void EvaluateOr_IntegerBitwise_CalculatesResult(object lhs, object rhs, int expected)
     {
-        var context = CreateContext();
-        var actual = EvaluateOr(context, lhs, rhs) as VBIntegerValue;
-        Assert.AreEqual(expected, actual?.NumericValue);
+        var actual = EvaluateOr(CreateContext(), lhs, rhs) as VBIntegerValue;
+        Assert.AreEqual(expected, actual?.ManagedValue);
     }
 
     [TestMethod]
@@ -75,13 +76,12 @@ public class BinaryOrOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateOr_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("UDT", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", Accessibility.Private, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateOr(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateOr(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -89,28 +89,29 @@ public class BinaryOrOperationTests : SymbolOperationTests
     public void EvaluateOr_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateOr(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateOr(CreateContext(), lhs, rhs));
     }
 
-    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
     [TestMethod]
     [DataRow(0, "VBErrorValue")]
     [DataRow("VBErrorValue", 0)]
     public void EvaluateOr_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateOr(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateOr(CreateContext(), lhs, rhs));
     }
 
-    private VBTypedValue EvaluateOr(VBExecutionContext context, object? lhs, object? rhs)
+    private VBTypedValue EvaluateOr(IVBExecutionContext context, object? lhs, object? rhs)
     {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseOr, lhsValue, rhsValue, TestLocation);
+        var lhsExpression = WrapLiteralExpression(lhs, TestLocationLHS);
+        var lhsValue = lhsExpression.ResolvedValue!;
 
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
+        var rhsValue = rhsExpression.ResolvedValue!;
+
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.BitwiseOr, lhsExpression, rhsExpression, TestLocation);
+
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

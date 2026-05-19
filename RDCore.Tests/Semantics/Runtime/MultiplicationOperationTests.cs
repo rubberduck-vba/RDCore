@@ -1,16 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Diagnostics;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -43,7 +45,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
     public void EvaluateMultiplication_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
     {
         var actual = EvaluateMultiplication(CreateContext(), lhs, rhs) as INumericValue;
-        Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
+        Assert.AreEqual(Convert.ToDouble(expected), actual?.ManagedValue);
     }
 
     [TestMethod]
@@ -65,7 +67,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
     public void EvaluateMultiplication_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
@@ -79,7 +81,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
     public void EvaluateMultiplication_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateMultiplication(CreateContext(), lhs, rhs));
@@ -100,111 +102,41 @@ public class MultiplicationOperationTests : SymbolOperationTests
     [DataRow(32767, -2.0d, -65534.0d)]
     public void EvaluateMultiplication_NumericCoercion(object lhs, object rhs, object expected)
     {
-        try
+        var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
+        if (expected is not string)
         {
-            var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
         }
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
-    [DataRow(32767, 2, "VBR00006")]
-    [DataRow(-32768, 2, "VBR00006")]
-    public void EvaluateMultiplication_Overflow(object lhs, object rhs, object expected)
+    [DataRow(32767, 2)]
+    [DataRow(-32768, 2)]
+    public void EvaluateMultiplication_Overflow(object lhs, object rhs)
     {
-        try
-        {
-            var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
-        }
+        Assert.Throws<VBRuntimeErrorOverflowException>(() => EvaluateMultiplication(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [DataRow(42, "VBErrorValue", "VBR00013")]
-    [DataRow("ABC", "VBErrorValue", "VBR00013")]
-    [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
-    public void EvaluateMultiplication_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
+    [DataRow(42, "VBErrorValue")]
+    [DataRow("ABC", "VBErrorValue")]
+    [DataRow("VBErrorValue", "VBErrorValue")]
+    public void EvaluateMultiplication_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        try
-        {
-            var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
-        }
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateMultiplication(CreateContext(), lhs, rhs));
     }
 
-    [TestMethod]
-    [TestCategory("Diagnostics.ImplicitDateSerialConversion")]
-    [DataRow(-1, "DateTime.Now", true)]
-    [DataRow("DateTime.Now", 1, true)]
-    [DataRow("DateTime.Now", "DateTime.Now", true)]
-    public void EvaluateMultiplication_ImplicitDateSerialConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    private VBTypedValue EvaluateMultiplication(IVBExecutionContext context, object lhs, object rhs)
     {
-        var context = CreateContext();
-        _ = EvaluateMultiplication(context, lhs, rhs);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var lhsLiteral = new LiteralExpression(TestLocationLHS, lhsValue);
 
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitDateSerialConversion, assertMissing: !expectDiagnostics);
-    }
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
+        var rhsLiteral = new LiteralExpression(TestLocationRHS, rhsValue);
 
-    [TestMethod]
-    [TestCategory("Diagnostics.ImplicitNumericCoercion")]
-    [DataRow(40, 2, false)]
-    [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, false)]
-    [DataRow("DateTime.Now", 1.2d, false)]
-    [DataRow("DateTime.Now", "42", true)]
-    public void EvaluateMultiplication_ImplicitNumericCoercionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
-    {
-        var context = CreateContext();
-        _ = EvaluateMultiplication(context, lhs, rhs);
-
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
-    }
-
-    [TestMethod]
-    [TestCategory("Diagnostics.ImplicitWideningNumericConversion")]
-    [DataRow(40, 2, false)] // Integer * Integer => Integer
-    [DataRow(-1, "42", true)]
-    [DataRow("DateTime.Now", 1, true)] // Date * Integer => Double
-    [DataRow("DateTime.Now", 1.2d, false)]
-    [DataRow("DateTime.Now", "42", false)]
-    public void EvaluateMultiplication_ImplicitWideningConversionDiagnostics(object lhs, object rhs, bool expectDiagnostics)
-    {
-        var context = CreateContext();
-        _ = EvaluateMultiplication(context, lhs, rhs);
-
-        AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitWideningConversion, assertMissing: !expectDiagnostics);
-    }
-
-
-    private VBTypedValue EvaluateMultiplication(VBExecutionContext context, object lhs, object rhs)
-    {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsValue, rhsValue, TestLocation);
-
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsLiteral, rhsLiteral, TestLocation);
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

@@ -11,7 +11,7 @@ public interface IHealthCheckService : IDisposable
     void Resume();
 }
 
-internal sealed class HealthCheckService : IHealthCheckService
+public sealed class HealthCheckService : IHealthCheckService
 {
     private readonly Timer _timer;
     private readonly ILogger _logger;

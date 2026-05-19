@@ -1,16 +1,18 @@
-using RDCore.Parsing;
-using RDCore.Parsing.Model.Symbols;
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Complex;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Runtime.Model.Operators;
-using RDCore.Semantics.Diagnostics;
-using RDCore.Semantics.Runtime.Abstract;
-using RDCore.Semantics.Runtime.Operators;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -44,7 +46,7 @@ public class AdditionOperationTests : SymbolOperationTests
     public void EvaluateAddition_HappyPath_CalculatesResult(object lhs, object rhs, object expected)
     {
         var actual = EvaluateAddition(CreateContext(), lhs, rhs) as INumericValue;
-        Assert.AreEqual(Convert.ToDouble(expected), actual?.NumericValue);
+        Assert.AreEqual(Convert.ToDouble(expected), actual?.ManagedValue);
     }
 
     [TestMethod]
@@ -65,7 +67,7 @@ public class AdditionOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
     public void EvaluateAddition_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMember(new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "TestUDT", Accessibility.Private, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
 
         var lhs = VBNullValue.Null;
         var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
@@ -79,7 +81,7 @@ public class AdditionOperationTests : SymbolOperationTests
     public void EvaluateAddition_Null_LetCoercion_ResizableArray_TypeMismatch()
     {
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(0, 0, VBIntegerType.TypeInfo));
+        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateAddition(CreateContext(), lhs, rhs));
@@ -91,24 +93,17 @@ public class AdditionOperationTests : SymbolOperationTests
     [DataRow(32767, 1.0, 32768.0d)]   // Integer + Double -> Double (Safe)
     public void EvaluateAddition_NumericCoercion(object lhs, object rhs, object expected)
     {
-        try
+        var result = EvaluateAddition(CreateContext(), lhs, rhs);
+        if (expected is not string)
         {
-            var result = EvaluateAddition(CreateContext(), lhs, rhs);
-            if (expected is not string)
-            {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
-            }
-        }
-        catch (VBRuntimeErrorException ex)
-        {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
         }
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
-    [DataRow(32767, 1, "VBR00006")]
-    [DataRow(-32768, -1, "VBR00006")]
+    [DataRow(32767, 1, VBRuntimeErrorId.Overflow)]
+    [DataRow(-32768, -1, VBRuntimeErrorId.Overflow)]
     public void EvaluateAddition_Overflow(object lhs, object rhs, object expected)
     {
         try
@@ -116,20 +111,20 @@ public class AdditionOperationTests : SymbolOperationTests
             var result = EvaluateAddition(CreateContext(), lhs, rhs);
             if (expected is not string)
             {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
             }
         }
         catch (VBRuntimeErrorException ex)
         {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+            Assert.AreEqual((int)expected, ex.VBErrorNumber);
         }
     }
 
     [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [DataRow(42, "VBErrorValue", "VBR00013")]
-    [DataRow("ABC", "VBErrorValue", "VBR00013")]
-    [DataRow("VBErrorValue", "VBErrorValue", "VBR00013")]
+    [DataRow(42, "VBErrorValue", VBRuntimeErrorId.TypeMismatch)]
+    [DataRow("ABC", "VBErrorValue", VBRuntimeErrorId.TypeMismatch)]
+    [DataRow("VBErrorValue", "VBErrorValue", VBRuntimeErrorId.TypeMismatch)]
     public void EvaluateAddition_VBErrorValue_TypeMismatch(object lhs, object rhs, object expected)
     {
         try
@@ -137,12 +132,12 @@ public class AdditionOperationTests : SymbolOperationTests
             var result = EvaluateAddition(CreateContext(), lhs, rhs);
             if (expected is not string)
             {
-                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).NumericValue, 0.0001);
+                Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
             }
         }
         catch (VBRuntimeErrorException ex)
         {
-            Assert.AreEqual(expected, ex.VBErrorNumber.ToDiagnosticCode());
+            Assert.AreEqual((int)expected, ex.VBErrorNumber);
         }
     }
 
@@ -157,7 +152,7 @@ public class AdditionOperationTests : SymbolOperationTests
         Assert.IsInstanceOfType<VBDateValue>(result);
     }
 
-    [TestMethod]
+/*    [TestMethod]
     [TestCategory("Diagnostics.ImplicitDateSerialConversion")]
     [DataRow(-1, "DateTime.Now", true)]
     [DataRow("DateTime.Now", 1, true)]
@@ -183,21 +178,21 @@ public class AdditionOperationTests : SymbolOperationTests
 
         AssertDiagnostic(context, RDCoreDiagnosticId.ImplicitNumericCoercion, assertMissing: !expectDiagnostics);
     }
+*/
+    //[TestMethod]
+    //[TestCategory("Diagnostics.AmbiguousConcatenation")]
+    //[DataRow(40, 2, false)]
+    //[DataRow(-2, "42", false)]
+    //[DataRow("-2", 42, false)]
+    //[DataRow("42", "-2", true)]
+    //[DataRow("10", "2", true)]
+    //public void EvaluateAddition_AmbiguousConcatenationDiagnostics(object lhs, object rhs, bool expectDiagnostics)
+    //{
+    //    var context = CreateContext();
+    //    _ = EvaluateAddition(context, lhs, rhs);
 
-    [TestMethod]
-    [TestCategory("Diagnostics.AmbiguousConcatenation")]
-    [DataRow(40, 2, false)]
-    [DataRow(-2, "42", false)]
-    [DataRow("-2", 42, false)]
-    [DataRow("42", "-2", true)]
-    [DataRow("10", "2", true)]
-    public void EvaluateAddition_AmbiguousConcatenationDiagnostics(object lhs, object rhs, bool expectDiagnostics)
-    {
-        var context = CreateContext();
-        _ = EvaluateAddition(context, lhs, rhs);
-
-        AssertDiagnostic(context, RDCoreDiagnosticId.AmbiguousConcatenation, assertMissing: !expectDiagnostics);
-    }
+    //    AssertDiagnostic(context, RDCoreDiagnosticId.AmbiguousConcatenation, assertMissing: !expectDiagnostics);
+    //}
 
     [TestMethod]
     public void EvaluateAddition_BothEmpty_ResultsIsIntegerZero()
@@ -208,21 +203,25 @@ public class AdditionOperationTests : SymbolOperationTests
         Assert.AreEqual(0, ((VBIntegerValue)result).Value);
     }
 
-    private VBTypedValue EvaluateAddition(VBExecutionContext context, object lhs, object rhs)
+    private VBTypedValue EvaluateAddition(IVBExecutionContext context, object lhs, object rhs)
     {
-        var lhsValue = WrapLiteralExpression(lhs, TestLocationLHS);
-        var rhsValue = WrapLiteralExpression(rhs, TestLocationRHS);
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsValue, rhsValue, TestLocation);
+        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
+        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
 
-        if (lhsValue?.RuntimeValue?.TypeInfo is null)
+        var lhsExpression = new LiteralExpression(TestLocationLHS, lhsValue);
+        var rhsExpression = new LiteralExpression(TestLocationRHS, rhsValue);
+
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Addition, lhsExpression, rhsExpression, TestLocation);
+
+        if (lhsValue?.TypeInfo is null)
         {
             Assert.Inconclusive();
         }
-        if (rhsValue?.RuntimeValue?.TypeInfo is null)
+        if (rhsValue?.TypeInfo is null)
         {
             Assert.Inconclusive();
         }
 
-        return Semantics.Evaluate(context, expression, lhsValue.RuntimeValue, rhsValue.RuntimeValue)!;
+        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

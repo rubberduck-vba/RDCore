@@ -7,7 +7,7 @@ using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
-internal class ShutdownHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ShutdownHandlerBase
+public class ShutdownHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ShutdownHandlerBase
 {
     public async override Task<Unit> Handle(ShutdownParams request, CancellationToken cancellationToken)
     {

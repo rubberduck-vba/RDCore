@@ -1,7 +1,7 @@
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Semantics.Static.Abstract;
-using RDCore.Semantics.Static.Operators;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.SDK.Semantics.Static.Operators;
 
 namespace RDCore.Tests.Semantics.Static;
 

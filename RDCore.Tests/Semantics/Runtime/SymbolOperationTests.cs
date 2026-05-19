@@ -1,11 +1,13 @@
-using RDCore.Parsing.Model.Types.Abstract;
-using RDCore.Parsing.Model.Types.Intrinsic;
-using RDCore.Parsing.Model.Values.Abstract;
-using RDCore.Parsing.Model.Values.Intrinsic;
-using RDCore.Runtime;
-using RDCore.Runtime.Model;
-using RDCore.Semantics.Diagnostics;
-using RDCore.Semantics.Runtime.Abstract;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Model;
+using RDCore.SDK.Semantics.Runtime.Abstract;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -16,9 +18,19 @@ public abstract class SymbolOperationTests
     internal abstract RuntimeSemantics Semantics { get; }
     internal abstract IEnumerable<VBType> EffectiveTypes { get; }
 
+    protected void AssertVBRuntimeErrorException(VBRuntimeErrorId expected, Exception exception)
+    {
+        if (exception is VBRuntimeErrorException vbError)
+        {
+            Assert.AreEqual((int)expected, vbError.VBErrorNumber);
+        }
+        else
+        {
+            Assert.Fail();
+        }
+    }
 
-
-    internal static VBExecutionContext CreateContext(bool is64bit = true) => new(default!, new()) { Is64Bit = true };
+    internal static IVBExecutionContext CreateContext(bool is64bit = true) => new VBExecutionContext(default!) { Is64Bit = true };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the LHS symbol or
     /// in the case of a unary operator, the location of the expression.
@@ -42,58 +54,37 @@ public abstract class SymbolOperationTests
     /// </remarks>
     internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
 
-    internal static ValuedExpression WrapLiteralExpression(object? val, Location location)
+    internal static VBTypedValue WrapVBTypedValue(object? value, Location location)
     {
-        if (val is ValuedExpression exp)
-        {
-            return exp;
-        }
-
-        ValuedExpression? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
+        VBTypedValue? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
             DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new LiteralExpression(location, new VBDateValue().WithValue(dateValue)) 
+            ? new VBDateValue(GlobalSymbols.VBDateZeroValue).WithValue(dateValue)
             : null : null;
 
-        // Helper to turn MSTest DataRow objects into RDCore VBTypedValues
-        return val switch
+        return value switch
         {
-            VBTypedValue value => new LiteralExpression(location, value),
-            "UDT" => new LiteralExpression(location, VBLongPtrValue.Zero),
-            "DateTime.Now" => new LiteralExpression(location, VBDateValue.FromSerial(43452)),
-            "VBErrorValue" => new LiteralExpression(location, VBErrorType.TypeInfo.DefaultValue),
-            bool b => new LiteralExpression(location, new VBBooleanValue().WithValue(b)),
-            byte v => new LiteralExpression(location, new VBByteValue().WithValue(v)),
-            int i => new LiteralExpression(location, new VBIntegerValue().WithValue(i)),
-            long i => new LiteralExpression(location, new VBLongLongValue().WithValue(i)),
-            double d => new LiteralExpression(location, new VBDoubleValue().WithValue(d)),
-            null => new LiteralExpression(location, VBNullValue.Null),
-            "Empty" => new LiteralExpression(location, VBEmptyValue.Empty),
+            VBTypedValue typedValue => typedValue,
+            "UDT" => VBLongPtrValue.Zero,
+            "DateTime.Now" => VBDateValue.Zero.WithValue(43452),
+            "VBErrorValue" => VBErrorType.TypeInfo.DefaultValue,
+            Tokens.Empty => VBEmptyValue.Empty,
+            null => VBNullValue.Null,
+            bool boolValue => VBBooleanValue.False.WithValue(boolValue),
+            byte byteValue => VBByteValue.Zero.WithValue(byteValue),
+            int intValue => VBIntegerValue.Zero.WithValue(intValue),
+            long longValue => VBLongLongValue.Zero.WithValue(longValue),
+            double doubleValue => VBDoubleValue.Zero.WithValue(doubleValue),
 
-            string s => dateHelper(s) ?? new LiteralExpression(location, new VBStringValue().WithValue(s)),
+            // keep string last!
+            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.VBZeroString).WithValue(s),
             _ => throw new NotSupportedException()
         };
     }
 
-    /// <summary>
-    /// Asserts that the specified <c>RDCodeDiagnosticId</c> was issued in the specified execution context.
-    /// </summary>
-    /// <remarks>
-    /// Specify <c>assertMissing:true</c> to assert that the specified diagnostic was specifically <strong>not</strong> issued.
-    /// Specify a <c>location</c> to assert that the specified diagnostic was issued for that specific location.
-    /// </remarks>
-    internal static void AssertDiagnostic(VBExecutionContext context, RDCoreDiagnosticId id, Range? location = default, bool assertMissing = false)
+    internal static LiteralExpression WrapLiteralExpression(object? value, Location location)
     {
-        var code = id.ToDiagnosticCode();
-        var diagnostics = context.Diagnostics.Where(e => e.Code == code);
-
-        if (!assertMissing && location is not null)
-        {
-            Assert.IsTrue(diagnostics.Any(e => e.Range.Equals(location)));
-        }
-        else
-        {
-            Assert.AreEqual(!assertMissing, diagnostics.Any());
-        }
+        var typedValue = WrapVBTypedValue(value, location);
+        return new LiteralExpression(location, typedValue);
     }
 
     //[TestMethod]

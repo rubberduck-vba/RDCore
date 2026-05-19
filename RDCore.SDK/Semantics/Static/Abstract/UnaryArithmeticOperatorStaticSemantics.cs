@@ -1,0 +1,39 @@
+﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Intrinsic;
+
+namespace RDCore.SDK.Semantics.Static.Abstract;
+
+/// <summary>
+/// Uses pattern-matching rules to encapsulate unary arithmetic operator static semantics as defined in <strong>MS-VBAL 5.6.9.3</strong>.
+/// </summary>
+/// <remarks>
+/// This is implicitly the specification for the unary '+' operator, which is omitted from MS-VBAL.
+/// </remarks>
+public abstract record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
+{
+    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+        => DetermineOperatorStaticType(operandDeclaredTypes[0]);
+
+    /// <summary>
+    /// MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics) 
+    /// The operator has the declared type returned by this method, based on the declared type of its operands.
+    /// </summary>
+    /// <param name="operand">The declared type of the operand.</param>
+    /// <returns><c>null</c> if no type is statically valid.</returns>
+    protected virtual VBType? DetermineOperatorStaticType(VBType operand)
+    {
+        return operand switch
+        {
+            VBByteType => VBByteType.TypeInfo,
+            VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
+            VBLongType => VBLongType.TypeInfo,
+            VBLongLongType => VBLongLongType.TypeInfo,
+            VBSingleType => VBSingleType.TypeInfo,
+            VBDoubleType or VBFixedStringType or VBStringType => VBDoubleType.TypeInfo,
+            VBCurrencyType => VBCurrencyType.TypeInfo,
+            VBDateType => VBDateType.TypeInfo,
+            VBVariantType => VBVariantType.TypeInfo,
+            _ => default
+        };
+    }
+}
