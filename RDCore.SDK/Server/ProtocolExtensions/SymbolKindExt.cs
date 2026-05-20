@@ -63,4 +63,9 @@ public enum SymbolKindExt
     /// (Extension) A symbol that represents a <c>Variant</c> literal, i.e. <c>Empty</c>.
     /// </summary>
     VariantLiteral,
+
+    /// <summary>
+    /// (Extension) A symbol that represents a data type descriptor, e.g. the result of a <c>TypeOf</c> operator.
+    /// </summary>
+    TypeDescriptor,
 }

@@ -10,14 +10,11 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>LongPtr</c> data type in the context of a 32-bit execution environment.
 /// </summary>
-public record class VBLongPtrType_x86() : VBIntrinsicType<int>(VBTypeNames.VBLongPtr)
+public record class VBLongPtrType_x86() : VBIntrinsicType<int>(Tokens.LongPtr)
 {
     public static int BitnessAwarePtrSize => sizeof(int);
 
     private static readonly Lazy<VBLongPtrType_x86> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// The <c>LongPtr</c> data type (32-bit).
-    /// </summary>
     public static VBLongPtrType_x86 TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBLongPtrValue> _defaultValue = new(() => VBLongPtrType_x86.Zero, LazyThreadSafetyMode.PublicationOnly);

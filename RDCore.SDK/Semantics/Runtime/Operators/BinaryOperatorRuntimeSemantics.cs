@@ -9,7 +9,7 @@ using RDCore.SDK.Semantics.Runtime.Abstract;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
-public abstract record class BinaryOperatorRuntimeSemantics : RuntimeSemantics
+public abstract record class BinaryOperatorRuntimeSemantics() : RuntimeSemantics()
 {
     public sealed override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorEffectiveType(operandDeclaredTypes[0], operandDeclaredTypes[1]);

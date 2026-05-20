@@ -11,6 +11,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// </summary>
 public record class LetCoercionStaticSemantics : StaticSemantics
 {
+    private static readonly Lazy<LetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static StaticSemantics Instance => _instance.Value;
+
     public override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
     {
         var sourceType = operandDeclaredTypes[0];

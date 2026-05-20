@@ -7,4 +7,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// Describes a <em>returning member</em>; a module member that returns a valid <c>VBTypedValue</c>.
 /// </summary>
 /// <param name="Name">The name of the returning member</param>
-public abstract record class VBReturningMemberDesc(string Name) : VBMemberDesc(Name) { }
+public abstract record class VBReturningMemberDesc(string Name) : VBMemberDesc(Name)
+{
+    public ImmutableArray<VBType> DeclaredTypeConstraints { get; init; }
+}

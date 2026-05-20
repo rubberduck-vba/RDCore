@@ -7,7 +7,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// <summary>
 /// An abstract meta-type representing any <c>VBPropertySetMemberSymbol</c>
 /// </summary>
-/// <param name="Name">The name of the <c>Property Set</c> member</param>
+/// <param name="Name">The name of the member</param>
 public record class VBPropertySetProcedureDesc(string Name) : VBProcedureMemberDesc(Name)
 {
     private static readonly Lazy<VBPropertySetProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
@@ -23,11 +23,9 @@ public record class VBPropertySetProcedureDesc(string Name) : VBProcedureMemberD
 /// <remarks>
 /// Encountering a <em>deferred member</em> dring semantic traversal attaches the required semantics to produce a <c>VBInferredTypeMember</c> that can be materialized into a code action.
 /// </remarks>
+/// <param name="Name">The name of the deferred member</param>
 public sealed record class VBDeferredPropertySetProcedureDesc(string Name) : VBPropertySetProcedureDesc(Name)
 {
     private static readonly Lazy<VBDeferredPropertySetProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
-    /// <summary>
-    /// Describes a specific <em>deferred</em> <c>Property Set</c> procedure member.
-    /// </summary>
     public new static VBDeferredPropertySetProcedureDesc TypeInfo => _instance.Value;
 }

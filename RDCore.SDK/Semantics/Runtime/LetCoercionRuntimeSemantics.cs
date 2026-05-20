@@ -1,8 +1,7 @@
-﻿using RDCore.SDK.Model.Expressions;
-using RDCore.SDK.Model.Expressions.Operators;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Abstract;
@@ -12,11 +11,13 @@ namespace RDCore.SDK.Semantics.Runtime;
 /// <summary>
 /// MS-VBAL 5.5.1.2 Let-coercion (runtime semantics)
 /// </summary>
-public abstract record class LetCoercionRuntimeSemantics : RuntimeSemantics
+public record class LetCoercionRuntimeSemantics : RuntimeSemantics
 {
-    public static LetCoercionRuntimeSemantics? GetSemantics(VBType sourceType)
-    {
-        return sourceType switch
+    private static readonly Lazy<LetCoercionRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    public static RuntimeSemantics Instance => _instance.Value;
+
+    private static LetCoercionRuntimeSemantics? GetSemantics(VBTypedValue value) => 
+        value.TypeInfo switch
         {
             INumericType => LetCoercionVBNumericTypeRuntimeSemantics.Instance,
             VBBooleanType => LetCoercionVBBooleanRuntimeSemantics.Instance,
@@ -33,25 +34,132 @@ public abstract record class LetCoercionRuntimeSemantics : RuntimeSemantics
 
             _ => default
         };
+
+    /// <summary>
+    /// Evaluates the let-coerced <c>VBTypedValue</c> for the specified <c>effectiveType</c> in the context of the specified <c>expression</c>.
+    /// </summary>
+    /// <param name="context">An execution context and memory space to operate in.</param>
+    /// <param name="expression">The <c>ValuedExpression</c> that is being evaluated.</param>
+    /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
+    /// <param name="value">The value to let-coerce into the <em>effective type</em>.</param>
+    /// <returns><c>null</c> if no value could be determined, but exceptions are specified where appropriate.</returns>
+    /// <exception cref="VBRuntimeErrorException"></exception>
+    public static VBTypedValue? Evaluate(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    {
+        var semantics = GetSemantics(value);
+        return semantics?.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
+
+    /// <summary>
+    /// Evaluates the let-coerced <c>VBTypedValue</c> for the specified <c>effectiveType</c> in the context of the specified <c>expression</c>.
+    /// </summary>
+    /// <param name="context">An execution context and memory space to operate in.</param>
+    /// <param name="expression">The <c>ValuedExpression</c> that is being evaluated.</param>
+    /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
+    /// <param name="value">The value to let-coerce into the <em>effective type</em>.</param>
+    /// <returns><c>null</c> if no value could be determined, but exceptions are specified where appropriate.</returns>
+    /// <exception cref="VBRuntimeErrorException"></exception>
+    protected virtual VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value) => default;
+
+    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes) => operandDeclaredTypes[0];
+
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands) => operands[0];
 }
 
 /// <summary>
 /// MS-VBAL 5.5.1.2.1 Let-coercion between numeric types
 /// </summary>
-public record class LetCoercionVBNumericTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
+public sealed record class LetCoercionVBNumericTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBNumericTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBNumericTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBNumericTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
+        /* //numeric let-coercion to string
+        public virtual VBStringValue AsCoercedString(ref int depth)
+        {
+            var isNegative = NumericValue < 0;
+            var sign = isNegative ? "-" : string.Empty;
 
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+            var absoluteValue = Math.Abs(NumericValue);
+            var stringValue = absoluteValue.ToString(CultureInfo);
+
+            var dot = CultureInfo.NumberFormat.NumberDecimalSeparator;
+            var decimalIndex = stringValue.IndexOf(dot);
+
+            if (decimalIndex >= 0)
+            {
+                var integerString = stringValue[..(decimalIndex - 1)];
+                // MS-VBAL 5.5.1.2.4 Let-coercion to and from String
+
+                // VBSingleValue uses normal notation for values up to 7 integer digits, scientific notation otherwise:
+                if (this is VBSingleValue && integerString.Length > VBSingleType.SignificantIntegerDigits)
+                {
+                    var significantIntegerDigits = VBSingleType.SignificantIntegerDigits;
+                    stringValue = ToVBScientificNotation(NumericValue, significantIntegerDigits, dot);
+
+                }
+                else if (integerString.Length > VBDoubleType.SignificantIntegerDigits)
+                {
+                    // Double (or any other numeric type for that matter): truncate to 15 significant digits
+                    var significantIntegerDigits = VBDoubleType.SignificantIntegerDigits;
+                    stringValue = ToVBScientificNotation(NumericValue, significantIntegerDigits, dot);
+                }
+                else
+                {
+                    // we're taking a small shortcut above by presuming of the equality of two constants:
+                    Debug.Assert(VBDoubleType.SignificantIntegerDigits == VBNumericTypedValue.SignificantIntegerDigits);
+                }
+            }
+            else
+            {
+                stringValue = $"{sign}{stringValue}";
+            }
+
+            return new VBStringValue(Symbol).WithValue(stringValue);
+        }
+
+        private static string ToVBScientificNotation(double value, int significantIntegerDigits, string decimalSeparator)
+        {
+            var absoluteValue = Math.Abs(value);
+            var sign = value < 0 ? "-" : string.Empty;
+
+            var stringValue = absoluteValue.ToString(CultureInfo);
+            var decimalIndex = stringValue.IndexOf(decimalSeparator);
+
+            var integerString = stringValue[..(decimalIndex - 1)];
+            var decimalString = stringValue[(decimalIndex + 1)..];
+
+            // s * 10^e
+            char s;
+            int e;
+            if (absoluteValue >= 1)
+            {
+                s = integerString[0];
+                e = decimalIndex; // magnitude is just where the decimal separator is at (positive)
+            }
+            else
+            {
+                // s is the first non-zero digit
+                var nzIndex = decimalString.IndexOfAny(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+                s = decimalString[nzIndex];
+                e = -(nzIndex + 1); // magnitude is the (negative) number of decimal positions shifted
+            }
+
+            // combined integer+decimal parts cannot exceed a length of 15:
+            decimalString = $"{integerString[1..]}{decimalString}";
+            var fullValue = $"{integerString}{decimalSeparator}{decimalString}";
+
+            var fullValueLength = fullValue.Length;
+            decimalString = fullValueLength > significantIntegerDigits
+                ? decimalString[..significantIntegerDigits]
+                : decimalString;
+
+            return $"{sign}{s}{decimalSeparator}{decimalString}E{e}";
+        }
+        */
     }
 }
 
@@ -61,16 +169,11 @@ public record class LetCoercionVBNumericTypeRuntimeSemantics : LetCoercionRuntim
 public record class LetCoercionVBBooleanRuntimeSemantics : LetCoercionRuntimeSemantics
 {
     private static readonly Lazy<LetCoercionVBBooleanRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBBooleanRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBBooleanRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -80,16 +183,11 @@ public record class LetCoercionVBBooleanRuntimeSemantics : LetCoercionRuntimeSem
 public record class LetCoercionVBDateRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBDateRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBDateRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBDateRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -99,16 +197,11 @@ public record class LetCoercionVBDateRuntimeSemantics : LetCoercionRuntimeSemant
 public record class LetCoercionVBStringRuntimeSemantics : LetCoercionRuntimeSemantics
 {
     private static readonly Lazy<LetCoercionVBStringRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBStringRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBStringRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -118,16 +211,11 @@ public record class LetCoercionVBStringRuntimeSemantics : LetCoercionRuntimeSema
 public record class LetCoercionVBFixedStringRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBFixedStringRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBFixedStringRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBFixedStringRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -137,16 +225,11 @@ public record class LetCoercionVBFixedStringRuntimeSemantics : LetCoercionRuntim
 public record class LetCoercionVBResizableByteArrayRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBResizableByteArrayRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBResizableByteArrayRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBResizableByteArrayRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -156,16 +239,11 @@ public record class LetCoercionVBResizableByteArrayRuntimeSemantics : LetCoercio
 public record class LetCoercionVBResizableArrayRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBResizableArrayRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBResizableArrayRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBResizableArrayRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -175,16 +253,11 @@ public record class LetCoercionVBResizableArrayRuntimeSemantics : LetCoercionRun
 public record class LetCoercionVBUserDefinedTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBUserDefinedTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBUserDefinedTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBUserDefinedTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -194,16 +267,11 @@ public record class LetCoercionVBUserDefinedTypeRuntimeSemantics : LetCoercionRu
 public record class LetCoercionVBErrorTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBErrorTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBErrorTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBErrorTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -213,16 +281,11 @@ public record class LetCoercionVBErrorTypeRuntimeSemantics : LetCoercionRuntimeS
 public record class LetCoercionVBNullTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBNullTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBNullTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBNullTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -232,16 +295,11 @@ public record class LetCoercionVBNullTypeRuntimeSemantics : LetCoercionRuntimeSe
 public record class LetCoercionVBEmptyTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBEmptyTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBEmptyTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBEmptyTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -251,16 +309,11 @@ public record class LetCoercionVBEmptyTypeRuntimeSemantics : LetCoercionRuntimeS
 public record class LetCoercionVBVariantTypeRuntimeSemantics : LetCoercionRuntimeSemantics 
 {
     private static readonly Lazy<LetCoercionVBVariantTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBVariantTypeRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBVariantTypeRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 
@@ -270,16 +323,11 @@ public record class LetCoercionVBVariantTypeRuntimeSemantics : LetCoercionRuntim
 public record class LetCoercionVBObjectRuntimeSemantics : LetCoercionRuntimeSemantics
 {
     private static readonly Lazy<LetCoercionVBObjectRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static LetCoercionVBObjectRuntimeSemantics Instance => _instance.Value;
+    public new static LetCoercionVBObjectRuntimeSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineEffectiveType(params VBType[] operandDeclaredTypes)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
     {
-        throw new NotImplementedException();
-    }
-
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
-    {
-        throw new NotImplementedException();
+        return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
 }
 

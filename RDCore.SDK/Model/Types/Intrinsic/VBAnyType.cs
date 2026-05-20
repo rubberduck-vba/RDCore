@@ -1,7 +1,9 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 
-namespace RDCore.SDK.Model.Types.Intrinsic;
+#pragma warning disable IDE0130 // Namespace does not match folder structure
+namespace RDCore.SDK.Model.Types;
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
 /// Represents the <c>Any</c> type, which is specified but without any semantics.

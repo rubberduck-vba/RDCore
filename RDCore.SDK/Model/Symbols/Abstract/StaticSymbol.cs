@@ -1,11 +1,10 @@
-﻿using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
 /// <summary>
-/// Represents a symbol that is statically allocated in the global namespace.
+/// Represents a global, unallocated symbol.
 /// </summary>
 public record class StaticSymbol : TypedSymbol
 {
@@ -21,9 +20,9 @@ public record class StaticSymbol : TypedSymbol
     /// <param name="name"></param>
     /// <param name="kind"></param>
     /// <param name="typeInfo"></param>
-    public StaticSymbol(string name, SymbolKindExt kind, VBType? typeInfo = default)
-        : base(ScopeKind.Global, GlobalUri, name, kind, Accessibility.Undefined, GlobalUri, default!, default!)
+    public StaticSymbol(string name, SymbolKindExt kind, VBType typeInfo)
+        : base(ScopeKind.Unallocated, GlobalUri, name, kind, Accessibility.Undefined, GlobalUri, default!, default!)
     {
-        ResolvedType = typeInfo ?? UnresolvedVBType.TypeInfo;
+        ResolvedType = typeInfo;
     }
 }

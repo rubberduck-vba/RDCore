@@ -13,20 +13,6 @@ namespace RDCore.SDK.Model.Values;
 public static class VBTypedValueFactory
 {
     /// <summary>
-    /// Creates a new <c>VBNumericValue</c> of the specified type, with the specified value, for the specified symbol.
-    /// </summary>
-    /// <typeparam name="TNumericType">The target numeric <c>VBType</c> data type.</typeparam>
-    /// <param name="type">The target numeric <c>VBType</c>.</param>
-    /// <param name="symbol">The symbol to be associated with the new value.</param>
-    /// <param name="numericValue">The underlying (managed) numeric value being wrapped.</param>
-    /// <returns></returns>
-    public static VBNumericTypedValue CreateValue<TNumericType>(TNumericType type, Symbol symbol, double numericValue) where TNumericType : VBNumericType, INumericType
-        => (VBNumericTypedValue)((INumericValue)CreateValue(type, symbol)!).WithValue(numericValue);
-
-    public static VBTypedValue? CreateValue(VBType type, Symbol symbol, double numericValue)
-        => (VBNumericTypedValue)((INumericValue)CreateValue(type, symbol)!).WithValue(numericValue);
-
-    /// <summary>
     /// Creates a new <c>VBTypedValue</c> of the specified <c>VType</c> 
     /// </summary>
     /// <param name="type">The <c>VBType</c> of the value to create.</param>

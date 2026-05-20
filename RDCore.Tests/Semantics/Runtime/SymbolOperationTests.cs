@@ -76,7 +76,7 @@ public abstract class SymbolOperationTests
             double doubleValue => VBDoubleValue.Zero.WithValue(doubleValue),
 
             // keep string last!
-            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.VBZeroString).WithValue(s),
+            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.VBEmptyString).WithValue(s),
             _ => throw new NotSupportedException()
         };
     }

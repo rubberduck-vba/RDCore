@@ -7,7 +7,7 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// <summary>
 /// <strong>MS-VBAL 5.6.9.3.2</strong> Binary '+' Operator (static semantics)
 /// </summary>
-public sealed record class BinaryAdditionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
+public sealed record class BinaryAdditionOperatorStaticSemantics() : BinaryArithmeticOperatorStaticSemantics()
 {
     protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
     {

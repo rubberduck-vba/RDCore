@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Model.Types.Complex;
+namespace RDCore.SDK.Model.Types;
 
 public sealed record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclaredType
 {

@@ -11,4 +11,3 @@ public abstract record class UnaryOperatorSymbol : OperatorSymbol
     protected UnaryOperatorSymbol(string token, StaticSemantics staticSemantics, RuntimeSemantics executionSemantics)
         : base(token, staticSemantics, executionSemantics) { }
 }
-

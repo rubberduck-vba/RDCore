@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Semantics.Runtime.Abstract;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
 
@@ -10,7 +11,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 public abstract record class OperatorSymbol : StaticSymbol
 {
     protected OperatorSymbol(string token, StaticSemantics staticSemantics, RuntimeSemantics executionSemantics)
-        : base(token, SymbolKindExt.Operator)
+        : base(token, SymbolKindExt.Operator, VBUnknownType.TypeInfo)
     {
         StaticSemantics = staticSemantics;
         RuntimeSemantics = executionSemantics;
@@ -19,4 +20,3 @@ public abstract record class OperatorSymbol : StaticSymbol
     public StaticSemantics StaticSemantics { get; init; }
     public RuntimeSemantics RuntimeSemantics { get; init; }
 }
-

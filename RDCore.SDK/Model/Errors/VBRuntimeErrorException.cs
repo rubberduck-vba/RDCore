@@ -2,6 +2,15 @@
 
 namespace RDCore.SDK.Model.Errors;
 
+/// <summary>
+/// An unspecified, implementation-dependent runtime error raised when an inconsistent internal state is reached.
+/// </summary>
+/// <remarks>
+/// Seeing this error in the wild would indicate a bug in the implementation. This exception must be explicitly instantiated.
+/// </remarks>
+public class VBRuntimeErrorInternalErrorException(string? verbose = null)
+    : VBRuntimeErrorException(null!, (int)VBRuntimeErrorId.InternalError, verbose: verbose) { }
+
 public class VBRuntimeErrorTypeMismatchException(Range location, string? verbose = null)
     : VBRuntimeErrorException(location, (int)VBRuntimeErrorId.TypeMismatch, verbose: verbose) { }
 
@@ -43,7 +52,7 @@ public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? 
         [VBRuntimeErrorId.TooManyDllApplicationClients] = "Too many DLL application clients",
         [VBRuntimeErrorId.ErrorInLoadingDll] = "Error in loading DLL",
         [VBRuntimeErrorId.BaddDllCallingConvention] = "Bad DLL calling convention",
-        [VBRuntimeErrorId.publicError] = "public error",
+        [VBRuntimeErrorId.InternalError] = "Internal error",
         [VBRuntimeErrorId.BadFileNameOrNumber] = "Bad file name or number",
         [VBRuntimeErrorId.FileNotFound] = "File not found",
         [VBRuntimeErrorId.BadFileMode] = "Bad file mode",
@@ -206,7 +215,7 @@ public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? 
     public static VBRuntimeErrorException ApplicationDefinedError(Range location, int number = 1004, string? verbose = null) => new(location, number, VBRuntimeErrors[VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError], verbose);
     #endregion
 
-    public Range Location { get; } = location;
+    public Range? Location { get; } = location;
     public int VBErrorNumber { get; } = VBErrorNumber;
     public string? Verbose { get; } = verbose;
 

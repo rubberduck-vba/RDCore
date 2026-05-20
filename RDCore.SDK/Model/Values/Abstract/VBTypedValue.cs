@@ -42,6 +42,7 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
     /// <summary>
     /// Gets the underlying managed value corresponding to this typed value.
     /// </summary>
+    /// <remarks>
     TValue Value { get; }
 }
 
@@ -71,20 +72,11 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol Symbol) : VBRu
     public bool IsWithBlockVariable { get; init; }
 
     /// <summary>
-    /// Creates a new <c>VBVariantValue</c> wrapping this typed value.
-    /// </summary>
-    /// <remarks>
-    /// The <c>SubType</c> of the created <c>VBVariant</c> is the <c>TypeInfo</c> of this typed value.
-    /// </remarks>
-    public VBVariantValue AsVariant() => new(this, Symbol);
-
-    /// <summary>
     /// The raw memory address of this typed value.
     /// </summary>
     public long RawAddress { get; init; }
-
     /// <summary>
-    /// The size (in bytes) of this typed value.
+    /// The allocated size (in bytes) of this value.
     /// </summary>
     public abstract int Size { get; }
 }

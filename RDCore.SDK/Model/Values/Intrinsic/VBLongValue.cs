@@ -1,22 +1,18 @@
 ﻿using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
+/// <summary>
+/// Represents a <c>Long</c> value.
+/// </summary>
+/// <param name="Symbol">The symbol associated with this value.</param>
 public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLongType.TypeInfo, Symbol),
     IVBTypedValue<VBLongValue, int>,
     INumericValue<VBLongValue>
 {
-    public static VBLongValue MinValue { get; } = new VBLongValue(GlobalSymbols.VBLongMinValue) { ManagedValue = int.MinValue };
-    public static VBLongValue MaxValue { get; } = new VBLongValue(GlobalSymbols.VBLongMaxValue) { ManagedValue = int.MaxValue };
-    public static VBLongValue Zero { get; } = new VBLongValue(GlobalSymbols.VBLongZeroValue) { ManagedValue = 0 };
-
-    VBLongValue INumericValue<VBLongValue>.MinValue => MinValue;
-    VBLongValue INumericValue<VBLongValue>.Zero => Zero;
-    VBLongValue INumericValue<VBLongValue>.MaxValue => MaxValue;
 
     public int Value => (int)ManagedValue;
     public override int Size => sizeof(int);

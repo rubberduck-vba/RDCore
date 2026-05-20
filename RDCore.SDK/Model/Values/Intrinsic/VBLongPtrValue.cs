@@ -1,28 +1,21 @@
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
-public sealed record class VBLongPtrValue(Symbol? Symbol = null) : VBNumericTypedValue(VBLongPtrType.TypeInfo, Symbol),
+/// <summary>
+/// Represents a <c>LongPtr</c> value.
+/// </summary>
+/// <param name="Symbol">The symbol associated with this value.</param>
+public sealed record class VBLongPtrValue(bool Is64Bit, Symbol Symbol) : VBNumericTypedValue(VBLongPtrType_x86.TypeInfo, Symbol),
     IVBTypedValue<VBLongPtrValue, long>,
     INumericValue<VBLongPtrValue>
 {
-    public static bool Is64Bit { get; set; } = true;
-    public static int BitnessAwarePtrSize => Is64Bit ? sizeof(long) : sizeof(int);
-
-    public static VBLongPtrValue MinValue { get; } = new VBLongPtrValue { ManagedValue = Is64Bit ? long.MinValue : int.MinValue };
-    public static VBLongPtrValue MaxValue { get; } = new VBLongPtrValue { ManagedValue = Is64Bit ? long.MaxValue : int.MaxValue };
-    public static VBLongPtrValue Zero { get; } = new VBLongPtrValue { ManagedValue = 0 };
-
-    VBLongPtrValue INumericValue<VBLongPtrValue>.MinValue => MinValue;
-    VBLongPtrValue INumericValue<VBLongPtrValue>.Zero => Zero;
-    VBLongPtrValue INumericValue<VBLongPtrValue>.MaxValue => MaxValue;
-
     public long Value => (long)ManagedValue;
-    public override int Size => BitnessAwarePtrSize;
+    public override int Size => VBLongPtrType_x86.TypeInfo.Size;
     public override double ManagedValue { get; init; }
 
     public new VBLongPtrValue WithValue(double value) => WithValue(value, Is64Bit ? VBLongLongType.TypeInfo : VBLongType.TypeInfo);
@@ -30,9 +23,9 @@ public sealed record class VBLongPtrValue(Symbol? Symbol = null) : VBNumericType
     {
         if (ptrType is VBLongLongType)
         {
-            if (value > MaxValue.ManagedValue || value < MinValue.ManagedValue)
+            if (value > VBLongLongType.MaxValue.ManagedValue || value < VBLongLongType.MinValue.ManagedValue)
             {
-                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value:N}** and **{MaxValue.Value:N}**.");
+                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBLongLongType.MinValue.Value:N}** and **{VBLongLongType.MaxValue.Value:N}**.");
             }
 
             return this with { ManagedValue = (long)value };
@@ -40,17 +33,15 @@ public sealed record class VBLongPtrValue(Symbol? Symbol = null) : VBNumericType
 
         if (ptrType is VBLongType)
         {
-            if (value > VBLongValue.MaxValue.ManagedValue || value < VBLongValue.MinValue.ManagedValue)
+            if (value > VBLongType.MaxValue.ManagedValue || value < VBLongType.MinValue.ManagedValue)
             {
-                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{int.MinValue:N}** and **{int.MaxValue:N}**.");
+                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBLongType.MinValue:N}** and **{VBLongType.MaxValue:N}**.");
             }
 
             return this with { ManagedValue = (int)value };
         }
 
-        // this could be a bug in RDCore, but possibly also in the user code; if thrown, this exception will bubble unhandled through the execution context.
-        // TODO test and see if there wouldn't happen to be a runtime or compile time error for this.
-        throw new NotSupportedException($"{ptrType.Name} is not a valid or supported pointer type.");
+        throw new VBRuntimeErrorInternalErrorException($"{ptrType.Name} is not a valid or supported pointer type.");
     }
 
     public bool Equals(IVBTypedValue<VBLongPtrValue, long>? other) => Value == other?.Value;

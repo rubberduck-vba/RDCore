@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Types.Meta;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -28,6 +28,15 @@ public record class VBTypeDescValue(VBType Target, Symbol Symbol) : VBTypedValue
 /// </summary>
 /// <param name="deferredTypeInfo">The described <em>deferred type</em>.</param>
 /// <param name="symbol">The symbol associated with this value.</param>
-public record class VBDeferredTypeDescValue(VBDeferredType DeferredTarget, Symbol Symbol) : VBTypeDescValue(DeferredTarget, Symbol) 
+public record class VBDeferredTypeDescValue(VBDeferredType Target, Symbol Symbol) : VBTypeDescValue(Target, Symbol) 
 {
+}
+
+
+/// <summary>
+/// A meta-value that represents a <c>VBTypeMemberSymbol</c> that is used in a member access expression.
+/// </summary>
+public record class VBMemberDescValue(Symbol Symbol, VBTypeMemberSymbol Member) : VBTypedValue(Member.ResolvedType, Symbol)
+{
+    public override int Size => sizeof(int);
 }

@@ -7,7 +7,7 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// <summary>
 /// Uses pattern-matching rules to encapsulate binary arithmetic operator static semantics as defined in <strong>MS-VBAL 5.6.9.3</strong>.
 /// </summary>
-public abstract record class BinaryArithmeticOperatorStaticSemantics : StaticSemantics
+public abstract record class BinaryArithmeticOperatorStaticSemantics() : StaticSemantics()
 {
     public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
