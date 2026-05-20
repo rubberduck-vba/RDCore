@@ -3,7 +3,7 @@
 namespace RDCore.SDK.Runtime;
 
 /// <summary>
-/// Represents 
+/// Represents and encapsulates the execution environment and memory space.
 /// </summary>
 public interface IVBExecutionContext
 {

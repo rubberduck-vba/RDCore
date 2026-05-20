@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
 
-namespace RDCore.SDK.Model.Types.Complex;
+namespace RDCore.SDK.Model.Types;
 
 /// <summary>
 /// An object type that can be iterated in a <c>For Each...Next</c> loop.

@@ -1,12 +1,10 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Server.ProtocolExtensions;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Model.Types.Complex;
+namespace RDCore.SDK.Model.Types;
 
 public interface IVBInferableType
 {
@@ -29,10 +27,12 @@ public interface IVBDeferrableTypeMember : IVBInferableType
 public abstract record class VBDeferredType : VBType, IVBDeferrableType
 {
     public VBDeferredType(string name, Uri uri)
-        : base(typeof(object), name, isUserDefined: true, isHidden: true)
+        : base(typeof(object), name, isHidden: true)
     {
         Uri = uri;
     }
+
+    public override int Size => sizeof(int);
 
     public Uri Uri { get; init; }
 
@@ -46,33 +46,11 @@ public abstract record class VBDeferredType : VBType, IVBDeferrableType
     public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = [.. CandidateTypes, vbType] };
 }
 
-public record class VBDeferredTypeMemberSymbol : TypedSymbol, IVBDeferrableTypeMember
-{
-    public VBDeferredTypeMemberSymbol(Uri workspaceRoot, string name, SymbolKindExt kind, Uri parentUri)
-        : base(ScopeKind.Module, workspaceRoot, name, kind, Accessibility.Public, parentUri)
-    {
-    }
-
-    public ImmutableHashSet<VBType> CandidateTypes { get; init; } = [];
-    public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = [.. CandidateTypes, vbType] };
-
-    public VBType? DeferredVBType { get; init; }
-    public VBDeferredTypeMemberSymbol WithDeferredVBType(VBType vbType) => this with { DeferredVBType = vbType, CandidateTypes = [vbType] };
-}
-
 public record class VBDeferredModuleType : VBDeferredType
 {
     public VBDeferredModuleType(string name, Uri uri) : base(name, uri) { }
 
     private static readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
-}
-
-public record class VBDeferredClassModuleType : VBDeferredType
-{
-    public VBDeferredClassModuleType(string name, Uri uri) : base(name, uri) { }
-
-    private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 }
 

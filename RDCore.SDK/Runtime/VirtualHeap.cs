@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Concurrent;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Types;
 
 namespace RDCore.SDK.Runtime;
 
@@ -60,9 +61,18 @@ public interface IVirtualHeap
     void Deallocate(Uri symbolUri);
 }
 
-public class VirtualHeap() : IVirtualHeap
+/// <summary>
+/// Creates a virtual memory space for an execution context.
+/// </summary>
+/// <param name="Is64Bit">The bitness of the runtime environment.</param>
+/// <remarks>If no bitness is specified, uses the bitness of the host process.</remarks>
+public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
 {
     private static readonly long _offset = 0x1000;
+    private readonly int _ptrSize = (Is64Bit ?? Environment.Is64BitProcess) ? VBLongPtrType_x64.BitnessAwarePtrSize : VBLongPtrType_x86.BitnessAwarePtrSize;
+
+    public bool Is64Bit { get; } = Is64Bit ?? Environment.Is64BitProcess;
+
     //private static readonly long _addressSpace = 0x10FF; // TODO update from MS-VBAL, if specified
 
     private readonly Stack<ConcurrentDictionary<Symbol, VBTypedValue>> _stackFrames = [];
@@ -81,9 +91,9 @@ public class VirtualHeap() : IVirtualHeap
     public VBObjectValue CreateObject(VBClassModuleSymbol symbol)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, VBLongPtrValue.BitnessAwarePtrSize);
+        Interlocked.Add(ref _nextAddress, _ptrSize);
 
-        var pointer = new VBLongPtrValue(symbol) { ManagedValue = address };
+        var pointer = new VBLongPtrValue(Is64Bit, symbol) { ManagedValue = address };
         var obj = new VBObjectValue(symbol, pointer);
 
         _objectHeap[obj] = [];
@@ -123,7 +133,7 @@ public class VirtualHeap() : IVirtualHeap
     public long Allocate(Uri symbolUri, int size)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, Math.Max(size, VBLongPtrValue.BitnessAwarePtrSize));
+        Interlocked.Add(ref _nextAddress, Math.Max(size, _ptrSize));
 
         _rawAddressMap[symbolUri] = address;
 
@@ -135,7 +145,7 @@ public class VirtualHeap() : IVirtualHeap
     public long Allocate(Uri symbolUri, VBTypedValue value)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, VBLongPtrValue.BitnessAwarePtrSize);
+        Interlocked.Add(ref _nextAddress, _ptrSize);
 
         var addressedValue = value with { RawAddress = address };
 

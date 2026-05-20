@@ -1,7 +1,4 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
+﻿using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Types.Abstract;
 
@@ -10,46 +7,10 @@ namespace RDCore.SDK.Model.Types.Abstract;
 /// </summary>
 public abstract record class VBType
 {
-    private static readonly Dictionary<Type, Func<Symbol, VBTypedValue>> _valueFactories = new()
-    {
-        [typeof(VBIntegerType)] = symbol => new VBIntegerValue(symbol),
-        [typeof(VBLongType)] = symbol => new VBLongValue(symbol),
-        [typeof(VBLongLongType)] = symbol => new VBLongLongValue(symbol),
-        [typeof(VBDoubleType)] = symbol => new VBDoubleValue(symbol),
-        [typeof(VBStringType)] = symbol => new VBStringValue(symbol),
-        [typeof(VBBooleanType)] = symbol => new VBBooleanValue(symbol),
-        [typeof(VBDateType)] = symbol => new VBDateValue(symbol),
-        [typeof(VBVariantType)] = symbol => new VBVariantValue(VBEmptyValue.Empty, symbol),
-        [typeof(VBNullType)] = symbol => new VBNullValue(symbol),
-        [typeof(VBEmptyType)] = symbol => new VBEmptyValue(symbol),
-        [typeof(VBObjectType)] = symbol => new VBObjectValue(symbol)
-    };
-
-    public VBTypedValue CreateValue(Symbol declarationSymbol)
-    {
-        if (_valueFactories.TryGetValue(GetType(), out var factory))
-        {
-            return factory(declarationSymbol);
-        }
-
-        throw new InvalidOperationException($"No value factory registered for type {GetType().Name}");
-    }
-
-    public INumericValue CreateNumericValue(Symbol declarationSymbol)
-    {
-        if (_valueFactories.TryGetValue(GetType(), out var factory))
-        {
-            return (INumericValue)factory(declarationSymbol);
-        }
-
-        throw new InvalidOperationException($"No value factory registered for type {GetType().Name}");
-    }
-
-    protected VBType(Type? managedType, string name, bool isUserDefined = false, bool isHidden = false)
+    protected VBType(Type? managedType, string name, bool isHidden = false)
     {
         ManagedType = managedType;
         Name = name;
-        IsUserDefined = isUserDefined;
         IsHidden = isHidden;
     }
 
@@ -62,14 +23,9 @@ public abstract record class VBType
     /// The symbolic name of the type, as it is used in code.
     /// </summary>
     /// <remarks>
-    /// For user module types, this should be determined by a <c>VB_Name</c> attribute.
+    /// For module types, this value is determined by a <c>VB_Name</c> attribute.
     /// </remarks>
     public string Name { get; init; }
-
-    /// <summary>
-    /// Whether this type is defined by user code.
-    /// </summary>
-    public bool IsUserDefined { get; init; }
 
     /// <summary>
     /// Only <c>true</c> for types that are hidden from the user in IntelliSense.
@@ -77,29 +33,19 @@ public abstract record class VBType
     public bool IsHidden { get; init; }
 
     /// <summary>
-    /// If <c>true</c>, the type is bound using run-time semantics (i.e. late binding).
-    /// </summary>
-    /// <remarks>
-    /// <c>false</c> unless overridden in a more specialized type.
-    /// </remarks>
-    public virtual bool RuntimeBinding { get; } = false;
-
-    /// <summary>
     /// Gets the default value for this data type.
     /// </summary>
     /// <remarks>
-    /// <strong>IMPORTANT:</strong> derived types MUST initialize this property with a <c>Lazy&lt;T&gt;</c> to avoid static context timing issues.
+    /// ⚠️ <strong>Derived types must</strong> back the implementation of this property with a thread-safe <c>private static readonly Lazy&lt;T&gt;</c>. 
+    /// Failure to do so would lock up the static context initialization of the <c>StaticSymbol</c> symbols.
     /// </remarks>
     public abstract VBTypedValue DefaultValue { get; }
 
-
     /// <summary>
-    /// Whether this type can be passed by value.
+    /// The size (in bytes) of a value of this type.
     /// </summary>
-    public virtual bool CanPassByValue { get; } = true;
-
-    /// <summary>
-    /// Override in derived types to specify VBTypes that are safe to convert this type into.
-    /// </summary>
-    public virtual VBType[] ConvertsSafelyToTypes { get; } = [];
+    /// <remarks>
+    /// Determines the length of the allocated memory space for a value of this type.
+    /// </remarks>
+    public abstract int Size { get; }
 }

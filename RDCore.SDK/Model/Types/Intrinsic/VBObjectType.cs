@@ -2,9 +2,14 @@
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-namespace RDCore.SDK.Model.Types.Intrinsic;
+#pragma warning disable IDE0130 // Namespace does not match folder structure
+namespace RDCore.SDK.Model.Types;
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 
-public record class VBObjectType() : VBIntrinsicType<Guid>(Tokens.Object)
+/// <summary>
+/// Represents the <c>Object</c> data type.
+/// </summary>
+public record class VBObjectType() : VBIntrinsicType<int>(Tokens.Object)
 {
     private static readonly Lazy<VBObjectType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBObjectType TypeInfo => _instance.Value;
@@ -12,8 +17,5 @@ public record class VBObjectType() : VBIntrinsicType<Guid>(Tokens.Object)
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
     
-    public override VBType[] ConvertsSafelyToTypes { get; } = [VBVariantType.TypeInfo];
-    public override string? DefToken => Tokens.DefObj;
-
-    public override bool RuntimeBinding { get; } = true;
+    public override int Size => sizeof(int);
 }

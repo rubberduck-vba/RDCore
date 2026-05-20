@@ -49,7 +49,7 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     private static readonly Lazy<VBStringValue> _vbNullString = new(() => new VBStringValue(GlobalSymbols.VBNullString), LazyThreadSafetyMode.PublicationOnly);
     public static VBStringValue VBNullString => _vbNullString.Value;
 
-    private static readonly Lazy<VBStringValue> _zeroString = new(() => new VBStringValue(GlobalSymbols.VBZeroString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBStringValue> _zeroString = new(() => new VBStringValue(GlobalSymbols.VBEmptyString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
     public static VBStringValue ZeroLengthString => _zeroString.Value;
 
     public string Value { get; init; } = default!;

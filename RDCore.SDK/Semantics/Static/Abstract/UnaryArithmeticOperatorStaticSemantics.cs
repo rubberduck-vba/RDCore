@@ -1,5 +1,5 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -9,7 +9,7 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// <remarks>
 /// This is implicitly the specification for the unary '+' operator, which is omitted from MS-VBAL.
 /// </remarks>
-public abstract record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
+public record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
 {
     public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(operandDeclaredTypes[0]);

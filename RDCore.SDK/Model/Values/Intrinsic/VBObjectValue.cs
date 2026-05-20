@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -10,19 +10,18 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </summary>
 /// <see cref="VBNothingValue"/>
 public record class VBObjectValue : VBTypedValue,
-    IVBTypedValue<VBObjectValue, VBLongPtrValue>
+    IVBTypedValue<VBObjectValue, int>
 {
-    private static readonly Lazy<VBObjectValue> _nothing = new(() => new VBNothingValue(GlobalSymbols.Nothing), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBObjectValue> _nothing = new(() 
+        => new VBNothingValue(GlobalSymbols.StaticSymbols.Nothing), LazyThreadSafetyMode.PublicationOnly);
     public static VBObjectValue Nothing => _nothing.Value;
 
-    public VBObjectValue(Symbol symbol, VBLongPtrValue? address = default)
-        : base(VBObjectType.TypeInfo, symbol)
+    public VBObjectValue(Symbol symbol) : base(VBObjectType.TypeInfo, symbol)
     {
-        Value = address ?? VBLongPtrValue.Zero;
     }
 
-    public VBLongPtrValue Value { get; init; }
-    public override int Size => VBLongPtrValue.BitnessAwarePtrSize;
+    public int Value { get; init; }
+    public override int Size => sizeof(int);
 
     public bool IsNothing() => Value == Nothing.Value;
     /*
@@ -82,6 +81,6 @@ public record class VBObjectValue : VBTypedValue,
         return default!; // throw?
     }
     */
-    public bool Equals(IVBTypedValue<VBObjectValue, VBLongPtrValue>? other) => Value.Equals(other?.Value);
+    public bool Equals(IVBTypedValue<VBObjectValue, int>? other) => Value.Equals(other?.Value);
     public override int GetHashCode() => Value.GetHashCode();
 }

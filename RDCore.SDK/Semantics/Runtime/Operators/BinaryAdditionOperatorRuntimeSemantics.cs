@@ -7,7 +7,7 @@ using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
-public sealed record class BinaryAdditionOperatorRuntimeSemantics : BinaryOperatorRuntimeSemantics
+public sealed record class BinaryAdditionOperatorRuntimeSemantics() : BinaryOperatorRuntimeSemantics()
 {
     protected override VBType? DetermineOperatorEffectiveType(VBType lhs, VBType rhs)
     {

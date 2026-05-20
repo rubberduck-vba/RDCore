@@ -26,7 +26,7 @@ public abstract record class TypedSymbol : Symbol
         : base(workspaceRoot, name, kind, parentUri, scope)
     {
         Accessibility = accessibility;
-        ResolvedType = UnresolvedVBType.TypeInfo;
+        ResolvedType = VBUnknownType.TypeInfo;
     }
     /// <summary>
     /// Creates a new <c>TypedSymbol</c> that is linked to a document location.
@@ -46,7 +46,7 @@ public abstract record class TypedSymbol : Symbol
         : base(workspaceRoot, scope, name, kind, range, selectionRange, parentUri)
     {
         Accessibility = accessibility;
-        ResolvedType = UnresolvedVBType.TypeInfo;
+        ResolvedType = VBUnknownType.TypeInfo;
     }
 
     /// <summary>

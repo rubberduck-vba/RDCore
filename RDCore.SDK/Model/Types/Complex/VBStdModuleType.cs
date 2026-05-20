@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Model.Types.Complex;
+namespace RDCore.SDK.Model.Types;
 
 public record class VBStdModuleType : VBType, IVBMemberOwnerType
 {
