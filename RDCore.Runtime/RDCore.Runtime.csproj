@@ -4,11 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="logo.ico" />
+    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
   </ItemGroup>
 
 </Project>

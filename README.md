@@ -30,26 +30,25 @@ Le tout dans une bibliothèque .NET 10 qui peut théoriquement s'exécuter sur n
 
 # LONGUE VIE À VBA!
 
-La prochaine évolution de Rubberduck a impliqué rien de moins que de _devenir VBA_. **On y est.**
+La prochaine évolution de Rubberduck a impliqué rien de moins que de _devenir VBA_. **C'est ça, les amis. On y est.**
 
 Elle comprend les éléments suivants :
 
-- **RDCore.SDK** (rdcore.sdk.dll) encapsule la connaissance sémantique du langage – l'essence même de VBA – et l'emballe dans une bibliothèque **sous licence permissive MIT** rigoureusement documentée.
-- **RDCore.Parsing** (rdcore.parsing.dll) encapsule les connaissances syntaxiques et la sémantique des jetons associée dans un processus serveur LSP enfant/satellite sous licence copyleft **GPLv3** qui transforme un « Uri » d'espace de travail en un *arbre syntaxe abstrait* (AST) riche sémantiquement.
-- **RDCore.CoreDiagnostics** (rdcore.corediagnostics.exe) est également sous **GPLv3** et établit les bases de tous les futurs plug-ins RDCore. 
-- **RDCore.Parsing** (rdcore.parsing.dll) encapsule les connaissances syntaxiques et la sémantique des jetons associée dans un processus serveur LSP enfant/satellite sous licence copyleft **GPLv3** qui transforme un « Uri » d'espace de travail en un *arbre syntaxe abstrait* (AST) riche sémantiquement.
-- **RDCore.LanguageServer** (rdcore.languageserver.exe) est une application console de serveur en langage LSP destinée à être lancée éventuellement en ligne de commande par une application cliente (éditeur) en langage LSP.
-- **RDCore.Runtime** (rdcore.runtime.dll) est une librairie sous **GPLv3** qui implémente le coeur de l'interpréteur.
-- **RDCore.rdc** (rdc.exe) est une application console (CLI) permettant d'intéragir avec l'environnement d'exécution **RD-VBA**.
+- **RDCore.SDK** encapsule la connaissance sémantique du langage – l'essence même de VBA – et l'emballe dans une bibliothèque permissive **licenciée MIT** qui est rigoureusement documentée et entièrement testée.
+- **RDCore.Parsing** encapsule les connaissances syntaxiques et la sémantique des jetons associée dans un processus serveur LSP enfant/satellite sous licence copyleft **GPLv3** qui transforme un « Uri » d'espace de travail en un *arbre syntaxe abstrait* (AST) riche sémantiquement.
+- **RDCore.CoreDiagnostics** est également sous **GPLv3** et établit les bases de tous les futurs plug-ins RDCore. 
+- **RDCore.Runtime** encapsule la sémantique d'exécution du langage dans une bibliothèque de classes (**GPLv3**) qui **garantit que le cœur d'exécution de VBA reste open source** et maintenu par sa communauté.
+- **RDCore.Test** documente tout à travers le prisme de **MS-VBAL**, prouvant la justesse de l'implémentation et démontrant son utilisation.
+- **RDCore** est une application console de serveur en langage LSP destinée à être lancée éventuellement en ligne de commande par une application cliente (éditeur) en langage LSP.
 
-En attendant un client LSP, il y a un mode CLI à utiliser!
+En attendant un client LSP, il y a un mode CLI à utiliser.
 
 
 ## RD-VBA CLI
 
-L'application `rdc.exe` ressemble exactement à ce à quoi on serait en droit de s'attendre:
+Lancer l'application serveur serveur en langage LSP **RDCore** sans passer d'arguments la fait fonctionner comme un **contexte exécutable bac à sable** à utiliser.
 
- ```                                                                               
+ ```text                                                                               
                                        kkkkkkkkkkkkkkO                          
                                    kkkkkkkkkkkkkkkkkkkkkkk                      
                                  kkkkkkkkk        kkkkkkkkkkk                   
@@ -82,15 +81,14 @@ L'application `rdc.exe` ressemble exactement à ce à quoi on serait en droit de
                   kkkkkkkkkkkkkkkkkkkkOkkkkkkkkkkkkkkkkkkkkk                    
                       OKKKkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk                        
                              kkkkVIVAT♥CUCUMISkkk                               
-
+```
 ------
 RDCore v0.0.1a - VIVAT CUCUMIS™
 ©Copyright (2026) 9562-7303 Québec inc.
 
-ALLOCATED 63 KB
-AVAILABLE 2097089 KB 
+RD-VBA Language Core initialisation...
 
-✅ READY.
+✅ PRÊT.
 >|
 ```
 <small>(concept seulement : ce mode n'est pas encore implémenté)</small>
@@ -99,7 +97,7 @@ AVAILABLE 2097089 KB
 
 **Référence rapide des suffixes de type** :
 
-Alors que le mode CLI prend en charge l'ensemble des fonctionnalités de grammaire et de langage VBA, c'est amusant de voir à quel point il est encore rétrocompatible avec du code probablement écrit avant votre naissance. Vous aviez tout juste _deux_ caractères pour nommer chacune de vos variables de façon unique, et un _suffixe_ pour les typer :
+Alors que le mode CLI prend en charge l'ensemble des fonctionnalités de grammaire et de langage VBA (mais pas les plug-ins ni les diagnostics... Du moins pas en alpha), c'est amusant de voir à quel point il est encore rétrocompatible avec du code probablement écrit avant votre naissance. Vous aviez tout juste _deux_ caractères pour nommer chacune de vos variables de façon unique, et un _suffixe_ pour les typer :
 
 Le suffixe « $ » désigne une `String`.
 
@@ -119,19 +117,13 @@ Le suffixe « $ » désigne une `String`.
 
 ### Commandes :
 
-Le _programme courant_ représente essentiellement un module de code source VBA virtuel qui peut être chargé, modifié et sauvegardé à l'aide de commandes CLI.
-
-- `RUN` (`--run`) exécute le _programme courant_.
-  - `RUN C:/DEV/SCRIPT1.vba` (`--run c:/dev/script1.vba`) vide et réinitialise le _contexte_ et charge puis exécute le _programme courant_ depuis le fichier source spécifié.
-- `ANALYZE` (`--analyze`) charge **RDCore.Diagnostics** et produit l'analyse sémantique du _programme courant_.
-  - `--analyze c:/dev/scrip1-semantics.txt` (CLI) enregistre la sortie dans le fichier spécifié.
+- `RUN` exécute le _programme courant_.
 - `LIST` affiche le texte du code source du _programme courant_.
-  - `LIST 80` fournit le texte du code source jusqu'à la ligne `80` du _programme courant_.
-  - `LIST 40-80` produit le texte du code source des lignes `40` à `80` du _programme courant_.
-- `AST` (`--ast`) produit l'arborescence abstraite du _programme courant_.
-  - `--ast c:/dev/script1-ast.txt` (CLI) enregistre la sortie dans le fichier spécifié.
-  - `AST 80` affiche l'arborescence abstraite à la ligne `80` du  _programme courant_.
-  - `AST 40-80` affiche l'arborescence abstraite entre les lignes `40` et `80` du _programme courant_.
+  - `LIST 80` fournit le texte du code source jusqu'à la ligne 80 du _programme courant_.
+  - `LIST 40-80` produit le texte du code source des lignes 40 à 80 du _programme courant_.
+- `AST` produit l'arborescence abstraite du _programme courant_.
+  - `AST 80` affiche l'arborescence abstraite à la ligne 80 du  _programme courant_.
+  - `AST 40-80` affiche l'arborescence abstraite entre les lignes 40 et 80 du _programme courant_.
 - `10 DIM A$` stocke l'instruction `DIM A$` à la ligne numéro `10` du _programme courant_.
 - `PRINT A$` fonctionne et se comporte exactement comme « Debug.Print » ici, donc...
 - `20 PRINT A$` donne la valeur de `A$` qui est... vide.
@@ -141,18 +133,15 @@ Le _programme courant_ représente essentiellement un module de code source VBA 
 - `PEEK A %` affiche la valeur actuellement détenue en décalage mémoire `A%` dans l'espace mémoire du _contexte_.
 - `POKE A %, B %` écrit la valeur `B%` au décalage mémoire `A%` dans l'espace mémoire du _contexte_.
   - ⚠️ Attention, il n'y a aucun garde-fou ici.
+- « 18089 REM LONG LIVE THE CONCOMBRE » laisse un commentaire énigmatique à la ligne « 18089 » du _current program_, qui pourrait avoir des conséquences imprévues, comme l'impression d'une version ASCII du logo **Rubberduck Core**.
 
-Et bien sûr:  
-
-- `18089 REM LONG LIVE THE CUCUMBER` laisse un commentaire énigmatique à la ligne `18089` du _programme courant_ qui pourrait avoir des conséquences imprévues, comme l'impression à l'écran d'une version ASCII du logo **Rubberduck Core**.
-
-D'autres commandes seront sans doute ajoutées. Pour l'instant, il n'y a que la joie pure et intense de redécouvrir ce langage d'une manière qui regarde l'avenir avec un large sourire.
+D'autres commandes pourraient être ajoutées, et l'interface CLI de RD-VBA pourrait finalement devenir une chose à part. Pour l'instant, il ne reste que la joie pure et sans filtre de redécouvrir Classic-VB d'une manière qui regarde l'avenir avec un large sourire.
 
 ---
 
 # FEUILLE DE ROUTE
 
-C'est très bien tout ça, mais en 2026, un _vrai language de programmation_ a besoin d'un vrai IDE... Les commandes en mode CLI sont une preuve de concept amusante qui montre simplement le fonctionnement de RD-VBA, mais la véritable expérience phare passe par l'implémentation _Language Server Protocol_ (LSP), qui est actuellement très minimale.
+C'est très cool et tout, mais en 2026, un _vrai language de programmation_ a besoin d'un vrai IDE... Les commandes en mode CLI sont une preuve de concept amusante qui montre simplement le fonctionnement de RD-VBA, mais la véritable expérience phare passe par l'implémentation _Language Server Protocol_ (LSP), qui est actuellement très minimale.
 
 Le **RDCore SDK** nous donne tous les outils nécessaires pour construire tout ce dont nous pourrions rêver en termes d'analyseurs sémantiques (diagnostics), de refactorisations, _actions sur le code_ et bien plus encore.
 
@@ -165,4 +154,3 @@ Le **RDCore SDK** nous donne tous les outils nécessaires pour construire tout c
 - **Microsoft Excel Diagnostics** extension d'analyseur sémantique apportant des diagnostics spécialisés
 
 Nous visons à **la parité de fonctionnalités avec Rubberduck Legacy** avant le lancement officiel.
-
