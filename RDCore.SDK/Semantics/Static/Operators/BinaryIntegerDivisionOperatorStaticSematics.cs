@@ -1,5 +1,6 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -9,14 +10,14 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// </summary>
 public sealed record class BinaryIntegerDivisionOperatorStaticSematics : BinaryArithmeticOperatorStaticSemantics
 {
-    protected override VBType? DetermineOperatorStaticType(VBType lhs, VBType rhs)
+    protected override VBType? DetermineOperatorStaticType(IVBExecutionContext context, VBType lhs, VBType rhs)
     {
         return lhs switch
         {
             IFloatingPointNumericType or IFixedPointNumericType or VBFixedStringType or VBStringType or VBDateType
-                when rhs is INumericType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
+                when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
 
-            INumericType or VBFixedStringType or VBStringType or VBDateType
+            VBNumericType or VBFixedStringType or VBStringType or VBDateType
                 when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
 
             // these *should* be covered by the above...
@@ -29,13 +30,13 @@ public sealed record class BinaryIntegerDivisionOperatorStaticSematics : BinaryA
             VBDoubleType or VBFixedStringType or VBStringType when rhs is IIntegralNumericType or IFloatingPointNumericType or VBFixedStringType or VBStringType => VBLongType.TypeInfo,
             IIntegralNumericType or IFloatingPointNumericType or VBFixedStringType or VBStringType when rhs is VBDoubleType or VBFixedStringType or VBStringType => VBLongType.TypeInfo,
 
-            VBCurrencyType when rhs is INumericType or VBFixedStringType or VBStringType => VBLongType.TypeInfo,
-            INumericType or VBFixedStringType or VBStringType when rhs is (VBCurrencyType) => VBLongType.TypeInfo,
+            VBCurrencyType when rhs is VBNumericType or VBFixedStringType or VBStringType => VBLongType.TypeInfo,
+            VBNumericType or VBFixedStringType or VBStringType when rhs is (VBCurrencyType) => VBLongType.TypeInfo,
 
-            VBDateType when rhs is INumericType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
-            INumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBLongType.TypeInfo,
+            VBDateType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
+            VBNumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBLongType.TypeInfo,
 
-            _ => base.DetermineOperatorStaticType(lhs, rhs)
+            _ => base.DetermineOperatorStaticType(context, lhs, rhs)
         };
     }
 }

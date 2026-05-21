@@ -46,6 +46,7 @@ public abstract record class Symbol
         //IsUserWorkspace = range is not null && selectionRange is not null;
         ScopeKind = scope;
 
+        WorkspaceRoot = workspaceRoot;
         ParentUri = parentUri ?? workspaceRoot;
         Uri = CreateUri(ParentUri, name);
 
@@ -102,6 +103,11 @@ public abstract record class Symbol
     public Uri ParentUri { get; init; } = default!;
 
     /// <summary>
+    /// The <c>Uri</c> of the parent library/project.
+    /// </summary>
+    public Uri WorkspaceRoot { get; init; }
+
+    /// <summary>
     /// Describes how the runtime manages this symbol in memory.
     /// </summary>
     public ScopeKind ScopeKind { get; init; }
@@ -131,4 +137,6 @@ public abstract record class Symbol
     /// <param name="value">The value to be assigned.</param>
     /// <returns></returns>
     public Symbol With<T>(SymbolProperty<T> key, T value) => this with { Properties = Properties.SetItem(key, value!) };
+
+
 }

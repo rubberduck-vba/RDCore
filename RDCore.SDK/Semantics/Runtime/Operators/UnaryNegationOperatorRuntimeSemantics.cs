@@ -1,11 +1,9 @@
 ﻿using RDCore.SDK.Model.Expressions;
-using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
-using System.Diagnostics;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -27,7 +25,6 @@ public record class UnaryNegationOperatorRuntimeSemantics : UnaryOperatorRuntime
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
     {
         var operand = operands[0];
-        
         //if (effectiveType is VBByteType)
         //{
         //    var depth = 0;

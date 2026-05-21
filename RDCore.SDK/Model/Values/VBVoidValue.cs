@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Values;
 /// <remarks>
 /// This data type has no attached or specified semantics.
 /// </remarks>
-public sealed record class VBVoidValue() : VBTypedValue(VBVoidType.TypeInfo, GlobalSymbols.VBVoid)
+public sealed record class VBVoidValue() : VBTypedValue(VBVoidType.TypeInfo, GlobalSymbols.StaticSymbols.VBVoid)
 {
     private static readonly Lazy<VBVoidValue> _void = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBVoidValue Void => _void.Value;

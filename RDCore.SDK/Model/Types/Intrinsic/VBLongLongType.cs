@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>LongLong</c> data type.
 /// </summary>
-public record class VBLongLongType() : VBIntrinsicType<long>(Tokens.LongLong), IIntegralNumericType
+public record class VBLongLongType() : VBNumericType<long>(Tokens.LongLong), IIntegralNumericType
 {
     private static readonly Lazy<VBLongLongType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBLongLongType TypeInfo => _instance.Value;

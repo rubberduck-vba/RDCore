@@ -1,6 +1,6 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -9,7 +9,7 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </summary>
 public record class BinaryRelationalOperatorStaticSemantics : StaticSemantics
 {
-    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+    public sealed override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
 
     /// <summary>
@@ -26,10 +26,8 @@ public record class BinaryRelationalOperatorStaticSemantics : StaticSemantics
             not VBArrayType and not VBUserDefinedType and not VBVariantType
                 when rhs is not VBArrayType and not VBUserDefinedType and not VBVariantType => VBBooleanType.TypeInfo,
 
-            not VBArrayType and not VBUserDefinedType 
-                when rhs is VBVariantType => VBVariantType.TypeInfo,
-            VBVariantType 
-                when rhs is not VBArrayType and not VBUserDefinedType => VBVariantType.TypeInfo,
+            not VBArrayType and not VBUserDefinedType when rhs is VBVariantType => VBVariantType.TypeInfo,
+            VBVariantType when rhs is not VBArrayType and not VBUserDefinedType => VBVariantType.TypeInfo,
 
             _ => default
         };

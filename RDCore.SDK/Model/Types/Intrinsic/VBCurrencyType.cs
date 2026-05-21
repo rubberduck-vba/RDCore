@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Currency</c> data type.
 /// </summary>
-public record class VBCurrencyType() : VBIntrinsicType<decimal>(Tokens.Currency), IFixedPointNumericType
+public record class VBCurrencyType() : VBNumericType<decimal>(Tokens.Currency), IFixedPointNumericType
 {
     private static readonly Lazy<VBCurrencyType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBCurrencyType TypeInfo => _instance.Value;

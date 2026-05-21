@@ -1,10 +1,7 @@
-﻿using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Symbols;
+﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
-using RDCore.SDK.Model.Values.Abstract;
-using System.Text;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -16,7 +13,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </remarks>
 public sealed record class VBResizableByteArrayValue : VBResizableArrayValue
 {
-    private static readonly Lazy<VBResizableByteArrayValue> _defaultValue = new(() => new(GlobalSymbols.EmptyResizableByteArray, []));
+    private static readonly Lazy<VBResizableByteArrayValue> _defaultValue = new(() => new(GlobalSymbols.StaticSymbols.EmptyResizableByteArray, []));
     /// <summary>
     /// Gets an empty <c>VBResizableArrayValue</c> with the <c>EmptyResizableByteArray</c> static symbol.
     /// </summary>
@@ -36,7 +33,7 @@ public sealed record class VBResizableByteArrayValue : VBResizableArrayValue
 /// </summary>
 public record class VBResizableArrayValue : VBArrayValue
 {
-    private static readonly Lazy<VBResizableArrayValue> _defaultValue = new(() => new(GlobalSymbols.EmptyResizableArray, []));
+    private static readonly Lazy<VBResizableArrayValue> _defaultValue = new(() => new(GlobalSymbols.StaticSymbols.EmptyResizableArray, []));
     /// <summary>
     /// Gets an empty <c>VBResizableArrayValue</c> with the <c>EmptyResizableArray</c> static symbol.
     /// </summary>

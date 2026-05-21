@@ -8,6 +8,8 @@ namespace RDCore.SDK.Model.Types;
 /// </summary>
 /// <param name="Name">The semantically valid identifier name of this project or library.</param>
 /// <param name="Uri">The root workspace <c>Uri</c> for this project or library.</param>
-public sealed record class VBLibraryProjectType(string Name, Uri Uri) : VBProjectType(Name, Uri, ProjectTypeId.LibraryProject)
+public sealed record class VBLibraryProjectType(string Name, Uri Uri) : VBProjectType(Name, Uri, ProjectTypeId.LibraryProject) 
 {
+    private static readonly Lazy<VBLibraryProjectType> _instance = new(() => new("RDCoreLibraryProject1", new Uri("file://rdcore-sdk/project/library/new")), LazyThreadSafetyMode.PublicationOnly);
+    public static VBType TypeInfo => _instance.Value;
 }

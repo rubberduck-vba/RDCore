@@ -4,7 +4,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents a resizable array containing <c>Byte</c> elements.
 /// </summary>
-public sealed record class VBResizableByteArrayType() : VBResizableArrayType() 
+public sealed record class VBResizableByteArrayType() : VBResizableArrayType(VBByteType.TypeInfo) 
 {
     private static readonly Lazy<VBResizableByteArrayType> _instance = new(() => new VBResizableByteArrayType(), LazyThreadSafetyMode.PublicationOnly);
     public static new VBArrayType TypeInfo => _instance.Value;

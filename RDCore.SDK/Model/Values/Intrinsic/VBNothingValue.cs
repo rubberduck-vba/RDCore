@@ -7,5 +7,5 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// Represents the <c>Nothing</c> (<c>VBObjectType</c>) literal value.
 /// </summary>
 /// <param name="Symbol">The symbol associate with this value.</param>
-public sealed record class VBNothingValue(Symbol Symbol) : VBObjectValue(Symbol, VBLongPtrValue.Zero),
-    IVBTypedValue<VBObjectValue, VBLongPtrValue> { }
+public sealed record class VBNothingValue(Symbol Symbol) : VBObjectValue(Symbol),
+    IVBTypedValue<VBObjectValue, int> { }

@@ -26,6 +26,7 @@ public static class GlobalSymbols
         public static readonly StaticSymbol TypeDesc = new("TypeDesc", SymbolKindExt.TypeDescriptor, VBTypeDesc.TypeInfo);
         public static readonly StaticSymbol MissingValue = new("Missing", SymbolKindExt.Variable, VBMissingType.TypeInfo);
 
+        public static readonly StaticSymbol EmptyFixedSizeArray = new("Array.Empty", SymbolKindExt.Array, VBResizableArrayType.TypeInfo);
         public static readonly StaticSymbol EmptyResizableArray = new("Array().Empty", SymbolKindExt.Array, VBResizableArrayType.TypeInfo);
         public static readonly StaticSymbol EmptyResizableByteArray = new("Array().Byte", SymbolKindExt.Array, VBResizableByteArrayType.TypeInfo);
 

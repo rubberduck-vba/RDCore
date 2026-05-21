@@ -1,8 +1,10 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -38,45 +40,60 @@ public abstract class SymbolOperationTests
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal Location TestLocationLHS { get; } = new() { Uri = "file:///a:/test/file#rhs", Range = new Range(1, 1, 1, 1) };
+    internal static Location TestLocationLHS { get; } = new() { Uri = "file:///a:/test/file#rhs", Range = new Range(1, 1, 1, 1) };
     /// <summary>
     /// For the sake of a test, the location of the operator symbol.
     /// </summary>
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal Location TestLocation { get; } = new() { Uri = "file:///a:/test/file#op", Range = new Range(1, 2, 1, 2) };
+    internal static Location TestLocation { get; } = new() { Uri = "file:///a:/test/file#op", Range = new Range(1, 2, 1, 2) };
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the RHS symbol.
     /// </summary>
     /// <remarks>
     /// Consistency with the actual length of the values is not relevant here.
     /// </remarks>
-    internal Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
+    internal static Location TestLocationRHS { get; } = new() { Uri = "file:///a:/test/file#lhs", Range = new Range(1, 3, 1, 3) };
+
+    private static VBUserDefinedTypeValue GetUDT()
+    {
+        var name = "TestUDT";
+        var symbol = new VBUserDefinedTypeMemberSymbol(
+            ScopeKind.Module,
+            TestUri.TestModuleUserDefinedTypeUri(name),
+            name, Accessibility.Private,
+            SymbolOperationTests.TestLocation?.Range,
+            SymbolOperationTests.TestLocation?.Range,
+            TestUri.WorkspaceRoot());
+        var udt = new VBUserDefinedType(symbol, [], []);
+        var value = new VBUserDefinedTypeValue(udt, symbol);
+        return value;
+    }
 
     internal static VBTypedValue WrapVBTypedValue(object? value, Location location)
     {
         VBTypedValue? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
             DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new VBDateValue(GlobalSymbols.VBDateZeroValue).WithValue(dateValue)
+            ? new VBDateValue(GlobalSymbols.ExtensionSymbols.VBDateZeroValue).WithValue(dateValue)
             : null : null;
 
         return value switch
         {
             VBTypedValue typedValue => typedValue,
-            "UDT" => VBLongPtrValue.Zero,
-            "DateTime.Now" => VBDateValue.Zero.WithValue(43452),
+            "UDT" =>  GetUDT(),
+            "DateTime.Now" => VBDateType.Zero.WithValue(43452),
             "VBErrorValue" => VBErrorType.TypeInfo.DefaultValue,
             Tokens.Empty => VBEmptyValue.Empty,
             null => VBNullValue.Null,
             bool boolValue => VBBooleanValue.False.WithValue(boolValue),
-            byte byteValue => VBByteValue.Zero.WithValue(byteValue),
-            int intValue => VBIntegerValue.Zero.WithValue(intValue),
-            long longValue => VBLongLongValue.Zero.WithValue(longValue),
-            double doubleValue => VBDoubleValue.Zero.WithValue(doubleValue),
+            byte byteValue => VBByteType.Zero.WithValue(byteValue),
+            int intValue => VBIntegerType.Zero.WithValue(intValue),
+            long longValue => VBLongLongType.Zero.WithValue(longValue),
+            double doubleValue => VBDoubleType.Zero.WithValue(doubleValue),
 
             // keep string last!
-            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.VBEmptyString).WithValue(s),
+            string s => dateHelper(s) ?? new VBStringValue(GlobalSymbols.StaticSymbols.VBEmptyString).WithValue(s),
             _ => throw new NotSupportedException()
         };
     }

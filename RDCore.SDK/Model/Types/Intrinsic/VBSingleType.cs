@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Single</c> data type.
 /// </summary>
-public record class VBSingleType() : VBIntrinsicType<float>(Tokens.Single), IFloatingPointNumericType
+public record class VBSingleType() : VBNumericType<float>(Tokens.Single), IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.

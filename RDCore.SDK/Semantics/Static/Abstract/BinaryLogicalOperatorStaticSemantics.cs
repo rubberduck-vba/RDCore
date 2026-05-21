@@ -1,6 +1,6 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -9,7 +9,7 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </summary>
 public record class BinaryLogicalOperatorStaticSemantics : StaticSemantics
 {
-    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+    public sealed override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
 
     /// <summary>
@@ -29,12 +29,12 @@ public record class BinaryLogicalOperatorStaticSemantics : StaticSemantics
             VBBooleanType or VBIntegerType when rhs is VBByteType or VBIntegerType => VBIntegerType.TypeInfo,
 
             IFloatingPointNumericType or IFixedPointNumericType or VBLongType or VBFixedStringType or VBStringType or VBDateType 
-                when rhs is (INumericType and not VBLongLongType) or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
-            (INumericType and not VBLongLongType) or VBFixedStringType or VBStringType or VBDateType
+                when rhs is (VBNumericType and not VBLongLongType) or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
+            (VBNumericType and not VBLongLongType) or VBFixedStringType or VBStringType or VBDateType
                 when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBLongType or VBFixedStringType or VBStringType or VBDateType => VBLongType.TypeInfo,
             
-            VBLongLongType when rhs is INumericType or VBFixedStringType or VBStringType or VBDateType => VBLongLongType.TypeInfo,
-            INumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
+            VBLongLongType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType => VBLongLongType.TypeInfo,
+            VBNumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBLongLongType => VBLongLongType.TypeInfo,
 
             not VBArrayType and not VBUserDefinedType when rhs is VBVariantType => VBVariantType.TypeInfo,
 

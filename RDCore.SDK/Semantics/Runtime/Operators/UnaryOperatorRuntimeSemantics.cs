@@ -1,5 +1,5 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 
 namespace RDCore.SDK.Semantics.Runtime.Operators;

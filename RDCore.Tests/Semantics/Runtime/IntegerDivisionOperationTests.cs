@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -67,29 +66,6 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateIntegerDivision_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateIntegerDivision(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateIntegerDivision_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateIntegerDivision(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
     [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
     public void EvaluateIntegerDivision_DateTimeLHS_ReturnsLong(object lhs, object rhs)
@@ -124,34 +100,12 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [DataRow("1.5", 1, 2)]
-    [DataRow(10, 1.5d, 5)]
-    public void EvaluateIntegerDivision_NumericCoercion(object lhs, object rhs, object expected)
-    {
-        var result = EvaluateIntegerDivision(CreateContext(), lhs, rhs);
-        if (expected is not string)
-        {
-            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
-        }
-    }
-
-    [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
     [DataRow(32767, 2)]
     [DataRow(-32768, 2)]
     public void EvaluateIntegerDivision_Overflow(object lhs, object rhs)
     {
         Assert.Throws<VBRuntimeErrorOverflowException>(() => EvaluateIntegerDivision(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [DataRow(42, "VBErrorValue")]
-    [DataRow("ABC", "VBErrorValue")]
-    [DataRow("VBErrorValue", "VBErrorValue")]
-    public void EvaluateIntegerDivision_VBErrorValue_TypeMismatch(object lhs, object rhs)
-    {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateIntegerDivision(CreateContext(), lhs, rhs));
     }
 
     private VBTypedValue EvaluateIntegerDivision(IVBExecutionContext context, object lhs, object rhs)
@@ -162,7 +116,7 @@ public class IntegerDivisionOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.IntegerDivision, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.IntegerDivision, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

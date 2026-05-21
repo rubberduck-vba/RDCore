@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -21,13 +22,13 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics() : BinaryOper
 
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, VBBinaryOperatorExpression expression, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
     {
-        if (effectiveType is INumericType)
+        if (effectiveType is VBNumericType numericEffectiveType)
         {
             if (CoerceAndUnwrapNumericValue(lhs) is double lhsValue &&
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
                 var doubleValue = lhsValue + rhsValue;
-                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(doubleValue);
+                return VBTypedValueFactory.CreateValue(numericEffectiveType, expression.Symbol, doubleValue);
             }
         }
         else if (effectiveType is VBDateType)

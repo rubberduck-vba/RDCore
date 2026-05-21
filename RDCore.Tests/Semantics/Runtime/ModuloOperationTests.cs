@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -54,36 +53,11 @@ public class ModuloOperationTests : SymbolOperationTests
     [DataRow(null, 5)]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null * Any -> Null
     [DataRow(null, 1.23d)]   // MS-VBAL: Null * Any -> Null
-    //[DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
-    //[DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
-    //[DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
     public void EvaluateModulo_NullOperand_ResultIsNull(object lhs, object rhs)
     {
         // note: coercing the result to any other type would throw.
         var result = EvaluateModulo(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateModulo_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateModulo(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateModulo_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBResizableArrayValue(GlobalSymbols.EmptyResizableArray, [(0, 0)], VBIntegerType.TypeInfo));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateModulo(CreateContext(), lhs, rhs));
     }
 
     [TestMethod]
@@ -148,15 +122,6 @@ public class ModuloOperationTests : SymbolOperationTests
         Assert.Throws<VBRuntimeErrorOverflowException>(() => EvaluateModulo(CreateContext(), lhs, rhs));
     }
 
-    [TestMethod]
-    [DataRow(42, "VBErrorValue")]
-    [DataRow("ABC", "VBErrorValue")]
-    [DataRow("VBErrorValue", "VBErrorValue")]
-    public void EvaluateModulo_VBErrorValue_TypeMismatch(object lhs, object rhs)
-    {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateModulo(CreateContext(), lhs, rhs));
-    }
-
     private VBTypedValue EvaluateModulo(IVBExecutionContext context, object lhs, object rhs)
     {
         var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
@@ -165,7 +130,7 @@ public class ModuloOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
         
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Modulo, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Modulo, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

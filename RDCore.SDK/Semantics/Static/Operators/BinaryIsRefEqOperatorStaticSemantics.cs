@@ -1,6 +1,6 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -10,7 +10,7 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// </summary>
 public sealed record class BinaryIsRefEqOperatorStaticSemantics : StaticSemantics
 {
-    public override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
+    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
     {
         // MS-VBAL: each expression MUST be classified as a value and
         // the declared type of each expression MUST be a specific class, Object, or Variant.

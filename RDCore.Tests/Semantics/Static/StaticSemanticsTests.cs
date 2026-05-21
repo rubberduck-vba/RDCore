@@ -1,5 +1,6 @@
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Operators;
 
@@ -140,7 +141,8 @@ public abstract class StaticSemanticsTests
 
     internal void AssertDeterminedDeclaredType(VBType[] operandDeclaredTypes, VBType expected)
     {
-        var result = Semantics.DetermineDeclaredType(operandDeclaredTypes);
+        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
+        var result = Semantics.DetermineDeclaredType(context, operandDeclaredTypes);
         Assert.AreEqual(expected, result);
     }
 }
@@ -156,9 +158,11 @@ public abstract class BinaryOperatorStaticSemanticsTests : StaticSemanticsTests
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateBinaryOperatorStaticSemantics()
     {
+        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
         foreach (var kvp in BinaryOperatorTypeMap)
         {
-            var actual = Semantics.DetermineDeclaredType(kvp.Key.Item1, kvp.Key.Item2);
+
+            var actual = Semantics.DetermineDeclaredType(context, kvp.Key.Item1, kvp.Key.Item2);
             Assert.AreEqual(kvp.Value.Name, actual?.Name, $"{Semantics.GetType().Name}({kvp.Key.Item1.Name},{kvp.Key.Item2.Name})");
         }
     }
@@ -189,9 +193,10 @@ public sealed class UnaryNegationOperatorStaticSemanticsTests : UnaryOperatorSta
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateUnaryOperatorStaticSemantics()
     {
+        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
         foreach (var kvp in UnaryOperatorTypeMap)
         {
-            var actual = Semantics.DetermineDeclaredType(kvp.Key);
+            var actual = Semantics.DetermineDeclaredType(context, kvp.Key);
             Assert.AreEqual(kvp.Value, actual, kvp.Key.Name);
         }
     }

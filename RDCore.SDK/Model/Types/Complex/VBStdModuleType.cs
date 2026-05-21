@@ -8,8 +8,8 @@ namespace RDCore.SDK.Model.Types;
 
 public record class VBStdModuleType : VBType, IVBMemberOwnerType
 {
-    public VBStdModuleType(string name, bool isUserDefined = true, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
-        : base(typeof(object), name, isUserDefined, isHidden)
+    public VBStdModuleType(string name, IEnumerable<VBTypeMemberSymbol>? members = null, bool isHidden = false)
+        : base(typeof(object), name, isHidden)
     {
         Members = [.. members ?? []];
     }
@@ -18,6 +18,8 @@ public record class VBStdModuleType : VBType, IVBMemberOwnerType
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
+
+    public override int Size => sizeof(int);
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
 }

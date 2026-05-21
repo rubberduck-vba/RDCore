@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -46,10 +46,10 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     public const string NaN = "-1.#IND";
 
 
-    private static readonly Lazy<VBStringValue> _vbNullString = new(() => new VBStringValue(GlobalSymbols.VBNullString), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBStringValue> _vbNullString = new(() => new VBStringValue(GlobalSymbols.StaticSymbols.VBNullString), LazyThreadSafetyMode.PublicationOnly);
     public static VBStringValue VBNullString => _vbNullString.Value;
 
-    private static readonly Lazy<VBStringValue> _zeroString = new(() => new VBStringValue(GlobalSymbols.VBEmptyString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBStringValue> _zeroString = new(() => new VBStringValue(GlobalSymbols.StaticSymbols.VBEmptyString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
     public static VBStringValue ZeroLengthString => _zeroString.Value;
 
     public string Value { get; init; } = default!;

@@ -1,8 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values.Abstract;
 
-namespace RDCore.SDK.Model.Values.Deffered;
+namespace RDCore.SDK.Model.Values.Abstract;
 
 public abstract record class VBDeferredMemberValue(Symbol Symbol) : VBTypedValue(VBVariantType.TypeInfo, Symbol)
 {

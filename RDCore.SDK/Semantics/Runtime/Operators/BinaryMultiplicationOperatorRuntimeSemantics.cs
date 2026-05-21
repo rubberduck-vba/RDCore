@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -18,8 +19,8 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics : BinaryOperato
         {
             VBCurrencyType when rhs is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType => VBDoubleType.TypeInfo,
             VBSingleType or VBDoubleType or VBFixedStringType or VBStringType when rhs is VBCurrencyType => VBDoubleType.TypeInfo,
-            VBDateType when rhs is INumericType or VBFixedStringType or VBStringType or VBDateType => VBDoubleType.TypeInfo,
-            INumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBDoubleType.TypeInfo,
+            VBDateType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType => VBDoubleType.TypeInfo,
+            VBNumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBDateType => VBDoubleType.TypeInfo,
             _ => base.DetermineOperatorEffectiveType(lhs, rhs)
         };
     }
@@ -32,7 +33,7 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics : BinaryOperato
                 CoerceAndUnwrapNumericValue(rhs) is double rhsValue)
             {
                 var doubleValue = lhsValue * rhsValue;
-                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(doubleValue);
+                return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, doubleValue);
             }
         }
         else if (effectiveType is VBNullType)

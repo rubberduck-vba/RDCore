@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Expressions.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 

@@ -7,7 +7,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 #pragma warning restore IDE0130 // Namespace does not match folder structure
 
-public sealed record class VBDoubleType() : VBIntrinsicType<double>(Tokens.Double), IFloatingPointNumericType
+public sealed record class VBDoubleType() : VBNumericType<double>(Tokens.Double), IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.

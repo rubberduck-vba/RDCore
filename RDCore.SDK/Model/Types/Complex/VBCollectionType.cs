@@ -10,10 +10,10 @@ namespace RDCore.SDK.Model.Types;
 public record class VBCollectionType : VBClassType, IEnumerableType
 {
     public VBCollectionType(VBClassType vbClass)
-        : this(vbClass.Symbol, vbClass.IsUserDefined, vbClass.Members, vbClass.Members.OfType<VBReturningMemberSymbol>().Single(e => e.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum)) { }
+        : this(vbClass.Symbol, vbClass.Members, vbClass.Members.OfType<VBReturningMemberSymbol>().Single(e => e.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum)) { }
 
-    public VBCollectionType(VBClassModuleSymbol symbol, bool isUserDefined = false, IEnumerable<VBTypeMemberSymbol>? members = null, VBReturningMemberSymbol? newEnumMember = null)
-        : base(symbol, isUserDefined, members)
+    public VBCollectionType(VBClassModuleSymbol symbol, IEnumerable<VBTypeMemberSymbol>? members = null, VBReturningMemberSymbol? newEnumMember = null)
+        : base(symbol, members)
     {
         NewEnumMember = newEnumMember;
     }

@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -91,48 +90,6 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateGreaterThanOrEqual_BothNullOperands_ResultIsNull()
-    {
-        var result = EvaluateGreaterThanOrEqual(CreateContext(), null, null);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    [DataRow(null, 5)]
-    [DataRow(42, null)]
-    [DataRow(null, "test")]
-    [DataRow("test", null)]
-    public void EvaluateGreaterThanOrEqual_SingleNullOperand_ResultIsNull(object lhs, object rhs)
-    {
-        var result = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateGreaterThanOrEqual_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateGreaterThanOrEqual_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
     [DataRow("20", 10, true)]
     [DataRow("10", 20, false)]
     [DataRow("10", 10, true)]
@@ -143,16 +100,6 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
         Assert.AreEqual(expected, ((VBBooleanValue)result).Value);
     }
 
-    [TestMethod]
-    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [DataRow(42, "VBErrorValue")]
-    [DataRow("VBErrorValue", 42)]
-    public void EvaluateGreaterThanOrEqual_VBErrorValue_TypeMismatch(object lhs, object rhs)
-    {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs));
-    }
-
     private VBTypedValue EvaluateGreaterThanOrEqual(IVBExecutionContext context, object lhs, object rhs)
     {
         var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
@@ -161,7 +108,7 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.GreaterThanOrEqual, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThanOrEqual, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

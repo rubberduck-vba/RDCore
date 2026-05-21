@@ -5,7 +5,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// A pseudo data type representing an unknown (unresolved) but presumably valid data type.
+/// A semantic data type representing an unknown (unresolved) but presumably valid data type.
 /// </summary>
 public sealed record class VBUnknownType() : VBType(typeof(object), nameof(VBUnknownType))
 {
@@ -14,4 +14,6 @@ public sealed record class VBUnknownType() : VBType(typeof(object), nameof(VBUnk
 
     private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBEmptyValue.Empty, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
+
+    public override int Size => sizeof(int);
 }
