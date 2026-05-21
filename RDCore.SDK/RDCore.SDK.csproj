@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Model\Types\Builders\" />
     <Folder Include="Semantics\Diagnostics\" />
   </ItemGroup>
 

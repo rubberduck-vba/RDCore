@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
@@ -19,25 +18,15 @@ public sealed record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclaredT
         Members = [.. (members ?? []).Cast<VBTypeMemberSymbol>()]; // NOTE: an enum without any members would not be compilable
     }
 
-    public override VBType[] ConvertsSafelyToTypes =>
-    [
-        VBIntegerType.TypeInfo,
-        VBLongLongType.TypeInfo,
-        VBDecimalType.TypeInfo,
-        VBCurrencyType.TypeInfo,
-        VBSingleType.TypeInfo,
-        VBDoubleType.TypeInfo,
-        VBStringType.TypeInfo,
-        VBVariantType.TypeInfo
-    ];
-
-    private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongValue.Zero, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     public Symbol Declaration { get; init; }
     public Symbol[]? Definitions { get; init; }
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
+
+    public override int Size => sizeof(int);
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
 }

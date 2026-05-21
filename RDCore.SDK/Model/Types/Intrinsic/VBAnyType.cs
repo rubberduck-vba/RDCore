@@ -16,7 +16,5 @@ public sealed record class VBAnyType() : VBIntrinsicType<object?>(Tokens.Any)
     private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBVariantType.TypeInfo.DefaultValue, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override VBType[] ConvertsSafelyToTypes { get; } = [];
-    public override bool IsDeclarable => false;
-    public override bool RuntimeBinding { get; } = true;
+    public override int Size => sizeof(int);
 }

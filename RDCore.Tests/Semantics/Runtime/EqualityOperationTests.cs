@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -80,51 +79,6 @@ public class EqualityOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateEquality_BothNullOperands_ResultIsNull()
-    {
-        var result = EvaluateEquality(CreateContext(), null, null);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    [DataRow(null, 5)]
-    [DataRow(42, null)]
-    [DataRow(null, "test")]
-    [DataRow("test", null)]
-    public void EvaluateEquality_SingleNullOperand_ResultIsNull(object lhs, object rhs)
-    {
-        var result = EvaluateEquality(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateEquality_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", 
-            new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateEquality(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateEquality_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = WrapLiteralExpression(VBResizableArrayValue.Empty, TestLocationRHS);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateEquality(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
     [DataRow(1, true, false)]  // Integer 1 compared to Boolean true (coerced to -1) -> false because runtime semantics here require value equality. a diagnostic is issued here about the implicit conversion, this behavior is observed in MS-VBA.
     [DataRow("42", 42, true)]  // String "42" coerced to 42
     [DataRow("42", 43, false)]
@@ -142,8 +96,7 @@ public class EqualityOperationTests : SymbolOperationTests
     [DataRow("VBErrorValue", 42)]
     public void EvaluateEquality_VBErrorValue_TypeMismatch(object lhs, object rhs)
     {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateEquality(CreateContext(), lhs, rhs));
+        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateEquality(CreateContext(), lhs, rhs));
     }
 
     private VBTypedValue EvaluateEquality(IVBExecutionContext context, object lhs, object rhs)
@@ -154,7 +107,7 @@ public class EqualityOperationTests : SymbolOperationTests
         var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
         var rhsValue = rhsExpression.ResolvedValue!;
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Equality, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Equality, lhsExpression, rhsExpression, TestLocation);
 
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }

@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Decimal</c> data type.
 /// </summary>
-public sealed record class VBDecimalType() : VBIntrinsicType<decimal>(Tokens.Decimal), IFixedPointNumericType
+public sealed record class VBDecimalType() : VBNumericType<decimal>(Tokens.Decimal), IFixedPointNumericType
 {
     private static readonly Lazy<VBDecimalType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBDecimalType TypeInfo => _instance.Value;

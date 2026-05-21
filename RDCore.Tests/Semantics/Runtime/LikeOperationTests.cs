@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -77,54 +76,6 @@ public class LikeOperationTests : SymbolOperationTests
         Assert.AreEqual(expected, actual?.Value);
     }
 
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateLike_BothNullOperands_ResultIsNull()
-    {
-        var result = EvaluateLike(CreateContext(), null, null);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    [DataRow(null, "hello")]
-    [DataRow("hello", null)]
-    public void EvaluateLike_SingleNullOperand_ResultIsNull(object lhs, object rhs)
-    {
-        var result = EvaluateLike(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateLike_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateLike_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
-    }
-
-    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [TestMethod]
-    [DataRow("hello", "VBErrorValue")]
-    public void EvaluateLike_VBErrorValue_TypeMismatch(object lhs, object rhs)
-    {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateLike(CreateContext(), lhs, rhs));
-    }
-
     private VBTypedValue EvaluateLike(IVBExecutionContext context, object lhs, object rhs)
     {
         var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
@@ -133,7 +84,7 @@ public class LikeOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Like, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Like, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

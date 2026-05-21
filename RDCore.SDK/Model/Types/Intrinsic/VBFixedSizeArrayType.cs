@@ -13,7 +13,7 @@ public record class VBFixedSizeArrayType(VBType ItemType) : VBArrayType(ItemType
 {
     private static readonly Lazy<VBFixedSizeArrayType> _instance = new(() => new VBFixedSizeArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
-    /// Gets the fixed-size <c>String(n)</c> array type.
+    /// Gets an instance of the <c>VBFixedSizeArrayType</c>.
     /// </summary>
     public static new VBArrayType TypeInfo => _instance.Value;
 

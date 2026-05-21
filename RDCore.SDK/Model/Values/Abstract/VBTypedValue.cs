@@ -1,32 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
 using System.Globalization;
 
 namespace RDCore.SDK.Model.Values.Abstract;
-
-public static class VBTypedValueFactory
-{
-    private static readonly Lazy<Dictionary<Type, Func<object, Symbol, VBTypedValue>>> _factories =
-        new(() => new()
-        {
-            [typeof(bool)] = static (value, symbol) => new VBBooleanValue(symbol).WithValue((bool)value),
-            [typeof(byte)] = static (value, symbol) => new VBByteValue(symbol).WithValue((byte)value),
-            [typeof(short)] = static (value, symbol) => new VBIntegerValue(symbol).WithValue((short)value),
-            [typeof(int)] = static (value, symbol) => new VBLongValue(symbol).WithValue((int)value),
-            [typeof(long)] = static (value, symbol) => new VBLongLongValue(symbol).WithValue((long)value),
-            [typeof(float)] = static (value, symbol) => new VBSingleValue(symbol).WithValue((float)value),
-            [typeof(double)] = static (value, symbol) => new VBDoubleValue(symbol).WithValue((double)value),
-            [typeof(decimal)] = static (value, symbol) => new VBCurrencyValue(symbol).WithValue((decimal)value),
-            [typeof(DateTime)] = static (value, symbol) => new VBDateValue(symbol).WithValue((DateTime)value),
-
-        }, LazyThreadSafetyMode.PublicationOnly);
-
-    public static VBTypedValue WrapManagedValue(object value, Symbol symbol)
-    {
-        return _factories.Value[value?.GetType()](value, symbol);
-    }
-}
 
 /// <summary>
 /// Represents any run-time typed value that can be represented with a managed (.net) value.

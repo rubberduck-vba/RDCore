@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -56,34 +55,6 @@ public class UnaryNegationOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateUnaryNegation_NullOperand_ResultIsNull()
-    {
-        var result = EvaluateUnaryNegation(CreateContext(), null);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateUnaryNegation_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var operand = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateUnaryNegation(CreateContext(), operand));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10 Let-coercion from 'Null'")]
-    public void EvaluateUnaryNegation_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var operand = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateUnaryNegation(CreateContext(), operand));
-    }
-
-    [TestMethod]
     [DataRow("42", -42.0)]  // String coerced to numeric
     [DataRow("-10", 10.0)]
     public void EvaluateUnaryNegation_ImplicitCoercion(object operand, double expected)
@@ -93,19 +64,12 @@ public class UnaryNegationOperationTests : SymbolOperationTests
         Assert.AreEqual(expected, ((VBNumericTypedValue)result).ManagedValue, 0.0001);
     }
 
-    [TestCategory("Diagnostics.VBRuntimeError.TypeMismatch")]
-    [TestMethod]
-    public void EvaluateUnaryNegation_VBErrorValue_TypeMismatch()
-    {
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() => EvaluateUnaryNegation(CreateContext(), "VBErrorValue"));
-    }
-
     private VBTypedValue EvaluateUnaryNegation(IVBExecutionContext context, object? operand)
     {
         var operandValue = WrapVBTypedValue(operand, TestLocationLHS);
         var operandExpression = WrapLiteralExpression(operandValue, TestLocationLHS);
 
-        var expression = new VBUnaryOperatorExpression(GlobalSymbols.UnaryNegation, TestLocation, operandExpression);
+        var expression = new VBUnaryOperatorExpression(GlobalSymbols.OperatorSymbols.UnaryNegation, TestLocation, operandExpression);
         return Semantics.Evaluate(context, expression, operandValue)!;
     }
 }

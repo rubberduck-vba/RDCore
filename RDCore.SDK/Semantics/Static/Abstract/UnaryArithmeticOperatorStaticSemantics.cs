@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -11,8 +12,8 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </remarks>
 public record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
 {
-    public sealed override VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes)
-        => DetermineOperatorStaticType(operandDeclaredTypes[0]);
+    public sealed override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+        => DetermineOperatorStaticType(context, operandDeclaredTypes[0]);
 
     /// <summary>
     /// MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics) 
@@ -20,7 +21,7 @@ public record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
     /// </summary>
     /// <param name="operand">The declared type of the operand.</param>
     /// <returns><c>null</c> if no type is statically valid.</returns>
-    protected virtual VBType? DetermineOperatorStaticType(VBType operand)
+    protected virtual VBType? DetermineOperatorStaticType(IVBExecutionContext context, VBType operand)
     {
         return operand switch
         {

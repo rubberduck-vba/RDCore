@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -71,10 +70,19 @@ public class DivisionOperationTests : SymbolOperationTests
     [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
     public void EvaluateDivision_Null_LetCoercion_UDT_TypeMismatch()
     {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
+        var name = "TestUDT";
+        var symbol = new VBUserDefinedTypeMemberSymbol(
+            ScopeKind.Module,
+            TestUri.TestModuleUserDefinedTypeUri(name),
+            name, Accessibility.Private,
+            TestLocation.Range,
+            TestLocation.Range,
+            TestUri.WorkspaceRoot());
+        var udt = new VBUserDefinedType(symbol, [], []);
+        var value = new VBUserDefinedTypeValue(udt, symbol);
 
         var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
+        var rhs = new LiteralExpression(TestLocation, value);
 
         Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
             EvaluateDivision(CreateContext(), lhs, rhs));
@@ -141,7 +149,7 @@ public class DivisionOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocation);
         var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

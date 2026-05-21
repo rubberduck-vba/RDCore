@@ -93,8 +93,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
         var address = _nextAddress;
         Interlocked.Add(ref _nextAddress, _ptrSize);
 
-        var pointer = new VBLongPtrValue(Is64Bit, symbol) { ManagedValue = address };
-        var obj = new VBObjectValue(symbol, pointer);
+        var obj = new VBObjectValue(symbol);
 
         _objectHeap[obj] = [];
         _rawAddressMap[symbol.Uri] = address;

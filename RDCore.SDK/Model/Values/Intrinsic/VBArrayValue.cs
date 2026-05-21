@@ -60,15 +60,18 @@ public abstract record class VBArrayValue : VBTypedValue
             LowerBound = lBound;
 
             _symbol = symbol;
+            _itemType = itemType;
 
-            if (itemType.DefaultValue.TypeInfo.ManagedType is Type managedType) 
+            if (itemType.ManagedType is Type managedType) 
             {
-                var defaultManagedValue = Activator.CreateInstance(managedType) ?? new object();
+                var defaultManagedValue = itemType is VBNumericType or VBStringType ? Activator.CreateInstance(managedType)! : itemType.DefaultValue;
                 _state = Enumerable.Range(lBound, uBound)
                     .Select(i => defaultManagedValue)
                     .ToImmutableArray();
             }
         }
+
+        private readonly VBType _itemType;
 
         private readonly ImmutableArray<object> _state;
         private int ToManagedIndex(int subscript) => subscript - LowerBound;
@@ -87,10 +90,24 @@ public abstract record class VBArrayValue : VBTypedValue
                 {
                     return default;
                 }
-                else
+                else 
                 {
                     var index = ToManagedIndex(subscript);
-                    return VBTypedValueFactory.WrapManagedValue(_state[index], _symbol);
+                    if (_itemType is VBNumericType numericType)
+                    {
+                        var value = (double)_state[index];
+                        return VBTypedValueFactory.CreateValue(numericType, _symbol, value);
+                    }
+                    else if (_itemType is VBStringType stringType)
+                    {
+                        var value = (string)_state[index];
+                        return ((VBStringValue)VBTypedValueFactory.CreateValue(stringType, _symbol)!).WithValue(value);
+                    }
+                    else
+                    {
+                        var value = (VBTypedValue)_state[index];
+                        return value;
+                    }
                 }
             }
         }

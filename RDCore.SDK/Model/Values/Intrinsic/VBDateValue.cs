@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -55,9 +56,9 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     */
     public VBDateValue WithValue(DateTime value)
     {
-        if (value > MaxValue.Value || value < MinValue.Value)
+        if (value > VBDateType.MaxValue.Value || value < VBDateType.MinValue.Value)
         {
-            VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**.");
+            VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**.");
         }
         return this with { Value = value };
     }
@@ -66,9 +67,9 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     {
         if (value > MaxSerial || value < MinSerial)
         {
-            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value}** and **{MaxValue.Value}**."));
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**."));
         }
-        return this with { Value = Zero.Value.AddDays(value) };
+        return this with { Value = VBDateType.Zero.Value.AddDays(value) };
     }
 
     public bool Equals(IVBTypedValue<VBDateValue, DateTime>? other) => Value == other?.Value;

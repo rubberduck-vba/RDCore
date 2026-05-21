@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/Documents/">
-    <File Path="LICENSE.txt" />
     <File Path="README.md" />
   </Folder>
   <Project Path="RDCore.CoreDiagnostics/RDCore.Diagnostics.csproj" Id="a259e578-edf1-420a-8af8-bdeb2b68f7e6" />

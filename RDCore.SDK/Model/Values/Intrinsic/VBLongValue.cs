@@ -20,9 +20,9 @@ public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLo
 
     public new VBLongValue WithValue(double value)
     {
-        if (value > MaxValue.Value || value < MinValue.Value)
+        if (value > VBLongType.MaxValue.Value || value < VBLongType.MinValue.Value)
         {
-            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{MinValue.Value:N}** and **{MaxValue.Value:N}**.");
+            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBLongType.MinValue.Value:N}** and **{VBLongType.MaxValue.Value:N}**.");
         }
         return this with { ManagedValue = (int)value };
     }

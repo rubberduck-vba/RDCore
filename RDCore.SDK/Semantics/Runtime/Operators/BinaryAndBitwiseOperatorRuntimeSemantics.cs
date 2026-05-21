@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -20,7 +21,7 @@ public record class BinaryAndBitwiseOperatorRuntimeSemantics : BinaryBitwiseOper
         {
             if (lhsNumeric.ManagedValue == 0)
             {
-                return VBIntegerValue.Zero;
+                return VBIntegerType.Zero;
             }
             else
             {
@@ -32,7 +33,7 @@ public record class BinaryAndBitwiseOperatorRuntimeSemantics : BinaryBitwiseOper
         {
             if (rhsNumeric.ManagedValue == 0)
             {
-                return VBIntegerValue.Zero;
+                return VBIntegerType.Zero;
             }
             else
             {

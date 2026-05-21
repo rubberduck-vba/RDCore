@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -10,6 +11,7 @@ public abstract record class StaticSemantics()
     /// <summary>
     /// Determines a static <c>VBType</c> from specified operands.
     /// </summary>
+    /// <param name="context">The static context containing the available static memory space.</param>
     /// <param name="operandDeclaredTypes">The declared type of each operand involved in the evaluation.</param>
-    public abstract VBType? DetermineDeclaredType(params VBType[] operandDeclaredTypes);
+    public abstract VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes);
 }

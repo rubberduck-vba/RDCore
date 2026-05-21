@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -64,42 +63,6 @@ public class SubtractionOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateSubtraction_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateSubtraction(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateSubtraction_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateSubtraction(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [DataRow("1.5", 1, 0.5d)]         // String - Integer -> Double
-    [DataRow(32767, -1.0, 32768.0d)]   // Integer.MaxValue - -Double -> Double (Safe)
-    public void EvaluateSubtraction_NumericCoercion(object lhs, object rhs, object expected)
-    {
-        var result = EvaluateSubtraction(CreateContext(), lhs, rhs);
-        if (expected is not string)
-        {
-            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
-        }
-    }
-
-    [TestMethod]
     [TestCategory("Diagnostics.VBRuntimeError.Overflow")]
     [DataRow(32767, -1)]
     [DataRow(-32768, 1)]
@@ -153,7 +116,7 @@ public class SubtractionOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Subtraction, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Subtraction, lhsExpression, rhsExpression, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

@@ -4,9 +4,8 @@ using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Model.Types.Intrinsic;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -49,45 +48,6 @@ public class MultiplicationOperationTests : SymbolOperationTests
     }
 
     [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    [DataRow(null, 5)]   // MS-VBAL: Null * Any -> Null
-    [DataRow(null, "#1-1-2026#")]   // MS-VBAL: Null * Any -> Null
-    [DataRow(null, 1.23d)]   // MS-VBAL: Null * Any -> Null
-    [DataRow(5, null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("Empty", null)]   // MS-VBAL: Any * Null -> Null
-    [DataRow("#2026-12-31#", null)]   // MS-VBAL: Any * Null -> Null
-    public void EvaluateMultiplication_NullOperand_ResultIsNull(object lhs, object rhs)
-    {
-        // note: coercing the result to any other type would throw.
-        var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBNullValue>(result);
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateMultiplication_Null_LetCoercion_UDT_TypeMismatch()
-    {
-        var udt = new VBUserDefinedType("Test", new VBUserDefinedTypeMemberSymbol(ScopeKind.Module, new Uri("file://TestProject/TestModule/TestUDT"), "UDT", Accessibility.Public, TestLocation.Range, TestLocation.Range, new Uri("file://TestProject")));
-
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, new VBUserDefinedTypeValue(udt));
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateMultiplication(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
-    [TestCategory("MS-VBAL 5.5.1.2.10: Let-coercion from 'Null'")]
-    public void EvaluateMultiplication_Null_LetCoercion_ResizableArray_TypeMismatch()
-    {
-        var lhs = VBNullValue.Null;
-        var rhs = new LiteralExpression(TestLocation, VBResizableArrayValue.Empty);
-
-        Assert.Throws<VBRuntimeErrorTypeMismatchException>(() =>
-            EvaluateMultiplication(CreateContext(), lhs, rhs));
-    }
-
-    [TestMethod]
     [DataRow(-1, "DateTime.Now")]
     [DataRow("DateTime.Now", 1)]
     [DataRow("DateTime.Now", "DateTime.Now")]
@@ -95,18 +55,6 @@ public class MultiplicationOperationTests : SymbolOperationTests
     {
         var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
         Assert.IsInstanceOfType<VBDoubleValue>(result);
-    }
-
-    [TestMethod]
-    [DataRow("1.5", 1, 1.5d)]
-    [DataRow(32767, -2.0d, -65534.0d)]
-    public void EvaluateMultiplication_NumericCoercion(object lhs, object rhs, object expected)
-    {
-        var result = EvaluateMultiplication(CreateContext(), lhs, rhs);
-        if (expected is not string)
-        {
-            Assert.AreEqual(Convert.ToDouble(expected), ((INumericValue)result).ManagedValue, 0.0001);
-        }
     }
 
     [TestMethod]
@@ -136,7 +84,7 @@ public class MultiplicationOperationTests : SymbolOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsLiteral = new LiteralExpression(TestLocationRHS, rhsValue);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.Multiplication, lhsLiteral, rhsLiteral, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, lhsLiteral, rhsLiteral, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

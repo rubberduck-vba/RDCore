@@ -1,7 +1,8 @@
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Expressions.Operators;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Intrinsic;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
@@ -54,7 +55,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics : BinaryOperatorRunti
                 }
 
                 var doubleValue = lhsValue / rhsValue;
-                return (VBTypedValue)effectiveType.CreateNumericValue(expression.Symbol).WithValue(doubleValue);
+                return VBTypedValueFactory.CreateValue((VBNumericType)effectiveType, expression.Symbol, doubleValue);
             }
         }
         else if (effectiveType is VBNullType)
