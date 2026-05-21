@@ -14,7 +14,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.1 Unary 'Not' Operator")]
 public class UnaryNotOperationTests : SymbolOperationTests
 {
-    internal override RuntimeSemantics Semantics => new UnaryNotOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new UnaryNotOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,
         VBByteType.TypeInfo,

@@ -8,12 +8,12 @@ namespace RDCore.SDK.Semantics.Static;
 /// <summary>
 /// MS-VBAL 5.5.1.1 Let-coercion (static semantics)
 /// </summary>
-public record class LetCoercionStaticSemantics : StaticSemantics
+public record class LetCoercionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<LetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
-    public static StaticSemantics Instance => _instance.Value;
+    public static IStaticSemantics Instance => _instance.Value;
 
-    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
     {
         var sourceType = operandDeclaredTypes[0];
         var destinationType = operandDeclaredTypes[1];

@@ -1,9 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Model.Expressions;
-using RDCore.SDK.Semantics.Runtime.Abstract;
-using RDCore.SDK.Semantics.Static.Abstract;
 
-namespace RDCore.Runtime.Model;
+namespace RDCore.SDK.Model.Expressions;
 
 public sealed record class ParenthesizedExpression : ValuedExpression
 {
@@ -14,7 +11,4 @@ public sealed record class ParenthesizedExpression : ValuedExpression
     }
 
     public ValuedExpression InnerExpression { get; init; }
-
-    public override StaticSemantics StaticSemantics { get; } = default!;
-    public override RuntimeSemantics RuntimeSemantics { get; } = default!;
 }

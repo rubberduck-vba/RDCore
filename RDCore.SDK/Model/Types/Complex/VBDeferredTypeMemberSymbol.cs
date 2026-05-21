@@ -3,7 +3,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 public record class VBDeferredTypeMemberSymbol : TypedSymbol, IVBDeferrableTypeMember
 {

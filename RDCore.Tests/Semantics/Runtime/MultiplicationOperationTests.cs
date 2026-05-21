@@ -1,15 +1,12 @@
-using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions;
 using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Runtime.Model;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -20,7 +17,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
 public class MultiplicationOperationTests : SymbolOperationTests
 {
-    internal override RuntimeSemantics Semantics => new BinaryMultiplicationOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new BinaryMultiplicationOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBIntegerType.TypeInfo,
