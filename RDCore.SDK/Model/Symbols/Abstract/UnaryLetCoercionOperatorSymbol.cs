@@ -11,6 +11,6 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// </remarks>
 public sealed record class UnaryLetCoercionOperatorSymbol : UnaryOperatorSymbol
 {
-    public UnaryLetCoercionOperatorSymbol(string token, StaticSemantics staticSemantics, RuntimeSemantics executionSemantics)
+    public UnaryLetCoercionOperatorSymbol(string token, IStaticSemantics staticSemantics, IRuntimeSemantics executionSemantics)
         : base(token, staticSemantics, executionSemantics) { }
 }

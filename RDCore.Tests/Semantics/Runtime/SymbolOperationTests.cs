@@ -1,5 +1,7 @@
+using RDCore.Runtime;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Expressions;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -8,7 +10,6 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Runtime.Model;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -17,7 +18,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 public abstract class SymbolOperationTests
 {
-    internal abstract RuntimeSemantics Semantics { get; }
+    internal abstract IRuntimeSemantics Semantics { get; }
     internal abstract IEnumerable<VBType> EffectiveTypes { get; }
 
     protected void AssertVBRuntimeErrorException(VBRuntimeErrorId expected, Exception exception)

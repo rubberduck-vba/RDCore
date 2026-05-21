@@ -8,9 +8,9 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// <summary>
 /// <strong>MS-VBAL 5.6.9.4</strong> Binary '&' Operator (static semantics)
 /// </summary>
-public record class BinaryConcatOperatorStaticSemantics : StaticSemantics
+public record class BinaryConcatOperatorStaticSemantics : IStaticSemantics
 {
-    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
     {
         var lhs = operandDeclaredTypes[0];
         var rhs = operandDeclaredTypes[1];

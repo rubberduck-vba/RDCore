@@ -8,9 +8,9 @@ public interface ISemanticNode
     /// <summary>
     /// The static semantics associated with this node.
     /// </summary>
-    StaticSemantics StaticSemantics { get; }
+    IStaticSemantics StaticSemantics { get; init; }
     /// <summary>
     /// The runtime semantics associated with this node.
     /// </summary>
-    RuntimeSemantics RuntimeSemantics { get; }
+    IRuntimeSemantics RuntimeSemantics { get; init; }
 }

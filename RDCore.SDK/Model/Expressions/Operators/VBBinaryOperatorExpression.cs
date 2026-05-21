@@ -1,7 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Semantics.Runtime.Abstract;
-using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Model.Expressions.Operators;
 
@@ -16,7 +14,4 @@ public record class VBBinaryOperatorExpression : VBOperatorExpression
 
     public ValuedExpression Left { get; init; }
     public ValuedExpression Right { get; init; }
-
-    public override StaticSemantics StaticSemantics => Symbol.StaticSemantics;
-    public override RuntimeSemantics RuntimeSemantics => Symbol.RuntimeSemantics;
 }

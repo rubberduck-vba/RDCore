@@ -10,9 +10,9 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// <remarks>
 /// This is implicitly the specification for the unary '+' operator, which is omitted from MS-VBAL.
 /// </remarks>
-public record class UnaryArithmeticOperatorStaticSemantics : StaticSemantics
+public record class UnaryArithmeticOperatorStaticSemantics : IStaticSemantics
 {
-    public sealed override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(context, operandDeclaredTypes[0]);
 
     /// <summary>

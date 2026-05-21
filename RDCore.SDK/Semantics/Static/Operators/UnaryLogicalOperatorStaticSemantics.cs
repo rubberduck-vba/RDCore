@@ -8,9 +8,9 @@ namespace RDCore.SDK.Semantics.Static.Operators;
 /// <summary>
 /// <strong>MS-VBAL 5.6.9.3</strong> Unary Operator static semantics
 /// </summary>
-public record class UnaryLogicalOperatorStaticSemantics : StaticSemantics
+public record class UnaryLogicalOperatorStaticSemantics : IStaticSemantics
 {
-    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
     {
         var operand = operandDeclaredTypes[0];
         return operand switch

@@ -1,4 +1,4 @@
-﻿namespace RDCore.SDK.Model.Symbols.VBProject;
+﻿namespace RDCore.SDK.Model.Symbols.Abstract;
 
 /// <summary>
 /// An interface to help select <c>Property</c> members.

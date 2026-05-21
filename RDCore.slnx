@@ -5,7 +5,6 @@
   </Folder>
   <Project Path="RDCore.CoreDiagnostics/RDCore.Diagnostics.csproj" Id="a259e578-edf1-420a-8af8-bdeb2b68f7e6" />
   <Project Path="RDCore.Parsing/RDCore.Parsing.csproj" Id="427398e8-d875-4bbd-bacc-fb5e6e0936dd" />
-  <Project Path="RDCore.Runtime/RDCore.Runtime.csproj" Id="a365623a-e744-4150-8ad5-8ce53d9c65a7" />
   <Project Path="RDCore.SDK/RDCore.SDK.csproj" Id="217682fc-e856-4902-bb85-e839ac0be988" />
   <Project Path="RDCore.Tests/RDCore.Tests.csproj" Id="c2083213-ec7c-4ff7-ae2f-60269d891d51" />
   <Project Path="RDCore/RDCore.csproj" />
