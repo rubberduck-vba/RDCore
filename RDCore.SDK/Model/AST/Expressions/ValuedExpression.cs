@@ -1,5 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Model.Expressions.Abstract;
+using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Expressions;
 

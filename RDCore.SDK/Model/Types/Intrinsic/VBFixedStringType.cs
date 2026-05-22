@@ -16,6 +16,5 @@ namespace RDCore.SDK.Model.Types;
 public sealed record class VBFixedStringType(int Length) : VBStringType
 {
     private static readonly Lazy<VBStringValue> _defaultValue = new(() => new VBStringValue(GlobalSymbols.StaticSymbols.VBNullString) { Value = string.Empty }, LazyThreadSafetyMode.PublicationOnly);
-    
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 }

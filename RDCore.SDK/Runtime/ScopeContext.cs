@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 
-namespace RDCore.Runtime;
+namespace RDCore.SDK.Runtime;
 
 public sealed record class ScopeContext(Symbol ScopeSymbol, ScopeContext? Parent = null)
 {

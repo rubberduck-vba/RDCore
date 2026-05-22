@@ -22,6 +22,7 @@ public static class VBTypeNames
     public const string VBDecimal = Tokens.Decimal;
     public const string VBDouble = Tokens.Double;
     public const string VBEmpty = Tokens.Empty;
+    public const string VBError = Tokens.Error;
     public const string VBInteger = Tokens.Integer;
     public const string VBLong = Tokens.Long;
     public const string VBLongLong = Tokens.LongLong;
