@@ -37,7 +37,6 @@ Elle comprend les éléments suivants :
 - **RDCore.SDK** encapsule la connaissance sémantique du langage – l'essence même de VBA – et l'emballe dans une bibliothèque permissive **licenciée MIT** qui est rigoureusement documentée et entièrement testée.
 - **RDCore.Parsing** encapsule les connaissances syntaxiques et la sémantique des jetons associée dans un processus serveur LSP enfant/satellite sous licence copyleft **GPLv3** qui transforme un « Uri » d'espace de travail en un *arbre syntaxe abstrait* (AST) riche sémantiquement.
 - **RDCore.CoreDiagnostics** est également sous **GPLv3** et établit les bases de tous les futurs plug-ins RDCore. 
-- **RDCore.Runtime** encapsule la sémantique d'exécution du langage dans une bibliothèque de classes (**GPLv3**) qui **garantit que le cœur d'exécution de VBA reste open source** et maintenu par sa communauté.
 - **RDCore.Test** documente tout à travers le prisme de **MS-VBAL**, prouvant la justesse de l'implémentation et démontrant son utilisation.
 - **RDCore** est une application console de serveur en langage LSP destinée à être lancée éventuellement en ligne de commande par une application cliente (éditeur) en langage LSP.
 
