@@ -9,7 +9,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents any type of array.
 /// </summary>
-public abstract record class VBArrayType(VBType ItemType) : VBIntrinsicType<object[]>("Array"), IEnumerableType
+public abstract record class VBArrayType(VBType ItemType) : VBIntrinsicType<object[]>(VBTypeNames.VBArray), IEnumerableType
 {
     private static readonly Lazy<VBArrayType> _instance = new(() => new VBResizableArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

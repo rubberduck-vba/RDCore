@@ -1,10 +1,8 @@
-using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -12,8 +10,10 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
-public class LikeOperationTests : SymbolOperationTests
+public class LikeOperationTests : BinaryOperatorOperationTests
 {
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Like;
+
     internal override IRuntimeSemantics Semantics => new LikeRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBStringType.TypeInfo,
@@ -26,7 +26,7 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("hello", "world", false)]
     public void EvaluateLike_LiteralMatch_CalculatesResult(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateLike(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -37,7 +37,7 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("hello", "h?l", false)]    // Pattern too short
     public void EvaluateLike_WildcardPatterns_CalculatesResult(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateLike(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -48,7 +48,7 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("hllo", "h#llo", false)]   // No digit
     public void EvaluateLike_DigitPattern_CalculatesResult(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateLike(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -58,7 +58,7 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("aXc", "a[a-z]c", true)]       // Range in class
     public void EvaluateLike_CharacterClass_CalculatesResult(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateLike(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -67,19 +67,7 @@ public class LikeOperationTests : SymbolOperationTests
     [DataRow("a1c", "a[!0-9]c", false)]
     public void EvaluateLike_NegatedCharacterClass_CalculatesResult(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateLike(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
-    }
-
-    private VBTypedValue EvaluateLike(IVBExecutionContext context, object lhs, object rhs)
-    {
-        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
-        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
-
-        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
-        var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
-
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Like, lhsExpression, rhsExpression, TestLocation);
-        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

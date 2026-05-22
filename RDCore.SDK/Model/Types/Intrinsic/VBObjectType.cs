@@ -9,9 +9,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Object</c> data type.
 /// </summary>
-public record class VBObjectType() : VBIntrinsicType<int>(Tokens.Object)
+public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
 {
     private static readonly Lazy<VBObjectType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Object</c> data type.
+    /// </summary>
     public static VBObjectType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);

@@ -7,7 +7,10 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 #pragma warning restore IDE0130 // Namespace does not match folder structure
 
-public sealed record class VBDoubleType() : VBNumericType<double>(Tokens.Double), IFloatingPointNumericType
+/// <summary>
+/// Represents the <c>Double</c> data type.
+/// </summary>
+public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VBDouble), IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.
@@ -36,6 +39,9 @@ public sealed record class VBDoubleType() : VBNumericType<double>(Tokens.Double)
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     private static readonly Lazy<VBDoubleType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Double</c> data type.
+    /// </summary>
     public static VBDoubleType TypeInfo => _instance.Value;
 
     public override int Size => sizeof(double);

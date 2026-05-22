@@ -9,5 +9,8 @@ namespace RDCore.SDK.Model.Types;
 public record class VBResizableArrayType(VBType ItemType) : VBArrayType(ItemType)
 {
     private static readonly Lazy<VBResizableArrayType> _instance = new(() => new VBResizableArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Array()</c> resizable array data type.
+    /// </summary>
     public static new VBArrayType TypeInfo => _instance.Value;
 }

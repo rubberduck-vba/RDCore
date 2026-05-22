@@ -9,9 +9,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>String</c> intrinsic data type.
 /// </summary>
-public record class VBStringType() : VBIntrinsicType<string?>(Tokens.String)
+public record class VBStringType() : VBIntrinsicType<string?>(VBTypeNames.VBString)
 {
     private static readonly Lazy<VBStringType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>String</c> data type.
+    /// </summary>
     public static VBStringType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBStringValue> _defaultValue = new(() => VBStringValue.VBNullString, LazyThreadSafetyMode.PublicationOnly);

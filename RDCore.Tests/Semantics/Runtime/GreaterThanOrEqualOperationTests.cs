@@ -1,10 +1,8 @@
-using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 
@@ -12,8 +10,9 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.5.6 Binary '>=' Operator")]
-public class GreaterThanOrEqualOperationTests : SymbolOperationTests
+public class GreaterThanOrEqualOperationTests : BinaryOperatorOperationTests
 {
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.GreaterThanOrEqual;
     internal override IRuntimeSemantics Semantics => new GreaterThanEqRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
@@ -36,9 +35,9 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     [DataRow(10, 20, false)]
     [DataRow(10, 10, true)]
     [DataRow(0, -5, true)]
-    public void EvaluateGreaterThanOrEqual_IntegerOperands_CalculatesResult(int lhs, int rhs, bool expected)
+    public void Operator_IntegerContext_EvaluatesOp(int lhs, int rhs, bool expected)
     {
-        var actual = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -47,9 +46,9 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     [DataRow(1.5, 2.5, false)]
     [DataRow(1.5, 1.5, true)]
     [DataRow(-2.5, -3.5, true)]
-    public void EvaluateGreaterThanOrEqual_DoubleOperands_CalculatesResult(double lhs, double rhs, bool expected)
+    public void Operator_DoubleContext_EvaluatesOp(double lhs, double rhs, bool expected)
     {
-        var actual = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -58,9 +57,9 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     [DataRow("apple", "banana", false)]
     [DataRow("apple", "apple", true)]
     [DataRow("aab", "aaa", true)]
-    public void EvaluateGreaterThanOrEqual_StringOperands_CalculatesResult(string lhs, string rhs, bool expected)
+    public void Operator_StringContext_EvaluatesOp(string lhs, string rhs, bool expected)
     {
-        var actual = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -68,9 +67,9 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     [DataRow(false, true, true)]
     [DataRow(true, false, false)]
     [DataRow(false, false, true)]
-    public void EvaluateGreaterThanOrEqual_BooleanOperands_CalculatesResult(bool lhs, bool rhs, bool expected)
+    public void Operator_BooleanContext_EvaluatesOp(bool lhs, bool rhs, bool expected)
     {
-        var actual = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
     }
 
@@ -78,32 +77,9 @@ public class GreaterThanOrEqualOperationTests : SymbolOperationTests
     [DataRow(2, 1, true)]
     [DataRow(1, 2, false)]
     [DataRow(5, 5, true)]
-    public void EvaluateGreaterThanOrEqual_ByteOperands_CalculatesResult(object lhs, object rhs, bool expected)
+    public void Operator_ByteContext_EvaluatesOp(object lhs, object rhs, bool expected)
     {
-        var actual = EvaluateGreaterThanOrEqual(CreateContext(), Convert.ToByte(lhs), Convert.ToByte(rhs)) as VBBooleanValue;
+        var actual = EvaluateBinaryOp(CreateContext(), Convert.ToByte(lhs), Convert.ToByte(rhs)) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
-    }
-
-    [TestMethod]
-    [DataRow("20", 10, true)]
-    [DataRow("10", 20, false)]
-    [DataRow("10", 10, true)]
-    public void EvaluateGreaterThanOrEqual_ImplicitCoercion(object lhs, object rhs, bool expected)
-    {
-        var result = EvaluateGreaterThanOrEqual(CreateContext(), lhs, rhs);
-        Assert.IsInstanceOfType<VBBooleanValue>(result);
-        Assert.AreEqual(expected, ((VBBooleanValue)result).Value);
-    }
-
-    private VBTypedValue EvaluateGreaterThanOrEqual(IVBExecutionContext context, object lhs, object rhs)
-    {
-        var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
-        var lhsExpression = WrapLiteralExpression(lhsValue, TestLocationLHS);
-
-        var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
-        var rhsExpression = WrapLiteralExpression(rhsValue, TestLocationRHS);
-
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThanOrEqual, lhsExpression, rhsExpression, TestLocation);
-        return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

@@ -9,9 +9,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Boolean</c> data type.
 /// </summary>
-public sealed record class VBBooleanType() : VBIntrinsicType<bool>(Tokens.Boolean)
+public sealed record class VBBooleanType() : VBIntrinsicType<bool>(VBTypeNames.VBBoolean)
 {
     private static readonly Lazy<VBBooleanType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Boolean</c> data type.
+    /// </summary>
     public static VBBooleanType TypeInfo => _instance.Value;
 
     private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBBooleanValue.False, LazyThreadSafetyMode.PublicationOnly);

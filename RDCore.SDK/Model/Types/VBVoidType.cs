@@ -7,9 +7,15 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>void</c> semantic data type.
 /// </summary>
-public record class VBVoidType() : VBType(typeof(void), "(void)", isHidden: true)
+public record class VBVoidType() : VBType(typeof(void), VBTypeNames.VBVoid, isHidden: true)
 {
     private static readonly Lazy<VBVoidType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Void</c> semantic data type.
+    /// </summary>
+    /// <remarks>
+    /// Represents the absence of data type semantics, expressed in a valid <c>VBType</c> representation.
+    /// </remarks>
     public static VBType TypeInfo => _instance.Value;
 
     private readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);

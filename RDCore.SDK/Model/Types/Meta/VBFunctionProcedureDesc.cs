@@ -7,12 +7,16 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// <summary>
 /// Describes a <c>Function</c> procedure.
 /// </summary>
-/// <param name="Name">The name of the member</param>
+/// <param name="Name">The name of the member.</param>
 public record class VBFunctionProcedureDesc(string Name) : VBMemberDesc(Name)
 {
     private static readonly Lazy<VBFunctionProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// Describes a specific <c>Function</c> procedure.
+    /// </summary>
     public static VBFunctionProcedureDesc TypeInfo => _instance.Value;
 
+    // NOTE: a value of this type is VBUnknown until determined with name resolution semantics.
     private static readonly Lazy<VBTypedValue> _defaultValue = new(() => VBUnknownValue.DefaultValue, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 }
@@ -27,5 +31,8 @@ public record class VBFunctionProcedureDesc(string Name) : VBMemberDesc(Name)
 public record class VBDeferredFunctionProcedureDesc(string Name) : VBFunctionProcedureDesc(Name)
 {
     private static readonly Lazy<VBDeferredFunctionProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// Describes a specific <em>deferred</em> <c>Function</c> procedure.
+    /// </summary>
     public new static VBDeferredFunctionProcedureDesc TypeInfo => _instance.Value;
 }

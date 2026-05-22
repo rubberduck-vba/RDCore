@@ -8,9 +8,15 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Empty</c> data type.
 /// </summary>
-public sealed record class VBEmptyType() : VBIntrinsicType<int?>(Tokens.Empty)
+public sealed record class VBEmptyType() : VBIntrinsicType<int?>(VBTypeNames.VBEmpty)
 {
     private static readonly Lazy<VBEmptyType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Empty</c> data type.
+    /// </summary>
+    /// <remarks>
+    /// This data type has no declaration semantics and is only indirectly usable as a <c>Variant</c> subtype.
+    /// </remarks>
     public static VBEmptyType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBEmptyValue> _defaultValue = new(() => VBEmptyValue.Empty, LazyThreadSafetyMode.PublicationOnly);

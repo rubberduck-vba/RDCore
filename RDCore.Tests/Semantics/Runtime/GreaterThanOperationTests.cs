@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -12,8 +13,10 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9.5.4 Binary '>' Operator")]
-public class GreaterThanOperationTests : SymbolOperationTests
+public class GreaterThanOperationTests : BinaryOperatorOperationTests
 {
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.GreaterThan;
+
     internal override IRuntimeSemantics Semantics => new GreaterThanRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
@@ -36,7 +39,7 @@ public class GreaterThanOperationTests : SymbolOperationTests
     [DataRow(10, 20, false)]
     [DataRow(10, 10, false)]
     [DataRow(0, -5, true)]
-    public void EvaluateGreaterThan_IntegerOperands_CalculatesResult(int lhs, int rhs, bool expected)
+    public void Operator_IntegerContext_EvaluatesOp(int lhs, int rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
@@ -47,7 +50,7 @@ public class GreaterThanOperationTests : SymbolOperationTests
     [DataRow(1.5, 2.5, false)]
     [DataRow(1.5, 1.5, false)]
     [DataRow(-2.5, -3.5, true)]
-    public void EvaluateGreaterThan_DoubleOperands_CalculatesResult(double lhs, double rhs, bool expected)
+    public void Operator_DoubleContext_EvaluatesOp(double lhs, double rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);
@@ -58,7 +61,7 @@ public class GreaterThanOperationTests : SymbolOperationTests
     [DataRow("apple", "banana", false)]
     [DataRow("apple", "apple", false)]
     [DataRow("aab", "aaa", true)]
-    public void EvaluateGreaterThan_StringOperands_CalculatesResult(string lhs, string rhs, bool expected)
+    public void Operator_StringContext_EvaluatesOp(string lhs, string rhs, bool expected)
     {
         var actual = EvaluateGreaterThan(CreateContext(), lhs, rhs) as VBBooleanValue;
         Assert.AreEqual(expected, actual?.Value);

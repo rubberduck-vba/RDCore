@@ -3,7 +3,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Semantics.Runtime.Expressions;
 using RDCore.SDK.Semantics.Static.Expressions;
 
-namespace RDCore.SDK.Model.Expressions;
+namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
 /// Represents a <em>literal expression</em>, which statically resolves a <c>VBTypedValue</c> directly from the syntax tree.
@@ -21,7 +21,7 @@ public sealed record class LiteralExpression(Location Location) : ValuedExpressi
     /// <param name="value">The literal value of the expression.</param>
     public LiteralExpression(Location location, VBTypedValue value) : this(location)
     {
-        ResolvedValue = value;
-        ResolvedType = value.TypeInfo;
+        ExpressionValue = value;
+        DeclaredType = value.TypeInfo;
     }
 }
