@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.Expressions;
+﻿using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Expressions.Operators;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;

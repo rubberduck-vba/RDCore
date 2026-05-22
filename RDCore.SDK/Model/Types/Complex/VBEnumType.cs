@@ -7,26 +7,22 @@ using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Types.Complex;
 
-public sealed record class VBEnumType : VBType, IVBMemberOwnerType, IVBDeclaredType
+/// <summary>
+/// Represents any <c>Enum</c> type.
+/// </summary>
+public sealed record class VBEnumType(Symbol Symbol, bool IsHidden = false) : VBType(typeof(Type), Symbol.Name, IsHidden), IVBMemberOwnerType
 {
-    public VBEnumType(string name, Symbol declaration, Symbol[]? definitions = null, IEnumerable<VBEnumConstMemberSymbol>? members = null, bool isUserDefined = false)
-        : base(typeof(int), name, isUserDefined)
+    public VBEnumType(Symbol symbol, IEnumerable<VBEnumConstMemberSymbol>? members = null, bool isHidden = false)
+        : this(symbol, isHidden)
     {
-        Declaration = declaration;
-        Definitions = definitions;
-
-        Members = [.. (members ?? []).Cast<VBTypeMemberSymbol>()]; // NOTE: an enum without any members would not be compilable
+        Members = [.. (members ?? []).Cast<VBTypeMemberSymbol>()]; // NOTE: an enum without any members would not be statically compilable MS-VBA
     }
 
     private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public Symbol Declaration { get; init; }
-    public Symbol[]? Definitions { get; init; }
-
-    public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
-
     public override int Size => sizeof(int);
 
+    public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
 }

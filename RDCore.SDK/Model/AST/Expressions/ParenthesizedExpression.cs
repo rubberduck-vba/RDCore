@@ -1,6 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.SDK.Model.Expressions;
+namespace RDCore.SDK.Model.AST.Expressions;
 
 public sealed record class ParenthesizedExpression : ValuedExpression
 {

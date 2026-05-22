@@ -10,9 +10,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Integer</c> data type.
 /// </summary>
-public sealed record class VBIntegerType() : VBNumericType<short>(Tokens.Integer), IIntegralNumericType
+public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VBInteger), IIntegralNumericType
 {
     private static readonly Lazy<VBIntegerType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Integer</c> data type.
+    /// </summary>
     public static VBIntegerType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBIntegerValue> _defaultValue = new(() => VBIntegerType.Zero, LazyThreadSafetyMode.PublicationOnly);

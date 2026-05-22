@@ -11,5 +11,8 @@ namespace RDCore.SDK.Model.Types;
 public sealed record class VBLibraryProjectType(string Name, Uri Uri) : VBProjectType(Name, Uri, ProjectTypeId.LibraryProject) 
 {
     private static readonly Lazy<VBLibraryProjectType> _instance = new(() => new("RDCoreLibraryProject1", new Uri("file://rdcore-sdk/project/library/new")), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>VBLibraryProject</c> data type.
+    /// </summary>
     public static VBType TypeInfo => _instance.Value;
 }

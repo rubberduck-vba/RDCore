@@ -1,7 +1,7 @@
 using RDCore.Runtime;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Expressions;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -67,7 +67,7 @@ public abstract class SymbolOperationTests
             SymbolOperationTests.TestLocation?.Range,
             SymbolOperationTests.TestLocation?.Range,
             TestUri.WorkspaceRoot());
-        var udt = new VBUserDefinedType(symbol, [], []);
+        var udt = new VBUserDefinedType(symbol, []);
         var value = new VBUserDefinedTypeValue(udt, symbol);
         return value;
     }

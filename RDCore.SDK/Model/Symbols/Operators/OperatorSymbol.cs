@@ -8,83 +8,128 @@ using RDCore.SDK.Semantics.Static.Operators;
 namespace RDCore.SDK.Model.Symbols.Operators;
 
 /// <summary>
-/// The addition ('+') binary (infix) operator static symbol.
+/// Defines the internal operators symbol names.
 /// </summary>
-public sealed record class AdditionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.AdditionOp), new BinaryAdditionOperatorStaticSemantics(), new BinaryAdditionOperatorRuntimeSemantics()) { }
+/// <remarks>
+/// These names are intentionally illegal VBA identifier names, 
+/// and they should all match the regular expression <c>"___?(?&lt;opname&gt;.{2,3})_op"</c>.
+/// </remarks>
+public static class OperatorSymbolNames
+{
+    public const string BinaryArithmeticAdditionOp = "__add_op";
+    public const string BinaryArithmeticDivisionOp = "__div_op";
+    public const string BinaryArithmeticExponentOp = "__exp_op";
+    public const string BinaryArithmeticIntegerDivisionOp = "__idv_op";
+    public const string BinaryArithmeticModuloOp = "__mod_op";
+    public const string BinaryArithmeticMultiplicationOp = "__mul_op";
+    public const string BinaryArithmeticSubtractionOp = "__sub_op";
+
+    public const string BinaryAssignmentValueOp = "__let_op";
+    public const string BinaryAssignmentReferenceOp = "__set_op";
+
+    public const string BinaryBitwiseAndOp = "__and_op";
+    public const string BinaryBitwiseEqvOp = "__eqv_op";
+    public const string BinaryBitwiseImpOp = "__imp_op";
+    public const string BinaryBitwiseOrOp = "___or_op";
+    public const string BinaryBitwiseXOrOp = "__xor_op";
+
+    public const string BinaryCompareEqOp = "___eq_op";
+    public const string BinaryCompareNeqOp = "__neq_op";
+    public const string BinaryCompareLtOp = "___lt_op";
+    public const string BinaryCompareLtEqOp = "__lte_op";
+    public const string BinaryCompareGtOp = "___gt_op";
+    public const string BinaryCompareGtEqOp = "__gte_op";
+    public const string BinaryCompareLikeOp = "__lik_op";
+    public const string BinaryCompareIsOp = "___is_op";
+
+    public const string BinaryDictionaryAccessOp = "__bda_op";
+    public const string BinaryMemberAccessOp = "__bma_op";
+    public const string BinaryStringConcatOp = "__cat_op";
+
+    public const string UnaryArithmeticAdditionOp = "__ad1_op";
+    public const string UnaryArithmeticNegationOp = "__ng1_op";
+    public const string UnaryArithmeticPrecedenceOp = "__p()_op";
+
+    public const string UnaryBitwiseNotOp = "__not_op";
+    public const string UnaryLetCoerceOp = "__c()_op"; // yes, it's what you think.
+}
+
+#region Arithmetic operators
 /// <summary>
-/// The subtraction ('-') binary operator static symbol.
+/// The addition ('+') binary operator static symbol.
 /// </summary>
-public record class SubtractionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.SubtractionOp), new BinarySubtractionOperatorStaticSemantics(), new BinarySubtractionOperatorRuntimeSematics()) { }
-/// <summary>
-/// The multiplication ('*') binary operator static symbol.
-/// </summary>
-public record class MultiplicationOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.MultiplicationOp), new BinaryMultiplicationOperatorStaticSemantics(), new BinaryMultiplicationOperatorRuntimeSemantics()) { }
+public sealed record class BinaryArithmeticAdditionOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticAdditionOp, new BinaryAdditionOperatorStaticSemantics(), new BinaryAdditionOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The division ('/') binary operator static symbol.
 /// </summary>
-public record class DivisionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.DivisionOp), new BinaryDivisionOperatorStaticSemantics(), new BinaryDivisionOperatorRuntimeSemantics()) { }
-/// <summary>
-/// The integer division ('\') binary operator static symbol.
-/// </summary>
-public record class IntegerDivisionOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.IntegerDivisionOp), new BinaryIntegerDivisionOperatorStaticSematics(), new BinaryIntegerDivisionOperatorRuntimeSemantics()) { }
+public record class BinaryArithmeticDivisionOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticDivisionOp, new BinaryDivisionOperatorStaticSemantics(), new BinaryDivisionOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The exponentiation ('^') binary operator static symbol.
 /// </summary>
-public record class ExponentiationOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.PowerOp), new BinaryExponentOperatorStaticSemantics(), new BinaryExponentOperatorRuntimeSemantics()) { }
+public record class BinaryArithmeticExponentOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticExponentOp, new BinaryExponentOperatorStaticSemantics(), new BinaryExponentOperatorRuntimeSemantics()) { }
+/// <summary>
+/// The integer division ('\') binary operator static symbol.
+/// </summary>
+public record class BinaryArithmeticIntegerDivisionOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticIntegerDivisionOp, new BinaryIntegerDivisionOperatorStaticSematics(), new BinaryIntegerDivisionOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The modulo ('Mod') binary operator static symbol.
 /// </summary>
-public record class ModuloOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.ModuloOp), new BinaryIntegerDivisionOperatorStaticSematics(), new BinaryModuloOperatorRuntimeSemantics()) { }
+public record class BinaryArithmeticModuloOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticModuloOp, new BinaryIntegerDivisionOperatorStaticSematics(), new BinaryModuloOperatorRuntimeSemantics()) { }
 /// <summary>
-/// The concatenation ('&') binary operator static symbol.
+/// The multiplication ('*') binary operator static symbol.
 /// </summary>
-public record class ConcatOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.ConcatOp), new BinaryConcatOperatorStaticSemantics(), new BinaryConcatOperatorRuntimeSemantics()) { }
+public record class BinaryArithmeticMultiplicationOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticMultiplicationOp, new BinaryMultiplicationOperatorStaticSemantics(), new BinaryMultiplicationOperatorRuntimeSemantics()) { }
 /// <summary>
-/// The unary let-coercion ('()') operator static symbol.
+/// The subtraction ('-') binary operator static symbol.
 /// </summary>
-/// <remarks>
-/// NOTE: This deviates from MS-VBAL specifications, which narrowly defines unary operators in a way that excludes parenthesized expressions, but the behavior observed in MS-VBA is identical.
-/// </remarks>
-public record class UnaryLetCoercionOperatorSymbol() : UnaryOperatorSymbol("ParensOp", LetCoercionStaticSemantics.Instance, LetCoercionRuntimeSemantics.Instance) { }
+public record class BinaryArithmeticSubtractionOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryArithmeticSubtractionOp, new BinarySubtractionOperatorStaticSemantics(), new BinarySubtractionOperatorRuntimeSematics()) { }
+
 /// <summary>
-/// The unary plus ('+') prefix operator static symbol.
+/// The unary addition ('+') prefix operator static symbol.
 /// </summary>
 /// <remarks>
 /// NOTE: This operator is technically unspecified. Its static semantics are those of unary arithmetic operators (MS-VBAL 5.6.9.3)
 /// </remarks>
-public record class UnaryPlusOperatorSymbol() : UnaryOperatorSymbol("UnaryPlusOp", new UnaryArithmeticOperatorStaticSemantics(), new UnaryPlusOperatorRuntimeSemantics()) { }
+public record class UnaryArithmeticAdditionOperatorSymbol() : UnaryOperatorSymbol(OperatorSymbolNames.UnaryArithmeticAdditionOp, new UnaryArithmeticOperatorStaticSemantics(), new UnaryPlusOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The unary negation ('-') prefix operator static symbol.
 /// </summary>
-public record class UnaryNegationOperatorSymbol() : UnaryOperatorSymbol("NegationOp", new UnaryNegationOperatorStaticSemantics(), new UnaryNegationOperatorRuntimeSemantics()) { }
+public record class UnaryArithmeticNegationOperatorSymbol() : UnaryOperatorSymbol(OperatorSymbolNames.UnaryArithmeticNegationOp, new UnaryNegationOperatorStaticSemantics(), new UnaryNegationOperatorRuntimeSemantics()) { }
+#endregion
+
 /// <summary>
-/// The bitwise/logical <c>Not</c> operator static symbol.
+/// The concatenation ('&') binary operator static symbol.
 /// </summary>
-public record class BitwiseNotOperatorSymbol() : UnaryOperatorSymbol(nameof(Tokens.LogicalNotOp), new UnaryLogicalOperatorStaticSemantics(), new UnaryNotOperatorRuntimeSemantics()) { }
+public record class BinaryStringConcatOperatorSymbol() : BinaryOperatorSymbol(OperatorSymbolNames.BinaryStringConcatOp, new BinaryConcatOperatorStaticSemantics(), new BinaryConcatOperatorRuntimeSemantics()) { }
+
+#region Bitwise (logical) operators
 /// <summary>
 /// The bitwise/logical <c>And</c> operator static symbol.
 /// </summary>
-public record class BitwiseAndOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalAndOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryAndBitwiseOperatorRuntimeSemantics()) { }
+public record class BinaryBitwiseAndOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalAndOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryAndBitwiseOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The bitwise/logical <c>Or</c> operator static symbol.
 /// </summary>
-public record class BitwiseOrOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalOrOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryOrBitwiseOperatorRuntimeSemantics()) { }
+public record class BinaryBitwiseOrOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalOrOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryOrBitwiseOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The bitwise/logical <c>XOr</c> operator static symbol.
 /// </summary>
-public record class BitwiseXOrOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalXOrOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryXorBitwiseOperatorRuntimeSemantics()) { }
+public record class BinaryBitwiseXOrOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalXOrOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryXorBitwiseOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The bitwise/logical <c>Imp</c> operator static symbol.
 /// </summary>
-public record class BitwiseImpOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalImpOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryImpBitwiseOperatorRuntimeSemantics()) { }
+public record class BinaryBitwiseImpOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalImpOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryImpBitwiseOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The bitwise/logical <c>Eqv</c> operator static symbol.
 /// </summary>
-public record class BitwiseEqvOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalEqvOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryEqvBitwiseOperatorRuntimeSemantics()) { }
+public record class BinaryBitwiseEqvOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.LogicalEqvOp), new BinaryLogicalOperatorStaticSemantics(), new BinaryEqvBitwiseOperatorRuntimeSemantics()) { }
+#endregion
+
+#region Comparison operators
 /// <summary>
 /// The value equality ('=') comparison operator static symbol.
 /// </summary>
-public record class EqualityOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.CompareEqualOp), new BinaryRelationalOperatorStaticSemantics(), new EqualityRelationalOperatorRuntimeSemantics()) { }
+public record class BinaryCompareEqOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.CompareEqualOp), new BinaryRelationalOperatorStaticSemantics(), new EqualityRelationalOperatorRuntimeSemantics()) { }
 /// <summary>
 /// The value inequality ('&lt;&gt;') comparison operator static symbol.
 /// </summary>
@@ -113,4 +158,17 @@ public record class LikeOperatorSymbol(): BinaryOperatorSymbol(nameof(Tokens.Lik
 /// The <c>Is</c> reference equality comparison operator static symbol.
 /// </summary>
 public record class IsRefEqOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.CompareIsOp), new BinaryIsRefEqOperatorStaticSemantics(), new IsRefEqRelationalOperatorRuntimeSemantics()) { }
-//public record class MemberAccessOperatorSymbol() : BinaryOperatorSymbol(nameof(Tokens.MemberAccess), default!, default!) { }
+#endregion
+
+//public record class BinaryMemberAccessOperatorSymbol() : BinaryOperatorSymbol(nameof(OperatorSymbolNames.BinaryMemberAccessOp), default!, default!) { }
+
+/// <summary>
+/// The bitwise/logical <c>Not</c> operator static symbol.
+/// </summary>
+public record class UnaryBitwiseNotOperatorSymbol() : UnaryOperatorSymbol(nameof(Tokens.LogicalNotOp), new UnaryLogicalOperatorStaticSemantics(), new UnaryNotOperatorRuntimeSemantics()) { }
+
+/// <summary>
+/// The unary let-coercion ('()') operator static symbol.
+/// </summary>
+public record class UnaryLetCoercionOperatorSymbol() : UnaryOperatorSymbol(OperatorSymbolNames.UnaryLetCoerceOp, LetCoercionStaticSemantics.Instance, LetCoercionRuntimeSemantics.Instance) { }
+

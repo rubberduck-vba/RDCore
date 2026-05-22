@@ -8,9 +8,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Null</c> data type.
 /// </summary>
-public sealed record class VBNullType() : VBIntrinsicType<object?>(Tokens.Null)
+public sealed record class VBNullType() : VBIntrinsicType<object?>(VBTypeNames.VBNull)
 {
     private static readonly Lazy<VBNullType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Null</c> data type.
+    /// </summary>
     public static VBNullType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBNullValue> _defaultValue = new(() => VBNullValue.Null, LazyThreadSafetyMode.PublicationOnly);

@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Single</c> data type.
 /// </summary>
-public record class VBSingleType() : VBNumericType<float>(Tokens.Single), IFloatingPointNumericType
+public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle), IFloatingPointNumericType
 {
     /// <summary>
     /// The number of significant digits retained in a String representation of a value of this type.
@@ -18,6 +18,9 @@ public record class VBSingleType() : VBNumericType<float>(Tokens.Single), IFloat
     public const int SignificantIntegerDigits = 7;
 
     private static readonly Lazy<VBSingleType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Single</c> data type.
+    /// </summary>
     public static VBSingleType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBSingleValue> _defaultValue = new(() => VBSingleType.Zero, LazyThreadSafetyMode.PublicationOnly);

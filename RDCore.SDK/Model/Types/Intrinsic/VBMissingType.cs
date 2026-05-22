@@ -9,9 +9,15 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Variant</c> subtype given to an optional <c>Variant</c> parameter that was not supplied.
 /// </summary>
-public record class VBMissingType() : VBIntrinsicType<IntPtr>("<missing>")
+public record class VBMissingType() : VBIntrinsicType<int>("Missing")
 {
     private static readonly Lazy<VBMissingType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Missing</c> data type.
+    /// </summary>
+    /// <remarks>
+    /// This data type has no declaration semantics and is only indirectly usable as a <c>Variant</c> subtype.
+    /// </remarks>
     public static VBMissingType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBMissingValue> _defaultValue = new(() => new(GlobalSymbols.StaticSymbols.MissingValue), LazyThreadSafetyMode.PublicationOnly);

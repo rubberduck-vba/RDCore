@@ -11,9 +11,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Byte</c> data type.
 /// </summary>
-public sealed record class VBByteType() : VBNumericType<byte>(Tokens.Byte), IIntegralNumericType
+public sealed record class VBByteType() : VBNumericType<byte>(VBTypeNames.VBByte), IIntegralNumericType
 {
     private static readonly Lazy<VBByteType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Byte</c> data type.
+    /// </summary>
     public static VBByteType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBByteValue> _defaultValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBByteZeroValue), LazyThreadSafetyMode.PublicationOnly);

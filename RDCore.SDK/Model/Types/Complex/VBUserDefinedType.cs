@@ -12,10 +12,10 @@ namespace RDCore.SDK.Model.Types;
 /// Represents any <em>User-Defined Type</em> (UDT) structure.
 /// </summary>
 /// <param name="Symbol">The symbol associated with this UDT.</param>
-/// <param name="Definitions">Any other definitions associated with this UDT.</param>
 /// <param name="Members">The members (fields) of the UDT.</param>
-public record class VBUserDefinedType(Symbol Symbol, Symbol[]? Definitions, ImmutableArray<VBTypeMemberSymbol> Members) : VBType(typeof(object), Symbol.Name), 
-    IVBDeclaredType, IVBMemberOwnerType, IEquatable<VBUserDefinedType>
+/// 
+public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMemberSymbol> Members) : VBType(typeof(Type), Symbol.Name), 
+    IVBMemberOwnerType, IEquatable<VBUserDefinedType>
 {
     public override VBTypedValue DefaultValue => VBVoidValue.Void;
     public override int Size => Members.Sum(member => member.ResolvedType.Size); // FIXME this is wrong, there's actually some padding going on
@@ -24,15 +24,11 @@ public record class VBUserDefinedType(Symbol Symbol, Symbol[]? Definitions, Immu
 
     public virtual bool Equals(VBUserDefinedType? other) => other is VBUserDefinedType udt && udt.Symbol.Uri == Symbol.Uri;
     public override int GetHashCode() => Symbol.Uri.GetHashCode();
-
-    Symbol IVBDeclaredType.Declaration { get; init; } = Symbol;
 }
 
 /// <summary>
 /// Represents a <c>VBUserDefinedType</c> imported from an external lirary.
 /// </summary>
 /// <param name="Symbol">The symbol associated with this UDT.</param>
-/// <param name="Definitions">Any other definitions associated with this UDT.</param>
 /// <param name="Members">The members (fields) of the UDT.</param>
-public record class VBExternalUserDefinedType(Symbol Symbol, Symbol[]? Definitions, ImmutableArray<VBTypeMemberSymbol> Members)
-    : VBUserDefinedType(Symbol, Definitions, Members) { }
+public record class VBExternalUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMemberSymbol> Members) : VBUserDefinedType(Symbol, Members) { }

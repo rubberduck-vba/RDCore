@@ -10,9 +10,12 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Date</c> data type.
 /// </summary>
-public sealed record class VBDateType() : VBIntrinsicType<DateTime>(Tokens.Date)
+public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.VBDate)
 {
     private static readonly Lazy<VBDateType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// The <c>Date</c> data type.
+    /// </summary>
     public static VBDateType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBDateValue> _defaultValue = new(() => VBDateType.Zero, LazyThreadSafetyMode.PublicationOnly);

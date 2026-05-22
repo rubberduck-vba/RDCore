@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.Expressions;
+﻿using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
@@ -15,5 +15,5 @@ public record class LiteralExpressionRuntimeSemantics : RuntimeSemantics
         => operandDeclaredTypes[0];
 
     protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands) 
-        => expression.ResolvedValue;
+        => expression.ExpressionValue;
 }
