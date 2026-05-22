@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.Expressions.Abstract;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Server.ProtocolExtensions;

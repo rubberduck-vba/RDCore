@@ -5,9 +5,8 @@ using System.Collections.Concurrent;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Runtime;
 
-namespace RDCore.Runtime;
+namespace RDCore.SDK.Runtime;
 
 /// <summary>
 /// Creates a virtual memory space for an execution context.

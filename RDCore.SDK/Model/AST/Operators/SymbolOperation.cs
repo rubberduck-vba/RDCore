@@ -1,4 +1,4 @@
-﻿namespace RDCore.SDK.Model.Expressions.Operators;
+﻿namespace RDCore.SDK.Model.AST.Operators;
 
 // TODO migrate to types dedicated to the runtime semantics for member and dictionary access
 

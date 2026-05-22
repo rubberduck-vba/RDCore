@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// Represents the <c>Error</c> data type.
 /// </summary>
-public sealed record class VBErrorType() : VBIntrinsicType<int>(Tokens.Error)
+public sealed record class VBErrorType() : VBIntrinsicType<int>(VBTypeNames.VBError)
 {
     private static readonly Lazy<VBErrorType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

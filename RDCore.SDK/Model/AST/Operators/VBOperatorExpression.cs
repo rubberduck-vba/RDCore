@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols.Abstract;
 
-namespace RDCore.SDK.Model.Expressions.Operators;
+namespace RDCore.SDK.Model.AST.Operators;
 
 /// <summary>
 /// Represents any operator expression; a valued expression that is associated to an <c>OperatorSymbol</c>.

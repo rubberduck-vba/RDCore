@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 
-namespace RDCore.SDK.Model.Expressions.Abstract;
+namespace RDCore.SDK.Model.AST.Abstract;
 
 /// <summary>
 /// The base AST expression node. 

@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Runtime;
 
-namespace RDCore.Runtime;
+namespace RDCore.SDK.Runtime;
 
 /// <summary>
 /// Represents and encapsulates the execution environment and memory space.
