@@ -20,7 +20,7 @@ public sealed record class VBPropertyGetMemberSymbol : VBReturningMemberSymbol, 
     /// <param name="name">The identifier name of the symbol.</param>
     /// <param name="accessibility">The access modifier associated with this symbol.</param>
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
-    public VBPropertyGetMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri)
+    public VBPropertyGetMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri)
         : base(scope, workspaceRoot, name, accessibility, SymbolKindExt.Property, parentUri) { }
 
     /// <summary>
@@ -36,6 +36,6 @@ public sealed record class VBPropertyGetMemberSymbol : VBReturningMemberSymbol, 
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBPropertyGetMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange)
+    public VBPropertyGetMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange)
         : base(scope, workspaceRoot, name, accessibility, SymbolKindExt.Property, parentUri, range, selectionRange) { }
 }

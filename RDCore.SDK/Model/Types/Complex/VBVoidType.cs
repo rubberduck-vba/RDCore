@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// Represents the <c>void</c> semantic data type.

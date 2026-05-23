@@ -1,5 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Symbols.Unbound;
 using RDCore.SDK.Model.Types.Abstract;
 
 namespace RDCore.SDK.Model.Types.Complex;

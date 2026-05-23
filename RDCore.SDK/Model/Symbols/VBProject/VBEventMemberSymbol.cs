@@ -22,7 +22,7 @@ public sealed record class VBEventMemberSymbol : VBTypeMemberSymbol
     /// <param name="accessibility">The access modifier associated with this symbol.</param>
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
 
-    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, Accessibility accessibility, Uri parentUri) 
+    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, AccessModifier accessibility, Uri parentUri) 
         : base(scope, workspaceRoot, name, kind, accessibility, parentUri) { }
 
     /// <summary>
@@ -39,6 +39,6 @@ public sealed record class VBEventMemberSymbol : VBTypeMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange) 
+    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange) 
         : base(scope, workspaceRoot, name, kind, accessibility, parentUri, range, selectionRange) { }
 }

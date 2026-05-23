@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
 
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// Defines a <em>host project</em>, as specified in <strong>MS-VBAL 4.1</strong>.

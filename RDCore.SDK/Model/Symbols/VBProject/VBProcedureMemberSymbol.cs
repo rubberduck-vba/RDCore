@@ -1,5 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -25,7 +25,7 @@ public record class VBProcedureMemberSymbol : VBTypeMemberSymbol
     /// <param name="name">The identifier name of the symbol.</param>
     /// <param name="accessibility">The access modifier associated with this symbol.</param>
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
-    protected VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, SymbolKindExt kind, string name, Accessibility accessibility, Uri parentUri)
+    protected VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, SymbolKindExt kind, string name, AccessModifier accessibility, Uri parentUri)
         : base(scope, workspaceRoot, name, kind, accessibility, parentUri)
     {
         ResolvedType = VBVoidType.TypeInfo;
@@ -41,7 +41,7 @@ public record class VBProcedureMemberSymbol : VBTypeMemberSymbol
     /// <param name="name">The identifier name of the symbol.</param>
     /// <param name="accessibility">The access modifier associated with this symbol.</param>
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
-    public VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri)
+    public VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri)
         : base(scope, workspaceRoot, name, SymbolKindExt.Procedure, accessibility, parentUri)
     {
         ResolvedType = VBVoidType.TypeInfo;
@@ -62,7 +62,7 @@ public record class VBProcedureMemberSymbol : VBTypeMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    protected VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, SymbolKindExt kind, string name, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange)
+    protected VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, SymbolKindExt kind, string name, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange)
         : base(scope, workspaceRoot, name, kind, accessibility, parentUri, range, selectionRange)
     {
         ResolvedType = VBVoidType.TypeInfo;
@@ -81,7 +81,7 @@ public record class VBProcedureMemberSymbol : VBTypeMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange)
+    public VBProcedureMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange)
         : base(scope, workspaceRoot, name, SymbolKindExt.Procedure, accessibility, parentUri, range, selectionRange)
     {
         ResolvedType = VBVoidType.TypeInfo;

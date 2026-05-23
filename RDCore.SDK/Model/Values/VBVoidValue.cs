@@ -1,5 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values;

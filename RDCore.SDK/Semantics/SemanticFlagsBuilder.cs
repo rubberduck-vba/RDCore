@@ -4,19 +4,28 @@
 /// A <em>Builder</em> representing any specific <em>semantic operation</em>.
 /// </summary>
 /// <param name="IntValue">Any semantic flags attached to this operation, expressed as an <c>int</c>.</param>
-public abstract record class SemanticOperationBuilder(int IntValue = default)
+public abstract record class SemanticFlagsBuilder()
 {
-    /// <summary>
-    /// Appends the specified value to the current semantic flags.
-    /// </summary>
-    /// <returns>
-    /// A new semantic operation builder of the same type, holding the bitwise-or new value.
-    /// </returns>
-    public SemanticOperationBuilder WithFlags(int flags) => this with { IntValue = IntValue | flags };
+    private readonly Dictionary<Type, int> _state = [];
+
+    public SemanticFlagsBuilder WithFlags<TFlags>(TFlags values) where TFlags : struct, Enum
+    {
+        var key = typeof(TFlags);
+        var intValues = (int)(object)values;
+        if (!_state.TryGetValue(key, out var flags))
+        {
+            flags = intValues;
+        }
+        var value = flags | intValues;
+        _state[key] = value;
+
+        return this;
+    }
+
     /// <summary>
     /// Represents the semantic flags as a typed <c>Enum</c> value.
     /// </summary>
-    public TFlags Build<TFlags>() where TFlags : struct, Enum => (TFlags)(object)IntValue;
+    public TFlags Build<TFlags>() where TFlags : struct, Enum => (TFlags)(object)_state;
 }
 
 /// <summary>
@@ -24,7 +33,7 @@ public abstract record class SemanticOperationBuilder(int IntValue = default)
 /// </summary>
 /// <param name="SemanticFlags">Any semantic flags attached to this operation, expressed as an <c>Enum</c>.</param>
 /// <typeparam name="TFlags">The <c>Enum</c> type that this builder intends to work with.</typeparam>
-public record class SemanticOperationBuilder<TFlags>(TFlags SemanticFlags = default) : SemanticOperationBuilder(AsInt32(SemanticFlags))
+public record class SemanticOperationBuilder<TFlags>(TFlags SemanticFlags = default) : SemanticFlagsBuilder()
     where TFlags : struct, Enum
 {
     /// <summary>

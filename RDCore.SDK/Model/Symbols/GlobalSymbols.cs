@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Meta;
+using RDCore.SDK.Model.Types.Complex;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -128,9 +129,8 @@ public static class GlobalSymbols
     public static class OperatorSymbols
     {
         public static readonly UnaryOperatorSymbol UnaryNegation = Operators.OfType<UnaryArithmeticNegationOperatorSymbol>().Single();
-        public static readonly UnaryOperatorSymbol UnaryPlus = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
+        public static readonly UnaryOperatorSymbol UnaryAddition = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
         public static readonly UnaryOperatorSymbol BitwiseNot = Operators.OfType<UnaryBitwiseNotOperatorSymbol>().Single();
-        //public static readonly UnaryOperatorSymbol Parentheses = Operators.OfType<ParenthesizedExpressionOperatorSymbol>().Single();
 
         public static readonly BinaryOperatorSymbol Addition = Operators.OfType<BinaryArithmeticAdditionOperatorSymbol>().Single();
         public static readonly BinaryOperatorSymbol Subtraction = Operators.OfType<BinaryArithmeticSubtractionOperatorSymbol>().Single();
@@ -153,7 +153,6 @@ public static class GlobalSymbols
         public static readonly BinaryOperatorSymbol Like = Operators.OfType<LikeOperatorSymbol>().Single();
 
         public static readonly BinaryOperatorSymbol IsRefEquals = Operators.OfType<IsRefEqOperatorSymbol>().Single();
-        //public static readonly BinaryOperatorSymbol MemberAccess = Operators.OfType<MemberAccessOperatorSymbol>().Single();
         public static readonly BinaryOperatorSymbol Concat = Operators.OfType<BinaryStringConcatOperatorSymbol>().Single();
     }
 

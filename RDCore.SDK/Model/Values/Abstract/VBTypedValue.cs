@@ -1,6 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Semantics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Model.Values.Abstract;
 
@@ -23,7 +25,7 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
 }
 
 /// <summary>
-/// Represents any run-time typed value.
+/// Represents any typed value.
 /// </summary>
 /// <remarks>
 /// This class is at the base of the type hierarchy for all typed values.
@@ -56,4 +58,3 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol Symbol) : VBRu
     /// </summary>
     public abstract int Size { get; }
 }
-

@@ -25,7 +25,7 @@ public sealed record class VBEnumConstMemberSymbol : VBReturningMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="workspaceRoot"></param>
     public VBEnumConstMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Uri parentUri, BoundExpression valueExpression)
-        : base(scope, workspaceRoot, name, Accessibility.Public, SymbolKindExt.EnumMember, parentUri)
+        : base(scope, workspaceRoot, name, AccessModifier.Public, SymbolKindExt.EnumMember, parentUri)
     {
         ResolvedType = VBLongType.TypeInfo;
         ValueExpression = valueExpression;
@@ -43,7 +43,7 @@ public sealed record class VBEnumConstMemberSymbol : VBReturningMemberSymbol
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
     public VBEnumConstMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Uri parentUri, BoundExpression? valueExpression, Range range, Range selectionRange)
-        : base(scope, workspaceRoot, name, Accessibility.Public, SymbolKindExt.EnumMember, parentUri, range, selectionRange)
+        : base(scope, workspaceRoot, name, AccessModifier.Public, SymbolKindExt.EnumMember, parentUri, range, selectionRange)
     {
         ResolvedType = VBLongType.TypeInfo;
         ValueExpression = valueExpression;

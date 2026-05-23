@@ -1,7 +1,9 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 using RDCore.SDK.Model.Types.Abstract;
 
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// Defines a <em>library project</em>, as specified in <strong>MS-VBAL 4.1</strong>.

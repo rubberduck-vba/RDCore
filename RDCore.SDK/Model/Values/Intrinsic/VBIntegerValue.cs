@@ -17,7 +17,8 @@ public record class VBIntegerValue(Symbol Symbol) : VBNumericTypedValue(VBIntege
     {
         if (value > VBIntegerType.MaxValue.Value || value < VBIntegerType.MinValue.Value)
         {
-            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(Symbol?.Range!, $"`{TypeInfo.Name}` values must be between **{VBIntegerType.MinValue.Value:N}** and **{VBIntegerType.MaxValue.Value:N}**."));
+            var location = (Symbol as BoundSymbol)?.Range;
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBIntegerType.MinValue.Value:N}** and **{VBIntegerType.MaxValue.Value:N}**."));
         }
         return this with { ManagedValue = (short)value };
     }

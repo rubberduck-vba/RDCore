@@ -7,9 +7,9 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// <summary>
 /// Uses pattern-matching rules to encapsulate binary relational operator static semantics as defined in <strong>MS-VBAL 5.6.9.5</strong>.
 /// </summary>
-public record class BinaryRelationalOperatorStaticSemantics : IStaticSemantics
+public record class BinaryRelationalOperatorStaticSemantics : StaticSemantics, IStaticSemantics
 {
-    public VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
+    public override VBType? DetermineDeclaredType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
 
     /// <summary>

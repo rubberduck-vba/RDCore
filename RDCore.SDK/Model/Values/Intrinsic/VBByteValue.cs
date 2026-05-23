@@ -13,14 +13,15 @@ public sealed record class VBByteValue(Symbol Symbol) : VBNumericTypedValue(VBBy
     IVBTypedValue<VBByteValue, byte>, INumericValue<VBByteValue>
 {
     public byte Value => (byte)ManagedValue;
-    public override int Size { get; } = 1;
+    public override int Size { get; } = sizeof(byte);
     public override double ManagedValue { get; init; }
 
     public new VBByteValue WithValue(double value)
     {
         if (value > VBByteType.MaxValue.ManagedValue || value < VBByteType.MinValue.ManagedValue)
         {
-            throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBByteType.MinValue.ManagedValue:N}** and **{VBByteType.MaxValue.ManagedValue:N}**.");
+            var location = (Symbol as BoundSymbol)?.SelectionRange;
+            throw VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBByteType.MinValue.ManagedValue:N}** and **{VBByteType.MaxValue.ManagedValue:N}**.");
         }
         return this with { ManagedValue = (byte)value };
     }

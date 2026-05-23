@@ -25,7 +25,8 @@ public sealed record class VBLongPtrValue(bool Is64Bit, Symbol Symbol) : VBNumer
         {
             if (value > VBLongLongType.MaxValue.ManagedValue || value < VBLongLongType.MinValue.ManagedValue)
             {
-                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBLongLongType.MinValue.Value:N}** and **{VBLongLongType.MaxValue.Value:N}**.");
+                var location = (Symbol as BoundSymbol)?.SelectionRange;
+                throw VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBLongLongType.MinValue.Value:N}** and **{VBLongLongType.MaxValue.Value:N}**.");
             }
 
             return this with { ManagedValue = (long)value };
@@ -35,7 +36,8 @@ public sealed record class VBLongPtrValue(bool Is64Bit, Symbol Symbol) : VBNumer
         {
             if (value > VBLongType.MaxValue.ManagedValue || value < VBLongType.MinValue.ManagedValue)
             {
-                throw VBRuntimeErrorException.Overflow(Symbol?.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBLongType.MinValue:N}** and **{VBLongType.MaxValue:N}**.");
+                var location = (Symbol as BoundSymbol)?.SelectionRange;
+                throw VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBLongType.MinValue:N}** and **{VBLongType.MaxValue:N}**.");
             }
 
             return this with { ManagedValue = (int)value };

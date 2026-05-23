@@ -1,8 +1,8 @@
-﻿namespace RDCore.SDK.Model.AST.Operators;
+﻿namespace RDCore.SDK.Model.AST.Expressions;
 
 // TODO migrate to types dedicated to the runtime semantics for member and dictionary access
 
-public static class SymbolOperation
+public static class VBMemberAccessOperatorExpression
 {
     /*
     public static VBTypedValue EvaluateBinaryMemberAccess(

@@ -58,7 +58,8 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     {
         if (value > VBDateType.MaxValue.Value || value < VBDateType.MinValue.Value)
         {
-            VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**.");
+            var location = (Symbol as BoundSymbol)?.SelectionRange;
+            VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**.");
         }
         return this with { Value = value };
     }
@@ -67,7 +68,8 @@ public sealed record class VBDateValue(Symbol Symbol) : VBTypedValue(VBDateType.
     {
         if (value > MaxSerial || value < MinSerial)
         {
-            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(Symbol.SelectionRange!, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**."));
+            var location = (Symbol as BoundSymbol)?.SelectionRange;
+            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBDateType.MinValue.Value}** and **{VBDateType.MaxValue.Value}**."));
         }
         return this with { Value = VBDateType.Zero.Value.AddDays(value) };
     }

@@ -19,7 +19,7 @@ public sealed record class VBUserDefinedTypeMemberSymbol : VBTypeMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBUserDefinedTypeMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Range range, Range selectionRange, Uri parentUri)
+    public VBUserDefinedTypeMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Range range, Range selectionRange, Uri parentUri)
         : base(scope, workspaceRoot, name, SymbolKindExt.Field, accessibility, parentUri, range, selectionRange) { }
 }
 

@@ -2,7 +2,7 @@
 using System.Collections.Immutable;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// Defines a <em>source project</em>, as specified in <strong>MS-VBAL 4.1</strong>.

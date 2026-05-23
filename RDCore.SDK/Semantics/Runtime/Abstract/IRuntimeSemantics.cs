@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
@@ -17,7 +17,7 @@ public interface IRuntimeSemantics
     /// <param name="expression">The expression to be evaluated.</param>
     /// <param name="operands">The operands of the operation.</param>
     /// <returns></returns>
-    VBTypedValue? Evaluate(IVBExecutionContext context, ValuedExpression expression, params VBTypedValue[] operands);
+    VBTypedValue? Evaluate(IVBExecutionContext context, BoundExpression expression, params VBTypedValue[] operands);
     /// <summary>
     /// Determines the <em>effective type</em> of an operation based on the data type of its operands.
     /// </summary>

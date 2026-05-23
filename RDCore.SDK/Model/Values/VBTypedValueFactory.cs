@@ -23,6 +23,9 @@ public static class VBTypedValueFactory
     public static VBNumericTypedValue CreateValue<TNumericType>(TNumericType type, Symbol symbol, double numericValue) where TNumericType : VBNumericType, INumericType
         => (VBNumericTypedValue)((INumericValue)CreateValue(type, symbol)!).WithValue(numericValue);
 
+    public static VBTypedValue? CreateValue(VBType type, Symbol symbol, double numericValue)
+        => (VBNumericTypedValue)((INumericValue)CreateValue(type, symbol)!).WithValue(numericValue);
+
     /// <summary>
     /// Creates a new <c>VBTypedValue</c> of the specified <c>VType</c> 
     /// </summary>

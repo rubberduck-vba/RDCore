@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -30,7 +30,7 @@ public abstract record class RuntimeSemantics() : IRuntimeSemantics
     /// <param name="expression">The expression to be evaluated.</param>
     /// <param name="operands">The operands of the operation.</param>
     /// <returns></returns>
-    public VBTypedValue? Evaluate(IVBExecutionContext context, ValuedExpression expression, params VBTypedValue[] operands)
+    public VBTypedValue? Evaluate(IVBExecutionContext context, BoundExpression expression, params VBTypedValue[] operands)
     {
         var effectiveType = DetermineEffectiveType(context, [.. operands.Select(op => op.TypeInfo)])
             ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
@@ -42,24 +42,24 @@ public abstract record class RuntimeSemantics() : IRuntimeSemantics
     }
 
     /// <summary>
-    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>ValuedExpression</c>.
+    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>BoundExpression</c>.
     /// </summary>
     /// <param name="context">An execution context and memory space to operate in.</param>
-    /// <param name="expression">Any <c>ValuedExpression</c> to be evaluated.</param>
+    /// <param name="expression">Any <c>BoundExpression</c> to be evaluated.</param>
     /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
     /// <param name="operands">An array of <c>VBTypedValue</c> containing the operands to work with.</param>
     /// <returns>
     /// Returns <c>null</c> if no result could be determined, if no runtime exceptions were thrown.
     /// </returns>
-    protected abstract VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands);
+    protected abstract VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands);
 
-    private static VBTypedValue ValidateOperand(IVBExecutionContext context, VBType effectiveType, ValuedExpression expression, VBTypedValue operand) =>
+    private static VBTypedValue ValidateOperand(IVBExecutionContext context, VBType effectiveType, BoundExpression expression, VBTypedValue operand) =>
         operand is not VBNullValue
             ? LetCoerceNonNullOperand(context, expression, effectiveType, operand)
                 ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range)
             : operand;
 
-    private static VBTypedValue? LetCoerceNonNullOperand(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue operand)
+    private static VBTypedValue? LetCoerceNonNullOperand(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue operand)
     {
         VBTypedValue? letCoercedOperand = effectiveType.Equals(operand.TypeInfo) ? operand : null;
         if (letCoercedOperand is not null)

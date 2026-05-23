@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
@@ -14,6 +15,6 @@ public record class LiteralExpressionRuntimeSemantics : RuntimeSemantics
     public override VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes) 
         => operandDeclaredTypes[0];
 
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands) 
-        => expression.ExpressionValue;
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands) 
+        => ((VBLiteralExpression)expression).StaticValue;
 }

@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-namespace RDCore.SDK.Model.Types;
+namespace RDCore.SDK.Model.Types.Complex;
 
 /// <summary>
 /// A semantic data type representing an unknown (unresolved) but presumably valid data type.

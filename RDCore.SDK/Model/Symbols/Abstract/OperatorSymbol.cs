@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;

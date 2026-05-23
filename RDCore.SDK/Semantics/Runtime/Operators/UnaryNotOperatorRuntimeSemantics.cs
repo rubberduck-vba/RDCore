@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -10,7 +10,7 @@ namespace RDCore.SDK.Semantics.Runtime.Operators;
 
 public record class UnaryNotOperatorRuntimeSemantics : UnaryOperatorRuntimeSemantics
 {
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands)
     {
         if (effectiveType is IIntegralNumericType)
         {
