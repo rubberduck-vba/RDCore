@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -39,12 +39,12 @@ public record class LetCoercionRuntimeSemantics : RuntimeSemantics
     /// Evaluates the let-coerced <c>VBTypedValue</c> for the specified <c>effectiveType</c> in the context of the specified <c>expression</c>.
     /// </summary>
     /// <param name="context">An execution context and memory space to operate in.</param>
-    /// <param name="expression">The <c>ValuedExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
     /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
     /// <param name="value">The value to let-coerce into the <em>effective type</em>.</param>
     /// <returns><c>null</c> if no value could be determined, but exceptions are specified where appropriate.</returns>
     /// <exception cref="VBRuntimeErrorException"></exception>
-    public static VBTypedValue? Evaluate(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    public static VBTypedValue? Evaluate(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         var semantics = GetSemantics(value);
         return semantics?.EvaluateLetCoercion(context, expression, effectiveType, value);
@@ -54,16 +54,16 @@ public record class LetCoercionRuntimeSemantics : RuntimeSemantics
     /// Evaluates the let-coerced <c>VBTypedValue</c> for the specified <c>effectiveType</c> in the context of the specified <c>expression</c>.
     /// </summary>
     /// <param name="context">An execution context and memory space to operate in.</param>
-    /// <param name="expression">The <c>ValuedExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
     /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
     /// <param name="value">The value to let-coerce into the <em>effective type</em>.</param>
     /// <returns><c>null</c> if no value could be determined, but exceptions are specified where appropriate.</returns>
     /// <exception cref="VBRuntimeErrorException"></exception>
-    protected virtual VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value) => default;
+    protected virtual VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value) => default;
 
     public override VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes) => operandDeclaredTypes[0];
 
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands) => operands[0];
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands) => operands[0];
 }
 
 /// <summary>
@@ -74,7 +74,7 @@ public sealed record class LetCoercionVBNumericTypeRuntimeSemantics : LetCoercio
     private static readonly Lazy<LetCoercionVBNumericTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBNumericTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
         /* //numeric let-coercion to string
@@ -171,7 +171,7 @@ public record class LetCoercionVBBooleanRuntimeSemantics : LetCoercionRuntimeSem
     private static readonly Lazy<LetCoercionVBBooleanRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBBooleanRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -185,7 +185,7 @@ public record class LetCoercionVBDateRuntimeSemantics : LetCoercionRuntimeSemant
     private static readonly Lazy<LetCoercionVBDateRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBDateRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -199,7 +199,7 @@ public record class LetCoercionVBStringRuntimeSemantics : LetCoercionRuntimeSema
     private static readonly Lazy<LetCoercionVBStringRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBStringRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -213,7 +213,7 @@ public record class LetCoercionVBFixedStringRuntimeSemantics : LetCoercionRuntim
     private static readonly Lazy<LetCoercionVBFixedStringRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBFixedStringRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -227,7 +227,7 @@ public record class LetCoercionVBResizableByteArrayRuntimeSemantics : LetCoercio
     private static readonly Lazy<LetCoercionVBResizableByteArrayRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBResizableByteArrayRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -241,7 +241,7 @@ public record class LetCoercionVBResizableArrayRuntimeSemantics : LetCoercionRun
     private static readonly Lazy<LetCoercionVBResizableArrayRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBResizableArrayRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -255,7 +255,7 @@ public record class LetCoercionVBUserDefinedTypeRuntimeSemantics : LetCoercionRu
     private static readonly Lazy<LetCoercionVBUserDefinedTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBUserDefinedTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -269,7 +269,7 @@ public record class LetCoercionVBErrorTypeRuntimeSemantics : LetCoercionRuntimeS
     private static readonly Lazy<LetCoercionVBErrorTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBErrorTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -283,7 +283,7 @@ public record class LetCoercionVBNullTypeRuntimeSemantics : LetCoercionRuntimeSe
     private static readonly Lazy<LetCoercionVBNullTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBNullTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -297,7 +297,7 @@ public record class LetCoercionVBEmptyTypeRuntimeSemantics : LetCoercionRuntimeS
     private static readonly Lazy<LetCoercionVBEmptyTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBEmptyTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -311,7 +311,7 @@ public record class LetCoercionVBVariantTypeRuntimeSemantics : LetCoercionRuntim
     private static readonly Lazy<LetCoercionVBVariantTypeRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBVariantTypeRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }
@@ -325,7 +325,7 @@ public record class LetCoercionVBObjectRuntimeSemantics : LetCoercionRuntimeSema
     private static readonly Lazy<LetCoercionVBObjectRuntimeSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public new static LetCoercionVBObjectRuntimeSemantics Instance => _instance.Value;
 
-    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue value)
+    protected sealed override VBTypedValue? EvaluateLetCoercion(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue value)
     {
         return base.EvaluateLetCoercion(context, expression, effectiveType, value);
     }

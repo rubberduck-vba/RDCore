@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -22,7 +22,7 @@ public record class UnaryNegationOperatorRuntimeSemantics : UnaryOperatorRuntime
         return base.DetermineOperatorEffectiveType(operand);
     }
 
-    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands)
+    protected override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands)
     {
         var operand = operands[0];
         //if (effectiveType is VBByteType)

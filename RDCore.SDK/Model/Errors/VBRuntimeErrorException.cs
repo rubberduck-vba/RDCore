@@ -1,6 +1,32 @@
-﻿using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+﻿using RDCore.SDK.Model.Symbols.Abstract;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Errors;
+
+/// <summary>
+/// Represents a run-time error raised by user code.
+/// </summary>
+/// <param name="Symbol">The symbol that raised the user error.</param>
+/// <param name="Number"></param>
+/// <param name="Description"></param>
+/// <param name="Source"></param>
+public class VBApplicationErrorException(BoundSymbol Symbol, int Number, string Description, string Source)
+    : ApplicationException(Description)
+{
+    public BoundSymbol Symbol { get; } = Symbol;
+
+    // TODO swap this for the ErrObject data
+    public int ErrorNumber { get; } = Number;
+    public string Description { get; } = Description;
+    public string ErrorSource { get; } = Source;
+}
+
+/// <summary>
+/// A run-time error caused by an unhandled user error.
+/// </summary>
+/// <param name="exception">The unhandled user error.</param>
+public class VBRuntimeErrorUnhandledUserErrorException(VBApplicationErrorException exception)
+    : VBRuntimeErrorException(exception.Symbol.Range, exception.ErrorNumber, exception.Description);
 
 /// <summary>
 /// An unspecified, implementation-dependent runtime error raised when an inconsistent internal state is reached.
@@ -126,7 +152,7 @@ public class VBRuntimeErrorException(Range location, int VBErrorNumber, string? 
     #region Classic-VB run-time errors
     public static VBRuntimeErrorException ReturnWithoutGoSub(Range location, string? verbose = null) => new(location, 3, verbose: verbose);
     public static VBRuntimeErrorException InvalidProcedureCallOrArgument(Range location, string? verbose = null) => new(location, 5, verbose: verbose);
-    public static VBRuntimeErrorException Overflow(Range location, string? verbose = null) => new VBRuntimeErrorOverflowException(location, verbose);
+    public static VBRuntimeErrorException Overflow(Range? location, string? verbose = null) => new VBRuntimeErrorOverflowException(location, verbose);
     public static VBRuntimeErrorException OutOfMemory(Range location, string? verbose = null) => new(location, 7, verbose: verbose);
     public static VBRuntimeErrorException SubscriptOutOfRange(Range location, string? verbose = null) => new(location, 9, verbose: verbose);
     public static VBRuntimeErrorException ArrayIsFixedOrLocked(Range location, string? verbose = null) => new(location, 10, verbose: verbose);

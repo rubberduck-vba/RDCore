@@ -21,7 +21,7 @@ public sealed record class VBExternalSubMemberSymbol : VBProcedureMemberSymbol
     /// <param name="isPtrSafe"><c>true</c> if the <c>PtrSafe</c> token is present in the declaration statement.</param>
     /// <param name="lib"></param>
     /// <param name="alias">The <c>Alias</c> string of the declaration statement, if present.</param>
-    public VBExternalSubMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange, bool isPtrSafe, string lib, string? alias)
+    public VBExternalSubMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange, bool isPtrSafe, string lib, string? alias)
         : base(scope, workspaceRoot, name, accessibility, parentUri, range, selectionRange)
     {
         IsPtrSafe = isPtrSafe;

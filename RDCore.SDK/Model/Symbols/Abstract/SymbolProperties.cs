@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.Symbols.VBProject;
+﻿using RDCore.SDK.Model.Symbols.Unbound;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 

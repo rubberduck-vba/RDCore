@@ -1,5 +1,5 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.AST.Operators;
+﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -14,7 +14,7 @@ public abstract record class BinaryOperatorRuntimeSemantics() : RuntimeSemantics
     public sealed override VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes)
         => DetermineOperatorEffectiveType(operandDeclaredTypes[0], operandDeclaredTypes[1]);
 
-    protected sealed override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, ValuedExpression expression, VBType effectiveType, VBTypedValue[] operands) 
+    protected sealed override VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands) 
         => EvaluateExpressionResult(context, (VBBinaryOperatorExpression)expression, effectiveType, operands[0], operands[1]);
 
     /// <summary>

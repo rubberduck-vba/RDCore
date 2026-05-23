@@ -78,10 +78,10 @@ public class MultiplicationOperationTests : BinaryImpOperationTests
     private VBTypedValue EvaluateMultiplication(IVBExecutionContext context, object lhs, object rhs)
     {
         var lhsValue = WrapVBTypedValue(lhs, TestLocationLHS);
-        var lhsLiteral = new LiteralExpression(TestLocationLHS, lhsValue);
+        var lhsLiteral = new VBLiteralExpression(TestLocationLHS, lhsValue);
 
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
-        var rhsLiteral = new LiteralExpression(TestLocationRHS, rhsValue);
+        var rhsLiteral = new VBLiteralExpression(TestLocationRHS, rhsValue);
 
         var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, lhsLiteral, rhsLiteral, TestLocation);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;

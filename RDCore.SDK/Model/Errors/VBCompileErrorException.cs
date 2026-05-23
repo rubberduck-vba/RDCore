@@ -28,7 +28,7 @@ public class VBCompileErrorException : ApplicationException
     public static VBCompileErrorException ExitDoNotWithinDoLoop(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitDoNotWithinDoLoop, "Exit Do not within Do...Loop", verbose);
     public static VBCompileErrorException ExitForNotWithinForNext(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitForNotWithinForNext, "Exit For not within For...Next", verbose);
     public static VBCompileErrorException ExitFunctionNotAllowedInSubOrProperty(Range range, string? verbose = null) => new(range, VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty, "Exit Function not allowed in Sub or Property", verbose);
-    public static VBCompileErrorException AmbiguousName(Symbol symbol, string? verbose = null) => new(symbol.Range!, VBCompileErrorId.AmbiguousName, $"Ambiguous name detected: {symbol.Name}", verbose);
+    public static VBCompileErrorException AmbiguousName(BoundSymbol symbol, string? verbose = null) => new(symbol.Range!, VBCompileErrorId.AmbiguousName, $"Ambiguous name detected: {symbol.Name}", verbose);
     public static VBCompileErrorException DuplicateDeclaration(Range range, string? verbose = null) => new(range, VBCompileErrorId.DuplicateDeclaration, $"Duplicate declaration in current scope", verbose);
     public static VBCompileErrorException MethodOrDataMemberNotFound(Range range, string? verbose = null) => new(range, VBCompileErrorId.MethodOrDataMemberNotFound, $"Method or data member not found", verbose);
 

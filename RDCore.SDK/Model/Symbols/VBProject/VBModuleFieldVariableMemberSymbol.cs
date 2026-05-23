@@ -23,7 +23,7 @@ public record class VBModuleFieldVariableMemberSymbol : VBReturningMemberSymbol
     /// <param name="name">The identifier name of the symbol.</param>
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     public VBModuleFieldVariableMemberSymbol(Uri workspaceRoot, string name, Uri parentUri) 
-        : base(ScopeKind.Global, workspaceRoot, name, Accessibility.Public, SymbolKindExt.Field, parentUri)
+        : base(ScopeKind.Global, workspaceRoot, name, AccessModifier.Public, SymbolKindExt.Field, parentUri)
     {
     }
 
@@ -39,7 +39,7 @@ public record class VBModuleFieldVariableMemberSymbol : VBReturningMemberSymbol
     /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
     /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
     /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBModuleFieldVariableMemberSymbol(Uri workspaceRoot, string name, Accessibility accessibility, Uri parentUri, Range range, Range selectionRange) 
+    public VBModuleFieldVariableMemberSymbol(Uri workspaceRoot, string name, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange) 
         : base(ScopeKind.Module, workspaceRoot, name, accessibility, SymbolKindExt.Field, parentUri, range, selectionRange)
     {
     }

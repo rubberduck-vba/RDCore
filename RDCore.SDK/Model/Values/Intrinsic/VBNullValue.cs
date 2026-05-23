@@ -19,6 +19,6 @@ public sealed record class VBNullValue(Symbol Symbol) : VBTypedValue(VBNullType.
     public override int Size => 0;
 
     // * UDT or resizable array -> throw TypeMismatch
-    public bool Equals(IVBTypedValue<VBNullValue, nint>? other) => throw VBRuntimeErrorException.InvalidUseOfNull(Symbol.SelectionRange!);
+    public bool Equals(IVBTypedValue<VBNullValue, nint>? other) => throw VBRuntimeErrorException.InvalidUseOfNull((Symbol as BoundSymbol)?.SelectionRange!);
     public override int GetHashCode() => Value.GetHashCode();
 }

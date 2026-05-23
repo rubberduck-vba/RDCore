@@ -62,7 +62,7 @@ public abstract class SymbolOperationTests
         var symbol = new VBUserDefinedTypeMemberSymbol(
             ScopeKind.Module,
             TestUri.TestModuleUserDefinedTypeUri(name),
-            name, Accessibility.Private,
+            name, AccessModifier.Private,
             SymbolOperationTests.TestLocation?.Range,
             SymbolOperationTests.TestLocation?.Range,
             TestUri.WorkspaceRoot());
@@ -98,10 +98,10 @@ public abstract class SymbolOperationTests
         };
     }
 
-    internal static LiteralExpression WrapLiteralExpression(object? value, Location location)
+    internal static VBLiteralExpression WrapLiteralExpression(object? value, Location location)
     {
         var typedValue = WrapVBTypedValue(value, location);
-        return new LiteralExpression(location, typedValue);
+        return new VBLiteralExpression(location, typedValue);
     }
 
     //[TestMethod]
