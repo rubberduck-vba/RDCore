@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <OutputType>Exe</OutputType>
-    <StartupObject>RDCore.Diagnostics.Program</StartupObject>
+    <AssemblyName>rdc</AssemblyName>
+    <StartupObject>RDCore.CLI.Program</StartupObject>
+    <AssemblyTitle>RDCore CLI</AssemblyTitle>
     <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -14,21 +16,25 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Model\RDCoreDiagnosticsResources.Designer.cs">
-      <DependentUpon>RDCoreDiagnosticsResources.resx</DependentUpon>
+    <Compile Update="Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Model\RDCoreDiagnosticsResources.resx">
-      <LastGenOutput>RDCoreDiagnosticsResources.Designer.cs</LastGenOutput>
+    <EmbeddedResource Update="Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
 

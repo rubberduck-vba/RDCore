@@ -1,8 +1,18 @@
-﻿namespace RDCore.SDK.Semantics;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using System.Collections.Immutable;
+
+namespace RDCore.SDK.Semantics;
 
 /// <summary>
-/// Represents the semantic context of a single node of the <em>abstract syntax tree</em> (AST).
+/// Represents and encapsulates the immutable context of a <em>semantic operation</em>.
 /// </summary>
-public record class SemanticContext()
+/// <param name="Diagnostics">The <em>diagnostics</em> associated with this context.</param>
+/// <param name="Flags">The <em>semantic flags> associated with this context.</em></param>
+public record class SemanticContext<TFlags>(ImmutableArray<Diagnostic> Diagnostics, TFlags Flags) 
+    where TFlags : struct, Enum
 {
+    /// <summary>
+    /// Creates an object that represents and encapsulates the immutable context of a <em>semantic operation</em>.
+    /// </summary>
+    public SemanticContext():this([], (TFlags)(object)0) { }
 }

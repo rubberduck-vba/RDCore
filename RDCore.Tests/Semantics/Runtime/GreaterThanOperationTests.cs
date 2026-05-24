@@ -1,4 +1,4 @@
-using RDCore.SDK.Model.AST.Operators;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
@@ -105,7 +105,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThan, lhsExpression, rhsExpression, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThan, TestLocation, lhsExpression, rhsExpression);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

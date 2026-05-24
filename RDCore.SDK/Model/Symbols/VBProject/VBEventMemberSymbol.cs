@@ -1,44 +1,27 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
 /// <summary>
-/// Represents an <c>Event</c> declaration symbol.
+/// Represents an <c>Event</c> member declaration symbol.
 /// </summary>
-public sealed record class VBEventMemberSymbol : VBTypeMemberSymbol
-{
-    /// <summary>
-    /// Creates a new <c>VBEventMemberSymbol</c> that is not linked to a document location.
-    /// </summary>
-    /// <remarks>
-    /// This constructor is normally used for symbols defined in a referenced project or library.
-    /// </remarks>
-    /// <param name="scope">The allocation scope of the symbol.</param>
-    /// <param name="workspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
-    /// <param name="name">The identifier name of the symbol.</param>
-    /// <param name="kind">Describes the kind (category) of symbol for the LSP client.</param>
-    /// <param name="accessibility">The access modifier associated with this symbol.</param>
-    /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
+/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Name">The name of the symbol.</param>
+/// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
+/// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
+/// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
+public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange, AccessModifier AccessModifier)
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier) { }
 
-    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, AccessModifier accessibility, Uri parentUri) 
-        : base(scope, workspaceRoot, name, kind, accessibility, parentUri) { }
-
-    /// <summary>
-    /// Creates a new <c>VBEventMemberSymbol</c> that is linked to a document location.
-    /// </summary>
-    /// <remarks>
-    /// This constructor is normally used for symbols defined in the user project's workspace.
-    /// </remarks>
-    /// <param name="scope">The allocation scope of the symbol.</param>
-    /// <param name="workspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
-    /// <param name="name">The identifier name of the symbol.</param>
-    /// <param name="kind">Describes the kind (category) of symbol for the LSP client.</param>
-    /// <param name="accessibility">The access modifier associated with this symbol.</param>
-    /// <param name="parentUri">The <c>Uri</c> of the parent symbol.</param>
-    /// <param name="range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
-    /// <param name="selectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    public VBEventMemberSymbol(ScopeKind scope, Uri workspaceRoot, string name, SymbolKindExt kind, AccessModifier accessibility, Uri parentUri, Range range, Range selectionRange) 
-        : base(scope, workspaceRoot, name, kind, accessibility, parentUri, range, selectionRange) { }
-}
+/// <summary>
+/// Represents an unbound <c>Event</c> declaration symbol.
+/// </summary>
+/// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
+/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Name">The name of the symbol.</param>
+public sealed record class UnboundVBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name)
+    : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo) { }

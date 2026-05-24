@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore\RDCore.csproj" />
+    <ProjectReference Include="..\RDCore\RDCore.LanguageServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

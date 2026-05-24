@@ -5,10 +5,46 @@ using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Runtime;
 
+
+
+/// <summary>
+/// A service that resolves an <em>identifier name</em> to a <c>Symbol</c> given a <em>scope</em> <c>Uri</c>.
+/// </summary>
+public interface ISymbolResolver
+{
+    /// <summary>
+    /// Resolves the specified <em>identifier name</em> in the specified scope.
+    /// </summary>
+    /// <param name="name">The name of the symbol to resolve.</param>
+    /// <param name="scope">The memory scope to inspect.</param>
+    /// <param name="handle">The <c>Uri</c> of the current scope (procedure) symbol.</param>
+    /// <returns><c>null</c> if no symbol could be resolved from the specified <em>handle</em> in the specified <em>scope</em> with the specified <em>name</em>.</returns>
+    Symbol? Resolve(string name, ScopeKind scope, Uri handle);
+}
+
+/// <summary>
+/// A service that loads a <c>Symbol</c> into the semantic layer.
+/// </summary>
+/// <remarks>
+/// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </remarks>
+public interface ISymbolProvider
+{
+    /// <summary>
+    /// Defines the specified new <c>Symbol</c> in the semantic layer (static context), or in the symbol table (runtime context).
+    /// </summary>
+    /// <param name="symbol">The new <c>Symbol</c> to be semantically defined.</param>
+    void Define(Symbol symbol);
+}
+
+
 /// <summary>
 /// A service that manages the run-time memory structure of an execution context.
 /// </summary>
-public interface IVirtualHeap
+/// <remarks>
+/// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </remarks>
+public interface IVirtualHeap : ISymbolResolver, ISymbolProvider
 {
     /// <summary>
     /// Creates a new <c>VBObjectValue</c> for the specified <c>Symbol</c>.

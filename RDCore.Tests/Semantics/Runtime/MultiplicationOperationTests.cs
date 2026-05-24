@@ -1,5 +1,4 @@
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.AST.Operators;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -83,7 +82,7 @@ public class MultiplicationOperationTests : BinaryImpOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsLiteral = new VBLiteralExpression(TestLocationRHS, rhsValue);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, lhsLiteral, rhsLiteral, TestLocation);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, TestLocation, lhsLiteral, rhsLiteral);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }
