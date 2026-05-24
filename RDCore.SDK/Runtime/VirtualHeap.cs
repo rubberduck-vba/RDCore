@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Symbols.Unbound;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime;
 
@@ -31,6 +32,9 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     private readonly ConcurrentDictionary<VBObjectValue, ConcurrentDictionary<Symbol, VBTypedValue>> _objectHeap = [];
 
     private long _nextAddress = _offset;
+
+    private readonly ConcurrentDictionary<Uri, Symbol> _symbolTable = [];
+    private readonly ConcurrentDictionary<string, string> _nameTable = [];
 
     private readonly ConcurrentDictionary<long, VBTypedValue> _memoryMap = [];
     private readonly ConcurrentDictionary<Uri, long> _rawAddressMap = [];
@@ -121,6 +125,32 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
         }
         //}
     }
+
+    public Symbol? Resolve(string name, ScopeKind scope, Uri handle)
+    {
+        var observerScope = _symbolTable[handle];
+        /// TODO
+        return default;
+    }
+
+    public void Define(Symbol symbol)
+    {
+        _symbolTable[symbol.Uri] = symbol;
+        if (TryGetIdentifierName(symbol.Name, out var caseMatchedName))
+        {
+            // symbol name matched name 
+        }
+
+        var invariantName = symbol.Name.ToLowerInvariant();
+        if (invariantName != symbol.Name)
+        {
+            // TODO inject a semantic flag here somehow.
+        }
+        _nameTable[invariantName] = symbol.Name;
+    }
+
+    private void SetNameTableIdentifier(string identifier) => _nameTable[identifier.ToLowerInvariant()] = identifier;
+    private bool TryGetIdentifierName(string identifier, [MaybeNull]out string name) => _nameTable.TryGetValue(identifier.ToLowerInvariant(), out name);
 }
 
 public class VirtualHeapCorruptionException(string message) : InvalidOperationException(message) { }

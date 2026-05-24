@@ -1,5 +1,4 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -16,25 +15,18 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
-/// <param name="HasTypeSuffix"><c>true</c> if the symbol has a <em><c>type-suffix</c></em> token.</param>
-public abstract record class TypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, Range Range, Range SelectionRange, VBType? ResolvedType = default, bool HasTypeSuffix = false)
-    : BoundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange)
-{
-    /// <summary>
-    /// The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.
-    /// </summary>
-    public VBType ResolvedType { get; init; } = ResolvedType ?? VBUnknownType.TypeInfo;
-    /// <summary>
-    /// <c>true</c> if the symbol has a <em><c>type-suffix</c></em> token.
-    /// </summary>
-    public bool HasTypeSuffix { get; init; } = HasTypeSuffix;
+public abstract record class TypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, Range Range, Range SelectionRange, VBType ResolvedType)
+    : BoundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange) { }
 
-    /// <summary>
-    /// Creates and returns a copy of this symbol with the specified <c>ResolvedType</c>.
-    /// </summary>
-    public TypedSymbol WithResolvedType(VBType type) => this with { ResolvedType = type };
-    /// <summary>
-    /// Creates and returns a copy of this symbol with the <c>HasTypeSuffix</c> flag set to <c>true</c> unless specified otherwise.
-    /// </summary>
-    public TypedSymbol WithTypeSuffix(bool value = true) => this with { HasTypeSuffix = value };
-}
+/// <summary>
+/// An <c>UnboundSymbol</c> that can be resolved to a <c>VBType</c>.
+/// </summary>
+/// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
+/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Name">The name of the symbol.</param>
+/// <param name="Scope">The allocation scope of this symbol.</param>
+/// <param name="Kind">A <c>SymbolKind</c> (extensible) metadata value describing the kind of symbol.</param>
+/// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
+public abstract record class UnboundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType)
+    : UnboundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind) { }
+

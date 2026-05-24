@@ -38,4 +38,9 @@ public enum ConversionSemanticFlags
     /// This conversion operation implicates a <c>VBNullValue</c> operand.
     /// </summary>
     NullOperand = 1 << 7,
+
+    /// <summary>
+    /// Combines all values.
+    /// </summary>
+    All = Explicit | Implicit | CTypeAvailable | Widening | Narrowing | Numeric | DateSerial | NullOperand
 }

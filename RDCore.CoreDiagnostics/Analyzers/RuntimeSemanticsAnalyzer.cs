@@ -5,6 +5,6 @@ using System.Text;
 
 namespace RDCore.Diagnostics.Analyzers;
 
-public abstract class RuntimeSemanticsAnalyzer(SemanticFlagsBuilder operation)
+public abstract class RuntimeSemanticsAnalyzer()
 {
 }

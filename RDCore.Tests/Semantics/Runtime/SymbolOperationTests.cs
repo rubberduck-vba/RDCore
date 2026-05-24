@@ -60,12 +60,13 @@ public abstract class SymbolOperationTests
     {
         var name = "TestUDT";
         var symbol = new VBUserDefinedTypeMemberSymbol(
-            ScopeKind.Module,
+            TestUri.WorkspaceRoot(),
             TestUri.TestModuleUserDefinedTypeUri(name),
-            name, AccessModifier.Private,
-            SymbolOperationTests.TestLocation?.Range,
-            SymbolOperationTests.TestLocation?.Range,
-            TestUri.WorkspaceRoot());
+            name, 
+            ScopeKind.Module,
+            SymbolOperationTests.TestLocation!.Range,
+            SymbolOperationTests.TestLocation!.Range,
+            AccessModifier.Public);
         var udt = new VBUserDefinedType(symbol, []);
         var value = new VBUserDefinedTypeValue(udt, symbol);
         return value;
