@@ -5,6 +5,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace RDCore.CLI;
@@ -36,7 +37,7 @@ internal class Program
         }
         catch (OperationCanceledException)
         {
-            ConsoleMessageWriter.WriteMessage(_messageBuilder
+            ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
                 .WithKind(MessageKind.Information)
                 .WithMetric(MetricKind.NumericValue, "{$YEAR}", DateTimeOffset.UtcNow.Year)
                 .WithTitle(Resources.RDCore_Slogan)
@@ -67,6 +68,11 @@ internal record class ShowSplashCommand() : CLICommand("splash")
         ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
             .WithMessageBody(Resources.RDCore_Splash), ConsoleColor.Blue);
+        ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Information)
+            .WithMetric(MetricKind.IntegerValue, "{$YEAR}", DateTimeOffset.UtcNow.Year)
+            .WithTitle(Resources.RDCore_Slogan)
+            .WithMessageBody(Resources.CopyrightNotice));
     }
 }
 
@@ -99,14 +105,14 @@ internal enum MetricKind
 
 internal class MetricPartFormatter
 {
-    public static string FormatValue(MetricKind kind, double value)
+    public static string FormatValue<T>(MetricKind kind, T value) 
         => kind switch
         {
-            MetricKind.IntegerValue => $"{value:N0}",
+            MetricKind.IntegerValue => $"{value}",
             MetricKind.NumericValue => $"{value:N1}",
             MetricKind.PercentageValue => $"{value:P1}",
             MetricKind.StopwatchMilliseconds => $"{value} ms",
-            _ => value.ToString()
+            _ => value?.ToString() ?? string.Empty
         };
 }
 
