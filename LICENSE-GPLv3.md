@@ -1,3 +1,5 @@
+UNE VERSION FRANÇAISE DE CE DOCUMENT EST DISPONIBLE SUR DEMANDE.
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
