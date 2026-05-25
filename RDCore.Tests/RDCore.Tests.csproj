@@ -8,12 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MSTest" Version="4.0.1" />
+    <PackageReference Include="MSTest" Version="4.2.3" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore\RDCore.csproj" />
+    <ProjectReference Include="..\RDCore\RDCore.LanguageServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

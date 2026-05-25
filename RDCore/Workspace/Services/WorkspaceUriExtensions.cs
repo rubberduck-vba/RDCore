@@ -2,7 +2,6 @@
 
 internal static class UriExtensions
 {
-    public static Uri GlobalUri { get; } = new("file://a:/rdcore/vblang/global/");
 
     public static Uri ToUri(this string Uri) => new(Uri);
     public static Uri ToUri(this string relativeUri, string Uri) => new(Uri.ToUri(), relativeUri);

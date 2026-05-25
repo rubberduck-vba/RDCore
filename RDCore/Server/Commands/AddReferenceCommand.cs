@@ -1,29 +1,46 @@
 ﻿using Newtonsoft.Json.Linq;
+using RDCore.SDK.Server.Commands;
 using RDCore.Workspace;
 using RDCore.Workspace.Services;
 
 namespace RDCore.Server.Commands;
 
-internal class AddReferenceCommand(IProjectFileService service) : ServerCommand(nameof(AddReferenceCommand))
+public class AddRemoveReferenceCommandArgs
 {
-    public override void Execute(JArray? args = default)
+    public string? Name { get; init; }
+    public string? Path { get; init; }
+    public Guid? Guid { get; init; }
+}
+
+internal class AddReferenceCommandArgsParser : ICommandArgsParser<AddRemoveReferenceCommandArgs>
+{
+    public AddRemoveReferenceCommandArgs? Parse(JArray? args)
     {
         if (args is JArray arr && arr.Count == 1)
         {
             var path = args[0].Value<string>();
             if (path is not null)
             {
-                Execute(path);
+                return new AddRemoveReferenceCommandArgs { Path = path };
             }
             else
             {
                 var guid = args[0].Value<Guid?>();
                 if (guid.HasValue)
                 {
-                    Execute(guid.Value);
+                    return new AddRemoveReferenceCommandArgs { Guid = guid };
                 }
             }
         }
+        return default;
+    }
+}
+
+internal class AddReferenceCommand(IProjectFileService service) : ServerCommand<AddRemoveReferenceCommandArgs>(new AddReferenceCommandArgsParser(), nameof(AddReferenceCommand))
+{
+    protected override Task ExecuteCommandAsync(AddRemoveReferenceCommandArgs args, CancellationToken token)
+    {
+        throw new NotImplementedException();
     }
 
     private void Execute(string path)

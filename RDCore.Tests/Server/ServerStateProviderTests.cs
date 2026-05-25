@@ -1,4 +1,4 @@
-﻿using RDCore.Server.States;
+﻿using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.Tests.Server;
 

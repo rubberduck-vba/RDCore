@@ -18,7 +18,7 @@ public sealed class ProjectFileTests
     public void Version_ServerAppVersionByDefault()
     {
         // arrange
-        var expected = ServerApp.Info.Version!.ToString(3);
+        var expected = RDCoreServerApp.Info.Version!.ToString(3);
         var sut = new ProjectFile();
 
         // act

@@ -1,26 +1,14 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using RDCore.SDK.Server.Commands;
 using RDCore.Workspace;
 using RDCore.Workspace.Services;
 
 namespace RDCore.Server.Commands;
 
-internal class RemoveReferenceCommand(IProjectFileService service) : ServerCommand(nameof(RemoveReferenceCommand))
+internal class RemoveReferenceCommand(IProjectFileService service) : ServerCommand<AddRemoveReferenceCommandArgs>(new AddReferenceCommandArgsParser(), nameof(RemoveReferenceCommand))
 {
-    public override void Execute(JArray? args = null)
+    protected override async Task ExecuteCommandAsync(AddRemoveReferenceCommandArgs args, CancellationToken token)
     {
-        if (args is JArray arr && arr.Count == 1)
-        {
-            var name = args[0].Value<string>();
-            if (name is not null)
-            {
-                Execute(name);
-            }
-        }
-    }
-
-    private void Execute(string name)
-    {
-        if (service.Project.ProjectInfo.References.SingleOrDefault(e => e.Name == name) is RDCoreReference reference)
+        if (service.Project.ProjectInfo.References.SingleOrDefault(e => e.Name == args.Name) is RDCoreReference reference)
         {
             service.RemoveReference(reference);
             // TODO also remove from symbols
