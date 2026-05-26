@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using System.Collections.Immutable;
+using System.IO.Abstractions;
 using System.Text;
 
 namespace RDCore.CLI;
@@ -14,9 +16,14 @@ public class Program
     private static readonly ConsoleMessageBuilder _messageBuilder = new();
     public static async Task<int> Main(string[] args)
     {
-        Console.OutputEncoding = Encoding.Unicode;
-
-        var splash = new ShowSplashCommand();
+        var fileSystem = new FileSystem();
+        
+        var loader = new AppThemeLoaderService(options, fileSystem);
+        var themeService = new AppThemeService(options, loader);
+        var themes = new AppThemeService(options, loader);
+        var writer = new ConsoleMessageWriter(themeService);
+        
+        var splash = new ShowSplashCommand(writer, themes);
         splash.Execute();
 
         // TODO move to appsettings.json
@@ -36,15 +43,14 @@ public class Program
         }
         catch (OperationCanceledException)
         {
-            ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
+            writer.WriteMessage(new ConsoleMessageBuilder()
                 .WithKind(MessageKind.Information)
-                .WithMetric(MetricKind.NumericValue, "{$YEAR}", DateTimeOffset.UtcNow.Year)
                 .WithTitle(Resources.RDCore_Slogan)
                 .WithMessageBody(Resources.CopyrightNotice));
         }
         catch (Exception exception)
         {
-            ConsoleMessageWriter.WriteMessage(_messageBuilder
+            writer.WriteMessage(_messageBuilder
                 .WithKind(MessageKind.Error)
                 .WithTitle(exception)
                 .WithMessageBody(exception)
@@ -60,14 +66,24 @@ internal abstract record class CLICommand(string Name, string? Alias = default)
     public abstract void Execute();
 }
 
-internal record class ShowSplashCommand() : CLICommand("splash")
+internal record class ShowSplashCommand : CLICommand
 {
+    private readonly ConsoleMessageWriter _writer = default!;
+    private readonly IAppThemeService _themes;
+    public ShowSplashCommand(ConsoleMessageWriter writer, IAppThemeService themes) : base("slash")
+    {
+        _writer = writer;
+        _themes = themes;
+    }
+
     public override void Execute()
     {
-        ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
+        _writer.WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
-            .WithMessageBody(Resources.RDCore_Splash), ConsoleColor.Blue);
-        ConsoleMessageWriter.WriteMessage(new ConsoleMessageBuilder()
+            .WithMessageBody(Resources.RDCoreSplash_Background)
+            .WithMessageOverlay(Resources.RDCoreSplash_Foreground))
+            ;
+        _writer.WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Information)
             .WithMetric(MetricKind.IntegerValue, "{$YEAR}", DateTimeOffset.UtcNow.Year)
             .WithTitle(Resources.RDCore_Slogan)
@@ -199,6 +215,7 @@ internal record class ConsoleMessageBuilder
     public ConsoleMessageBuilder WithTitle(VBApplicationErrorException exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
     public ConsoleMessageBuilder WithTitle(Exception exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
     public ConsoleMessageBuilder WithMessageBody(string body) => WithUniquePart(ConsoleMessageBodyPartFactory.CreateMessageBodyPart(body));
+    public ConsoleMessageBuilder WithMessageOverlay(string overlay) => WithUniquePart(ConsoleMessageBodyPartFactory.CreateMessageBodyPart(overlay));
     public ConsoleMessageBuilder WithMessageBody(Exception exception) => WithUniquePart(ConsoleMessageBodyPartFactory.CreateMessageBodyPart(exception));
     public ConsoleMessageBuilder WithVerbose(string verbose) => WithUniquePart(ConsoleMessageVerbosePartFactory.CreateVerbosePart(verbose));
     public ConsoleMessageBuilder WithStackTrace(Exception exception) => WithUniquePart(ConsoleMessageStackTracePartFactory.CreateStackTracePart(exception));

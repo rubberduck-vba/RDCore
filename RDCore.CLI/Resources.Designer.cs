@@ -124,16 +124,32 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to                                                                                              
-        ///                                           ++-+---+++                                        
-        ///                                       +---------------+-+                                   
-        ///                                    ---------+    +---------+                                
-        ///                                  ------+              ------+-                              
-        ///                                 +--- [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to                                                                                 
+        ///                                      ---------------                           
+        ///                                   +-----+-+-+----------                        
+        ///                                 -----+            --------                     
+        ///                                ----+                 +-----+                   
+        ///                               ----+          +----     ------------+           
+        ///                     [rest of string was truncated]&quot;;.
         /// </summary>
-        public static string RDCore_Splash {
+        public static string RDCoreSplash_Background {
             get {
-                return ResourceManager.GetString("RDCore_Splash", resourceCulture);
+                return ResourceManager.GetString("RDCoreSplash_Background", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to                                                                                 
+        ///                                                                                
+        ///                                                                                
+        ///                                                                                
+        ///                                                                                
+        ///                                                                                
+        ///                     [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string RDCoreSplash_Foreground {
+            get {
+                return ResourceManager.GetString("RDCoreSplash_Foreground", resourceCulture);
             }
         }
     }
