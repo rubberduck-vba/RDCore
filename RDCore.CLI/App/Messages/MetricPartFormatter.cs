@@ -7,6 +7,7 @@ internal class MetricPartFormatter
     public static string FormatValue<T>(MetricKind kind, T value) 
         => kind switch
         {
+            MetricKind.StringLiteral => (string)(object)value!,
             MetricKind.IntegerValue => $"{value}",
             MetricKind.NumericValue => $"{value:N1}",
             MetricKind.PercentageValue => $"{value:P1}",

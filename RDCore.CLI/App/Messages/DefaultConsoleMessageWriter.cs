@@ -11,11 +11,23 @@ internal interface IConsoleMessageWriter
     void WriteReadyPrompt();
 }
 
-internal class ConsoleMessageWriter : IConsoleMessageWriter
+/// <summary>
+/// 
+/// </summary>
+//internal class ThemeEnabledConsoleMessageWriter : IConsoleMessageWriter
+//{
+
+//}
+
+
+/// <summary>
+/// A default <c>ConsoleMessageWriter</c> implementation with a whopping 16 colors to play with.
+/// </summary>
+internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
 {
     private IAppThemeService AppThemeService { get; }
 
-    public ConsoleMessageWriter(IAppThemeService appThemeService)
+    public DefaultConsoleMessageWriter(IAppThemeService appThemeService)
     {
         AppThemeService = appThemeService;
         Console.OutputEncoding = Encoding.Unicode;
@@ -31,27 +43,29 @@ internal class ConsoleMessageWriter : IConsoleMessageWriter
 
         var bodyParts = builder.Parts.OfType<ConsoleMessageBodyPart>().ToArray();
         var body = bodyParts[0];
-        var overlay = bodyParts.Length > 1 ? bodyParts[1] : null;
+        //var overlay = builder.Parts.OfType<ConsoleMessageOverlayMessagePart>().ToArray();
 
         var messageBody = builder.Parts
-            .OfType<ConsoleMessageMetricPart>()
+            .OfType<ConsoleMessageStringLiteralMetricPart>()
             .Aggregate(body.Body, (result, metric) =>
-                result.Replace(metric.Placeholder, MetricPartFormatter.FormatValue(metric.Kind, metric.NumericValue)));
+                result.Replace(metric.Placeholder, MetricPartFormatter.FormatValue(metric.Kind, metric.StringValue)));
 
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageTimestampPart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Timestamp));
         WriteMessageIcon(builder.Kind, color ?? (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Title));
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageTitlePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Title));
         WriteNewLine();
-        var metrics = builder.Parts.OfType<ConsoleMessageMetricPart>();
-        var pos = Console.GetCursorPosition();
-        WriteMessageBody(body, metrics, builder.Kind, color);
-        if (overlay is not null)
-        {
-            Console.SetCursorPosition(pos.Left, pos.Top);
+        var metrics = builder.Parts.OfType<ConsoleMessageStringLiteralMetricPart>();
 
-            WriteMessageBody(builder.Parts.OfType<ConsoleMessageBodyPart>().SingleOrDefault(), metrics, builder.Kind, color);
+        //var (Left, Top) = Console.GetCursorPosition();
+        //var lines = body.Body.Split("\n").Length;
+        WriteMessageBody(body, metrics, builder.Kind, color ?? Enum.Parse<ConsoleColor>(body.ColorOverride ?? ((ConsoleColor)theme.GetMessagePartColor(builder.Kind, body.Part)).ToString()));
 
-        }
+        //foreach (var layer in overlay)
+        //{
+        //    Console.SetCursorPosition(Left, Top);
+        //    WriteMessageBody(builder.Parts.OfType<ConsoleMessageBodyPart>().SingleOrDefault(), metrics, builder.Kind, (ConsoleColor)ConsoleMessagePart.ParseConfigColor(layer.Color));
+
+        //}
         WriteNewLine();
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageVerbosePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Verbose));
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageStackTracePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.StackTrace));
@@ -59,7 +73,7 @@ internal class ConsoleMessageWriter : IConsoleMessageWriter
 
     private void WriteMessageIcon(MessageKind kind, ConsoleColor color)
     {
-        var icon = AppThemeService.Theme.Config.Shell;
+        var icon = AppThemeService.Theme.GetMessageIcon(kind);
         if (icon is not null)
         {
             var revertColor = Console.ForegroundColor;
@@ -72,7 +86,7 @@ internal class ConsoleMessageWriter : IConsoleMessageWriter
     private static void WriteNewLine() => Console.Write(Environment.NewLine);
     public void WriteReadyPrompt() => Console.WriteLine($"✅ {Resources.Prompt_READY}");
 
-    private void WriteMessageBody(ConsoleMessageBodyPart? part, IEnumerable<ConsoleMessageMetricPart> metrics, MessageKind kind, ConsoleColor? color = null)
+    private void WriteMessageBody(ConsoleMessageBodyPart? part, IEnumerable<ConsoleMessageStringLiteralMetricPart> metrics, MessageKind kind, ConsoleColor? color = null)
     {
         if (part is null)
         {
@@ -95,15 +109,15 @@ internal class ConsoleMessageWriter : IConsoleMessageWriter
 
         while (body.Contains("{$"))
         {
-            if (metrics.Select(e => (Metric: e, Index: body.IndexOf(e.Placeholder))).OrderBy(e => e.Index).FirstOrDefault() is (ConsoleMessageMetricPart, int) value)
+            foreach (var value in metrics.Cast<ConsoleMessageStringLiteralMetricPart>().Select(e => (Metric: e, Index: body.IndexOf(e.Placeholder))).OrderBy(e => e.Index))
             {
-                WriteMessagePart(body[..value.Index], color ?? (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Body));
-                WriteMessagePart(value.Metric.Value, (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Metric));
-                body = body[(value.Index + value.Metric.Placeholder.Length)..];
-            }
-            else
-            {
-                break;
+                if (value.Index >= 0)
+                {
+                    WriteMessagePart(body[..value.Index], color ?? (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Body));
+                    WriteMessagePart(value.Metric.Value, (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Metric));
+                    body = body[(value.Index + value.Metric.Placeholder.Length)..];
+                    break;
+                }
             }
         }
         WriteMessagePart(body, color ?? (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Body));

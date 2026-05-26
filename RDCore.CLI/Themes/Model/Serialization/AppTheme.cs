@@ -78,6 +78,10 @@ internal record class AppThemeModel : IThemeColorParser
         {
             return result;
         }
+        else if (Enum.TryParse<ConsoleColor>(value, out var color))
+        {
+            return (int)color;
+        }
 
         throw new FormatException("Invalid value");
     }

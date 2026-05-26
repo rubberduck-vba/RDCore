@@ -2,6 +2,7 @@
 
 internal enum MessagePart
 {
+    Overlay,
     Timestamp,
     Title,
     Body,

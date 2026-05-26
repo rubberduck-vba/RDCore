@@ -97,7 +97,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Copyright ©{$YEAR} 9562-7303 Québec inc..
+        ///   Looks up a localized string similar to Copyright © {$YEAR} {$COMPANY}, all rights reserved..
         /// </summary>
         public static string CopyrightNotice {
             get {
@@ -133,13 +133,13 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to                                                                                 
-        ///                                      ---------------                           
-        ///                                   +-----+-+-+----------                        
-        ///                                 -----+            --------                     
-        ///                                ----+                 +-----+                   
-        ///                               ----+          +----     ------------+           
-        ///                     [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to                                     -+-+--++--                          
+        ///                                --+----+----------                      
+        ///                              ++-----+-    +--+----+                    
+        ///                             -----             +------                  
+        ///                            -----         ----   -------------          
+        ///                            +---          -----   +-----------+         
+        ///                            ----          +--+   ----++ +-----       [rest of string was truncated]&quot;;.
         /// </summary>
         public static string RDCoreSplash_Background {
             get {
@@ -148,13 +148,13 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to                                                                                 
-        ///                                                                                
-        ///                                                                                
-        ///                                                                                
-        ///                                                                                
-        ///                                                                                
-        ///                     [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to     -###++. +##++-      .+++-.++.####+-  .+++.     -++#--+++. .+++.     
+        ///    -#####+.+#####-      -##+.+..######. -###.    -####-.##+. .###.     
+        ///    -######--#####+.     .##+.# .###++#- +###.   .+###+-.##+. .##+.     
+        ///    -##-.+#--##-.+#-     .+##-+ .### -#. +###-   .###-. .##+. .##+.     
+        ///    -##- ++.-##- -#- ...  -###. .###.++  #-##+.  .##+.  .##+. .+#+.     
+        ///    -##+++. -##- -#..##+  .##+  .###-#. .#.+##.  .+#+   .+#+  .+#+.     
+        ///    -##-++. -##-.++  ...  .+#+   ##+ -+.-+ -##.   +##.  .+#+  .+#+   [rest of string was truncated]&quot;;.
         /// </summary>
         public static string RDCoreSplash_Foreground {
             get {

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿using RDCore.CLI.App.Messages.Model;
 using System.Text.Json.Serialization;
 
 namespace RDCore.CLI.Themes.Model.Serialization;
@@ -6,22 +6,22 @@ namespace RDCore.CLI.Themes.Model.Serialization;
 internal record class AppThemeShellConfig
 {
     [JsonPropertyName("bg-default")]
-    public string BackgroundDefault { get; init; } = "0c0a50";
+    public string BackgroundDefault { get; init; } = ConsoleColor.Black.ToString();
     [JsonPropertyName("fg-default")]
-    public string ForegroundDefault { get; init; } = "c0c0c0";
+    public string ForegroundDefault { get; init; } = ConsoleColor.Gray.ToString();
 
     [JsonPropertyName("bg-highlight")]
-    public string BackgroundHighlight { get; init; } = "5f8dd3";
+    public string BackgroundHighlight { get; init; } = ConsoleColor.Blue.ToString();
     [JsonPropertyName("fg-highlight")]
-    public string ForegroundHighlight { get; init; } = "ffffff";
+    public string ForegroundHighlight { get; init; } = ConsoleColor.White.ToString();
     [JsonPropertyName("bg-dbg-breakpoint")]
-    public string BackgroundDebugBreakpoint { get; init; } = "b51a17";
+    public string BackgroundDebugBreakpoint { get; init; } = ConsoleColor.DarkRed.ToString();
     [JsonPropertyName("fg-dbg-breakpoint")]
-    public string ForegroundDebugBreakpoint { get; init; } = "ffffff";
+    public string ForegroundDebugBreakpoint { get; init; } = ConsoleColor.White.ToString();
     [JsonPropertyName("bg-dbg-current")]
-    public string BackgroundDebugCurrent { get; init; } = "fdbf00";
+    public string BackgroundDebugCurrent { get; init; } = ConsoleColor.Yellow.ToString();
     [JsonPropertyName("fg-dbg-current")]
-    public string ForegroundDebugCurrent { get; init; } = "000000";
+    public string ForegroundDebugCurrent { get; init; } = ConsoleColor.Black.ToString();
 
     [JsonPropertyName("error")]
     public AppThemeMessageTypeConfig Error { get; init; } = new();
@@ -39,14 +39,14 @@ internal record class AppThemeShellConfigModel
 {
     public AppThemeShellConfigModel(AppThemeShellConfig shell, IThemeColorParser parser)
     {
-        BackgroundDefault = int.Parse(shell.BackgroundDefault, NumberStyles.HexNumber);
-        ForegroundDefault = int.Parse(shell.ForegroundDefault, NumberStyles.HexNumber);
-        BackgroundHighlight = int.Parse(shell.BackgroundHighlight, NumberStyles.HexNumber); 
-        ForegroundHighlight = int.Parse(shell.ForegroundHighlight, NumberStyles.HexNumber);
-        BackgroundDebugBreakpoint = int.Parse(shell.BackgroundDebugBreakpoint, NumberStyles.HexNumber);
-        ForegroundDebugBreakpoint = int.Parse(shell.ForegroundDebugBreakpoint, NumberStyles.HexNumber);
-        BackgroundDebugCurrent = int.Parse(shell.BackgroundDebugCurrent, NumberStyles.HexNumber);
-        ForegroundDebugCurrent = int.Parse(shell.ForegroundDebugCurrent, NumberStyles.HexNumber);
+        BackgroundDefault = ConsoleMessagePart.ParseConfigColor(shell.BackgroundDefault, fallback: ConsoleColor.Black); 
+        ForegroundDefault = ConsoleMessagePart.ParseConfigColor(shell.ForegroundDefault, fallback: ConsoleColor.Gray);
+        BackgroundHighlight = ConsoleMessagePart.ParseConfigColor(shell.BackgroundHighlight);
+        ForegroundHighlight = ConsoleMessagePart.ParseConfigColor(shell.ForegroundHighlight);
+        BackgroundDebugBreakpoint = ConsoleMessagePart.ParseConfigColor(shell.BackgroundDebugBreakpoint);
+        ForegroundDebugBreakpoint = ConsoleMessagePart.ParseConfigColor(shell.ForegroundDebugBreakpoint);
+        BackgroundDebugCurrent = ConsoleMessagePart.ParseConfigColor(shell.BackgroundDebugCurrent);
+        ForegroundDebugCurrent = ConsoleMessagePart.ParseConfigColor(shell.ForegroundDebugCurrent);
 
         Error = new(shell.Error, parser);
         Success = new(shell.Success, parser);

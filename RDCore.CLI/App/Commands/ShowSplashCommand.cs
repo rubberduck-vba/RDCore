@@ -17,17 +17,20 @@ internal record class ShowSplashCommand : CLICommand
 
     public override void Execute()
     {
-        var assemblyName = Assembly.GetExecutingAssembly().GetName();
-        _writer.WriteMessage(new ConsoleMessageBuilder()
-            .WithKind(MessageKind.Trace)
-            .WithTitle($"{assemblyName.Name} [v{assemblyName.Version?.ToString(3) ?? "0.1a"}]")
-            .WithMetric(MetricKind.IntegerValue, "{$YEAR}", DateTimeOffset.UtcNow.Year)
-            .WithMessageBody(Resources.CopyrightNotice));
+        var assembly = Assembly.GetExecutingAssembly();
+        var assemblyName = assembly.GetName();
+        var company = assembly.GetCustomAttribute<AssemblyCompanyAttribute>()!.Company;
+        var copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()!.Copyright;
 
         _writer.WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
-            .WithMessageBody(Resources.RDCoreSplash_Background)
-            .WithMessageOverlay(Resources.RDCoreSplash_Foreground))
-            ;
+            .WithTitle($"{assemblyName.Name} [v{assemblyName.Version?.ToString(3) ?? "0.1a"}]")
+            .WithMetric(MetricKind.StringLiteral, "{$COMPANY}", company)
+            .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString())));
+
+        _writer.WriteMessage(new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Trace)
+            .WithTitle(Environment.NewLine + Resources.RDCoreSplash_Background)
+            .WithMessageBody(Resources.RDCoreSplash_Foreground, nameof(ConsoleColor.White)));
     }
 }

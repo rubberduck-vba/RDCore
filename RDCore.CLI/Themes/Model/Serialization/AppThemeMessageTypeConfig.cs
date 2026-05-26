@@ -8,13 +8,13 @@ internal record class AppThemeMessageTypeConfig
     public string Icon { get; init; } = string.Empty;
 
     [JsonPropertyName("theme-light")]
-    public string ThemeLight { get; init; } = "b9b9c3";
+    public string ThemeLight { get; init; } = ConsoleColor.Gray.ToString();
     [JsonPropertyName("theme-accent1")]
-    public string ThemeAccent1 { get; init; } = "9898a4";
+    public string ThemeAccent1 { get; init; } = ConsoleColor.DarkCyan.ToString();
     [JsonPropertyName("theme-accent2")]
-    public string ThemeAccent2 { get; init; } = "ffffff";
+    public string ThemeAccent2 { get; init; } = ConsoleColor.White.ToString();
     [JsonPropertyName("theme-dark")]
-    public string ThemeDark { get; init; } = "62626f";
+    public string ThemeDark { get; init; } = ConsoleColor.DarkGray.ToString();
 }
 
 internal record class AppThemeMessageTypeConfigModel

@@ -9,7 +9,6 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using System.IO.Abstractions;
-using System.Text;
 
 namespace RDCore.CLI;
 
@@ -23,7 +22,7 @@ public class Program
         var loader = new AppThemeLoaderService(config, fileSystem);
         var themeService = new AppThemeService(config, loader);
         var themes = new AppThemeService(config, loader);
-        var writer = new ConsoleMessageWriter(themeService);
+        var writer = new DefaultConsoleMessageWriter(themeService);
         
         var splash = new ShowSplashCommand(writer, themes);
         splash.Execute();
