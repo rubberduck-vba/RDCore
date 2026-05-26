@@ -204,4 +204,13 @@
     ... .-.  .--.       .--.   .--.   ...  -.  .....™         ---  .....  ...   
                                                                                  </value>
   </data>
+  <data name="Warn_ThemingDisabled" xml:space="preserve">
+    <value>Les thèmes sont présentement inactifs.</value>
+  </data>
+  <data name="Warn_ThemingDisabled_Verbose" xml:space="preserve">
+    <value>Utilisez la commande THEME ON pour activer la fonctionnalité.</value>
+  </data>
+  <data name="Error_ThemeNotFound" xml:space="preserve">
+    <value>Le thème spécifié est introuvable.</value>
+  </data>
 </root>

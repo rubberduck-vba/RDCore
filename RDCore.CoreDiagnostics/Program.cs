@@ -14,7 +14,7 @@ public class Program
 
         try
         {
-            await new RDCoreExtensionServerApp(stateProvider).RunAsync();
+            await new RDCoreExtensionServerApp().RunAsync();
         }
         catch (OperationCanceledException)
         {

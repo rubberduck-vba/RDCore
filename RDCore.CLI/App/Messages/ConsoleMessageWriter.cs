@@ -1,9 +1,17 @@
-﻿using RDCore.CLI.Themes.Model;
+﻿using RDCore.CLI.App.Messages.Model;
+using RDCore.CLI.Themes.Model;
 using System.Text;
 
-namespace RDCore.CLI;
+namespace RDCore.CLI.App.Messages;
 
-internal class ConsoleMessageWriter
+internal interface IConsoleMessageWriter
+{
+    void Clear();
+    void WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default);
+    void WriteReadyPrompt();
+}
+
+internal class ConsoleMessageWriter : IConsoleMessageWriter
 {
     private IAppThemeService AppThemeService { get; }
 
@@ -27,7 +35,7 @@ internal class ConsoleMessageWriter
 
         var messageBody = builder.Parts
             .OfType<ConsoleMessageMetricPart>()
-            .Aggregate(body.Body, (result, metric) => 
+            .Aggregate(body.Body, (result, metric) =>
                 result.Replace(metric.Placeholder, MetricPartFormatter.FormatValue(metric.Kind, metric.NumericValue)));
 
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageTimestampPart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Timestamp));
@@ -62,7 +70,7 @@ internal class ConsoleMessageWriter
     }
 
     private static void WriteNewLine() => Console.Write(Environment.NewLine);
-    public static void WriteReadyPrompt() => Console.WriteLine($"✅ {Resources.Prompt_READY}");
+    public void WriteReadyPrompt() => Console.WriteLine($"✅ {Resources.Prompt_READY}");
 
     private void WriteMessageBody(ConsoleMessageBodyPart? part, IEnumerable<ConsoleMessageMetricPart> metrics, MessageKind kind, ConsoleColor? color = null)
     {
@@ -110,7 +118,7 @@ internal class ConsoleMessageWriter
         }
         var revertColor = Console.ForegroundColor;
         Console.ForegroundColor = color;
-        
+
         Console.Write(part.Value + "\t");
         Console.ForegroundColor = revertColor;
     }

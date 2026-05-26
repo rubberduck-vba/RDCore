@@ -106,6 +106,15 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The specified theme was not found..
+        /// </summary>
+        public static string Error_ThemeNotFound {
+            get {
+                return ResourceManager.GetString("Error_ThemeNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to READY..
         /// </summary>
         public static string Prompt_READY {
@@ -150,6 +159,24 @@ namespace RDCore.CLI {
         public static string RDCoreSplash_Foreground {
             get {
                 return ResourceManager.GetString("RDCoreSplash_Foreground", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Theming is currently disabled..
+        /// </summary>
+        public static string Warn_ThemingDisabled {
+            get {
+                return ResourceManager.GetString("Warn_ThemingDisabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use the THEME ON command to enable..
+        /// </summary>
+        public static string Warn_ThemingDisabled_Verbose {
+            get {
+                return ResourceManager.GetString("Warn_ThemingDisabled_Verbose", resourceCulture);
             }
         }
     }

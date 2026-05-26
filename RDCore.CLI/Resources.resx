@@ -206,4 +206,13 @@ Long Live the Cucumber (Latin)</comment>
     ... .-.  .--.       .--.   .--.   ...  -.  .....™         ---  .....  ...   
                                                                                  </value>
   </data>
+  <data name="Warn_ThemingDisabled" xml:space="preserve">
+    <value>Theming is currently disabled.</value>
+  </data>
+  <data name="Warn_ThemingDisabled_Verbose" xml:space="preserve">
+    <value>Use the THEME ON command to enable.</value>
+  </data>
+  <data name="Error_ThemeNotFound" xml:space="preserve">
+    <value>The specified theme was not found.</value>
+  </data>
 </root>
