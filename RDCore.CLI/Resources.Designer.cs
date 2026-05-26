@@ -124,13 +124,12 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to                                                                                   
-        ///                                        ::------:                                 
-        ///                                    :-==============-                             
-        ///                                  -====-::      :-=====:                          
-        ///                                 ====-             :=====-                        
-        ///                                ====          :==-    ===========-                
-        ///         [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to                                                                                              
+        ///                                           ++-+---+++                                        
+        ///                                       +---------------+-+                                   
+        ///                                    ---------+    +---------+                                
+        ///                                  ------+              ------+-                              
+        ///                                 +--- [rest of string was truncated]&quot;;.
         /// </summary>
         public static string RDCore_Splash {
             get {
