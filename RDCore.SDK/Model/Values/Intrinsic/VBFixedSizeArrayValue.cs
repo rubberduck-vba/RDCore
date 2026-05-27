@@ -16,4 +16,6 @@ public sealed record class VBFixedSizeArrayValue : VBArrayValue
     /// <param name="itemType"></param>
     public VBFixedSizeArrayValue((int uBound, int lBound)[] dimensions, Symbol symbol, VBType? itemType = null)
         : base(symbol, dimensions, itemType) { }
+
+    public override object BoxedValue => new(); // TODO actually box a value here
 }

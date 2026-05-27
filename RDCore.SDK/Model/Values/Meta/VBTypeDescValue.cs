@@ -8,7 +8,7 @@ using RDCore.SDK.Model.Values.Abstract;
 namespace RDCore.SDK.Model.Values.Meta;
 
 /// <summary>
-/// Creates a new <c>VBTypeDescValue</c> describing the specified type at the specified symbol.
+/// Describes a specified <see cref="VBType"/> for a specified symbol.
 /// </summary>
 /// <param name="Target">The described type.</param>
 /// <param name="Symbol">The symbol associated with this value.</param>
@@ -21,6 +21,8 @@ public record class VBTypeDescValue(VBType Target, Symbol Symbol) : VBTypedValue
     public static VBTypedValue DefaultValue => _defaultValue.Value;
 
     public override int Size => sizeof(int);
+
+    public override object BoxedValue => 0;
 }
 
 /// <summary>

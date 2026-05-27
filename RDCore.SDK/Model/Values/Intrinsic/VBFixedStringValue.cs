@@ -11,7 +11,7 @@ public sealed record class VBFixedStringValue : VBStringValue
     }
 
     public VBFixedStringValue(VBStringValue value)
-        : base(value.Symbol)
+        : base(value.ResolvedSymbol)
     {
         Length = value.Length;
         Value = FixLength(value.Value, Length);

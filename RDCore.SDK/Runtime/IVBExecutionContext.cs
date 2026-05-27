@@ -1,4 +1,7 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Semantics.Runtime.Abstract;
 
 namespace RDCore.SDK.Runtime;
 
@@ -21,9 +24,12 @@ public interface IVBExecutionContext
     IVirtualHeap Memory { get; }
 
     /// <summary>
-    /// Enters the execution scope of the specified scope symbol.
+    /// Calls the specified <see cref="VBTypeMemberSymbol"/>.
     /// </summary>
-    /// <param name="scopeSymbol">A symbol representing an execution scope, e.g. a <c>VBTypeMemberSymbol</c></param>
-    /// <returns></returns>
-    IDisposable EnterScope(Symbol scopeSymbol);
+    /// <param name="symbol">The <em>member symbol</em> to invoke.</param>
+    /// <returns>
+    /// A <c>Success</c> <see cref="RuntimeSemanticsEvaluationResult"/> if the call returns a <see cref="VBTypedValue"/>;
+    /// an <c>Error</c> result otherwise.
+    /// </returns>
+    RuntimeSemanticsEvaluationResult Call(VBTypeMemberSymbol symbol);
 }

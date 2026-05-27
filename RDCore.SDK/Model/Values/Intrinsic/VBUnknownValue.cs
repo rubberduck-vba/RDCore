@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -16,6 +16,9 @@ public sealed record class VBUnknownValue(Symbol Symbol) : VBTypedValue(VBUnknow
     public static VBUnknownValue DefaultValue => _defaultValue.Value;
 
     public override int Size => sizeof(int);
-    public object Value => throw new VBRuntimeErrorInternalErrorException();
+    public object Value => BoxedValue;
+
+    public override object BoxedValue => null!;
+
     public bool Equals(IVBTypedValue<VBUnknownValue, object>? other) => false;
 }

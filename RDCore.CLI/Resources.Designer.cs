@@ -124,7 +124,16 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to VIVAT CUCUMIS.
+        ///   Looks up a localized string similar to See https://rubberduckvba.ca for additional plugins.
+        /// </summary>
+        public static string RDCore_SeeWebsiteForPlugins {
+            get {
+                return ResourceManager.GetString("RDCore_SeeWebsiteForPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {$VIVAT}  ♥  {$CUCUMIS}.
         /// </summary>
         public static string RDCore_Slogan {
             get {
@@ -159,6 +168,15 @@ namespace RDCore.CLI {
         public static string RDCoreSplash_Foreground {
             get {
                 return ResourceManager.GetString("RDCoreSplash_Foreground", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ™(Trademark registrations pending) • &quot;Rubberduck-VBA&quot; (&quot;RD-VBA&quot;) • &quot;Rubberduck Core&quot; (&quot;RDCore&quot;) • &quot;VIVAT CUCUMIS&quot; | 9562-7303 Québec inc..
+        /// </summary>
+        public static string TrademarkNotice {
+            get {
+                return ResourceManager.GetString("TrademarkNotice", resourceCulture);
             }
         }
         

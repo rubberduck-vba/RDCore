@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.Workspace.Services;
 

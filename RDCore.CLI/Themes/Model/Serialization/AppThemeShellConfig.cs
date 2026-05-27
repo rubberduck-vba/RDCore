@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace RDCore.CLI.Themes.Model.Serialization;
 
-internal record class AppThemeShellConfig
+public record class AppThemeShellConfig
 {
     [JsonPropertyName("bg-default")]
     public string BackgroundDefault { get; init; } = ConsoleColor.Black.ToString();
@@ -24,7 +24,13 @@ internal record class AppThemeShellConfig
     public string ForegroundDebugCurrent { get; init; } = ConsoleColor.Black.ToString();
 
     [JsonPropertyName("error")]
-    public AppThemeMessageTypeConfig Error { get; init; } = new();
+    public AppThemeMessageTypeConfig Error { get; init; } = new() { 
+        Icon = "❌", 
+        ThemeLight = nameof(ConsoleColor.White), 
+        ThemeAccent1 = nameof(ConsoleColor.Yellow),
+        ThemeAccent2 = nameof(ConsoleColor.Red),
+        ThemeDark = nameof(ConsoleColor.DarkRed)
+    };
     [JsonPropertyName("success")]
     public AppThemeMessageTypeConfig Success { get; init; } = new();
     [JsonPropertyName("information")]
@@ -35,7 +41,7 @@ internal record class AppThemeShellConfig
     public AppThemeMessageTypeConfig Trace { get; init; } = new();
 }
 
-internal record class AppThemeShellConfigModel
+public record class AppThemeShellConfigModel
 {
     public AppThemeShellConfigModel(AppThemeShellConfig shell, IThemeColorParser parser)
     {

@@ -1,5 +1,7 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
+using System.Collections.Immutable;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
@@ -20,7 +22,13 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
 public abstract record class VBReturningMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, Range Range, Range SelectionRange, AccessModifier AccessModifier)
-    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier) { }
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier)
+{
+    /// <summary>
+    /// An <em>immutable array</em> containing the parameters of this procedure member.
+    /// </summary>
+    public ImmutableArray<VBParameterSymbol> Parameters { get; init; } = [];
+}
 
 /// <summary>
 /// An <c>UnboundVBTypeMemberSymbol</c> that resolves a <c>VBType</c> at compile-time and returns a <c>VBTypedValue</c> at run-time.
@@ -35,4 +43,10 @@ public abstract record class VBReturningMemberSymbol(Uri WorkspaceRoot, Uri Pare
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
 public abstract record class UnboundVBReturningMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType)
-    : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType) { }
+    : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType) 
+{
+    /// <summary>
+    /// An <em>immutable array</em> containing the parameters of this unbound procedure member.
+    /// </summary>
+    public ImmutableArray<UnboundVBParameterSymbol> Parameters { get; init; } = [];
+}

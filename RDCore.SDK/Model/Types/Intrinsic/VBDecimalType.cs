@@ -1,15 +1,18 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Decimal</c> data type.
+/// A <see cref="VBNumericType{Decimal}"/> representing the <c>Decimal</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>decimal</c>.<br/>
+/// 👉 Implements <see cref="IFixedPointNumericType"/>.
+/// </remarks>
 public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.VBDecimal), IFixedPointNumericType
 {
     private static readonly Lazy<VBDecimalType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -26,12 +29,14 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MinValue => _minValue.Value;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue;
 
     private static readonly Lazy<VBDecimalValue> _maxValue = new(() => new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalMaxValue) { ManagedValue = (double)(long.MaxValue * Math.Pow(10, -4)) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MaxValue => _maxValue.Value;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
 
     private static readonly Lazy<VBDecimalValue> _zero = new(() => new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

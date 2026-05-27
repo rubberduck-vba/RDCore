@@ -1,6 +1,9 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Extensibility;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Types.Meta;
 
@@ -8,9 +11,9 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// Describes a <c>Function</c> procedure.
 /// </summary>
 /// <param name="Name">The name of the member.</param>
-public record class VBFunctionProcedureDesc(string Name) : VBMemberDesc(Name)
+public record class VBFunctionProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBMemberDesc(Name, Parameters)
 {
-    private static readonly Lazy<VBFunctionProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBFunctionProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Describes a specific <c>Function</c> procedure.
     /// </summary>
@@ -28,9 +31,9 @@ public record class VBFunctionProcedureDesc(string Name) : VBMemberDesc(Name)
 /// Encountering a <em>deferred member</em> dring semantic traversal attaches the required semantics to produce a <c>VBInferredTypeMember</c> that can be materialized into a code action.
 /// </remarks>
 /// <param name="Name">The name of the deferred member</param>
-public record class VBDeferredFunctionProcedureDesc(string Name) : VBFunctionProcedureDesc(Name)
+public record class VBDeferredFunctionProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBFunctionProcedureDesc(Name, Parameters)
 {
-    private static readonly Lazy<VBDeferredFunctionProcedureDesc> _instance = new(() => new(nameof(VBType)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDeferredFunctionProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Describes a specific <em>deferred</em> <c>Function</c> procedure.
     /// </summary>

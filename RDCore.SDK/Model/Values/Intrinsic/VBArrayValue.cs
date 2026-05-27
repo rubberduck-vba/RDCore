@@ -7,14 +7,21 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
 /// <summary>
-/// The base type for array classes that encapsulate a <c>VBArrayType</c> run-time value.
+/// A <see cref="VBTypedValue"/> representing a runtime value of the <see cref="VBArrayType"/> data type.
 /// </summary>
+/// <param name="Symbol">The <see cref="Symbol"/> associated with this value.</param>
 public abstract record class VBArrayValue : VBTypedValue
 {
-    protected VBArrayValue(Symbol symbol, (int lBound, int uBound)[] dimensions, VBType? itemType = null)
+    /// <summary>
+    /// Creates a new <see cref="VBTypedValue"/> representing a runtime value of the <see cref="VBArrayType"/> data type.
+    /// </summary>
+    /// <param name="symbol">The <see cref="Symbol"/> associated with this value.</param>
+    /// <param name="dimensions">An array of <em>value tuples</em> defining the size of each dimension of this <see cref="VBArrayValue"/>.</param>
+    /// <param name="itemType">The data type of the items in this array. Use <see cref="VBVariantType"/> if the declared data type is unspecified.</param>
+    protected VBArrayValue(Symbol symbol, (int lBound, int uBound)[] dimensions, VBType itemType)
         : base(VBArrayType.TypeInfo, symbol)
     {
-        ItemType = itemType ?? VBVariantType.TypeInfo;
+        ItemType = itemType;
         Dimensions = [.. dimensions.Select(e => new VBArrayDimension(symbol, ItemType, e.lBound, e.uBound))];
     }
 
@@ -22,11 +29,6 @@ public abstract record class VBArrayValue : VBTypedValue
     /// The declared <c>VBType</c> of the items in this array.
     /// </summary>
     public VBType ItemType { get; init; }
-
-    /// <summary>
-    /// <c>true</c> if this array value defines a parameter array supplied through a <c>ParamArray</c> declaration.
-    /// </summary>
-    public bool IsParamArray { get; init; }
 
     public override int Size => ItemType.DefaultValue.Size * Dimensions.Length;
 
@@ -50,7 +52,7 @@ public abstract record class VBArrayValue : VBTypedValue
         /// <summary>
         /// Creates a array dimension of the specified <c>VBType</c> item type and the specified lower and upper bounds.
         /// </summary>
-        /// <param name="symbol"></param>
+        /// <param name="symbol">The <see cref="Symbol"/> of the parent <see cref="VBArrayValue"/>.</param>
         /// <param name="itemType"></param>
         /// <param name="lBound"></param>
         /// <param name="uBound"></param>
@@ -62,25 +64,22 @@ public abstract record class VBArrayValue : VBTypedValue
             _symbol = symbol;
             _itemType = itemType;
 
-            if (itemType.ManagedType is Type managedType) 
-            {
-                var defaultManagedValue = itemType is VBNumericType or VBStringType ? Activator.CreateInstance(managedType)! : itemType.DefaultValue;
-                _state = Enumerable.Range(lBound, uBound)
-                    .Select(i => defaultManagedValue)
-                    .ToImmutableArray();
-            }
+            var defaultManagedValue = itemType is VBBooleanType or VBNumericType or VBStringType 
+                ? Activator.CreateInstance(itemType.ManagedType!) 
+                : itemType.DefaultValue.BoxedValue;
+            _state = [.. Enumerable.Range(lBound, uBound).Select(i => defaultManagedValue)];
         }
 
         private readonly VBType _itemType;
 
-        private readonly ImmutableArray<object> _state;
+        private readonly ImmutableArray<object?> _state;
         private int ToManagedIndex(int subscript) => subscript - LowerBound;
 
         /// <summary>
         /// Gets the <c>VBTypedValue</c> at the specified <c>subscript</c> if the subscript is within the array bounds.
         /// </summary>
         /// <remarks>
-        /// Semantics should throw a <c>VBRuntimeErrorException.SubscriptOutOfRange</c> if this indexer returns <c>null</c>.
+        /// 💥 Semantics should throw a <c>VBRuntimeErrorException.SubscriptOutOfRange</c> if this indexer returns <c>null</c>.
         /// </remarks>
         public VBTypedValue? this[int subscript]
         {
@@ -88,24 +87,24 @@ public abstract record class VBArrayValue : VBTypedValue
             {
                 if (subscript < LowerBound || subscript > UpperBound)
                 {
-                    return default;
+                    return null;
                 }
                 else 
                 {
                     var index = ToManagedIndex(subscript);
                     if (_itemType is VBNumericType numericType)
                     {
-                        var value = (double)_state[index];
+                        var value = (double)_state[index]!;
                         return VBTypedValueFactory.CreateValue(numericType, _symbol, value);
                     }
                     else if (_itemType is VBStringType stringType)
                     {
-                        var value = (string)_state[index];
+                        var value = (string)(_state[index] ?? string.Empty);
                         return ((VBStringValue)VBTypedValueFactory.CreateValue(stringType, _symbol)!).WithValue(value);
                     }
                     else
                     {
-                        var value = (VBTypedValue)_state[index];
+                        var value = (VBTypedValue)(_state[index] ?? VBUnknownValue.DefaultValue);
                         return value;
                     }
                 }

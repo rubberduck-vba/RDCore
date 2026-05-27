@@ -1,5 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using System.Reflection;
@@ -17,7 +21,7 @@ public abstract class ServerApp
     /// <summary>
     /// Manages the lifecycle state of the server application.
     /// </summary>
-    public IServerStateProvider ServerStateProvider { get; private set; }
+    public virtual IServerStateProvider ServerStateProvider { get; } = new ServerStateProvider(new Configuration.ServerOptions { Verbose = true, PipeName = "RDCoreSDK.ServerApp1" });
 
     /// <summary>
     /// Runs the <c>RDCore.SDK</c> client/server application.
@@ -40,14 +44,17 @@ public abstract class ServerApp
         await app.RunAsync(provider);
     }
 
+
+
     private void ConfigureCoreServices(IServiceCollection services)
     {
         services
             .AddSingleton(provider => Info.Version!) // TODO get rid of this
+            .AddSingleton<IServerStateProvider>(provider => ServerStateProvider) // TODO get rid of this
+
             .AddSingleton<IServerCommandProvider>(provider => new ServerCommandProvider(provider))
 
-            .AddSingleton<ILanguageServerApp, LanguageServerApp>()
-            .AddSingleton<IServerStateProvider>(ServerStateProvider)
+            .AddSingleton<ILanguageServerApp, ConsoleLanguageClientApp>()
             .AddSingleton<IHealthCheckService, HealthCheckService>()
 
             .AddLogging(ConfigureLogging);
@@ -83,5 +90,47 @@ public abstract class ServerApp
 #if DEBUG
         builder.AddDebug();
 #endif
+    }
+}
+
+
+public class ConsoleLanguageClientApp : LanguageServerApp
+{
+    public ConsoleLanguageClientApp(IOptions<LanguageServerAppOptions> appSettings, IServerStateProvider serverStateProvider, IHealthCheckService healthCheckService, ILanguageServerProtocolTransportLayer transport, ILogger<LanguageServerApp> logger) 
+        : base(appSettings, serverStateProvider, healthCheckService, transport, logger)
+    {
+        
+    }
+
+    protected override ServerInfo GetServerInfo()
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // release any held resources here
+        }
+    }
+
+    protected override async Task RegisterServerCapabilitiesAsync(ILanguageServer server, ClientCapabilities clientCapabilities, CancellationToken token)
+    {
+        clientCapabilities.Workspace = new()
+        {
+            Diagnostics = new(isSupported: true),
+            ExecuteCommand = new(isSupported: true),
+        };
+        clientCapabilities.Window = new()
+        {
+            ShowMessage = new(isSupported: true),
+            WorkDoneProgress = new(isSupported: false) // TODO
+        };
     }
 }

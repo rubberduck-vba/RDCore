@@ -16,12 +16,12 @@ public record class VBObjectValue : VBTypedValue,
         => new VBNothingValue(GlobalSymbols.StaticSymbols.Nothing), LazyThreadSafetyMode.PublicationOnly);
     public static VBObjectValue Nothing => _nothing.Value;
 
-    public VBObjectValue(Symbol symbol) : base(VBObjectType.TypeInfo, symbol)
-    {
-    }
+    public VBObjectValue(Symbol symbol) : base(VBObjectType.TypeInfo, symbol) { }
 
     public int Value { get; init; }
     public override int Size => sizeof(int);
+
+    public override object BoxedValue => Value;
 
     public bool IsNothing() => Value == Nothing.Value;
     /*

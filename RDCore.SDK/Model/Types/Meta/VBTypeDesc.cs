@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Meta;
 namespace RDCore.SDK.Model.Types.Meta;
 
 /// <summary>
-/// A meta-type representing the <c>VBType</c> returned by the <c>Is</c> operator.
+/// A meta-type representing a <c>VBType</c> within the type system.
 /// </summary>
 public sealed record class VBTypeDesc(string Name) : VBType(typeof(Type), Name, isHidden: true)
 {

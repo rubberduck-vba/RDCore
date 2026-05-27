@@ -1,9 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics;
+using RDCore.SDK.Model.Types.Meta;
+using RDCore.SDK.Model.Values.Meta;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-
 namespace RDCore.SDK.Model.Values.Abstract;
 
 /// <summary>
@@ -20,7 +19,6 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
     /// <summary>
     /// Gets the underlying managed value corresponding to this typed value.
     /// </summary>
-    /// <remarks>
     TValue Value { get; }
 }
 
@@ -31,14 +29,27 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
 /// This class is at the base of the type hierarchy for all typed values.
 /// </remarks>
 /// <param name="TypeInfo">The <c>VBType</c> of the value.</param>
-/// <param name="Symbol">The <c>Symbol</c> associated with the value, if applicable.</param>
-public abstract record class VBTypedValue(VBType TypeInfo, Symbol Symbol) : VBRuntimeEntity(TypeInfo, Symbol)
+/// <param name="ResolvedSymbol">The <c>Symbol</c> associated with the value, if one is resolved.</param>
+public abstract record class VBTypedValue(VBType TypeInfo, Symbol ResolvedSymbol) 
+    : VBRuntimeEntity(TypeInfo, ResolvedSymbol)
 {
     private static readonly Lazy<CultureInfo> _cultureInfo = new(() => CultureInfo.GetCultureInfo("en-US"), LazyThreadSafetyMode.PublicationOnly);    
     /// <summary>
     /// A static and thread-safe reference to the "en-US" <c>CultureInfo</c> instance that derived values should use to ensure correct string/numeric conversions - this will almost certainly need to be revised to meet MS-VBAL.
     /// </summary>
-    protected static CultureInfo CultureInfo => _cultureInfo.Value;
+    public static CultureInfo CultureInfo => _cultureInfo.Value;
+
+    /// <summary>
+    /// Gets the described <c>Target</c> type of this value if the value is a <see cref="VBTypeDescValue"/>; yields the <c>TypeInfo</c> of this value otherwise.
+    /// </summary>
+    /// <remarks>
+    /// 👉 The <c>TypeInfo</c> of a <em>type descriptor value</em> is a <see cref="VBTypeDesc"/>.
+    /// </remarks>
+    public VBType GetTargetType() => this is VBTypeDescValue desc ? desc.Target : this.TypeInfo;
+    /// <summary>
+    /// Creates a new <see cref="VBTypeDescValue"/> that describes this value.
+    /// </summary>
+    public VBTypeDescValue Describe() => VBTypedValueFactory.DescribeType(TypeInfo, ResolvedSymbol);
 
     /// <summary>
     /// <c>true</c> if this typed value is a <c>With</c> block variable.
@@ -57,4 +68,13 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol Symbol) : VBRu
     /// The allocated size (in bytes) of this value.
     /// </summary>
     public abstract int Size { get; }
+
+    /// <summary>
+    /// Gets the <em>boxed</em> (<c>object</c>) underlying managed value.
+    /// </summary>
+    /// <remarks>
+    /// 👉 This member is provided as a <em>non-generic</em> convenience for contexts where the type is unknown.
+    /// Use the generic <c>ITypedValue&lt;T&gt;</c> whenever possible instead.
+    /// </remarks>
+    public abstract object BoxedValue { get; }
 }

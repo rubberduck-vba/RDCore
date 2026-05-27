@@ -61,6 +61,6 @@ public record class RDCoreExtensionDateTokenSemanticCapabilities(bool DateTokenS
 
 public record class RDCoreExtensionIdentifierTokenSemanticCapabilities(bool IdentifierTokenSemanticsSupported = false, IdentifierTokenSemanticFlags SupportedFlags = IdentifierTokenSemanticFlags.All) { }
 
-public record class RDCoreExtensionNumberTokenSemanticCapabilities(bool NumberTokenSemanticsSupported = false, NumberTokenSemanticOperationFlags SupportedFlags = NumberTokenSemanticOperationFlags.All) { }
+public record class RDCoreExtensionNumberTokenSemanticCapabilities(bool NumberTokenSemanticsSupported = false, NumberTokenSemanticFlags SupportedFlags = NumberTokenSemanticFlags.All) { }
 public record class RDCoreExtensionStringTokenSemanticCapabilities(bool StringTokenSemanticsSupported = false, StringTokenSemanticFlags SupportedFlags = StringTokenSemanticFlags.All) { }
 public record class RDCoreExtensionTypeConversionSemanticCapabilities(bool TypeConversionSemanticsSupported = false, ConversionSemanticFlags SupportedFlags = ConversionSemanticFlags.All) { }

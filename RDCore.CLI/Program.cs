@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
-using RDCore.CLI.App.Messages.Model;
 using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -14,7 +13,6 @@ namespace RDCore.CLI;
 
 public class Program
 {
-    private static readonly ConsoleMessageBuilder _messageBuilder = new();
     public static async Task<int> Main(string[] args)
     {
         var fileSystem = new FileSystem();
@@ -28,15 +26,16 @@ public class Program
         splash.Execute();
 
         // TODO move to appsettings.json
-        var options = new ServerOptions 
+        var sdkServerOptions = new ServerOptions 
         {
+            PipeName = "rdc.LanguageServer",
             ConnectTimeoutSeconds = 5,
             HealthCheckIntervalSeconds = 5,
             MaximumInstances = 1,
             ShutdownTimeoutSeconds = 5,
             Verbose = true
         };
-        var stateProvider = new ServerStateProvider(options);
+        var stateProvider = new ServerStateProvider(sdkServerOptions);
 
         try
         {
@@ -44,29 +43,31 @@ public class Program
         }
         catch (OperationCanceledException)
         {
-            writer.WriteMessage(new ConsoleMessageBuilder()
-                .WithKind(MessageKind.Information)
-                .WithTitle(Resources.RDCore_Slogan)
-                .WithMessageBody(Resources.CopyrightNotice));
+            // normal exit: VIVAT CUCUMIS!
+            writer.WriteSlogan();
         }
         catch (Exception exception)
         {
-            writer.WriteMessage(_messageBuilder
-                .WithKind(MessageKind.Error)
-                .WithTitle(exception)
-                .WithMessageBody(exception)
-                .WithStackTrace(exception));
-       }
+            // something went wrong:
+            writer.WriteException(exception);
+        }
 
+        // clean exit:
+        writer.WriteLegalNotice();
         return stateProvider.State.ExitCode;
     }
 }
 
+internal static class Bootstrapper
+{
+
+}
+
 internal class RDCoreConsoleClientServerApp : ServerApp
 {
+    
     protected override void ConfigureAppServices(IServiceCollection services)
     {
-        //throw new NotImplementedException();
     }
 
     protected override void ConfigureLogging(ILoggingBuilder builder)

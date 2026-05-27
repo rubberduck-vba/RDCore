@@ -2,7 +2,7 @@
 
 namespace RDCore.CLI;
 
-internal class AppOptions
+public class AppOptions
 {
     [JsonPropertyName("themes-enabled")]
     public bool ThemesEnabled { get; init; } = false;

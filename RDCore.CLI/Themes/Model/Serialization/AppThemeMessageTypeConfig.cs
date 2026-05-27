@@ -2,7 +2,7 @@
 
 namespace RDCore.CLI.Themes.Model.Serialization;
 
-internal record class AppThemeMessageTypeConfig
+public record class AppThemeMessageTypeConfig
 {
     [JsonPropertyName("icon")]
     public string Icon { get; init; } = string.Empty;
@@ -17,7 +17,7 @@ internal record class AppThemeMessageTypeConfig
     public string ThemeDark { get; init; } = ConsoleColor.DarkGray.ToString();
 }
 
-internal record class AppThemeMessageTypeConfigModel
+public record class AppThemeMessageTypeConfigModel
 {
     public AppThemeMessageTypeConfigModel(AppThemeMessageTypeConfig config, IThemeColorParser parser)
     {

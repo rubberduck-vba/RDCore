@@ -1,6 +1,6 @@
 ﻿namespace RDCore.CLI.App.Messages.Model;
 
-internal enum MessageKind
+public enum MessageKind
 {
     Trace,
     Information,

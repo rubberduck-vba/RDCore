@@ -158,7 +158,7 @@
 </value>
   </data>
   <data name="RDCore_Slogan" xml:space="preserve">
-    <value>VIVAT CUCUMIS</value>
+    <value>{$VIVAT}  ♥  {$CUCUMIS}</value>
     <comment>DO NOT LOCALIZE.
 Long Live the Cucumber (Latin)</comment>
   </data>
@@ -181,5 +181,11 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Error_ThemeNotFound" xml:space="preserve">
     <value>The specified theme was not found.</value>
+  </data>
+  <data name="TrademarkNotice" xml:space="preserve">
+    <value>™(Trademark registrations pending) • "Rubberduck-VBA" ("RD-VBA") • "Rubberduck Core" ("RDCore") • "VIVAT CUCUMIS" | 9562-7303 Québec inc.</value>
+  </data>
+  <data name="RDCore_SeeWebsiteForPlugins" xml:space="preserve">
+    <value>See https://rubberduckvba.ca for additional plugins</value>
   </data>
 </root>

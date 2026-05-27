@@ -6,31 +6,31 @@ using System.Text.Json;
 
 namespace RDCore.CLI.Themes.Model;
 
-internal interface IAppThemeLoaderService
+public interface IAppThemeLoaderService
 {
     /// <summary>
     /// Discovers and loads all available themes.
     /// </summary>
     /// <param name="token">A <c>CancellationToken</c>.</param>
-    Task<ImmutableArray<AppTheme>> DiscoverThemesAsync(CancellationToken token);
+    Task<ImmutableArray<AppThemeModel>> DiscoverThemesAsync(CancellationToken token);
 }
 
-internal class AppThemeLoaderService(IOptions<AppOptions> options, IFileSystem FileSystem) : IAppThemeLoaderService
+public class AppThemeLoaderService(IOptions<AppOptions> options, IFileSystem FileSystem) : IAppThemeLoaderService
 {
     private readonly AppOptions _options = options.Value;
     private readonly IFileSystem _fileSystem = FileSystem;
 
-    private readonly Dictionary<string, AppTheme> _themes = [];
-    public ImmutableArray<AppTheme> Themes => [.. _themes.Values];
+    private readonly Dictionary<string, AppThemeModel> _themes = [];
+    public ImmutableArray<AppThemeModel> Themes => [.. _themes.Values];
 
-    public async Task<ImmutableArray<AppTheme>> DiscoverThemesAsync(CancellationToken token)
+    public async Task<ImmutableArray<AppThemeModel>> DiscoverThemesAsync(CancellationToken token)
     {
-        var themes = new Dictionary<string, AppTheme>();
+        var themes = new Dictionary<string, AppThemeModel>();
         try
         {
             foreach (var file in _fileSystem.Directory.EnumerateFiles(_options.ThemesDiscoveryPath, "*.theme"))
             {
-                if (await LoadJsonAsync(file, token) is AppTheme theme && !_themes.TryAdd(theme.Name, theme))
+                if (await LoadJsonAsync(file, token) is AppThemeModel theme && !_themes.TryAdd(theme.Name, theme))
                 {
                     // duplicate themes in folder
                 }
@@ -40,16 +40,16 @@ internal class AppThemeLoaderService(IOptions<AppOptions> options, IFileSystem F
         {
             if (themes.Count == 0)
             {
-                var fallback = AppTheme.Default;
+                var fallback = AppThemeModel.Default;
                 themes.Add(fallback.Name, fallback);
             }
         }
         return [.. themes.Values];
     }
 
-    private async Task<AppTheme?> LoadJsonAsync(string path, CancellationToken token)
+    private async Task<AppThemeModel?> LoadJsonAsync(string path, CancellationToken token)
     {
         var content = await _fileSystem.File.ReadAllTextAsync(path, token);
-        return JsonSerializer.Deserialize<AppTheme>(content);
+        return JsonSerializer.Deserialize<AppThemeModel>(content);
     }
 }

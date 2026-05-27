@@ -13,7 +13,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 public class BinaryXorOperationTests : BinaryOperatorOperationTests
 {
     protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseXOr;
-    internal override IRuntimeSemantics Semantics => new BinaryXorBitwiseOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new BinaryXorLogicalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,
         VBByteType.TypeInfo,

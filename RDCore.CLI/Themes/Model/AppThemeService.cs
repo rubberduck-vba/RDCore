@@ -5,17 +5,17 @@ using System.Collections.Immutable;
 
 namespace RDCore.CLI.Themes.Model;
 
-internal interface IAppThemeService
+public interface IAppThemeService
 {
     /// <summary>
     /// Gets all available themes.
     /// </summary>
-    ImmutableArray<AppThemeModel> Themes { get; }
+    ImmutableArray<AppTheme> Themes { get; }
 
     /// <summary>
     /// Gets the current theme.
     /// </summary>
-    AppThemeModel Theme { get; }
+    AppTheme Theme { get; }
 
     /// <summary>
     /// Sets the current theme.
@@ -24,13 +24,13 @@ internal interface IAppThemeService
     void SetTheme(string name);
 }
 
-internal class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderService loader) : IAppThemeService
+public class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderService loader) : IAppThemeService
 {
-    private Dictionary<string, AppThemeModel> _themes = [];
-    public ImmutableArray<AppThemeModel> Themes => [.. _themes.Values];
+    private Dictionary<string, AppTheme> _themes = [];
+    public ImmutableArray<AppTheme> Themes => [.. _themes.Values];
     private string _selection = "rdc-default";
 
-    public AppThemeModel Theme => _themes.TryGetValue(_selection, out var value) ? value : new(AppTheme.Default);
+    public AppTheme Theme => _themes.TryGetValue(_selection, out var value) ? value : new(AppThemeModel.Default);
 
     public void SetTheme(string name)
     {
@@ -55,7 +55,7 @@ internal class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderServ
     {
         if (IsThemingEnabled(MessageKind.Information))
         {
-            _themes = (await loader.DiscoverThemesAsync(token)).ToDictionary(theme => theme.Name, theme => new AppThemeModel(theme));
+            _themes = (await loader.DiscoverThemesAsync(token)).ToDictionary(theme => theme.Name, theme => new AppTheme(theme));
         }
     }
 

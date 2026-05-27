@@ -20,4 +20,6 @@ public sealed record class VBVoidValue() : VBTypedValue(VBVoidType.TypeInfo, Glo
     public static VBVoidValue Void => _void.Value;
 
     public override int Size => 0;
+
+    public override object BoxedValue => null!;
 }

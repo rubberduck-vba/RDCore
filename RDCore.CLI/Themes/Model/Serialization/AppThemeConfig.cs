@@ -2,7 +2,7 @@
 
 namespace RDCore.CLI.Themes.Model.Serialization;
 
-internal record class AppThemeConfig
+public record class AppThemeConfig
 {
     [JsonPropertyName("font-family")]
     public string FontFamily { get; init; } = "Consolas";
@@ -11,7 +11,7 @@ internal record class AppThemeConfig
     public AppThemeShellConfig Shell { get; init; } = new();
 }
 
-internal record class AppThemeConfigModel
+public record class AppThemeConfigModel
 {
     public AppThemeConfigModel(AppThemeConfig config, IThemeColorParser parser)
     {

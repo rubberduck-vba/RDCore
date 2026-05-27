@@ -1,6 +1,6 @@
 ﻿namespace RDCore.CLI.App.Messages.Model;
 
-internal enum MessagePart
+public enum MessagePart
 {
     Overlay,
     Timestamp,

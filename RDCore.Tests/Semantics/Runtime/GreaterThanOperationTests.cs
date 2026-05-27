@@ -17,7 +17,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
 {
     protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.GreaterThan;
 
-    internal override IRuntimeSemantics Semantics => new GreaterThanRelationalOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new BinaryGtRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBBooleanType.TypeInfo,

@@ -1,14 +1,19 @@
 ﻿using RDCore.CLI.App.Messages.Model;
 using RDCore.CLI.Themes.Model;
+using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 
 namespace RDCore.CLI.App.Messages;
 
-internal interface IConsoleMessageWriter
+public interface IConsoleMessageWriter
 {
-    void Clear();
-    void WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default);
-    void WriteReadyPrompt();
+    IConsoleMessageWriter Clear();
+    IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default);
+
+    IConsoleMessageWriter WriteAssemblyInfo();
+    IConsoleMessageWriter WriteSlogan();
+    IConsoleMessageWriter WriteLegalNotice();
 }
 
 /// <summary>
@@ -23,7 +28,7 @@ internal interface IConsoleMessageWriter
 /// <summary>
 /// A default <c>ConsoleMessageWriter</c> implementation with a whopping 16 colors to play with.
 /// </summary>
-internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
+public class DefaultConsoleMessageWriter : IConsoleMessageWriter
 {
     private IAppThemeService AppThemeService { get; }
 
@@ -35,9 +40,53 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
         Console.ForegroundColor = (ConsoleColor)appThemeService.Theme.Config.Shell.ForegroundDefault;
     }
 
-    public void Clear() => Console.Clear();
+    public IConsoleMessageWriter Clear()
+    {
+        Console.Clear();
+        return this;
+    }
 
-    public void WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default)
+    public IConsoleMessageWriter WriteAssemblyInfo()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var assemblyName = assembly.GetName();
+        var company = assembly.GetCustomAttribute<AssemblyCompanyAttribute>()!.Company;
+
+        return WriteMessage(new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Trace)
+            .WithMessageBody($"{assemblyName.Name} [v{assemblyName.Version?.ToString(3) ?? "0.1a"}]")
+            .WithMetric(PlaceholderKind.StringLiteral, "{$COMPANY}", company));
+    }
+
+    public IConsoleMessageWriter WriteLegalNotice()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var assemblyName = assembly.GetName();
+        var company = assembly.GetCustomAttribute<AssemblyCompanyAttribute>()!.Company;
+
+        return WriteMessage(new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Trace)
+            .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString()))
+            .WithMetric(PlaceholderKind.StringLiteral, "{$COMPANY}", company)
+            .WithLineBreak());
+    }
+
+    public IConsoleMessageWriter WriteSlogan() => WriteMessage(
+        new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Information)
+            .WithMessageBody(new string(' ', 22) + Resources.RDCore_Slogan, nameof(ConsoleColor.DarkRed))
+            .WithMetric(PlaceholderKind.StringLiteral, "{$VIVAT}", "V I V A T")
+            .WithMetric(PlaceholderKind.StringLiteral, "{$CUCUMIS}", "C U C U M I S")
+            .WithLineBreak());
+
+    public IConsoleMessageWriter WriteException(Exception exception) =>
+        WriteMessage(new ConsoleMessageBuilder()
+            .WithKind(MessageKind.Error)
+            .WithTitle(exception)
+            .WithMessageBody(exception)
+            .WithStackTrace(exception));
+
+    public IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default)
     {
         var theme = AppThemeService.Theme;
 
@@ -46,15 +95,15 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
         //var overlay = builder.Parts.OfType<ConsoleMessageOverlayMessagePart>().ToArray();
 
         var messageBody = builder.Parts
-            .OfType<ConsoleMessageStringLiteralMetricPart>()
+            .OfType<ConsoleMessageStringLiteralPlaceholderPart>()
             .Aggregate(body.Body, (result, metric) =>
-                result.Replace(metric.Placeholder, MetricPartFormatter.FormatValue(metric.Kind, metric.StringValue)));
+                result.Replace(metric.Placeholder, PlaceholderPartFormatter.FormatValue(metric.Kind, metric.StringValue)));
 
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageTimestampPart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Timestamp));
         WriteMessageIcon(builder.Kind, color ?? (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Title));
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageTitlePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Title));
         WriteNewLine();
-        var metrics = builder.Parts.OfType<ConsoleMessageStringLiteralMetricPart>();
+        var metrics = builder.Parts.OfType<ConsoleMessageStringLiteralPlaceholderPart>();
 
         //var (Left, Top) = Console.GetCursorPosition();
         //var lines = body.Body.Split("\n").Length;
@@ -69,6 +118,13 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
         WriteNewLine();
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageVerbosePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Verbose));
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageStackTracePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.StackTrace));
+
+        if (builder.IsWithLineBreak)
+        {
+            WriteNewLine();
+        }
+
+        return this;
     }
 
     private void WriteMessageIcon(MessageKind kind, ConsoleColor color)
@@ -78,15 +134,14 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
         {
             var revertColor = Console.ForegroundColor;
             Console.ForegroundColor = color;
-            Console.Write(icon);
+            Console.Write($"{icon} ");
             Console.ForegroundColor = revertColor;
         }
     }
 
     private static void WriteNewLine() => Console.Write(Environment.NewLine);
-    public void WriteReadyPrompt() => Console.WriteLine($"✅ {Resources.Prompt_READY}");
 
-    private void WriteMessageBody(ConsoleMessageBodyPart? part, IEnumerable<ConsoleMessageStringLiteralMetricPart> metrics, MessageKind kind, ConsoleColor? color = null)
+    private void WriteMessageBody(ConsoleMessageBodyPart? part, IEnumerable<ConsoleMessageStringLiteralPlaceholderPart> metrics, MessageKind kind, ConsoleColor? color = null)
     {
         if (part is null)
         {
@@ -99,7 +154,7 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
             Console.ForegroundColor = (ConsoleColor)color;
         }
 
-        if (metrics.Any(metric => metric.Kind == MetricKind.StopwatchMilliseconds))
+        if (metrics.Any(metric => metric.Kind == PlaceholderKind.StopwatchMilliseconds))
         {
             Console.Write("  >> ⏱️");
         }
@@ -107,9 +162,11 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
         var body = part.Body;
         var theme = AppThemeService.Theme;
 
+        var previous = body;
         while (body.Contains("{$"))
         {
-            foreach (var value in metrics.Cast<ConsoleMessageStringLiteralMetricPart>().Select(e => (Metric: e, Index: body.IndexOf(e.Placeholder))).OrderBy(e => e.Index))
+            previous = body;
+            foreach (var value in metrics.Cast<ConsoleMessageStringLiteralPlaceholderPart>().Select(e => (Metric: e, Index: body.IndexOf(e.Placeholder))).OrderBy(e => e.Index))
             {
                 if (value.Index >= 0)
                 {
@@ -119,6 +176,7 @@ internal class DefaultConsoleMessageWriter : IConsoleMessageWriter
                     break;
                 }
             }
+            Debug.Assert(body != previous);
         }
         WriteMessagePart(body, color ?? (ConsoleColor)theme.GetMessagePartColor(kind, MessagePart.Body));
         Console.ForegroundColor = revertColor;

@@ -1,4 +1,4 @@
-﻿using RDCore.SDK;
+﻿using RDCore.SDK.Workspace;
 
 namespace RDCore.Server;
 

@@ -10,14 +10,14 @@ namespace RDCore.SDK.Model.AST.Directives;
 /// </summary>
 /// <param name="Location">The <c>Location</c> of the directive.</param>
 /// <param name="ModuleOption">The <c>ModuleOptions</c> value being configured.</param>
-public record class ModuleOptionDirectiveNode(Location Location, ModuleOptions ModuleOption) : BoundDirective(Location) { }
+public record class ModuleOptionDirectiveNode(Uri SemanticId, Location Location, ModuleOptions ModuleOption) : BoundDirective(SemanticId, Location) { }
 /// <summary>
 /// A <c>BoundNode</c> representing a <c>Def&lt;Type&gt;</c> module directive.
 /// </summary>
 /// <param name="Location">The <c>Location</c> of the directive.</param>
 /// <param name="VBType">The mapped <c>VBType</c> (per the semantics defined in MS-VBAL 5.2.2 Implicit Definition Directives).</param>
 /// <param name="Value">The prefixing scheme defined by this directive.</param>
-public record class TypeDefDirectiveNode(Location Location, VBType VBType, DefTypePrefixMapping Value) : BoundDirective(Location) 
+public record class TypeDefDirectiveNode(Uri SemanticId, Location Location, VBType VBType, DefTypePrefixMapping Value) : BoundDirective(SemanticId, Location) 
 {
     /// <summary>
     /// Gets the <c>Def&lt;Type&gt;</c> token corresponding to the specified <c>VBType</c>, as defined in <strong>MS-VBAL 5.2.2</strong> Implicit Definition Directives.

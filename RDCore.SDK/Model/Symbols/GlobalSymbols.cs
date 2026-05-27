@@ -12,12 +12,20 @@ namespace RDCore.SDK.Model.Symbols;
 public static class GlobalSymbols
 {
     /// <summary>
+    /// Represents a symbol that is unbound and unresolved.
+    /// </summary>
+    /// <remarks>
+    /// The data type of this symbol is <see cref="VBUnknownType"/>.
+    /// </remarks>
+    public static readonly StaticSymbol UnresolvedSymbol = new(nameof(UnresolvedSymbol), SymbolKindExt.Ignored, VBUnknownType.TypeInfo);
+
+    /// <summary>
     /// An immutable array containing all <c>OperatorSymbol</c> implementations.
     /// </summary>
     /// <remarks>
     /// Alphabetical order for searchability.
     /// </remarks>
-    public static readonly ImmutableArray<OperatorSymbol> Operators =
+    public static readonly ImmutableArray<StaticSymbol> Operators =
     [
         new BinaryArithmeticAdditionOperatorSymbol(),
         new BinaryBitwiseAndOperatorSymbol(),
@@ -30,19 +38,19 @@ public static class GlobalSymbols
         new BinaryArithmeticDivisionOperatorSymbol(),
         new BinaryCompareEqOperatorSymbol(),
         new BinaryArithmeticExponentOperatorSymbol(),
-        new GreaterThanOperatorSymbol(),
-        new GreaterThanOrEqualOperatorSymbol(),
-        new InequalityOperatorSymbol(),
+        new BinaryCompareGtOperatorSymbol(),
+        new BinaryCompareGtEqOperatorSymbol(),
+        new BinaryCompareNeqOperatorSymbol(),
         new BinaryArithmeticIntegerDivisionOperatorSymbol(),
-        new IsRefEqOperatorSymbol(),
-        new LessThanOperatorSymbol(),
-        new LessThanOrEqualOperatorSymbol(),
-        new LikeOperatorSymbol(),
-        //new MemberAccessOperatorSymbol(),
+        new BinaryCompareIsOperatorSymbol(),
+        new BinaryCompareLtOperatorSymbol(),
+        new BinaryCompareLtEqOperatorSymbol(),
+        new BinaryCompareLikeOperatorSymbol(),
+        new BinaryMemberAccessOperatorSymbol(),
         new BinaryArithmeticModuloOperatorSymbol(),
         new BinaryArithmeticMultiplicationOperatorSymbol(),
         new BinaryArithmeticSubtractionOperatorSymbol(),
-        new UnaryLetCoercionOperatorSymbol(),
+        new BinaryLetCoercionOperatorSymbol(),
         new UnaryArithmeticNegationOperatorSymbol(),
         new UnaryArithmeticAdditionOperatorSymbol(),
     ];
@@ -80,6 +88,7 @@ public static class GlobalSymbols
         public static readonly StaticSymbol VBByteMinValue = new("Byte.Min", SymbolKindExt.Constant, VBByteType.TypeInfo);
         public static readonly StaticSymbol VBByteMaxValue = new("Byte.Max", SymbolKindExt.Constant, VBByteType.TypeInfo);
 
+        public static readonly StaticSymbol VBIntegerNegativeOneValue = new("Integer.-1", SymbolKindExt.Constant, VBIntegerType.TypeInfo);
         public static readonly StaticSymbol VBIntegerZeroValue = new("Integer.0", SymbolKindExt.Constant, VBIntegerType.TypeInfo);
         public static readonly StaticSymbol VBIntegerMinValue = new("Integer.Min", SymbolKindExt.Constant, VBIntegerType.TypeInfo);
         public static readonly StaticSymbol VBIntegerMaxValue = new("Integer.Max", SymbolKindExt.Constant, VBIntegerType.TypeInfo);
@@ -105,6 +114,7 @@ public static class GlobalSymbols
         public static readonly StaticSymbol VBSingleMaxValue = new("Single.Max", SymbolKindExt.Constant, VBSingleType.TypeInfo);
 
         public static readonly StaticSymbol VBDoubleZeroValue = new("Double.0", SymbolKindExt.Constant, VBDoubleType.TypeInfo);
+        public static readonly StaticSymbol VBDoubleOneValue = new("Double.1", SymbolKindExt.Constant, VBDoubleType.TypeInfo);
         public static readonly StaticSymbol VBDoubleMinValue = new("Double.Min", SymbolKindExt.Constant, VBDoubleType.TypeInfo);
         public static readonly StaticSymbol VBDoubleMaxValue = new("Double.Max", SymbolKindExt.Constant, VBDoubleType.TypeInfo);
 
@@ -128,32 +138,32 @@ public static class GlobalSymbols
 
     public static class OperatorSymbols
     {
-        public static readonly UnaryOperatorSymbol UnaryNegation = Operators.OfType<UnaryArithmeticNegationOperatorSymbol>().Single();
-        public static readonly UnaryOperatorSymbol UnaryAddition = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
-        public static readonly UnaryOperatorSymbol BitwiseNot = Operators.OfType<UnaryBitwiseNotOperatorSymbol>().Single();
+        public static readonly StaticSymbol UnaryNegation = Operators.OfType<UnaryArithmeticNegationOperatorSymbol>().Single();
+        public static readonly StaticSymbol UnaryAddition = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseNot = Operators.OfType<UnaryBitwiseNotOperatorSymbol>().Single();
 
-        public static readonly BinaryOperatorSymbol Addition = Operators.OfType<BinaryArithmeticAdditionOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Subtraction = Operators.OfType<BinaryArithmeticSubtractionOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Multiplication = Operators.OfType<BinaryArithmeticMultiplicationOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Division = Operators.OfType<BinaryArithmeticDivisionOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol IntegerDivision = Operators.OfType<BinaryArithmeticIntegerDivisionOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Exponentiation = Operators.OfType<BinaryArithmeticExponentOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Modulo = Operators.OfType<BinaryArithmeticModuloOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol BitwiseAnd = Operators.OfType<BinaryBitwiseAndOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol BitwiseOr = Operators.OfType<BinaryBitwiseOrOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol BitwiseXOr = Operators.OfType<BinaryBitwiseXOrOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol BitwiseImp = Operators.OfType<BinaryBitwiseImpOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol BitwiseEqv = Operators.OfType<BinaryBitwiseEqvOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Equality = Operators.OfType<BinaryCompareEqOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Inequality = Operators.OfType<InequalityOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol LessThan = Operators.OfType<LessThanOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol GreaterThan = Operators.OfType<GreaterThanOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol LessThanOrEqual = Operators.OfType<LessThanOrEqualOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol GreaterThanOrEqual = Operators.OfType<GreaterThanOrEqualOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Like = Operators.OfType<LikeOperatorSymbol>().Single();
+        public static readonly StaticSymbol Addition = Operators.OfType<BinaryArithmeticAdditionOperatorSymbol>().Single();
+        public static readonly StaticSymbol Subtraction = Operators.OfType<BinaryArithmeticSubtractionOperatorSymbol>().Single();
+        public static readonly StaticSymbol Multiplication = Operators.OfType<BinaryArithmeticMultiplicationOperatorSymbol>().Single();
+        public static readonly StaticSymbol Division = Operators.OfType<BinaryArithmeticDivisionOperatorSymbol>().Single();
+        public static readonly StaticSymbol IntegerDivision = Operators.OfType<BinaryArithmeticIntegerDivisionOperatorSymbol>().Single();
+        public static readonly StaticSymbol Exponentiation = Operators.OfType<BinaryArithmeticExponentOperatorSymbol>().Single();
+        public static readonly StaticSymbol Modulo = Operators.OfType<BinaryArithmeticModuloOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseAnd = Operators.OfType<BinaryBitwiseAndOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseOr = Operators.OfType<BinaryBitwiseOrOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseXOr = Operators.OfType<BinaryBitwiseXOrOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseImp = Operators.OfType<BinaryBitwiseImpOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseEqv = Operators.OfType<BinaryBitwiseEqvOperatorSymbol>().Single();
+        public static readonly StaticSymbol Equality = Operators.OfType<BinaryCompareEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol Inequality = Operators.OfType<BinaryCompareNeqOperatorSymbol>().Single();
+        public static readonly StaticSymbol LessThan = Operators.OfType<BinaryCompareLtOperatorSymbol>().Single();
+        public static readonly StaticSymbol GreaterThan = Operators.OfType<BinaryCompareGtOperatorSymbol>().Single();
+        public static readonly StaticSymbol LessThanOrEqual = Operators.OfType<BinaryCompareLtEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol GreaterThanOrEqual = Operators.OfType<BinaryCompareGtEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol Like = Operators.OfType<BinaryCompareLikeOperatorSymbol>().Single();
 
-        public static readonly BinaryOperatorSymbol IsRefEquals = Operators.OfType<IsRefEqOperatorSymbol>().Single();
-        public static readonly BinaryOperatorSymbol Concat = Operators.OfType<BinaryStringConcatOperatorSymbol>().Single();
+        public static readonly StaticSymbol IsRefEquals = Operators.OfType<BinaryCompareIsOperatorSymbol>().Single();
+        public static readonly StaticSymbol Concat = Operators.OfType<BinaryStringConcatOperatorSymbol>().Single();
     }
 
     public static void Initialize(ConcurrentDictionary<Uri, Symbol> index)

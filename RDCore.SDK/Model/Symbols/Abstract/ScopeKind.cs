@@ -25,4 +25,8 @@ public enum ScopeKind
     /// Instance level, lives in the object heap.
     /// </summary>
     Instance,
+    /// <summary>
+    /// Allocated externally, lives out of process at a known address.
+    /// </summary>
+    External,
 }

@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Abstract;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Types.Complex;

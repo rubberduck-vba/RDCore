@@ -17,7 +17,7 @@ public abstract record class BoundSymbol(Uri WorkspaceRoot, Uri ParentUri, strin
     Range Range, Range SelectionRange) : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind) { }
 
 /// <summary>
-/// A <c>Symbol</c> that is bound to a workspace document <c>Location</c>.
+/// A <c>Symbol</c> that is <strong>not bound</strong> to a workspace document <c>Location</c>.
 /// </summary>
 /// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
