@@ -22,8 +22,8 @@ public record class VBBinaryOperatorExpression<TContext, TFlags>(Uri SemanticId,
     OperatorSymbol<TContext, TFlags> Symbol, 
     OperatorExpressionValueSymbol ResultSymbol,
     Location Location, 
-    BoundExpression Left, 
-    BoundExpression Right) 
+    BoundExpressionNode Left, 
+    BoundExpressionNode Right) 
     : VBOperatorExpression<TContext, TFlags>(SemanticId, Symbol, ResultSymbol, Location) 
     where TContext : SemanticContext<TFlags>, new()
     where TFlags : struct, Enum { }

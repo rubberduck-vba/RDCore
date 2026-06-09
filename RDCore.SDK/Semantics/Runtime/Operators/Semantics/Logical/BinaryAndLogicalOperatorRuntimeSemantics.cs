@@ -43,8 +43,8 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
@@ -85,8 +85,8 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext, 
         params VBTypedValue[] operands)
     {
-        var lhs = operands[(int)OperandIndex.BinaryLeftOperand];
-        var rhs = operands[(int)OperandIndex.BinaryRightOperand];
+        var lhs = operands[(int)InputIndex.BinaryLeftOperand];
+        var rhs = operands[(int)InputIndex.BinaryRightOperand];
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
             builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);

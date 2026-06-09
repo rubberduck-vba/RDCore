@@ -31,7 +31,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// <returns>A <see cref="LetCoercionResult"/> that encapsulates the outcome of the evaluation.</returns>
     LetCoercionResult EvaluateLetCoercionSemantics<TContext, TFlags>(
         ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
+        BoundNode<TContext, TFlags> expression, 
         LetCoercionStackFrame frame)
     where TContext : SemanticContext<TFlags>, new()
     where TFlags : struct, Enum;
@@ -166,24 +166,24 @@ public class LetCoercionRuntimeSemanticsProvider(
     }
 
 
-    private VBRuntimeErrorInfo OnLetCoercionTypeMismatch(BoundExpression expression, LetCoercionStackFrame frame) =>
+    private VBRuntimeErrorInfo OnLetCoercionTypeMismatch(BoundExpressionNode expression, LetCoercionStackFrame frame) =>
         new(VBRuntimeErrorId.TypeMismatch, expression.Location,
             VBRuntimeErrorException.GetErrorString(VBRuntimeErrorId.TypeMismatch),
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
 
-    private VBRuntimeErrorInfo OnLetCoercionNotApplicableInternalError(BoundExpression expression, LetCoercionStackFrame frame) =>
+    private VBRuntimeErrorInfo OnLetCoercionNotApplicableInternalError(BoundExpressionNode expression, LetCoercionStackFrame frame) =>
         new(VBRuntimeErrorId.InternalError, expression.Location,
             VBRuntimeErrorException.GetErrorString(VBRuntimeErrorId.InternalError),
             _formatterService.Format(Exceptions.VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable, expression, [frame]));
 
-    private VBRuntimeErrorInfo OnLetCoercionStackCorruptionInternalError(BoundExpression expression, LetCoercionStackFrame frame) =>
+    private VBRuntimeErrorInfo OnLetCoercionStackCorruptionInternalError(BoundExpressionNode expression, LetCoercionStackFrame frame) =>
         new(VBRuntimeErrorId.InternalError, expression.Location,
             VBRuntimeErrorException.GetErrorString(VBRuntimeErrorId.InternalError),
             _formatterService.Format(Exceptions.VBRuntimeInternalError_LetCoercionStackCorruption
                 .Replace("${FRAMES}", _frameStack.Count.ToString())
                 .Replace("${HASH}", _frameHash.Count.ToString()), expression, [frame]));
 
-    private VBRuntimeErrorInfo OnRecursiveLetCoercionError(BoundExpression expression, LetCoercionStackFrame frame) =>
+    private VBRuntimeErrorInfo OnRecursiveLetCoercionError(BoundExpressionNode expression, LetCoercionStackFrame frame) =>
         new(VBRuntimeErrorId.OutOfStackSpace, expression.Location,
             VBRuntimeErrorException.GetErrorString(VBRuntimeErrorId.OutOfStackSpace),
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose, expression, [frame]));
@@ -199,7 +199,7 @@ public class LetCoercionRuntimeSemanticsProvider(
         var coercionResult = LetCoercionResult.NotApplicable(frame);
         var context = new LetCoercionAnalysisContext(expression.SemanticId, coercionResult, 0);
 
-        var operandIndex = frame.OperandIndex;
+        var operandIndex = frame.InputIndex;
 
         if (_strategies.TryGetValue(frame.DestinationTypeDesc.GetType(), out var coercionStrategy) && coercionStrategy is ILetCoercionRuntimeSemantics strategy)
         {
@@ -231,7 +231,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     where TContext : SemanticContext<TFlags>, new()
     where TFlags : struct, Enum
     {
-        builder.AddLetCoercionFlags(ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, result.Frame.OperandIndex);
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, result.Frame.InputIndex);
         EncodeApplicableOperandFlag(builder, expression, result.Frame);
     }
 
@@ -244,17 +244,17 @@ public class LetCoercionRuntimeSemanticsProvider(
     {
         builder.AddLetCoercionFlags(expression switch
         {
-            VBUnaryOperatorExpression<TContext, TFlags> when frame.OperandIndex == OperandIndex.UnaryOperand 
+            VBUnaryOperatorExpression<TContext, TFlags> when frame.InputIndex == InputIndex.UnaryOperand 
                 => ConversionSemanticFlags.UnaryOperand,
 
-            VBBinaryOperatorExpression<TContext, TFlags> when frame.OperandIndex == OperandIndex.BinaryLeftOperand
+            VBBinaryOperatorExpression<TContext, TFlags> when frame.InputIndex == InputIndex.BinaryLeftOperand
                 => ConversionSemanticFlags.BinaryLeftOperand,
 
-            VBBinaryOperatorExpression<TContext, TFlags> when frame.OperandIndex == OperandIndex.BinaryRightOperand
+            VBBinaryOperatorExpression<TContext, TFlags> when frame.InputIndex == InputIndex.BinaryRightOperand
                 => ConversionSemanticFlags.BinaryRightOperand,
 
             _ => 0
-        }, frame.OperandIndex);
+        }, frame.InputIndex);
     }
 
     public LetCoercionResult EvaluateLetCoercionSemantics<TContext, TFlags>(

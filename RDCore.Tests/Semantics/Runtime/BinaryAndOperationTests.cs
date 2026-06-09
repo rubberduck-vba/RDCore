@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
 public class BinaryAndOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseAnd;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseAndOp;
     internal override IRuntimeSemantics Semantics => new BinaryAndBitwiseOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,

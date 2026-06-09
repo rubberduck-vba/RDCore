@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
 public class EqualityOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Equality;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.CompareEqOp;
     internal override IRuntimeSemantics Semantics => new BinaryEqRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,

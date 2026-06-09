@@ -17,7 +17,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
 public class MultiplicationOperationTests : BinaryImpOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Multiplication;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.MultiplicationOp;
     internal override IRuntimeSemantics Semantics => new BinaryMultiplicationOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
@@ -82,7 +82,7 @@ public class MultiplicationOperationTests : BinaryImpOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsLiteral = new VBLiteralExpression(TestLocationRHS, rhsValue);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.Multiplication, TestLocation, lhsLiteral, rhsLiteral);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.MultiplicationOp, TestLocation, lhsLiteral, rhsLiteral);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

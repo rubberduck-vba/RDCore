@@ -15,7 +15,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.6 Binary '\\' Operator")]
 public class IntegerDivisionOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.IntegerDivision;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.IntegerDivisionOp;
 
     internal override IRuntimeSemantics Semantics => new BinaryIntegerDivisionOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [

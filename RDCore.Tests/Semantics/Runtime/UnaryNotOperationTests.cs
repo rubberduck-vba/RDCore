@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.1 Unary 'Not' Operator")]
 public class UnaryNotOperationTests : UnaryOperatorOperationTests
 {
-    protected override UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseNot;
+    protected override UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseNotOp;
     internal override IRuntimeSemantics Semantics => new UnaryNotOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,

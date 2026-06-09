@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3 Unary '+' Operator (implicit spec)")]
 public class UnaryAdditionOperationTests : UnaryOperatorOperationTests
 {
-    protected override UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.UnaryAddition;
+    protected override UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.UnaryAdditionOp;
     internal override IRuntimeSemantics Semantics => new UnaryNegationOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,

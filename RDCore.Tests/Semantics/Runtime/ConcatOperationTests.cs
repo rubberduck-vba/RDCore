@@ -11,7 +11,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.4 Binary '&' Operator")]
 public class ConcatOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Concat;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.ConcatOp;
     internal override IRuntimeSemantics Semantics => new BinaryConcatOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBStringType.TypeInfo,

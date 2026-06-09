@@ -24,7 +24,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver,
         VBOperatorExpression<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) => frame[OperandIndex.UnaryOperand].TypeInfo switch
+        OperatorEvaluationFrame frame) => frame[InputIndex.UnaryOperand].TypeInfo switch
         {
             VBByteType  => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
 
@@ -68,14 +68,14 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
                 because the effective type is always determined from the types of the operands.
             */
 
-            VBNumericType numericEffectiveType when frame[OperandIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
+            VBNumericType numericEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
                 RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(numericEffectiveType, expression.ResultSymbol, numericOperand)!),
 
             // per specifications a VBDateValue operand was let-coerced into a VBDoubleValue by this point:
-            VBDateType dateEffectiveType when frame[OperandIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
+            VBDateType dateEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
                 RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(dateEffectiveType, expression.ResultSymbol, numericOperand)!),
 
-            VBNullType nullEffectiveType when frame[OperandIndex.UnaryOperand] is VBNullValue
+            VBNullType nullEffectiveType when frame[InputIndex.UnaryOperand] is VBNullValue
                 => RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateValue(nullEffectiveType, expression.ResultSymbol)!),
 
             _ => RuntimeSemanticsEvaluationResult.InternalError(),

@@ -28,8 +28,8 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame) 
     {
-        var rhs = frame[OperandIndex.BinaryLeftOperand].TypeInfo;
-        return frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        var rhs = frame[InputIndex.BinaryLeftOperand].TypeInfo;
+        return frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBByteType when rhs is VBEmptyType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
@@ -63,8 +63,8 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType)
         {
             if (lhs is VBNumericTypedValue lhsValue && rhs is VBNumericTypedValue rhsValue)

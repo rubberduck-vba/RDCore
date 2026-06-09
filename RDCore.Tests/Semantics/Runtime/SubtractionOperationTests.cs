@@ -14,7 +14,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
 public class SubtractionOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Subtraction;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.SubtractionOp;
     internal override IRuntimeSemantics Semantics => new BinarySubtractionOperatorRuntimeSematics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,

@@ -9,7 +9,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 public abstract class UnaryOperatorOperationTests : SymbolOperationTests
 {
-    protected virtual UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.UnaryAddition;
+    protected virtual UnaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.UnaryAdditionOp;
 
     private static VBLiteralExpression CreateOperand(object value, Location location) => new(location, WrapVBTypedValue(value, location));
     private static VBUnaryOperatorExpression CreateOpExpression(UnaryOperatorSymbol operatorSymbol, VBTypedValue operand)

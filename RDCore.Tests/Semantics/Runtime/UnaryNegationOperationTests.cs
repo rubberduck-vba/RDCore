@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
 public class UnaryNegationOperationTests : UnaryOperatorOperationTests
 {
-    protected override UnaryOperatorSymbol Symbol =>  GlobalSymbols.OperatorSymbols.UnaryNegation;
+    protected override UnaryOperatorSymbol Symbol =>  GlobalSymbols.OperatorSymbols.UnaryNegationOp;
     internal override IRuntimeSemantics Semantics => new UnaryNegationOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,

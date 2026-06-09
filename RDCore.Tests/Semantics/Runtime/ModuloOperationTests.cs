@@ -15,7 +15,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.6 Binary 'Mod' Operator")]
 public class ModuloOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Modulo;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.ModuloOp;
     internal override IRuntimeSemantics Semantics => new BinaryModuloOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,

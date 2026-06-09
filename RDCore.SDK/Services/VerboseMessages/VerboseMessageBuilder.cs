@@ -18,7 +18,7 @@ public interface IVerboseMessageBuilder
     /// <param name="message">A specific <em>verbose</em> message that is included when verbose output is enabled, regardless of other verbose configuration settings.</param>
     /// <param name="expression">The expression to be formatted into the output, per verbose configuration settings.</param>
     /// <param name="frames">The stack of evaluation frames to be formatted into the output, per verbose configuration settings.</param>
-    string Format<TIndex>(string message, BoundExpression expression, IEnumerable<IStackFrame<TIndex>> frames) where TIndex : struct, Enum;
+    string Format<TIndex>(string message, BoundExpressionNode expression, IEnumerable<IStackFrame<TIndex>> frames) where TIndex : struct, Enum;
 }
 
 /// <summary>
@@ -34,7 +34,7 @@ public class VerboseMessageBuilder(
     private readonly IExpressionInfoFormatter _expressionFormatter = expressionFormatter;
     private readonly IStackTraceFormatter _stackTraceFormatter = stackTraceFormatter;
 
-    public string Format<TIndex>(string message, BoundExpression expression, IEnumerable<IStackFrame<TIndex>> frames) where TIndex : struct, Enum
+    public string Format<TIndex>(string message, BoundExpressionNode expression, IEnumerable<IStackFrame<TIndex>> frames) where TIndex : struct, Enum
     {
         if (!_config.IsEnabled)
         {

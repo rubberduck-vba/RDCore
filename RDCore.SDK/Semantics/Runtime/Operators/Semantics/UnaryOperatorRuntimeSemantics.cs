@@ -50,7 +50,7 @@ where TFlags : struct, Enum
 
         // the base rules are the verbatim specifications for
         // unary arithmetic operators (5.6.9.3.1 runtime semantics):
-        var effectiveType = frame[OperandIndex.UnaryOperand].TypeInfo switch
+        var effectiveType = frame[InputIndex.UnaryOperand].TypeInfo switch
         {
             VBByteType => VBByteType.TypeInfo,
             VBBooleanType or VBIntegerType or VBEmptyType => VBIntegerType.TypeInfo,
@@ -71,7 +71,7 @@ where TFlags : struct, Enum
             ? DetermineOperatorEffectiveTypeResult.Success(effectiveType)
             // if no effective type can be determined, it's a type mismatch error:
             : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
-                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", frame[OperandIndex.UnaryOperand].TypeInfo.Name)));
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", frame[InputIndex.UnaryOperand].TypeInfo.Name)));
     }
 
     /// <summary>

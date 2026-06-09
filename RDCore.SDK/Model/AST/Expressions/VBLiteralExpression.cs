@@ -16,4 +16,4 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="StaticValue">The parsed literal value.</param>
 public sealed record class VBLiteralExpression(Uri SemanticId, Location Location, VBTypedValue StaticValue) 
-    : BoundExpression(SemanticId, Location) { }
+    : BoundExpressionNode(SemanticId, Location) { }

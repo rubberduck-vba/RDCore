@@ -15,7 +15,7 @@ public abstract record class StatementRuntimeSemantics<TContext, TFlags> : Runti
     /// <param name="runtime">The execution context and memory space to operate with.</param>
     /// <param name="statement">The statement to be evaluated.</param>
     /// <returns>The result of the expression, or a default value of the expected data type. <c>null</c> if a result cannot be semantically determined (an exception should have been thrown then).</returns>
-    protected virtual VBTypedValue? EvaluateSemanticResult(IVBExecutionContext runtime, BoundStatement statement, VBTypedValue[] arguments)
+    protected virtual VBTypedValue? EvaluateSemanticNodeResult(IVBExecutionContext runtime, BoundStatementNode statement, VBTypedValue[] arguments)
     {
         // TODO
         return default;

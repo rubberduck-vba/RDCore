@@ -1,16 +1,52 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using Microsoft.Win32;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.Operators;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Types.Meta;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using RDCore.SDK.Model.Symbols.Operators;
-using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Meta;
-using RDCore.SDK.Model.Types.Complex;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Symbols;
 
-public static class GlobalSymbols
+public class StaticSymbolsProvider : IStaticSymbolsProvider 
 {
+    private readonly Dictionary<string, StaticSymbol> _registry;
+
+    public StaticSymbolsProvider(IEnumerable<StaticSymbol> symbols)
+    {
+        _registry = symbols.ToDictionary(symbol => symbol.Name);
+    }
+
+    protected void Load(IStaticSymbolsProvider provider)
+    {
+        foreach (var symbol in provider.GetAll())
+        {
+            _registry[symbol.Name] = symbol;
+        }
+    }
+
+    public IEnumerable<StaticSymbol> GetAll() 
+        => _registry.Values;
+
+    public bool TryGetByName(string name, [MaybeNullWhen(false), NotNullWhen(true)] out StaticSymbol symbol)
+        => _registry.TryGetValue(name, out symbol);
+}
+
+public sealed class GlobalSymbols : StaticSymbolsProvider
+{
+    public GlobalSymbols(IEnumerable<IStaticSymbolsProvider> providers) : base([])
+    {
+        foreach (var provider in providers)
+        {
+            Load(provider);
+        }
+    }
+
     /// <summary>
     /// Represents a symbol that is unbound and unresolved.
     /// </summary>
@@ -67,8 +103,8 @@ public static class GlobalSymbols
         public static readonly StaticSymbol VBNullString = new(Tokens.vbNullString, SymbolKindExt.Constant, VBStringType.TypeInfo);
         public static readonly StaticSymbol VBEmptyString = new("String.Empty", SymbolKindExt.Constant, VBStringType.TypeInfo);
 
-        public static readonly StaticSymbol VBVoid = new("(void)", SymbolKindExt.Ignored, VBVoidType.TypeInfo);
-        public static readonly StaticSymbol VBUnknown = new("Unkown", SymbolKindExt.Ignored, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol VBVoid = new("void", SymbolKindExt.Ignored, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol VBUnknown = new("unkown", SymbolKindExt.Ignored, VBVoidType.TypeInfo);
         public static readonly StaticSymbol TypeDesc = new("TypeDesc", SymbolKindExt.TypeDescriptor, VBTypeDesc.TypeInfo);
         public static readonly StaticSymbol MissingValue = new("Missing", SymbolKindExt.Variable, VBMissingType.TypeInfo);
 
@@ -76,7 +112,30 @@ public static class GlobalSymbols
         public static readonly StaticSymbol EmptyResizableArray = new("Array().Empty", SymbolKindExt.Array, VBResizableArrayType.TypeInfo);
         public static readonly StaticSymbol EmptyResizableByteArray = new("Array().Byte", SymbolKindExt.Array, VBResizableByteArrayType.TypeInfo);
 
-        public static readonly StaticSymbol VBAStdLib = new("VBA", SymbolKindExt.Project, VBLibraryProjectType.TypeInfo);
+        public static readonly StaticSymbol DefBoolDirective = new("def.bool", SymbolKindExt.Directive, VBBooleanType.TypeInfo);
+        public static readonly StaticSymbol DefByteDirective = new("def.byte", SymbolKindExt.Directive, VBByteType.TypeInfo);
+        public static readonly StaticSymbol DefIntDirective = new("def.int16", SymbolKindExt.Directive, VBIntegerType.TypeInfo);
+        public static readonly StaticSymbol DefLngDirective = new("def.int32", SymbolKindExt.Directive, VBLongType.TypeInfo);
+        public static readonly StaticSymbol DefLngLngDirective = new("def.int64", SymbolKindExt.Directive, VBLongLongType.TypeInfo);
+        public static readonly StaticSymbol DefSngDirective = new("def.float", SymbolKindExt.Directive, VBSingleType.TypeInfo);
+        public static readonly StaticSymbol DefDblDirective = new("def.double", SymbolKindExt.Directive, VBDoubleType.TypeInfo);
+        public static readonly StaticSymbol DefStrDirective = new("def.string", SymbolKindExt.Directive, VBStringType.TypeInfo);
+        public static readonly StaticSymbol DefObjDirective = new("def.obj", SymbolKindExt.Directive, VBObjectType.TypeInfo);
+        public static readonly StaticSymbol DefVarDirective = new("def.variant", SymbolKindExt.Directive, VBVariantType.TypeInfo);
+        public static readonly StaticSymbol OptionExplicitDirective = new("option.explicit", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionBase0Directive = new("option.base.0", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionBase1Directive = new("option.base.1", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionPrivateModuleDirective = new("option.private", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionCompareBinaryDirective = new("option.compare.bin", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionCompareTextDirective = new("option.compare.text", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionCompareDatabaseDirective = new("option.compare.db", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol OptionStrictDirective = new("option.strict", SymbolKindExt.Directive, VBVoidType.TypeInfo);
+
+        public static readonly StaticSymbol SubStmtProc = new("sub.proc", SymbolKindExt.Procedure, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol FuncStmtProc = new("func.proc", SymbolKindExt.Function, VBVariantType.TypeInfo);
+        public static readonly StaticSymbol PropGetStmtProc = new("prop-get.proc", SymbolKindExt.Property, VBVariantType.TypeInfo);
+        public static readonly StaticSymbol PropLetStmtProc = new("prop-let.proc", SymbolKindExt.Property, VBVoidType.TypeInfo);
+        public static readonly StaticSymbol PropSetStmtProc = new("prop-set.proc", SymbolKindExt.Property, VBVoidType.TypeInfo);
     }
 
     /// <summary>
@@ -138,44 +197,34 @@ public static class GlobalSymbols
 
     public static class OperatorSymbols
     {
-        public static readonly StaticSymbol UnaryNegation = Operators.OfType<UnaryArithmeticNegationOperatorSymbol>().Single();
-        public static readonly StaticSymbol UnaryAddition = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseNot = Operators.OfType<UnaryBitwiseNotOperatorSymbol>().Single();
+        public static readonly StaticSymbol ConcatOp = Operators.OfType<BinaryStringConcatOperatorSymbol>().Single();
 
-        public static readonly StaticSymbol Addition = Operators.OfType<BinaryArithmeticAdditionOperatorSymbol>().Single();
-        public static readonly StaticSymbol Subtraction = Operators.OfType<BinaryArithmeticSubtractionOperatorSymbol>().Single();
-        public static readonly StaticSymbol Multiplication = Operators.OfType<BinaryArithmeticMultiplicationOperatorSymbol>().Single();
-        public static readonly StaticSymbol Division = Operators.OfType<BinaryArithmeticDivisionOperatorSymbol>().Single();
-        public static readonly StaticSymbol IntegerDivision = Operators.OfType<BinaryArithmeticIntegerDivisionOperatorSymbol>().Single();
-        public static readonly StaticSymbol Exponentiation = Operators.OfType<BinaryArithmeticExponentOperatorSymbol>().Single();
-        public static readonly StaticSymbol Modulo = Operators.OfType<BinaryArithmeticModuloOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseAnd = Operators.OfType<BinaryBitwiseAndOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseOr = Operators.OfType<BinaryBitwiseOrOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseXOr = Operators.OfType<BinaryBitwiseXOrOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseImp = Operators.OfType<BinaryBitwiseImpOperatorSymbol>().Single();
-        public static readonly StaticSymbol BitwiseEqv = Operators.OfType<BinaryBitwiseEqvOperatorSymbol>().Single();
-        public static readonly StaticSymbol Equality = Operators.OfType<BinaryCompareEqOperatorSymbol>().Single();
-        public static readonly StaticSymbol Inequality = Operators.OfType<BinaryCompareNeqOperatorSymbol>().Single();
-        public static readonly StaticSymbol LessThan = Operators.OfType<BinaryCompareLtOperatorSymbol>().Single();
-        public static readonly StaticSymbol GreaterThan = Operators.OfType<BinaryCompareGtOperatorSymbol>().Single();
-        public static readonly StaticSymbol LessThanOrEqual = Operators.OfType<BinaryCompareLtEqOperatorSymbol>().Single();
-        public static readonly StaticSymbol GreaterThanOrEqual = Operators.OfType<BinaryCompareGtEqOperatorSymbol>().Single();
-        public static readonly StaticSymbol Like = Operators.OfType<BinaryCompareLikeOperatorSymbol>().Single();
+        public static readonly StaticSymbol UnaryNegationOp = Operators.OfType<UnaryArithmeticNegationOperatorSymbol>().Single();
+        public static readonly StaticSymbol UnaryAdditionOp = Operators.OfType<UnaryArithmeticAdditionOperatorSymbol>().Single();
+        public static readonly StaticSymbol AdditionOp = Operators.OfType<BinaryArithmeticAdditionOperatorSymbol>().Single();
+        public static readonly StaticSymbol SubtractionOp = Operators.OfType<BinaryArithmeticSubtractionOperatorSymbol>().Single();
+        public static readonly StaticSymbol MultiplicationOp = Operators.OfType<BinaryArithmeticMultiplicationOperatorSymbol>().Single();
+        public static readonly StaticSymbol DivisionOp = Operators.OfType<BinaryArithmeticDivisionOperatorSymbol>().Single();
+        public static readonly StaticSymbol IntegerDivisionOp = Operators.OfType<BinaryArithmeticIntegerDivisionOperatorSymbol>().Single();
+        public static readonly StaticSymbol ExponentiationOp = Operators.OfType<BinaryArithmeticExponentOperatorSymbol>().Single();
+        public static readonly StaticSymbol ModuloOp = Operators.OfType<BinaryArithmeticModuloOperatorSymbol>().Single();
 
-        public static readonly StaticSymbol IsRefEquals = Operators.OfType<BinaryCompareIsOperatorSymbol>().Single();
-        public static readonly StaticSymbol Concat = Operators.OfType<BinaryStringConcatOperatorSymbol>().Single();
-    }
+        public static readonly StaticSymbol BitwiseNotOp = Operators.OfType<UnaryBitwiseNotOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseAndOp = Operators.OfType<BinaryBitwiseAndOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseOrOp = Operators.OfType<BinaryBitwiseOrOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseXOrOp = Operators.OfType<BinaryBitwiseXOrOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseImpOp = Operators.OfType<BinaryBitwiseImpOperatorSymbol>().Single();
+        public static readonly StaticSymbol BitwiseEqvOp = Operators.OfType<BinaryBitwiseEqvOperatorSymbol>().Single();
 
-    public static void Initialize(ConcurrentDictionary<Uri, Symbol> index)
-    {
-        if (!index.IsEmpty)
-        {
-            throw new InvalidOperationException("The specified index dictionary is already initialized; index is expected to be empty.");
-        }
+        public static readonly StaticSymbol CompareEqOp = Operators.OfType<BinaryCompareEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareNeqOp = Operators.OfType<BinaryCompareNeqOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareLtOp = Operators.OfType<BinaryCompareLtOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareGtOp = Operators.OfType<BinaryCompareGtOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareLtEqOp = Operators.OfType<BinaryCompareLtEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareGtEqOp = Operators.OfType<BinaryCompareGtEqOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareLikeOp = Operators.OfType<BinaryCompareLikeOperatorSymbol>().Single();
+        public static readonly StaticSymbol CompareIsOp = Operators.OfType<BinaryCompareIsOperatorSymbol>().Single();
 
-        foreach (var op in Operators)
-        {
-            index[op.Uri] = op;
-        }
+        public static readonly StaticSymbol ExplicitCoercionOp = Operators.OfType<BinaryLetCoercionOperatorSymbol>().Single();
     }
 }

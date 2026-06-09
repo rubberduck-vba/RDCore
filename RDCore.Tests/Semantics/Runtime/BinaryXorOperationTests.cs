@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
 public class BinaryXorOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseXOr;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseXOrOp;
     internal override IRuntimeSemantics Semantics => new BinaryXorLogicalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,

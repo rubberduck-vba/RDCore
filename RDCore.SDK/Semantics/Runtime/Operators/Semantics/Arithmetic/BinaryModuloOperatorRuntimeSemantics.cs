@@ -30,8 +30,8 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame)
     {
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType
-            && frame[OperandIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric 
-            && frame[OperandIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric)
+            && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric 
+            && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric)
         {
             if (rhsNumeric.ManagedValue == 0)
             {

@@ -22,14 +22,16 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext conversionContext, 
         ISemanticFlagsAccumulator<TFlags> builder, 
-        BoundNode node, 
+        BoundNode<TContext, TFlags> node, 
         params VBTypedValue[] inputs);
-    
-    public abstract RuntimeSemanticsEvaluationResult Evaluate(
+
+    public RuntimeSemanticsEvaluationResult Evaluate(
         IVBExecutionContext runtime, 
         SemanticContext<TFlags> context, 
-        BoundNode node, 
-        params VBTypedValue[] inputs);
+        BoundNode<TContext, TFlags> node, params VBTypedValue[] inputs)
+    {
+        return evaluate
+    }
 
     /// <summary>
     /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs and returning a <em>semantic result</em> for analysis.
@@ -39,15 +41,29 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// </remarks>
     /// <param name="resolver">A read-only interface over the current execution context..</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> to be evaluated.</param>
+    /// <param name="expression">The <see cref="BoundExpressionNode{TContext,TFlags}"/> to be evaluated.</param>
     /// <param name="effectiveType">The <em>effective type</em> of the operation.</param>
     /// <param name="inputs">The inputs of the expression.</param>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, SemanticContext<TFlags> context, BoundExpression expression, VBType effectiveType, params VBTypedValue[] inputs) 
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticNodeResult(ISymbolResolver resolver, SemanticContext<TFlags> context, BoundExpressionNode<TContext, TFlags> expression, VBType effectiveType, params VBTypedValue[] inputs) 
         => Evaluate((IVBExecutionContext)resolver, context, expression, inputs);
+
+    /// <summary>
+    /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs and returning a <em>semantic result</em> for analysis.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <strong>Must not throw, nor implicate any side-effecting run-time calls.</strong> Base implementation invokes the base <c>abstract Evaluate</c> templated method.
+    /// </remarks>
+    /// <param name="resolver">A read-only interface over the current execution context..</param>
+    /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
+    /// <param name="statement">The <see cref="BoundStatementNode{TContext,TFlags}"/> to be evaluated.</param>
+    /// <param name="effectiveType">The <em>effective type</em> of the operation.</param>
+    /// <param name="inputs">The inputs of the expression.</param>
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticNodeResult(ISymbolResolver resolver, SemanticContext<TFlags> context, BoundStatementNode<TContext, TFlags> statement, VBType effectiveType, params VBTypedValue[] inputs)
+        => Evaluate((IVBExecutionContext)resolver, context, statement, inputs);
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
-    protected static VBRuntimeErrorInfo OnRuntimeError(VBRuntimeErrorId errorId, BoundExpression expression, string verbose)
+    protected static VBRuntimeErrorInfo OnRuntimeError(VBRuntimeErrorId errorId, BoundExpressionNode<TContext, TFlags> expression, string verbose)
         => new(errorId, expression.Location, VBRuntimeErrorException.GetErrorString(errorId), verbose);
 }

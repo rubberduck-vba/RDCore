@@ -15,4 +15,8 @@
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Analysis\" />
+  </ItemGroup>
+
 </Project>

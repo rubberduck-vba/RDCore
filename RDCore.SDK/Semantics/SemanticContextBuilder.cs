@@ -32,7 +32,7 @@ public interface ISemanticFlagsAccumulator<TFlags>
     /// </summary>
     /// <param name="flags">The semantic flag values.</param>
     /// <param name="operand">The index of the operand to add <em>let-coercion</em> (implicit conversion) semantic flags for.</param>
-    ISemanticFlagsAccumulator<TFlags> AddLetCoercionFlags(ConversionSemanticFlags flags, OperandIndex operand = 0);
+    ISemanticFlagsAccumulator<TFlags> AddLetCoercionFlags(ConversionSemanticFlags flags, InputIndex operand = 0);
 }
 
 /// <summary>
@@ -199,7 +199,7 @@ public record class SemanticContextFlagsBuilder<TContext, TFlags> : ISemanticCon
 
     public ISemanticFlagsAccumulator<TFlags> AddFlags(TFlags flags) => WithFlags((TFlags)(object)flags);
 
-    public ISemanticFlagsAccumulator<TFlags> AddLetCoercionFlags(ConversionSemanticFlags flags, OperandIndex operand)
+    public ISemanticFlagsAccumulator<TFlags> AddLetCoercionFlags(ConversionSemanticFlags flags, InputIndex operand)
     {
         var builder = new LetCoercionSemanticContextFlagsBuilder().WithFlags(flags);
         var index = (int)operand;

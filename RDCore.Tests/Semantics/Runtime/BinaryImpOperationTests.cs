@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
 public class BinaryImpOperationTests : BinaryOperatorOperationTests
 {
-    internal override IRuntimeSemantics Semantics => new BinaryImpLogicalOperatorRuntimeSemantics(); protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseAnd;
+    internal override IRuntimeSemantics Semantics => new BinaryImpLogicalOperatorRuntimeSemantics(); protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseAndOp;
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,
         VBByteType.TypeInfo,

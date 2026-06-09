@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
 public class BinaryOrOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseOr;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseOrOp;
     internal override IRuntimeSemantics Semantics => new BinaryOrBitwiseOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,

@@ -13,7 +13,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.7 Binary '^' Operator")]
 public class ExponentOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Exponentiation;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.ExponentiationOp;
     internal override IRuntimeSemantics Semantics => new BinaryExponentOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBDoubleType.TypeInfo,

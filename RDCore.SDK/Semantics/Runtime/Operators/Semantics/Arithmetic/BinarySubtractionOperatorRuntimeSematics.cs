@@ -32,12 +32,12 @@ public record class BinarySubtractionOperatorRuntimeSematics(
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
         {
             VBNumericType numericEffectiveType => EvaluateBinaryExpressionResult(numericEffectiveType, expression.ResultSymbol,
-                (VBNumericTypedValue)frame[OperandIndex.BinaryLeftOperand],
-                (VBNumericTypedValue)frame[OperandIndex.BinaryRightOperand]),
+                (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
+                (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]),
 
             VBDateType dateEffectiveType => EvaluateBinaryExpressionResult(dateEffectiveType, expression.ResultSymbol,
-                (VBNumericTypedValue)frame[OperandIndex.BinaryLeftOperand],
-                (VBNumericTypedValue)frame[OperandIndex.BinaryRightOperand]),
+                (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
+                (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]),
 
             VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
 

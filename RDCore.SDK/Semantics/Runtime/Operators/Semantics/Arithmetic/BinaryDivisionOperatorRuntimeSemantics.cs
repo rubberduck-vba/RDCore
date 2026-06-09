@@ -26,18 +26,18 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         BinaryArithmeticOperatorSemanticContext context, 
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType 
+                when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             VBDoubleType or VBStringType or VBCurrencyType or VBDateType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is INumericType or VBStringType or VBDateType or VBEmptyType 
+                when frame[InputIndex.BinaryRightOperand].GetTargetType() is INumericType or VBStringType or VBDateType or VBEmptyType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             INumericType or VBStringType or VBDateType or VBEmptyType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBDoubleType or VBStringType or VBCurrencyType or VBDateType 
+                when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBDoubleType or VBStringType or VBCurrencyType or VBDateType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
@@ -49,8 +49,8 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         if (frame.EffectiveType is VBDecimalType)
         {

@@ -84,8 +84,8 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame.Operands[(int)OperandIndex.BinaryLeftOperand].GetTargetType();
-        var rhs = frame.Operands[(int)OperandIndex.BinaryRightOperand].GetTargetType();
+        var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand].GetTargetType();
+        var rhs = frame.Operands[(int)InputIndex.BinaryRightOperand].GetTargetType();
         return lhs switch
         {
             VBByteType when rhs is VBByteType or VBStringType or VBEmptyType 
@@ -184,8 +184,8 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame.Operands[(int)OperandIndex.BinaryLeftOperand];
-        var rhs = frame.Operands[(int)OperandIndex.BinaryRightOperand];
+        var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand];
+        var rhs = frame.Operands[(int)InputIndex.BinaryRightOperand];
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType or VBCurrencyType or VBDecimalType)
         {
             var result = ComparisonOp(((VBNumericTypedValue)lhs).ManagedValue, ((VBNumericTypedValue)rhs).ManagedValue);
@@ -219,6 +219,6 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     /// </summary>
     /// <param name="expression">The <em>binary arithmetic operator expression</em> whose <c>ResultSymbol</c> the error result will be attached to.</param>
     /// <param name="verbose">A detailed <c>Verbose</c> message about the error.</param>
-    protected static RuntimeSemanticsEvaluationResult OnObjectRequired(BoundExpression expression, string verbose)
+    protected static RuntimeSemanticsEvaluationResult OnObjectRequired(BoundExpressionNode expression, string verbose)
         => RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.ObjectRequired, expression, verbose));
 }

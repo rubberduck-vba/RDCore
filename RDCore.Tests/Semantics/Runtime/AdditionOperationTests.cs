@@ -14,7 +14,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
 public class AdditionOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Addition;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.AdditionOp;
     internal override IRuntimeSemantics Semantics => new BinaryAdditionOperatorRuntimeSemantics();
 
     internal override IEnumerable<VBType> EffectiveTypes => [

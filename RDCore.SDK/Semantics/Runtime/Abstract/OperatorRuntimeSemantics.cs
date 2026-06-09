@@ -46,7 +46,7 @@ where TFlags : struct, Enum
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext conversionContext, 
         ISemanticFlagsAccumulator<TFlags> builder, 
-        BoundNode node, 
+        BoundNode<TContext, TFlags> node, 
         params VBTypedValue[] inputs)
         => Analyze(resolver, conversionContext, builder, (VBOperatorExpression<TContext, TFlags>)node, inputs);
 
@@ -65,7 +65,7 @@ where TFlags : struct, Enum
     {
         var initialContext = ((ISemanticContextBuilder<TContext, TFlags>)builder).Build();
         var conversionContextBuilder = new LetCoercionSemanticContextFlagsBuilder();
-        var operandsInfo = operands.Select((operand, index) => (operand.TypeInfo, Index:(OperandIndex)index)).ToArray();
+        var operandsInfo = operands.Select((operand, index) => (operand.TypeInfo, Index:(InputIndex)index)).ToArray();
 
         // 1. determine the effective type:
         var frame = new OperatorEvaluationFrame
@@ -102,7 +102,7 @@ where TFlags : struct, Enum
     /// <param name="evaluationResult">The result of the <em>evaluate result</em> (third/last) evaluation step.</param>
     /// <param name="semanticFlags">The <em>semantic flags</em> associated with this operation evaluation.</param>
     /// <returns></returns>
-    protected abstract OperatorAnalysisContext<TFlags> CreateAnalysisContext(BoundNode node, 
+    protected abstract OperatorAnalysisContext<TFlags> CreateAnalysisContext(BoundNode<TContext, TFlags> node, 
         DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
         LetCoercionAnalysisContext coercionResult,
         RuntimeSemanticsEvaluationResult evaluationResult,
@@ -145,22 +145,16 @@ where TFlags : struct, Enum
         <TContext, TFlags> expression,
         OperatorEvaluationFrame frame);
 
-    /// <summary>
-    /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified operands.
-    /// </summary>
-    /// <param name="runtime">The execution context and memory space to operate with.</param>
-    /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
-    /// <param name="node">The <em>expression node</em> to be evaluated.</param>
-    /// <param name="inputs">The inputs of the expression.</param>
-    public sealed override RuntimeSemanticsEvaluationResult Evaluate(
-        IVBExecutionContext runtime, 
+    protected sealed override RuntimeSemanticsEvaluationResult EvaluateSemanticNodeResult(
+        ISymbolResolver resolver, 
         SemanticContext<TFlags> context, 
-        BoundNode node, 
+        BoundExpressionNode<TContext, TFlags> expression, 
+        VBType effectiveType, 
         params VBTypedValue[] inputs)
     {
-        var expression = (VBOperatorExpression<TContext, TFlags>)node;
-        var frame = new OperatorEvaluationFrame(expression.SemanticId, expression.Symbol, [.. inputs], VBUnknownType.TypeInfo);
-        return Evaluate((ISymbolResolver)runtime, context, expression, frame);
+        var operatorNode = (VBOperatorExpression<TContext, TFlags>)expression;
+        var frame = new OperatorEvaluationFrame(operatorNode.SemanticId, operatorNode.Symbol, [.. inputs], VBUnknownType.TypeInfo);
+        return Evaluate(resolver, context, operatorNode, frame);
     }
 
     /// <summary>
@@ -197,7 +191,7 @@ where TFlags : struct, Enum
         {
             // 2. Validate the operands (let-coercion and overflow checks).
             var validOperands = Enumerable.Range(0, frame.Operands.Length)
-                .Select(index => ValidateOperand(resolver, expression, frame, (OperandIndex)index))
+                .Select(index => ValidateOperand(resolver, expression, frame, (InputIndex)index))
                 .Where(validation => validation.Result is not null)
                 .Select(validation => validation.Result)
                 .Cast<VBTypedValue>();
@@ -241,7 +235,7 @@ where TFlags : struct, Enum
         ISymbolResolver resolver,
         VBOperatorExpression<TContext, TFlags> expression,
         OperatorEvaluationFrame frame,
-        OperandIndex index)
+        InputIndex index)
     {
         // IMPLEMENTATION NOTE: specifications explicitly duplicate the behavior here:
         //   MS-VBAL 5.6.9.3 Arithmetic Operators
@@ -258,7 +252,7 @@ where TFlags : struct, Enum
         ILetCoercionSemanticContextBuilder builder,
         VBOperatorExpression<TContext, TFlags> expression,
         OperatorEvaluationFrame frame,
-        OperandIndex operandIndex)
+        InputIndex operandIndex)
     {
         var operand = frame[operandIndex];
         return operand is VBNullValue
@@ -267,7 +261,7 @@ where TFlags : struct, Enum
                 new()
                 {
                     NodeUri = expression.SemanticId,
-                    OperandIndex = operandIndex,
+                    InputIndex = operandIndex,
                     SourceValue = operand,
                     DestinationTypeDesc = VBTypedValueFactory.DescribeType(frame.EffectiveType, expression.ResultSymbol),
                 });
@@ -287,7 +281,7 @@ where TFlags : struct, Enum
         ISymbolResolver resolver,
         VBOperatorExpression<TContext, TFlags> expression,
         OperatorEvaluationFrame frame,
-        OperandIndex operandIndex)
+        InputIndex operandIndex)
     {
         var operand = frame[operandIndex];
         Debug.Assert(operand is not VBNullValue);
@@ -297,7 +291,7 @@ where TFlags : struct, Enum
             ? LetCoercionResult.Success(operand)
             : LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new() {
                 NodeUri = expression.SemanticId,
-                OperandIndex = operandIndex,
+                InputIndex = operandIndex,
                 SourceValue = operand,
                 DestinationTypeDesc = VBTypedValueFactory.DescribeType(frame.EffectiveType, expression.ResultSymbol),
             });

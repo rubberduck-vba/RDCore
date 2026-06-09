@@ -39,8 +39,8 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         // just to read like MS-VBAL: VBNothingValue is a VBObjectValue (similar w/ string & fixedString)
         if (lhs is not VBObjectValue and not VBNothingValue)

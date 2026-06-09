@@ -58,7 +58,7 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
         SemanticContext<ConversionSemanticFlags> context, 
         VBBinaryOperatorExpression<ConversionOperationSemanticContext, ConversionSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
-        => frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBType targetType 
+        => frame[InputIndex.BinaryRightOperand].GetTargetType() is VBType targetType 
             && targetType is VBIntrinsicType or VBClassType or VBUserDefinedType 
                 ? DetermineOperatorEffectiveTypeResult.Success(targetType)
                 : DetermineOperatorEffectiveTypeResult.NotApplicable();
@@ -71,10 +71,10 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
     {
         var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics((ISymbolResolver)runtime, expression, 
             new(NodeUri: expression.SemanticId, 
-                OperatorSymbol: expression.Symbol, 
-                OperandIndex: OperandIndex.BinaryLeftOperand, 
-                SourceValue: frame[OperandIndex.BinaryLeftOperand], 
-                DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame[OperandIndex.BinaryRightOperand].GetTargetType(), expression.ResultSymbol)));
+                StaticSymbol: expression.Symbol, 
+                InputIndex: InputIndex.BinaryLeftOperand, 
+                SourceValue: frame[InputIndex.BinaryLeftOperand], 
+                DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame[InputIndex.BinaryRightOperand].GetTargetType(), expression.ResultSymbol)));
 
         return coercionResult.IsSuccess 
             ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)

@@ -15,7 +15,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.5.4 Binary '>' Operator")]
 public class GreaterThanOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.GreaterThan;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.CompareGtOp;
 
     internal override IRuntimeSemantics Semantics => new BinaryGtRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
@@ -105,7 +105,7 @@ public class GreaterThanOperationTests : BinaryOperatorOperationTests
         var rhsValue = WrapVBTypedValue(rhs, TestLocationRHS);
         var rhsExpression = WrapLiteralExpression(rhs, TestLocationRHS);
 
-        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.GreaterThan, TestLocation, lhsExpression, rhsExpression);
+        var expression = new VBBinaryOperatorExpression(GlobalSymbols.OperatorSymbols.CompareGtOp, TestLocation, lhsExpression, rhsExpression);
         return Semantics.Evaluate(context, expression, lhsValue, rhsValue)!;
     }
 }

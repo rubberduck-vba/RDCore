@@ -28,9 +28,9 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         BinaryArithmeticOperatorSemanticContext context, 
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
-            VBStringType when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBStringType
+            VBStringType when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBStringType
                 => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
@@ -46,31 +46,31 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
         {
             case VBNumericType numericEffectiveType:
                 return EvaluateBinaryExpressionResult(numericEffectiveType, expression.ResultSymbol,
-                    (VBNumericTypedValue)frame[OperandIndex.BinaryLeftOperand],
-                    (VBNumericTypedValue)frame[OperandIndex.BinaryRightOperand]);
+                    (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
+                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]);
 
             case VBDateType dateEffectiveType:
                 return EvaluateBinaryExpressionResult(dateEffectiveType, expression.ResultSymbol,
-                    (VBNumericTypedValue)frame[OperandIndex.BinaryLeftOperand],
-                    (VBNumericTypedValue)frame[OperandIndex.BinaryRightOperand]);
+                    (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
+                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]);
 
             case VBStringType stringEffectiveType:
                 // The result is the right operand string concatenated to the left operand string
                 // IMPLEMENTATION NOTE: it isn't clear whether operands should be let-coerced left-to-right or right-to-left.
                 // However, neither coercion would actually throw us out of the evaluation pipeline in case of error.
 
-                var leftOperand = frame[OperandIndex.BinaryLeftOperand];
+                var leftOperand = frame[InputIndex.BinaryLeftOperand];
                 var leftCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(
                     resolver: runtime.Memory, 
                     expression: expression, 
-                    frame: new(expression.SemanticId, expression.Symbol, OperandIndex.BinaryLeftOperand, leftOperand, 
+                    frame: new(expression.SemanticId, expression.Symbol, InputIndex.BinaryLeftOperand, leftOperand, 
                         VBTypedValueFactory.DescribeType(stringEffectiveType, leftOperand.ResolvedSymbol)));
 
-                var rightOperand = frame[OperandIndex.BinaryRightOperand];
+                var rightOperand = frame[InputIndex.BinaryRightOperand];
                 var rightCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(
                     resolver: runtime.Memory,
                     expression: expression,
-                    frame: new(expression.SemanticId, expression.Symbol, OperandIndex.BinaryRightOperand, rightOperand,
+                    frame: new(expression.SemanticId, expression.Symbol, InputIndex.BinaryRightOperand, rightOperand,
                         VBTypedValueFactory.DescribeType(stringEffectiveType, rightOperand.ResolvedSymbol)));
 
                 if (leftCoercion.IsSuccess && rightCoercion.IsSuccess)

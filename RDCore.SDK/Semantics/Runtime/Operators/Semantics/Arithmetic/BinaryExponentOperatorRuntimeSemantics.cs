@@ -26,10 +26,10 @@ public record class BinaryExponentOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         BinaryArithmeticOperatorSemanticContext context, 
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBNumericType or VBStringType or VBDateType or VBEmptyType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBStringType or VBDateType or VBEmptyType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBStringType or VBDateType or VBEmptyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
@@ -42,8 +42,8 @@ public record class BinaryExponentOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame)
     {
         if (frame.EffectiveType is VBDoubleType 
-            && frame[OperandIndex.BinaryLeftOperand] is VBNumericTypedValue lhsValue 
-            && frame[OperandIndex.BinaryRightOperand] is VBNumericTypedValue rhsValue)
+            && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsValue 
+            && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsValue)
         {
             if (lhsValue.ManagedValue == 0 && rhsValue.ManagedValue == 0)
             {

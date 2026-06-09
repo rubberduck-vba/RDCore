@@ -71,7 +71,7 @@ public record class VBDateLetCoercionRuntimeSemantics(
                 => ConversionSemanticFlags.Numeric,
 
             _ => 0
-        }, frame.OperandIndex);
+        }, frame.InputIndex);
 
         return builder;
     }

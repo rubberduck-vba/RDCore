@@ -12,7 +12,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
 public class BinaryEqvOperationTests : BinaryOperatorOperationTests
 {
-    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseEqv;
+    protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.BitwiseEqvOp;
     internal override IRuntimeSemantics Semantics => new BinaryEqvBitwiseOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBBooleanType.TypeInfo,

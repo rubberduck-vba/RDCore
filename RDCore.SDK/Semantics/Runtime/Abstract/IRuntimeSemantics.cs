@@ -1,5 +1,4 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
@@ -29,7 +28,7 @@ public interface IRuntimeSemantics<TContext, TFlags>
     RuntimeSemanticsEvaluationResult Evaluate(
         IVBExecutionContext runtime, 
         SemanticContext<TFlags> context, 
-        BoundNode node, 
+        BoundNode<TContext, TFlags> node, 
         params VBTypedValue[] inputs);
     
     /// <summary>
@@ -46,6 +45,6 @@ public interface IRuntimeSemantics<TContext, TFlags>
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext conversionContext, 
         ISemanticFlagsAccumulator<TFlags> builder, 
-        BoundNode node, 
+        BoundNode<TContext, TFlags> node, 
         params VBTypedValue[] inputs);
 }

@@ -55,7 +55,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
                     => ConversionSemanticFlags.Widening,
 
             _ => 0 // nop
-        }, frame.OperandIndex);
+        }, frame.InputIndex);
         return builder;
     }
 }

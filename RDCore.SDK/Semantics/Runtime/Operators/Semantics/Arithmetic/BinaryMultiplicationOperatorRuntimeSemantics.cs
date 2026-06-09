@@ -26,22 +26,22 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
         BinaryArithmeticOperatorSemanticContext context,
         VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext,
         ArithmeticOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBCurrencyType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBCurrencyType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBCurrencyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             VBDateType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             VBNumericType or VBFixedStringType or VBStringType or VBDateType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBDateType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBDateType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
@@ -54,8 +54,8 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
         {
             VBNumericType numericEffectiveType
-                when frame[OperandIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric
-                  && frame[OperandIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric
+                when frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric
+                  && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric
                     => EvaluateBinaryExpressionResult(numericEffectiveType, expression.ResultSymbol, lhsNumeric, rhsNumeric),
 
             VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
