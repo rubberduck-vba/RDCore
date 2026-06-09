@@ -16,6 +16,8 @@ public sealed record class VBLongLongValue(Symbol Symbol) : VBNumericTypedValue(
     public override int Size => sizeof(long);
     public override double ManagedValue { get; init; }
 
+    public override object BoxedValue => ManagedValue;
+
     public new VBLongLongValue WithValue(double value) => this with { ManagedValue = (long)value };
     public VBLongLongValue WithValue(long value) => this with { ManagedValue = value };
 

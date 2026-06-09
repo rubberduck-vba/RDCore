@@ -14,6 +14,7 @@ public sealed record class VBEmptyValue(Symbol Symbol) : VBTypedValue(VBEmptyTyp
 {
     private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.StaticSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
     public static VBEmptyValue Empty { get; } = _emptyValue.Value;
+    public override object BoxedValue => _emptyValue.Value;
 
     public nint Value => nint.Zero;
     public override int Size => sizeof(int);

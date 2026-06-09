@@ -1,14 +1,17 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Object</c> data type.
+/// A <see cref="VBIntrinsicType{int}"/> representing the <c>Object</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>
+/// 👉 This data type represents a polymorphic object reference.
+/// </remarks>
 public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
 {
     private static readonly Lazy<VBObjectType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);

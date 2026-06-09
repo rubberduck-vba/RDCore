@@ -13,7 +13,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 public class InequalityOperationTests : BinaryOperatorOperationTests
 {
     protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.Inequality;
-    internal override IRuntimeSemantics Semantics => new InequalityRelationalOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new BinaryNeqRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBBooleanType.TypeInfo,

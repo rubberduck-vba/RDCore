@@ -6,11 +6,11 @@ using RDCore.SDK.Model.Values.Abstract;
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
 /// <summary>
-/// Represents a <c>Boolean</c> value.
+/// A <see cref="VBTypedValue"/> representing a runtime value of the <see cref="VBBooleanType"/> data type.
 /// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
-public sealed record class VBBooleanValue(Symbol Symbol) : VBTypedValue(VBBooleanType.TypeInfo, Symbol), 
-    IVBTypedValue<VBBooleanValue, bool>
+/// <param name="Symbol">The <see cref="Symbol"/> associated with this value.</param>
+public sealed record class VBBooleanValue(Symbol Symbol) 
+    : VBTypedValue(VBBooleanType.TypeInfo, Symbol), IVBTypedValue<VBBooleanValue, bool>
 {
     private static readonly Lazy<VBBooleanValue> _falseValue = new(() => new VBBooleanValue(GlobalSymbols.StaticSymbols.False) { Value = false });
     public static VBBooleanValue False { get; } = _falseValue.Value;
@@ -20,6 +20,8 @@ public sealed record class VBBooleanValue(Symbol Symbol) : VBTypedValue(VBBoolea
 
     public bool Value { get; init; } = default;
     public override int Size { get; } = 16;
+
+    public override object BoxedValue => Value;
 
     public VBBooleanValue WithValue(bool value) => this with { Value = value };
 

@@ -1,15 +1,18 @@
 ﻿using RDCore.SDK.Model.Symbols;
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Date</c> data type.
+/// A <see cref="VBIntrinsicType{DateTime}"/> representing the <c>Date</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>DateTime</c>.<br/>
+/// 👉 <c>Date</c> values are also representable as a <c>double</c> via <c>SerialValue</c> (OLE Automation/OADate value).
+/// </remarks>
 public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.VBDate)
 {
     private static readonly Lazy<VBDateType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -21,6 +24,10 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     private static readonly Lazy<VBDateValue> _defaultValue = new(() => VBDateType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
+    /// <summary>
+    /// The minimum valid value for a <c>DateSerial</c>.
+    /// </summary>
+    public const double MinSerial = -657434;
     private static readonly Lazy<VBDateValue> _minValue = new(() 
         => new(GlobalSymbols.ExtensionSymbols.VBDateMinValue) { Value = new DateTime(100, 01, 01) }, LazyThreadSafetyMode.PublicationOnly);
 
@@ -29,6 +36,10 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     /// </summary>
     public static VBDateValue MinValue => _minValue.Value;
 
+    /// <summary>
+    /// The maximum valid value for a <c>DateSerial</c>.
+    /// </summary>
+    public const double MaxSerial = 2958465;
     private static readonly Lazy<VBDateValue> _maxValue = new(() 
         => new(GlobalSymbols.ExtensionSymbols.VBDateMaxValue) { Value = new DateTime(9999, 12, 31, 23, 59, 59) }, LazyThreadSafetyMode.PublicationOnly);
 

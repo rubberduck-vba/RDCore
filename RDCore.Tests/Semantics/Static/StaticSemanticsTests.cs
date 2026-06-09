@@ -1,3 +1,4 @@
+using NSubstitute;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Runtime;
@@ -141,7 +142,7 @@ public abstract class StaticSemanticsTests
 
     internal void AssertDeterminedDeclaredType(VBType[] operandDeclaredTypes, VBType expected)
     {
-        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
+        var context = Substitute.For<IVBExecutionContext>();
         var result = Semantics.DetermineDeclaredType(context, operandDeclaredTypes);
         Assert.AreEqual(expected, result);
     }
@@ -158,7 +159,7 @@ public abstract class BinaryOperatorStaticSemanticsTests : StaticSemanticsTests
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateBinaryOperatorStaticSemantics()
     {
-        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
+        var context = Substitute.For<IVBExecutionContext>();
         foreach (var kvp in BinaryOperatorTypeMap)
         {
 
@@ -193,7 +194,7 @@ public sealed class UnaryNegationOperatorStaticSemanticsTests : UnaryOperatorSta
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateUnaryOperatorStaticSemantics()
     {
-        var context = new VBExecutionContext(new VirtualHeap()) { Is64Bit = true };
+        var context = Substitute.For<IVBExecutionContext>();
         foreach (var kvp in UnaryOperatorTypeMap)
         {
             var actual = Semantics.DetermineDeclaredType(context, kvp.Key);

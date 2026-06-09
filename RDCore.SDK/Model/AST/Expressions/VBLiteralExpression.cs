@@ -12,7 +12,8 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// semantics of this node. <em>MS-VBAL 3.3 Lexical Tokens</em> static semantics being implemented at the parser level,
 /// the <c>VBTypedValue</c> has already resolved its <c>type-suffix</c> ("type hint").
 /// </remarks>
+/// <param name="SemanticId">The unique <c>Uri</c> identifying this specific expression node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="StaticValue">The parsed literal value.</param>
-public sealed record class VBLiteralExpression(Location Location, VBTypedValue StaticValue) 
-    : BoundExpression(Location) { }
+public sealed record class VBLiteralExpression(Uri SemanticId, Location Location, VBTypedValue StaticValue) 
+    : BoundExpression(SemanticId, Location) { }

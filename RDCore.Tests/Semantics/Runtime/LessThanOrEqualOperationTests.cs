@@ -13,7 +13,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 public class LessThanOrEqualOperationTests : BinaryOperatorOperationTests
 {
     protected override BinaryOperatorSymbol Symbol => GlobalSymbols.OperatorSymbols.LessThanOrEqual;
-    internal override IRuntimeSemantics Semantics => new LessThanEqRelationalOperatorRuntimeSemantics();
+    internal override IRuntimeSemantics Semantics => new BinaryLtEqRelationalOperatorRuntimeSemantics();
     internal override IEnumerable<VBType> EffectiveTypes => [
         VBByteType.TypeInfo,
         VBBooleanType.TypeInfo,

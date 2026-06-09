@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK;
 using RDCore.SDK.Server;
+using RDCore.SDK.Workspace;
 using RDCore.Server.Commands;
 using RDCore.Workspace.Services;
 using RDCore.Workspace.States;

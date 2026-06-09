@@ -15,4 +15,6 @@ public sealed record class VBMissingValue(Symbol Symbol) : VBTypedValue(VBMissin
     public static VBMissingValue Missing => _missing.Value;
 
     public override int Size => sizeof(int);
+
+    public override object BoxedValue => _missing.Value.BoxedValue;
 }

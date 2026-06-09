@@ -130,16 +130,60 @@
     <value>Affiche l'écran de démarrage de l'application.</value>
   </data>
   <data name="CopyrightNotice" xml:space="preserve">
-    <value>Copyright ©{$YEAR} 9562-7303 Québec inc.</value>
+    <value>Copyright © {$YEAR} {$COMPANY}, tous droits réservés.</value>
   </data>
   <data name="Prompt_READY" xml:space="preserve">
     <value>PRÊT.</value>
   </data>
-  <data name="RDCore_Slogan" xml:space="preserve">
-    <value>VIVAT CUCUMIS</value>
+  <data name="RDCoreSplash_Background" xml:space="preserve">
+    <value>                                    -+-+--++--                          
+                                --+----+----------                      
+                              ++-----+-    +--+----+                    
+                             -----             +------                  
+                            -----         ----   -------------          
+                            +---          -----   +-----------+         
+                            ----          +--+   ----++ +-----          
+             +-+            ----                ----- --+----           
+            ------+          ----               -----------             
+            --------++        ---+-              -----+-™               
+           ---+ -+--------     -----             +--                    
+           +--+    ----------+------+            +---+                  
+          ----+         +--+-----+--+             +----+                
+          ----                                      -----               
+          ---+                                       ---+-              
+          ----                                        -----             
+          +---+                                        +---             
+           ----                                        ----             
+           -...                                        .--.             
+</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="RDCore_Splash" type="System.Resources.ResXNullRef, System.Windows.Forms">
-    <value />
+  <data name="RDCore_Slogan" xml:space="preserve">
+    <value>{$VIVAT}  ♥  {$CUCUMIS}</value>
+  </data>
+  <data name="RDCoreSplash_Foreground" xml:space="preserve">
+    <value>    -###++. +##++-      .+++-.++.####+-  .+++.     -++#--+++. .+++.     
+    -#####+.+#####-      -##+.+..######. -###.    -####-.##+. .###.     
+    -######--#####+.     .##+.# .###++#- +###.   .+###+-.##+. .##+.     
+    -##-.+#--##-.+#-     .+##-+ .### -#. +###-   .###-. .##+. .##+.     
+    -##- ++.-##- -#- ...  -###. .###.++  #-##+.  .##+.  .##+. .+#+.     
+    -##+++. -##- -#..##+  .##+  .###-#. .#.+##.  .+#+   .+#+  .+#+.     
+    -##-++. -##-.++  ...  .+#+   ##+ -+.-+ -##.   +##.  .+#+  .+#+      
+    -##--#+ -##+#+.        -#-  .###+#- +-+-##-   .+#++-.+#+++ +#+      
+    .....-. .---.          ...   ----.  ... ...     .--. ..... ...       </value>
+  </data>
+  <data name="Warn_ThemingDisabled" xml:space="preserve">
+    <value>Les thèmes sont présentement inactifs.</value>
+  </data>
+  <data name="Warn_ThemingDisabled_Verbose" xml:space="preserve">
+    <value>Utilisez la commande THEME ON pour activer la fonctionnalité.</value>
+  </data>
+  <data name="Error_ThemeNotFound" xml:space="preserve">
+    <value>Le thème spécifié est introuvable.</value>
+  </data>
+  <data name="TrademarkNotice" xml:space="preserve">
+    <value>™(Marques de commerce, dépôt en attente) • "Rubberduck-VBA" ("RD-VBA") • "Rubberduck Core" ("RDCore") • "VIVAT CUCUMIS" | 9562-7303 Québec inc.</value>
+  </data>
+  <data name="RDCore_SeeWebsiteForPlugins" xml:space="preserve">
+    <value>Voir https://rubberduckvba.ca pour des compléments additionnels.</value>
   </data>
 </root>

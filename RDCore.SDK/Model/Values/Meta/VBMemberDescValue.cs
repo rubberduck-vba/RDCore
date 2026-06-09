@@ -4,9 +4,12 @@ using RDCore.SDK.Model.Values.Abstract;
 namespace RDCore.SDK.Model.Values.Meta;
 
 /// <summary>
-/// A meta-value that represents a <c>VBTypeMemberSymbol</c> that is used in a member access expression.
+/// A meta-value that represents a <see cref="VBTypeMemberSymbol"/>.
 /// </summary>
-public record class VBMemberDescValue(Symbol Symbol, VBTypeMemberSymbol Member) : VBTypedValue(Member.ResolvedType, Symbol)
+public record class VBMemberDescValue(Symbol Symbol, VBTypeMemberSymbol Member, params VBParameterDescValue[] Parameters)
+    : VBTypedValue(Member.ResolvedType, Symbol)
 {
     public override int Size => sizeof(int);
+
+    public override object BoxedValue => 0;
 }

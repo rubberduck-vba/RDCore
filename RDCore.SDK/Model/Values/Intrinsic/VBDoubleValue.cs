@@ -14,6 +14,7 @@ public sealed record class VBDoubleValue(Symbol Symbol) : VBNumericTypedValue(VB
     public double Value => ManagedValue;
     public override int Size => 8;
     public override double ManagedValue { get; init; }
+    public override object BoxedValue => ManagedValue;
 
     public new VBDoubleValue WithValue(double value) => this with { ManagedValue = value };
 

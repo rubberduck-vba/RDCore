@@ -97,11 +97,20 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Copyright ©{$YEAR} 9562-7303 Québec inc..
+        ///   Looks up a localized string similar to Copyright © {$YEAR} {$COMPANY}, all rights reserved..
         /// </summary>
         public static string CopyrightNotice {
             get {
                 return ResourceManager.GetString("CopyrightNotice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified theme was not found..
+        /// </summary>
+        public static string Error_ThemeNotFound {
+            get {
+                return ResourceManager.GetString("Error_ThemeNotFound", resourceCulture);
             }
         }
         
@@ -115,7 +124,16 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to VIVAT CUCUMIS.
+        ///   Looks up a localized string similar to See https://rubberduckvba.ca for additional plugins.
+        /// </summary>
+        public static string RDCore_SeeWebsiteForPlugins {
+            get {
+                return ResourceManager.GetString("RDCore_SeeWebsiteForPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {$VIVAT}  ♥  {$CUCUMIS}.
         /// </summary>
         public static string RDCore_Slogan {
             get {
@@ -124,17 +142,59 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to                                                                                   
-        ///                                        ::------:                                 
-        ///                                    :-==============-                             
-        ///                                  -====-::      :-=====:                          
-        ///                                 ====-             :=====-                        
-        ///                                ====          :==-    ===========-                
-        ///         [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to                                     -+-+--++--                          
+        ///                                --+----+----------                      
+        ///                              ++-----+-    +--+----+                    
+        ///                             -----             +------                  
+        ///                            -----         ----   -------------          
+        ///                            +---          -----   +-----------+         
+        ///                            ----          +--+   ----++ +-----       [rest of string was truncated]&quot;;.
         /// </summary>
-        public static string RDCore_Splash {
+        public static string RDCoreSplash_Background {
             get {
-                return ResourceManager.GetString("RDCore_Splash", resourceCulture);
+                return ResourceManager.GetString("RDCoreSplash_Background", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to     -###++. +##++-      .+++-.++.####+-  .+++.     -++#--+++. .+++.     
+        ///    -#####+.+#####-      -##+.+..######. -###.    -####-.##+. .###.     
+        ///    -######--#####+.     .##+.# .###++#- +###.   .+###+-.##+. .##+.     
+        ///    -##-.+#--##-.+#-     .+##-+ .### -#. +###-   .###-. .##+. .##+.     
+        ///    -##- ++.-##- -#- ...  -###. .###.++  #-##+.  .##+.  .##+. .+#+.     
+        ///    -##+++. -##- -#..##+  .##+  .###-#. .#.+##.  .+#+   .+#+  .+#+.     
+        ///    -##-++. -##-.++  ...  .+#+   ##+ -+.-+ -##.   +##.  .+#+  .+#+   [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string RDCoreSplash_Foreground {
+            get {
+                return ResourceManager.GetString("RDCoreSplash_Foreground", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ™(Trademark registrations pending) • &quot;Rubberduck-VBA&quot; (&quot;RD-VBA&quot;) • &quot;Rubberduck Core&quot; (&quot;RDCore&quot;) • &quot;VIVAT CUCUMIS&quot; | 9562-7303 Québec inc..
+        /// </summary>
+        public static string TrademarkNotice {
+            get {
+                return ResourceManager.GetString("TrademarkNotice", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Theming is currently disabled..
+        /// </summary>
+        public static string Warn_ThemingDisabled {
+            get {
+                return ResourceManager.GetString("Warn_ThemingDisabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use the THEME ON command to enable..
+        /// </summary>
+        public static string Warn_ThemingDisabled_Verbose {
+            get {
+                return ResourceManager.GetString("Warn_ThemingDisabled_Verbose", resourceCulture);
             }
         }
     }

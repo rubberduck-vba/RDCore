@@ -1,17 +1,18 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>LongLong</c> data type.
+/// A <see cref="VBNumericType{Int64}"/> representing the <c>LongLong</c> data type.
 /// </summary>
 /// <remarks>
-/// This type is statically invalid in a 32-bit environment.
+/// The <em>managed type</em> of a value of this data type is <c>long</c>.<br/>
+/// 💥 Declarations of this data type are <strong>statically invalid</strong> in a <strong>32-bit</strong> environment.<br/>
+/// 👉 Implements <see cref="IIntegralNumericType"/>.<br/>
 /// </remarks>
 public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), IIntegralNumericType
 {
@@ -32,12 +33,14 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), 
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MinValue => _minValue.Value;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue;
 
     private static readonly Lazy<VBLongLongValue> _maxValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongMaxValue) { ManagedValue = long.MaxValue }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MaxValue => _maxValue.Value;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
 
     private static readonly Lazy<VBLongLongValue> _zeroValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

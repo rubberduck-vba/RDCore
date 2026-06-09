@@ -1,14 +1,17 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// Represents the <c>LongPtr</c> data type in the context of a 64-bit execution environment.
+/// A <see cref="VBIntrinsicType{Int64}"/> representing the <c>LongPtr</c> data type <em>in the context of a <strong>64-bit</strong> execution environment</em>.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>long</c>.<br/>
+/// </remarks>
 public record class VBLongPtrType_x64() : VBIntrinsicType<long>(VBTypeNames.VBLongPtr)
 {
     public static int BitnessAwarePtrSize => sizeof(long);

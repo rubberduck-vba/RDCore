@@ -25,8 +25,67 @@
     <Folder Include="Model\AST\Statements\" />
     <Folder Include="Model\Symbols\Statements\" />
     <Folder Include="Model\Types\Builders\" />
-    <Folder Include="Runtime\Services\" />
-    <Folder Include="Semantics\Diagnostics\" />
+    <Folder Include="Logger\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="ServerOptionsHelpText.fr.Designer.cs">
+      <DependentUpon>ServerOptionsHelpText.fr.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Update="ServerOptionsHelpText.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ServerOptionsHelpText.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Exceptions.fr.Designer.cs">
+      <DependentUpon>Exceptions.fr.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Update="Exceptions.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Exceptions.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Server\TraceMessages.fr.Designer.cs">
+      <DependentUpon>TraceMessages.fr.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Update="Server\TraceMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>TraceMessages.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="ServerOptionsHelpText.fr.resx">
+      <LastGenOutput>ServerOptionsHelpText.fr.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="ServerOptionsHelpText.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ServerOptionsHelpText.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Exceptions.fr.resx">
+      <LastGenOutput>Exceptions.fr.Designer.cs</LastGenOutput>
+      <Generator>PublicResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Exceptions.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Exceptions.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Server\TraceMessages.fr.resx">
+      <LastGenOutput>TraceMessages.fr.Designer.cs</LastGenOutput>
+      <Generator>ResXFileCodeGenerator</Generator>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Server\TraceMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>TraceMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

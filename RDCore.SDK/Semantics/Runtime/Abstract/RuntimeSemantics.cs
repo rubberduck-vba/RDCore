@@ -1,74 +1,53 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Semantics.Runtime.Operators.Context;
 
 namespace RDCore.SDK.Semantics.Runtime.Abstract;
+
 
 /// <summary>
 /// The class at the base of the runtime semantics type hierarchy that implements all the runtime semantic rules defined in MS-VBAL.
 /// </summary>
-public abstract record class RuntimeSemantics() : IRuntimeSemantics
+/// <typeparam name="TContext">The </typeparam>
+/// <typeparam name="TFlags"></typeparam>
+public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSemantics<TContext, TFlags>
+    where TContext : SemanticContext<TFlags>, new()
+    where TFlags : struct, Enum
 {
+    public abstract ISemanticFlagsAccumulator<TFlags> Analyze(
+        ISymbolResolver resolver, 
+        ConversionOperationSemanticContext conversionContext, 
+        ISemanticFlagsAccumulator<TFlags> builder, 
+        BoundNode node, 
+        params VBTypedValue[] inputs);
+    
+    public abstract RuntimeSemanticsEvaluationResult Evaluate(
+        IVBExecutionContext runtime, 
+        SemanticContext<TFlags> context, 
+        BoundNode node, 
+        params VBTypedValue[] inputs);
+
     /// <summary>
-    /// Determines the <em>effective type</em> of an operation based on the data type of its operands.
+    /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs and returning a <em>semantic result</em> for analysis.
     /// </summary>
-    /// <param name="operandDeclaredTypes">An array containing the declared data types.</param>
     /// <remarks>
-    /// <param name="context">The execution context and memory space to operate with.</param>
-    /// For unary operators, the operand is expected at index 0. 
-    /// For binary operators, LHS is read at index 0, RHS at index 1.
+    /// ⚠️ <strong>Must not throw, nor implicate any side-effecting run-time calls.</strong> Base implementation invokes the base <c>abstract Evaluate</c> templated method.
     /// </remarks>
-    public abstract VBType? DetermineEffectiveType(IVBExecutionContext context, params VBType[] operandDeclaredTypes);
+    /// <param name="resolver">A read-only interface over the current execution context..</param>
+    /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> to be evaluated.</param>
+    /// <param name="effectiveType">The <em>effective type</em> of the operation.</param>
+    /// <param name="inputs">The inputs of the expression.</param>
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, SemanticContext<TFlags> context, BoundExpression expression, VBType effectiveType, params VBTypedValue[] inputs) 
+        => Evaluate((IVBExecutionContext)resolver, context, expression, inputs);
 
     /// <summary>
-    /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified operands.
+    /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
-    /// <param name="context">The execution context and memory space to operate with.</param>
-    /// <param name="expression">The expression to be evaluated.</param>
-    /// <param name="operands">The operands of the operation.</param>
-    /// <returns></returns>
-    public VBTypedValue? Evaluate(IVBExecutionContext context, BoundExpression expression, params VBTypedValue[] operands)
-    {
-        var effectiveType = DetermineEffectiveType(context, [.. operands.Select(op => op.TypeInfo)])
-            ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range);
-
-        var validOperands = operands.Select(operand => 
-            ValidateOperand(context, effectiveType, expression, operand));
-
-        return EvaluateExpressionResult(context, expression, effectiveType, [.. validOperands]);
-    }
-
-    /// <summary>
-    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>BoundExpression</c>.
-    /// </summary>
-    /// <param name="context">An execution context and memory space to operate in.</param>
-    /// <param name="expression">Any <c>BoundExpression</c> to be evaluated.</param>
-    /// <param name="effectiveType">The semantically determined <em>effective type</em> of the operation.</param>
-    /// <param name="operands">An array of <c>VBTypedValue</c> containing the operands to work with.</param>
-    /// <returns>
-    /// Returns <c>null</c> if no result could be determined, if no runtime exceptions were thrown.
-    /// </returns>
-    protected abstract VBTypedValue? EvaluateExpressionResult(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue[] operands);
-
-    private static VBTypedValue ValidateOperand(IVBExecutionContext context, VBType effectiveType, BoundExpression expression, VBTypedValue operand) =>
-        operand is not VBNullValue
-            ? LetCoerceNonNullOperand(context, expression, effectiveType, operand)
-                ?? throw VBRuntimeErrorException.TypeMismatch(expression.Location.Range)
-            : operand;
-
-    private static VBTypedValue? LetCoerceNonNullOperand(IVBExecutionContext context, BoundExpression expression, VBType effectiveType, VBTypedValue operand)
-    {
-        VBTypedValue? letCoercedOperand = effectiveType.Equals(operand.TypeInfo) ? operand : null;
-        if (letCoercedOperand is not null)
-        {
-            // if the effective type is the same, we're done here.
-            return letCoercedOperand;
-        }
-
-        return LetCoercionRuntimeSemantics.Instance
-            .EvaluateExpressionResult(context, expression, effectiveType, [operand]) is VBTypedValue result ? result : operand;
-    }
+    protected static VBRuntimeErrorInfo OnRuntimeError(VBRuntimeErrorId errorId, BoundExpression expression, string verbose)
+        => new(errorId, expression.Location, VBRuntimeErrorException.GetErrorString(errorId), verbose);
 }

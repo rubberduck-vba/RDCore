@@ -9,6 +9,16 @@
     <StartupObject>RDCore.CLI.Program</StartupObject>
     <AssemblyTitle>RDCore CLI</AssemblyTitle>
     <ApplicationIcon>logo.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Title>RD-VBA CLI</Title>
+    <Authors>9562-7303 Québec inc.</Authors>
+    <Copyright>Copyright © 2026 ${Authors}</Copyright>
+    <Product>RDCore.SDK</Product>
+    <PackageProjectUrl>https://rubberduckvba.ca</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rubberduck-vba/rdcore</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <AssemblyVersion>0.1</AssemblyVersion>
+    <FileVersion>0.1</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +46,12 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Themes\rdc-default.theme">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

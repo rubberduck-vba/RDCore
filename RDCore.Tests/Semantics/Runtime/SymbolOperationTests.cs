@@ -1,3 +1,5 @@
+using NSubstitute;
+using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
@@ -6,18 +8,23 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Runtime.Abstract;
+using System.Dynamic;
 using Location = OmniSharp.Extensions.LanguageServer.Protocol.Models.Location;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
-public abstract class SymbolOperationTests
+public abstract class SymbolOperationTests<TContext, TFlags>
+where TContext : SemanticContext<TFlags>,new()
+where TFlags : struct, Enum
 {
-    internal abstract IRuntimeSemantics Semantics { get; }
+    internal abstract IRuntimeSemantics<TContext, TFlags> Semantics { get; }
     internal abstract IEnumerable<VBType> EffectiveTypes { get; }
 
     protected void AssertVBRuntimeErrorException(VBRuntimeErrorId expected, Exception exception)
@@ -32,7 +39,7 @@ public abstract class SymbolOperationTests
         }
     }
 
-    internal static IVBExecutionContext CreateContext(bool is64bit = true) => new VBExecutionContext(default!) { Is64Bit = true };
+    internal static IVBExecutionContext CreateContext(bool is64bit = true) => Substitute.For<IVBExecutionContext>();
     /// <summary>
     /// For the sake of a test involving a binary operator, the location of the LHS symbol or
     /// in the case of a unary operator, the location of the expression.
@@ -64,8 +71,8 @@ public abstract class SymbolOperationTests
             TestUri.TestModuleUserDefinedTypeUri(name),
             name, 
             ScopeKind.Module,
-            SymbolOperationTests.TestLocation!.Range,
-            SymbolOperationTests.TestLocation!.Range,
+            SymbolOperationTests<TContext, TFlags>.TestLocation!.Range,
+            SymbolOperationTests<TContext, TFlags>.TestLocation!.Range,
             AccessModifier.Public);
         var udt = new VBUserDefinedType(symbol, []);
         var value = new VBUserDefinedTypeValue(udt, symbol);
@@ -76,20 +83,20 @@ public abstract class SymbolOperationTests
     {
         VBTypedValue? dateHelper(string s) => s.StartsWith("#") && s.EndsWith("#") ?
             DateTime.TryParse(s.TrimStart("#").TrimEnd("#"), out var dateValue)
-            ? new VBDateValue(GlobalSymbols.ExtensionSymbols.VBDateZeroValue).WithValue(dateValue)
+            ? VBTypedValueFactory.CreateValue(GlobalSymbols.ExtensionSymbols.VBDateZeroValue, dateValue)
             : null : null;
 
         return value switch
         {
             VBTypedValue typedValue => typedValue,
             "UDT" =>  GetUDT(),
-            "DateTime.Now" => VBDateType.Zero.WithValue(43452),
+            "DateTime.Now" => VBTypedValueFactory.CreateValue(VBDateType.TypeInfo, VBDateType.Zero.Symbol, 43452),
             "VBErrorValue" => VBErrorType.TypeInfo.DefaultValue,
             Tokens.Empty => VBEmptyValue.Empty,
             null => VBNullValue.Null,
-            bool boolValue => VBBooleanValue.False.WithValue(boolValue),
-            byte byteValue => VBByteType.Zero.WithValue(byteValue),
-            int intValue => VBIntegerType.Zero.WithValue(intValue),
+            bool boolValue => VBTypedValueFactory.CreateBooleanValue(VBBooleanValue.False.Symbol, boolValue),
+            byte byteValue => VBTypedValueFactory.CreateValue(VBByteType.TypeInfo, VBByteType.Zero.Symbol, byteValue),
+            int intValue => VBTypedValueFactory.CreateValue(VBIntegerType.TypeInfo, VBIntegerType.Zero.Symbol, intValue),
             long longValue => VBLongLongType.Zero.WithValue(longValue),
             double doubleValue => VBDoubleType.Zero.WithValue(doubleValue),
 
@@ -102,7 +109,7 @@ public abstract class SymbolOperationTests
     internal static VBLiteralExpression WrapLiteralExpression(object? value, Location location)
     {
         var typedValue = WrapVBTypedValue(value, location);
-        return new VBLiteralExpression(location, typedValue);
+        return new VBLiteralExpression(new Uri($"{RDCoreUriNamespaces.RDCoreWorkspaceUri}/testfile1/declarations/__litexpr_{typedValue.RawAddress:00000}"), location, typedValue);
     }
 
     //[TestMethod]

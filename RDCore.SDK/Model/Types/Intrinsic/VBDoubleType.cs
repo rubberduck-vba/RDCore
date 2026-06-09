@@ -1,15 +1,18 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Double</c> data type.
+/// A <see cref="VBNumericType{Double}"/> representing the <c>Double</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>double</c>.<br/>
+/// 👉 Implements <see cref="IFloatingPointNumericType"/>.
+/// </remarks>
 public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VBDouble), IFloatingPointNumericType
 {
     /// <summary>
@@ -22,18 +25,28 @@ public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VB
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MinValue => _minValue.Value;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue;
 
     private static readonly Lazy<VBDoubleValue> _maxValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleMaxValue) { ManagedValue = double.MaxValue * Math.Pow(10, -4), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MaxValue => _maxValue.Value;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
 
     private static readonly Lazy<VBDoubleValue> _zero = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleZeroValue) { ManagedValue = 0, TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBDoubleValue Zero => _zero.Value;
+    private static readonly Lazy<VBDoubleValue> _one = new(() => new (GlobalSymbols.ExtensionSymbols.VBDoubleOneValue), LazyThreadSafetyMode.PublicationOnly);
+    /// <summary>
+    /// Gets the value <c>1</c> (one) representation of this data type.
+    /// </summary>
+    /// <remarks>
+    /// Used for returning a constant 1 from certain runtime semantics.
+    /// </remarks>
+    public static VBDoubleValue One => _one.Value;
 
     private static readonly Lazy<VBDoubleValue> _defaultValue = new(() => VBDoubleType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;

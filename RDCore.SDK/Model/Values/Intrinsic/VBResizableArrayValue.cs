@@ -39,6 +39,8 @@ public record class VBResizableArrayValue : VBArrayValue
     /// </summary>
     public static VBResizableArrayValue Empty => _defaultValue.Value;
 
+    public override object BoxedValue => _defaultValue.Value;
+
     /// <summary>
     /// Creates a new resizable array containing <c>VBVariantValue</c> elements unless specified otherwise.
     /// </summary>

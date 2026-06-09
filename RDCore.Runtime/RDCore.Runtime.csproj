@@ -11,4 +11,8 @@
     <Content Include="logo.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+  </ItemGroup>
+
 </Project>

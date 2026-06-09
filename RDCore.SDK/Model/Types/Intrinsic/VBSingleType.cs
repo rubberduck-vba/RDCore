@@ -1,15 +1,18 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Single</c> data type.
+/// A <see cref="VBNumericType{Single}"/> representing the <c>Single</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>float</c>.<br/>
+/// 👉 Implements <see cref="IFloatingPointNumericType"/>.
+/// </remarks>
 public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle), IFloatingPointNumericType
 {
     /// <summary>
@@ -31,12 +34,14 @@ public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle),
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBSingleValue MinValue => _minValue.Value;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue;
 
     private static readonly Lazy<VBSingleValue> _maxValue = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleMaxValue) { ManagedValue = float.MaxValue }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBSingleValue MaxValue => _maxValue.Value;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
 
     private static readonly Lazy<VBSingleValue> _zero = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

@@ -13,7 +13,7 @@ public record class VBCollectionType : VBClassType, IEnumerableType
         : this(vbClass.Symbol, vbClass.Members, vbClass.Members.OfType<VBReturningMemberSymbol>().Single(e => e.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum)) { }
 
     public VBCollectionType(VBClassModuleSymbol symbol, IEnumerable<VBTypeMemberSymbol>? members = null, VBReturningMemberSymbol? newEnumMember = null)
-        : base(symbol, members)
+        : base(symbol, [.. members.Where(m => m is not null)])
     {
         NewEnumMember = newEnumMember;
     }

@@ -7,13 +7,14 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// Represents any fixed-size array.
+/// A <see cref="VBArrayType"/> representing the data type of any <em>fixed-size array</em>.
 /// </summary>
+/// <param name="ItemType">The <em>declared type</em> of the array elements.</param>
 public record class VBFixedSizeArrayType(VBType ItemType) : VBArrayType(ItemType)
 {
     private static readonly Lazy<VBFixedSizeArrayType> _instance = new(() => new VBFixedSizeArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
-    /// Gets the fixed-size <c>String(n)</c> array type.
+    /// Gets the <em>fixed-size array</em> type.
     /// </summary>
     public static new VBArrayType TypeInfo => _instance.Value;
 

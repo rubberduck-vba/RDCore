@@ -44,6 +44,6 @@ public static class OperatorSymbolNames
     public const string UnaryArithmeticPrecedenceOp = "__p()_op";
 
     public const string UnaryBitwiseNotOp = "__not_op";
-    public const string UnaryLetCoerceOp = "__c()_op"; // yes, it's what you think.
+    public const string UnaryLetCoerceOp = "__c()_op";
 }
 

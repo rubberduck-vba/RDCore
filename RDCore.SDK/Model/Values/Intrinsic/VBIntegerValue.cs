@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -13,17 +12,7 @@ public record class VBIntegerValue(Symbol Symbol) : VBNumericTypedValue(VBIntege
     public override int Size { get; } = sizeof(short);
     public override double ManagedValue { get; init; }
 
-    public new VBIntegerValue WithValue(double value)
-    {
-        if (value > VBIntegerType.MaxValue.Value || value < VBIntegerType.MinValue.Value)
-        {
-            var location = (Symbol as BoundSymbol)?.Range;
-            ThrowWithSymbol(symbol => VBRuntimeErrorException.Overflow(location, $"`{TypeInfo.Name}` values must be between **{VBIntegerType.MinValue.Value:N}** and **{VBIntegerType.MaxValue.Value:N}**."));
-        }
-        return this with { ManagedValue = (short)value };
-    }
-
-    public VBIntegerValue WithValue(short value) => WithValue((double)value);
+    public override object BoxedValue => ManagedValue;
 
     public bool Equals(IVBTypedValue<VBIntegerValue, short>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

@@ -1,15 +1,18 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents any type of array.
+/// A <see cref="VBIntrinsicType{Object[]}"/> representing any type of <em>array</em> data type.
 /// </summary>
-public abstract record class VBArrayType(VBType ItemType) : VBIntrinsicType<object[]>(VBTypeNames.VBArray), IEnumerableType
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>object[]</c>.
+/// </remarks>
+public abstract record class VBArrayType(VBType ItemType) : 
+    VBIntrinsicType<object[]>(VBTypeNames.VBArray), IEnumerableType
 {
     private static readonly Lazy<VBArrayType> _instance = new(() => new VBResizableArrayType(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

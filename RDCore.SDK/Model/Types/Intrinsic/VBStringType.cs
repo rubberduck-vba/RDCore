@@ -1,14 +1,16 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>String</c> intrinsic data type.
+/// A <see cref="VBIntrinsicType{string?}"/> representing the <c>String</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is a <strong>nullable</strong> <c>string</c>.<br/>
+/// </remarks>
 public record class VBStringType() : VBIntrinsicType<string?>(VBTypeNames.VBString)
 {
     private static readonly Lazy<VBStringType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);

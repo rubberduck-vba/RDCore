@@ -2,13 +2,13 @@
 using RDCore.SDK.Model.Symbols.Unbound;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime;
 
-
-
 /// <summary>
-/// A service that resolves an <em>identifier name</em> to a <c>Symbol</c> given a <em>scope</em> <c>Uri</c>.
+/// A service that resolves an <em>identifier name</em> to a <c>Symbol</c> given a <em>scope</em> <c>Uri</c> 
+/// and that can lookup the value of a symbol in the current context.
 /// </summary>
 public interface ISymbolResolver
 {
@@ -20,6 +20,18 @@ public interface ISymbolResolver
     /// <param name="handle">The <c>Uri</c> of the current scope (procedure) symbol.</param>
     /// <returns><c>null</c> if no symbol could be resolved from the specified <em>handle</em> in the specified <em>scope</em> with the specified <em>name</em>.</returns>
     Symbol? Resolve(string name, ScopeKind scope, Uri handle);
+    /// <summary>
+    /// Gets the <c>VBTypedValue</c> currently associated with the specified <c>Symbol</c>.
+    /// </summary>
+    /// <param name="symbol">The <c>Symbol</c> to retrieve the currently associated value for.</param>
+    VBTypedValue GetValue(Symbol symbol);
+
+    /// <summary>
+    /// Gets the <see cref="VBTypedValue"/> at the specified address value in the runtime <em>memory map</em>.
+    /// </summary>
+    /// <param name="address">The memory address to read.</param>
+    /// <param name="value">The retrieved value, if successful.</param>
+    bool TryRead(long address, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value);
 }
 
 /// <summary>
@@ -54,11 +66,6 @@ public interface IVirtualHeap : ISymbolResolver, ISymbolProvider
     /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
     /// </remarks>
     VBObjectValue CreateObject(VBClassModuleSymbol symbol);
-    /// <summary>
-    /// Gets the <c>VBTypedValue</c> currently associated with the specified <c>Symbol</c>.
-    /// </summary>
-    /// <param name="symbol">The <c>Symbol</c> to retrieve the currently associated value for.</param>
-    VBTypedValue GetValue(Symbol symbol);
     /// <summary>
     /// Associates the specified <c>VBTypedValue</c> value to the specified <c>Symbol</c>.
     /// </summary>

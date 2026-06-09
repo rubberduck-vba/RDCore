@@ -1,14 +1,16 @@
-﻿using RDCore.SDK.Model.Types.Abstract;
+﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 /// <summary>
-/// Represents the <c>Boolean</c> data type.
+/// A <see cref="VBIntrinsicType{Boolean}"/> representing the <c>Boolean</c> data type.
 /// </summary>
+/// <remarks>
+/// The <em>managed type</em> of a value of this data type is <c>bool</c>.
+/// </remarks>
 public sealed record class VBBooleanType() : VBIntrinsicType<bool>(VBTypeNames.VBBoolean)
 {
     private static readonly Lazy<VBBooleanType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);

@@ -16,6 +16,8 @@ public sealed record class VBSingleValue(Symbol Symbol) : VBNumericTypedValue(VB
     public override int Size => sizeof(float);
     public override double ManagedValue { get; init; }
 
+    public override object BoxedValue => ManagedValue;
+
     public new VBSingleValue WithValue(double value) => this with { ManagedValue = (float)value };
 
     public bool Equals(IVBTypedValue<VBSingleValue, float>? other) => Value == other?.Value;
