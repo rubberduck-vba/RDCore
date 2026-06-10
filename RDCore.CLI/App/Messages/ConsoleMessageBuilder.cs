@@ -6,6 +6,14 @@ using System.Collections.Immutable;
 
 namespace RDCore.CLI.App.Messages;
 
+public sealed class RDCoreConsoleLoggerProvider(IOptions<RDCoreConsoleLogger.RDCoreConsoleLoggerOptions> Options, IConsoleMessageWriter Writer) : ILoggerProvider
+{
+    public ILogger CreateLogger(string categoryName) => new RDCoreConsoleLogger(Options, Writer);
+
+    public void Dispose() 
+    {
+    }
+}
 
 public class RDCoreConsoleLogger(IOptions<RDCoreConsoleLogger.RDCoreConsoleLoggerOptions> Options, IConsoleMessageWriter Writer) : ILogger
 {
@@ -52,17 +60,14 @@ public record class ConsoleMessageBuilder
     public ConsoleMessageBuilder WithKind(MessageKind kind) => this with { Kind = kind };
     public ConsoleMessageBuilder WithTimestamp(DateTimeOffset timestamp) => WithUniquePart(ConsoleMessageTimestampPartFactory.CreateTimestampPart(timestamp));
     public ConsoleMessageBuilder WithTitle(string title) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(title));
-    public ConsoleMessageBuilder WithTitle(VBCompileErrorException exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
-    public ConsoleMessageBuilder WithTitle(VBRuntimeErrorException exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
-    public ConsoleMessageBuilder WithTitle(VBApplicationErrorException exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
-    public ConsoleMessageBuilder WithTitle(Exception exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception));
+    public ConsoleMessageBuilder WithTitle(Exception exception) => WithUniquePart(ConsoleMessageTitlePartFactory.CreateTitlePart(exception.GetType().Name));
     public ConsoleMessageBuilder WithMessageBody(string body, string? color = default) => WithUniquePart(ConsoleMessageBodyPartFactory.CreateMessageBodyPart(body, color));
     //public ConsoleMessageBuilder WithMessageOverlay(string overlay, string color, int lineStart, int lines) => WithPart(ConsoleMessageOverlayMessagePartFactory.CreateMessageOverlayBodyPart(overlay, color, lineStart, lines));
     public ConsoleMessageBuilder WithMessageBody(Exception exception) => WithUniquePart(ConsoleMessageBodyPartFactory.CreateMessageBodyPart(exception));
     public ConsoleMessageBuilder WithVerbose(string verbose) => WithUniquePart(ConsoleMessageVerbosePartFactory.CreateVerbosePart(verbose));
     public ConsoleMessageBuilder WithStackTrace(Exception exception) => WithUniquePart(ConsoleMessageStackTracePartFactory.CreateStackTracePart(exception));
-    public ConsoleMessageBuilder WithMetric(PlaceholderKind kind, string placeholder, double value) => WithPart(ConsoleMessageMetricPartFactory.CreateMetricPart(kind, placeholder, value));
-    public ConsoleMessageBuilder WithMetric(PlaceholderKind kind, string placeholder, string value) => WithPart(ConsoleMessageMetricPartFactory.CreateMetricPart(placeholder, value));
+    public ConsoleMessageBuilder WithPlaceholder(PlaceholderKind kind, string placeholder, double value) => WithPart(ConsoleMessageMetricPartFactory.CreatePlaceholderPart(kind, placeholder, value));
+    public ConsoleMessageBuilder WithPlaceholder(string placeholder, string value) => WithPart(ConsoleMessageMetricPartFactory.CreatePlaceholderPart(placeholder, value));
     public ConsoleMessageBuilder WithPart(ConsoleMessagePart part) => this with { Parts = [.. Parts, part] };
     private ConsoleMessageBuilder WithUniquePart<TPart>(TPart part) where TPart : ConsoleMessagePart
     {

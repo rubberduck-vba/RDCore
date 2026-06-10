@@ -1,4 +1,5 @@
-﻿using RDCore.Server;
+﻿using Microsoft.Extensions.Logging;
+using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -8,22 +9,23 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var app = new RDCoreServerApp();
+        using var processTokenSource = new CancellationTokenSource();
+        var app = new RDCoreLanguageServerHost(processTokenSource);
 
         try
         {
-            await app.RunAsync();
+            await app.RunAsync(args);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
-            // suppressed; normal exit
+            app.LogIfEnabled(LogLevel.Debug, exception.Message);
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            app.LogIfEnabled(LogLevel.Critical, exception.ToString());
             return -1;
         }
 
-        return app.ServerStateProvider.State.ExitCode; // FIXME that's too deep
+        return app.ExitCode;
     }
 }

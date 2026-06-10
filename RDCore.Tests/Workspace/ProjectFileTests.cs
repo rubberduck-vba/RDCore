@@ -1,4 +1,4 @@
-﻿using RDCore.Server;
+﻿using RDCore.SDK.Server;
 using RDCore.Workspace;
 using System.Text.Json;
 
@@ -18,7 +18,7 @@ public sealed class ProjectFileTests
     public void Version_ServerAppVersionByDefault()
     {
         // arrange
-        var expected = RDCoreServerApp.Info.Version!.ToString(3);
+        var expected = RDCoreLanguageServerHost.Info.Version!.ToString(3);
         var sut = new ProjectFile();
 
         // act

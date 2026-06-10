@@ -5,8 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <StartupObject>RDCore.Diagnostics.Program</StartupObject>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
+	<ApplicationIcon>logo.ico</ApplicationIcon>
+	<StartupObject>RDCore.Diagnostics.Program</StartupObject>
+    <Authors>9562-7303 Québec inc.</Authors>
+    <Copyright>Copyright © 2026 ${Authors}</Copyright>
+    <Product>RDCore</Product>
   </PropertyGroup>
 
   <ItemGroup>

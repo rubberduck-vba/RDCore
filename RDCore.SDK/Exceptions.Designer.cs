@@ -97,11 +97,20 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Language server has not been initialized..
+        ///   Looks up a localized string similar to Language client was not initialized..
         /// </summary>
-        public static string LanguageServerProtocolSdkException_NotInitialized {
+        public static string LanguageServerProtocolSdkException_ClientNotInitialized {
             get {
-                return ResourceManager.GetString("LanguageServerProtocolSdkException_NotInitialized", resourceCulture);
+                return ResourceManager.GetString("LanguageServerProtocolSdkException_ClientNotInitialized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Language server was not initialized..
+        /// </summary>
+        public static string LanguageServerProtocolSdkException_ServerNotInitialized {
+            get {
+                return ResourceManager.GetString("LanguageServerProtocolSdkException_ServerNotInitialized", resourceCulture);
             }
         }
         

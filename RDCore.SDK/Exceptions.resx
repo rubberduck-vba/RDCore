@@ -156,8 +156,8 @@
   <data name="VBSyntaxError_DefaultMessage" xml:space="preserve">
     <value>Syntax error</value>
   </data>
-  <data name="LanguageServerProtocolSdkException_NotInitialized" xml:space="preserve">
-    <value>Language server has not been initialized.</value>
+  <data name="LanguageServerProtocolSdkException_ServerNotInitialized" xml:space="preserve">
+    <value>Language server was not initialized.</value>
   </data>
   <data name="LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
     <value>Source value data type could not be let-coerced to the destination declared type during the evaluation of a let-coercion expression.</value>
@@ -203,5 +203,8 @@
   </data>
   <data name="VBIsOp_ObjectRequired" xml:space="preserve">
     <value>Relational operator 'Is' requires an object in this context.</value>
+  </data>
+  <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
+    <value>Language client was not initialized.</value>
   </data>
 </root>

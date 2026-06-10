@@ -16,7 +16,7 @@ public record class ConsoleMessagePlaceholderPart(PlaceholderKind Kind, string P
 
 public record class ConsoleMessageMetricPartFactory
 {
-    public static ConsoleMessagePart CreateMetricPart(PlaceholderKind kind, string placeholder, double value) => new ConsoleMessagePlaceholderPart(kind, placeholder, value);
-    public static ConsoleMessagePart CreateMetricPart(string placeholder, string value) => new ConsoleMessageStringLiteralPlaceholderPart(PlaceholderKind.StringLiteral, placeholder, value);
+    public static ConsoleMessagePart CreatePlaceholderPart(PlaceholderKind kind, string placeholder, double value) => new ConsoleMessagePlaceholderPart(kind, placeholder, value);
+    public static ConsoleMessagePart CreatePlaceholderPart(string placeholder, string value) => new ConsoleMessageStringLiteralPlaceholderPart(PlaceholderKind.StringLiteral, placeholder, value);
 }
 

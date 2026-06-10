@@ -13,54 +13,56 @@ public interface IServerStateProvider
     /// </summary>
     ServerState State { get; }
     /// <summary>
-    /// Gets a cancellation token that expires when a <c>Shutdown</c> request is handled.
+    /// Gets a <see cref="CancellationTokenSource"/> that expires when a <c>Shutdown</c> request is handled.
     /// </summary>
-    CancellationToken RequestToken { get; }
+    CancellationTokenSource ShutdownRequestTokenSource { get; }
     /// <summary>
-    /// Gets a cancellation token that expires when the <c>Exit</c> notification is handled.
+    /// Gets the <see cref="CancellationTokenSource"/> that expires when an <c>Exit</c> notification is handled.
     /// </summary>
     /// <remarks>
-    /// <strong>This token terminates the server process.</strong>
+    /// ⚠️ This token <strong>terminates</strong> the server process. The process should exit with the current <c>ExitCode</c>.
     /// </remarks>
-    CancellationToken ProcessToken { get; }
+    CancellationTokenSource ProcessTokenSource { get; }
     /// <summary>
-    /// Gets the server startup options the process was started with.
-    /// </summary>
-    ServerOptions Options { get; }
-    /// <summary>
-    /// Sets the server state to <c>Initializing</c> if the current state is <c>Starting</c>, otherwise throws an <see cref="InvalidServerStateException"/>.
+    /// Sets the server state to <see cref="InitializingServerState"/> if the current state is <see cref="StartingServerState"/>, otherwise throws an <see cref="InvalidServerStateException"/>.
     /// </summary>
     /// <exception cref="InvalidServerStateException"></exception>
     void OnInitialize();
     /// <summary>
-    /// Sets the server state to <c>Running</c> if the current state is <c>Initializing</c>, otherwise throws an <see cref="InvalidServerStateException"/>.
+    /// Sets the server state to <see cref="RunningServerState"/> if the current state is <see cref="InitializingServerState"/>, otherwise throws an <see cref="InvalidServerStateException"/>.
     /// </summary>
     /// <exception cref="InvalidServerStateException"></exception>
     void OnInitialized();
     /// <summary>
-    /// Sets the server state to <c>ShuttingDown</c> if the current state is <c>Starting</c> or <c>Running</c>, otherwise throws an <see cref="InvalidServerStateException"/>;
-    /// cancels the <c>RequestToken</c>.
+    /// Sets the server state to <c>ShuttingDown</c> if the current state is <see cref="StartingServerState"/> or <see cref="RunningServerState"/>, 
+    /// otherwise throws an <see cref="InvalidServerStateException"/>; cancels the <c>RequestToken</c>.
     /// </summary>
     /// <exception cref="InvalidServerStateException"></exception>
     void OnShutdown();
     /// <summary>
-    /// Sets the server state to <c>Exiting</c> if the current state is <c>Starting</c> or <c>ShuttingDown</c>, otherwise throws an <see cref="InvalidServerStateException"/>;
+    /// Sets the server state to <see cref="ExitingServerState"/> if the current state is <see cref="StartingServerState"/> or <c>ShuttingDown</c>, otherwise throws an <see cref="InvalidServerStateException"/>;
     /// cancels the <c>ProcessToken</c> (causes an immediate process exit).
     /// </summary>
     /// <exception cref="InvalidServerStateException"></exception>
     void OnExit();
-
+    /// <summary>
+    /// Sets the server state to <see cref="RunningTracelessServerState"/>.
+    /// </summary>
     void OnTraceOff();
+    /// <summary>
+    /// Sets the server state to <see cref="RunningServerState"/> with tracing enabled.
+    /// </summary>
     void OnTraceMessages();
+    /// <summary>
+    /// Sets the server state to <see cref="RunningServerState"/> with <em>verbose</em> tracing enabled.
+    /// </summary>
     void OnTraceVerbose();
-
-    ServerInfo ServerInfo { get; }
 }
 
 /// <summary>
 /// Manages the operational lifecycle state of a <c>ServerApp</c> instance.
 /// </summary>
-public class ServerStateProvider(ServerOptions options) : IServerStateProvider, IDisposable
+public class ServerStateProvider(SdkServerOptions options) : IServerStateProvider, IDisposable
 {
     private static readonly CancellationTokenSource _processTokenSource = new();
     private static readonly CancellationTokenSource _requestTokenSource = new();
@@ -68,10 +70,10 @@ public class ServerStateProvider(ServerOptions options) : IServerStateProvider, 
 
     private ServerState _state = ServerState.Starting;
     public ServerState State => _state;
-    public ServerOptions Options { get; } = options;
+    public SdkServerOptions Options { get; } = options;
 
-    public CancellationToken RequestToken => _requestTokenSource.Token;
-    public CancellationToken ProcessToken => _processTokenSource.Token;
+    public CancellationTokenSource ShutdownRequestTokenSource => _requestTokenSource;
+    public CancellationTokenSource ProcessTokenSource => _processTokenSource;
 
     public void OnInitialize() => _state = State is StartingServerState ? ServerState.Initializing : throw new InvalidServerStateException(State.Value);
     public void OnInitialized() => _state = State is InitializingServerState ? ServerState.Running : throw new InvalidServerStateException(State.Value);
@@ -98,8 +100,8 @@ public class ServerStateProvider(ServerOptions options) : IServerStateProvider, 
 
     public ServerInfo ServerInfo { get; } = new()
     {
-        Name = ServerApp.Info.Name!,
-        Version = ServerApp.Info.Version!.ToString(3)
+        Name = AppHost<ILanguageServerApp>.Info.Name!,
+        Version = AppHost<ILanguageServerApp>.Info.Version!.ToString(3)
     };
 
 

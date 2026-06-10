@@ -3,7 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace RDCore.Workspace.States;
 
-internal interface IDocumentStateProvider
+public interface IDocumentStateProvider
 {
     void Initialize(IEnumerable<TextDocumentIdentifier> workspaceDocumentIds);
     DocumentState GetCurrentState(TextDocumentIdentifier id);
@@ -53,7 +53,7 @@ internal interface IDocumentStateProvider
     void OnDocumentClosed(TextDocumentIdentifier id);
 }
 
-internal class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDocumentStateProvider
+public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDocumentStateProvider
 {
     private readonly Dictionary<TextDocumentIdentifier, DocumentState> _state = [];
 

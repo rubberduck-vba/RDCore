@@ -117,16 +117,46 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="InitializeMissingClientProcessId" xml:space="preserve">
+    <value>Initialize request did not specify a client process ID. Skipping client process health checks; this server instance will not be able to automatically exit.</value>
+  </data>
+  <data name="LanguageClientInitialized_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientInitializedAsync handler completed.</value>
+  </data>
+  <data name="LanguageClientStarted_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientStartedAsync handler completed.</value>
+  </data>
+  <data name="LanguageClientStarting" xml:space="preserve">
+    <value>Starting language client...</value>
+  </data>
   <data name="LanguageServerConfigurationCompleted" xml:space="preserve">
     <value>✅ ConfigureServer completed.</value>
   </data>
   <data name="LanguageServerConnected" xml:space="preserve">
     <value>✅ Language server is connected and ready.</value>
   </data>
+  <data name="LanguageServerInitialize_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerInitializeAsync handler completed.</value>
+  </data>
+  <data name="LanguageServerStarted_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerStartedAsync handler completed.</value>
+  </data>
   <data name="LanguageServerStarting" xml:space="preserve">
     <value>Starting language server...</value>
   </data>
   <data name="LanguageServerWaitForExitTaskCompleted" xml:space="preserve">
     <value>ℹ️ LSP language server has terminated. Process will now exit.</value>
+  </data>
+  <data name="LanguageServerInitialized_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerInitializedAsync handler completed.</value>
+  </data>
+  <data name="LanguageClientConfigurationCompleted" xml:space="preserve">
+    <value>✅ ConfigureClient completed.</value>
+  </data>
+  <data name="LanguageClientInitialize_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientInitializeAsync handler completed.</value>
+  </data>
+  <data name="InitializeClientProcessIdOutOfRange" xml:space="preserve">
+    <value>The process ID specified in the request exceeds Int32.MaxValue. Skipping health checks; this server instance will not be able to shut down automatically in case of an unexpected problem with the client application.</value>
   </data>
 </root>

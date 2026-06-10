@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services.States;
+﻿using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -9,16 +8,16 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var options = Args.Parse(args);
-        var stateProvider = new ServerStateProvider(options);
-
+        using var cts = new CancellationTokenSource();
+        using var host = new RDCoreLanguageServerHost(cts);
+        
         try
         {
-            await new RDCoreExtensionServerApp().RunAsync();
+            await host.RunAsync(args);
         }
         catch (OperationCanceledException)
         {
-            // suppressed; normal exit
+            // exception suppressed, normal exit
             Console.WriteLine("VIVAT CUCUMIS\n(C) Copyright 2026 9562-7303 Québec inc.");
         }
         catch (Exception exception)
@@ -29,6 +28,6 @@ public class Program
             Console.WriteLine(exception);
         }
 
-        return stateProvider.State.ExitCode;
+        return host.ExitCode;
     }
 }

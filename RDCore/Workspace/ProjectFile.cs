@@ -1,4 +1,4 @@
-﻿using RDCore.Server;
+﻿using RDCore.SDK.Server;
 using System.Text.Json.Serialization;
 
 namespace RDCore.Workspace;
@@ -19,7 +19,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = uri;
         ProjectInfo = project;
-        Version = RDCoreServerApp.Info.Version!.ToString(3);
+        Version = RDCoreLanguageServerHost.Info.Version!.ToString(3);
         IsDirty = false;
     }
     public ProjectFile(ProjectFile source)
@@ -28,7 +28,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
-        Version = RDCoreServerApp.Info.Version!.ToString(3);
+        Version = RDCoreLanguageServerHost.Info.Version!.ToString(3);
         IsDirty = false;
     }
 
@@ -49,7 +49,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     /// <summary>
     /// The <c>RDCore.ServerApp</c> version that this project was created with.
     /// </summary>
-    public string Version { get; init; } = RDCoreServerApp.Info.Version!.ToString(3);
+    public string Version { get; init; } = RDCoreLanguageServerHost.Info.Version!.ToString(3);
     /// <summary>
     /// Describes the workspace structure (files, folders, project references, etc.)
     /// </summary>

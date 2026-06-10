@@ -5,7 +5,9 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Operators;
 
-namespace RDCore.Tests.Semantics.Static;
+namespace RDCore.Tests.Semantics;
+
+// FIXME: this is the entire matrix of specified (MS-VBAL) static semantics for operators. and it counts as a single test... fix it.
 
 public abstract class StaticSemanticsTests
 {

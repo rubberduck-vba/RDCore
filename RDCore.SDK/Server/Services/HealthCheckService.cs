@@ -1,17 +1,22 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RDCore.SDK.Client;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using System.Diagnostics;
 
 namespace RDCore.SDK.Server.Services;
 
-public interface IHealthCheckService : IDisposable
+public interface IHealthCheckService<TApp> : IDisposable
+    where TApp : IRDCoreApp
 {
-    void Start(long? clientProcessId);
+    void Start(int processId, Action onUnhealthyProcess);
     void Pause();
     void Resume();
 }
 
-public sealed class HealthCheckService : IHealthCheckService
+public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
+    where TApp : IRDCoreApp
 {
     private readonly Timer _timer;
     private readonly ILogger _logger;
@@ -22,37 +27,37 @@ public sealed class HealthCheckService : IHealthCheckService
 
     private bool _didNotify;
     private Process? _process;
+    private Action? _handleUnhealthy;
 
-    public HealthCheckService(ILogger<HealthCheckService> logger, IServerStateProvider serverState)
+    private readonly IOptions<SdkServerOptions> _options; // TODO handle configuration changes
+
+    public HealthCheckService(ILogger<HealthCheckService<TApp>> logger, 
+        IServerStateProvider serverState, 
+        IOptions<SdkServerOptions> options)
     {
-        _timer = new Timer(CheckClientProcessHealth, null, Timeout.Infinite, Timeout.Infinite);
+        TimerCallback callback = typeof(TApp) is ILanguageServerApp 
+            ? CheckClientProcessHealth 
+            : CheckServerProcessHealth;
+
+        _timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);
         _logger = logger;
 
+        _options = options;
         _serverState = serverState;
     }
 
-    public void Start(long? clientProcessId)
+    public void Start(int processId, Action onUnhealthyProcess)
     {
-        if (!clientProcessId.HasValue)
-        {
-            _logger.LogWarning("🐛 ClientProcessId was somehow not specified in Initialize request.");
-            throw new ArgumentNullException(nameof(clientProcessId));
-        }
-        if (clientProcessId.Value > int.MaxValue)
-        {
-            _logger.LogWarning("🐛 ClientProcessId value from Initialize request exceeds System.Int32.MaxValue. What now?");
-            throw new ArgumentOutOfRangeException(nameof(clientProcessId));
-        }
-
         // NOTE: we're purposely using a timer to poll process health rather than registering an event handler to watch its exit.
-        _process = Process.GetProcessById((int)clientProcessId.Value);
+        _process = Process.GetProcessById(processId);
+        _handleUnhealthy = onUnhealthyProcess;
 
         _didNotify = false;
-        _interval = TimeSpan.FromSeconds(_serverState.Options.HealthCheckIntervalSeconds);
+        _interval = TimeSpan.FromSeconds(_options.Value.HealthCheckIntervalSeconds);
 
         if (_logger.IsEnabled(LogLevel.Information))
         {
-            _logger.LogInformation("👀 Starting health check service (Interval: {TotalSeconds} seconds)", _interval.TotalSeconds);
+            _logger.LogInformation("Starting health check service (Interval: {TotalSeconds} seconds)", _interval.TotalSeconds);
         }
         _timer.Change(TimeSpan.Zero, _interval);
     }
@@ -66,7 +71,7 @@ public sealed class HealthCheckService : IHealthCheckService
         }
         else
         {
-            _logger.LogWarning("🐛 HealthCheckService was already paused.");
+            _logger.LogWarning("HealthCheckService was already paused.");
             throw new InvalidOperationException();
         }
     }
@@ -80,7 +85,7 @@ public sealed class HealthCheckService : IHealthCheckService
         }
         else
         {
-            _logger.LogWarning("🐛 HealthCheckService was not paused.");
+            _logger.LogWarning("HealthCheckService was not paused.");
             throw new InvalidOperationException();
         }
     }
@@ -101,8 +106,17 @@ public sealed class HealthCheckService : IHealthCheckService
     {
         if (_process!.HasExited)
         {
-            _logger.LogWarning("⚠️ Client process (ID:{ProcessId}) has exited", _process!.Id);
+            _logger.LogWarning("Client process (ID:{ProcessId}) has exited", _process!.Id);
             OnUnhealthyClientDetected();
+        }
+    }
+
+    private void CheckServerProcessHealth(object? state)
+    {
+        if (_process!.HasExited)
+        {
+            _logger.LogWarning("Server process (ID:{ProcessId}) has exited", _process!.Id);
+            OnUnhealthyServerDetected();
         }
     }
 
@@ -110,12 +124,23 @@ public sealed class HealthCheckService : IHealthCheckService
     {
         if (!_didNotify)
         {
-            _logger.LogCritical("💀 Client process health check failed; server process will be terminated.");
-
+            _logger.LogCritical("Client process health check failed; server process will be terminated.");
             _timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan);
-            _didNotify = true;
 
-            _serverState.OnExit();
+            _handleUnhealthy?.Invoke();
+            _didNotify = true;
+        }
+    }
+
+    private void OnUnhealthyServerDetected()
+    {
+        if (!_didNotify)
+        {
+            _logger.LogCritical("Server process health check failed; restarting process...");
+            _timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan);
+
+            _handleUnhealthy?.Invoke();
+            _didNotify = true;
         }
     }
 }

@@ -10,7 +10,7 @@ public interface IConsoleMessageWriter
 {
     IConsoleMessageWriter Clear();
     IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default);
-
+    IConsoleMessageWriter WriteException(Exception exception);
     IConsoleMessageWriter WriteAssemblyInfo();
     IConsoleMessageWriter WriteSlogan();
     IConsoleMessageWriter WriteLegalNotice();
@@ -55,7 +55,7 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
         return WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
             .WithMessageBody($"{assemblyName.Name} [v{assemblyName.Version?.ToString(3) ?? "0.1a"}]")
-            .WithMetric(PlaceholderKind.StringLiteral, "{$COMPANY}", company));
+            .WithPlaceholder("{$COMPANY}", company));
     }
 
     public IConsoleMessageWriter WriteLegalNotice()
@@ -67,7 +67,7 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
         return WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
             .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString()))
-            .WithMetric(PlaceholderKind.StringLiteral, "{$COMPANY}", company)
+            .WithPlaceholder("{$COMPANY}", company)
             .WithLineBreak());
     }
 
@@ -75,8 +75,8 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
         new ConsoleMessageBuilder()
             .WithKind(MessageKind.Information)
             .WithMessageBody(new string(' ', 22) + Resources.RDCore_Slogan, nameof(ConsoleColor.DarkRed))
-            .WithMetric(PlaceholderKind.StringLiteral, "{$VIVAT}", "V I V A T")
-            .WithMetric(PlaceholderKind.StringLiteral, "{$CUCUMIS}", "C U C U M I S")
+            .WithPlaceholder("{$VIVAT}", "V I V A T")
+            .WithPlaceholder("{$CUCUMIS}", "C U C U M I S")
             .WithLineBreak());
 
     public IConsoleMessageWriter WriteException(Exception exception) =>
@@ -115,7 +115,7 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
         //    WriteMessageBody(builder.Parts.OfType<ConsoleMessageBodyPart>().SingleOrDefault(), metrics, builder.Kind, (ConsoleColor)ConsoleMessagePart.ParseConfigColor(layer.Color));
 
         //}
-        WriteNewLine();
+        //WriteNewLine();
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageVerbosePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.Verbose));
         WriteMessagePart(builder.Parts.OfType<ConsoleMessageStackTracePart>().SingleOrDefault(), (ConsoleColor)theme.GetMessagePartColor(builder.Kind, MessagePart.StackTrace));
 

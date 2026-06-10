@@ -13,7 +13,7 @@
     <Title>RD-VBA CLI</Title>
     <Authors>9562-7303 Québec inc.</Authors>
     <Copyright>Copyright © 2026 ${Authors}</Copyright>
-    <Product>RDCore.SDK</Product>
+    <Product>RDCore</Product>
     <PackageProjectUrl>https://rubberduckvba.ca</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rubberduck-vba/rdcore</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

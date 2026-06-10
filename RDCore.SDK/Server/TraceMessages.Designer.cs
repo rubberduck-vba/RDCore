@@ -61,6 +61,69 @@ namespace RDCore.SDK.Server {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The process ID specified in the request exceeds Int32.MaxValue. Skipping health checks; this server instance will not be able to shut down automatically in case of an unexpected problem with the client application..
+        /// </summary>
+        internal static string InitializeClientProcessIdOutOfRange {
+            get {
+                return ResourceManager.GetString("InitializeClientProcessIdOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Initialize request did not specify a client process ID. Skipping client process health checks; this server instance will not be able to automatically exit..
+        /// </summary>
+        internal static string InitializeMissingClientProcessId {
+            get {
+                return ResourceManager.GetString("InitializeMissingClientProcessId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ ConfigureClient completed..
+        /// </summary>
+        internal static string LanguageClientConfigurationCompleted {
+            get {
+                return ResourceManager.GetString("LanguageClientConfigurationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageClientInitializeAsync handler completed..
+        /// </summary>
+        internal static string LanguageClientInitialize_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageClientInitialize_HandlerCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageClientInitializedAsync handler completed..
+        /// </summary>
+        internal static string LanguageClientInitialized_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageClientInitialized_HandlerCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageClientStartedAsync handler completed..
+        /// </summary>
+        internal static string LanguageClientStarted_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageClientStarted_HandlerCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Starting language client....
+        /// </summary>
+        internal static string LanguageClientStarting {
+            get {
+                return ResourceManager.GetString("LanguageClientStarting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ✅ ConfigureServer completed..
         /// </summary>
         internal static string LanguageServerConfigurationCompleted {
@@ -75,6 +138,33 @@ namespace RDCore.SDK.Server {
         internal static string LanguageServerConnected {
             get {
                 return ResourceManager.GetString("LanguageServerConnected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageServerInitializeAsync handler completed..
+        /// </summary>
+        internal static string LanguageServerInitialize_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageServerInitialize_HandlerCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageServerInitializedAsync handler completed..
+        /// </summary>
+        internal static string LanguageServerInitialized_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageServerInitialized_HandlerCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ✅ OnLanguageServerStartedAsync handler completed..
+        /// </summary>
+        internal static string LanguageServerStarted_HandlerCompleted {
+            get {
+                return ResourceManager.GetString("LanguageServerStarted_HandlerCompleted", resourceCulture);
             }
         }
         

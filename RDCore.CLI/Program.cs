@@ -1,13 +1,17 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
 using RDCore.CLI.Themes.Model;
+using RDCore.SDK.Client;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services.States;
-using System.IO.Abstractions;
+using RDCore.SDK.Server.Services;
 
 namespace RDCore.CLI;
 
@@ -15,63 +19,79 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var fileSystem = new FileSystem();
-        var config = Options.Create(new AppOptions());
-        var loader = new AppThemeLoaderService(config, fileSystem);
-        var themeService = new AppThemeService(config, loader);
-        var themes = new AppThemeService(config, loader);
-        var writer = new DefaultConsoleMessageWriter(themeService);
+        var processTokenSource = new CancellationTokenSource();
+        using var host = new RDCoreConsoleClientHost(processTokenSource);
         
-        var splash = new ShowSplashCommand(writer, themes);
-        splash.Execute();
-
-        // TODO move to appsettings.json
-        var sdkServerOptions = new ServerOptions 
-        {
-            PipeName = "rdc.LanguageServer",
-            ConnectTimeoutSeconds = 5,
-            HealthCheckIntervalSeconds = 5,
-            MaximumInstances = 1,
-            ShutdownTimeoutSeconds = 5,
-            Verbose = true
-        };
-        var stateProvider = new ServerStateProvider(sdkServerOptions);
-
         try
         {
-            await new RDCoreConsoleClientServerApp().RunAsync();
+            await host.RunAsync(args);
         }
         catch (OperationCanceledException)
         {
             // normal exit: VIVAT CUCUMIS!
-            writer.WriteSlogan();
+            host.LogIfEnabled(LogLevel.Information, Resources.RDCore_Slogan);
         }
         catch (Exception exception)
         {
             // something went wrong:
-            writer.WriteException(exception);
+            host.LogIfEnabled(LogLevel.Error, exception.ToString());
+            return -1;
         }
 
         // clean exit:
-        writer.WriteLegalNotice();
-        return stateProvider.State.ExitCode;
+        host.LogIfEnabled(LogLevel.Information, Resources.TrademarkNotice);
+        return 0;
     }
 }
 
-internal static class Bootstrapper
+internal class RDCoreConsoleClientHost(CancellationTokenSource ProcessTokenSource) 
+    : RDCoreLanguageClientHost<RDCoreConsoleClientApp>(ProcessTokenSource)
 {
-
-}
-
-internal class RDCoreConsoleClientServerApp : ServerApp
-{
-    
-    protected override void ConfigureAppServices(IServiceCollection services)
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IOptions<SdkAppOptions> options)
     {
+        services
+            .AddSingleton<IAppThemeService, AppThemeService>()
+            .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
+            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
+            .AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
+            .AddSingleton<ShowSplashCommand>();
     }
 
-    protected override void ConfigureLogging(ILoggingBuilder builder)
+    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, SdkAppOptions options)
     {
-        base.ConfigureLogging(builder);
+        builder.SetMinimumLevel(options.Server.TraceLevel);
+    }
+}
+
+internal class RDCoreConsoleClientApp(
+    IOptions<SdkServerOptions> options,
+    IRDCoreLanguageServerProcess serverProcess,
+    IHealthCheckService<ILanguageClientApp> healthCheckService,
+    ILanguageServerProtocolTransportLayer transportLayer,
+    ILogger<RDCoreConsoleClientApp> logger,
+    ShowSplashCommand splash) 
+    : LanguageClientApp(options, serverProcess, healthCheckService, transportLayer, logger)
+{
+    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
+    {
+        // TODO
+        return capabilities;
+    }
+
+    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
+    {
+        // TODO
+    }
+
+    protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
+    {
+        splash.Execute();
+    }
+
+    protected override void Dispose(bool disposing) { }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        throw new NotImplementedException();
     }
 }

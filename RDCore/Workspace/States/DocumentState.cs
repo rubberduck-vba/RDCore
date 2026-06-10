@@ -1,6 +1,6 @@
 ﻿namespace RDCore.Workspace.States;
 
-internal abstract record class DocumentState
+public abstract record class DocumentState
 {
     public static DocumentState Unloaded { get; } = new UnloadedDocumentState();
     public static DocumentState Loaded { get; } = new LoadedDocumentState();
@@ -15,8 +15,8 @@ internal abstract record class DocumentState
     public DocumentStateValue Value { get; }
 }
 
-internal record class UnloadedDocumentState : DocumentState { public UnloadedDocumentState() : base(DocumentStateValue.Unloaded) { } }
-internal record class LoadedDocumentState : DocumentState { public LoadedDocumentState() : base(DocumentStateValue.Loaded) { } }
-internal record class MissingDocumentState : DocumentState { public MissingDocumentState() : base(DocumentStateValue.Missing) { } }
-internal record class LoadErrorDocumentState : DocumentState { public LoadErrorDocumentState() : base(DocumentStateValue.LoadError) { } }
-internal record class OpenedDocumentState : DocumentState { public OpenedDocumentState() : base(DocumentStateValue.Opened) { } }
+public record class UnloadedDocumentState : DocumentState { public UnloadedDocumentState() : base(DocumentStateValue.Unloaded) { } }
+public record class LoadedDocumentState : DocumentState { public LoadedDocumentState() : base(DocumentStateValue.Loaded) { } }
+public record class MissingDocumentState : DocumentState { public MissingDocumentState() : base(DocumentStateValue.Missing) { } }
+public record class LoadErrorDocumentState : DocumentState { public LoadErrorDocumentState() : base(DocumentStateValue.LoadError) { } }
+public record class OpenedDocumentState : DocumentState { public OpenedDocumentState() : base(DocumentStateValue.Opened) { } }

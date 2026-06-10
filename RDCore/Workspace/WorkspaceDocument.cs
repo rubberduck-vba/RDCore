@@ -1,6 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Symbols.Unbound;
-using RDCore.SDK.Runtime;
 
 namespace RDCore.Workspace;
 
@@ -19,8 +18,6 @@ internal record class WorkspaceDocument
 
     public string WorkspaceRoot { get; }
     public string RelativePath { get; }
-
-    public ScopeContext RootScope { get; init; } = default!;
 
     /// <summary>
     /// A unique identifier for the document, represented as a URI.
@@ -73,6 +70,4 @@ internal record class WorkspaceDocument
     /// Creates and returns a new WorkspaceDocument instance with the version number reset to 1, while keeping the same text content.
     /// </summary>
     public WorkspaceDocument AsInitialVersion() => this with { Version = 1 };
-
-    public WorkspaceDocument WithRootScope(VBModuleSymbol symbol) => this with { RootScope = new(symbol) };
 }

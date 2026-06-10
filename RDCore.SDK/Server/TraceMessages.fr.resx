@@ -117,16 +117,46 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="InitializeMissingClientProcessId" xml:space="preserve">
+    <value>La requête d'initialisation n'a pas spécifié l'ID du processus client. Les vérifications d'état de santé du processus client sont désactivées, ce serveur ne sera pas en mesure de terminer son processus par lui-même.</value>
+  </data>
+  <data name="LanguageClientInitialized_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientInitializedAsync complété.</value>
+  </data>
+  <data name="LanguageClientStarted_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientStartedAsync complété.</value>
+  </data>
+  <data name="LanguageClientStarting" xml:space="preserve">
+    <value>Démarrage du client LSP...</value>
+  </data>
   <data name="LanguageServerConfigurationCompleted" xml:space="preserve">
     <value>✅ Configuration du serveur complétée.</value>
   </data>
   <data name="LanguageServerConnected" xml:space="preserve">
     <value>✅ Le serveur de langage est connecté et prêt.</value>
   </data>
+  <data name="LanguageServerInitialize_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerInitializeAsync complété.</value>
+  </data>
+  <data name="LanguageServerStarted_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerStartedAsync handler complété.</value>
+  </data>
   <data name="LanguageServerStarting" xml:space="preserve">
     <value>Démarrage du serveur de langage...</value>
   </data>
   <data name="LanguageServerWaitForExitTaskCompleted" xml:space="preserve">
     <value>ℹ️ Le serveur de langage (LSP) est fermé et le processus va maintenant se terminer.</value>
+  </data>
+  <data name="LanguageServerInitialized_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageServerInitializedAsync handler complété.</value>
+  </data>
+  <data name="LanguageClientConfigurationCompleted" xml:space="preserve">
+    <value>✅ ConfigureClient complété.</value>
+  </data>
+  <data name="LanguageClientInitialize_HandlerCompleted" xml:space="preserve">
+    <value>✅ OnLanguageClientInitializeAsync complété.</value>
+  </data>
+  <data name="InitializeClientProcessIdOutOfRange" xml:space="preserve">
+    <value>L'ID de processus fournit est au-delà de la capacité de System.Int32; les vérifications de l'état de santé de ce processus ne peuvent pas être activées et ce serveur ne pourra pas terminer proprement son processus en cas de problème inattendu avec le client.</value>
   </data>
 </root>

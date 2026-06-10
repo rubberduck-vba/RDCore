@@ -156,7 +156,7 @@
   <data name="VBSyntaxError_DefaultMessage" xml:space="preserve">
     <value>Erreur de syntaxe</value>
   </data>
-  <data name="LanguageServerProtocolSdkException_NotInitialized" xml:space="preserve">
+  <data name="LanguageServerProtocolSdkException_ServerNotInitialized" xml:space="preserve">
     <value>Le serveur de langage n'a pas encore été initialisé.</value>
   </data>
   <data name="LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
@@ -203,5 +203,8 @@
   </data>
   <data name="VBIsOp_ObjectRequired" xml:space="preserve">
     <value>L'opérateur relationnel 'Is' requiert un objet dans ce contexte.</value>
+  </data>
+  <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
+    <value>Le client LSP n'est pas encore initialisé.</value>
   </data>
 </root>
