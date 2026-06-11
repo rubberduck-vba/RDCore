@@ -1,20 +1,34 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using RDCore.SDK.Model.Values.Abstract;
+﻿using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Runtime.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime;
-using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using RDCore.SDK.Runtime.Abstract;
+using RDCore.SDK.Semantics.Runtime.Abstract;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
-namespace RDCore.Runtime;
+namespace RDCore.Runtime.Model;
 
 /// <summary>
 /// Represents a single <em>call stack</em> frame that allocates locally-scoped symbols.
 /// </summary>
-public record class CallStackFrame : ICallStackFrame
+public record class CallStackFrame : IndexedStackFrame
 {
     private readonly Stack<Symbol> _localSymbols = [];
     private readonly Dictionary<Uri, Symbol> _localSymbolTable = [];
     private readonly Dictionary<Symbol, VBTypedValue> _localHeap = [];
+
+    /// <summary>
+    /// Represents a single <em>call</em> stack frame.
+    /// </summary>
+    /// <param name="nodeUri">The <c>SemanticId</c> of the executable node.</param>
+    /// <param name="staticSymbol">The <see cref="StaticSymbol"/> associated with this executable operation.</param>
+    /// <param name="inputs">Optional <see cref="VBTypedValue"/> inputs to initialize the stack with.</param>
+    public CallStackFrame(Uri nodeUri, StaticSymbol staticSymbol, params VBTypedValue[] inputs)
+        : base(nodeUri, staticSymbol, inputs.Select((input, index) => ((InputIndex)index, input)))
+    {
+    }
 
     public VBTypedValue this[Symbol symbol] => _localHeap[symbol];
 

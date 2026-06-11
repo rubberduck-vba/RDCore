@@ -56,7 +56,7 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
         }
         else
         {
-            builder.AddLetCoercionFlags(frame.OperandIndex == OperandIndex.BinaryLeftOperand 
+            builder.AddLetCoercionFlags(frame.InputIndex == InputIndex.BinaryLeftOperand 
                 ? ConversionSemanticFlags.BinaryLeftOperand 
                 : ConversionSemanticFlags.BinaryRightOperand);
         }

@@ -62,10 +62,10 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             return result;
         }
 
-        var rhsType = frame[OperandIndex.BinaryRightOperand].TypeInfo;
+        var rhsType = frame[InputIndex.BinaryRightOperand].TypeInfo;
         // the base rules are the verbatim specifications for
         // binary operators (5.6.9.3 runtime semantics):
-        var effectiveType = frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        var effectiveType = frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBByteType when rhsType is VBByteType or VBEmptyType => VBByteType.TypeInfo,
             VBByteType or VBEmptyType when rhsType is VBByteType => VBByteType.TypeInfo,
@@ -111,7 +111,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             ? DetermineOperatorEffectiveTypeResult.Success(effectiveType)
             // if no effective type can be determined, it's a type mismatch error:
             : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
-                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [frame[OperandIndex.BinaryLeftOperand].TypeInfo.Name, rhsType.Name]))));
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [frame[InputIndex.BinaryLeftOperand].TypeInfo.Name, rhsType.Name]))));
     }
 
     /// <summary>
@@ -176,21 +176,21 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// </summary>
     /// <param name="expression">The <em>binary arithmetic operator expression</em> whose <c>ResultSymbol</c> the error result will be attached to.</param>
     /// <param name="verbose">A detailed <c>Verbose</c> message about the error.</param>
-    protected static RuntimeSemanticsEvaluationResult OnInvalidProcedureCallOrArgument(BoundExpression expression, string verbose)
+    protected static RuntimeSemanticsEvaluationResult OnInvalidProcedureCallOrArgument(BoundExpressionNode expression, string verbose)
         => RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InvalidProcedureCallOrArgument, expression, verbose));
     /// <summary>
     /// 💥 Creates and returns a new <see cref="RuntimeSemanticsEvaluationResult"/> with a <see cref="VBRuntimeErrorId.DivisionByZero"/> error.
     /// </summary>
     /// <param name="expression">The <em>binary arithmetic operator expression</em> whose <c>ResultSymbol</c> the error result will be attached to.</param>
     /// <param name="verbose">A detailed <c>Verbose</c> message about the error.</param>
-    protected static RuntimeSemanticsEvaluationResult OnDivisionByZero(BoundExpression expression, string verbose)
+    protected static RuntimeSemanticsEvaluationResult OnDivisionByZero(BoundExpressionNode expression, string verbose)
         => RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.DivisionByZero, expression, verbose));
     /// <summary>
     /// 💥 Creates and returns a new <see cref="RuntimeSemanticsEvaluationResult"/> with a <see cref="VBRuntimeErrorId.Overflow"/> error.
     /// </summary>
     /// <param name="expression">The <em>binary arithmetic operator expression</em> whose <c>ResultSymbol</c> the error result will be attached to.</param>
     /// <param name="verbose">A detailed <c>Verbose</c> message about the error.</param>
-    protected static RuntimeSemanticsEvaluationResult OnOverflow(BoundExpression expression, string verbose)
+    protected static RuntimeSemanticsEvaluationResult OnOverflow(BoundExpressionNode expression, string verbose)
         => RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression, verbose));
 
     protected override ISemanticContextContributor<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> Analyze(

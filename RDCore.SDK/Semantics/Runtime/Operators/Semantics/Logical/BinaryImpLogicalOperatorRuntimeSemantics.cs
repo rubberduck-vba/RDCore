@@ -25,8 +25,8 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(IVBExecutionContext context, VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType
             && lhs is VBNumericTypedValue lhsIntegralNumeric && rhs is VBNumericTypedValue rhsIntegralNumeric)

@@ -10,7 +10,7 @@ public abstract record class LiteralValueRuntimeSemantics<TContext, TFlags> : Ru
     where TFlags : struct, Enum
 {
     public override RuntimeSemanticsEvaluationResult Evaluate(IVBExecutionContext runtime, SemanticContext<TFlags> context, BoundNode node, params VBTypedValue[] inputs)
-        => EvaluateSemanticResult((VBLiteralExpression)node);
+        => EvaluateSemanticNodeResult((VBLiteralExpression)node);
 
     /// <summary>
     /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs 
@@ -18,6 +18,6 @@ public abstract record class LiteralValueRuntimeSemantics<TContext, TFlags> : Ru
     /// </summary>
     /// <param name="expression">The expression to be evaluated.</param>
     /// <returns>A successful <c>RuntimeSemanticsEvalutationResult</c> encapsulating the static expression value.</returns>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(VBLiteralExpression expression) => 
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticNodeResult(VBLiteralExpression expression) => 
         RuntimeSemanticsEvaluationResult.Success(expression.StaticValue);
 }

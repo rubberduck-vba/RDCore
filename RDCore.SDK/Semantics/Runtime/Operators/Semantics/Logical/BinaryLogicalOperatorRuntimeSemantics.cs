@@ -45,9 +45,9 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         SemanticContext<LogicalOperatorSemanticFlags> context, 
         VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
-        => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
-            VBByteType or VBNullType when frame[OperandIndex.BinaryLeftOperand].TypeInfo is VBByteType 
+            VBByteType or VBNullType when frame[InputIndex.BinaryLeftOperand].TypeInfo is VBByteType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBByteType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
@@ -59,23 +59,23 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
             var lhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(runtime.Memory, expression, new(
                 NodeUri: expression.SemanticId, 
-                OperatorSymbol: expression.Symbol, 
-                OperandIndex: OperandIndex.BinaryLeftOperand, 
+                StaticSymbol: expression.Symbol, 
+                InputIndex: InputIndex.BinaryLeftOperand, 
                 SourceValue: lhs, 
                 DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame.EffectiveType, expression.ResultSymbol)));
             var lhsValue = lhsCoercion.Result as VBNumericTypedValue;
 
             var rhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(runtime.Memory, expression, new(
                 NodeUri: expression.SemanticId,
-                OperatorSymbol: expression.Symbol,
-                OperandIndex: OperandIndex.BinaryRightOperand,
+                StaticSymbol: expression.Symbol,
+                InputIndex: InputIndex.BinaryRightOperand,
                 SourceValue: rhs,
                 DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame.EffectiveType, expression.ResultSymbol)));
             var rhsValue = rhsCoercion.Result as VBNumericTypedValue;
@@ -143,8 +143,8 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
     {
-        var lhs = operands[(int)OperandIndex.BinaryLeftOperand];
-        var rhs = operands[(int)OperandIndex.BinaryRightOperand];
+        var lhs = operands[(int)InputIndex.BinaryLeftOperand];
+        var rhs = operands[(int)InputIndex.BinaryRightOperand];
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
             builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);

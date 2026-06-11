@@ -13,18 +13,18 @@ public record class ExpressionInfoBuilder: IExpressionInfoFormatter
         _options = options;
     }
 
-    public void Format(StringBuilder builder, BoundExpression expression)
+    public void Format(StringBuilder builder, BoundExpressionNode expression)
     {
         FormatExpressionType(builder, expression);
         FormatSemanticId(builder, expression);
         FormatLocation(builder, expression);
     }
 
-    protected virtual void FormatExpressionType(StringBuilder builder, BoundExpression expression) 
+    protected virtual void FormatExpressionType(StringBuilder builder, BoundExpressionNode expression) 
         => builder
             .WithEnclosedIf(_options.ExpressionType, "[", sb => sb.Append(expression.GetType().Name), "] ");
 
-    protected virtual void FormatSemanticId(StringBuilder builder, BoundExpression expression) 
+    protected virtual void FormatSemanticId(StringBuilder builder, BoundExpressionNode expression) 
         => builder
             .WithIconIf(_options.ExpressionSemanticId && _options.ShowSemanticIdIcon, _options.SemanticIdIcon)
             .WithConditional(_options.ExpressionSemanticId, expression.SemanticId.ToString());
@@ -44,7 +44,7 @@ public record class ExpressionInfoBuilder: IExpressionInfoFormatter
     /// 🧩 Base implementation uses <c>&lt;Start&gt;[ ..&lt;End&gt;]</c> <c>L1C1</c> notation 
     /// where the <c>End</c> coordinates only appear if different than the <c>Start</c> coordinates.
     /// </remarks>
-    protected virtual void FormatLocation(StringBuilder builder, BoundExpression expression)
+    protected virtual void FormatLocation(StringBuilder builder, BoundExpressionNode expression)
         => builder
             .WithConditional(_options.DocumentLocation, sb1 => sb1
             .WithIconIf(_options.ShowDocumentLocationIcon, _options.DocumentLocationIcon)

@@ -9,7 +9,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime;
 
-namespace RDCore.Runtime;
+namespace RDCore.Runtime.Execution;
 
 /// <summary>
 /// Creates a virtual memory space for an execution context.

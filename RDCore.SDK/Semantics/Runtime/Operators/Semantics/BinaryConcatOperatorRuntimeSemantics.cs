@@ -64,8 +64,8 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
         OperatorEvaluationFrame frame)
     {
-        var rhs = frame[OperandIndex.BinaryRightOperand].TypeInfo;
-        return frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
+        return frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
                 when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType
@@ -96,7 +96,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         {
             VBStringType => RuntimeSemanticsEvaluationResult.Success(
                 VBTypedValueFactory.CreateStringValue(expression.ResultSymbol,
-                    $"{((VBStringValue)frame[OperandIndex.BinaryLeftOperand]).Value}{((VBStringValue)frame[OperandIndex.BinaryRightOperand]).Value}")),
+                    $"{((VBStringValue)frame[InputIndex.BinaryLeftOperand]).Value}{((VBStringValue)frame[InputIndex.BinaryRightOperand]).Value}")),
 
             VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
 

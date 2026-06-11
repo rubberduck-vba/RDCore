@@ -29,8 +29,8 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
             VBNumericTypedValue or VBBooleanValue or VBDateValue or VBStringValue or VBArrayValue or VBUserDefinedTypeValue =>
                 LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
                     NodeUri: expression.SemanticId,
-                    OperatorSymbol: expression.Symbol,
-                    OperandIndex: frame.OperandIndex,
+                    StaticSymbol: expression.Symbol,
+                    InputIndex: frame.InputIndex,
                     SourceValue: frame.SourceValue,
                     DestinationTypeDesc: VBTypedValueFactory.DescribeType(VBDoubleType.TypeInfo, expression.ResultSymbol)
                 )).Result is VBDoubleValue coerced

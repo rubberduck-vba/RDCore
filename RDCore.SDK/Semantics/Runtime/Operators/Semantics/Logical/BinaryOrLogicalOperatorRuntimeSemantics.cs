@@ -27,8 +27,8 @@ public record class BinaryOrLogicalOperatorRuntimeSemantics(
         VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        var lhs = frame[InputIndex.BinaryLeftOperand];
+        var rhs = frame[InputIndex.BinaryRightOperand];
 
         return lhs switch
         {

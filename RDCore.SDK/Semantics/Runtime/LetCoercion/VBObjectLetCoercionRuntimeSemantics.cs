@@ -62,13 +62,13 @@ public record class VBObjectLetCoercionRuntimeSemantics(
     /// </summary>
     /// <param name="expression">The <em>binary arithmetic operator expression</em> whose <c>ResultSymbol</c> the error result will be attached to.</param>
     /// <param name="verbose">A detailed <c>Verbose</c> message about the error.</param>
-    protected static LetCoercionResult OnLetCoercionObjectVariableNotSet(BoundExpression expression, string verbose)
+    protected static LetCoercionResult OnLetCoercionObjectVariableNotSet(BoundExpressionNode expression, string verbose)
         => LetCoercionResult.Error(OnRuntimeError(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression, verbose));
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
-    protected static VBRuntimeErrorInfo OnRuntimeError(VBRuntimeErrorId errorId, BoundExpression expression, string verbose)
+    protected static VBRuntimeErrorInfo OnRuntimeError(VBRuntimeErrorId errorId, BoundExpressionNode expression, string verbose)
         => new(errorId, expression.Location, VBRuntimeErrorException.GetErrorString(errorId), verbose);
 
     public override LetCoercionResult EvaluateLetCoercion<ConversionOperationSemanticContext, ConversionSemanticFlags>(

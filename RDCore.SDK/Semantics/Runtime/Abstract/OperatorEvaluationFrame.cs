@@ -20,14 +20,14 @@ public readonly record struct OperatorEvaluationFrame(
     Uri NodeUri,
     StaticSymbol OperatorSymbol,
     ImmutableArray<VBTypedValue> Operands,
-    VBType EffectiveType) : IStackFrame<OperandIndex>
+    VBType EffectiveType) : IStackFrame<InputIndex>
 {
     /// <summary>
     /// Gets the operand at the specified <c>index</c>.
     /// </summary>
-    /// <param name="index">The <see cref="OperandIndex"/> value describing the index of the operator to retrieve.</param>
+    /// <param name="index">The <see cref="InputIndex"/> value describing the index of the operator to retrieve.</param>
     /// <returns>The <see cref="VBTypedValue"/> operand at the specified index.</returns>
-    public VBTypedValue this[OperandIndex index] => Operands[Convert.ToInt32(index)];
+    public VBTypedValue this[InputIndex index] => Operands[Convert.ToInt32(index)];
 
     Uri IStackFrame.NodeUri => NodeUri;
     StaticSymbol IStackFrame.StaticSymbol => OperatorSymbol;

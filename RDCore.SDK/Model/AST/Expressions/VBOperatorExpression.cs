@@ -17,11 +17,10 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <param name="ResultSymbol">A <see cref="BoundTypedSymbol"/> bound to the result of this expression.</param>
 /// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>
 public abstract record class VBOperatorExpression<TContext, TFlags>(
-    Uri SemanticId, 
-    OperatorSymbol<TContext, TFlags> Symbol, 
-    OperatorExpressionValueSymbol ResultSymbol, 
-    Location Location) 
-    : BoundExpression(SemanticId, Location) 
-where TContext : SemanticContext<TFlags>, new()
-where TFlags : struct, Enum
-{ }
+    Uri SemanticId,
+    OperatorSymbol<TContext, TFlags> Symbol,
+    OperatorExpressionValueSymbol ResultSymbol,
+    Location Location) : BoundExpressionNode<TContext, TFlags>(SemanticId, Location)
+    where TContext : SemanticContext<TFlags>, new()
+    where TFlags : struct, Enum
+;
