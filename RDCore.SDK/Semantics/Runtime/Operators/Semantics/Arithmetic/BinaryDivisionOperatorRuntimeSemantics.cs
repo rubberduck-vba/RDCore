@@ -10,85 +10,86 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic;
-
-/// <summary>
-/// MS-VBAL 5.6.9.3.5 Binary '/' Operator (runtime semantics)
-/// </summary>
-public record class BinaryDivisionOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic
 {
-    protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs / rhs;
-
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver, 
-        BinaryArithmeticOperatorSemanticContext context, 
-        VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            VBDoubleType or VBStringType or VBCurrencyType or VBDateType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is INumericType or VBStringType or VBDateType or VBEmptyType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            INumericType or VBStringType or VBDateType or VBEmptyType
-                when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBDoubleType or VBStringType or VBCurrencyType or VBDateType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
-
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
-        SemanticContext<ArithmeticOperatorSemanticFlags> context,
-        VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.6.9.3.5 Binary '/' Operator (runtime semantics)
+    /// </summary>
+    public record class BinaryDivisionOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
+        IVerboseMessageBuilder FormatterService)
+        : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs / rhs;
 
-        if (frame.EffectiveType is VBDecimalType)
-        {
-            var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (rhsNumeric.ManagedValue == 0)
+        protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
+            ISymbolResolver resolver, 
+            BinaryArithmeticOperatorSemanticContext context, 
+            VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression, 
+            OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
             {
-                return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
-            }
-        }
-        else if (frame.EffectiveType is VBSingleType or VBDoubleType)
+                VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType
+                    when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType 
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+
+                VBDoubleType or VBStringType or VBCurrencyType or VBDateType
+                    when frame[OperandIndex.BinaryRightOperand].GetTargetType() is INumericType or VBStringType or VBDateType or VBEmptyType 
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+
+                INumericType or VBStringType or VBDateType or VBEmptyType
+                    when frame[OperandIndex.BinaryRightOperand].GetTargetType() is VBDoubleType or VBStringType or VBCurrencyType or VBDateType 
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+
+                _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+            };
+
+        protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+            IVBExecutionContext runtime,
+            SemanticContext<ArithmeticOperatorSemanticFlags> context,
+            VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
+            OperatorEvaluationFrame frame)
         {
-            var lhsNumeric = (VBNumericTypedValue)lhs;
-            var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (rhsNumeric.ManagedValue == 0)
+            var lhs = frame[OperandIndex.BinaryLeftOperand];
+            var rhs = frame[OperandIndex.BinaryRightOperand];
+
+            if (frame.EffectiveType is VBDecimalType)
             {
-                //if (lhsNumeric is VBDoubleValue && rhsNumeric is VBDoubleValue)
-                //{
-                //    // MS-VBAL trying to be cute here:
-                //    // * if this expression was within the RHS of a Let statement
-                //    // * and both operators have a declared type of Double
-                //    // * the resulting IEEE 754 Double special value (+/- infinity, NaN) is assigned...
+                var rhsNumeric = (VBNumericTypedValue)rhs;
+                if (rhsNumeric.ManagedValue == 0)
+                {
+                    return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
+                }
+            }
+            else if (frame.EffectiveType is VBSingleType or VBDoubleType)
+            {
+                var lhsNumeric = (VBNumericTypedValue)lhs;
+                var rhsNumeric = (VBNumericTypedValue)rhs;
+                if (rhsNumeric.ManagedValue == 0)
+                {
+                    //if (lhsNumeric is VBDoubleValue && rhsNumeric is VBDoubleValue)
+                    //{
+                    //    // MS-VBAL trying to be cute here:
+                    //    // * if this expression was within the RHS of a Let statement
+                    //    // * and both operators have a declared type of Double
+                    //    // * the resulting IEEE 754 Double special value (+/- infinity, NaN) is assigned...
 
-                //    // since we're not throwing any errors, we get the overflow into the result,
-                //    // and then let-assignment semantics would know what to do.
-                //}
+                    //    // since we're not throwing any errors, we get the overflow into the result,
+                    //    // and then let-assignment semantics would know what to do.
+                    //}
 
-                return lhsNumeric.ManagedValue == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
-                    ? OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow)
-                    : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
+                    return lhsNumeric.ManagedValue == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
+                        ? OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow)
+                        : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
+                }
+
+                return EvaluateBinaryExpressionResult((VBNumericType)frame.EffectiveType, expression.ResultSymbol, lhsNumeric, rhsNumeric);
+            }
+            else if (frame.EffectiveType is VBNullType)
+            {
+                return EvaluateNullBinaryExpressionResult(expression.ResultSymbol);
             }
 
-            return EvaluateBinaryExpressionResult((VBNumericType)frame.EffectiveType, expression.ResultSymbol, lhsNumeric, rhsNumeric);
+            return RuntimeSemanticsEvaluationResult.InternalError();
         }
-        else if (frame.EffectiveType is VBNullType)
-        {
-            return EvaluateNullBinaryExpressionResult(expression.ResultSymbol);
-        }
-
-        return RuntimeSemanticsEvaluationResult.InternalError();
     }
 }

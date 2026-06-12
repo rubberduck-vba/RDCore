@@ -9,59 +9,60 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.LetCoercion;
-
-/// <summary>
-/// MS-VBAL 5.5.1.2.11 Let-coercion to and from <c>VBEmptyType</c>
-/// </summary>
-public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBEmptyType>(FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.LetCoercion
 {
-    public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(ISymbolResolver resolver, VBOperatorExpression<TContext, TFlags> expression, LetCoercionStackFrame frame) =>
-        frame.DestinationTypeDesc.Target switch
-        {
-            VBNumericType numericType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateValue(numericType, expression.ResultSymbol, ((VBNumericTypedValue)frame.SourceValue).ManagedValue)),
-            
-            VBBooleanType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateBooleanValue(expression.ResultSymbol, VBBooleanValue.False)),
-
-            VBDateType => LetCoercionResult.Success(VBTypedValueFactory.CreateValue(expression.ResultSymbol, VBDateType.Zero)),
-            VBFixedStringType fixedStringDestinationType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateValue(fixedStringDestinationType, expression.ResultSymbol)!),
-
-            VBStringType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateStringValue(expression.ResultSymbol, VBStringValue.ZeroLengthString)),
-            
-            // 🧩 what would be the implications of let-coercing Empty to Nothing?
-            VBObjectType or VBClassType => LetCoercionResult.Error(OnLetCoercionObjectRequired(expression, frame)),
-
-            /** IMPLEMENTATION NOTE
-             * 👉 the negatively-specified type mismatch should be already handled by the caller if we just return NotApplicable here.
-             */
-            not VBVariantType => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
-
-            _ => LetCoercionResult.NotApplicable(frame)
-        };
-
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
-        ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
-        VBOperatorExpression<TContext, TFlags> expression,
-        LetCoercionStackFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.11 Let-coercion to and from <c>VBEmptyType</c>
+    /// </summary>
+    public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
+        : LetCoercionRuntimeSemantics<VBEmptyType>(FormatterService)
     {
-        if (expression is VBUnaryOperatorExpression<TContext, TFlags>)
-        {
-            builder.AddLetCoercionFlags(ConversionSemanticFlags.UnaryOperand);
-        }
-        else
-        {
-            builder.AddLetCoercionFlags(frame.OperandIndex == OperandIndex.BinaryLeftOperand 
-                ? ConversionSemanticFlags.BinaryLeftOperand 
-                : ConversionSemanticFlags.BinaryRightOperand);
-        }
+        public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(ISymbolResolver resolver, VBOperatorExpression<TContext, TFlags> expression, LetCoercionStackFrame frame) =>
+            frame.DestinationTypeDesc.Target switch
+            {
+                VBNumericType numericType => LetCoercionResult.Success(
+                    VBTypedValueFactory.CreateValue(numericType, expression.ResultSymbol, ((VBNumericTypedValue)frame.SourceValue).ManagedValue)),
+            
+                VBBooleanType => LetCoercionResult.Success(
+                    VBTypedValueFactory.CreateBooleanValue(expression.ResultSymbol, VBBooleanValue.False)),
 
-        return builder;
+                VBDateType => LetCoercionResult.Success(VBTypedValueFactory.CreateValue(expression.ResultSymbol, VBDateType.Zero)),
+                VBFixedStringType fixedStringDestinationType => LetCoercionResult.Success(
+                    VBTypedValueFactory.CreateValue(fixedStringDestinationType, expression.ResultSymbol)!),
+
+                VBStringType => LetCoercionResult.Success(
+                    VBTypedValueFactory.CreateStringValue(expression.ResultSymbol, VBStringValue.ZeroLengthString)),
+            
+                // 🧩 what would be the implications of let-coercing Empty to Nothing?
+                VBObjectType or VBClassType => LetCoercionResult.Error(OnLetCoercionObjectRequired(expression, frame)),
+
+                /** IMPLEMENTATION NOTE
+                 * 👉 the negatively-specified type mismatch should be already handled by the caller if we just return NotApplicable here.
+                 */
+                not VBVariantType => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
+
+                _ => LetCoercionResult.NotApplicable(frame)
+            };
+
+        protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
+            ILetCoercionSemanticContextBuilder builder,
+            ISymbolResolver resolver,
+            VBOperatorExpression<TContext, TFlags> expression,
+            LetCoercionStackFrame frame)
+        {
+            if (expression is VBUnaryOperatorExpression<TContext, TFlags>)
+            {
+                builder.AddLetCoercionFlags(ConversionSemanticFlags.UnaryOperand);
+            }
+            else
+            {
+                builder.AddLetCoercionFlags(frame.OperandIndex == OperandIndex.BinaryLeftOperand 
+                    ? ConversionSemanticFlags.BinaryLeftOperand 
+                    : ConversionSemanticFlags.BinaryRightOperand);
+            }
+
+            return builder;
+        }
     }
-}
 
+}

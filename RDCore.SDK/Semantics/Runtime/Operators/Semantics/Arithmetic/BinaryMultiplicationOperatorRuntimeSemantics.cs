@@ -9,57 +9,58 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic;
-
-/// <summary>
-/// MS-VBAL 5.6.9.3.4 Binary '*' Operator (runtime semantics)
-/// </summary>
-public record class BinaryMultiplicationOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic
 {
-    protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs * rhs;
+    /// <summary>
+    /// MS-VBAL 5.6.9.3.4 Binary '*' Operator (runtime semantics)
+    /// </summary>
+    public record class BinaryMultiplicationOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
+        IVerboseMessageBuilder FormatterService)
+        : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    {
+        protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs * rhs;
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver,
-        BinaryArithmeticOperatorSemanticContext context,
-        VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext,
-        ArithmeticOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBCurrencyType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+        protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
+            ISymbolResolver resolver,
+            BinaryArithmeticOperatorSemanticContext context,
+            VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext,
+            ArithmeticOperatorSemanticFlags> expression,
+            OperatorEvaluationFrame frame) => frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+            {
+                VBCurrencyType
+                    when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
-            VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBCurrencyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+                VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
+                    when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBCurrencyType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
-            VBDateType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+                VBDateType
+                    when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType
-                when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBDateType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
+                VBNumericType or VBFixedStringType or VBStringType or VBDateType
+                    when frame[OperandIndex.BinaryRightOperand].TypeInfo is VBDateType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+                _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+            };
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
-        SemanticContext<ArithmeticOperatorSemanticFlags> context,
-        VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) => frame.EffectiveType switch
-        {
-            VBNumericType numericEffectiveType
-                when frame[OperandIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric
-                  && frame[OperandIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric
-                    => EvaluateBinaryExpressionResult(numericEffectiveType, expression.ResultSymbol, lhsNumeric, rhsNumeric),
+        protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+            IVBExecutionContext runtime,
+            SemanticContext<ArithmeticOperatorSemanticFlags> context,
+            VBBinaryOperatorExpression<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> expression,
+            OperatorEvaluationFrame frame) => frame.EffectiveType switch
+            {
+                VBNumericType numericEffectiveType
+                    when frame[OperandIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric
+                      && frame[OperandIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric
+                        => EvaluateBinaryExpressionResult(numericEffectiveType, expression.ResultSymbol, lhsNumeric, rhsNumeric),
 
-            VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
+                VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError()
-        };
+                _ => RuntimeSemanticsEvaluationResult.InternalError()
+            };
+    }
 }

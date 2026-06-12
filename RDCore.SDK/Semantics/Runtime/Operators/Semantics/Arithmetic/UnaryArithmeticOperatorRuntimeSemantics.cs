@@ -10,61 +10,62 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic;
-
-/// <summary>
-/// Provides <c>virtual</c> overloads to simplify the implementation of <em>unary arithmetic operators</em> runtime semantics.
-/// </summary>
-public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryOperatorRuntimeSemantics<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Arithmetic
 {
-    protected sealed override ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> AnalyzeEffectiveType(
-        ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,
-        DetermineOperatorEffectiveTypeResult context)
+    /// <summary>
+    /// Provides <c>virtual</c> overloads to simplify the implementation of <em>unary arithmetic operators</em> runtime semantics.
+    /// </summary>
+    public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
+        IVerboseMessageBuilder FormatterService) 
+        : UnaryOperatorRuntimeSemantics<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
     {
-        builder.AddOnError(context.ErrorInfo);
-        return context.Result switch
+        protected sealed override ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> AnalyzeEffectiveType(
+            ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,
+            DetermineOperatorEffectiveTypeResult context)
         {
-            VBNumericType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBNumericEffectiveType),
-            VBDateType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBDateEffectiveType),
-            VBNullType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBNullEffectiveType),
-            _ => builder
-        };
+            builder.AddOnError(context.ErrorInfo);
+            return context.Result switch
+            {
+                VBNumericType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBNumericEffectiveType),
+                VBDateType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBDateEffectiveType),
+                VBNullType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBNullEffectiveType),
+                _ => builder
+            };
+        }
+
+        protected override OperatorAnalysisContext<ArithmeticOperatorSemanticFlags> CreateAnalysisContext(
+            BoundNode node,
+            DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
+            LetCoercionAnalysisContext coercionResult,
+            RuntimeSemanticsEvaluationResult evaluationResult,
+            ArithmeticOperatorSemanticFlags semanticFlags) 
+            => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
+
+        /// <summary>
+        /// Evaluates the runtime semantics of a unary arithmetic operator and returns a value of the effective numeric data type.
+        /// </summary>
+        /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
+        /// <param name="symbol">The unary operator expression symbol.</param>
+        /// <param name="operand">The unary operand being evaluated.</param>
+        /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
+        protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, Symbol symbol, VBNumericTypedValue operand) 
+            => VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateNumericOp(operand.ManagedValue));
+
+        /// <summary>
+        /// Evaluates the runtime semantics of a unary arithmetic operator
+        /// </summary>
+        /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
+        /// <param name="symbol">The unary operator expression symbol.</param>
+        /// <param name="operand">The unary operand being evaluated.</param>
+        /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
+        protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, Symbol symbol, VBNumericTypedValue operand) 
+            => VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateNumericOp(operand.ManagedValue));
+
+        /// <summary>
+        /// Evaluates the numeric result of a unary arithmetic operation.
+        /// </summary>
+        /// <param name="operand">The underlying managed value of a numeric unary expression operand.</param>
+        protected abstract double EvaluateNumericOp(double operand);
     }
-
-    protected override OperatorAnalysisContext<ArithmeticOperatorSemanticFlags> CreateAnalysisContext(
-        BoundNode node,
-        DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
-        LetCoercionAnalysisContext coercionResult,
-        RuntimeSemanticsEvaluationResult evaluationResult,
-        ArithmeticOperatorSemanticFlags semanticFlags) 
-        => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
-
-    /// <summary>
-    /// Evaluates the runtime semantics of a unary arithmetic operator and returns a value of the effective numeric data type.
-    /// </summary>
-    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
-    /// <param name="symbol">The unary operator expression symbol.</param>
-    /// <param name="operand">The unary operand being evaluated.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, Symbol symbol, VBNumericTypedValue operand) 
-        => VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateNumericOp(operand.ManagedValue));
-
-    /// <summary>
-    /// Evaluates the runtime semantics of a unary arithmetic operator
-    /// </summary>
-    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
-    /// <param name="symbol">The unary operator expression symbol.</param>
-    /// <param name="operand">The unary operand being evaluated.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, Symbol symbol, VBNumericTypedValue operand) 
-        => VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateNumericOp(operand.ManagedValue));
-
-    /// <summary>
-    /// Evaluates the numeric result of a unary arithmetic operation.
-    /// </summary>
-    /// <param name="operand">The underlying managed value of a numeric unary expression operand.</param>
-    protected abstract double EvaluateNumericOp(double operand);
 }

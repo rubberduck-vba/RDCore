@@ -10,42 +10,43 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.LetCoercion;
-
-/// <summary>
-/// MS-VBAL 5.5.1.2.10 Let-coercion to and from <c>VBNullType</c>
-/// </summary>
-public record class VBNullTypeLetCoercionRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBNullType>(FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.LetCoercion
 {
-    public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame) => frame.SourceValue switch
-        {
-            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType 
-                => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
-
-            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType 
-                => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
-
-            _ => LetCoercionResult.NotApplicable(frame)
-        };
-
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
-        ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
-        VBOperatorExpression<TContext, TFlags> expression,
-        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.NullOperand | 
-            frame.SourceValue switch
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.10 Let-coercion to and from <c>VBNullType</c>
+    /// </summary>
+    public record class VBNullTypeLetCoercionRuntimeSemantics(
+        IVerboseMessageBuilder FormatterService)
+        : LetCoercionRuntimeSemantics<VBNullType>(FormatterService)
+    {
+        public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame) => frame.SourceValue switch
             {
-                VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType
-                    => ConversionSemanticFlags.Failed,
+                VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType 
+                    => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
 
-                VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType
-                    => ConversionSemanticFlags.Failed,
-                _ => 0
-            });
+                VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType 
+                    => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
+
+                _ => LetCoercionResult.NotApplicable(frame)
+            };
+
+        protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
+            ILetCoercionSemanticContextBuilder builder,
+            ISymbolResolver resolver,
+            VBOperatorExpression<TContext, TFlags> expression,
+            LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.NullOperand | 
+                frame.SourceValue switch
+                {
+                    VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType
+                        => ConversionSemanticFlags.Failed,
+
+                    VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType
+                        => ConversionSemanticFlags.Failed,
+                    _ => 0
+                });
+    }
+
 }
-

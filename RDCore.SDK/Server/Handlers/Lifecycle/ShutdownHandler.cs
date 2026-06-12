@@ -5,17 +5,18 @@ using OmniSharp.Extensions.LanguageServer.Protocol.General;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Server.Services.States;
 
-namespace RDCore.SDK.Server.Handlers.Lifecycle;
-
-public class ShutdownHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ShutdownHandlerBase
+namespace RDCore.SDK.Server.Handlers.Lifecycle
 {
-    public async override Task<Unit> Handle(ShutdownParams request, CancellationToken cancellationToken)
+    public class ShutdownHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ShutdownHandlerBase
     {
-        logger.LogTrace("Received Shutdown notification.");
-        cancellationToken.ThrowIfCancellationRequested();
+        public async override Task<Unit> Handle(ShutdownParams request, CancellationToken cancellationToken)
+        {
+            logger.LogTrace("Received Shutdown notification.");
+            cancellationToken.ThrowIfCancellationRequested();
 
-        server.OnShutdown();
+            server.OnShutdown();
 
-        return await Task.FromResult(Unit.Value);
+            return await Task.FromResult(Unit.Value);
+        }
     }
 }

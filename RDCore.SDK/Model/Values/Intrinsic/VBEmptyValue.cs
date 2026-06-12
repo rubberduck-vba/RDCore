@@ -3,22 +3,23 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 
-namespace RDCore.SDK.Model.Values.Intrinsic;
-
-/// <summary>
-/// Represents an <c>Empty</c> value.
-/// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
-public sealed record class VBEmptyValue(Symbol Symbol) : VBTypedValue(VBEmptyType.TypeInfo, Symbol), 
-    IVBTypedValue<VBEmptyValue, nint>
+namespace RDCore.SDK.Model.Values.Intrinsic
 {
-    private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.StaticSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
-    public static VBEmptyValue Empty { get; } = _emptyValue.Value;
-    public override object BoxedValue => _emptyValue.Value;
+    /// <summary>
+    /// Represents an <c>Empty</c> value.
+    /// </summary>
+    /// <param name="Symbol">The symbol associated with this value.</param>
+    public sealed record class VBEmptyValue(Symbol Symbol) : VBTypedValue(VBEmptyType.TypeInfo, Symbol), 
+        IVBTypedValue<VBEmptyValue, nint>
+    {
+        private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.StaticSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
+        public static VBEmptyValue Empty { get; } = _emptyValue.Value;
+        public override object BoxedValue => _emptyValue.Value;
 
-    public nint Value => nint.Zero;
-    public override int Size => sizeof(int);
+        public nint Value => nint.Zero;
+        public override int Size => sizeof(int);
 
-    public bool Equals(IVBTypedValue<VBEmptyValue, nint>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
+        public bool Equals(IVBTypedValue<VBEmptyValue, nint>? other) => Value == other?.Value;
+        public override int GetHashCode() => Value.GetHashCode();
+    }
 }

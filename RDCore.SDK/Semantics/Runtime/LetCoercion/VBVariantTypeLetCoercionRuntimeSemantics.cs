@@ -9,30 +9,31 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.LetCoercion;
-
-/// <summary>
-/// MS-VBAL 5.5.1.2.12 Let-coercion to <c>VBVariantType</c>
-/// </summary>
-public record class VBVariantTypeLetCoercionRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider Provider,
-    IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBVariantType>(FormatterService) 
+namespace RDCore.SDK.Semantics.Runtime.LetCoercion
 {
-    public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame) => frame.SourceValue switch
-        {
-            not VBObjectValue and not VBNothingValue => 
-                LetCoercionResult.Success(VBTypedValueFactory.CreateVariant(frame.SourceValue, expression.ResultSymbol)),
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.12 Let-coercion to <c>VBVariantType</c>
+    /// </summary>
+    public record class VBVariantTypeLetCoercionRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider Provider,
+        IVerboseMessageBuilder FormatterService) 
+        : LetCoercionRuntimeSemantics<VBVariantType>(FormatterService) 
+    {
+        public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame) => frame.SourceValue switch
+            {
+                not VBObjectValue and not VBNothingValue => 
+                    LetCoercionResult.Success(VBTypedValueFactory.CreateVariant(frame.SourceValue, expression.ResultSymbol)),
 
-            _ => LetCoercionResult.NotApplicable(frame)
-        };
+                _ => LetCoercionResult.NotApplicable(frame)
+            };
 
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
-        ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
-        VBOperatorExpression<TContext, TFlags> expression,
-        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.VariantTarget);
+        protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
+            ILetCoercionSemanticContextBuilder builder,
+            ISymbolResolver resolver,
+            VBOperatorExpression<TContext, TFlags> expression,
+            LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.VariantTarget);
+    }
 }

@@ -3,25 +3,26 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
-namespace RDCore.SDK.Model.Types;
-
-/// <summary>
-/// A <see cref="VBIntrinsicType{int}"/> representing the <c>Object</c> data type.
-/// </summary>
-/// <remarks>
-/// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>
-/// 👉 This data type represents a polymorphic object reference.
-/// </remarks>
-public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
+namespace RDCore.SDK.Model.Types
 {
-    private static readonly Lazy<VBObjectType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
-    /// The <c>Object</c> data type.
+    /// A <see cref="VBIntrinsicType{int}"/> representing the <c>Object</c> data type.
     /// </summary>
-    public static VBObjectType TypeInfo => _instance.Value;
+    /// <remarks>
+    /// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>
+    /// 👉 This data type represents a polymorphic object reference.
+    /// </remarks>
+    public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
+    {
+        private static readonly Lazy<VBObjectType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
+        /// <summary>
+        /// The <c>Object</c> data type.
+        /// </summary>
+        public static VBObjectType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+        private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
+        public override VBTypedValue DefaultValue => _defaultValue.Value;
     
-    public override int Size => sizeof(int);
+        public override int Size => sizeof(int);
+    }
 }

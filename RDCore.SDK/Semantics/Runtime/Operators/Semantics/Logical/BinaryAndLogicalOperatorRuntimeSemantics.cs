@@ -13,98 +13,99 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical;
-
-/// <summary>
-/// MS-VBAL 5.6.9.8.2 Binary 'And' Operator
-/// </summary>
-public record class BinaryAndLogicalOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService) 
-    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical
 {
-    protected override double EvaluateBitwiseOp(int lhs, int rhs) => lhs & rhs;
-
-    protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
-        BoundNode node,
-        DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
-        LetCoercionAnalysisContext coercionResult,
-        RuntimeSemanticsEvaluationResult evaluationResult,
-        LogicalOperatorSemanticFlags semanticFlags) => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
-
-    protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
-        SemanticContext<LogicalOperatorSemanticFlags> context,
-        VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // already determined, but the method still needs an override.
-
-    protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        IVBExecutionContext context, 
-        VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.6.9.8.2 Binary 'And' Operator
+    /// </summary>
+    public record class BinaryAndLogicalOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
+        IVerboseMessageBuilder FormatterService) 
+        : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
+        protected override double EvaluateBitwiseOp(int lhs, int rhs) => lhs & rhs;
 
-        if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
+        protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
+            BoundNode node,
+            DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
+            LetCoercionAnalysisContext coercionResult,
+            RuntimeSemanticsEvaluationResult evaluationResult,
+            LogicalOperatorSemanticFlags semanticFlags) => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
+
+        protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
+            ISymbolResolver resolver,
+            SemanticContext<LogicalOperatorSemanticFlags> context,
+            VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
+            OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // already determined, but the method still needs an override.
+
+        protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
+            IVBExecutionContext context, 
+            VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
+            OperatorEvaluationFrame frame)
         {
-            if (lhsNumeric.ManagedValue == 0)
+            var lhs = frame[OperandIndex.BinaryLeftOperand];
+            var rhs = frame[OperandIndex.BinaryRightOperand];
+
+            if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
             {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                if (lhsNumeric.ManagedValue == 0)
+                {
+                    return RuntimeSemanticsEvaluationResult.Success(
+                        VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                }
+                else
+                {
+                    return RuntimeSemanticsEvaluationResult.Success(
+                        VBTypedValueFactory.CreateNullValue(expression.ResultSymbol));
+                }
             }
-            else
-            {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateNullValue(expression.ResultSymbol));
-            }
-        }
         
-        if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
-        {
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
             {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                if (rhsNumeric.ManagedValue == 0)
+                {
+                    return RuntimeSemanticsEvaluationResult.Success(
+                        VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                }
+                else
+                {
+                    return RuntimeSemanticsEvaluationResult.Success(
+                        VBTypedValueFactory.CreateNullValue(expression.ResultSymbol));
+                }
             }
-            else
+
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
+            ISymbolResolver resolver, 
+            ConversionOperationSemanticContext coercionContext, 
+            ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder, 
+            VBOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
+            OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext, 
+            params VBTypedValue[] operands)
+        {
+            var lhs = operands[(int)OperandIndex.BinaryLeftOperand];
+            var rhs = operands[(int)OperandIndex.BinaryRightOperand];
+            if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
             {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateNullValue(expression.ResultSymbol));
+                builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);
             }
-        }
+            if (lhs is VBNullValue || rhs is VBNullValue)
+            {
+                builder.AddFlags(LogicalOperatorSemanticFlags.HasNullOperand);
+            }
 
-        return RuntimeSemanticsEvaluationResult.InternalError();
-    }
-
-    protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
-        ConversionOperationSemanticContext coercionContext, 
-        ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder, 
-        VBOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
-        OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext, 
-        params VBTypedValue[] operands)
-    {
-        var lhs = operands[(int)OperandIndex.BinaryLeftOperand];
-        var rhs = operands[(int)OperandIndex.BinaryRightOperand];
-        if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
-        {
-            builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);
+            return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
+            {
+                VBBooleanType => LogicalOperatorSemanticFlags.BooleanEffectiveType,
+                VBByteType => LogicalOperatorSemanticFlags.ByteEffectiveType,
+                VBIntegerType => LogicalOperatorSemanticFlags.IntegerEffectiveType,
+                VBLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
+                VBLongLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
+                VBNullType => LogicalOperatorSemanticFlags.NullEffectiveType,
+                _ => 0
+            });
         }
-        if (lhs is VBNullValue || rhs is VBNullValue)
-        {
-            builder.AddFlags(LogicalOperatorSemanticFlags.HasNullOperand);
-        }
-
-        return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
-        {
-            VBBooleanType => LogicalOperatorSemanticFlags.BooleanEffectiveType,
-            VBByteType => LogicalOperatorSemanticFlags.ByteEffectiveType,
-            VBIntegerType => LogicalOperatorSemanticFlags.IntegerEffectiveType,
-            VBLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
-            VBLongLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
-            VBNullType => LogicalOperatorSemanticFlags.NullEffectiveType,
-            _ => 0
-        });
     }
 }

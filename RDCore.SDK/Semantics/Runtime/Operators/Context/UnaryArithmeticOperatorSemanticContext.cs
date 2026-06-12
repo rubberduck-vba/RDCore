@@ -1,6 +1,7 @@
-﻿namespace RDCore.SDK.Semantics.Runtime.Operators.Context;
-
-public sealed record class UnaryArithmeticOperatorSemanticContext : SemanticContext<ArithmeticOperatorSemanticFlags>
+﻿namespace RDCore.SDK.Semantics.Runtime.Operators.Context
 {
-    public ConversionOperationSemanticContext UnaryOperandConversionContext { get; } = new();
+    public sealed record class UnaryArithmeticOperatorSemanticContext : SemanticContext<ArithmeticOperatorSemanticFlags>
+    {
+        public ConversionOperationSemanticContext UnaryOperandConversionContext { get; } = new();
+    }
 }

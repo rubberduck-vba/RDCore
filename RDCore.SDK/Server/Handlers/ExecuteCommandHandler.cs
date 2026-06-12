@@ -5,26 +5,27 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.SDK.Server.Commands;
 using RDCore.SDK.Server.Services;
 
-namespace RDCore.SDK.Server.Handlers;
-
-public class ExecuteCommandHandler(IServerCommandProvider CommandProvider) : ExecuteCommandHandlerBase
+namespace RDCore.SDK.Server.Handlers
 {
-    public async override Task<Unit> Handle(ExecuteCommandParams request, CancellationToken cancellationToken)
+    public class ExecuteCommandHandler(IServerCommandProvider CommandProvider) : ExecuteCommandHandlerBase
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (CommandProvider.GetCommand(request.Command) is ServerCommand command)
+        public async override Task<Unit> Handle(ExecuteCommandParams request, CancellationToken cancellationToken)
         {
-            await command.ExecuteAsync(cancellationToken, request.Arguments);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (CommandProvider.GetCommand(request.Command) is ServerCommand command)
+            {
+                await command.ExecuteAsync(cancellationToken, request.Arguments);
+            }
+            return await Task.FromResult(Unit.Value);
         }
-        return await Task.FromResult(Unit.Value);
-    }
 
-    protected override ExecuteCommandRegistrationOptions CreateRegistrationOptions(ExecuteCommandCapability capability, ClientCapabilities clientCapabilities)
-    {
-        return new ExecuteCommandRegistrationOptions
+        protected override ExecuteCommandRegistrationOptions CreateRegistrationOptions(ExecuteCommandCapability capability, ClientCapabilities clientCapabilities)
         {
-            WorkDoneProgress = ClientCapabilities.Window?.WorkDoneProgress.Value ?? false,
-            Commands = Container.From(CommandProvider.GetCommandRegistrations())
-        };
+            return new ExecuteCommandRegistrationOptions
+            {
+                WorkDoneProgress = ClientCapabilities.Window?.WorkDoneProgress.Value ?? false,
+                Commands = Container.From(CommandProvider.GetCommandRegistrations())
+            };
+        }
     }
 }

@@ -4,31 +4,32 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.LetCoercion;
-
-/// <summary>
-/// MS-VBAL 5.5.1.2.6 Let-coercion to and from <c>VBResizableByteArray</c>
-/// </summary>
-public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider Provider,
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBResizableByteArrayType>(FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.LetCoercion
 {
-    public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.6 Let-coercion to and from <c>VBResizableByteArray</c>
+    /// </summary>
+    public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider Provider,
+        IVerboseMessageBuilder FormatterService)
+        : LetCoercionRuntimeSemantics<VBResizableByteArrayType>(FormatterService)
     {
-        throw new NotImplementedException();
+        public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
+            ILetCoercionSemanticContextBuilder builder, 
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame)
+        {
+            throw new NotImplementedException();
+        }
     }
 
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
-        ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame)
-    {
-        throw new NotImplementedException();
-    }
 }
-

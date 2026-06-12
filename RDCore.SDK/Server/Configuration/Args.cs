@@ -1,24 +1,25 @@
 ﻿using CommandLine;
 
-namespace RDCore.SDK.Server.Configuration;
-
-public static class Args
+namespace RDCore.SDK.Server.Configuration
 {
-    public static SdkServerOptions Parse(string[] args)
+    public static class Args
     {
-        var parser = new Parser(config =>
+        public static SdkServerOptions Parse(string[] args)
         {
-            config.CaseInsensitiveEnumValues = true;
-            config.HelpWriter = Console.Out;
-        });
-        var result = parser.ParseArguments<SdkServerOptions>(args);
-        if (result.Tag == ParserResultType.Parsed)
-        {
-            return result.Value;
-        }
-        else
-        {
-            throw new ArgumentException("Failed to parse command-line arguments.");
+            var parser = new Parser(config =>
+            {
+                config.CaseInsensitiveEnumValues = true;
+                config.HelpWriter = Console.Out;
+            });
+            var result = parser.ParseArguments<SdkServerOptions>(args);
+            if (result.Tag == ParserResultType.Parsed)
+            {
+                return result.Value;
+            }
+            else
+            {
+                throw new ArgumentException("Failed to parse command-line arguments.");
+            }
         }
     }
 }

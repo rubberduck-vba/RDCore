@@ -10,30 +10,31 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical;
-
-/// <summary>
-/// <strong>MS-VBAL 5.6.9.8.1</strong> <c>Not</c> operator.
-/// </summary>
-public record class UnaryNotOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical
 {
-    protected override double EvaluateBitwiseOp(double operand) => ~(long)operand;
+    /// <summary>
+    /// <strong>MS-VBAL 5.6.9.8.1</strong> <c>Not</c> operator.
+    /// </summary>
+    public record class UnaryNotOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
+        IVerboseMessageBuilder FormatterService) 
+        : UnaryLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    {
+        protected override double EvaluateBitwiseOp(double operand) => ~(long)operand;
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(IVBExecutionContext runtime,
-        SemanticContext<LogicalOperatorSemanticFlags> context,
-        VBOperatorExpression<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
-        OperatorEvaluationFrame frame) =>
-        frame.EffectiveType switch
-        {
-            VBNumericType numericEffectiveType when frame.EffectiveType is IIntegralNumericType && frame[OperandIndex.UnaryOperand] is VBNumericTypedValue numericOperand 
-                => RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(numericEffectiveType, expression.ResultSymbol, numericOperand)),
+        protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(IVBExecutionContext runtime,
+            SemanticContext<LogicalOperatorSemanticFlags> context,
+            VBOperatorExpression<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
+            OperatorEvaluationFrame frame) =>
+            frame.EffectiveType switch
+            {
+                VBNumericType numericEffectiveType when frame.EffectiveType is IIntegralNumericType && frame[OperandIndex.UnaryOperand] is VBNumericTypedValue numericOperand 
+                    => RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(numericEffectiveType, expression.ResultSymbol, numericOperand)),
 
-            VBNullType nullEffectiveType when frame[OperandIndex.UnaryOperand] is VBNullValue nullOperand 
-                => RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(nullEffectiveType, expression.ResultSymbol, nullOperand)),
+                VBNullType nullEffectiveType when frame[OperandIndex.UnaryOperand] is VBNullValue nullOperand 
+                    => RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(nullEffectiveType, expression.ResultSymbol, nullOperand)),
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError(),
-        };
+                _ => RuntimeSemanticsEvaluationResult.InternalError(),
+            };
+    }
 }

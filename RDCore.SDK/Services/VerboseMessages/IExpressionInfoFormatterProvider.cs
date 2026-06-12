@@ -1,8 +1,9 @@
 ﻿using System.Text;
 
-namespace RDCore.SDK.Services.Formatters;
-
-public interface IExpressionInfoFormatterProvider
+namespace RDCore.SDK.Services.Formatters
 {
-    IExpressionInfoFormatter CreateNew(StringBuilder builder);
+    public interface IExpressionInfoFormatterProvider
+    {
+        IExpressionInfoFormatter CreateNew(StringBuilder builder);
+    }
 }
