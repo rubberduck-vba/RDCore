@@ -22,9 +22,4 @@ namespace RDCore.Server;
 internal sealed class CoreLanguageServerApp(CancellationTokenSource ProcessTokenSource) 
     : RDCoreLanguageServerHost(ProcessTokenSource)
 {
-    protected override void ConfigureAppServices(IServiceCollection services, SdkAppOptions options)
-    {
-        // TODO
-        base.ConfigureAppServices(services, options);
-    }
 }
