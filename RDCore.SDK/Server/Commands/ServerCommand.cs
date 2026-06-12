@@ -1,29 +1,30 @@
 ﻿using Newtonsoft.Json.Linq;
 
-namespace RDCore.SDK.Server.Commands;
-
-public interface ICommandArgsParser<out TArgs> where TArgs : class, new()
+namespace RDCore.SDK.Server.Commands
 {
-    TArgs? Parse(JArray? args);
-}
-
-public abstract class ServerCommand(string name)
-{
-    public string Name { get; } = name;
-
-    public abstract Task ExecuteAsync(CancellationToken token, JArray? args = default);
-}
-
-public abstract class ServerCommand<TArgs>(ICommandArgsParser<TArgs> CommandArgsParser, string name) : ServerCommand(name)
-    where TArgs: class, new()
-{
-    public override async Task ExecuteAsync(CancellationToken token, JArray? args = default)
+    public interface ICommandArgsParser<out TArgs> where TArgs : class, new()
     {
-        if (CommandArgsParser.Parse(args) is TArgs commandArgs)
-        {
-            await ExecuteCommandAsync(commandArgs, token);
-        }
+        TArgs? Parse(JArray? args);
     }
 
-    protected abstract Task ExecuteCommandAsync(TArgs args, CancellationToken token);
+    public abstract class ServerCommand(string name)
+    {
+        public string Name { get; } = name;
+
+        public abstract Task ExecuteAsync(CancellationToken token, JArray? args = default);
+    }
+
+    public abstract class ServerCommand<TArgs>(ICommandArgsParser<TArgs> CommandArgsParser, string name) : ServerCommand(name)
+        where TArgs: class, new()
+    {
+        public override async Task ExecuteAsync(CancellationToken token, JArray? args = default)
+        {
+            if (CommandArgsParser.Parse(args) is TArgs commandArgs)
+            {
+                await ExecuteCommandAsync(commandArgs, token);
+            }
+        }
+
+        protected abstract Task ExecuteCommandAsync(TArgs args, CancellationToken token);
+    }
 }

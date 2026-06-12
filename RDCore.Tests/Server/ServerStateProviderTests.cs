@@ -1,4 +1,6 @@
-﻿using RDCore.SDK.Server.Services.States;
+﻿using Microsoft.Extensions.Options;
+using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.Tests.Server;
 
@@ -9,7 +11,7 @@ public class ServerStateProviderTests
     public void Uninitialized_State_IsStartingState()
     {
         // arrange
-        var sut = new ServerStateProvider(new());
+        var sut = new ServerStateProvider(Options.Create(new SdkServerOptions()));
 
         // act
         var result = sut.State;
@@ -104,7 +106,7 @@ public class ServerStateProviderTests
     private static void TestServerStateTransition(Action<ServerStateProvider> act, ServerStateValue? initialState, ServerStateValue? expectedState)
     {
         // arrange
-        var sut = new ServerStateProvider(new());
+        var sut = new ServerStateProvider(Options.Create(new SdkServerOptions()));
 
         if (initialState.HasValue)
         {

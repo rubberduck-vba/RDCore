@@ -9,34 +9,35 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical;
-
-/// <summary>
-/// MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator
-/// </summary>
-public record class BinaryEqvLogicalOperatorRuntimeSemantics(
-    ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical
 {
-    protected override double EvaluateBitwiseOp(int lhs, int rhs) => ~((long)lhs ^ (long)rhs);
-
-    protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        IVBExecutionContext context, 
-        VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
-        OperatorEvaluationFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator
+    /// </summary>
+    public record class BinaryEqvLogicalOperatorRuntimeSemantics(
+        ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
+        IVerboseMessageBuilder FormatterService)
+        : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
     {
-        var lhs = frame[OperandIndex.BinaryLeftOperand];
-        var rhs = frame[OperandIndex.BinaryRightOperand];
-        return lhs switch
+        protected override double EvaluateBitwiseOp(int lhs, int rhs) => ~((long)lhs ^ (long)rhs);
+
+        protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
+            IVBExecutionContext context, 
+            VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression, 
+            OperatorEvaluationFrame frame)
         {
-            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue
-                => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
+            var lhs = frame[OperandIndex.BinaryLeftOperand];
+            var rhs = frame[OperandIndex.BinaryRightOperand];
+            return lhs switch
+            {
+                VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue
+                    => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
 
-            VBNullValue when rhs.TypeInfo is IIntegralNumericType 
-                => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
+                VBNullValue when rhs.TypeInfo is IIntegralNumericType 
+                    => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError()
-        };
+                _ => RuntimeSemanticsEvaluationResult.InternalError()
+            };
+        }
     }
 }

@@ -22,6 +22,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Runtime\**" />
+    <EmbeddedResource Remove="Runtime\**" />
+    <None Remove="Runtime\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="logo.ico" />
   </ItemGroup>
 
@@ -47,11 +53,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Runtime\Model\" />
-    <Folder Include="Runtime\Model\OperatorExpressions\" />
   </ItemGroup>
 
 </Project>

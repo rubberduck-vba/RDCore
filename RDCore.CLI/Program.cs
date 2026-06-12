@@ -50,6 +50,8 @@ internal class RDCoreConsoleClientHost(CancellationTokenSource ProcessTokenSourc
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IOptions<SdkAppOptions> options)
     {
         services
+            .AddSingleton<RDCoreConsoleClientApp>()
+            .AddSingleton<ILanguageClientApp, RDCoreConsoleClientApp>()
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
@@ -92,6 +94,5 @@ internal class RDCoreConsoleClientApp(
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        throw new NotImplementedException();
     }
 }

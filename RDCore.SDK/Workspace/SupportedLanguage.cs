@@ -1,25 +1,26 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.SDK.Workspace;
-
-public class SupportedLanguage
+namespace RDCore.SDK.Workspace
 {
-    public SupportedLanguage(string id, string name, params string[] fileTypes)
+    public class SupportedLanguage
     {
-        Id = id;
-        Name = name;
-        FileTypes = fileTypes;
-    }
-
-    public string Id { get; }
-    public string Name { get; }
-    public string[] FileTypes { get; }
-
-    public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
-    public TextDocumentSelector ToTextDocumentSelector() => new(
-        new TextDocumentFilter
+        public SupportedLanguage(string id, string name, params string[] fileTypes)
         {
-            Language = Id,
-            Pattern = FilterString,
-        });
+            Id = id;
+            Name = name;
+            FileTypes = fileTypes;
+        }
+
+        public string Id { get; }
+        public string Name { get; }
+        public string[] FileTypes { get; }
+
+        public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
+        public TextDocumentSelector ToTextDocumentSelector() => new(
+            new TextDocumentFilter
+            {
+                Language = Id,
+                Pattern = FilterString,
+            });
+    }
 }

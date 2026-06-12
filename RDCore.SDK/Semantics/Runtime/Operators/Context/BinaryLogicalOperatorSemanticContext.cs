@@ -1,9 +1,10 @@
 ﻿using RDCore.SDK.Semantics.Flags;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Context;
-
-public sealed record class BinaryLogicalOperatorSemanticContext : OperatorSemanticContext<LogicalOperatorSemanticFlags>
+namespace RDCore.SDK.Semantics.Runtime.Operators.Context
 {
-    public ConversionOperationSemanticContext BinaryLeftOperandConversionContext { get; } = new();
-    public ConversionOperationSemanticContext BinaryRightOperandConversionContext { get; } = new();
+    public sealed record class BinaryLogicalOperatorSemanticContext : OperatorSemanticContext<LogicalOperatorSemanticFlags>
+    {
+        public ConversionOperationSemanticContext BinaryLeftOperandConversionContext { get; } = new();
+        public ConversionOperationSemanticContext BinaryRightOperandConversionContext { get; } = new();
+    }
 }
