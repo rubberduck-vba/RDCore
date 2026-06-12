@@ -16,33 +16,34 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
 
-namespace RDCore.SDK.Semantics.Runtime.Abstract;
-
-/// <summary>
-/// Defines the representation of a single <em>stack frame</em>.
-/// </summary>
-public interface IStackFrame
+namespace RDCore.SDK.Semantics.Runtime.Abstract
 {
     /// <summary>
-    /// The <c>SemanticId</c> of the <see cref="BoundNode"/> being evaluated.
+    /// Defines the representation of a single <em>stack frame</em>.
     /// </summary>
-    Uri NodeUri { get; }
-    /// <summary>
-    /// The <see cref="Model.Symbols.Abstract.StaticSymbol"/> representing the <strong>unallocated</strong>, <em>language-level</em> symbol associated with this operation.
-    /// </summary>
-    StaticSymbol StaticSymbol { get; }
-    /// <summary>
-    /// Gets an immutable array containing the ordered <see cref="VBTypedValue"/> inputs of the operation.
-    /// </summary>
-    /// <remarks>
-    /// Operations requiring <see cref="VBType"/> inputs wrap them with a <see cref="VBTypeDescValue"/>.
-    /// </remarks>
-    ImmutableArray<VBTypedValue> Inputs { get; }
-}
+    public interface IStackFrame
+    {
+        /// <summary>
+        /// The <c>SemanticId</c> of the <see cref="BoundNode"/> being evaluated.
+        /// </summary>
+        Uri NodeUri { get; }
+        /// <summary>
+        /// The <see cref="Model.Symbols.Abstract.StaticSymbol"/> representing the <strong>unallocated</strong>, <em>language-level</em> symbol associated with this operation.
+        /// </summary>
+        StaticSymbol StaticSymbol { get; }
+        /// <summary>
+        /// Gets an immutable array containing the ordered <see cref="VBTypedValue"/> inputs of the operation.
+        /// </summary>
+        /// <remarks>
+        /// Operations requiring <see cref="VBType"/> inputs wrap them with a <see cref="VBTypeDescValue"/>.
+        /// </remarks>
+        ImmutableArray<VBTypedValue> Inputs { get; }
+    }
 
-public interface IStackFrame<TInputIndex> : IStackFrame
-    where TInputIndex : struct, Enum
-{
-    VBTypedValue this[TInputIndex value] => Inputs[Convert.ToInt32(value)];
-}
+    public interface IStackFrame<TInputIndex> : IStackFrame
+        where TInputIndex : struct, Enum
+    {
+        VBTypedValue this[TInputIndex value] => Inputs[Convert.ToInt32(value)];
+    }
 
+}

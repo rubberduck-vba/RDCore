@@ -4,29 +4,30 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics.Runtime.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.LetCoercion;
-
-/// <summary>
-/// MS-VBAL 5.5.1.2.5 Let-coercion to and from <c>VBFixedStringType</c>
-/// </summary>
-public record class VBFixedStringLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBFixedStringType>(FormatterService)
+namespace RDCore.SDK.Semantics.Runtime.LetCoercion
 {
-    public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame)
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.5 Let-coercion to and from <c>VBFixedStringType</c>
+    /// </summary>
+    public record class VBFixedStringLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
+        : LetCoercionRuntimeSemantics<VBFixedStringType>(FormatterService)
     {
-        throw new NotImplementedException();
+        public override LetCoercionResult EvaluateLetCoercion<TContext, TFlags>(
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
+            ILetCoercionSemanticContextBuilder builder, 
+            ISymbolResolver resolver, 
+            VBOperatorExpression<TContext, TFlags> expression, 
+            LetCoercionStackFrame frame)
+        {
+            throw new NotImplementedException();
+        }
     }
 
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation<TContext, TFlags>(
-        ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
-        VBOperatorExpression<TContext, TFlags> expression, 
-        LetCoercionStackFrame frame)
-    {
-        throw new NotImplementedException();
-    }
 }
-

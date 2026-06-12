@@ -1,8 +1,9 @@
 ﻿using RDCore.SDK.Semantics.Flags;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Context;
-
-public sealed record class UnaryLogicalOperatorSemanticContext : SemanticContext<LogicalOperatorSemanticFlags>
+namespace RDCore.SDK.Semantics.Runtime.Operators.Context
 {
-    public ConversionOperationSemanticContext UnaryOperandConversionContext { get; } = new();
+    public sealed record class UnaryLogicalOperatorSemanticContext : SemanticContext<LogicalOperatorSemanticFlags>
+    {
+        public ConversionOperationSemanticContext UnaryOperandConversionContext { get; } = new();
+    }
 }
