@@ -14,93 +14,92 @@ using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Semantics.Runtime.Operators.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics;
+
+public record class BinaryConcatOperatorRuntimeSemantics(
+    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
+    IVerboseMessageBuilder FormatterService)
+    : BinaryOperatorRuntimeSemantics<ConcatOperationSemanticContext, ConcatOperationSemanticFlags>(LetCoercionProvider, FormatterService)
 {
-    public record class BinaryConcatOperatorRuntimeSemantics(
-        ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-        IVerboseMessageBuilder FormatterService)
-        : BinaryOperatorRuntimeSemantics<ConcatOperationSemanticContext, ConcatOperationSemanticFlags>(LetCoercionProvider, FormatterService)
+    protected override OperatorAnalysisContext<ConcatOperationSemanticFlags> CreateAnalysisContext(
+        BoundNode node,
+        DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
+        LetCoercionAnalysisContext coercionResult,
+        RuntimeSemanticsEvaluationResult evaluationResult,
+        ConcatOperationSemanticFlags semanticFlags) 
+        => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
+
+    protected override ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> Analyze(
+        ISymbolResolver resolver, 
+        ConversionOperationSemanticContext coercionContext, 
+        ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> builder, 
+        VBOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
+        OperatorAnalysisContext<ConcatOperationSemanticFlags> analysisContext, 
+        params VBTypedValue[] operands)
     {
-        protected override OperatorAnalysisContext<ConcatOperationSemanticFlags> CreateAnalysisContext(
-            BoundNode node,
-            DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
-            LetCoercionAnalysisContext coercionResult,
-            RuntimeSemanticsEvaluationResult evaluationResult,
-            ConcatOperationSemanticFlags semanticFlags) 
-            => new(node.SemanticId, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
-
-        protected override ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> Analyze(
-            ISymbolResolver resolver, 
-            ConversionOperationSemanticContext coercionContext, 
-            ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> builder, 
-            VBOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
-            OperatorAnalysisContext<ConcatOperationSemanticFlags> analysisContext, 
-            params VBTypedValue[] operands)
+        if(operands.OfType<VBNullValue>().Any())
         {
-            if(operands.OfType<VBNullValue>().Any())
-            {
-                builder.AddFlags(ConcatOperationSemanticFlags.HasNullOperand);
-            }
-            if (operands.OfType<VBNumericTypedValue>().Any())
-            {
-                builder.AddFlags(ConcatOperationSemanticFlags.HasNumericOperand);
-            }
-            if (operands.OfType<VBResizableByteArrayValue>().Any())
-            {
-                builder.AddFlags(ConcatOperationSemanticFlags.HasByteArrayOperand);
-            }
-
-            return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
-            {
-                VBStringType => ConcatOperationSemanticFlags.StringEffectiveType,
-                VBNullType => ConcatOperationSemanticFlags.NullEffectiveType,
-                _ => 0
-            });
+            builder.AddFlags(ConcatOperationSemanticFlags.HasNullOperand);
+        }
+        if (operands.OfType<VBNumericTypedValue>().Any())
+        {
+            builder.AddFlags(ConcatOperationSemanticFlags.HasNumericOperand);
+        }
+        if (operands.OfType<VBResizableByteArrayValue>().Any())
+        {
+            builder.AddFlags(ConcatOperationSemanticFlags.HasByteArrayOperand);
         }
 
-        protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-            ISymbolResolver resolver, 
-            SemanticContext<ConcatOperationSemanticFlags> context, 
-            VBBinaryOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
-            OperatorEvaluationFrame frame)
+        return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
         {
-            var rhs = frame[OperandIndex.BinaryRightOperand].TypeInfo;
-            return frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
-            {
-                VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
-                    when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType
-                        => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
-
-                VBNumericType or VBStringType or VBDateType or VBEmptyType
-                    when rhs is VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
-                        => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
-
-                VBResizableByteArrayType
-                    when rhs is VBResizableByteArrayType
-                        => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
-
-                VBNullType
-                    when rhs is VBNullType
-                        => DetermineOperatorEffectiveTypeResult.Success(VBNullType.TypeInfo),
-
-                _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-            };
-        }
-
-        protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-            IVBExecutionContext runtime, 
-            SemanticContext<ConcatOperationSemanticFlags> context, 
-            VBBinaryOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
-            OperatorEvaluationFrame frame) =>
-            frame.EffectiveType switch
-            {
-                VBStringType => RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateStringValue(expression.ResultSymbol,
-                        $"{((VBStringValue)frame[OperandIndex.BinaryLeftOperand]).Value}{((VBStringValue)frame[OperandIndex.BinaryRightOperand]).Value}")),
-
-                VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
-
-                _ => RuntimeSemanticsEvaluationResult.InternalError(),
-            };
+            VBStringType => ConcatOperationSemanticFlags.StringEffectiveType,
+            VBNullType => ConcatOperationSemanticFlags.NullEffectiveType,
+            _ => 0
+        });
     }
+
+    protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
+        ISymbolResolver resolver, 
+        SemanticContext<ConcatOperationSemanticFlags> context, 
+        VBBinaryOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
+        OperatorEvaluationFrame frame)
+    {
+        var rhs = frame[OperandIndex.BinaryRightOperand].TypeInfo;
+        return frame[OperandIndex.BinaryLeftOperand].TypeInfo switch
+        {
+            VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
+                when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
+
+            VBNumericType or VBStringType or VBDateType or VBEmptyType
+                when rhs is VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
+
+            VBResizableByteArrayType
+                when rhs is VBResizableByteArrayType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
+
+            VBNullType
+                when rhs is VBNullType
+                    => DetermineOperatorEffectiveTypeResult.Success(VBNullType.TypeInfo),
+
+            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+        };
+    }
+
+    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+        IVBExecutionContext runtime, 
+        SemanticContext<ConcatOperationSemanticFlags> context, 
+        VBBinaryOperatorExpression<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> expression, 
+        OperatorEvaluationFrame frame) =>
+        frame.EffectiveType switch
+        {
+            VBStringType => RuntimeSemanticsEvaluationResult.Success(
+                VBTypedValueFactory.CreateStringValue(expression.ResultSymbol,
+                    $"{((VBStringValue)frame[OperandIndex.BinaryLeftOperand]).Value}{((VBStringValue)frame[OperandIndex.BinaryRightOperand]).Value}")),
+
+            VBNullType => EvaluateNullBinaryExpressionResult(expression.ResultSymbol),
+
+            _ => RuntimeSemanticsEvaluationResult.InternalError(),
+        };
 }

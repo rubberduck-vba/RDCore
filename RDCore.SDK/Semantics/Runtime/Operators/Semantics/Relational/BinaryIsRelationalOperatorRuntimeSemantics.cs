@@ -14,52 +14,51 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Relational
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Relational;
+
+/// <summary>
+/// MS-VBAL 5.6.9.7 Binary 'Is' Operator
+/// </summary>
+public record class BinaryIsRelationalOperatorRuntimeSemantics(
+    ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
+    IVerboseMessageBuilder FormatterService)
+    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    /// <summary>
-    /// MS-VBAL 5.6.9.7 Binary 'Is' Operator
-    /// </summary>
-    public record class BinaryIsRelationalOperatorRuntimeSemantics(
-        ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-        IVerboseMessageBuilder FormatterService)
-        : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => throw new NotSupportedException();
+    protected override bool ComparisonOp(double lhs, double rhs) => throw new NotSupportedException();
+
+    protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
+        ISymbolResolver resolver,
+        SemanticContext<ComparisonOperatorSemanticFlags> context,
+        VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression,
+        OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.Success(VBBooleanType.TypeInfo);
+
+    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+        IVBExecutionContext runtime, 
+        SemanticContext<ComparisonOperatorSemanticFlags> context, 
+        VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression, 
+        OperatorEvaluationFrame frame)
     {
-        protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => throw new NotSupportedException();
-        protected override bool ComparisonOp(double lhs, double rhs) => throw new NotSupportedException();
+        var lhs = frame[OperandIndex.BinaryLeftOperand];
+        var rhs = frame[OperandIndex.BinaryRightOperand];
 
-        protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-            ISymbolResolver resolver,
-            SemanticContext<ComparisonOperatorSemanticFlags> context,
-            VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression,
-            OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.Success(VBBooleanType.TypeInfo);
-
-        protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-            IVBExecutionContext runtime, 
-            SemanticContext<ComparisonOperatorSemanticFlags> context, 
-            VBBinaryOperatorExpression<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> expression, 
-            OperatorEvaluationFrame frame)
+        // just to read like MS-VBAL: VBNothingValue is a VBObjectValue (similar w/ string & fixedString)
+        if (lhs is not VBObjectValue and not VBNothingValue)
         {
-            var lhs = frame[OperandIndex.BinaryLeftOperand];
-            var rhs = frame[OperandIndex.BinaryRightOperand];
-
-            // just to read like MS-VBAL: VBNothingValue is a VBObjectValue (similar w/ string & fixedString)
-            if (lhs is not VBObjectValue and not VBNothingValue)
-            {
-                OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
-            }
-            if (rhs is not VBObjectValue and not VBNothingValue)
-            {
-                OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
-            }
-
-            if (lhs.ResolvedSymbol != null && lhs is VBObjectValue or VBVariantValue &&
-                rhs.ResolvedSymbol != null && rhs is VBObjectValue or VBVariantValue)
-            {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateBooleanValue(expression.ResultSymbol, lhs.RawAddress == rhs.RawAddress));
-            }
-
-            return RuntimeSemanticsEvaluationResult.InternalError();
+            OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
         }
+        if (rhs is not VBObjectValue and not VBNothingValue)
+        {
+            OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
+        }
+
+        if (lhs.ResolvedSymbol != null && lhs is VBObjectValue or VBVariantValue &&
+            rhs.ResolvedSymbol != null && rhs is VBObjectValue or VBVariantValue)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(
+                VBTypedValueFactory.CreateBooleanValue(expression.ResultSymbol, lhs.RawAddress == rhs.RawAddress));
+        }
+
+        return RuntimeSemanticsEvaluationResult.InternalError();
     }
 }

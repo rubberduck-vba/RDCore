@@ -1,6 +1,5 @@
-﻿namespace RDCore.SDK.Workspace
+﻿namespace RDCore.SDK.Workspace;
+
+public interface IWorkspaceDocument
 {
-    public interface IWorkspaceDocument
-    {
-    }
 }

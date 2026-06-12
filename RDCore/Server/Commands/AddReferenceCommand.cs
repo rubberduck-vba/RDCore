@@ -1,5 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
-using RDCore.SDK.Server.Commands;
+using RDCore.SDK.Extensibility.Server.Handlers;
 using RDCore.Workspace;
 using RDCore.Workspace.Services;
 

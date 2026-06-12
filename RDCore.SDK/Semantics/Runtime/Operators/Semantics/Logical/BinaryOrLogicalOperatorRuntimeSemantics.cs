@@ -10,38 +10,37 @@ using RDCore.SDK.Semantics.Runtime.LetCoercion;
 using RDCore.SDK.Semantics.Runtime.Operators.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
-namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical
+namespace RDCore.SDK.Semantics.Runtime.Operators.Semantics.Logical;
+
+/// <summary>
+/// MS-VBAL 5.6.9.8.3 Binary 'Or' Operator
+/// </summary>
+public record class BinaryOrLogicalOperatorRuntimeSemantics(
+    ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
+    IVerboseMessageBuilder FormatterService)
+    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    /// <summary>
-    /// MS-VBAL 5.6.9.8.3 Binary 'Or' Operator
-    /// </summary>
-    public record class BinaryOrLogicalOperatorRuntimeSemantics(
-        ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-        IVerboseMessageBuilder FormatterService)
-        : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    protected override double EvaluateBitwiseOp(int lhs, int rhs) => lhs | rhs;
+
+    protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
+        IVBExecutionContext context,
+        VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
+        OperatorEvaluationFrame frame)
     {
-        protected override double EvaluateBitwiseOp(int lhs, int rhs) => lhs | rhs;
+        var lhs = frame[OperandIndex.BinaryLeftOperand];
+        var rhs = frame[OperandIndex.BinaryRightOperand];
 
-        protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-            IVBExecutionContext context,
-            VBBinaryOperatorExpression<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> expression,
-            OperatorEvaluationFrame frame)
+        return lhs switch
         {
-            var lhs = frame[OperandIndex.BinaryLeftOperand];
-            var rhs = frame[OperandIndex.BinaryRightOperand];
+            VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue 
+                => RuntimeSemanticsEvaluationResult.Success(
+                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, lhsNumeric.ManagedValue)),
 
-            return lhs switch
-            {
-                VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue 
-                    => RuntimeSemanticsEvaluationResult.Success(
-                        VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, lhsNumeric.ManagedValue)),
+            VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.TypeInfo is IIntegralNumericType 
+                => RuntimeSemanticsEvaluationResult.Success(
+                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, rhsNumeric.ManagedValue)),
 
-                VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.TypeInfo is IIntegralNumericType 
-                    => RuntimeSemanticsEvaluationResult.Success(
-                        VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, rhsNumeric.ManagedValue)),
-
-                _ => RuntimeSemanticsEvaluationResult.InternalError()
-            };
-        }
+            _ => RuntimeSemanticsEvaluationResult.InternalError()
+        };
     }
 }

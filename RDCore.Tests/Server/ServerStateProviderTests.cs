@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
-using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Extensibility.Configuration;
+using RDCore.SDK.Extensibility.Server.Services.States;
 
 namespace RDCore.Tests.Server;
 

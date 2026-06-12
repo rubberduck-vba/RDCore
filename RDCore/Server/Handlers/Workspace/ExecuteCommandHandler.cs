@@ -2,8 +2,8 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
-using RDCore.SDK.Server.Commands;
-using RDCore.SDK.Server.Services;
+using RDCore.SDK.Extensibility.Server.Handlers;
+using RDCore.SDK.Extensibility.Server.Services;
 
 namespace RDCore.Server.Handlers.Workspace;
 

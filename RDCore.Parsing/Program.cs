@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-using RDCore.SDK.Server;
+﻿using RDCore.SDK.Extensibility.Extensions;
+using RDCore.SDK.Extensibility.Server;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -9,8 +9,8 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var processTokenSource = new CancellationTokenSource();
-        using var host = new RDCoreLanguageServerHost(processTokenSource);
+        var cts = new CancellationTokenSource();
+        using var host = new RDCoreLanguageServerHost<RDCoreExtensionServerApp>(cts);
 
         try
         {
@@ -19,14 +19,14 @@ public class Program
         catch (OperationCanceledException)
         {
             // suppressed; normal exit
-            host.LogIfEnabled(LogLevel.Information, "VIVAT CUCUMIS\n(C) Copyright 2026 9562-7303 Québec inc.");
+            Console.WriteLine("VIVAT CUCUMIS\n(C) Copyright 2026 9562-7303 Québec inc.");
         }
         catch (Exception exception)
         {
             // unexpected exit.. and we don't have a logger anymore.
             // hopefully a warning was logged somewhere along the way...
             // this is just a last resort to make it known something went wrong.
-            host.LogIfEnabled(LogLevel.Critical, exception.ToString());
+            Console.WriteLine(exception.ToString());
         }
 
         return host.ExitCode;

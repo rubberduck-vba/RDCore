@@ -8,10 +8,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
 using RDCore.CLI.Themes.Model;
-using RDCore.SDK.Client;
-using RDCore.SDK.Server;
-using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services;
+using RDCore.SDK.Extensibility;
+using RDCore.SDK.Extensibility.Client;
+using RDCore.SDK.Extensibility.Configuration;
+using RDCore.SDK.Extensibility.Server;
 
 namespace RDCore.CLI;
 
@@ -28,18 +28,21 @@ public class Program
         }
         catch (OperationCanceledException)
         {
-            // normal exit: VIVAT CUCUMIS!
-            host.LogIfEnabled(LogLevel.Information, Resources.RDCore_Slogan);
+            // normal exit
         }
         catch (Exception exception)
         {
             // something went wrong:
-            host.LogIfEnabled(LogLevel.Error, exception.ToString());
+            Console.WriteLine(exception.ToString());
             return -1;
+        }
+        finally
+        {
+            Console.WriteLine(Resources.RDCore_Slogan);
+            Console.WriteLine(Resources.TrademarkNotice);
         }
 
         // clean exit:
-        host.LogIfEnabled(LogLevel.Information, Resources.TrademarkNotice);
         return 0;
     }
 }
@@ -47,22 +50,14 @@ public class Program
 internal class RDCoreConsoleClientHost(CancellationTokenSource ProcessTokenSource) 
     : RDCoreLanguageClientHost<RDCoreConsoleClientApp>(ProcessTokenSource)
 {
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IOptions<SdkAppOptions> options)
-    {
-        services
-            .AddSingleton<RDCoreConsoleClientApp>()
-            .AddSingleton<ILanguageClientApp, RDCoreConsoleClientApp>()
-            .AddSingleton<IAppThemeService, AppThemeService>()
-            .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
-            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
-            .AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
-            .AddSingleton<ShowSplashCommand>();
-    }
-
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, SdkAppOptions options)
-    {
-        builder.SetMinimumLevel(options.Server.TraceLevel);
-    }
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services) => services
+        .AddSingleton<RDCoreConsoleClientApp>()
+        .AddSingleton<ILanguageClientApp, RDCoreConsoleClientApp>()
+        .AddSingleton<IAppThemeService, AppThemeService>()
+        .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
+        .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
+        .AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
+        .AddSingleton<ShowSplashCommand>();
 }
 
 internal class RDCoreConsoleClientApp(
@@ -72,7 +67,7 @@ internal class RDCoreConsoleClientApp(
     ILanguageServerProtocolTransportLayer transportLayer,
     ILogger<RDCoreConsoleClientApp> logger,
     ShowSplashCommand splash) 
-    : LanguageClientApp(options, serverProcess, healthCheckService, transportLayer, logger)
+    : LanguageClientApp(options, logger, serverProcess, healthCheckService, transportLayer)
 {
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
     {

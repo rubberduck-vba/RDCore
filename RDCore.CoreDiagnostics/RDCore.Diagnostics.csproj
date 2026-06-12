@@ -10,6 +10,8 @@
     <Authors>9562-7303 Québec inc.</Authors>
     <Copyright>Copyright © 2026 ${Authors}</Copyright>
     <Product>RDCore</Product>
+    <BaseOutputPath>C:\dev\repos\rubberduck-dev01\RDCore\publish\Extensions\RDCore.Diagnostics</BaseOutputPath>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>

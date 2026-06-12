@@ -22,13 +22,13 @@ public class RDCoreConsoleLogger(IOptions<RDCoreConsoleLogger.RDCoreConsoleLogge
         public LogLevel MinLevel { get; init; }
     }
 
-    private static ConsoleMessageBuilder _builder => new();
+    private static ConsoleMessageBuilder MessageBuilder { get; } = new();
 
     private readonly IConsoleMessageWriter _writer = Writer;
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 
     public bool IsEnabled(LogLevel logLevel) => logLevel <= Options.Value.MinLevel;
@@ -37,13 +37,16 @@ public class RDCoreConsoleLogger(IOptions<RDCoreConsoleLogger.RDCoreConsoleLogge
     {
         var builder = logLevel switch
         {
-            LogLevel.Trace => _builder.WithKind(MessageKind.Trace),
-            LogLevel.Debug => _builder.WithKind(MessageKind.Trace),
-            LogLevel.Information => _builder.WithKind(MessageKind.Information),
-            LogLevel.Warning => _builder.WithKind(MessageKind.Warning),
-            LogLevel.Error => _builder.WithKind(MessageKind.Error),
-            LogLevel.Critical => _builder.WithKind(MessageKind.Error)
+            LogLevel.Trace => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Trace),
+            LogLevel.Debug => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Trace),
+            LogLevel.Information => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Information),
+            LogLevel.Warning => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Warning),
+            LogLevel.Error => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Error),
+            LogLevel.Critical => RDCoreConsoleLogger.MessageBuilder.WithKind(MessageKind.Error),
+            _ => RDCoreConsoleLogger.MessageBuilder
         };
+        
+        _writer.WriteMessage(builder.WithMessageBody(formatter(state, exception)));
     }
 }
 

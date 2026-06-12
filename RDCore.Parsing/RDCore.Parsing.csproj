@@ -10,6 +10,8 @@
     <Copyright>Copyright © 2026 ${Authors}</Copyright>
     <Product>RDCore</Product>
     <AssemblyName>RDCore.ParseServer</AssemblyName>
+    <BaseOutputPath>C:\dev\repos\rubberduck-dev01\RDCore\publish\RDCore.Parsing</BaseOutputPath>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>

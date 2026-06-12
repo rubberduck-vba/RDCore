@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Server;
+﻿using RDCore.SDK.Extensibility.Extensions;
+using RDCore.SDK.Extensibility.Server;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -8,9 +9,9 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        using var cts = new CancellationTokenSource();
-        using var host = new RDCoreLanguageServerHost(cts);
-        
+        var cts = new CancellationTokenSource();
+        using var host = new RDCoreLanguageServerHost<RDCoreExtensionServerApp>(cts);
+
         try
         {
             await host.RunAsync(args);
