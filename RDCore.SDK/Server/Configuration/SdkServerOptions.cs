@@ -197,6 +197,7 @@ public record class SdkPlatformOptions
     private const string _defaultBaseUrl = "https://rubberduckvba.ca";
     private const string _defaultApiEndpoint = "/api";
     private const string _defaultServerExecutable = "../RDCore.LanguageServer/RDCore.LanguageServer.exe";
+    private const string _defaultParserExecutable = "../RDCore.Parsing/RDCore.ParseServer.exe";
     private const string _defaultPluginsLocation = "/plugins";
 
     /// <summary>
@@ -212,9 +213,15 @@ public record class SdkPlatformOptions
     /// </summary>
     /// <remarks>
     /// 👉 This setting is used by <strong>client applications</strong> to locate the RDCore LSP language server executable.<br/>
-    /// <strong>DO NOT</strong> modify this setting unless the name of the RDCore.LanguageServer assembly is also changed with it.
     /// </remarks>
     public string ServerExecutable { get; set; } = _defaultServerExecutable;
+    /// <summary>
+    /// The location of the RDCore LSP parsing server executable.
+    /// </summary>
+    /// <remarks>
+    /// 👉 This setting is used by the <strong>language server</strong> to locate the RDCore LSP parser executable.<br/>
+    /// </remarks>
+    public string ParserExecutable { get; set; } = _defaultParserExecutable;
     /// <summary>
     /// The location RDCore plugins are discovered from. Plugins are identified by a folder containing a RDCore plugin manifest.<br/>
     /// ⚠️ Modifying this setting for a plugin <strong>will</strong> break the RDCore platform.
