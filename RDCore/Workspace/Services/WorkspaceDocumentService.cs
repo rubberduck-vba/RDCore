@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Workspace.States;
+using RDCore.LanguageServer.Workspace;
+using RDCore.LanguageServer.Workspace.States;
 using System.Text;
 using TextDocumentRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.Workspace.Services;
+namespace RDCore.LanguageServer.Workspace.Services;
 
 internal interface IWorkspaceDocumentService
 {

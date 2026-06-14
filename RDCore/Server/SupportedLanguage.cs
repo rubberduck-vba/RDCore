@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Workspace;
 
-namespace RDCore.Server;
+namespace RDCore.LanguageServer.Server;
 
 public static class ProtocolSupportedLanguage
 {

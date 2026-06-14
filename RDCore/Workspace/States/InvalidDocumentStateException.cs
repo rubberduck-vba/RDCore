@@ -1,4 +1,4 @@
-﻿namespace RDCore.Workspace.States;
+﻿namespace RDCore.LanguageServer.Workspace.States;
 
 internal class InvalidDocumentStateException : InvalidOperationException
 {

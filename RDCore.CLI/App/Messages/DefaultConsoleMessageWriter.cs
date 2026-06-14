@@ -55,7 +55,7 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
         return WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
             .WithMessageBody($"{assemblyName.Name} [v{assemblyName.Version?.ToString(3) ?? "0.1a"}]")
-            .WithPlaceholder("{$COMPANY}", company));
+            .WithPlaceholder("COMPANY", company));
     }
 
     public IConsoleMessageWriter WriteLegalNotice()
@@ -66,18 +66,22 @@ public class DefaultConsoleMessageWriter : IConsoleMessageWriter
 
         return WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
-            .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString()))
-            .WithPlaceholder("{$COMPANY}", company)
+            .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString())) // manually replaced to avoid highlighting
+            .WithPlaceholder("COMPANY", company)
             .WithLineBreak());
     }
 
     public IConsoleMessageWriter WriteSlogan() => WriteMessage(
         new ConsoleMessageBuilder()
             .WithKind(MessageKind.Information)
-            .WithMessageBody(new string(' ', 22) + Resources.RDCore_Slogan, nameof(ConsoleColor.DarkRed))
-            .WithPlaceholder("{$VIVAT}", "V I V A T")
-            .WithPlaceholder("{$CUCUMIS}", "C U C U M I S")
+            .WithMessageBody(new string(' ', 38) + Resources.RDCore_Slogan, nameof(ConsoleColor.DarkRed))
+            .WithPlaceholder("VIVAT", "V I V A T")
+            .WithPlaceholder("CUCUMIS", "C U C U M I S")
             .WithLineBreak());
+
+    public string ToFormattedString(ConsoleMessagePart part) => new StringBuilder()
+        .AppendLine(part.Value)
+        .ToString();
 
     public IConsoleMessageWriter WriteException(Exception exception) =>
         WriteMessage(new ConsoleMessageBuilder()

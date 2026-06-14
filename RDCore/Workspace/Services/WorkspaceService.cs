@@ -3,7 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 
-namespace RDCore.Workspace.Services;
+namespace RDCore.LanguageServer.Workspace.Services;
 
 /// <summary>
 /// Defines methods for managing the workspace, including loading and saving the project file, adding and removing files and folders, and managing library references.

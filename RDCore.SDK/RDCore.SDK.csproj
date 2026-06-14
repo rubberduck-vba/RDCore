@@ -12,6 +12,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Logger\**" />
+    <Compile Remove="_site\**" />
+    <EmbeddedResource Remove="Logger\**" />
+    <EmbeddedResource Remove="_site\**" />
+    <None Remove="Logger\**" />
+    <None Remove="_site\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="logo.ico" />
   </ItemGroup>
 
@@ -30,7 +39,6 @@
     <Folder Include="Model\AST\Statements\" />
     <Folder Include="Model\Symbols\Statements\" />
     <Folder Include="Model\Types\Builders\" />
-    <Folder Include="Logger\" />
   </ItemGroup>
 
   <ItemGroup>

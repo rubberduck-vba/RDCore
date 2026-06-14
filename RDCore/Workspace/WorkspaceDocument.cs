@@ -1,7 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Symbols.Unbound;
 
-namespace RDCore.Workspace;
+namespace RDCore.LanguageServer.Workspace;
 
 internal record class WorkspaceDocument
 {

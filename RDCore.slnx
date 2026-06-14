@@ -1,4 +1,17 @@
 <Solution>
+  <Folder Name="/Documentation/">
+    <File Path="docs/docfx.json" />
+    <File Path="docs/index.md" />
+    <File Path="docs/introduction.en.md" />
+    <File Path="docs/introduction.md" />
+    <File Path="docs/toc.yml" />
+  </Folder>
+  <Folder Name="/Documentation/images/">
+    <File Path="docs/images/favicon.ico" />
+    <File Path="docs/images/logo.png" />
+    <File Path="docs/images/logo.svg" />
+    <File Path="docs/images/vector-ducky.svg" />
+  </Folder>
   <Folder Name="/Documents/">
     <File Path="README.en.md" />
     <File Path="README.md" />

@@ -1,38 +1,40 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using RDCore.SDK.Server.Configuration;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
+using RDCore.SDK.Server.Handlers;
+using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 
-namespace RDCore.SDK.Server
+namespace RDCore.SDK.Server;
+
+/// <summary>
+/// Simplifies implementing a <c>RDCore</c> <em>LSP server</em> application.
+/// </summary>
+/// <remarks>
+/// 🧩 Override templated methods to customize your application.<br/>
+/// <list type="bullet">
+/// <item>Implement (<c>override</c>) <see cref="AppHost{TApp}.ConfigureLogging"/> to override the default <see cref="ILoggingBuilder"/> providers.</item>
+/// </list>
+/// </remarks>
+public class RDCoreLanguageServerHost<TApp>() : AppHost<TApp>() 
+    where TApp : class, IRDCoreServerApp
 {
     /// <summary>
-    /// Simplifies implementing a <c>RDCore</c> <em>LSP server</em> application.
+    /// Gets a service that manages the operational state of the language server.
     /// </summary>
-    /// <param name="ProcessTokenSource">A <see cref="CancellationTokenSource"/> created in the application entry point.</param>
-    /// <remarks>
-    /// 🧩 Use this class directly as-is, or <c>override</c> templated methods to customize your application.<br/>
-    /// <list type="bullet">
-    /// <item>Implement (<c>override</c>) <see cref="AppHost{TApp}.ConfigureLogging"/> to override the default <see cref="ILoggingBuilder"/> providers.</item>
-    /// </list>
-    /// <c>TApp</c> is <see cref="ILanguageServerApp"/>.
-    /// </remarks>
-    public class RDCoreLanguageServerHost(CancellationTokenSource ProcessTokenSource)
-        : AppHost<ILanguageServerApp>(ProcessTokenSource)
-    {
-        /// <summary>
-        /// Gets a service that manages the operational state of the language server.
-        /// </summary>
-        protected IServerStateProvider ServerStateProvider { get; private set; } = default!;
-        /// <summary>
-        /// Gets the application exit code corresponding to the current <see cref="ServerState"/>.
-        /// </summary>
-        public int ExitCode => ServerStateProvider.State.ExitCode;
+    protected IServerStateProvider ServerStateProvider { get; private set; } = default!;
+    /// <summary>
+    /// Gets the application exit code corresponding to the current <see cref="ServerState"/>.
+    /// </summary>
+    public override int ExitCode => ServerStateProvider.State.ExitCode;
 
-        protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IOptions<SdkAppOptions> options)
-        {
-            ServerStateProvider = new ServerStateProvider(Options.Create(options.Value.Server));
-            services.AddSingleton(provider => ServerStateProvider);
-        }
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
+    {
+        ServerStateProvider = new ServerStateProvider(configuration);
+        services
+            .AddSingleton(provider => ServerStateProvider)
+            .AddSingleton<IServerCommandProvider, ServerCommandProvider>()
+            .AddSingleton<IExecuteCommandHandler, ExecuteCommandHandler>();
     }
 }

@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RDCore.SDK.Client;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using System.Diagnostics;
 
 namespace RDCore.SDK.Server.Services
 {
-    public interface IHealthCheckService<TApp> : IDisposable
+    public interface IHealthCheckService<out TApp> : IDisposable
         where TApp : IRDCoreApp
     {
         void Start(int processId, Action onUnhealthyProcess);
@@ -35,7 +34,7 @@ namespace RDCore.SDK.Server.Services
             IServerStateProvider serverState, 
             IOptions<SdkServerOptions> options)
         {
-            TimerCallback callback = typeof(TApp) is ILanguageServerApp 
+            TimerCallback callback = typeof(TApp) is IRDCoreServerApp 
                 ? CheckClientProcessHealth 
                 : CheckServerProcessHealth;
 
