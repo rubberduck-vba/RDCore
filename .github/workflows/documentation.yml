@@ -12,25 +12,25 @@ permissions:
 jobs:
  build-docs:
   runs-on: ubuntu-latest
-
+  
   steps:
    - uses: actions/checkout@v3
+   
+   - name: Setup .NET
+     uses: actions/setup-dotnet@v3
+     with:
+      dotnet-version: 10.0
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-       dotnet-version: 10.0
+   - name: Install DocFX
+     run: dotnet tool update -g dotfx
 
-    - name: Install DocFX
-      run: dotnet tool update -g dotfx
-
-    - name: Build Docs
-      run: docfx docs/docfx.json
+   - name: Build Docs
+     run: docfx docs/docfx.json
        
-    - name: Upload Site
-      run: actions/upload-pages-artifact@v3
-      with:
-       path: docs/_site
+   - name: Upload Site
+     uses: actions/upload-pages-artifact@v3
+     with:
+      path: docs/_site
 
   deploy:
    needs: build-docs
