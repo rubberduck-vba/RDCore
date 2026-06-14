@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="130.11534mm"
+   height="26.647558mm"
+   viewBox="0 0 130.11534 26.647558"
+   version="1.1"
+   id="svg1"
+   inkscape:export-filename="logo.svg"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="in"
+     showguides="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="130.11534"
+       height="26.647558"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1">
+    <rect
+       x="220.64641"
+       y="405.65744"
+       width="370.51022"
+       height="48.327419"
+       id="rect2" />
+    <rect
+       x="236.75555"
+       y="423.71921"
+       width="253.35286"
+       height="34.659061"
+       id="rect1" />
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath4">
+      <use
+         x="0"
+         y="0"
+         xlink:href="#g3"
+         id="use4" />
+    </clipPath>
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath4-8">
+      <use
+         x="0"
+         y="0"
+         xlink:href="#g3-8"
+         id="use4-4" />
+    </clipPath>
+    <rect
+       x="220.64641"
+       y="405.65744"
+       width="370.51022"
+       height="48.327419"
+       id="rect2-1" />
+    <filter
+       inkscape:collect="always"
+       style="color-interpolation-filters:sRGB"
+       id="filter11"
+       x="-0.0013619789"
+       y="-0.015897234"
+       width="1.002724"
+       height="1.0317945">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="0.054753386"
+         id="feGaussianBlur11" />
+    </filter>
+  </defs>
+  <g
+     inkscape:label="Calque 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-28.998106,-107.02162)">
+    <g
+       id="g13">
+      <g
+         id="g4-8"
+         clip-path="url(#clipPath4-8)"
+         transform="translate(0.02272611,0.08037395)"
+         style="opacity:0.928429;fill:#4f5763;fill-opacity:1;filter:url(#filter11)">
+        <g
+           inkscape:label="Clip"
+           id="g3-8"
+           style="fill:#4f5763;fill-opacity:1">
+          <text
+             xml:space="preserve"
+             transform="matrix(0.26458333,0,0,0.26458333,-0.532301,6.761874)"
+             id="text2-0"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:29.3333px;font-family:'Felix Titling';-inkscape-font-specification:'Felix Titling, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect2-1);fill:#4f5763;fill-opacity:1;stroke-width:1.88976;stroke-linecap:round;stroke-linejoin:round"
+             inkscape:label="text2-0"><tspan
+               x="220.64648"
+               y="438.65817"
+               id="tspan3">V I V A T ❤️ C U C U M I S</tspan></text>
+        </g>
+        <path
+           style="mix-blend-mode:normal;fill:#4f5763;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+           d="m 92.477041,115.98378 c 9.299369,0.25831 9.299369,0.25831 9.299369,0.25831 l -0.25832,8.00779 -8.524418,-0.38747 z"
+           id="path2-7" />
+      </g>
+      <g
+         id="g12">
+        <path
+           style="display:inline;fill:#5f8dd3;stroke-width:0.304201"
+           d="m 37.972686,132.98517 c -7.235344,-1.85866 -10.43012,-7.82385 -8.349141,-15.58927 0.849989,-3.17185 1.388055,-3.56941 3.060647,-2.26143 1.814757,1.41915 6.179955,3.08309 8.08822,3.08309 0.671504,0 0.659903,-0.0454 -0.349267,-1.36751 -5.425278,-7.10749 5.005957,-13.51314 11.955017,-7.34139 1.506708,1.33816 1.674984,1.40807 3.38976,1.40807 2.731477,0 3.222438,1.25513 1.316265,3.36502 -3.172252,3.51131 -8.767277,2.53119 -6.030833,-1.05648 1.012919,-1.32801 0.985497,-1.45038 -0.647141,-2.8875 -5.250484,-4.62165 -12.513457,0.6794 -8.161723,5.95702 2.142421,2.59826 2.078542,2.48331 1.660129,2.98747 -1.007952,1.21452 -6.823405,0.36359 -10.200127,-1.49248 -2.39987,-1.31914 -2.532596,-1.15433 -2.796127,3.47211 -0.420965,7.39017 5.927633,11.78097 14.973561,10.35597 8.033401,-1.26549 10.936718,-6.36936 6.504422,-11.4344 -2.313513,-2.64378 -1.5326,-4.00717 0.913375,-1.59464 8.139176,8.02787 -2.224455,17.7622 -15.327037,14.39635 z m 16.056396,-18.52815 c 1.898297,-0.80346 2.289978,-1.62768 0.839262,-1.76603 -1.147645,-0.10946 -1.293351,-0.0343 -1.998416,1.03115 -0.855934,1.29341 -0.577502,1.46993 1.159154,0.73488 z m -7.089926,-1.57199 c -0.574363,-0.69207 0.08324,-1.9683 1.014252,-1.9683 0.955524,0 1.695645,1.28687 1.131239,1.96693 -0.49748,0.59943 -1.64854,0.60016 -2.145491,10e-4 z"
+           id="path1"
+           inkscape:label="path-ducky" />
+        <text
+           xml:space="preserve"
+           transform="matrix(0.26458333,0,0,0.26458333,11.753367,14.087388)"
+           id="text1"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16px;font-family:'Century Gothic';-inkscape-font-specification:'Century Gothic, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect1);fill:#5f8ed3;fill-opacity:1;stroke-width:1.88976;stroke-linecap:round;stroke-linejoin:round"><tspan
+             x="236.75586"
+             y="438.24474"
+             id="tspan4">9562-7303 Québec inc.</tspan></text>
+        <g
+           id="g11">
+          <g
+             id="g4"
+             clip-path="url(#clipPath4)">
+            <g
+               inkscape:label="Clip"
+               id="g3">
+              <text
+                 xml:space="preserve"
+                 transform="matrix(0.26458333,0,0,0.26458333,-0.25831574,6.7162098)"
+                 id="text2"
+                 style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:29.3333px;font-family:'Felix Titling';-inkscape-font-specification:'Felix Titling, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect2);fill:#5f8dd3;fill-opacity:1;stroke-width:1.88976;stroke-linecap:round;stroke-linejoin:round"><tspan
+                   x="220.64648"
+                   y="438.65817"
+                   id="tspan5">V I V A T ❤️ C U C U M I S</tspan></text>
+            </g>
+            <path
+               style="mix-blend-mode:normal;fill:#a02c2c;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+               d="m 92.477041,115.98378 c 9.299369,0.25831 9.299369,0.25831 9.299369,0.25831 l -0.25832,8.00779 -8.524418,-0.38747 z"
+               id="path2" />
+          </g>
+          <path
+             id="path10"
+             style="fill:#a02c2c;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.122039;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+             d="m 95.212275,117.44193 c -0.0264,0.21301 -0.255562,-0.0866 -0.387343,0.0425 -0.221374,0.0804 -0.455623,0.21363 -0.58933,0.40762 -0.0347,0.15934 -0.03724,0.34002 -0.216373,0.40351 -0.260422,0.113 -0.279959,0.42135 -0.325724,0.66567 -0.02688,0.18511 0.09953,0.35384 0.140042,0.53175 0.04747,0.10388 0.369144,0.24631 0.213757,0.32166 -0.10712,0.0987 -0.09693,0.2977 -0.14141,0.43799 0.190392,0.57554 0.592508,1.05793 1.021046,1.47668 0.719296,0.69408 1.445599,1.38264 2.215967,2.02026 0.189124,0.0249 0.391107,0.18652 0.564708,0.0463 0.180608,-0.0437 0.251741,-0.20803 0.306039,-0.36724 0.242308,-0.0375 0.443918,-0.20412 0.618871,-0.37429 0.08395,-0.13522 0.10691,-0.32152 0.298463,-0.3469 0.189841,-0.0623 0.318505,-0.233 0.443838,-0.37586 0.0308,-0.17437 0.128606,-0.286 0.302647,-0.32626 0.163835,-0.0665 0.277728,-0.22523 0.391367,-0.35174 0.0491,-0.16393 0.10477,-0.32219 0.28525,-0.37394 0.19515,-0.0817 0.29884,-0.29011 0.39328,-0.46465 0.0519,-0.13914 -0.028,-0.36973 0.14523,-0.42468 0.21032,-0.0995 0.21535,-0.38109 0.28465,-0.57789 0.0603,-0.20458 -0.0837,-0.40506 -0.11417,-0.60782 -0.58463,-0.58464 -1.169265,-1.16927 -1.753897,-1.7539 -0.202893,-0.0597 -0.403336,-0.21655 -0.617016,-0.108 -0.203459,0.0641 -0.417198,0.12806 -0.538731,0.31766 -0.147447,0.22903 -0.474306,0.21621 -0.616755,0.45283 -0.106394,0.2119 -0.209505,0.11521 -0.324548,-0.0315 -0.304033,-0.27731 -0.554075,-0.66797 -0.989494,-0.74029 -0.270976,-0.0615 -0.578043,-0.14807 -0.828146,0.0188 -0.06074,0.0273 -0.121478,0.0545 -0.182218,0.0818 z" />
+        </g>
+      </g>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.88056px;font-family:'Felix Titling';-inkscape-font-specification:'Felix Titling, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;writing-mode:lr-tb;direction:ltr;white-space:pre;opacity:0.928429;fill:#4f5763;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+         x="155.37689"
+         y="119.98768"
+         id="text12"><tspan
+           sodipodi:role="line"
+           id="tspan12"
+           style="stroke-width:2"
+           x="155.37689"
+           y="119.98768">™</tspan></text>
+    </g>
+  </g>
+</svg>

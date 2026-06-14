@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.Workspace.States;
+namespace RDCore.LanguageServer.Workspace.States;
 
 public interface IDocumentStateProvider
 {

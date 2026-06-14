@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace RDCore.Workspace.Services;
+namespace RDCore.LanguageServer.Workspace.Services;
 
 internal interface IProjectFileService
 {

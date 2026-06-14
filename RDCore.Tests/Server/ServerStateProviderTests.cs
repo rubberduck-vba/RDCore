@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Options;
-using RDCore.SDK.Server.Configuration;
+﻿using Microsoft.Extensions.Configuration;
+using NSubstitute;
 using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.Tests.Server;
@@ -7,11 +7,13 @@ namespace RDCore.Tests.Server;
 [TestClass]
 public class ServerStateProviderTests
 {
+    private IConfiguration TestConfiguration = Substitute.For<IConfiguration>();
+
     [TestMethod]
     public void Uninitialized_State_IsStartingState()
     {
         // arrange
-        var sut = new ServerStateProvider(Options.Create(new SdkServerOptions()));
+        var sut = new ServerStateProvider(TestConfiguration);
 
         // act
         var result = sut.State;
@@ -103,10 +105,10 @@ public class ServerStateProviderTests
     public void OnTraceOff(ServerStateValue? initialState, ServerStateValue? expectedState)
     => TestServerStateTransition(sut => sut.OnTraceOff(), initialState, expectedState);
 
-    private static void TestServerStateTransition(Action<ServerStateProvider> act, ServerStateValue? initialState, ServerStateValue? expectedState)
+    private void TestServerStateTransition(Action<ServerStateProvider> act, ServerStateValue? initialState, ServerStateValue? expectedState)
     {
         // arrange
-        var sut = new ServerStateProvider(Options.Create(new SdkServerOptions()));
+        var sut = new ServerStateProvider(TestConfiguration);
 
         if (initialState.HasValue)
         {

@@ -1,9 +1,9 @@
 ﻿using Newtonsoft.Json.Linq;
+using RDCore.LanguageServer.Workspace;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server.Commands;
-using RDCore.Workspace;
-using RDCore.Workspace.Services;
 
-namespace RDCore.Server.Commands;
+namespace RDCore.LanguageServer.Server.Commands;
 
 public class AddRemoveReferenceCommandArgs
 {

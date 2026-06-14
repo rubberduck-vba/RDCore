@@ -1,6 +1,11 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using System.Diagnostics;
+using System.IO.Abstractions;
+using System.Reflection;
 
 namespace RDCore.SDK.Client
 {
@@ -29,22 +34,16 @@ namespace RDCore.SDK.Client
     /// A <em>language server application</em> is any <c>RDCore.SDK</c> server platform application that can run a sidecar LSP server.
     /// </remarks>
     /// <param name="FileSystem">Provides an abstraction over the file system.</param>
-    /// <param name="Options">The <c>LanguageClientSettings</c> encapsulating all the necessary parameters to correctly start and connect the LSP server process.</param>
+    /// <param name="Configuration">The current <see cref="IConfiguration"/> .</param>
+    /// <param name="Logger">A standard <see cref="ILogger"/>.</param>
     public class RDCoreLanguageServerProcess(
-        IOptions<SdkAppOptions> Options) : IRDCoreLanguageServerProcess
+        IFileSystem FileSystem,
+        IConfiguration Configuration,
+        ILogger<RDCoreLanguageServerProcess> Logger) : IRDCoreLanguageServerProcess
     {
         private readonly CancellationTokenSource _tokenSource = new();
         private Process? _serverProcess = default;
         private Task? _waitForExit = default;
-
-        /// <summary>
-        /// An event that fires when the LSP language server process exits, signaling that the server app should be restarted.
-        /// </summary>
-        /// <remarks>
-        /// This event is de-registered on <c>Shutdown</c>.
-        /// </remarks>
-        public event EventHandler? LanguageServerProcessDidExit;
-        protected void OnLanguageServerProcessDidExit() => LanguageServerProcessDidExit?.Invoke(this, EventArgs.Empty);
 
         public void Dispose()
         {
@@ -60,17 +59,12 @@ namespace RDCore.SDK.Client
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing) { }
-
-        public void Shutdown()
+        protected virtual void Dispose(bool disposing) 
         {
-            if (_serverProcess is null)
-            {
-                return;
-            }
-
-            LanguageServerProcessDidExit = null;
+            _serverProcess?.Dispose();
         }
+
+        public void Shutdown() => _tokenSource.Cancel();
 
         public void Start()
         {
@@ -80,28 +74,38 @@ namespace RDCore.SDK.Client
                 throw new LanguageServerAlreadyRunningException(running.Id);
             }
 
-            var path = Options.Value.Platform.ServerExecutable;
+            //var path = Options.Value.Platform.ServerExecutable.Replace('/', FileSystem.Path.DirectorySeparatorChar);
+            //var working = FileSystem.Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)!;
+            var fullPath = FileSystem.Path.GetFileName(Configuration["Configuration:Platform:ServerExecutable"]); //.GetFullPath(FileSystem.Path.Combine(working, path));
+            
             var args = CommandLine.UnParserExtensions.FormatCommandLine(CommandLine.Parser.Default, 
                 new SdkAppCommandLineArgs
                 {
-                    ClientProcessId = Options.Value.Server.ClientProcessId,
-                    PipeName = Options.Value.Platform.Transport.PipeConfig.PipeName,
-                    TraceLevel = Options.Value.Server.TraceLevel,
-                    Verbose = Options.Value.Server.Verbose,
-                    WorkspaceUri = Options.Value.Workspace.WorkspaceUri,
+                    ClientProcessId = Environment.ProcessId,
+                    PipeName =  Configuration["Configuration:Platform:Transport:PipeConfig:PipeName"],
+                    TraceLevel = Enum.Parse<LogLevel>(Configuration["Configuration:Server:TraceLevel"] ?? "None"),
+                    Verbose = Convert.ToBoolean(Configuration["Configuration:Server:Verbose"]),
+                    WorkspaceUri = Configuration["Configuration:Workspace:WorkspaceUri"],
                 });
 
-            var info = CreateProcessStartInfo(path, args);
-            var process = new Process { StartInfo = info };
+            var info = CreateProcessStartInfo(fullPath, args);
+            Logger.LogDebug("[ProcessStartInfo]\n\tPath:'{path}'\n\tWorkingDirectory:'{workdir}'\n\tArguments:'{args}'", fullPath, info.WorkingDirectory, info.Arguments); // TODO REMOVE
 
-            _waitForExit = process.WaitForExitAsync(_tokenSource.Token)
+            _serverProcess = Process.Start(info) ?? throw new LanguageServerNotFoundException(fullPath);
+
+            _waitForExit = _serverProcess.WaitForExitAsync(_tokenSource.Token)
                 .ContinueWith(t => Shutdown(), _tokenSource.Token, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+            if (_serverProcess.HasExited)
+            {
+                throw new LanguageServerProtocolSdkException("Unable to start the RDCore.LanguageServer process.");
+            }
         }
 
         private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()
         {
-            FileName = validPath,
-            WorkingDirectory = Path.GetDirectoryName(validPath),
+            FileName = FileSystem.Path.GetFileName(validPath),
+            WorkingDirectory = FileSystem.Path.GetDirectoryName(validPath),
             Arguments = args,
             CreateNoWindow = true,
             UseShellExecute = false,

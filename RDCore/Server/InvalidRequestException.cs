@@ -1,4 +1,4 @@
-﻿namespace RDCore.Server;
+﻿namespace RDCore.LanguageServer.Server;
 
 public class InvalidRequestException(string name)
     : ArgumentException("Bad request: parameterization is incomplete, inconsistent, or otherwise invalid.", name)

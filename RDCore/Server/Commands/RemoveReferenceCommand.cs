@@ -1,8 +1,8 @@
-﻿using RDCore.SDK.Server.Commands;
-using RDCore.Workspace;
-using RDCore.Workspace.Services;
+﻿using RDCore.LanguageServer.Workspace;
+using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Server.Commands;
 
-namespace RDCore.Server.Commands;
+namespace RDCore.LanguageServer.Server.Commands;
 
 internal class RemoveReferenceCommand(IProjectFileService service) : ServerCommand<AddRemoveReferenceCommandArgs>(new AddReferenceCommandArgsParser(), nameof(RemoveReferenceCommand))
 {

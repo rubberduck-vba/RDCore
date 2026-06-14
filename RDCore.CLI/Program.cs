@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
@@ -10,8 +9,8 @@ using RDCore.CLI.App.Messages;
 using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Client;
 using RDCore.SDK.Server;
-using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
+using System.Text;
 
 namespace RDCore.CLI;
 
@@ -19,39 +18,16 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var processTokenSource = new CancellationTokenSource();
-        using var host = new RDCoreConsoleClientHost(processTokenSource);
-        
-        try
-        {
-            await host.RunAsync(args);
-        }
-        catch (OperationCanceledException)
-        {
-            // normal exit: VIVAT CUCUMIS!
-            host.LogIfEnabled(LogLevel.Information, Resources.RDCore_Slogan);
-        }
-        catch (Exception exception)
-        {
-            // something went wrong:
-            host.LogIfEnabled(LogLevel.Error, exception.ToString());
-            return -1;
-        }
-
-        // clean exit:
-        host.LogIfEnabled(LogLevel.Information, Resources.TrademarkNotice);
-        return 0;
+        using var host = new RDCoreConsoleClientHost();
+        return await host.RunAsync(args);
     }
 }
 
-internal class RDCoreConsoleClientHost(CancellationTokenSource ProcessTokenSource) 
-    : RDCoreLanguageClientHost<RDCoreConsoleClientApp>(ProcessTokenSource)
+internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsoleClientApp>()
 {
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IOptions<SdkAppOptions> options)
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
-            .AddSingleton<RDCoreConsoleClientApp>()
-            .AddSingleton<ILanguageClientApp, RDCoreConsoleClientApp>()
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
@@ -59,21 +35,29 @@ internal class RDCoreConsoleClientHost(CancellationTokenSource ProcessTokenSourc
             .AddSingleton<ShowSplashCommand>();
     }
 
-    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, SdkAppOptions options)
+    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        builder.SetMinimumLevel(options.Server.TraceLevel);
+        builder.SetMinimumLevel(Enum.Parse<LogLevel>(configuration["Server:TraceLevel"] ?? "None"));
+    }
+
+    protected override async Task BeforeAppStartAsync(IServiceProvider provider)
+    {
+        var command = provider.GetRequiredService<ShowSplashCommand>();
+        command.Execute();
     }
 }
 
 internal class RDCoreConsoleClientApp(
-    IOptions<SdkServerOptions> options,
     IRDCoreLanguageServerProcess serverProcess,
-    IHealthCheckService<ILanguageClientApp> healthCheckService,
+    IHealthCheckService<RDCoreConsoleClientApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<RDCoreConsoleClientApp> logger,
-    ShowSplashCommand splash) 
-    : LanguageClientApp(options, serverProcess, healthCheckService, transportLayer, logger)
+    ILogger<RDCoreConsoleClientApp> logger) 
+    : RDCoreClientApp(serverProcess, healthCheckService, transportLayer, logger)
 {
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+    }
+
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
     {
         // TODO
@@ -87,12 +71,8 @@ internal class RDCoreConsoleClientApp(
 
     protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
     {
-        splash.Execute();
+        // TODO
     }
 
     protected override void Dispose(bool disposing) { }
-
-    protected override void ConfigureServices(IServiceCollection services)
-    {
-    }
 }

@@ -2,9 +2,9 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Workspace.Services;
+using RDCore.LanguageServer.Workspace.Services;
 
-namespace RDCore.Server.Handlers.Document;
+namespace RDCore.LanguageServer.Server.Handlers.Document;
 
 internal class DidChangeTextDocumentHandler(IWorkspaceDocumentService service, TextDocumentSelector selector) : DidChangeTextDocumentHandlerBase
 {

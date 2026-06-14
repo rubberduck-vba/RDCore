@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Options;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Server.Configuration;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace RDCore.SDK.Server.Services.States
 {
@@ -63,26 +63,35 @@ namespace RDCore.SDK.Server.Services.States
     /// <summary>
     /// Manages the operational lifecycle state of a <c>ServerApp</c> instance.
     /// </summary>
-    public class ServerStateProvider(IOptions<SdkServerOptions> options) : IServerStateProvider, IDisposable
+    /// <remarks>
+    /// 👉 This class works with <see cref="IConfiguration"/> rather than <see cref="IOptions{T}"/> 
+    /// because it must be created before the application is fully configured, and must also <strong>survive the destruction</strong> of the application host in case of a hard crash.
+    /// </remarks>
+    public sealed class ServerStateProvider(IConfiguration configuration) : IServerStateProvider, IDisposable
     {
-        private static readonly CancellationTokenSource _processTokenSource = new();
-        private static readonly CancellationTokenSource _requestTokenSource = new();
-        private static readonly CancellationTokenSource _shutdownTimeoutTokenSource = new();
+        private readonly CancellationTokenSource _processTokenSource = new();
+        private readonly CancellationTokenSource _requestTokenSource = new();
+        private readonly CancellationTokenSource _shutdownTimeoutTokenSource = new();
 
         private ServerState _state = ServerState.Starting;
         public ServerState State => _state;
-        public SdkServerOptions Options { get; } = options.Value;
 
         public CancellationTokenSource ShutdownRequestTokenSource => _requestTokenSource;
         public CancellationTokenSource ProcessTokenSource => _processTokenSource;
 
-        public void OnInitialize() => _state = State is StartingServerState ? ServerState.Initializing : throw new InvalidServerStateException(State.Value);
-        public void OnInitialized() => _state = State is InitializingServerState ? ServerState.Running : throw new InvalidServerStateException(State.Value);
+        public void OnInitialize() => _state = GetValidStateOrThrow(State, typeof(StartingServerState), ServerState.Initializing);
+        public void OnInitialized() => _state = GetValidStateOrThrow(State, typeof(InitializingServerState),
+            Enum.Parse<LogLevel>(configuration["Server.TraceLevel"]!) == LogLevel.None
+                ? ServerState.RunningTraceless
+                : Convert.ToBoolean(configuration["Server:Verbose"])
+                    ? ServerState.RunningVerbose
+                    : ServerState.Running);
+
         public void OnShutdown()
         {
-            _state = State is RunningServerState ? ServerState.ShuttingDown : throw new InvalidServerStateException(State.Value);
+            _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.ShuttingDown);
             _requestTokenSource.Cancel();
-            _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Options.ShutdownTimeoutSeconds));
+            _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Convert.ToInt32(configuration["Server:ShutdownTimeoutSeconds"])));
         }
 
         public void OnExit()
@@ -91,18 +100,12 @@ namespace RDCore.SDK.Server.Services.States
             _processTokenSource.Cancel();
         }
 
-        public void OnTraceOff() => _state = State is RunningServerState ? ServerState.RunningTraceless : throw new InvalidServerStateException(State.Value);
+        private static ServerState GetValidStateOrThrow(ServerState currentState, Type condition, ServerState validState) 
+            => currentState.GetType().Equals(condition) ? validState : throw new InvalidServerStateException(currentState.Value);
 
-        public void OnTraceMessages() => _state = State is RunningServerState ? ServerState.Running: throw new InvalidServerStateException(State.Value);
-
-        public void OnTraceVerbose() => _state = State is RunningServerState ? ServerState.RunningVerbose : throw new InvalidServerStateException(State.Value);
-
-        public ServerInfo ServerInfo { get; } = new()
-        {
-            Name = AppHost<ILanguageServerApp>.Info.Name!,
-            Version = AppHost<ILanguageServerApp>.Info.Version!.ToString(3)
-        };
-
+        public void OnTraceOff() => _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.RunningTraceless);
+        public void OnTraceMessages() => _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.Running);
+        public void OnTraceVerbose() => _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.RunningVerbose);
 
         public void Dispose()
         {

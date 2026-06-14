@@ -2,9 +2,9 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Workspace.States;
+using RDCore.LanguageServer.Workspace.States;
 
-namespace RDCore.Server.Handlers.Document;
+namespace RDCore.LanguageServer.Server.Handlers.Document;
 
 internal class DidOpenTextDocumentHandler(IDocumentStateProvider state, TextDocumentSelector selector) : DidOpenTextDocumentHandlerBase
 {

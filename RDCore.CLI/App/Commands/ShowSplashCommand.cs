@@ -16,12 +16,16 @@ internal record class ShowSplashCommand : CLICommand
 
     public override void Execute()
     {
+        var adjustedBackground = string.Join(Environment.NewLine, Resources.RDCoreSplash_Background
+            .Split(Environment.NewLine)
+            .Select(line => $"{new string(' ', 15)}{line}"));
+
         _writer
             .WriteAssemblyInfo()
             .WriteLegalNotice()
             .WriteMessage(new ConsoleMessageBuilder()
                 .WithKind(MessageKind.Trace)
-                .WithTitle(Environment.NewLine + Resources.RDCoreSplash_Background)
+                .WithTitle(Environment.NewLine + adjustedBackground)
                 .WithMessageBody(Resources.RDCoreSplash_Foreground, nameof(ConsoleColor.White)))
             .WriteSlogan();
     }

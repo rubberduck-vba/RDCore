@@ -5,7 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.SDK.Server.Commands;
 using RDCore.SDK.Server.Services;
 
-namespace RDCore.Server.Handlers.Workspace;
+namespace RDCore.LanguageServer.Server.Handlers.Workspace;
 
 internal class ExecuteCommandHandler(IServerCommandProvider commands) : ExecuteCommandHandlerBase
 {

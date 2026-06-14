@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RDCore.CLI": {
+      "commandName": "Project",
+      "workingDirectory": "C:\\dev\\repos\\rubberduck-dev01\\RDCore\\publish\\RDCore.CLI"
+    }
+  }
+}

@@ -17,6 +17,7 @@
 mono_crash.*
 
 # Build results
+[Pp]ublish/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -32,6 +33,10 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+
+# DocFX site
+docs/_site/
+docs/api/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

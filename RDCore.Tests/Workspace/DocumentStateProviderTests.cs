@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.Workspace.States;
+using RDCore.LanguageServer.Workspace.States;
 
 namespace RDCore.Tests.Workspace;
 

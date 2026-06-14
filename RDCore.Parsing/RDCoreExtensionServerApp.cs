@@ -12,19 +12,18 @@ namespace RDCore.Parsing;
 internal class RDCoreExtensionServerApp(
     IOptions<SdkServerOptions> options,
     IServerStateProvider serverStateProvider,
-    IHealthCheckService<ILanguageServerApp> healthCheckService,
+    IHealthCheckService<RDCoreExtensionServerApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
     ILogger<RDCoreExtensionServerApp> logger)
-    : LanguageServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
+    : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         // TODO
     }
 
-    protected override async Task RegisterServerCapabilitiesAsync(ILanguageServer server, ClientCapabilities clientCapabilities, CancellationToken token)
+    protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
     {
-        // TODO
     }
 
     protected override void Dispose(bool disposing) { }

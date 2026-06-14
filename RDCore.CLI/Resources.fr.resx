@@ -161,15 +161,14 @@
     <value>{$VIVAT}  ♥  {$CUCUMIS}</value>
   </data>
   <data name="RDCoreSplash_Foreground" xml:space="preserve">
-    <value>    -###++. +##++-      .+++-.++.####+-  .+++.     -++#--+++. .+++.     
-    -#####+.+#####-      -##+.+..######. -###.    -####-.##+. .###.     
-    -######--#####+.     .##+.# .###++#- +###.   .+###+-.##+. .##+.     
-    -##-.+#--##-.+#-     .+##-+ .### -#. +###-   .###-. .##+. .##+.     
-    -##- ++.-##- -#- ...  -###. .###.++  #-##+.  .##+.  .##+. .+#+.     
-    -##+++. -##- -#..##+  .##+  .###-#. .#.+##.  .+#+   .+#+  .+#+.     
-    -##-++. -##-.++  ...  .+#+   ##+ -+.-+ -##.   +##.  .+#+  .+#+      
-    -##--#+ -##+#+.        -#-  .###+#- +-+-##-   .+#++-.+#+++ +#+      
-    .....-. .---.          ...   ----.  ... ...     .--. ..... ...       </value>
+    <value>&gt;======&gt;     &gt;====&gt;            &gt;=&gt;         &gt;=&gt; &gt;=&gt;&gt;=&gt;          &gt;&gt;                 &gt;=&gt;    &gt;=&gt;       &gt;=&gt; 
+&gt;=&gt;    &gt;=&gt;   &gt;=&gt;   &gt;=&gt;          &gt;=&gt;       &gt;=&gt;  &gt;&gt;   &gt;=&gt;       &gt;&gt;=&gt;             &gt;=&gt;   &gt;=&gt; &gt;=&gt;       &gt;=&gt; 
+&gt;=&gt;    &gt;=&gt;   &gt;=&gt;    &gt;=&gt;          &gt;=&gt;     &gt;=&gt;   &gt;&gt;    &gt;=&gt;     &gt;&gt; &gt;=&gt;           &gt;=&gt;        &gt;=&gt;       &gt;=&gt; 
+&gt;&gt; &gt;==&gt;      &gt;=&gt;    &gt;=&gt; &gt;====&gt;    &gt;=&gt;   &gt;=&gt;    &gt;==&gt;&gt;=&gt;      &gt;=&gt;  &gt;=&gt;          &gt;=&gt;        &gt;=&gt;       &gt;=&gt; 
+&gt;=&gt;  &gt;=&gt;     &gt;=&gt;    &gt;=&gt;            &gt;=&gt; &gt;=&gt;     &gt;&gt;    &gt;=&gt;   &gt;=====&gt;&gt;=&gt;         &gt;=&gt;        &gt;=&gt;       &gt;=&gt; 
+&gt;=&gt;    &gt;=&gt;   &gt;=&gt;   &gt;=&gt;              &gt;===&gt;      &gt;&gt;     &gt;&gt;  &gt;=&gt;      &gt;=&gt;         &gt;=&gt;   &gt;=&gt; &gt;=&gt;       &gt;=&gt; 
+&gt;=&gt;      &gt;=&gt; &gt;====&gt;                  &gt;=&gt;       &gt;===&gt;&gt;=&gt;  &gt;=&gt;        &gt;=&gt;          &gt;===&gt;   &gt;=======&gt; &gt;=&gt; 
+                                                                                                       </value>
   </data>
   <data name="Warn_ThemingDisabled" xml:space="preserve">
     <value>Les thèmes sont présentement inactifs.</value>
