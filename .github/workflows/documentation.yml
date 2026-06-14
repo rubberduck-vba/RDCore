@@ -32,8 +32,8 @@ jobs:
      with:
       path: docs/_site
 
-  deploy:
-   needs: build-docs
-   runs-on: ubuntu-latest
-   steps:
-    - uses: actions/deploy-pages@v4
+ deploy:
+  needs: build-docs
+  runs-on: ubuntu-latest
+  steps:
+   - uses: actions/deploy-pages@v4
