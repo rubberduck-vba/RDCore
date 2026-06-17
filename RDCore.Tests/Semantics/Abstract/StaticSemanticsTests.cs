@@ -2,7 +2,7 @@ using NSubstitute;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.Tests.Semantics.Abstract;

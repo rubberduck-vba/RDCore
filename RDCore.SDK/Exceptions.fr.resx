@@ -133,7 +133,7 @@
     <value>La valeur source est à l'extérieur de la plage permise pour les valeurs du type de destination pour cette opération de coercion numérique.</value>
   </data>
   <data name="VBCompileError" xml:space="preserve">
-    <value>Erreur de compilation (sémantique statique) :</value>
+    <value>Erreur de compilation :</value>
   </data>
   <data name="VBRuntimeError" xml:space="preserve">
     <value>Erreur d'exécution : #</value>
@@ -212,5 +212,80 @@
   </data>
   <data name="VBCompileError_LetCoercionTypeMismatch_Verbose" xml:space="preserve">
     <value>La coercion implicite (let-coercion) est statiquement invalide pour les intrants spécifiés pour cette expression.</value>
+  </data>
+  <data name="InvalidExtension_Message" xml:space="preserve">
+    <value>L'extension '{$NAME}' n'a pas été enregistrée.</value>
+  </data>
+  <data name="InvalidExtension_Verbose" xml:space="preserve">
+    <value>La validation a échoué avec les indicateurs suivants : </value>
+  </data>
+  <data name="ValidationFlags_Blocked" xml:space="preserve">
+    <value>Le titre ('Title') spécifié par les métadonnées (manifest) de cette extension est présentement explicitement bloqué par la configuration.</value>
+  </data>
+  <data name="ValidationFlags_NotAllowed" xml:space="preserve">
+    <value>Le titre ('Title') spécifié par les métadonnées (manifest) de cette extension est présentement absent de la configuration des extensions permises ('Allow').</value>
+  </data>
+  <data name="ValidationFlags_LocationMismatch" xml:space="preserve">
+    <value>Le titre ('Title') spécifié par les métadonnées (manifest) de cette extension ne correspond pas au nom du dossier de son emplacement.</value>
+  </data>
+  <data name="ValidationFlags_FileNotFound" xml:space="preserve">
+    <value>Le nom ('Name') spécifié par les métadonnées (manifest) de cette extension ne pointe pas vers un fichier existant. Le fichier exécutable du serveur a pu être déplacé, renommé, ou supprimé.</value>
+  </data>
+  <data name="ValidationFlags_SignatureMismatch" xml:space="preserve">
+    <value>La signature ('Signature') spécifiés par les métadonnées (manifest) de cette extension ne correspond pas à la signature (file hash) du fichier exécutable. L'exécutable a pu avoir été modifié depuis son installation.</value>
+  </data>
+  <data name="ValidationFlags_InvalidCertificate" xml:space="preserve">
+    <value>Le certificat associé à cette extension est invalide ou expiré.</value>
+  </data>
+  <data name="VBCompileError_TypeMismatch" xml:space="preserve">
+    <value>Type incompatible</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
+    <value>Utilisation invalide d'un objet</value>
+  </data>
+  <data name="VBCompileError_VariableNotDefined" xml:space="preserve">
+    <value>Variable non définie</value>
+  </data>
+  <data name="VBCompileError_InvalidParamArrayUse" xml:space="preserve">
+    <value>Usage invalide de ParamArray</value>
+  </data>
+  <data name="VBCompileError_InvalidReDim" xml:space="preserve">
+    <value>ReDim invalide</value>
+  </data>
+  <data name="VBCompileError_ExpectedArray" xml:space="preserve">
+    <value>Un tableau (array) est attendu</value>
+  </data>
+  <data name="VBCompileError_ExpectedIdentifier" xml:space="preserve">
+    <value>Un identifiant est attendu</value>
+  </data>
+  <data name="VBCompileError_LabelNotDefined" xml:space="preserve">
+    <value>Libellé non défini</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotDefined" xml:space="preserve">
+    <value>Type défini par l'utilisateur (UDT) non défini</value>
+  </data>
+  <data name="VBCompileError_ExitDoNotWithinDoLoop" xml:space="preserve">
+    <value>Exit Do pas à l'intérieur d'une boucle Do...Loop</value>
+  </data>
+  <data name="VBCompileError_ExitForNotWithinForNext" xml:space="preserve">
+    <value>Exit For pas à l'intérieur d'une boucle For...Next</value>
+  </data>
+  <data name="VBCompileError_ExitFunctionNotAllowedInSubOrProperty" xml:space="preserve">
+    <value>Exit Function non permis dans une procédure Sub ou une propriété (Let/Set)</value>
+  </data>
+  <data name="VBCompileError_ExitPropertyNotAllowedInSubOrFunction" xml:space="preserve">
+    <value>Exit Property non permis dans une procédure Sub ou Function</value>
+  </data>
+  <data name="VBCompileError_AmbiguousName" xml:space="preserve">
+    <value>Nom ambigu détecté :</value>
+  </data>
+  <data name="VBCompilationError_DuplicateDeclaration" xml:space="preserve">
+    <value>Déclaration existante dans la portée en cours</value>
+  </data>
+  <data name="VBCompileError_MethodOrDataMemberNotFound" xml:space="preserve">
+    <value>Méthode ou membre de données introuvable</value>
+  </data>
+  <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
+    <value>Erreur non spécifiée</value>
   </data>
 </root>

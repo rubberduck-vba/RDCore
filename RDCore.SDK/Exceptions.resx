@@ -133,7 +133,7 @@
     <value>Source value is outside the range of the determined let-coercion destination data type and cannot be represented.</value>
   </data>
   <data name="VBCompileError" xml:space="preserve">
-    <value>Compile error (static semantics):</value>
+    <value>Compile error:</value>
   </data>
   <data name="VBRuntimeError" xml:space="preserve">
     <value>Run-time error : #</value>
@@ -212,5 +212,80 @@
   </data>
   <data name="VBCompileError_LetCoercionTypeMismatch_Verbose" xml:space="preserve">
     <value>Implicit let-coercion is statically invalid for the specified inputs of this expression.</value>
+  </data>
+  <data name="InvalidExtension_Message" xml:space="preserve">
+    <value>Extension '{$NAME}' was not registered.</value>
+  </data>
+  <data name="InvalidExtension_Verbose" xml:space="preserve">
+    <value>Validation failed with the following flags: </value>
+  </data>
+  <data name="ValidationFlags_Blocked" xml:space="preserve">
+    <value>The 'Title' specified in the extension manifest is currently explicitly blocked by configuration.</value>
+  </data>
+  <data name="ValidationFlags_NotAllowed" xml:space="preserve">
+    <value>The 'Title' specified in the extension manifest is currently not explicitly configured as an 'Allowed' extension.</value>
+  </data>
+  <data name="ValidationFlags_LocationMismatch" xml:space="preserve">
+    <value>The 'Title' specified in the extension manifest mismatches its folder location.</value>
+  </data>
+  <data name="ValidationFlags_FileNotFound" xml:space="preserve">
+    <value>The 'Name' specified in the extension manifest does not point to an existing file. The server executable may have been moved, renamed, or deleted.</value>
+  </data>
+  <data name="ValidationFlags_SignatureMismatch" xml:space="preserve">
+    <value>The 'Signature' specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with.</value>
+  </data>
+  <data name="ValidationFlags_InvalidCertificate" xml:space="preserve">
+    <value>The certificate associated with this extension is invalid or expired.</value>
+  </data>
+  <data name="VBCompileError_TypeMismatch" xml:space="preserve">
+    <value>Type mismatch</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
+    <value>Invalid use of object</value>
+  </data>
+  <data name="VBCompileError_VariableNotDefined" xml:space="preserve">
+    <value>Variable not defined</value>
+  </data>
+  <data name="VBCompileError_InvalidParamArrayUse" xml:space="preserve">
+    <value>Invalid ParamArray use</value>
+  </data>
+  <data name="VBCompileError_InvalidReDim" xml:space="preserve">
+    <value>Invalid ReDim</value>
+  </data>
+  <data name="VBCompileError_ExpectedArray" xml:space="preserve">
+    <value>Expected array</value>
+  </data>
+  <data name="VBCompileError_ExpectedIdentifier" xml:space="preserve">
+    <value>Expected identifier</value>
+  </data>
+  <data name="VBCompileError_LabelNotDefined" xml:space="preserve">
+    <value>Label not defined</value>
+  </data>
+  <data name="VBCompileError_UserDefinedTypeNotDefined" xml:space="preserve">
+    <value>User-defined type (UDT) not defined</value>
+  </data>
+  <data name="VBCompileError_ExitDoNotWithinDoLoop" xml:space="preserve">
+    <value>Exit Do not within Do...Loop</value>
+  </data>
+  <data name="VBCompileError_ExitForNotWithinForNext" xml:space="preserve">
+    <value>Exit For not within For...Next</value>
+  </data>
+  <data name="VBCompileError_ExitFunctionNotAllowedInSubOrProperty" xml:space="preserve">
+    <value>Exit Function not allowed in Sub or Property (Let/Set)</value>
+  </data>
+  <data name="VBCompileError_ExitPropertyNotAllowedInSubOrFunction" xml:space="preserve">
+    <value>Exit Property not allowed in Sub or Function</value>
+  </data>
+  <data name="VBCompileError_AmbiguousName" xml:space="preserve">
+    <value>Ambiguous name detected:</value>
+  </data>
+  <data name="VBCompilationError_DuplicateDeclaration" xml:space="preserve">
+    <value>Duplicate declaration in current scope</value>
+  </data>
+  <data name="VBCompileError_MethodOrDataMemberNotFound" xml:space="preserve">
+    <value>Method or data member not found</value>
+  </data>
+  <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
+    <value>Unspecified error</value>
   </data>
 </root>

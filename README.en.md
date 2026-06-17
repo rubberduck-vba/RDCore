@@ -4,22 +4,21 @@
 
 ## Before we begin.
 
-> New here? Rubberduck was always an open-source initiative.  
-> **RDCore honors it with an Open-Core formula**. See [rubberduckvba.ca](https://rubberduckvba.ca) for more information.
+> 👋 New here? Rubberduck was always an open-source initiative. **RDCore honors it with an Open-Core formula**.  
+> <small>See [rubberduckvba.ca](https://rubberduckvba.ca) for more information.</small>
 
-This repository contains different projects producing different libraries and executables.
+This repository contains different projects **under active development** producing different libraries and executables, under a relatively simple licensing model:
 
-**GPLv3-licensed code depends on MIT-licensed code**, and never the other way around; there's a clear _process boundary_ between all components.
+- **The RDCore.SDK library** is licensed under **⚖️MIT**;
+- **Everything else** built around it is licensed under **⚖️GPLv3**.
 
-- ⚖️ **MIT** projects belong in two categories:
-   - 👉 The _LSP and RD-VBA language core_ (SDK).
-   - 🧩 Extensions or otherwise _terminal_ (non-library) projects.
-- ⚖️ **GPLv3** projects are protected and _unless explicitly authorized in writing by **9562-7303 Québec inc.**_ (through a commercial agreement), any derived work must be released alongside its source code and licensed under GPLv3.
+This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
-This arrangement protects both the legacy and current contributors while enabling the future: **the RDCore runtime implementation shall remain in the hands of its open-source community**.
+> 👉 We're building a very solid _language core_ foundation, but please note that at the moment the only deliverable is the [documentation site](https://rdcore-sdk.github.io).
 
-VIVAT CUCUMIS™
 
+---
+## V I V A T 🩷 C U C U M I S ™
 ---
 
 ## Applications

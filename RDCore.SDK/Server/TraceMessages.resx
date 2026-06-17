@@ -159,4 +159,7 @@
   <data name="InitializeClientProcessIdOutOfRange" xml:space="preserve">
     <value>The process ID specified in the request exceeds Int32.MaxValue. Skipping health checks; this server instance will not be able to shut down automatically in case of an unexpected problem with the client application.</value>
   </data>
+  <data name="ValidExtensionFound" xml:space="preserve">
+    <value>🧩 Extension discovery: '{$NAME}' is valid.</value>
+  </data>
 </root>

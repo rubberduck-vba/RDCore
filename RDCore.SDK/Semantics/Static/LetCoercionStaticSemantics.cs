@@ -1,9 +1,7 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
-using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static;
@@ -18,8 +16,8 @@ public record class LetCoercionStaticSemantics : StaticSemantics
 
     public override StaticSemanticsEvaluationResult DetermineDeclaredType(ISymbolResolver resolver, BoundExpression expression, params VBType[] operandDeclaredTypes)
     {
-        var destinationType = operandDeclaredTypes[(int)OperandIndex.CoercionDestinationType];
-        return !IsLetCoercionInvalid(operandDeclaredTypes[(int)OperandIndex.CoercionSourceValue], destinationType) 
+        var destinationType = operandDeclaredTypes[(int)InputIndex.CoercionDestinationType];
+        return !IsLetCoercionInvalid(operandDeclaredTypes[(int)InputIndex.CoercionSourceValue], destinationType) 
             ? StaticSemanticsEvaluationResult.Success(destinationType)
             : StaticSemanticsEvaluationResult.Error(GetStaticCoercionTypeMismatchErrorInfo(expression, operandDeclaredTypes));
     }

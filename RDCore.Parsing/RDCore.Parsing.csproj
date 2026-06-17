@@ -13,15 +13,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Model\**" />
+    <EmbeddedResource Remove="Model\**" />
+    <None Remove="Model\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="logo.ico" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Model\" />
   </ItemGroup>
 
 </Project>

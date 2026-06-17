@@ -43,7 +43,7 @@ public interface IRDCoreServerApp : IRDCoreApp
 /// 🧩 Since RDCore extensions are LSP servers, this is the base class for most RDCore applications.
 /// </remarks>
 public abstract class RDCoreServerApp(
-    IOptions<SdkServerOptions> options,
+//    IOptions<SdkServerOptions> options,
     IServerStateProvider serverStateProvider,
     IHealthCheckService<RDCoreServerApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,

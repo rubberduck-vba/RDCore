@@ -1,10 +1,9 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using System.Text;
 
-namespace RDCore.SDK.Services.Formatters
+namespace RDCore.SDK.Services.VerboseMessages;
+
+public interface IExpressionInfoFormatter
 {
-    public interface IExpressionInfoFormatter
-    {
-        void Format(StringBuilder builder, BoundExpression expression);
-    }
+    void Format(StringBuilder builder, BoundExpression expression);
 }

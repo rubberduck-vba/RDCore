@@ -1,11 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Server;
-using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 
@@ -22,12 +20,12 @@ internal class CoreDiagnosticsAppHost() : RDCoreLanguageServerHost<CoreDiagnosti
 internal class CoreDiagnosticsApp : RDCoreServerApp
 {
     public CoreDiagnosticsApp(
-        IOptions<SdkServerOptions> options, 
+        //IOptions<SdkServerOptions> options, 
         IServerStateProvider serverStateProvider, 
         IHealthCheckService<CoreDiagnosticsApp> healthCheckService, 
         ILanguageServerProtocolTransportLayer transportLayer, 
         ILogger<CoreDiagnosticsApp> logger) 
-        : base(options, serverStateProvider, healthCheckService, transportLayer, logger)
+        : base(serverStateProvider, healthCheckService, transportLayer, logger)
     {
     }
 

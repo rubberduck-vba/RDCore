@@ -2,45 +2,54 @@
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Server.Commands;
+using System.Diagnostics;
 
 namespace RDCore.LanguageServer.Server.Commands;
 
-public class AddRemoveReferenceCommandArgs
+public enum AddRemoveReferenceAction
 {
+    Add,
+    Remove
+}
+
+public record class AddRemoveReferenceParams
+{
+    public AddRemoveReferenceAction Action { get; init; }
     public string? Name { get; init; }
     public string? Path { get; init; }
     public Guid? Guid { get; init; }
 }
 
-internal class AddReferenceCommandArgsParser : ICommandArgsParser<AddRemoveReferenceCommandArgs>
+internal class AddRemoveReferenceParamsParser : ICommandParamsParser<AddRemoveReferenceParams>
 {
-    public AddRemoveReferenceCommandArgs? Parse(JArray? args)
+    public AddRemoveReferenceParams? Parse(JArray? args)
     {
         if (args is JArray arr && arr.Count == 1)
         {
             var path = args[0].Value<string>();
             if (path is not null)
             {
-                return new AddRemoveReferenceCommandArgs { Path = path };
+                return new AddRemoveReferenceParams { Path = path };
             }
             else
             {
                 var guid = args[0].Value<Guid?>();
                 if (guid.HasValue)
                 {
-                    return new AddRemoveReferenceCommandArgs { Guid = guid };
+                    return new AddRemoveReferenceParams { Guid = guid };
                 }
             }
         }
-        return default;
+        return null;
     }
 }
 
-internal class AddReferenceCommand(IProjectFileService service) : ServerCommand<AddRemoveReferenceCommandArgs>(new AddReferenceCommandArgsParser(), nameof(AddReferenceCommand))
+internal class AddReferenceCommand(IProjectFileService service, ICommandParamsParser<AddRemoveReferenceParams> parser)
+    : ServerCommand<AddRemoveReferenceParams>(parser, nameof(AddReferenceCommand))
 {
-    protected override Task ExecuteCommandAsync(AddRemoveReferenceCommandArgs args, CancellationToken token)
+    protected override async Task ExecuteAsync(AddRemoveReferenceParams? args, CancellationToken token)
     {
-        throw new NotImplementedException();
+        Debug.Assert(args?.Action == AddRemoveReferenceAction.Add);
     }
 
     private void Execute(string path)

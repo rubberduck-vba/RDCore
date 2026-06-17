@@ -18,4 +18,8 @@
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Semantics\Statements\" />
+  </ItemGroup>
+
 </Project>

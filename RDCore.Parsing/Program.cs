@@ -1,11 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Server;
-using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using System.Runtime.CompilerServices;
@@ -33,12 +31,12 @@ public class RDCoreParserAppHost : RDCoreLanguageServerHost<RDCoreParserApp>
 public class RDCoreParserApp : RDCoreServerApp
 {
     public RDCoreParserApp(
-        IOptions<SdkServerOptions> options, 
+        //IOptions<SdkServerOptions> options, 
         IServerStateProvider serverStateProvider, 
         IHealthCheckService<RDCoreParserApp> healthCheckService, 
         ILanguageServerProtocolTransportLayer transportLayer, 
         ILogger<RDCoreParserApp> logger) :
-        base(options, serverStateProvider, healthCheckService, transportLayer, logger)
+        base(serverStateProvider, healthCheckService, transportLayer, logger)
     {
     }
 

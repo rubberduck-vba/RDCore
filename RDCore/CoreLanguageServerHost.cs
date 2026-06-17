@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RDCore.SDK.Server;
+using RDCore.SDK.Server.Commands;
 
 namespace RDCore.LanguageServer;
 
@@ -11,6 +12,5 @@ internal sealed class CoreLanguageServerHost() : RDCoreLanguageServerHost<CoreLa
 {
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services,IConfiguration configuration)
     {
-        // TODO
     }
 }

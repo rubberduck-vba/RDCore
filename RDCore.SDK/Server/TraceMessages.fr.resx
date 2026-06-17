@@ -159,4 +159,7 @@
   <data name="InitializeClientProcessIdOutOfRange" xml:space="preserve">
     <value>L'ID de processus fournit est au-delà de la capacité de System.Int32; les vérifications de l'état de santé de ce processus ne peuvent pas être activées et ce serveur ne pourra pas terminer proprement son processus en cas de problème inattendu avec le client.</value>
   </data>
+  <data name="ValidExtensionFound" xml:space="preserve">
+    <value>🧩 Découverte des extensions: '{$NAME}' est valide.</value>
+  </data>
 </root>

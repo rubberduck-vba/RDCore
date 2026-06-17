@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Messages.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 

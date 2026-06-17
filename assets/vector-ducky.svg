@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="111"
+   height="91"
+   viewBox="0 0 111 91"
+   sodipodi:docname="vector-ducky.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   inkscape:export-filename="C:\dev\logo\favicon.svg"
+   inkscape:export-xdpi="495.53183"
+   inkscape:export-ydpi="495.53183"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="6.3173386"
+     inkscape:cx="69.412142"
+     inkscape:cy="27.226655"
+     inkscape:window-width="2520"
+     inkscape:window-height="1469"
+     inkscape:window-x="-11"
+     inkscape:window-y="87"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1"
+     showgrid="false" />
+  <g
+     inkscape:groupmode="layer"
+     inkscape:label="Image-ducky"
+     id="g1"
+     style="fill:#ffcc00">
+    <rect
+       style="fill:none;opacity:0.761431;fill-opacity:0.825263;stroke-width:0.232478"
+       id="rect1"
+       width="99.190399"
+       height="99.190399"
+       x="5.9573612"
+       y="-4.7488346" />
+    <path
+       style="display:inline;fill:#5f8dd3"
+       d="M 37.5,87.545484 C 13.715261,81.435538 3.2130777,61.826193 10.053878,36.298949 12.848052,25.872163 14.616833,24.565262 20.115141,28.864975 26.080775,33.530139 40.430477,39 46.703494,39 c 2.20746,0 2.169327,-0.149308 -1.14814,-4.495426 C 27.720886,11.140151 62.011428,-9.9171082 84.855058,10.371271 89.808043,14.770223 90.361205,15 95.998196,15 104.97737,15 106.59129,19.125989 100.32515,26.061857 89.896996,37.604577 71.50451,34.382582 80.5,22.588887 83.82979,18.223308 83.739631,17.821022 78.372668,13.096832 61.112771,-2.0959362 37.237233,15.330173 51.542677,32.679317 58.585448,41.220545 58.375463,40.842669 57,42.5 53.686559,46.492452 34.569454,43.695226 23.46918,37.59375 15.580088,33.257361 15.143785,33.799143 14.277465,49.00764 12.893628,73.301305 33.763366,87.735165 63.5,83.05077 89.908172,78.890705 99.45224,62.112784 84.881963,45.462511 77.276765,36.771623 79.843854,32.289755 87.884479,40.220432 114.64035,66.610444 80.57206,98.610056 37.5,87.545484 Z M 90.282119,26.638016 c 6.240237,-2.641211 7.527837,-5.350703 2.758878,-5.805497 -3.772641,-0.359779 -4.251625,-0.112629 -6.569359,3.389703 -2.813722,4.251821 -1.898416,4.832112 3.810481,2.415794 z M 66.975423,21.470386 C 65.087316,19.195356 67.249163,15 70.309582,15 c 3.141089,0 5.574066,4.230343 3.718709,6.465911 -1.635358,1.970486 -5.419231,1.972887 -7.052868,0.0045 z"
+       id="path1"
+       inkscape:label="path-ducky" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer1"
+     inkscape:label="Image-ducky 1" />
+</svg>

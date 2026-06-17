@@ -1,100 +1,66 @@
-# RDCore SDK
+# Introduction
 
-##### [Français](./introduction.md)
+##### ([Français](./introduction.md))
 
-**This library is open-source** (⚖️MIT) - contributions are welcome! _Please see **CONTRIBUTING.md**_ and sign the _Contributor License Agreement_ (**CLA**) before you submit your first _pull request_ for a smoother experience.
+**RDCore** is a modern language platform for Visual Basic for Applications (VBA).  
+It provides a complete semantic model, runtime infrastructure, and extensible tooling surface to analyze, execute, 
+and evolve VBA code **outside of its historical environment**.
 
-## 🤔 Sounds cool, what is it?
+## 🚀The idea
 
-**RDCore** is an analytical _language server platform_ that implements **MS-VBAL** and so gives birth to **RD-VBA**, an implementation that is freed from the baggage of Microsoft, with its own _runtime_.
+Think **Roslyn, but for VBA**.  
 
-This makes **RD-VBA** a _legacy_ programming language, but powered by a world-class engine allowing analytical depth that is yet unseen in VBA.
+RDCore reimagines VBA as a first-class language platform:
+- A detailed semantic model
+- A runtime decoupled from legacy environments
+- A modular architecture built around extensibility
+- A foundation for tooling, analysis, and execution
 
-It's a _language server_ (LSP), but also a _LSP client_ in `rdc.exe` - a _console application_ that wants to be a RD-VBA LSP client.
+RDCore aims to to provide a sustainable, extensible platform for understanding and evolving the language.
 
-It's also an eventual _ecosystem_ of extensions exploiting a rich analytical model that exposes all the _facts_, and then lets diagnostics have _opinions_ about them.
+VBA is not just a legacy runtime - it is a _language specification_. RDCore simply treats it as such.
 
 
-## 🧩 Extensibility Quick Start
+## Architecture
 
-**Two types** of applications are possible :
+- **The RDCore.SDK library** is licensed under **⚖️MIT**;
+- **Everything else** built around it is licensed under **⚖️GPLv3**.
 
-- **ILanguageServerApp** defines a *serveur* application; its client is the _language server_ (LS) **RDCore.LanguageServer**.
-- **ILanguageClientApp** defines a *client* application, for exemple **RDCore.CLI** (`rdc.exe`), or an IDE.
+![RDCore solution overview](images/solution-overview.png)
 
-In every case, you will need a **host** and an **application**, so the _entry point_ of any **RDCore** extension should look something like this:
+RDCore is composed of:
+- **RDCore.SDK** (MIT) defines the _language core_: syntax, symbols, semantic model, type system, etc.
+- **RDCore.Runtime** (GPLv3) implements SDK-defined abstractions around runtime semantics, the standard library, etc.
+- **Hosts** (GPLv3) include a CLI client (rdc.exe), a LSP server, and other applications that orchestrate execution and interactions.
 
-```csharp
-public class Program
-{
-    public static async Task<int> Main(string[] args)
-    {
-        using var host = new CoreDiagnosticsAppHost(); // 👈 server
-        return await host.RunAsync(args);
-    }
-}
-```
 
-This isn't simplified example code: it's _exactly_ the entry point implementation for the **Core Diagnostics** extension. The entry point of `rdc.exe` is practically identical:
+## ✨What RDCore can makes possible
+- Perform deep semantic analysis of VBA code
+- Execute VBA code outside the VBIDE
+- Build language tooling via the _Language Server Protocol_ (LSP)
+- Inspect runtime behavior and semantic facts
+- Extend the platform with analyzers and plugins
 
-```csharp
-public class Program
-{
-    public static async Task<int> Main(string[] args)
-    {
-        using var host = new RDCoreConsoleClientHost(); // 👈 client
-        return await host.RunAsync(args);
-    }
-}
-```
 
-## Inherit RDCoreServerApp
+## 📊Project Status
+RDCore is currently in active pre-release development.
+- Core architecture: ✅ stable
+- Language SDK: ✅ largely defined
+- Runtime: 🚧 implementation in progress
+- Standard library: 🚧 partially defined
+- CLI host (rdc.exe): 🚧 scaffolded
+- Public contributions: ❌ not yet opened
 
-Obviously the juicy bits are elsewhere - you still need to implement an actual LSP application:
+---
+ V I V A T 🩷 C U C U M I S ™  
+ ℹ[Home](./index.md) | 🧩[Getting Started](./getting-started.en.md) | 🔍[Documentation](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
-```csharp
-internal class MyRDCoreApp : RDCoreServerApp
-{
-    public MyRDCoreApp(
-        // 🧩 Injecter ici toute dépendance spécifique à votre application
-        IOptions<SdkServerOptions> options, 
-        IServerStateProvider serverStateProvider, 
-        IHealthCheckService<MyRDCoreApp> healthCheckService, 
-        ILanguageServerProtocolTransportLayer transportLayer, 
-        ILogger<MyRDCoreApp> logger) 
-        : base(options, serverStateProvider, healthCheckService, transportLayer, logger)
-    {
-    }
+---
 
-    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
-    {
-        // 🧩 Configure the LSP handlers specific to your application
-    }
-
-    protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
-    {
-        // 🧩 Register the capabilities of your application with the client (LS)
-    }
-
-    protected override void Dispose(bool disposing) 
-    {
-        // 🧩 Dispose of any _unmanaged resources_ here as needed
-    }
-}
-```
-
-## Inject services
-
-Then a host - this is where you can configure any additional services that might be needed to create an instance of your application:
-
-```csharp
-internal class CoreDiagnosticsAppHost() : RDCoreLanguageServerHost<CoreDiagnosticsApp>()
-{
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-        // 🧩 Configure dependency injection for any additional services required to instantiate your application
-    }
-}
-```
-
-And then that's it, you're flying! 🚀 
+<p align="center">
+<img alt="Logo™ 9562-7303 Québec inc." src="images/vector-ducky.svg" style="width:200px; margin-top:72px;" /><br/>
+<small>© Copyright <strong>9562-7303 Québec inc.</strong> (2026)<br/>
+<em>"Rubberduck" est utilisé pour fins de référence au projet open-source legacy <strong>utilisé publiquement ainsi depuis 2015</strong> et sans lien ni affiliation avec tout tiers détenteur d'une marque semblable dans quelque juridiction que ce soit. "RDCore" et "VIVAT CUCUMIS" sont des marques de commerce revendiquées par 9562-7303 Québec inc. (en attente)<br/>
+"Rubberduck" is used as a reference to the legacy open-source project <strong>the same way it has been used publicly since 2015</strong> and without any links or affiliation with any third-party trademark holders of a similar trademark in any jurdisdiction. "RDCore" and "VIVAT CUCUMIS" are trademarks claimed by 9562-7303 Québec inc. (pending)
+</small>
+</p>

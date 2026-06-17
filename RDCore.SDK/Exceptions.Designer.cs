@@ -61,6 +61,24 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Extension &apos;{$NAME}&apos; was not registered..
+        /// </summary>
+        public static string InvalidExtension_Message {
+            get {
+                return ResourceManager.GetString("InvalidExtension_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Validation failed with the following flags: .
+        /// </summary>
+        public static string InvalidExtension_Verbose {
+            get {
+                return ResourceManager.GetString("InvalidExtension_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The language server is already running..
         /// </summary>
         public static string LanguageServerAlreadyRunningException_Message {
@@ -169,11 +187,173 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Compile error (static semantics):.
+        ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest is currently explicitly blocked by configuration..
+        /// </summary>
+        public static string ValidationFlags_Blocked {
+            get {
+                return ResourceManager.GetString("ValidationFlags_Blocked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;Name&apos; specified in the extension manifest does not point to an existing file. The server executable may have been moved, renamed, or deleted..
+        /// </summary>
+        public static string ValidationFlags_FileNotFound {
+            get {
+                return ResourceManager.GetString("ValidationFlags_FileNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The certificate associated with this extension is invalid or expired..
+        /// </summary>
+        public static string ValidationFlags_InvalidCertificate {
+            get {
+                return ResourceManager.GetString("ValidationFlags_InvalidCertificate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest mismatches its folder location..
+        /// </summary>
+        public static string ValidationFlags_LocationMismatch {
+            get {
+                return ResourceManager.GetString("ValidationFlags_LocationMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest is currently not explicitly configured as an &apos;Allowed&apos; extension..
+        /// </summary>
+        public static string ValidationFlags_NotAllowed {
+            get {
+                return ResourceManager.GetString("ValidationFlags_NotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;Signature&apos; specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with..
+        /// </summary>
+        public static string ValidationFlags_SignatureMismatch {
+            get {
+                return ResourceManager.GetString("ValidationFlags_SignatureMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Duplicate declaration in current scope.
+        /// </summary>
+        public static string VBCompilationError_DuplicateDeclaration {
+            get {
+                return ResourceManager.GetString("VBCompilationError_DuplicateDeclaration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Compile error:.
         /// </summary>
         public static string VBCompileError {
             get {
                 return ResourceManager.GetString("VBCompileError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ambiguous name detected:.
+        /// </summary>
+        public static string VBCompileError_AmbiguousName {
+            get {
+                return ResourceManager.GetString("VBCompileError_AmbiguousName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exit Do not within Do...Loop.
+        /// </summary>
+        public static string VBCompileError_ExitDoNotWithinDoLoop {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExitDoNotWithinDoLoop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exit For not within For...Next.
+        /// </summary>
+        public static string VBCompileError_ExitForNotWithinForNext {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExitForNotWithinForNext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exit Function not allowed in Sub or Property (Let/Set).
+        /// </summary>
+        public static string VBCompileError_ExitFunctionNotAllowedInSubOrProperty {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExitFunctionNotAllowedInSubOrProperty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exit Property not allowed in Sub or Function.
+        /// </summary>
+        public static string VBCompileError_ExitPropertyNotAllowedInSubOrFunction {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExitPropertyNotAllowedInSubOrFunction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expected array.
+        /// </summary>
+        public static string VBCompileError_ExpectedArray {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedArray", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expected identifier.
+        /// </summary>
+        public static string VBCompileError_ExpectedIdentifier {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedIdentifier", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid ParamArray use.
+        /// </summary>
+        public static string VBCompileError_InvalidParamArrayUse {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidParamArrayUse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid ReDim.
+        /// </summary>
+        public static string VBCompileError_InvalidReDim {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidReDim", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid use of object.
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfObject {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Label not defined.
+        /// </summary>
+        public static string VBCompileError_LabelNotDefined {
+            get {
+                return ResourceManager.GetString("VBCompileError_LabelNotDefined", resourceCulture);
             }
         }
         
@@ -187,11 +367,56 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Method or data member not found.
+        /// </summary>
+        public static string VBCompileError_MethodOrDataMemberNotFound {
+            get {
+                return ResourceManager.GetString("VBCompileError_MethodOrDataMemberNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type mismatch.
+        /// </summary>
+        public static string VBCompileError_TypeMismatch {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to None of the static semantic applicable rules for this operation matched the data type(s) of the provided input(s): {$INPUTS}.
         /// </summary>
         public static string VBCompileError_TypeMismatch_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeMismatch_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unspecified error.
+        /// </summary>
+        public static string VBCompileError_UnspecifiedError {
+            get {
+                return ResourceManager.GetString("VBCompileError_UnspecifiedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User-defined type (UDT) not defined.
+        /// </summary>
+        public static string VBCompileError_UserDefinedTypeNotDefined {
+            get {
+                return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotDefined", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Variable not defined.
+        /// </summary>
+        public static string VBCompileError_VariableNotDefined {
+            get {
+                return ResourceManager.GetString("VBCompileError_VariableNotDefined", resourceCulture);
             }
         }
         

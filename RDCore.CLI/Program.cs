@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.CLI.App.Commands;
@@ -10,7 +9,6 @@ using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Client;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Services;
-using System.Text;
 
 namespace RDCore.CLI;
 

@@ -3,31 +3,30 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace RDCore.SDK.Model.Symbols.VBProject
-{
-    /// <summary>
-    /// Represents a <c>Property Get</c> procedure declaration.
-    /// </summary>
-    /// <param name="Scope">The allocation scope of the symbol.</param>
-    /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
-    /// <param name="Name">The identifier name of the symbol.</param>
-    /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
-    /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
-    /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    /// <param name="AccessModifier">The access modifier specified for this symbol.</param>
-    public sealed record class VBPropertyGetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name, Range Range, Range SelectionRange, AccessModifier AccessModifier) 
-        : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Property, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier), IVBPropertyMemberSymbol { }
+namespace RDCore.SDK.Model.Symbols.VBProject;
 
-    /// <summary>
-    /// Represents a <c>Property Get</c> procedure declaration.
-    /// </summary>
-    /// <param name="Scope">The allocation scope of the symbol.</param>
-    /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
-    /// <param name="Name">The identifier name of the symbol.</param>
-    /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
-    /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
-    /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-    /// <param name="AccessModifier">The access modifier specified for this symbol.</param>
-    public sealed record class UnboundVBPropertyGetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name)
-        : UnboundVBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Property, VBUnknownType.TypeInfo), IVBPropertyMemberSymbol { }
-}
+/// <summary>
+/// Represents a <c>Property Get</c> procedure declaration.
+/// </summary>
+/// <param name="Scope">The allocation scope of the symbol.</param>
+/// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
+/// <param name="Name">The identifier name of the symbol.</param>
+/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
+/// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
+/// <param name="AccessModifier">The access modifier specified for this symbol.</param>
+public sealed record class VBPropertyGetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name, Range Range, Range SelectionRange, AccessModifier AccessModifier) 
+    : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Property, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier), IVBPropertyMemberSymbol { }
+
+/// <summary>
+/// Represents a <c>Property Get</c> procedure declaration.
+/// </summary>
+/// <param name="Scope">The allocation scope of the symbol.</param>
+/// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
+/// <param name="Name">The identifier name of the symbol.</param>
+/// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
+/// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
+/// <param name="AccessModifier">The access modifier specified for this symbol.</param>
+public sealed record class UnboundVBPropertyGetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name)
+    : UnboundVBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Property, VBUnknownType.TypeInfo), IVBPropertyMemberSymbol { }

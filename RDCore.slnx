@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/Documentation/">
     <File Path="docs/docfx.json" />
+    <File Path="docs/getting-started.en.md" />
+    <File Path="docs/getting-started.md" />
     <File Path="docs/index.md" />
     <File Path="docs/introduction.en.md" />
     <File Path="docs/introduction.md" />
@@ -13,8 +15,12 @@
     <File Path="docs/images/vector-ducky.svg" />
   </Folder>
   <Folder Name="/Documents/">
+    <File Path="CONTRIBUTING.md" />
     <File Path="README.en.md" />
     <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
   </Folder>
   <Project Path="RDCore.CLI/RDCore.CLI.csproj" Id="631bd5d3-e87f-4c19-a6f0-812faffac478" />
   <Project Path="RDCore.CoreDiagnostics/RDCore.Diagnostics.csproj" Id="a259e578-edf1-420a-8af8-bdeb2b68f7e6" />

@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
-using RDCore.SDK.Semantics.Runtime.Abstract;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Expressions;
@@ -19,5 +18,5 @@ public record class LiteralExpressionStaticSemantics : IStaticSemantics
     /// <param name="expression">The <em>expression node</em> being evaluated.</param>
     /// <param name="operandDeclaredTypes">The declared type of the operands.</param>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(ISymbolResolver resolver, BoundExpression expression, params VBType[] operandDeclaredTypes) 
-        => StaticSemanticsEvaluationResult.Success(operandDeclaredTypes[(int)OperandIndex.UnaryOperand]);
+        => StaticSemanticsEvaluationResult.Success(operandDeclaredTypes[(int)InputIndex.UnaryOperand]);
 }

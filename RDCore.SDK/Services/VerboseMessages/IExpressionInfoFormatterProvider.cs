@@ -1,9 +1,8 @@
 ﻿using System.Text;
 
-namespace RDCore.SDK.Services.Formatters
+namespace RDCore.SDK.Services.VerboseMessages;
+
+public interface IExpressionInfoFormatterProvider
 {
-    public interface IExpressionInfoFormatterProvider
-    {
-        IExpressionInfoFormatter CreateNew(StringBuilder builder);
-    }
+    IExpressionInfoFormatter CreateNew(StringBuilder builder);
 }

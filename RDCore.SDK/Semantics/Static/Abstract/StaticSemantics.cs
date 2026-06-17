@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Semantics.Static.Abstract;
 
@@ -83,7 +83,8 @@ public abstract record class StaticSemantics() : IStaticSemantics
     /// <param name="expression">The <em>statically invalid</em> expression.</param>
     /// <param name="operandDeclaredTypes">The <em>declared types</em> of the inputs of the expression.</param>
     protected static VBCompileErrorInfo GetStaticTypeMismatchErrorInfo(BoundExpression expression, VBType[] operandDeclaredTypes)
-        => VBCompileErrorInfo.TypeMismatch(expression.Location, Exceptions.VBCompileError_TypeMismatch_Verbose.Replace("{$INPUTS}", string.Join(", ", operandDeclaredTypes.Select(type => type.Name))));
+        => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, 
+            Exceptions.VBCompileError_TypeMismatch_Verbose.Replace("{$INPUTS}", string.Join(", ", operandDeclaredTypes.Select(type => type.Name))));
 
     /// <summary>
     /// Gets the error metadata for a <em>type mismatch</em> compile-time error.
@@ -95,5 +96,6 @@ public abstract record class StaticSemantics() : IStaticSemantics
     /// they are the same compile-time error, but with distincly different causes that a verbose message should explain.
     /// </remarks>
     protected static VBCompileErrorInfo GetStaticCoercionTypeMismatchErrorInfo(BoundExpression expression, VBType[] operandDeclaredTypes)
-        => VBCompileErrorInfo.TypeMismatch(expression.Location, Exceptions.VBCompileError_LetCoercionTypeMismatch_Verbose);
+        => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, 
+            Exceptions.VBCompileError_LetCoercionTypeMismatch_Verbose);
 }

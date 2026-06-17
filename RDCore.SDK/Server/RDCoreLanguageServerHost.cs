@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
@@ -33,8 +32,7 @@ public class RDCoreLanguageServerHost<TApp>() : AppHost<TApp>()
     {
         ServerStateProvider = new ServerStateProvider(configuration);
         services
-            .AddSingleton(provider => ServerStateProvider)
             .AddSingleton<IServerCommandProvider, ServerCommandProvider>()
-            .AddSingleton<IExecuteCommandHandler, ExecuteCommandHandler>();
+            .AddSingleton<ExecuteCommandHandler>();
     }
 }
