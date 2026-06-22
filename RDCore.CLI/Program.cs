@@ -41,7 +41,7 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
     protected override async Task BeforeAppStartAsync(IServiceProvider provider)
     {
         var command = provider.GetRequiredService<ShowSplashCommand>();
-        command.Execute();
+        command.Execute(new() { Show = true });
     }
 }
 
