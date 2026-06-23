@@ -38,14 +38,6 @@ La documentation de la section **SDK** de ce site est générée à partir des c
 Bonne lecture!
 
 ---
- V I V A T 🩷 C U C U M I S ™  
  ℹ️[Introduction](./introduction.html) | 🧩[Démarrage](./getting-started.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
-
-<p align="center">
-<img alt="Logo™ 9562-7303 Québec inc." src="images/vector-ducky.svg" style="width:200px; margin-top:72px;" /><br/>
-<small>© Copyright <strong>9562-7303 Québec inc.</strong> (2026)<br/>
-<em>"Rubberduck" est utilisé pour fins de référence au projet open-source legacy <strong>utilisé publiquement ainsi depuis 2015</strong> et sans lien ni affiliation avec tout tiers détenteur d'une marque semblable dans quelque juridiction que ce soit. "RDCore" et "VIVAT CUCUMIS" sont des marques de commerce revendiquées par 9562-7303 Québec inc. (en attente)
-</small>
-</p>

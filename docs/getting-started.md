@@ -129,14 +129,6 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 
 
 ---
- V I V A T 🩷 C U C U M I S ™  
  [Home](./index.html) | ℹ️[Introduction](./introduction.en.html) | [RD-VBAL](./specs/rd-vbal.html) | [Documentation](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
-
-<p align="center">
-<img alt="Logo™ 9562-7303 Québec inc." src="images/vector-ducky.svg" style="width:200px; margin-top:72px;" /><br/>
-<small>© Copyright <strong>9562-7303 Québec inc.</strong> (2026)<br/>
-<em>"Rubberduck" is used as a reference to the legacy open-source project <strong>the same way it has been used publicly since 2015</strong> and without any links or affiliation with any third-party trademark holders of a similar trademark in any jurdisdiction. "RDCore" and "VIVAT CUCUMIS" are trademarks claimed by 9562-7303 Québec inc. (pending)
-</small>
-</p>
