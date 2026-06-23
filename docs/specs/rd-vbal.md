@@ -18,11 +18,11 @@
   - 3.4. [Statements](./rd-vbal.3.4.0.statements.html)
   - 3.5. [Instructions](./rd-vbal.3.5.0.instructions.html)
 - 4. [Program Structure](./rd-vbal.4.0.program-structure.html)
-- 5. [Implicit Type Coercions](./rd-vbal.5.0.type-coercions.html)
+- 5. [Semantics](./rd-vbal.5.0.semantics.html)
 - 6. [Standard Library](./rd-vbal.6.0.standard-library.html)
 
 > [!NOTE]
-> **RD-VBA** is an implementation of the MS-VBAL specification that is independent from its historical **MS-VBA** runtime host **RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the RD-VBA _language core_.  
+> **RD-VBA** is an implementation of the MS-VBAL specification that is independent from its historical **MS-VBA** runtime host.**RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the RD-VBA _language core_ but is wider than the language specification.  
 
 ---
 
