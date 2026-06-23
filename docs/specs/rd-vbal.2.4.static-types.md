@@ -1,5 +1,6 @@
 # 2.4. RD-VBA Type System - Static Types
-> ℹ️ This specification may be incomplete at this time.
+> [!NOTE]
+> This specification may be incomplete at this time.
 
 The _type system_ begins with `VBType` and the _abstractions_ that formalize the implicit classifications in MS-VBAL:
 
@@ -104,7 +105,8 @@ If a class module specifies any `Implements` directives, the interfaces specifie
 #### 2.4.2.2.1.1 Extensible ("Document") Modules
 > ℹ️ _extensible class modules_ have host-defined interfaces in their `SuperTypes` array that require information that is **unavailable to the RD-VBA host without a library reference to the library that defines these types**. In other words RD-VBA code that depends on for example the _Microsoft Excel_ type library, **requires** the _Microsoft Excel_ type library to correctly resolve the members and expressions inside such class modules.
 
-👉 Extensible modules **cannot** specify any `Implements` directives. This specification is not strictly enforced in MS-VBA, which can cause host application instabilities, source project corruption, and host application crashes for what should be statically caught early on as normal _compile-time_ errors; **RD-VBA** must _explicitly_, _statically_ deny `Implements` directives in these modules.
+> [!WARNING]
+> Extensible modules **cannot** specify any `Implements` directives. This specification is not strictly enforced in MS-VBA, which can cause host application instabilities, source project corruption, and host application crashes for what should be statically caught early on as normal _compile-time_ errors; **RD-VBA** must _explicitly_, _statically_ deny `Implements` directives in these modules.
 
 
 #### 2.4.2.2.2 Default Member
@@ -118,11 +120,11 @@ The _default member_ of a class type can be implicitly invoked through _let-coer
 
 A subclass of [VBClassType](../api/RDCore.SDK.Model.Types.VBClassType.html) that exposes a `NewEnum` member and can be _efficiently_ iterated using a `For Each...Next` loop structure.
 
-> 💡 `For Each...Next` enumeration is intended to be used with _collections containing objects_.
+> [!TIP]
+> `For Each...Next` enumeration is intended to be used with _collections containing objects_. Performance-related _diagnostics_ should be issued when a `VBCollectionType` is being _accessed by index_ within the body of a `For...Next` loop.
 
-Performance-related _diagnostics_ should be issued when a `VBCollectionType` is being _accessed by index_ within the body of a `For...Next` loop.
-
-> **NOTE:** The VBA language specification (MS-VBAL) sometimes refers to the _elements_ (or _items_) of a collection as "data members". This term sometimes appears in error messages (see [VBR00461](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html#MethodOrDataMemberNotFound)), but is **objectively confusing terminology** that RD-VBAL is discarding: in RD-VBA a "member" is always a _direct child symbol of a module, user-defined type, or enum_. Regardless of the message content, RD-VBA must still raise the MS-VBA equivalent error code in the relevant contexts.
+> [!NOTE]
+> The VBA language specification (MS-VBAL) sometimes refers to the _elements_ (or _items_) of a collection as "data members". This term sometimes appears in error messages (see [VBR00461](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html#MethodOrDataMemberNotFound)), but is **objectively confusing terminology** that RD-VBAL is discarding: in RD-VBA a "member" is always a _direct child symbol of a module, user-defined type, or enum_. Regardless of the message content, RD-VBA must still raise the MS-VBA equivalent error code in the relevant contexts.
 
 ### 2.4.2.4 VBProjectType
 
@@ -151,7 +153,8 @@ This type of project can be introduced into the _RD-VBA environment_ by the _hos
 
 A special data type that represents an _unresolved type_. This is the **fallback data type** used when type resolution semantics fail to identity a valid data type for a given value.
 
-> ⚠️ Unknown types represent a **compile-time binding failure** and should raise error [RDC009311](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html#UserDefinedTypeNotDefined) "User-defined type not defined".
+> [!WARNING]
+> Unknown types represent a **compile-time binding failure** and should raise error [RDC009311](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html#UserDefinedTypeNotDefined) "User-defined type not defined".
 
 ### 2.4.2.6 VBVoidType
 
@@ -161,8 +164,6 @@ A special data type that represents _the absence of return value semantics_; thi
 
 
 ## 2.4.3 Meta and Advanced Types
-> ℹ️ This specification may be incomplete at this time.
-
 These data types are _introspective_ types that can _reflectively_ describe the type system itself, and as such **MUST NOT BE EXPOSED** directly to RD-VBA source code: doing so would BREAK THE LANGUAGE on a fundamental level.  
 
 > 🧩 They DO, however, provide **extremely powerful** _language-level extension_ possibilities.
@@ -175,11 +176,9 @@ These types include:
 
 
 ### 2.4.3.1 VBTypeDesc
-> ℹ️ This specification may be incomplete at this time.
-
 Represents (describes) a [VBType](../api/RDCore.SDK.Model.Types.VBType.html) within the type system.
 
-👉 A _value_ (see [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html)) of this meta-type is used in the implementation of the `Is` relational operator, where semantics demand knowledge of a _data type_ where a _value_ is normally required.
+👉 A _value_ (see [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html)) of this meta-type is notably used in the implementation of the `Is` relational operator and of _let-coercion_, where semantics demand knowledge of a _data type_ where a _value_ is normally required.
 
 None of the other descriptor types are currently in use, but _language core_ or future _language extension_ features may eventually use them as needed.
 
@@ -217,8 +216,6 @@ A descriptor that represents (describes) a [VBParameterSymbol](../api/RDCore.SDK
 
 
 ## 2.4.4 Deferred Types
-> ℹ️ This specification may be incomplete at this time.
-
 The RD-VBA type system defines a category of _deferred_ data types. These types are **not currently in use**, but their presence intends to **prepare the ground** for supporting _IntelliSense_ and other features in _late-bound_ and other cases where MS-VBA would fail to resolve a valid compile-time data type.
 
 A _deferred type_ is a valid RD-VBA _data type_ representing an _undefined_ type that may statically be one of the following data types:
@@ -228,7 +225,6 @@ A _deferred type_ is a valid RD-VBA _data type_ representing an _undefined_ type
 An _undefined_ type is a _workspace-defined_ data type that does not have any associated _source code_.  
 
 
-
 _**Deferred names**_  
 
 - The name of a _deferred type_ is a _candidate name_ that can change depending on how the _deferred type_ is being used.
@@ -236,7 +232,8 @@ _**Deferred names**_
 - The name of a _deferred parameter_ is `Arg` followed by its 1-based position in the _deferred member signature_, in sequence such that the first parameter is named `Arg1`, the second is named `Arg2`, and so on. If a call site supplies a _named argument_ that is not a defined _deferred paraemter_, then a _deferred parameter_ with that name is defined at the end of the _deferred member signature_ (multiple such named parameters would then be materialized in alphabetical order), and deemed `Optional`.
 
 
-👉 Deferred types cannot implement [IVBMemberOwnerType](../api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html), because the related symbols are _unbound_. Instead they implement [IVBInferableType](../api/RDCore.SDK.Model.Types.Complex.IVBInferableType.html), exposing an immutable hashset of _candidate types_ that would be legal to materialize the type with.
+> [!TIP]
+> Deferred types cannot implement [IVBMemberOwnerType](../api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html), because the related symbols are _unbound_. Instead they implement [IVBInferableType](../api/RDCore.SDK.Model.Types.Complex.IVBInferableType.html), exposing an immutable hashset of _candidate types_ that would be legal to materialize the type with.
 
 ### 2.4.4.1 VBDeferredModuleType
 
@@ -255,8 +252,6 @@ A _deferred class_ is semantically defined when an _unbound member call_ is made
 > ⚠️ The names of any _deferred type_ defined in _workspace source code_ must be considered as "in use" for all operations involving the naming of a module, including the addition of new (bound) modules in the workspace or project.
 
 ### 2.4.4.3 VBDeferredTypeDesc
-> ℹ️ This specification may be incomplete at this time.
-
 Represents (describes) a [VBDeferredType](../api/RDCore.SDK.Model.Types.VBType.html) within the type system.
 
 👉 A _value_ (see [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html)) of this meta-type is used in the implementation of the `Is` relational operator, where semantics demand knowledge of a _data type_ where a _value_ is normally required.

@@ -1,5 +1,6 @@
 # 2.0 RD-VBA Computational Environment
-> ℹ️ This specification is incomplete at this time.
+> [!NOTE]
+> This specification may be incomplete at this time.
 
 > **MS-VBAL 2. VBA Computational Environment**  
 > VBA is a programming language used to define computer programs that perform computations that occur within a specific computational environment called a _VBA Environment_. A _VBA Environment_ is **typically hosted** and controlled by another computer application called the _host application_. The _host application_ controls and invokes computational processes within its hosted _VBA Environment_. The _host application_ can also make availabel whtin its hosted _VBA Environment_ computational resources that enable VBA programs to access _host application_ data and host computational processes. The remainder of this section defines the key computational concepts of the _VBA Environment_.
@@ -11,7 +12,8 @@
 - In RD-VBA the concepts of a _workspace_ and of a _workspace folder_ are defined by the _Language Server Protocol_ (LSP v3.17);
 - A _workspace program_ is an executable in-memory representation of a RD-VBA _workspace_;
 
-> ℹ️ In LSP, a **Workspace Folder** corresponds essentially to a `VBProject`, and a **Workspace** corresponds to a _project group_.
+> [!TIP]
+> In LSP, a **Workspace Folder** corresponds essentially to a `VBProject`, and a **Workspace** corresponds to a _project group_.
 
 This means a RD-VBA project must necessarily stand on its own and _physically exist_ in the file system, which constitutes a _fundamental paradigm shift_ for VBA code.
 
@@ -27,8 +29,20 @@ A **RD-VBA** _environment host_ may configure language-level _restrictions_ or _
 
 This list is _prioritized_ but not intended to be exhaustive; additional _dialects_ may be supported by different **RD-VBA** _hosts_.
 
-> 🎯 The _scope_ of the **RDCore SDK** minimally covers **VBA**, _then_ **VB6**, _then_ **VBX**, and so on.  
+> 🎯 The _scope_ of the **RDCore SDK** minimally covers `VBA`, _then_ `VB6`, _then_ `VBX`, and so on.  
 > 👉 The LSP paradigm shift _alone_ brings RD-VBA much closer to how VB6 works already.  
+
+
+## 2.0.2 Client/Server Capabilities
+> [!NOTE]
+> This documentation is incomplete.
+
+This section intends to exhaustively document all RDCore platform capabilities, without exceptions.
+
+|Capability|Description|Platform Version|
+|---|---|---|
+| | | |
+
 
 
 ## In this section

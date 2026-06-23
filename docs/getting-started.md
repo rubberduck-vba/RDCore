@@ -1,5 +1,6 @@
 # Getting Started
-> ℹ️ This documentation may be incomplete at this time.
+> [!Note]
+> This documentation may be incomplete at this time.
 
 \[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 
@@ -124,9 +125,18 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 - 🌐[LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
 
 
-> 🧩 **RDCore Platform Extensions** need a _manifest_ to enable their _discovery_ by the _environment host_; the schema of this manifest is defined by [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html); the _environment host_ may provide developer tooling to facilitate the creation of an extension manifest for a given extension.
+> [!IMPORTANT]
+> 🧩 **RDCore Platform Extensions** need a _manifest_ to enable their _discovery_ by the _environment host_; the schema of this manifest is defined by [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html); the _environment host_ may provide _developer tooling_ (CLI) to facilitate the creation of an extension manifest for a given extension.
 
 
+## Capabilities
+
+RDCore platform extensions with a valid _manifest_ that gets them to initiate a _LSP handshake_ with the LSP _orchestration layer_ must supply initialization parameters that specify a complete set of both LSP (protocol) defined and _environment host-defined **capabilities**_.
+
+> 👉 The complete and exhaustive list of platform capabilities shall be documented in [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html#202-clientserver-capabilities) as its implementation progresses.
+
+> [!NOTE]
+> **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
 
 ---
  [Home](./index.html) | ℹ️[Introduction](./introduction.html) | [RD-VBAL](./specs/rd-vbal.html) | [Documentation](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)

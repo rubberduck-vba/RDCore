@@ -41,7 +41,7 @@ The _language core_ features an _analytical pipeline_ that attaches detailed _se
 
 These flags are **spec-driven** and designed to _describe the semantic reality_ of an operation, **without any restraint or judgement**.
 
-The existence of a semantic flag is typically motivated by the presence of a branch or condition in the specified semantics: if the _effective type_ of an operation evaluates a `VBNullType` differently than a `VBNumericType`, then the semantic flags for that operation should reflect the [NullEffectiveType](../_site/api/RDCore.SDK.Semantics.Flags.ComparisonOperatorSemanticFlags.html#NullEffectiveType), and if the specifications mention something about a `NaN` operand, then there should be a [HasNaNOperand](../_site/api/RDCore.SDK.Semantics.Flags.ComparisonOperatorSemanticFlags.html#HasNaNOperand) semantic flag to reflect this fact.
+The existence of a semantic flag is typically motivated by the presence of a branch or condition in the specified semantics: if the _effective type_ of an operation evaluates a `VBNullType` differently than a `VBNumericType`, then the semantic flags for that operation should reflect the [NullEffectiveType](/api/RDCore.SDK.Semantics.Flags.ComparisonOperatorSemanticFlags.html#NullEffectiveType), and if the specifications mention something about a `NaN` operand, then there should be a [HasNaNOperand](/api/RDCore.SDK.Semantics.Flags.ComparisonOperatorSemanticFlags.html#HasNaNOperand) semantic flag to reflect this fact.
 
 > 👉 **DO** create new _core semantic flags_ as needed to accurately reflect the semantic reality of an operation.  
 > ❌ **DO NOT** create new _core semantic flags_ that no specified (RD-VBAL) semantics justify.  
@@ -53,15 +53,18 @@ The existence of a semantic flag is typically motivated by the presence of a bra
 
 The _language platform_ is intended to be massively extended through first and third party extensions whose capabiliites are negociated with the _RD-VBA environment host_.  
 
-> 👉 In the **RDCore** ecosystem, the _RD-VBA environment host_ is `rdc.exe`.
+> [!NOTE]
+> In the **RDCore** ecosystem, the _RD-VBA environment host_ is `rdc.exe`.
 
 ## 1.1.2.1 Extension Manifest
-> ℹ️ This specification may be incomplete at this time.
 
 **RDCore** extensions are _discovered_ by the _environment host_ during the _composition_ of the host environment. The _extension manifest_ is a small text file in a human-readable JSON serialized format that describes the extension to the platform.
 
-- By default, the _environment host_ may restrict capabilities request by **unsigned or untrusted extensions**. Users may override these defaults through configuration or development modes;
-- Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the _extension server_ executable).
+By default, the _environment host_ may restrict capabilities request by **unsigned or untrusted extensions**. Users may override these defaults through configuration or development modes;
+
+> [!IMPORTANT]
+> Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the _extension server_ executable).
+
 
 ### 1.1.2.1.1 Schema
 
@@ -99,17 +102,17 @@ An extension manifest discoverd under the platform's `./extensions` folder must 
 - If the extension executable (.exe) _named in the manifest_ is not found in the same folder as the manifest file, a `FileNotFound` validation flag is issued;
 - If the `SHA512` file-hash signature in the manifest mismatches the `SHA512` file-hash signature of the extension executable (.exe), a `SignatureMismatch` validation flag is issued;
 
-See [Validation Flags](../_site/api/RDCore.SDK.Extensibility.ExtensionValidationFlags.html) for more details.
+See [Validation Flags](/api/RDCore.SDK.Extensibility.ExtensionValidationFlags.html) for more details.
 
 If the validation result is `NoFlags`, the host may proceed to configure a _client host_ for this extension server, start its executable process, and initiate the LSP connection handshake and capabilities exchange.
 
-> 🧩 In order to facilitate building _platform extensions_, the `rdc.exe` host may be configured to allow unsigned extension builds using a `--unsafe-dev-mode` command-line flag.
+> [!TIP]
+> In order to facilitate building _platform extensions_, the `rdc.exe` host may be configured to allow unsigned extension builds using a `--unsafe-dev-mode` command-line flag.
 
 
 ## 1.1.2.1 Capabilities Provider
-> ℹ️ This specification may be incomplete at this time.
 
-An _environment host_ must implement [IExtensionCapabilityProvider](../_site/api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html) and provide all available extension capabilities. 
+An _environment host_ must implement [IExtensionCapabilityProvider](/api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html) and provide all available extension capabilities. 
 
 This interface allows a host to determine whether certain extension capabilities should be enabled or not, through mechanisms that are implementation-dependent and **may include** but are in no way restricted to, the **validation of an active subscription** to said extended capabilities.
 
@@ -120,6 +123,7 @@ All platform extensions must _gracefully_ handle being denied their extended cap
 An abstract server application in the SDK should already handle these lifecycle events correctly, without needing any further configuration.
 
 If an extension _successfully_ registers **any** capability, its process continues to run and may handle a reduced set of LSP requests and notifications; otherwise the _environment host_ requests the termination of the extension server process.
+
 
 > ⏮️ [**RD-VBAL §1.0** Introduction](./rd-vbal.1.0.introduction.html) | ⏭️ [**RD-VBAL §2.0** Computational Environment](./rd-vbal.2.0.computational-environment.html)  
 

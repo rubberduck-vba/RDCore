@@ -39,7 +39,9 @@ Other directives include `Implements` and `Attribute` statements:
 
 
 ## 3.1.1 Attributes
-> ℹ️ **MS-VBAL 5.2.3 Module Declaration:** _Composition and compilation of Attribute statements is not permitted in the **Microsoft Visual Basic for Applications editor**, however, they are consumed and produced by **Microsoft Visual Basic for Applications** without error upon import and export and are therefore **considered valid VBA language constructs**._
+
+> [!NOTE]
+> **MS-VBAL 5.2.3 Module Declaration:** _Composition and compilation of Attribute statements is not permitted in the **Microsoft Visual Basic for Applications editor**, however, they are consumed and produced by **Microsoft Visual Basic for Applications** without error upon import and export and are therefore **considered valid VBA language constructs**._
 
 The interpretation of the **RDCore** platform is that this section of the **MS-VBAL** specification:
 - Relates specifically to the _MS-VBA_ implementation and the _Microsoft VBIDE_, which is _out of scope_ for **RD-VBA**;
@@ -52,7 +54,8 @@ Therefore:
 
 Attributes in the _header_ section of a module determine the _static semantics_ of that module.
 
-> 👉 **MS-VBA** attribute semantics are severely truncated; **RD-VBA** has no reason not to honor their semantics accordingly with their original **VB6** intent.
+> [!TIP]
+> **MS-VBA** attribute semantics are severely truncated; **RD-VBA** has no reason not to honor their semantics accordingly with their original **VB6** intent.
 
 ### 3.1.1.1 VB_Name
 
@@ -65,7 +68,8 @@ If omitted, the _environment host_ may inject one with a value that matches the 
 The _environment host_ **must** inject any missing attributes _before_ requesting the parsing of that module, only if the file is NOT currently owned by any IDE or _editor client_.
 - If a module is missing a `VB_Name` attribute and is currently opened in an IDE or _editor client_, the language server may send a `WorkspaceEdit` notification to have any editor-owned files modified by the editor.
 
-> 👉 See [LSP 3.17 § WorkspaceEdit](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspaceEdit) for more information about commanding client-side _workspace edits_ from the _language server_. Note that the implementation must ensure that the LSP client _does_ support the required capabilities for the requested edits.
+> [!TIP]
+> See [LSP 3.17 § WorkspaceEdit](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspaceEdit) for more information about commanding client-side _workspace edits_ from the _language server_. Note that the implementation must ensure that the LSP client _does_ support the required capabilities for the requested edits.
 
 
 ### 3.1.1.2 VB_Creatable
@@ -74,7 +78,8 @@ Determines whether a class module can be directly instantiated using a `New` (or
 
 The value of this attribute **MUST** be `False` in a **VBA** module, but may be `True` in a **VB6** module, for RD-VBA clients that support the **VB6** language, of which **VBA** is deemed a subset.
 
-> 👉 In practical terms, a _not-creatable_ class module can **only** be directly instantiated within the project it is defined in (the _enclosing project_), but an _instance_ of that class may be consumed by any _referencing project_ if the module is _exposed_.
+> [!TIP]
+> In practical terms, a _not-creatable_ class module can **only** be directly instantiated within the project it is defined in (the _enclosing project_), but an _instance_ of that class may be consumed by any _referencing project_ if the module is _exposed_.
 
 
 ### 3.1.1.2 VB_Exposed
@@ -88,21 +93,24 @@ The value of this attribute is `False` for _private modules_, or `True` for _pub
 - `PublicNotCreatable` given `VB_Exposed=True` but `VB_Creatable=False`;
 - `PublicCreatable` given `VB_Exposed=True` and `VB_Creatable=True`.
 
-> ℹ️ The `PublicCreatable` _instancing mode_ is not a legal **VBA** configuration, but **RD-VBA** implementations may allow it, given _semantic flags_ being issued if the _host environment_ is configured to allow building _library projects_.
+> [!NOTE]
+> The `PublicCreatable` _instancing mode_ is not a legal **VBA** configuration, but **RD-VBA** implementations may allow it, given _semantic flags_ being issued if the _host environment_ is configured to allow building _library projects_.
 
 
 ### 3.1.1.3 VB_GlobalNameSpace
 
 Determines whether a class module is exposed to the _global namespace_.
 
-> ℹ️ This attribute is only meaningful in a _library project_.
+> [!NOTE]
+> This attribute is only meaningful in a _library project_.
 
 
 ### 3.1.1.4 VB_Customizable
 
 This attribute marks a class, method, or property as _customizable_ in host environments that support _VB6 ActiveX Designers_ or _VB6 Object Template_; it indicates that the class or member supports _design-time customization_ and may participate in _persistence mechanisms_ used by _designer hosts_.
 
-👉 A _customizable_ class or member is allowed to appear in a .frx or _property bag_.
+> [!NOTE]
+> A _customizable_ class or member is allowed to appear in a .frx or _property bag_.
 
 **VB6** sets it automatically depending on whether:
 - the class is `Public` or part of an _ActiveX Project_;
@@ -119,18 +127,21 @@ This attribute controls:
 
 
 ### 3.1.1.5 VB_PredeclaredId
-> ℹ️ The "Id" refers to an internal _unique semantic identifier_ given to every object in the _host environment_.
 
 Determines whether the _environment host_ declares a global _auto-object_ instance of the class with a _predeclared ID_, where the _identifier name_ of the global _auto-object_ has the same name as the class module it is a _predeclared_ instance of.
 
-👉 Setting an _auto-object_ to `Nothing` destroys its internal state (_semantic flags_ should identify whether a _predeclared_ class module is _stateful_ or not), but the object reference is immediately re-created as soon as it is being referred to, _including_ within a `Is Nothing` reference check - that check is therefore _statically constant_ (`false`).
+The "Id" refers to an internal _unique semantic identifier_ given to every object in the _host environment_.
+
+> [!TIP]
+> Setting an _auto-object_ to `Nothing` destroys its internal state (_semantic flags_ should identify whether a _predeclared_ class module is _stateful_ or not), but the object reference is immediately re-created as soon as it is being referred to, _including_ within a `Is Nothing` reference check - that check is therefore _statically constant_ (`false`).
 
 
 ### 3.1.1.6 VB_Description
 
 This attribute holds a short _documentation string_ that IDE tooling can then use to supply helpful tooltips.
 
-> 👉 Surfacing attributes does not necessarily make `@Description` annotations obsolete, because hiding `Attribute` directives may or may not be a capability that is supported by a LSP client.
+> [!TIP]
+> Surfacing attributes does not necessarily make `@Description` annotations obsolete, because hiding `Attribute` directives may or may not be a capability that is supported by a LSP client.
 
 
 > ⏮️ [**RD-VBAL §3.0** Syntax Tree](./rd-vbal.3.0.syntax-tree.html) | ⏮️ [**RD-VBAL §3.2** Literals](./rd-vbal.3.2.literals.html)

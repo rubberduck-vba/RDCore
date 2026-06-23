@@ -1,5 +1,6 @@
 # Démarrage
-> ℹ️ Cette documentation peut être incomplète en ce moment.
+> [!Note]
+> Cette documentation peut être incomplète en ce moment.
 
 \[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 
@@ -123,6 +124,20 @@ Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _ca
 - Une application _client_ est généralement une application de type IDE.
 - Une application _serveur_ peut être un serveur de langage satellite ou une extension (plug-in) de la plateforme.
 - 🌐[LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
+
+
+> [!IMPORTANT]
+> 🧩 **Les extensions de la plateforme RDCore** requièrent un _manifest_ pour permettre leur _découverte_ par _l'hôte d'environnement_; le schéma de ce manifest est défini par [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html); _l'hôte d'environnement_ peut founir des _outils de développement_ (CLI) pour faciliter la création d'un manifest pour une extension en cours de développement.
+
+
+## Capacités
+
+Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet d'initier un _LSP handshake_ avec la _couche d'orchestration_ LSP doit fournir des paramètres d'initialisation qui spécifient un jeu complet de _capacités_ définies tant par le protocole (LSP) que _définies par l'hôte de l'environnement_.
+
+> 👉 La liste complète et exhaustive des capacités de la plateforme sera documentée à la section [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html#202-clientserver-capabilities) à mesure que progresse son implémentation.
+
+> [!NOTE]
+> **Les extensions tant de première que de tierces parties** distribuées à travers l'**infranuagique RDCore**  _PEUVENT_ utiliser un _capability provider_ qui _PEUT_ valider la disponibilité de certains capacités avancées en **requérant une authentification 2FA**, la validation d'une **inscription active** (gratuite ou payante), et la validation d'un _build signé_ avec le _build officiel_ du canal de distribution certifié.
 
 ---
 [Accueil](./index.fr.html) | ℹ️[Introduction](./introduction.fr.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)

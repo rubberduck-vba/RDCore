@@ -16,11 +16,13 @@ The _environment host_ defines a number of [_static symbols_](../api/RDCore.SDK.
 
 # 3.2.1 Instance Expressions - "Me"
 
-> ℹ️ **MS-VBAL §5.6.11** describes _instance expressions_ as _values_ with the _declared type_ defined by the class module containing the _enclosing procedure_, statically invalid within a procedural ("standard") module. At run-time, it represents the _current instance_ of the type defined by the enclosing class module and has this type as its _value type_.
+> [!NOTE]
+> **MS-VBAL §5.6.11** describes _instance expressions_ as _values_ with the _declared type_ defined by the class module containing the _enclosing procedure_, statically invalid within a procedural ("standard") module. At run-time, it represents the _current instance_ of the type defined by the enclosing class module and has this type as its _value type_.
 
 It would be aligned with the specification to implement this "expression" not as such, but rather as a simple runtime artifact: the _current object_ is a common concept in many programming languages (often expressed with the token `this`). The implementation could be as simple as having the runtime context inject a `VBObjectValue` presenting the _default interface_ of the enclosing class type - pushing it to the _stack frame_ of _instance member calls_ as it would any _parameter_.
 
-👉 In other words, we can get this one "for free" by having the runtime inject an implicit `Me` (`ByVal`) parameter to all _instance member calls_, pointed at the _current object_.
+> [!TIP]
+> In other words, we can get this one "for free" by having the runtime inject an implicit `Me` (`ByVal`) parameter to all _instance member calls_, pointed at the _current object_.
 
 
 > ⏮️ [**RD-VBAL §3.1** Attributes and Directives](./rd-vbal.3.2.attributes-directives.html) | ⏭️ [**RD-VBAL §3.3** Operators](./rd-vbal.3.3.operators.html)

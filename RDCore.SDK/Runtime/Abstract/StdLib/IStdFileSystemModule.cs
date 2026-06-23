@@ -12,7 +12,7 @@ public interface IStdFileSystemModule
     #region 6.1.2.5.1 StdFileSystem: Public Functions
 
     /****************************************************************************************************
-     * 🎯 The target interface does defines this section.
+     * 🎯 The target interface exposes all functions of this section, up to §6.1.2.5.1.10
      *     👉 THANK YOU for taking the time to write XML documentation for anything you add here.
     /****************************************************************************************************/
 
@@ -21,7 +21,7 @@ public interface IStdFileSystemModule
     #region 6.1.2.5.2 StdFileSystem: Public Subroutines
 
     /****************************************************************************************************
-     * 🎯 The target interface does defines this section.
+     * 🎯 The target interface exposes all functions of this section, up to §6.1.2.5.2.7
      *     👉 THANK YOU for taking the time to write XML documentation for anything you add here.
     /****************************************************************************************************/
 
