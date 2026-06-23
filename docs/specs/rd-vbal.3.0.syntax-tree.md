@@ -132,6 +132,12 @@ The **RDCore** interpretation is reflected in its modelization as follows:
 - 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `VBSimpleNameExpression`;
 - 🎯 Evaluation returns an [_evaluation result record_](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) describing and encapsulating the result, or runtime error metadata.
 
+Because the type system includes and leverages meta-types such as `VBTypeDescValue`, the binding context is easily inferred from the managed type of a provided value.
+
+> [!WARNING]
+> Because a `VBTypeDescValue` is a _data value_ that represents a _data type_, the implementation of both static and runtime semantics must be mindful of the possbility of accidentally pattern-matching such a _type descriptor_.  
+
+---
 
 ## In this section
 - [**RD-VBAL §3.1** Attributes and Directives](./rd-vbal.3.1.attributes-directives.md)

@@ -133,7 +133,7 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 
 RDCore platform extensions with a valid _manifest_ that gets them to initiate a _LSP handshake_ with the LSP _orchestration layer_ must supply initialization parameters that specify a complete set of both LSP (protocol) defined and _environment host-defined **capabilities**_.
 
-> 👉 The complete and exhaustive list of platform capabilities shall be documented in [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html##202-clientserver-capabilities) as its implementation progresses.
+> 👉 The complete and exhaustive list of platform capabilities shall be documented in [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html#202-clientserver-capabilities) as its implementation progresses.
 
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.

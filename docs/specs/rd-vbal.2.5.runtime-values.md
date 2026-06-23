@@ -35,6 +35,7 @@ The _scope kind_ of a `Symbol` determines exactly _how_ (and _whether_) it is al
 The _symbol kind_ of a `Symbol` is as per specified in **LSP 3.17**. The values RD-VBA uses are as follows:
 
 |RD-VBA Value|LSP Equivalence|
+|---|---|
 |[Module](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Module)|`SymbolKind.Module`|
 |[Project](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Project)|`SymbolKind.Namespace`|
 |[Class](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Class)|`SymbolKind.Class`|
@@ -85,10 +86,10 @@ The _data values_ of the non-numeric _intrinsic types_ are the following:
 |[VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|[VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)|
 |[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|[VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html)|
 |[VBResizableByteArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)|
-|[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|[VBBooleanType](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)]|
+|[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|[VBBooleanType](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|
 |[VBDateValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBDateValue.html)|[VBDateType](../api/RDCore.SDK.Model.Types.VBDateType.html)|
 |[VBEmptyValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBEmptyValue.html)|[VBEmptyType](../api/RDCore.SDK.Model.Types.VBEmptyType.html)|
-|[VBErrorValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBErrorValue.html)|[[VBErrorType](../api/RDCore.SDK.Model.Types.VBErrorType.html)]|
+|[VBErrorValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBErrorValue.html)|[VBErrorType](../api/RDCore.SDK.Model.Types.VBErrorType.html)|
 |[VBLongPtrValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBLongPtrValue.html)|[VBLongPtr_x64](../api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html) or [VBLongPtr_x86](../api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html) depending on host environment|
 |[VBMissingValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBMissingValue.html)|[VBMissingType](../api/RDCore.SDK.Model.Types.VBMissingType.html)|
 |[VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)|[VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html)|

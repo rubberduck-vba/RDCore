@@ -6,7 +6,7 @@
 
 ![VIVAT CUCUMIS™](./images/vivat-cucumis-stonecore.png)
 
-**RDCore**™ ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)). 
+**RDCore** ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)). 
 
 ❌ **RDCore n'est PAS** un add-in pour le VBIDE.  
 ✅ **RDCore est une nouvelle implémentation de VBA** à partir de ses spécifications.
