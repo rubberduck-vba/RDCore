@@ -38,6 +38,6 @@ La documentation de la section **SDK** de ce site est générée à partir des c
 Bonne lecture!
 
 ---
- ℹ️[Introduction](./introduction.fr.html) | 🧩[Démarrage](./getting-started.fr.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+ ℹ️[Introduction](./introduction.fr.html) | 🧩[Démarrage](./getting-started.fr.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

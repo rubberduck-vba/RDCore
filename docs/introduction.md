@@ -52,6 +52,6 @@ RDCore is currently in active pre-release development.
 - Public contributions: ❌ not yet opened
 
 ---
- ℹ[Home](./index.html) | 🧩[Getting Started](./getting-started.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+ ℹ[Home](./index.html) | 🧩[Getting Started](./getting-started.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

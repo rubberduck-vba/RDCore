@@ -129,6 +129,6 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 
 
 ---
- [Home](./index.html) | ℹ️[Introduction](./introduction.html) | [RD-VBAL](./specs/rd-vbal.html) | [Documentation](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+ [Home](./index.html) | ℹ️[Introduction](./introduction.html) | [RD-VBAL](./specs/rd-vbal.html) | [Documentation](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
