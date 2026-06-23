@@ -41,3 +41,5 @@ Bonne lecture!
  ℹ️[Introduction](./introduction.fr.html) | 🧩[Démarrage](./getting-started.fr.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
+
+> Ce site a été créé avec [DocFX](https://dotnet.github.io/docfx/)

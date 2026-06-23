@@ -43,7 +43,7 @@ RDCore est présentement en phase active de développement **pré-alpha** - le *
 - Librarie standard: 🚧 partiellement définie
 - Parser: 🚧 existe (tout juste)
 - Hôte CLI (rdc.exe): 🚧 existe (tout juste)
-- Contributions publiques: ❌ pas encore ouvertes
+- **Contributions publiques: ❌ pas encore ouvertes**
 
 
 # 1.0.2 RD-VBA

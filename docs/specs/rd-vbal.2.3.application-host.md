@@ -1,5 +1,6 @@
 # 2.3 Application Host
-> ℹ️ This specification is incomplete at this time.
+> [!NOTE]
+> This specification may be incomplete at this time.
 
 🎯 The **RDCore** platform shall provide with the `rdc.exe` CLI client, the ability to _compose, host, analyze, run, and debug_ any **RD-VBA** application.
 

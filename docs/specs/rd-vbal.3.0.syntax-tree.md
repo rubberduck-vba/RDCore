@@ -6,7 +6,8 @@ This section describes the nodes of a RD-VBA _abstract syntax tree_, which is th
 
 The _token semantics_ of RD-VBA are as specified by MS-VBAL, with the exception(s) described in this sub-section.
 
-> 👉 **RDCore** uses the same grammar as the _legacy Rubberduck project_; this grammar was designed around the MS-VBAL specifications and is deemed compliant enough to be able to generate a _concrete syntax tree_ (CST) that can be traversed to produce an _abstract syntax tree_ that is appropriately structured and detailed for **RD-VBA**.
+> [!NOTE]
+> **RDCore** uses the same grammar as the _legacy Rubberduck project_; this grammar was designed around the MS-VBAL specifications and is deemed compliant enough to be able to generate a _concrete syntax tree_ (CST) that can be traversed to produce an _abstract syntax tree_ that is appropriately structured and detailed for **RD-VBA**.
 
 
 ### 3.0.1.1 Comment Annotations Syntax
@@ -23,7 +24,8 @@ There are different rules of annotation bindings, depending on their intended _t
 - **Member** annotations must appear **immediately above** the member declaration;
 - It is _implementation-dependent_ how any other annotation types bind to their target.
 
-> ℹ️ This **explicit disambiguation** is necessary, because an _edge case_ allows an annotation comment on the last line of the _declarations section_ to perhaps unexpectedly bind to the _first module procedure member_ instead of the module itself if there is no vertical empty space between them.
+> [!NOTE]
+> This **explicit disambiguation** is necessary, because an _edge case_ allows an annotation comment on the last line of the _declarations section_ to perhaps unexpectedly bind to the _first module procedure member_ instead of the module itself if there is no vertical empty space between them.
 
 Exactly what annotations are supported or semantically meaningful is _implementation-dependent_.
 
@@ -84,7 +86,8 @@ Annotations may be parameterized. If the annotation is part of an _annotations l
 
 #### 3.0.1.3 Annotation Arguments
 
-> ℹ️ Whether annotation arguments can be another type of _expression_ than _literal expressions_ is host-dependent; _annotation comments are not intended to be executable_.
+> [!TIP]
+> Whether annotation arguments can be another type of _expression_ than _literal expressions_ is host-dependent; _annotation comments are not intended to be executable_.
 
 ```antlr
 annotationArgList:

@@ -45,7 +45,8 @@ The SDK defines all the interfaces for the _internal representation_ of each mod
   - [ErrClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdErrClass.html)
   - [GlobalClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdGlobalClass.html)
 
-> ℹ️ The **VBScript RegExp 5.5** _regular expressions_ library was recently folded (as-is) into the **MS-VBA** _VBA Standard Library_; this reference MS-VBAL section does not actually exist, the folded VBScript library does not appear to be officially documented by its publisher at this time.
+> [!NOTE]
+> The **VBScript RegExp 5.5** _regular expressions_ library was recently folded (as-is) into the **MS-VBA** _VBA Standard Library_; this reference MS-VBAL section does not actually exist, the folded VBScript library does not appear to be officially documented by its publisher at this time.
 
 - **MS-VBAL §6.2.1 VBScript RegExp 5.5 Class Modules**
   - [RegExpClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdRegExpClass.html)

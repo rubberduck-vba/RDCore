@@ -6,6 +6,7 @@ An _operator_ consists of a _bound expression node_ that yields a deterministic 
 - An operator that accepts two inputs is a **binary operator**;
 - An operator that accepts three inputs is a **ternary operator**.
 
+> [!TIP]
 > 🧩 RD-VBA does not currently define any _ternary operators_.
 
 - All _unary operators_ are _prefix_, with the operator token appearing _before_ its operand;
@@ -19,8 +20,9 @@ All operators ultimately inherit `BoundNode`, which represents any type of AST n
     - [VBOperatorExpression](../api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression-2.html)
 
 > 🧩 Each layer of this inheritance hierarchy refines its members with more specialized signatures in _templated methods_, usually sealing overrides to leave only one or two methods to implement at the leaves. For example a `BoundExpression` has a general-purpose _inputs_ array of values, but an _operator expression_ exposes them as _indexed operands_, and a _unary operator_ only sees one while a _binary operator_ gets `Left` and `Right` operands.  
-> 👉 This is also the case for all _semantics_, both _static_ and _runtime_.
 
+> [!TIP]
+> This is also the case for all _semantics_, both _static_ and _runtime_.
 
 
 ## In this section

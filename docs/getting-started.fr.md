@@ -1,5 +1,6 @@
 # Démarrage
-> ℹ️ Cette documentation peut être incomplète en ce moment.
+> [!Note]
+> Cette documentation peut être incomplète en ce moment.
 
 \[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 

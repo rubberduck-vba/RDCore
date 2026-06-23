@@ -1,5 +1,6 @@
 # 4.0 RD-VBA Program Structure and Organization
-> ℹ️ This specification is incomplete at this time.
+> [!NOTE]
+> This specification is incomplete at this time.
 
 A _RD-VBA Environment_ is organized into a number of _workspace source files_ and _host-defined projects_.
 

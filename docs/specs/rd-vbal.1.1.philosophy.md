@@ -56,12 +56,17 @@ The _language platform_ is intended to be massively extended through first and t
 > 👉 In the **RDCore** ecosystem, the _RD-VBA environment host_ is `rdc.exe`.
 
 ## 1.1.2.1 Extension Manifest
-> ℹ️ This specification may be incomplete at this time.
+> [!Note]
+> This documentation may be incomplete at this time.
 
 **RDCore** extensions are _discovered_ by the _environment host_ during the _composition_ of the host environment. The _extension manifest_ is a small text file in a human-readable JSON serialized format that describes the extension to the platform.
 
-- By default, the _environment host_ may restrict capabilities request by **unsigned or untrusted extensions**. Users may override these defaults through configuration or development modes;
-- Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the _extension server_ executable).
+> [!Note]
+> By default, the _environment host_ may restrict capabilities request by **unsigned or untrusted extensions**. Users may override these defaults through configuration or development modes;
+
+> [!Important]
+> Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the _extension server_ executable).
+
 
 ### 1.1.2.1.1 Schema
 
@@ -103,11 +108,13 @@ See [Validation Flags](../_site/api/RDCore.SDK.Extensibility.ExtensionValidation
 
 If the validation result is `NoFlags`, the host may proceed to configure a _client host_ for this extension server, start its executable process, and initiate the LSP connection handshake and capabilities exchange.
 
+> [!Tip]
 > 🧩 In order to facilitate building _platform extensions_, the `rdc.exe` host may be configured to allow unsigned extension builds using a `--unsafe-dev-mode` command-line flag.
 
 
 ## 1.1.2.1 Capabilities Provider
-> ℹ️ This specification may be incomplete at this time.
+> [!Note]
+> This documentation may be incomplete at this time.
 
 An _environment host_ must implement [IExtensionCapabilityProvider](../_site/api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html) and provide all available extension capabilities. 
 

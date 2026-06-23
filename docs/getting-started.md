@@ -1,5 +1,6 @@
 # Getting Started
-> ℹ️ This documentation may be incomplete at this time.
+> [!Note]
+> This documentation may be incomplete at this time.
 
 \[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 

@@ -28,7 +28,8 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 
 
 ### 5.0.2.1 Operator Evaluation
-> ℹ️ This section describes the implementation of **MS-VBAL§5.6.9.2** Simple Data Operators  
+> [!NOTE]
+> This section describes the implementation of **MS-VBAL§5.6.9.2** Simple Data Operators  
 
 The _evaluation pipeline_ of all operators follows a clear sequence:
 1. The _effective type_ of the operation is determined, based on the _declared type_ of its _operands_;
@@ -37,10 +38,10 @@ The _evaluation pipeline_ of all operators follows a clear sequence:
 
 The sequence may be aborted at any point to return an _error result_ that encapsulates [VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) error metadata.
 
-### 5.0.2.2 Statement Evaluation
-> ℹ️ The specification of this section is currently a work in progress.
 
-### 5.0.2.3 
+### 5.0.2.2 Statement Evaluation
+> [!NOTE]
+> The specification of this section is currently a work in progress.
 
 
 ## 5.0.3 Semantic Analysis
@@ -59,17 +60,11 @@ The `Analyze` method then yields a [_builder_](../api/RDCore.SDK.Semantics.Build
 
 > 🧩 The role of _analyzers_ in extensions like **RDCore.Diagnostics** is to inspect the flags and errors in these _semantic contexts, and issue _diagnostics_. While **error** diagnostics are reserved for coded _syntax/compilation_ and _runtime/application_ errors, a **hint** or **suggestion** diagnostic can be as opiniated as needed.
 
-> ⚠️ **Warning** diagnostics should be used carefully, for flagging _potential bugs_ or logical errors causing unexpected or unintended behavior, or perhaps _severe_ performance issues. Always consider the possibility of there being a _treat warnings as errors_ host environment configuration setting: if a diagnostic is not worth _breaking a build over_, then it's not a _warning_. 
+> [!NOTE]
+> **Warning** diagnostics should be used carefully, for flagging _potential bugs_ or logical errors causing unexpected or unintended behavior, or perhaps _severe_ performance issues. Always consider the possibility of there being a _treat warnings as errors_ host environment configuration setting: if a diagnostic is not worth _breaking a build over_, then it's not a _warning_. 
 
 **RDCore** implements the MS-VBAL type coercion rules _verbatim_ through _pattern-matching_ against its type system.
 
-> ✅ Runtime semantics are currently DONE for all operators  
-> 🚧 Runtime semantics are currently IN PROGRESS for let-coercions  
-> 🎯 Runtime semantics are currently TODO for all statements  
-> 🎯 Runtime semantics are currently TODO for the standard library  
-> 🚧 Evaluation pipeline is currently IN PROGRESS  
-> 🚧 Analysis pipeline is currently IN PROGRESS  
-> 🚧 Execution pipeline is currently IN PROGRESS  
 
 
 > ⏮️ [**RD-VBAL §4.0** Program Structure](./rd-vbal.4.0.program-structure.html) | ⏭️ [**RD-VBAL §6.0** Standard Library](./rd-vbal.6.0.standard-library.html)
