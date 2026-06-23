@@ -16,6 +16,8 @@ RD-VBA keeps backward compatibility by keeping an implementation backed by the _
 
 > 👉 Whether **any** _standard library_ calls implicate actual or simulated _Windows Registry_ reads is entirely **implementation-dependent** and may behave differently on different platforms. This remains entirely compliant with the relevant MS-VBAL sections as specified.
 
+The _host environment_ **may** expose configuration settings that can set the implicit storage of `GetAllSettings` and `GetSetting` to _workspace application settings_, making these functions work exactly as if they were invoking `GetAllJsonSettings` and `GetJsonSetting`, respectively.
+
 ### 2.1.1.1 Workspace Application Settings
 
 The MS-VBAL specified `GetSettings` API would work perfectly fine as-is for this purpose, however distinctly separate functions were introduced in RD-VBAL to maintain backward compatibility without modifying any existing signatures.
@@ -25,7 +27,7 @@ As a result, the _legacy_ `GetSettings` API maintains its MS-VBA behavior, and R
 - A _workspace_ may include one or more `appsettings.json` file(s) at its root, or under any of its subfolders;
 - A configuration file may be named differently: "appsettings.json" is just a (configurable) language platform default;
 
-The _application host_ (`rdc.exe`) is responsible for binding the configuration when the application is executed.
+The _application host_ (`rdc.exe`) is responsible for binding the configuration as the application is _composed_, before it starts executing.
 
 > 🧩This feature has the full power and flexibility of a .NET managed `IConfigurationBuilder` underneath: future extensions could harmonize configuration settings and environment variables, fully deprecating the corresponding legacy APIs as obsolete (_semantic flags_ can then be issued at usage sites, with _code actions_ to update the workspace source code).
 

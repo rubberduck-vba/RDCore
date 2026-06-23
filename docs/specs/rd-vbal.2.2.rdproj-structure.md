@@ -84,6 +84,11 @@ A _serializable_ model representing a RD-VBA _project_.
 | OtherFiles | An array of [RDCoreFile](#2233-rdcorefile) describing any non-source files included in the project. |
 | Folders | An array of `string` values containing the names of all the folders in the project, whether they contain source code files or not.|
 
+> 👉 The `Name` of a project **must** be a valid _identifier name_ that **should not** be `VBA`, or any other _reserved identifier_ name.
+
+The reason for wording of the above statement is that whether a _source project_ can reference a _different project_ that has the same name, is explicitly specified as _host-dependent_ behavior. For all intents and purposes, a _RD-VBA host environment_ **should** very explicitly deny the addition of any such ambiguous project references.
+
+
 ### 2.2.3.2. RDCoreReference
 > ℹ️ This specification may be incomplete at this time.
 
@@ -101,13 +106,14 @@ A _serializable_ model representing a RD-VBA _project_.
 | Member | Description |
 | --- | --- |
 | Name | The _identifier name_ (token) used in workspace source code to reference this library. |
-| Guid | A _Globally Unique Identifier_ optionally identifying the referenced library in an _unspecified application registry_. |
+| Guid | A _Globally Unique Identifier_ optionally identifying the referenced library in a _host-defined application registry_. |
 | AbsolutePath | The full path to the physical location of the referenced library, if it exists. |
 | Major | The _major_ version number of the referenced library, if available. |
 | Minor | The _minor_ version number of the referenced library, if available. |
 | IsUnremovable | A _soft indicator_ marking the reference as _unremovable_ from a LSP _client_. | 
 
-> ⚠️ **NOTE:** a supplied `Guid` necessarily refers to a COM registered library that implies platform-specific _Windows Registry_ lookups to resolve.
+> 🧩 A supplied `Guid` necessarily refers to a COM registered library that implies platform-specific _Windows Registry_ lookups to resolve;
+> The _environment host_ may use _implementation-dependent_ alternative means to provide _symbols_ and _semantics_ for such references.
 
 ### 2.2.3.2 RDCoreModule
 > ℹ️ This specification may be incomplete at this time.

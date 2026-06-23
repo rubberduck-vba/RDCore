@@ -1,5 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.SDK.Model.AST.Expressions;
 
@@ -47,3 +49,7 @@ public record class VBTypedDeclarationExpression(Uri SemanticId, Location Locati
 /// <param name="IsStatic"><c>true</c> if the declaration list includes the <c>Static</c> keyword.</param>
 public record class VBDeclarationStatement(Uri SemanticId, Location Location, VBTypedDeclarationExpression[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false) 
     : BoundStatement(SemanticId, Location) { }
+
+
+//public record class VBAssignationStatement(Uri SemanticId, Location Location, SimpleNameExpression TargetExpression, BoundExpression ValueExpression)
+//    : BoundStatement(SemanticId, Location) { }

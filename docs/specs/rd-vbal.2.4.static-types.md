@@ -97,11 +97,15 @@ Represents an _object type_ defined by _workspace source code_ in a _class modul
 
 #### 2.4.2.2.1 SuperTypes
 
-While class modules defined in the _workspace source code_ have no means to _inherit_ another class module in the _Object-Oriented Programming_ sense of "Inheritance", all VBA classes still inherit a _base class_ that exposes `Initialize` and `Terminate` internal events, respectively fired upon instantiation and destruction of an instance of a given class type.
+While class modules defined in the _workspace source code_ have no means to _inherit_ another class module in the _Object-Oriented Programming_ sense of "Inheritance", all VBA classes still inherit a _base class_ that exposes `Initialize` and `Terminate` internal events, respectively fired by the _host_ upon instantiation and destruction of an instance (_object_) of a given class type.
 
 If a class module specifies any `Implements` directives, the interfaces specified by such directives are included in this array.
 
-> ⚠️ _document class modules_ have host-defined interfaces in their `SuperTypes` array that require information that is **unavailable to the RD-VBA host without a library reference to the library that defines these types**. In other words RD-VBA code that depends on for example the _Microsoft Excel_ type library, **requires** the _Microsoft Excel_ type library to correctly resolve the members and expressions inside such class modules.
+#### 2.4.2.2.1.1 Extensible ("Document") Modules
+> ℹ️ _extensible class modules_ have host-defined interfaces in their `SuperTypes` array that require information that is **unavailable to the RD-VBA host without a library reference to the library that defines these types**. In other words RD-VBA code that depends on for example the _Microsoft Excel_ type library, **requires** the _Microsoft Excel_ type library to correctly resolve the members and expressions inside such class modules.
+
+👉 Extensible modules **cannot** specify any `Implements` directives. This specification is not strictly enforced in MS-VBA, which can cause host application instabilities, source project corruption, and host application crashes for what should be statically caught early on as normal _compile-time_ errors; **RD-VBA** must _explicitly_, _statically_ deny `Implements` directives in these modules.
+
 
 #### 2.4.2.2.2 Default Member
 

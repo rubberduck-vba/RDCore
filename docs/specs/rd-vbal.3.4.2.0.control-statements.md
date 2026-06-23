@@ -1,6 +1,6 @@
-# 3.6.2 Control Flow
+# 3.4.2 Control Flow
 
-A _control flow statement_ consists of a _bound expression node_ that defines an _executable instruction_.
+A _control flow statement_ consists of a _bound expression node_ that defines an executable [instruction](./rd-vbal.3.5.0.instructions.md).
 
 
 

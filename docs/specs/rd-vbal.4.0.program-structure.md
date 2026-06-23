@@ -1,6 +1,4 @@
-# 3.3.5 Lookup Operators
-> 🧩 This operator category is a RD-VBA _language core_ extension.
-
+# 4.0 RD-VBA Program Structure and Organization
 
 
 

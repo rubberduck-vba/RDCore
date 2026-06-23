@@ -1,10 +1,10 @@
-# 2. RD-VBA Computational Environment
+# 2.0 RD-VBA Computational Environment
 > ℹ️ This specification is incomplete at this time.
 
 > **MS-VBAL 2. VBA Computational Environment**  
 > VBA is a programming language used to define computer programs that perform computations that occur within a specific computational environment called a _VBA Environment_. A _VBA Environment_ is **typically hosted** and controlled by another computer application called the _host application_. The _host application_ controls and invokes computational processes within its hosted _VBA Environment_. The _host application_ can also make availabel whtin its hosted _VBA Environment_ computational resources that enable VBA programs to access _host application_ data and host computational processes. The remainder of this section defines the key computational concepts of the _VBA Environment_.
 
-A RD-VBA program does run inside a *host*, but that host is `rdc.exe` rather than a _Microsoft Office_ application. This _does_ have yet-unresolved implications with regards to _run-time interoperability_, but should not affect _semantic compatibility_.
+👉 A **RD-VBA** program does run inside a *host*, but that host is `rdc.exe` rather than a _Microsoft Office_ application. This _does_ have yet-unresolved implications with regards to _run-time interoperability_, but should not affect general _semantic compatibility_.
 
 > 🎯 `rdc.exe` is a command-line interface (CLI) application whose role is to **assemble and host** the _library_ that is defined by the source code in a _workspace program_. **This application is a work in progress**.
 
@@ -14,6 +14,21 @@ A RD-VBA program does run inside a *host*, but that host is `rdc.exe` rather tha
 > ℹ️ In LSP, a **Workspace Folder** corresponds essentially to a `VBProject`, and a **Workspace** corresponds to a _project group_.
 
 This means a RD-VBA project must necessarily stand on its own and _physically exist_ in the file system, which constitutes a _fundamental paradigm shift_ for VBA code.
+
+## 2.0.1 Supported Languages
+
+A **RD-VBA** _environment host_ may configure language-level _restrictions_ or _extensions_, depending on the _capabilities_ of the _host application_:
+
+- `VBA` refers to the _Visual Basic for Applications_ language as per the **MS-VBAL** language specification;
+- `VB6` largely refers to the same language definition, without the restrictions around attribute semantics and with a limited set of additional semantics;
+- `VBX` refers to _extended RD-VBA_; an _environment host_ that signals support for this language code may support semantics that would be _illegal_ in **VB6** or **VBA**;
+- `VBS` refers to a _diminished_ language specification that removes `Option Explicit` and _declared types_, forcing the use of _duck-typing_ using implicit `Variant` declarations;
+- `BASIC` refers to a _diminished_ language specification that removes _procedure scopes_, forcing the use of `REM` for comments (this makes _annotations_ unavailable), _line numbers_, and `GoSub`/`Return` control flow; `Do...Loop` and `Do...While` constructs are undefined, forcing the use of `While...Wend` constructs.
+
+This list is _prioritized_ but not intended to be exhaustive; additional _dialects_ may be supported by different **RD-VBA** _hosts_.
+
+> 🎯 The scope of the **RDCore** _language core_ implementation minimally covers **VBA**, then **VB6**, then **VBX**, and so on.
+
 
 ## In this section
 
