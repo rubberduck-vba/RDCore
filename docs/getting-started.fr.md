@@ -125,6 +125,6 @@ Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _ca
 - 🌐[LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
 
 ---
-[Accueil](./index.html) | ℹ️[Introduction](./introduction.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+[Accueil](./index.fr.html) | ℹ️[Introduction](./introduction.fr.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

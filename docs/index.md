@@ -39,6 +39,6 @@ Except the SDK specifications (RD-VBAL), all content that is not generated direc
 Happy reading!
 
 ---
- ℹ️[Introduction](./introduction.en.html) | 🧩[Getting Started](./getting-started.en.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+ ℹ️[Introduction](./introduction.html) | 🧩[Getting Started](./getting-started.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

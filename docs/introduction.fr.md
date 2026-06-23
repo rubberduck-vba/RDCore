@@ -50,6 +50,6 @@ RDCore est présentement en phase active de développement pré-release.
 - Contributions publiques: ❌ pas encore ouvertes
 
 ---
- [Accueil](./index.html) | 🧩[Démarrage](./getting-started.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+ [Accueil](./index.fr.html) | 🧩[Démarrage](./getting-started.fr.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
