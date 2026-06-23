@@ -33,6 +33,18 @@ This list is _prioritized_ but not intended to be exhaustive; additional _dialec
 > 👉 The LSP paradigm shift _alone_ brings RD-VBA much closer to how VB6 works already.  
 
 
+## 2.0.2 Client/Server Capabilities
+> [!NOTE]
+> This documentation is incomplete.
+
+This section intends to exhaustively document all RDCore platform capabilities, without exceptions.
+
+|Capability|Description|Platform Version|
+|---|---|---|
+| | | |
+
+
+
 ## In this section
 - [**RD-VBAL §2.1** Implicit Storage](./rd-vbal.2.1.implicit-storage.html)
 - [**RD-VBAL §2.2** Project Structure](./rd-vbal.2.2.rdproj-structure.html)

@@ -4,7 +4,9 @@
 
 ## Welcome!
 
-**RDCore** ("Rubberduck Core") is the spiritual successor to **Rubberduck VBA**, the popular _legacy_ open-source project (2015-2025, now archived).  
+![VIVAT CUCUMIS™](./images/vivat-cucumis-stonecore.png)
+
+**RDCore**™ ("Rubberduck Core") is the spiritual successor to **Rubberduck VBA**™, the popular _legacy_ open-source project (2015-2025, now [archived](https://github.com/rubberduck-vba/Rubberduck)).  
 
 ❌ **RDCore is NOT** an add-in for the VBIDE.  
 ✅ **RDCore is a re-implementation of VBA** from its specifications.
@@ -22,6 +24,8 @@
 - execution **becomes observable**
 - the language _itself_ **becomes extensible**
 
+
+👉 **Repository** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)
 
 ### Objectives :
 
@@ -42,5 +46,3 @@ Happy reading!
  ℹ️[Introduction](./introduction.html) | 🧩[Getting Started](./getting-started.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
-
-> This site was created with [DocFX](https://dotnet.github.io/docfx/)

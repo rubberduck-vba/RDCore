@@ -22,7 +22,7 @@
 - 6. [Standard Library](./rd-vbal.6.0.standard-library.html)
 
 > [!NOTE]
-> **RD-VBA** is an implementation of the MS-VBAL specification that is independent from its historical **MS-VBA** runtime host.**RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the RD-VBA _language core_ but is wider than the language specification.  
+> **RD-VBA** is an implementation of the **MS-VBAL specification** that is independent from its historical **MS-VBA** runtime host.**RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the **RD-VBA** _language core_ but is wider than the sole language specification.  
 
 ---
 
