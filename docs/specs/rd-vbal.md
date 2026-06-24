@@ -18,7 +18,7 @@
   - 2.5. [Runtime Values](rd-vbal.2.5.runtime-values.html)
 - 3. [Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.html)
   - 3.1. [Attributes and Directives](rd-vbal.3.1.attributes-directives.html)
-  - 3.2. [Literal Expressions](rd-vbal.3.2.literals.html)
+  - 3.2. [Literal Expressions](rd-vbal.3.2.0.literals.html)
   - 3.3. [Operators](rd-vbal.3.3.0.operators.html)
   - 3.4. [Statements]🚧
   - 3.5. [Instructions]🚧

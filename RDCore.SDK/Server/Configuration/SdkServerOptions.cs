@@ -40,7 +40,7 @@ public record class SdkAppCommandLineArgs
     [Option('k', "healthcheck-timeout")]
     public int? HealthCheckIntervalSeconds { get; init; }
     /// <summary>
-    /// A <em>command-line argument</em> that overrides the <see cref="TransportOptions.HealthCheckIntervalSeconds"/> setting.
+    /// A <em>command-line argument</em> that overrides the <see cref="SdkServerOptions.HealthCheckIntervalSeconds"/> setting.
     /// </summary>
     [Option('m', "mode")]
     public ServerTransportLayerMode Type { get; init; }

@@ -33,5 +33,5 @@ Each layer of this inheritance hierarchy refines its members with more specializ
 - [**RD-VBAL §3.3.4** Relational (Comparison) Operators](./rd-vbal.3.3.4.relational-operators.html) 
 -->
 
-> ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.literals.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
+> ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
 

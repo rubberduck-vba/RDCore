@@ -1,7 +1,7 @@
 ﻿namespace RDCore.SDK.Server.Commands.Parsing;
 
 /// <summary>
-/// The <em>parameter</em> object for a <see cref="ParseDocumentCommand"/>.
+/// The <em>parameter</em> object for a <c>ParseDocumentCommand</c>.
 /// </summary>
 public record class ParseDocumentParams
 {

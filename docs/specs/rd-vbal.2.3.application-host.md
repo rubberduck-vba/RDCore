@@ -89,5 +89,5 @@ At any point in time, a _VBA host environment_ may be in either one of the follo
 > 👉 The exact behavior of the _host environment_ on error is _implementation-defined_: depending on the _workspace application_ configuration, a failing workspace application may terminate the host process with an _error code_, or enter _break mode_ and offer to _debug_ at that location.
 
 
-> ⏮️ [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structu.html) | ⏭️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html)
+> ⏮️ [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.html) | ⏭️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html)
 

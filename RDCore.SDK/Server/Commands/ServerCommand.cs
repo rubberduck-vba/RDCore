@@ -29,7 +29,7 @@ public interface ICommandParamsParser<out TArgs>
 public static class SdkServerCommandNames
 {
     /// <summary>
-    /// The name of the <see cref="ParseDocumentCommand"/>.
+    /// The name of the <see cref="ServerCommand"/>.
     /// </summary>
     /// <remarks>
     /// 👉 This command is sent from the <em>CoreLanguageServerApp</em> to the <em>RDCoreParserApp</em>,

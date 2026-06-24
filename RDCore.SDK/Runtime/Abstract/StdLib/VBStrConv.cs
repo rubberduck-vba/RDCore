@@ -4,7 +4,7 @@
 /// <strong>MS-VBAL 6.1.1.14 VbStrConv</strong>
 /// </summary>
 /// <remarks>
-/// These values encode the possible values for <c>Conversion</c> parameter of the <see cref="IStdStringsModule.StdStrings__StrConv"/> function.
+/// These values encode the possible values for <c>Conversion</c> parameter of the <c>IStdStringsModule.StdStrings__StrConv</c> function.
 /// </remarks>
 public enum VBStrConv
 {

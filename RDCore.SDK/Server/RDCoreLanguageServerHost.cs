@@ -13,7 +13,7 @@ namespace RDCore.SDK.Server;
 /// <remarks>
 /// 🧩 Override templated methods to customize your application.<br/>
 /// <list type="bullet">
-/// <item>Implement (<c>override</c>) <see cref="AppHost{TApp}.ConfigureLogging"/> to override the default <see cref="ILoggingBuilder"/> providers.</item>
+/// <item>Implement (<c>override</c>) <see cref="AppHost{TApp}.ConfigureExternalLogging(IServiceCollection, ILoggingBuilder, IConfiguration)"/> to override the default <see cref="ILoggingBuilder"/> providers.</item>
 /// </list>
 /// </remarks>
 public class RDCoreLanguageServerHost<TApp>() : AppHost<TApp>() 

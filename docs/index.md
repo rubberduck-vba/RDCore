@@ -1,4 +1,4 @@
-﻿# RDCore™ SDK
+﻿# RDCore SDK
 \[EN\] | \[[FR](index.fr.html)\]
 
 ## Welcome!

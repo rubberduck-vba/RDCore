@@ -32,45 +32,46 @@ The _scope kind_ of a `Symbol` determines exactly _how_ (and _whether_) it is al
 |Instance|Instance level; lives in the _object_ heap.|
 |External|Allocated externally; lives _out of process_ at a known address.|
 
-The _symbol kind_ of a `Symbol` is as per specified in **LSP 3.17**. The values RD-VBA uses are as follows:
+The _symbol kind_ of a `Symbol` is as per specified in **LSP 3.17**. The values RD-VBA uses are as follows (see [SymbolKindExt](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html)):
 
 |RD-VBA Value|LSP Equivalence|
 |---|---|
-|[Module](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Module)|`SymbolKind.Module`|
-|[Project](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Project)|`SymbolKind.Namespace`|
-|[Class](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Class)|`SymbolKind.Class`|
-|[Procedure](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Procedure)|`SymbolKind.Method`|
-|[Field](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Field)|`SymbolKind.Field`|
-|[Enum](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Enum)|`SymbolKind.Enum`|
-|[Interface](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Interface)|`SymbolKind.Interface`|
-|[Function](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Function)|`SymbolKind.Function`|
-|[Variable](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Varialbe)|`SymbolKind.Variable`|
-|[Constant](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Constant)|`SymbolKind.Constant`|
-|[StringLiteral](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#StringLiteral)|`SymbolKind.String`|
-|[NumberLiteral](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#NumberLiteral)|`SymbolKind.Number`|
-|[BooleanLiteral](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#BooleanLiteral)|`SymbolKind.Boolean`|
-|[Array](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Array)|`SymbolKind.Array`|
-|[Object](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Object)|`SymbolKind.Object`|
-|[Key](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Key)|`SymbolKind.Key`|
-|[Null](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Null)|`SymbolKind.Null`|
-|[EnumMember](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#EnumMember)|`SymbolKind.EnumMember`|
-|[UserDefinedType](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#UserDefinedType)|`SymbolKind.Struct`|
-|[Event](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Event)|`SymbolKind.Event`|
-|[Oerator](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Operator)|`SymbolKind.Operator`|
+|`Module`|`SymbolKind.Module`|
+|`Project`|`SymbolKind.Namespace`|
+|`Class`|`SymbolKind.Class`|
+|`Procedure`|`SymbolKind.Method`|
+|`Field`|`SymbolKind.Field`|
+|`Enum`|`SymbolKind.Enum`|
+|`Interface`|`SymbolKind.Interface`|
+|`Function`|`SymbolKind.Function`|
+|`Variable`|`SymbolKind.Variable`|
+|`Constant`|`SymbolKind.Constant`|
+|`StringLiteral`|`SymbolKind.String`|
+|`NumberLiteral`|`SymbolKind.Number`|
+|`BooleanLiteral`|`SymbolKind.Boolean`|
+|`Array`|`SymbolKind.Array`|
+|`Object`|`SymbolKind.Object`|
+|`Key`|`SymbolKind.Key`|
+|`Null`|`SymbolKind.Null`|
+|`EnumMember`|`SymbolKind.EnumMember`|
+|`UserDefinedType`|`SymbolKind.Struct`|
+|`Event`|`SymbolKind.Event`|
+|`Oerator`|`SymbolKind.Operator`|
 
 > [!TIP]
-> LSP standard symbol kinds `File`, `Constructor`, and `TypeParameter` are not used in RD-VBA, and `Namespace` is being repurposed to a different meaning (there is no concept of a _namespace_ in VBA). The `Key` symbol kind may end up being used for the token that follows the `!` operator in _dictionary access expressions_.  
+> LSP standard symbol kinds `File`, `Constructor`, and `TypeParameter` are not used in RD-VBA, and `Namespace` is being repurposed to a different meaning (there is no concept of a _namespace_ in VBA). The `Key` symbol kind may end up being used for the token that follows the `!` operator in _dictionary access expressions_, since it represents, in fact, a _dictionary key_.  
 
-RD-VBA additionally defines the following _extension symbol types_:
+**RD-VBA** additionally defines the following [_extension symbol kinds_](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html):
 
-- [Ignored](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Ignored);
-- [Attribute](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Attribute);
-- [Directive](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#Directive);
-- [LineLabel](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#LineLabel);
-- [DateLiteral](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#DateLiteral);
-- [VariantLiteral](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#VariantLiteral);
-- [TypeDescriptor](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html#TypeDescriptor).
+- Ignored
+- Attribute
+- Directive
+- LineLabel
+- DateLiteral
+- VariantLiteral
+- TypeDescriptor
 
+These extended _symbol kinds_ may or may not be supported by a LSP client (editor), but can help supply more precise _hover tips_ when they are.
 
 ## 2.5.2 VBTypedValue
 
