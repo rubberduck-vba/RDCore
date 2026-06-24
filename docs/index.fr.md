@@ -1,10 +1,9 @@
 ﻿# RDCore™ SDK
-
-\[[EN](./index.html)\] | \[[FR](./index.fr.html)\]
+\[[EN](index.html)\] | \[FR\]
 
 ## Bienvenue!
 
-![VIVAT CUCUMIS™](./images/vivat-cucumis-stonecore.png)
+![VIVAT CUCUMIS™](/images/vivat-cucumis-stonecore.png)
 
 **RDCore** ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)). 
 
@@ -25,14 +24,14 @@
 - **rend extensible** le langage même
 
 
-👉 **Référentiel** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)
+👉 **Référentiel et état du projet** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)
 
 ### Objectifs :
 
-- 🎯 **Implémentation intégrale** de la spécification MS-VBAL (travaux en cours)
-- 🎯 Implémentation d'une **librairie runtime indépendante** de MS-VBA (travaux en cours)
-- 🎯 Publication d'une **spécification RD-VBA** officielle (travaux en cours)
-- 🎯 Implémentation d'un écosystème _Language Server_ (LSP) et **plateforme analytique** pour RD-VBA (travaux en cours)
+- 🎯 **Implémentation intégrale** de la spécification MS-VBAL
+- 🎯 Implémentation d'une **librairie runtime indépendante** de MS-VBA
+- 🎯 Publication d'une **spécification RD-VBA** officielle
+- 🎯 Implémentation d'un écosystème _Language Server_ (LSP) et **plateforme analytique** pour RD-VBA
 
 ## Documentation
 
@@ -43,6 +42,6 @@ La documentation de la section **SDK** de ce site est générée à partir des c
 Bonne lecture!
 
 ---
-ACCUEIL • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](./introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
+ACCUEIL • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

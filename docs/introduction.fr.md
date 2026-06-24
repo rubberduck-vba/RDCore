@@ -1,6 +1,5 @@
 # Introduction
-
-\[[EN](./introduction.html)\] | \[[FR](./introduction.fr.html)\]
+\[[EN](introduction.html)\] | \[FR\]
 
 **RDCore™** est un **projet open-source** conçu et soutenu par une société privée et visant à bâtir une plateforme de langage moderne pour _Visual Basic for Applications_ (VBA).
 À terme, son SDK fournit un modèle sémantique complet, infrastructure run-time, et surface d'outillage extensible pour analyser, exécuter, et faire évoluer le code VBA **à l'extérieur de son environnement historique**.
@@ -45,6 +44,6 @@ RDCore est présentement en phase active de développement **pré-alpha**.
 👉 Le **statut courant du projet** est tenu à jour dans **README.md** aux côtés de l'implémentation de la plateforme dans le [référentiel sur GitHub](https://github.com/rubberduck-vba/RDCore).
 
 ---
-[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ BIENVENUE • [WELCOME](./introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ BIENVENUE • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

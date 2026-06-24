@@ -9,6 +9,10 @@ The _token semantics_ of RD-VBA are as specified by MS-VBAL, with the exception(
 > [!NOTE]
 > **RDCore** uses the same grammar as the _legacy Rubberduck project_; this grammar was designed around the MS-VBAL specifications and is deemed compliant enough to be able to generate a _concrete syntax tree_ (CST) that can be traversed to produce an _abstract syntax tree_ that is appropriately structured and detailed for **RD-VBA**.
 
+Token semantics are be _provided_ to the _parser_ by a `ITokenSemanticsProvider` that is implemented by the _environment host_ and may provide semantics that may themselves be provided by platform-level extensions.
+
+The token semantics provider specifics are not yet designed, but its requirements are as follows:
+- The provider accepts a base `Antlr4.Runtime.` 
 
 ### 3.0.1.1 Comment Annotations Syntax
 

@@ -1,10 +1,10 @@
 # RDCore™
-
 [EN] | [FR](./README.md)
 
-## Before we begin.
+![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 
-> 👋 New here? Rubberduck was always an open-source initiative. **RDCore honors it with an Open-Core formula**.  
+## Before we begin.
+> 👋 Hi! New here? _Rubberduck_ was always an open-source initiative. **RDCore honors it with an Open-Core formula**.  
 > <small>See [rubberduckvba.ca](https://rubberduckvba.ca) for more information.</small>
 
 This repository contains different projects **under active development** producing different libraries and executables, under a relatively simple licensing model:
@@ -17,7 +17,6 @@ This arrangement protects both the legacy and current contributors while enablin
 👉 We're building a solid _language core_ foundation here, but please note that at the moment the only deliverable is the [documentation site](https://rdcore-sdk.github.io).
 
 ---
-
 # 1.0.1 RDCore
 
 **RDCore**™ is an actively evolving _Language Server_ (LSP) platform that is currently a **work in progress**. Ultimately, the RDCore deliverables are:
@@ -51,7 +50,7 @@ RDCore is currently in active **pre-alpha** development - the **only deliverable
 - CLI host (rdc.exe): 🚧 exists (barely)
 - **Public contributions: ❌ not yet opened**
 
-
+---
 # 1.0.2 RD-VBA
 
 The implementation of the platform's _language core_ is a **work in progress**. Ultimately, RD-VBA:
@@ -93,7 +92,7 @@ The implementation of the platform's _language core_ is a **work in progress**. 
 ### Test Coverage
 - 🧪 OVERALL test coverage (rdcore.sdk.dll): 17.4 %blocks; **15.0 %lines** | ⚠️ BELOW TARGET (>70%)
 
-The current operator tests run the static semantics through a matrix of [VBIntrinsicType](https://rubberduck-vba.github.io/rdcore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) that exercises most if not all _specified_  input combinations:
+The current operator tests run the static semantics through a matrix of [VBIntrinsicType](https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) that exercises most if not all _specified_  input combinations:
 
 ![operator static semantics tests](./docs/images/operator-static-semantic-tests.png)  
 
@@ -101,7 +100,7 @@ The current operator tests run the static semantics through a matrix of [VBIntri
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>
-<a href='https://rubberduck-vba.github.io/rdcore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/rdcore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/rdcore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/rdcore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/rdcore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/rdcore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/rdcore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/rdcore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
+<a href='https://rubberduck-vba.github.io/RDCore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/RDCore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/RDCore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/RDCore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/RDCore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/RDCore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
 </p>
 <hr/>
 <p align='center'><img alt='Logo™ 9562-7303 Québec inc.' src='./assets/vector-ducky.svg' style='width:200px; align:center;' /></p>

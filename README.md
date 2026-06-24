@@ -1,9 +1,11 @@
 # RDCore™
 [EN](./README.en.md) | [FR]
 
-### Avant de commencer.
-> 👋 Nouveau ici? Rubberduck a toujours été une initiative open-source.
-> **RDCore l'honore avec une formule Open-Core**. Voir [rubberduckvba.ca](https://rubberduckvba.ca) pour plus de détails.
+![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
+
+## Avant de commencer.
+👋 Bonjour! Nouveau ici? _Rubberduck_ a toujours été une initiative open-source.
+**RDCore l'honore avec une formule Open-Core**. Voir [rubberduckvba.ca](https://rubberduckvba.ca) pour plus de détails.
 
 Ce référentiel contient différents projets **en phase de développement actif** produisant différentes librairies et exécutables sous un modèle de licence relativement simple :
 - **La librairie RDCore.SDK** est sous licence **⚖️MIT**;
@@ -14,7 +16,6 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 👉 Nous construisons ici une solide fondation pour le _coeur de langage_, mais veuillez noter qu'en ce moment le seul livrable est le [site de documentation](https://rubberduck-vba.github.io/rdcore).
 
 ---
-
 # 1.0.1 RDCore
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
 - 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI);
@@ -47,7 +48,7 @@ RDCore est présentement en phase active de développement **pré-alpha** - le *
 - Hôte CLI (rdc.exe): 🚧 existe (tout juste)
 - **Contributions publiques: ❌ pas encore ouvertes**
 
-
+---
 # 1.0.2 RD-VBA
 L'implémentation du _coeur de langage_ de la plateforme est également un **projet en cours de réalisation**. Ultimement, RD-VBA :
 
@@ -91,7 +92,7 @@ L'implémentation du _coeur de langage_ de la plateforme est également un **pro
 ### Couverture de tests
 - 🧪 couverture TOTALE (rdcore.sdk.dll): 17.4 %blocs; **15.0 %lignes** | ⚠️ SOUS LA CIBLE (>70%)
 
-Des tests exercent les sémantiques statiques des opérateurs à travers une matrice de [VBIntrinsicType](https://rubberduck-vba.github.io/rdcore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) qui traversent la plupart (toutes?) des combinaisons _spécifiées_ d'intrants:
+Des tests exercent les sémantiques statiques des opérateurs à travers une matrice de [VBIntrinsicType](https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) qui traversent la plupart (toutes?) des combinaisons _spécifiées_ d'intrants:
 
 ![tests sémantiques statiques opérateurs](./docs/images/operator-static-semantic-tests.png)  
 
@@ -99,7 +100,7 @@ Des tests exercent les sémantiques statiques des opérateurs à travers une mat
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>
-<a href='https://rubberduck-vba.github.io/rdcore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/rdcore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/rdcore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/rdcore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/rdcore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/rdcore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/rdcore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/rdcore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
+<a href='https://rubberduck-vba.github.io/RDCore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/RDCore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/RDCore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/RDCore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/RDCore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/RDCore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
 </p>
 <hr/>
 <p align='center'><img alt='Logo™ 9562-7303 Québec inc.' src='./assets/vector-ducky.svg' style='width:200px; align:center;' /></p>

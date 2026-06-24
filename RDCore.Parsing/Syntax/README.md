@@ -36,7 +36,7 @@ In plain language:
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>
-<a href='https://rubberduck-vba.github.io/rdcore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/rdcore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/rdcore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/rdcore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/rdcore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/rdcore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/rdcore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/rdcore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
+<a href='https://rubberduck-vba.github.io/RDCore/index.fr.html'>ACCUEIL</a> • <a href='https://rubberduck-vba.github.io/RDCore/index.html'>HOME</a>  | ℹ️ <a href='https://rubberduck-vba.github.io/RDCore/introduction.fr.html'>BIENVENUE</a> • <a href='https://rubberduck-vba.github.io/RDCore/introduction.html'>WELCOME</a>  | 🧩 <a href='https://rubberduck-vba.github.io/RDCore/getting-started.fr.html'>BÂTISSONS</a> • <a href='https://rubberduck-vba.github.io/RDCore/getting-started.html'>BUILD</a>  | <a href='https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html'><strong>RD-VBAL</strong></a>  |  <a href='https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html'>SDK</a>  | 🌐 <a href='https://rubberduckvba.ca'>rubberduckvba.ca</a>
 </p>
 <hr/>
 <p align='center'><img alt='Logo™ 9562-7303 Québec inc.' src='../../assets/vector-ducky.svg' style='width:200px; align:center;' /></p>

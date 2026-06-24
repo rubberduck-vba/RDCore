@@ -1,8 +1,8 @@
 # Démarrage
+\[[EN](getting-started.html)\] | \[FR\]
+
 > [!Note]
 > Cette documentation peut être incomplète en ce moment.
-
-\[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 
 
 ## 🧩 Extension de la plateforme
@@ -147,13 +147,12 @@ Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet
 
 Le _coeur de langage_ est conçu pour être étendu à travers des extensions de la plateforme de type _serveur_, moyennant un échange de _capacités_ donnant accès à des points d'extensions.
 
+👉 La liste complète et exhaustive des capacités de la plateforme sera documentée sous [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html#202-clientserver-capabilities) à mesure que progresse son implémentation.
+
 > [!NOTE]
-> 🎯 Ni ces _points d'extensions_, ni ces _capacités_ ne sont à ce stade-ci pas encore formellement définies. Leur _découverte_ au fil de l'avancement de la _spécification de la plateforme_ motivera leur spécification et fait _partie intégrante du périmètre_ du projet _open-core_.
->
-> Les points d'extensions prévus sont notamment:
->  - **Injection de sémantique des jetons (_token semantics_)**: une extension doit pouvoir enregistrer une _capacité serveur_ permettant à une extension d'être un _fournisseur externe_ de _token semantics_.
+> **Les extensions de première et de tierces parties** distribuées à travers l'**infranuagique de la plateforme RDCore** _PEUT_ utiliser un _capability provider_ qui _PEUT_ validater la disponiblité de certaines capacités avancées en **requérant une authentification 2FA**, la validation d'une **inscription active** (gratuite ou payante), et la validation d'un _signed build_ avec le build certifié du canal de distribution officiel.
 
 ---
-[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](./introduction.html) | 🧩 BÂTISSONS • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 BÂTISSONS • [BUILD](getting-started.html) | [**RD-VBAL**](/specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---
