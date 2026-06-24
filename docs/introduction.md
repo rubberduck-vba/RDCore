@@ -42,17 +42,11 @@ RDCore is composed of:
 
 
 ## 📊 Project Status
-RDCore is currently in active **pre-alpha** development.
-- Core architecture: ✅ stable
-- Language SDK: ✅ largely defined
-- Runtime: 🚧 implementation in progress
-- Standard library: 🚧 partially defined
-- Parser: 🚧 exists (barely)
-- CLI host (rdc.exe): 🚧 exists (barely)
-- **Public contributions: ❌ not yet opened**
+RDCore is currently in active **pre-alpha** development.  
 
+👉 The current **project status** is kept up-to-date in **README.md** alongside its implementation in the [GitHub repository](https://github.com/rubberduck-vba/RDCore).
 
 ---
- ℹ[Home](./index.html) | 🧩[Getting Started](./getting-started.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • WELCOME | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

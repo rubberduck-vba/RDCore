@@ -8,7 +8,74 @@
 
 The _environment host_ is responsible for _composing_ a **RD-VBA** from its _references_, _instructions_, and _symbols_; configuring the _host VBA environment_ implicit storage, and loading any _application settings_ and additional _workspace resources_ into the runtime environment.
 
-It then proceeds to resolve an _entry point_, construct and push a [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) to the _evaluation engine_ that then proceeds to sequentially evaluate each instruction in the frame.
+It then proceeds to resolve an _entry point_, initiates an _execution session_, construct and push a [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) to the _evaluation engine_ that then proceeds to sequentially evaluate each instruction in the frame.
+
+### 2.3.1.1 Execution Session
+
+An _execution session_ holds the _state_ of the execution engine and exposes methods that advance execution _steps_:
+
+|Member|Description|
+|---|---|
+|`State`| Describes the current [_mode_](#232-mode--state) of the session|
+|`Frame`| Exposes the current _stack frame_|
+|`GetCurrentStack`| Exposes the current _call stack_|
+|`StepInto`| Advances execution by a single step|
+|`StepOver`| Advances execution into the next statement|
+|`StepOut` | Advances execution to the next statement in the current scope, stepping over any statements in-between|
+
+
+### 2.3.1.2 Virtual Heap
+
+The `IVirtualHeap` interface extends `ISymbolProvider` and `ISymbolResolver` and should typically be exposed to the internal API through these specialized get-only interfaces.
+
+- `ISymbolProvider` exposes a single `Define` method that loads a specified `Symbol` and addresses it using its `Uri`.
+
+The `ISymbolResolver` interface exposes the following members:
+
+|Member|Description|
+|---|---|
+|`Resolve`|Resolves a specified _identifier name_ to a defined `Symbol` by inspecting a specified _allocation scope_|
+|`GetValue`|Gets the currently held `VBTypedValue` for a specified `Symbol`|
+|`TryRead`|Gets the `VBTypedValue` held at the specified address (offset) if it exists|
+
+The `IVirtualHeap` interface represents a _service that manages the run-time memory structure of an execution context_; it exposes the following additional members to the execution engine:
+
+|Member|Description|
+|---|---|
+|`CreateObject`|Creates a new `VBObjectValue` of a specified _class type_|
+|`SetValue`|Associates a specified `VBTypedValue` to a `Symbol`|
+|`Allocate`|Allocates a `VBTypedValue` or a specified number of bytes at the _current memory address_ pointer|
+|`Deallocate`|Deallocates the memory held by the symbol at a specified `Uri`|
+
+> [!NOTE]
+> The **RDCore** implementation (⚖️GPLv3) of this service is intended to be _thread-safe_. While RD-VBA normally executes on a single thread, its runtime implementation is not _inherently_ single-threaded and it is _host-dependent_ whether a **RD-VBA** _environment host_ supports the concurrent execution of RD-VBA execution threads. This concurrent execution capability is intended to be (optionally) used for eventual _unit testing_ features.
+
+An implementation of `IVirtualHeap` should:
+- Maintain an internal _global heap_ to hold a `VBTypedValue` for any given `Symbol` that is globally-scoped;
+- Maintain an internal _workspace heap_ to hold a `VBTypedValue` for any given `Symbol` that is workspace-scoped;
+- Maintain an internal _static locals heap_ to hold a `VBTypedValue` for any given `Symbol` that is module-scoped;
+- Maintain an internal _object heap_ to hold the `Symbol` references and their respective associated `VBTypedValue` for any given `VBObjectValue`;
+- Maintain an internal _address pointer_ to track the current _memory offset_;
+- Maintain an internal _symbol table_ mapping a `Uri` to its associated `Symbol`;
+- Maintain an internal _name table_ holding the current representation (casing) of all loaded symbols;
+- Maintain an internal _memory map_ mapping a `VBTypedValue` to a _memory address_ (offset);
+- Maintain an internal _raw address map_ mapping a _memory address_ (offset) to a `Uri`.
+
+[ScopeKind](/api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html) defines the _allocation scopes_.
+
+The _current memory address_ pointer should be incremented by a _host-defined_ `IntPtrSize` that represents the size of a pointer in the current environment (32 or 64 bits).
+
+The correctly-scoped allocation of all symbols upon their definition should then suffice to make symbol resolution automatically follow the MS-VBAL specification with regards to the order in which an _identifier name_ is resolved, provided that lookups are done in the specified order:
+1. If a name refers to a symbol defined on the local _stack frame_, then the resolved symbol is locally scoped;
+2. If a name refers to a symbol defined in the _static locals heap_, then the resolved symbol is locally scoped but preserves its value between calls;
+3. If a name refers to a symbol defined in the _workspace heap_, then the resolved symbol is workspace-scoped;
+4. If a name refers to a symbol defined in the _global heap_, then the resolved symbol is globally-scoped.
+
+- If multiple symbols match a specified name before reaching the _global_ scope, then the name is ambiguous and an appropriate [compile-time error](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) should be issued, in this case **VBC009303** _Duplicate declaration_.
+- If multiple symbols match a specified name within the _global_ scope, then the name is disambiguated using the _reference priority order_ of the _referenced library_ a matching symbol is defined in. This priotity is determined by the order in which project references appear in the `.rdproj` file of a _workspace folder_.
+
+> [!NOTE]
+> The **VBA** standard library always has the _lowest priority_ (i.e. always appears first), meaning any other project reference that defines any identically-named class type or public/global member is always going to _shadow_ the `VBA` library definitions; this _shadowing_ should be detected in the _semantic layer_ and reported through _semantic flags_ so **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics.
 
 ## 2.3.2 Mode / State
 

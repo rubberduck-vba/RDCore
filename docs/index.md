@@ -29,20 +29,20 @@
 
 ### Objectives :
 
-- 🎯 **Integral implementation** of the MS-VBAL specification (work in progress)
+- 🎯 **Integral implementation** of the [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74) (work in progress)
 - 🎯 Implement an **independent runtime library** that brings the language to life completely without MS-VBA (work in progress)
 - 🎯 Publish an official **RD-VBA specification** (work in progress)
-- 🎯 Implementat a _Language Server ecosystem_ (LSP) and **analytics platform** for RD-VBA (work in progress)
+- 🎯 Implement a _Language Server ecosystem_ (LSP) and **analytics platform** for RD-VBA (work in progress)
 
 ## Documentation
 
 The documentation in the **SDK** section of this site is generated from comments (xmldoc) directly in the source code, and therefore is **only available in English** so as to maximize its reach and reduce its weight in the source code.
 
-Except the SDK specifications (RD-VBAL), all content that is not generated directly from source code is also available in French.
+With the exception of the _SDK and language platform specification/documentation_ (**RD-VBAL**), all content that is not generated directly from source code is also available in French.
 
 Happy reading!
 
 ---
- ℹ️[Introduction](./introduction.html) | 🧩[Getting Started](./getting-started.html) | 🎯[RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](./index.fr.md) • HOME | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](./introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

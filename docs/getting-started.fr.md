@@ -4,6 +4,9 @@
 
 \[[EN](./getting-started.html)\] | \[[FR](./getting-started.fr.html)\]
 
+
+## 🧩 Extension de la plateforme
+
 Il suffit de quelques lignes dans votre point d'entrée pour que votre application **RDCore** soit prise en charge :
 
 ```csharp
@@ -17,7 +20,7 @@ public class Program
 }
 ```
 
-## Hôte
+### Hôte
 
 Avant de pouvoir écrire ces lignes, il faudra définir votre _hôte_ en héritant de `RDCoreLanguageClientHost` si vous construisez un _client_ :
 
@@ -47,7 +50,7 @@ internal class CoreDiagnosticsAppHost() : RDCoreLanguageServerHost<CoreDiagnosti
 }
 ```
 
-## Application
+### Application
 
 Dans les deux cas, le rôle de l'hôte est de fournir les services au `IServiceCollection` de sorte que l'application puisse être instanciée en lui injectant tous les services dont elle a besoin.
 
@@ -119,7 +122,7 @@ internal class CoreDiagnosticsApp : RDCoreServerApp
 Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _capacités_ (LSP) de l'application et les _handlers_ pour la prise en charge de requêtes et notifications LSP.
 
 
-## Client ou Serveur?
+### Client ou Serveur?
 
 - Une application _client_ est généralement une application de type IDE.
 - Une application _serveur_ peut être un serveur de langage satellite ou une extension (plug-in) de la plateforme.
@@ -130,7 +133,7 @@ Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _ca
 > 🧩 **Les extensions de la plateforme RDCore** requièrent un _manifest_ pour permettre leur _découverte_ par _l'hôte d'environnement_; le schéma de ce manifest est défini par [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html); _l'hôte d'environnement_ peut founir des _outils de développement_ (CLI) pour faciliter la création d'un manifest pour une extension en cours de développement.
 
 
-## Capacités
+### Capacités
 
 Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet d'initier un _LSP handshake_ avec la _couche d'orchestration_ LSP doit fournir des paramètres d'initialisation qui spécifient un jeu complet de _capacités_ définies tant par le protocole (LSP) que _définies par l'hôte de l'environnement_.
 
@@ -139,7 +142,18 @@ Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet
 > [!NOTE]
 > **Les extensions tant de première que de tierces parties** distribuées à travers l'**infranuagique RDCore**  _PEUVENT_ utiliser un _capability provider_ qui _PEUT_ valider la disponibilité de certains capacités avancées en **requérant une authentification 2FA**, la validation d'une **inscription active** (gratuite ou payante), et la validation d'un _build signé_ avec le _build officiel_ du canal de distribution certifié.
 
+
+## 🧩 Extension de la plateforme (SDK)
+
+Le _coeur de langage_ est conçu pour être étendu à travers des extensions de la plateforme de type _serveur_, moyennant un échange de _capacités_ donnant accès à des points d'extensions.
+
+> [!NOTE]
+> 🎯 Ni ces _points d'extensions_, ni ces _capacités_ ne sont à ce stade-ci pas encore formellement définies. Leur _découverte_ au fil de l'avancement de la _spécification de la plateforme_ motivera leur spécification et fait _partie intégrante du périmètre_ du projet _open-core_.
+>
+> Les points d'extensions prévus sont notamment:
+>  - **Injection de sémantique des jetons (_token semantics_)**: une extension doit pouvoir enregistrer une _capacité serveur_ permettant à une extension d'être un _fournisseur externe_ de _token semantics_.
+
 ---
-[Accueil](./index.fr.html) | ℹ️[Introduction](./introduction.fr.html) | [RD-VBAL](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐[rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](./introduction.html) | 🧩 BÂTISSONS • [BUILD](./getting-started.html) | [**RD-VBAL**](./specs/rd-vbal.html) | [SDK](/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

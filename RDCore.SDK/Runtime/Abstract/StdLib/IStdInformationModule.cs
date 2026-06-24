@@ -92,11 +92,11 @@ public interface IStdInformationModule
     /// </summary>
     /// <remarks>
     /// Returns a <see cref="VBIMEStatus"/> value representing the current implementation-dependant <em>Input Method Editor</em> (IME) mode.<br/>
-    /// The valid <c>interval</c> parameter values are defined in <see cref="StdDateIntervals"/>.
+    /// The valid <c>interval</c> parameter values are defined in <see cref="IStdDateTimeModule.StdDateIntervals"/>.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult StdInformation__IMEStatus();
-
+    
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.2 IsArray</strong>
     /// </summary>

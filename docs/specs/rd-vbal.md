@@ -22,7 +22,25 @@
 - 6. [Standard Library](rd-vbal.6.0.standard-library.html)
 
 > [!NOTE]
-> **RD-VBA** is an implementation of the **MS-VBAL specification** that is independent from its historical **MS-VBA** runtime host.**RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the **RD-VBA** _language core_ but is wider than the sole language specification.  
+> **RD-VBA** is an implementation of the **MS-VBAL specification** that is independent from its historical **MS-VBA** runtime host. **RD-VBAL** is the name of the specification/documentation of the _language server platform_, which _includes_ the **RD-VBA** _language core_ but is wider than the sole language specification.
+> **The formalization of _RD-VBAL_ is a work in progress**.  
+
+This platform specification presents a similar _technical prose_ style as its inspirational _Open Spec_ source material.
+
+---
+
+## Intellectual Property Rights Notice for Open Specifications Documentation
+
+> [!IMPORTANT]
+> **This documentation IS NOT A REVISION of the MS-VBAL specification**.
+
+The publisher of the **RDCore** platform project and of _this present documentation_, is claiming the rights described in the following paragraph of the _Intellectual Property Rights Notice for Open Specifications Documentation_ section (emphasis added):
+
+> **Copyrights**. This documentation [MS-VBAL] is covered by Microsoft copyrights. Regardless of any other terms that are contained in the terms of use for the Microsoft website that hosts this documentation, you can **make copies of it in order to develop implementations of the technologies that are described** in this documentation [MS-VBAL] and can distribute portions of it in your implementations that use these technologies **or in your documentation as necessary to properly document the implementation**. **You can also distribute in your implementation**, with or without modification, any schemas, IDLs, or code samples that are included in the documentation. **This permission also applies to** any documents that are referenced in the Open Specifications documentation.
+- [MS-VBAL: VBA Language Specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74#intellectual-property-rights-notice-for-open-specifications-documentation)
+
+
+✅ **Challenge: Accepted**.
 
 ---
 
@@ -30,6 +48,6 @@
 
 |Date|Version|Description|
 |---|---|---|
-|2026-06-2x|1.0|Initial public version|
+|2026-06-25|1.0|Initial public version|
 | | | |
 

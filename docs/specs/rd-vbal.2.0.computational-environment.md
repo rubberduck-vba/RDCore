@@ -37,13 +37,16 @@ This list is _prioritized_ but not intended to be exhaustive; additional _dialec
 > [!NOTE]
 > This documentation is incomplete.
 
-This section intends to exhaustively document all RDCore platform capabilities, without exceptions.
+This section intends to exhaustively document all supported RDCore platform capabilities.
 
 |Capability|Description|Platform Version|
 |---|---|---|
 | | | |
 
+> [!NOTE]
+> **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
 
+---
 
 ## In this section
 - [**RD-VBAL §2.1** Implicit Storage](./rd-vbal.2.1.implicit-storage.html)

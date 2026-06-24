@@ -10,10 +10,6 @@ Static semantics always yield a [StaticSemanticsEvaluationResult](../api/RDCore.
 
 > 👉 In most error cases, the compile-time error metadata returned is for a [TypeMismatch](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html#TypeMismatch) error.
 
-> ✅ Static semantics are currently DONE for all operators;  
-> ✅ Static semantics are currently DONE for all let-coercions;  
-> 🎯 Static semantics are currently TODO for all statements.  
-
 
 ## 5.0.2 Runtime Semantics
 
@@ -21,10 +17,6 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 - _Directives_ and _literal_ or _constant expressions_ evaluate to their static / compile-time value;
 - _Operators_ evaluate a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their _operands_;
 - _Statements_ induce _side-effects_ to _program_, _global_, or _host environment_ state.
-
-> ✅ Runtime semantics are currently DONE for all operators;  
-> 🚧 Runtime semantics are currently IN PROGRESS for most let-coercions;  
-> 🎯 Runtime semantics are currently TODO for all statements.
 
 
 ### 5.0.2.1 Operator Evaluation

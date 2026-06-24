@@ -5,6 +5,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Server;
+using RDCore.SDK.Server.Handlers;
+using RDCore.SDK.Server.Handlers.Lifecycle;
 using RDCore.SDK.Server.Services;
 using System.Reflection;
 
@@ -152,7 +154,7 @@ public abstract class RDCoreClientApp(
     /// </list>
     /// </remarks>
     protected abstract void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder);
-
+    
     /// <summary>
     /// Gives your class or handler an opportunity to interact with the <see cref="ILanguageClient" /> after the connection has been established.
     /// </summary>

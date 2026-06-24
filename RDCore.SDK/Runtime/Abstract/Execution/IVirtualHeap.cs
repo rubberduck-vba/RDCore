@@ -15,15 +15,15 @@ public interface ISymbolResolver
     /// <summary>
     /// Resolves the specified <em>identifier name</em> in the specified scope.
     /// </summary>
-    /// <param name="name">The name of the symbol to resolve.</param>
+    /// <param name="name">The name of the <see cref="Symbol"/> to resolve.</param>
     /// <param name="scope">The memory scope to inspect.</param>
-    /// <param name="handle">The <c>Uri</c> of the current scope (procedure) symbol.</param>
+    /// <param name="handle">The <see cref="Uri"/> of the current scope (procedure) symbol.</param>
     /// <returns><c>null</c> if no symbol could be resolved from the specified <em>handle</em> in the specified <em>scope</em> with the specified <em>name</em>.</returns>
     Symbol? Resolve(string name, ScopeKind scope, Uri handle);
     /// <summary>
-    /// Gets the <c>VBTypedValue</c> currently associated with the specified <c>Symbol</c>.
+    /// Gets the <see cref="VBTypedValue"/> currently associated with the specified <see cref="Symbol"/>.
     /// </summary>
-    /// <param name="symbol">The <c>Symbol</c> to retrieve the currently associated value for.</param>
+    /// <param name="symbol">The <see cref="Symbol"/> to retrieve the currently associated <see cref="VBTypedValue"/> for.</param>
     VBTypedValue GetValue(Symbol symbol);
 
     /// <summary>
@@ -35,7 +35,7 @@ public interface ISymbolResolver
 }
 
 /// <summary>
-/// A service that loads a <c>Symbol</c> into the semantic layer.
+/// A service that loads a <see cref="Symbol"/> into the semantic layer.
 /// </summary>
 /// <remarks>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
@@ -43,9 +43,9 @@ public interface ISymbolResolver
 public interface ISymbolProvider
 {
     /// <summary>
-    /// Defines the specified new <c>Symbol</c> in the semantic layer (static context), or in the symbol table (runtime context).
+    /// Defines the specified new <see cref="Symbol"/> in the semantic layer (static context), or in the symbol table (runtime context).
     /// </summary>
-    /// <param name="symbol">The new <c>Symbol</c> to be semantically defined.</param>
+    /// <param name="symbol">The new <see cref="Symbol"/> to be semantically defined.</param>
     void Define(Symbol symbol);
 }
 
@@ -59,26 +59,26 @@ public interface ISymbolProvider
 public interface IVirtualHeap : ISymbolResolver, ISymbolProvider
 {
     /// <summary>
-    /// Creates a new <c>VBObjectValue</c> for the specified <c>Symbol</c>.
+    /// Creates a new <see cref="VBObjectValue"/> for the specified <see cref="Symbol"/>.
     /// </summary>
-    /// <param name="symbol">The <c>ClassModuleSymbol</c> to instantiate.</param>
+    /// <param name="symbol">The <see cref="VBClassModuleSymbol"/> to instantiate.</param>
     /// <remarks>
     /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
     /// </remarks>
     VBObjectValue CreateObject(VBClassModuleSymbol symbol);
     /// <summary>
-    /// Associates the specified <c>VBTypedValue</c> value to the specified <c>Symbol</c>.
+    /// Associates the specified <see cref="VBTypedValue"/> value to the specified <see cref="Symbol"/>.
     /// </summary>
-    /// <param name="symbol">The <c>Symbol</c> receiving the assignment.</param>
-    /// <param name="value">The <c>VBTypedValue</c> to be assigned.</param>
+    /// <param name="symbol">The <see cref="Symbol"/> receiving the assignment.</param>
+    /// <param name="value">The <see cref="VBTypedValue"/> to be assigned.</param>
     /// <remarks>
     /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
     /// </remarks>
     void SetValue(Symbol symbol, VBTypedValue value);
     /// <summary>
-    /// Allocates the specified number of bytes (<c>size</c>) under the specified <c>symbolUri</c> at the current memory address pointer.
+    /// Allocates the specified number of bytes (<c>size</c>) under the specified <c>symbolUri</c> at the <em>current memory address</em> pointer.
     /// </summary>
-    /// <param name="symbolUri">The <c>Uri</c> associated with this allocated memory space.</param>
+    /// <param name="symbolUri">The <see cref="Uri"/> associated with this allocated memory space.</param>
     /// <param name="size">The size (bytes) of the allocated memory.</param>
     /// <returns></returns>
     /// <remarks>
@@ -86,17 +86,17 @@ public interface IVirtualHeap : ISymbolResolver, ISymbolProvider
     /// </remarks>
     long Allocate(Uri symbolUri, int size);
     /// <summary>
-    /// Allocates the specified <c>VBTypedValue</c> under the specified <c>symbolUri</c> at the current memory address pointer.
+    /// Allocates the specified <see cref="VBTypedValue"/> under the specified <c>symbolUri</c> at the <em>current memory address</em> pointer.
     /// </summary>
-    /// <param name="symbolUri">The <c>Uri</c> associated with this allocated memory space.</param>
-    /// <param name="value">The <c>VBTypedValue</c> to be allocated.</param>
+    /// <param name="symbolUri">The <see cref="Uri"/> associated with this allocated memory space.</param>
+    /// <param name="value">The <see cref="VBTypedValue"/> to be allocated.</param>
     /// <remarks>
     /// The <strong>RDCore</strong> implementation is intended to be thread-safe.
     /// </remarks>
     long Allocate(Uri symbolUri, VBTypedValue value);
     /// <summary>
-    /// Deallocates the memory space held at the specified <c>Uri</c>.
+    /// Deallocates the memory space held at the specified <see cref="Uri"/>.
     /// </summary>
-    /// <param name="symbolUri">The <c>Uri</c> of the symbol to deallocate.</param>
+    /// <param name="symbolUri">The <em>semantic ID</em> of the symbol to deallocate.</param>
     void Deallocate(Uri symbolUri);
 }

@@ -21,7 +21,7 @@ While **RD-VBA** is normally hosted in a _standalone hosting environment_ that i
 
 As far as _Microsoft Office Automation_ is concerned, this _attach to host process_ feature ultimately positions the **RDCore** platform in a similar technical spot as _Microsoft VSTO_ did, **automating COM from the sidelines** rather than from within the host. The comparison stops here though: _a fully-realized RDCore platform_ could technically run **RD-VBA CI/CD pipelines** and **integrate Enterprise software development lifecycles**.  
 
-
+<!-- stubs or no stubs? TODO anyway.
 ## 4.0.1 Application Composition
 > [!NOTE]
 > This documentation is incomplete at this time.
@@ -44,7 +44,8 @@ As far as _Microsoft Office Automation_ is concerned, this _attach to host proce
 
 ### 4.0.3 Application Teardown
 > [!NOTE]
-> This documentation is incomplete at this time.
+> This documentation is incomplete at this time. 
+-->
 
 ### 4.0.4 VBIDE Synchronization
 
@@ -55,4 +56,4 @@ As far as _Microsoft Office Automation_ is concerned, this _attach to host proce
 
 ---
 
-> ⏮️ [**RD-VBAL §3.0** Syntax Tree](./rd-vbal.3.0.syntax-tree.html) | ⏭️ [**RD-VBAL §5.0** Semantics](./rd-vbal.5.0.semantics.html)
+> ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html) | ⏭️ [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.html)

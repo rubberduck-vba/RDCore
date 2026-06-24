@@ -30,6 +30,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     private readonly ConcurrentDictionary<Symbol, VBTypedValue> _workspaceHeap = [];
     private readonly ConcurrentDictionary<Symbol, VBTypedValue> _staticLocalsHeap = []; // "static" in the VB sense here.
 
+    // holds all references associated to the symbol mapped to an object
     private readonly ConcurrentDictionary<VBObjectValue, ConcurrentDictionary<Symbol, VBTypedValue>> _objectHeap = [];
 
     private long _nextAddress = _offset;

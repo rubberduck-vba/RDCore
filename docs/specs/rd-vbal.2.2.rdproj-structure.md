@@ -140,18 +140,20 @@ Describes the modules (source files) of a _workspace folder_.
 > The value of the `Name` property of a `RDCoreModule` must be unique across the entire _workspace_ and is always supplied by a `VB_Name` _attribute_. In case of a mismatch with the value of a `VB_Name` attribute, _the attribute value always takes precedence_.
 
 #### 2.2.3.2.1 DocClassType Enum
+> [!NOTE]
 > 🧩 This `enum` type is intended to be extended as additional _document modules_ are explicitly supported.
 
-The `DocClassType` enumeration defines constants that internally map to certain specific class types:
+The `DocClassType` enumeration defines constants that internally map _extensible modules_ to certain specific class types:
 
 |Name|Value|
+|---|---|
 |Unknown|0|
 |ExcelWorkbook|1|
 |ExcelWorksheet|2|
 |AccessForm|3|
 |AccessReport|4|
 
-> 👉 _Document modules_ can only be added to a VBA project via the _host application_ that defines them; exporting them from a MS-VBA project via the _VBIDE Extensibility API_ produces a `.cls` file that would then re-import as a _class module_. Rubberduck historically exported them with a `.doccls` extension to distinguish the two class types, since the base class metadata is externally defined.
+_Document modules_ can only be added to a VBA project via the _host application_ that defines them; exporting them from a MS-VBA project via the _VBIDE Extensibility API_ produces a `.cls` file that would then re-import as a _class module_. Rubberduck historically exported them with a `.doccls` extension to distinguish the two class types, since the base class metadata is externally defined.
 
 While RD-VBA can load the necessary symbols for these interfaces, their implementation belongs to their respective _host application_. In other words, RD-VBA cannot create a `Workbook` host document nor a `Worksheet` module in its `Sheets` collection, because that's the job of _Microsoft Excel_.
 
@@ -162,9 +164,6 @@ Workspace source code that is directly dependent on a _host document_ necessaril
 > 🎯 A more portable approach would be to refactor the MS-VBA legacy code such that any host-dependent calls are decoupled from the logic. RDCore semantic analysis capabilities should provide ample support for all the diagnostics and refactoring tools that would be needed to do this.
 
 ### 2.2.3.3 RDCoreFile
-> [!Note]
-> This specification may be incomplete at this time.
-
 Describes additional(non-source) files contained in a _workspace folder_ but not necessarily given to a _language server_ for processing.
 
 > 💡 This means, for example, that a `RDCoreProject` could include `README.md`, `CONTRIBUTING.md`, and `LICENCE.md` text/markdown files that would always be bundled with the project, but ignored by the RD-VBA _language core_.

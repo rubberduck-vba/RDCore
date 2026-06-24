@@ -22,6 +22,7 @@ The implementation of the platform's _language core_ is a **work in progress**. 
 - 🧩 **elevates VBA into a modern, extensible, _and fully open-sourced_ language platform** separating the language definition from its original 1993 implementation;
 - 👀 **makes implicit language behavior explicit**, exposing semantic rules, evaluation steps, call stacks, and error conditions as _observable facts_.
 
+---
 
 ## In this section
 - [**RD-VBAL§1.1** Philosophy](./rd-vbal.1.1.philosophy.html)

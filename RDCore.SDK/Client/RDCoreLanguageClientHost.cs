@@ -7,15 +7,14 @@ namespace RDCore.SDK.Client;
 /// <summary>
 /// Simplifies implementing a <c>RDCore</c> <em>LSP client</em> application.
 /// </summary>
-/// <param name="ProcessTokenSource">A <see cref="CancellationTokenSource"/> created in the application entry point.</param>
 /// <remarks>
 /// 🧩 <c>override</c> templated methods to customize your application.<br/>
 /// <list type="bullet">
 /// <item>Implement <see cref="AppHost{TApp}.Configure"/> to override the default <see cref="IConfiguration"/> providers.</item>
 /// <item>Implement <see cref="AppHost{TApp}.ConfigureLogging"/> to override the default <see cref="ILoggingBuilder"/> providers.</item>
 /// </list>
-/// <c>TApp</c> is <see cref="IRDCoreClientApp"/>.
 /// </remarks>
+/// <typeparam name="TApp">A specific class type implementing <see cref="IRDCoreClientApp"/>.</typeparam>
 public abstract class RDCoreLanguageClientHost<TApp>() : AppHost<TApp>()
     where TApp : class, IRDCoreClientApp
 {

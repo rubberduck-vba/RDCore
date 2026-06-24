@@ -11,7 +11,7 @@ public interface ICallStackFrame : IStackFrame<InputIndex>
     /// </summary>
     /// <param name="symbol"></param>
     /// <remarks>
-    /// ⚠️ <see cref="CallStackFrame"/> frames are <strong>not immutable</strong>: the value retrieved for a given symbol may be different at a subsequent retrieval.
+    /// ⚠️ <c>CallStackFrame</c> frames are <strong>not immutable</strong>: the value retrieved for a given symbol may be different at a subsequent retrieval.
     /// </remarks>
     VBTypedValue this[Symbol symbol] => default!;
 }

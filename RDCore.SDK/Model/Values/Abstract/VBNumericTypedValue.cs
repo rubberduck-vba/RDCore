@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;

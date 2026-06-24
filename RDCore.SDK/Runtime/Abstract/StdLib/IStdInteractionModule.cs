@@ -172,14 +172,14 @@ public interface IStdInteractionModule
     /// <strong>MS-VBAL 6.1.2.8.1.11 IIf</strong>
     /// </summary>
     /// <remarks>
-    /// Returns one of two parts, <strong>depending on the evaluation of an expression</strong>.<br/><br/>
-    /// 💡 The wording of how this function and its parameters are specified does not exclude <strong>🧩<see cref="VBDeferredValue"/></strong> language core extension values that could...<br/>
+    /// Returns one of two parts, <strong>depending on the <em>evaluation of an expression</em></strong>.<br/><br/>
+    /// 💡 The wording of how this function and its parameters are specified does not exclude 🧩<c>VBDeferredValue</c> <em>language core extension</em> values that could...<br/>
     /// <em>fix the confusion around this function</em> while opening the door to something like <em>first-class delegates</em> in (extended) RD-VBA.
     /// </remarks>
     /// <param name="pathName">A <see cref="VBStringValue"/> expression containing a file name. May specify a <em>mapped drive</em> and/or a <em>directory/folder path</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult StdInteraction__IIf(VBVariantValue expression, VBVariantValue truePart, VBVariantValue falsePart);
-
+    
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.12 InputBox</strong>
     /// </summary>
@@ -246,7 +246,7 @@ public interface IStdInteractionModule
     /// <item>💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if the expressions aren't properly paired.</item>
     /// </list>
     /// <br/><br/>
-    /// 🧩 There seems to be a <strong><see cref="VBDeferredValue"/></strong> language core extension opportunity here, too. See: <see cref="StdInteraction__IIf"/>
+    /// 👉 There seems to be a 🧩<c>VBDeferredValue</c> <em>language core extension</em> opportunity here, too. See: <see cref="StdInteraction__IIf"/>
     /// </remarks>
     /// <param name="varExpr">A <see cref="VBArrayValue"/> containing <see cref="VBVariantValue"/> elements representing expressions to be evaluated.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
