@@ -14,7 +14,7 @@ This repository contains different projects **under active development** produci
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
-👉 We're building a solid _language core_ foundation here, but please note that at the moment the only deliverable is the [documentation site](https://rdcore-sdk.github.io).
+👉 We're building a solid _language core_ foundation here, but please note that at the moment the only deliverable is the [documentation site](https://rubberduck-vba.github.io/RDCore/index.html).
 
 ### In this document
 - [Project status](#projectstatus)
