@@ -2,7 +2,7 @@
 name: Roadmap Ticket
 about: A ticket that must be completed in order to advance a milestone.
 title: ''
-labels: roadmap
+labels: 🎯roadmap
 assignees: ''
 
 ---
