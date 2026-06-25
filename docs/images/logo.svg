@@ -29,7 +29,7 @@
      showguides="false">
     <inkscape:page
        x="0"
-       y="3.9621257e-21"
+       y="3.9621245e-21"
        width="96.960892"
        height="11.06654"
        id="page1"
@@ -73,17 +73,6 @@
          id="feGaussianBlur11" />
     </filter>
   </defs>
-  <rect
-     style="opacity:0.928429;fill:#ffffff;fill-opacity:0;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:url(#filter11)"
-     id="rect3"
-     width="122.43723"
-     height="45.647682"
-     x="9.4338531"
-     y="-11.259765"
-     transform="matrix(0.78486703,0,0,0.2400661,-6.9723452,2.7571282)"
-     inkscape:export-filename="logo.png"
-     inkscape:export-xdpi="73.449997"
-     inkscape:export-ydpi="73.449997" />
   <g
      inkscape:label="Calque 1"
      inkscape:groupmode="layer"
@@ -140,5 +129,16 @@
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11667px;font-family:'Felix Titling';-inkscape-font-specification:'Felix Titling, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#5f8dd3;fill-opacity:1;stroke-width:2"
          x="149.71086"
          y="118.58571">TM</tspan></text>
+    <rect
+       style="opacity:0.928429;fill:#ffffff;fill-opacity:0;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:url(#filter11)"
+       id="rect3"
+       width="122.43723"
+       height="45.647682"
+       x="9.4338531"
+       y="-11.259765"
+       transform="matrix(0.78486702,0,0,0.2400661,50.08126,117.53402)"
+       inkscape:export-filename="logo.svg"
+       inkscape:export-xdpi="73.449997"
+       inkscape:export-ydpi="73.449997" />
   </g>
 </svg>
