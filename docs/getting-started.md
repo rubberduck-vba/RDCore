@@ -1,8 +1,8 @@
 # Let's Build RDCore 
 <sup>_Ce document est disponible en [français](getting-started.fr.html)_</sup>
 
-> [!IMPORTANT]
-> ❌ External contributions are **presently closed**.  
+> [!NOTE]
+> ⏳ External contributions are **presently closed**.  
 > 👉 Keep an eye out for the announcement of a **CLA** and the official _open-core_ project launch soon!
 
 ---

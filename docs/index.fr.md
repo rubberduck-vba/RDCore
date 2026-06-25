@@ -9,16 +9,16 @@
 **RDCore** ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)). 
 
 ❌ **RDCore n'est PAS** un add-in pour le VBIDE.  
-✅ **RDCore est une nouvelle implémentation de VBA** à partir de ses spécifications.
+✅ **RDCore est une nouvelle implémentation de VBA** à partir de ses spécifications.  
 
 
-👉 Legacy VBA aujourd'hui :
+👉 Legacy VBA aujourd'hui :  
 - règles implicites
 - difficile à analyser
 - figé dans son runtime
 - impossible à faire évoluer
 
-👉 **RDCore** :
+👉 **RDCore** :  
 - **formalise** les sémantiques
 - **expose** les structures
 - **rend observable** l'exécution
@@ -27,8 +27,8 @@
 
 👉 **Référentiel et état du projet** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)
 
-### Objectifs :
 
+### Objectifs
 - 🎯 **Implémentation intégrale** de la spécification MS-VBAL
 - 🎯 Implémentation d'une **librairie runtime indépendante** de MS-VBA
 - 🎯 Publication d'une **spécification RD-VBA** officielle

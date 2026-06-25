@@ -1,8 +1,8 @@
 # Bâtissons RDCore 
 <sup>_This document is available in [English](getting-started.html)_</sup>
 
-> [!IMPORTANT]
-> ❌ Les contributions externes sont **présentement fermées**.  
+> [!NOTE]
+> ⏳ Les contributions externes sont **présentement fermées**.  
 > 👉 Surveillez l'annonce prochaine d'une **CLA** et l'ouverture officielle de ce projet _open-core_.
 
 ---
