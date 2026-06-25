@@ -9,16 +9,23 @@
 
 This repository contains different projects **under active development** producing different libraries and executables, under a relatively simple licensing model:
 
-- **The RDCore.SDK library** is licensed under **⚖️MIT**;
+- **The RDCore.SDK library** (including its documentation) is licensed under **⚖️MIT**;
 - **Everything else** built around it is licensed under **⚖️GPLv3**.
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
 👉 We're building a solid _language core_ foundation here, but please note that at the moment the only deliverable is the [documentation site](https://rdcore-sdk.github.io).
 
+### In this document
+- [Project status](#projectstatus)
+- [Implementation status](#implementationstatus)
+
+### See also
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ---
 # 1.0.1 RDCore
-
+[RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ is an actively evolving _Language Server_ (LSP) platform that is currently a **work in progress**. Ultimately, the RDCore deliverables are:
 
 - 🎯 **rdc.exe**: a configurable and extensible RD-VBA _environment host_ and LSP client CLI application;
@@ -36,6 +43,7 @@ This arrangement protects both the legacy and current contributors while enablin
 - **Inspect runtime** behavior and semantic facts
 - **Extend the platform** with analyzers and plugins
 
+<a id="projectstatus"/>
 
 ## 📊 Project Status
 > [!NOTE]
@@ -52,12 +60,14 @@ RDCore is currently in active **pre-alpha** development - the **only deliverable
 
 ---
 # 1.0.2 RD-VBA
-
+[RD-VBAL §1.0.2](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#102-rd-vba)  
 The implementation of the platform's _language core_ is a **work in progress**. Ultimately, RD-VBA:
 
 - 🎯 **aims for strict compliance with the MS-VBAL specifications**, ensuring behavioral compatibility with existing VBA semantics;
 - 🧩 **elevates VBA into a modern, extensible, _and fully open-sourced_ language platform** separating the language definition from its original 1993 implementation;
 - 👀 **makes implicit language behavior explicit**, exposing semantic rules, evaluation steps, call stacks, and error conditions as _observable facts_.
+
+<a id="implementationstatus"/>
 
 ## Implementation Status
 > [!NOTE]

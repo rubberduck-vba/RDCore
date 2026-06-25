@@ -8,7 +8,7 @@
 **RDCore l'honore avec une formule Open-Core**. Voir [rubberduckvba.ca](https://rubberduckvba.ca) pour plus de détails.
 
 Ce référentiel contient différents projets **en phase de développement actif** produisant différentes librairies et exécutables sous un modèle de licence relativement simple :
-- **La librairie RDCore.SDK** est sous licence **⚖️MIT**;
+- **La librairie RDCore.SDK** (incluant sa documentation) est sous licence **⚖️MIT**;
 - **Tout le reste** est construit autour et sous licence **⚖️GPLv3**.
 
 Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en protégeant son avenir : **l'implémentation du _runtime_ de RDCore demeurera open-source**.
@@ -16,10 +16,15 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 👉 Nous construisons ici une solide fondation pour le _coeur de langage_, mais veuillez noter qu'en ce moment le seul livrable est le [site de documentation](https://rubberduck-vba.github.io/rdcore).
 
 ### Dans ce document
-- [**RD-VBAL §1.0.1** RDCore]()
+- [Statut du projet](#projectstatus)
+- [État de l'implémentation](#implementationstatus)
+
+### Voir aussi
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
-# 1.0.1 RDCore
+# RDCore
+[RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
 - 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI);
 - 🎯 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
@@ -37,6 +42,7 @@ Entre autres :
 - **Inspection de l'exécution**, comportements et _faits sémantiques_ 
 - **Extensions de la plateforme** avec des analyseurs et plug-ins
 
+<a id="projectstatus"/>
 
 ### 📊 Statut du projet
 > [!NOTE]
@@ -52,13 +58,16 @@ RDCore est présentement en phase active de développement **pré-alpha** - le *
 - **Contributions publiques: ❌ pas encore ouvertes**
 
 ---
-# 1.0.2 RD-VBA
+# RD-VBA
+[RD-VBAL §1.0.2](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#102-rd-vba)  
 L'implémentation du _coeur de langage_ de la plateforme est également un **projet en cours de réalisation**. Ultimement, RD-VBA :
 
 - 🎯 **vise une stricte adhésion aux spécifications MS-VBAL**, assurant une compatibilité comportementale avec les sémantiques spécifiées existantes de VBA;
 - 🧩 **élève VBA en une plate-forme de langage moderne, extensible, et _entièrement open-source_**, séparant la _définition du langage_ de son _implémentation originale_ de 1993;
 - 👀 **rend explicite les comportements implicites du langage** en exposant les règles sémantiques, étapes d'évaluation, piles d'appels, et états d'erreur en tant que _faits observables_.
 
+
+<a id="implementationstatus"/>
 
 ## État de l'implémentation
 > [!NOTE]
