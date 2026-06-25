@@ -1,8 +1,8 @@
 # [RD-VBAL]: VBA Language Platform Specification
 
 > [!NOTE]
-> Cette section n'est présentement disponible qu'en anglais.    
-> _This section is currently only available in English_.
+> Cette section n'est disponible qu'en anglais.    
+> _This section is only available in English_.
 
 ---
 

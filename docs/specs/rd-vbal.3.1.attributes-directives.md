@@ -144,5 +144,5 @@ This attribute holds a short _documentation string_ that IDE tooling can then us
 > Surfacing attributes does not necessarily make `@Description` annotations obsolete, because hiding `Attribute` directives may or may not be a capability that is supported by a LSP client.
 
 
-> ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html) | ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.literals.html)
+> ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html) | ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.html)
 

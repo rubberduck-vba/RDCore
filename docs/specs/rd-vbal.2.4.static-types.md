@@ -19,22 +19,22 @@ All representations of a _data type_ inherit the `VBType` class, often indirectl
 In RD-VBA, a type is an _intrinsic type_ if MS-VBAL mentions it, irrespective of its specified semantics or modelization.
 
 The non-numeric _intrinsic types_ are:
-- [VBArrayType](../api/RDCore.SDK.Model.Types.VBArrayType.html);
-- [VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html);
-- [VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html);
-- [VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html);
-- [VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html);
-- [VBDateType](../api/RDCore.SDK.Model.Types.VBDateType.html);
-- [VBEmptyType](../api/RDCore.SDK.Model.Types.VBEmptyType.html);
-- [VBErrorType](../api/RDCore.SDK.Model.Types.VBErrorType.html);
-- [VBLongPtr_x64](../api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html);
-- [VBLongPtr_x86](../api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html);
-- [VBMissingType](../api/RDCore.SDK.Model.Types.VBMissingType.html);
-- [VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html);
-- [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html);
-- [VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html);
-- [VBFixedStringType](../api/RDCore.SDK.Model.Types.VBFixedStringType.html);
-- [VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html).
+- [VBArrayType](../api/RDCore.SDK.Model.Types.VBArrayType.html)
+- [VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)
+- [VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html)
+- [VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)
+- [VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)
+- [VBDateType](../api/RDCore.SDK.Model.Types.VBDateType.html)
+- [VBEmptyType](../api/RDCore.SDK.Model.Types.VBEmptyType.html)
+- [VBErrorType](../api/RDCore.SDK.Model.Types.VBErrorType.html)
+- [VBLongPtr_x64](../api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html)
+- [VBLongPtr_x86](../api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html)
+- [VBMissingType](../api/RDCore.SDK.Model.Types.VBMissingType.html)
+- [VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html)
+- [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)
+- [VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)
+- [VBFixedStringType](../api/RDCore.SDK.Model.Types.VBFixedStringType.html)
+- [VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)
 
 ## 2.4.1.1 VBNumericType
 

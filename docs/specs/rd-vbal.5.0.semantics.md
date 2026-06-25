@@ -1,5 +1,16 @@
 # 5.0 Semantics
 
+The role of _semantics_ is to encode the _meaning_ of the language into a set of deterministic rules and specified sequences of operations.
+
+There are two types of _abstract semantics_ explicitly defined in **RDCore.SDK**:
+- [StaticSemantics](../api/RDCore.SDK.Semantics.Static.Abstract.IStaticSemantics.html)
+- [RuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.IRuntimeSemantics-2.html)
+
+The _environment host_ may provide additional semantics through external providers (extensions); _static semantics_ are effective in _design-time_ and fully available to the _semantic analysis layer_. 
+
+_Runtime semantics_ are partially available to the _semantic analysis layer_ (for simulated execution pipelines), but generally unavailable in a _static context_.
+
+
 ## 5.0.1 Static Semantics
 
 The role of _static semantics_ is to determine a _declared type_ for a given _bound expression_, given the determined static _declared type_ of its inputs.
@@ -21,7 +32,7 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 
 ### 5.0.2.1 Operator Evaluation
 > [!NOTE]
-> This section describes the implementation of **MS-VBAL§5.6.9.2** Simple Data Operators  
+> This section describes the implementation of **MS-VBAL §5.6.9.2 Simple Data Operators**.
 
 The _evaluation pipeline_ of all operators follows a clear sequence:
 1. The _effective type_ of the operation is determined, based on the _declared type_ of its _operands_;
@@ -56,6 +67,5 @@ The `Analyze` method then yields a [_builder_](../api/RDCore.SDK.Semantics.Build
 > **Warning** diagnostics should be used carefully, for flagging _potential bugs_ or logical errors causing unexpected or unintended behavior, or perhaps _severe_ performance issues. Always consider the possibility of there being a _treat warnings as errors_ host environment configuration setting: if a diagnostic is not worth _breaking a build over_, then it's not a _warning_. 
 
 **RDCore** implements the MS-VBAL type coercion rules _verbatim_ through _pattern-matching_ against its type system.
-
 
 > ⏮️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html) | ⏭️ [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.html)

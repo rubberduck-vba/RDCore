@@ -1,5 +1,5 @@
 # RDCore™
-[EN] | [FR](./README.md)
+<sup>_Ce document est disponible en [français](./README.md)_</sup>
 
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 

@@ -4,7 +4,7 @@ RD-VBA is not a _reinterpretation_ of VBA - it is an effort to ***fully realize*
 
 The _language core_ shall remain **strictly compatible** with MS-VBAL specifications, but it shall **not** be treated as a _fossilized language_, either.  
 
-# 1.1.1 Platform Extensions
+## 1.1.1 Platform Extensions
 >🧩 RDCore operates on a **capability-driven host model**, where extended features may or may not be available depending on the execution environment. Extensions must be resilient to partial capability availability.
 
 The _platform_ is intended to be massively extended through first and third party extensions whose capabiliites are negociated with the _RD-VBA environment host_.  

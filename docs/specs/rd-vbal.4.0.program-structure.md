@@ -1,6 +1,12 @@
 # 4.0 RD-VBA Program Structure and Organization
 > [!NOTE]
-> This documentation is incomplete at this time.
+> This section is incomplete at this time. Planned content:
+>  - [**RD-VBAL §4.0.1** Application Composition]
+>  - [**RD-VBAL §4.0.2** Execution Pipeline and Interpreter]
+>  - [**RD-VBAL §4.0.2.1** Call Stack]
+>  - [**RD-VBAL §4.0.2.2** Memory Management]
+>  - [**RD-VBAL §4.0.2.3** External Calls]
+>  - [**RD-VBAL §4.0.3** Application Teardown]
 
 A _RD-VBA Environment_ is organized into a number of _workspace source files_ and _host-defined projects_.
 
@@ -19,7 +25,8 @@ A **RD-VBA** project without any modules is valid and still define a symbol for 
 
 While **RD-VBA** is normally hosted in a _standalone hosting environment_ that is self-sufficient, the _environment host_ must ultimately be able to **attach** to an _external process_ that hosts a **MS-VBA** _VBA environment_, and _externally address_ the host memory space to enable automation through COM and .NET interoperability; the external addressing technically allows a `VBVariantValue` to _wrap_ an externally-defined object reference.
 
-As far as _Microsoft Office Automation_ is concerned, this _attach to host process_ feature ultimately positions the **RDCore** platform in a similar technical spot as _Microsoft VSTO_ did, **automating COM from the sidelines** rather than from within the host. The comparison stops here though: _a fully-realized RDCore platform_ could technically run **RD-VBA CI/CD pipelines** and **integrate Enterprise software development lifecycles**.  
+> [!NOTE]
+> As far as _Microsoft Office Automation_ is concerned, this _attach to host process_ feature ultimately positions the **RDCore** platform in a similar technical spot as _Microsoft VSTO_ did, **automating COM from the sidelines** rather than from within the host. The comparison stops here though: _a fully-realized RDCore platform_ could technically run **RD-VBA CI/CD pipelines** and **integrate Enterprise software development lifecycles**.  
 
 <!-- stubs or no stubs? TODO anyway.
 ## 4.0.1 Application Composition
@@ -47,7 +54,9 @@ As far as _Microsoft Office Automation_ is concerned, this _attach to host proce
 > This documentation is incomplete at this time. 
 -->
 
-### 4.0.4 VBIDE Synchronization
+### 4.1 VBIDE Synchronization
+> [!NOTE]
+> This specification is incomplete at this time.
 
 🎯 The **RDCore** platform tooling shall ultimately include a _lightweight VBIDE add-in_ responsible for:
 - Exporting a **MS-VBA** _source project_ to a **RD-VBA** _workspace folder_;

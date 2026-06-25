@@ -56,7 +56,7 @@ The _symbol kind_ of a `Symbol` is as per specified in **LSP 3.17**. The values 
 |`EnumMember`|`SymbolKind.EnumMember`|
 |`UserDefinedType`|`SymbolKind.Struct`|
 |`Event`|`SymbolKind.Event`|
-|`Oerator`|`SymbolKind.Operator`|
+|`Operator`|`SymbolKind.Operator`|
 
 > [!TIP]
 > LSP standard symbol kinds `File`, `Constructor`, and `TypeParameter` are not used in RD-VBA, and `Namespace` is being repurposed to a different meaning (there is no concept of a _namespace_ in VBA). The `Key` symbol kind may end up being used for the token that follows the `!` operator in _dictionary access expressions_, since it represents, in fact, a _dictionary key_.  

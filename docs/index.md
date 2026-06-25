@@ -1,5 +1,5 @@
-﻿# RDCore SDK
-\[EN\] | \[[FR](index.fr.html)\]
+﻿# RDCore SDK 
+<sup>\[EN\] • \[[FR](index.fr.html)\] | _Ce document est disponible en français_</sup>
 
 ## Welcome!
 

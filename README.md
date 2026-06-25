@@ -1,5 +1,5 @@
 # RDCore™
-[EN](./README.en.md) | [FR]
+<sup>_This document is available in [English](./README.en.md)_</sup>
 
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 
@@ -14,6 +14,9 @@ Ce référentiel contient différents projets **en phase de développement actif
 Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en protégeant son avenir : **l'implémentation du _runtime_ de RDCore demeurera open-source**.
 
 👉 Nous construisons ici une solide fondation pour le _coeur de langage_, mais veuillez noter qu'en ce moment le seul livrable est le [site de documentation](https://rubberduck-vba.github.io/rdcore).
+
+### Dans ce document
+- [**RD-VBAL §1.0.1** RDCore]()
 
 ---
 # 1.0.1 RDCore

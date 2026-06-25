@@ -1,6 +1,5 @@
 # CONTRIBUER
-
-[FR] | [EN](#contributing)
+<sup>_[English version](#contributing) follows_</sup>
 
 👋 **Merci pour votre intérêt!** 
 
@@ -40,9 +39,8 @@ L'usage d'outils de type _Copilot_ est toutefois **fortement encouragée** pour:
 
 ---
 
-# CONTRIBUTING
-
-[FR](#contribuer) | [EN]
+# CONTRIBUTING 
+<sup>_[Version française](#contribuer) ci-haut_</sup>
 
 👋 **Thank you for your interest!** 
 
