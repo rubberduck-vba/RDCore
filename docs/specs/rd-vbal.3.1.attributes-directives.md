@@ -37,9 +37,8 @@ Other directives include `Implements` and `Attribute` statements:
 |`Attribute`|Specifies flags and modifiers that alter the semantics of a module or member.|
 
 
-
+---
 ## 3.1.1 Attributes
-
 > [!NOTE]
 > **MS-VBAL 5.2.3 Module Declaration:** _Composition and compilation of Attribute statements is not permitted in the **Microsoft Visual Basic for Applications editor**, however, they are consumed and produced by **Microsoft Visual Basic for Applications** without error upon import and export and are therefore **considered valid VBA language constructs**._
 
@@ -57,8 +56,8 @@ Attributes in the _header_ section of a module determine the _static semantics_ 
 > [!TIP]
 > **MS-VBA** attribute semantics are severely truncated; **RD-VBA** has no reason not to honor their semantics accordingly with their original **VB6** intent.
 
-### 3.1.1.1 VB_Name
 
+### 3.1.1.1 VB_Name
 If present, the value of a `VB_Name` attribute determines the `Name` of the _symbol_ for that module.
 
 If omitted, the _environment host_ may inject one with a value that matches the _file name_ of the module, stripped of any empty spaces or other characters that would be illegal in a valid _identifier name_:
@@ -73,7 +72,6 @@ The _environment host_ **must** inject any missing attributes _before_ requestin
 
 
 ### 3.1.1.2 VB_Creatable
-
 Determines whether a class module can be directly instantiated using a `New` (or `CreateObject`) expression from a _referencing project_.  
 
 The value of this attribute **MUST** be `False` in a **VBA** module, but may be `True` in a **VB6** module, for RD-VBA clients that support the **VB6** language, of which **VBA** is deemed a subset.
@@ -83,7 +81,6 @@ The value of this attribute **MUST** be `False` in a **VBA** module, but may be 
 
 
 ### 3.1.1.2 VB_Exposed
-
 Determines whether a class module is visible at all to a _referencing project_.
 
 The value of this attribute is `False` for _private modules_, or `True` for _public modules_; a _public module_ may be consumed by a _referencing project_, but whether a new instance of the module can be created outside of the _enclosing project_ that defines it, depends on the value of its `VB_Creatable` attribute.
@@ -98,7 +95,6 @@ The value of this attribute is `False` for _private modules_, or `True` for _pub
 
 
 ### 3.1.1.3 VB_GlobalNameSpace
-
 Determines whether a class module is exposed to the _global namespace_.
 
 > [!NOTE]
@@ -106,7 +102,6 @@ Determines whether a class module is exposed to the _global namespace_.
 
 
 ### 3.1.1.4 VB_Customizable
-
 This attribute marks a class, method, or property as _customizable_ in host environments that support _VB6 ActiveX Designers_ or _VB6 Object Template_; it indicates that the class or member supports _design-time customization_ and may participate in _persistence mechanisms_ used by _designer hosts_.
 
 > [!NOTE]
@@ -127,7 +122,6 @@ This attribute controls:
 
 
 ### 3.1.1.5 VB_PredeclaredId
-
 Determines whether the _environment host_ declares a global _auto-object_ instance of the class with a _predeclared ID_, where the _identifier name_ of the global _auto-object_ has the same name as the class module it is a _predeclared_ instance of.
 
 The "Id" refers to an internal _unique semantic identifier_ given to every object in the _host environment_.
@@ -137,12 +131,11 @@ The "Id" refers to an internal _unique semantic identifier_ given to every objec
 
 
 ### 3.1.1.6 VB_Description
-
 This attribute holds a short _documentation string_ that IDE tooling can then use to supply helpful tooltips.
 
 > [!TIP]
 > Surfacing attributes does not necessarily make `@Description` annotations obsolete, because hiding `Attribute` directives may or may not be a capability that is supported by a LSP client.
 
 
+---
 > ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html) | ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.html)
-

@@ -1,6 +1,7 @@
 ﻿# RDCore SDK 
 <sup>_This document is available in [English](index.html)_</sup>
 
+---
 ## Bienvenue!
 
 ![VIVAT CUCUMIS™](images/vivat-cucumis-stonecore.png)
@@ -33,6 +34,8 @@
 - 🎯 Publication d'une **spécification RD-VBA** officielle
 - 🎯 Implémentation d'un écosystème _Language Server_ (LSP) et **plateforme analytique** pour RD-VBA
 
+
+---
 ## Documentation
 
 La documentation de la section **SDK** de ce site est générée à partir des commentaires (xmldoc) directement dans le code source, et n'est donc **disponible qu'en anglais** afin d'en maximiser la portée et d'en réduire l'importante empreinte.

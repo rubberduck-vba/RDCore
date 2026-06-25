@@ -2,6 +2,8 @@
 
 > 💡 MS-VBAL explicitly presumes of an _implementation-dependent_ storage mechanism outside the scope of its own specification. **RD-VBAL explicitly specifies these mechanisms**, decoupling the _language semantics_ from _implementation-dependent storage_.
 
+
+---
 ## 2.1.1 Application Settings
 
 MS-VBAL addresses legitimate **application configuration** concerns through a _get-only_ API exposed in the _standard library_:
@@ -35,5 +37,6 @@ The _application host_ (`rdc.exe`) is responsible for binding the configuration 
 > This feature has the full power and flexibility of a .NET managed `IConfigurationBuilder` underneath: future extensions could harmonize configuration settings and environment variables, fully deprecating the corresponding legacy APIs as _obsolete_ (_semantic flags_ can then be issued at usage sites, with _code actions_ to update the workspace source code).
 
 
+---
 > ⏮️ [**RD-VBAL §2.0** Computational Environment](rd-vbal.2.0.computational-environment.html) | ⏭️ [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.html)
 

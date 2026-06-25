@@ -4,6 +4,8 @@
 
 Because the **truth of a RD-VBA program is its source code**, RD-VBA source code lives directly on the _file system_, within a structured system of folders. Since doing this completely decouples a VBA project from its _host document_, there needs to be a data structure somewhere that _explicitly_ defines the structure and content of a project.
 
+
+---
 ## 2.2.1. Conventions
 
 - Because the **truth of a RD-VBA workspace is in the file system**, the oganization of the folders designated as _workspaces_ constitutes meaningful metadata that structures both the physical file system and the _workspace folders_ (projects) under it.
@@ -22,6 +24,8 @@ Because the **truth of a RD-VBA program is its source code**, RD-VBA source code
 > [!WARNING]
 > Because RD-VBA **identifier names are semantically case-insensitive**, folder names "`project1`" and "`Project1`" are **considered as identical** _regardless_ of whether or not the underlying file system supports it. 
 
+
+---
 ## 2.2.2. WorkspaceFile
 
 RD-VBA is able to discover a _file system folder_ as a _workspace_ when the folder contains a text file named `.rdworkspace` that can be successfully _deserialized_ into a `WorkspaceFile`. This folder is then the _root_ of that _workspace_.
@@ -43,6 +47,8 @@ The model describes the content of the workspace:
 > [!TIP]
 > This model is intended to natively support VB6 _project groups_ (.vbg).
 
+
+---
 ## 2.2.3. ProjectFile
 > This specification may be incomplete at this time.
 
@@ -65,8 +71,8 @@ RD-VBA is able to discover a _file system folder_ as a _workspace folder_ when t
 > [!TIP]
 > This model is intended to natively support VB6 _vbproject_ (.vbp).
 
-### 2.2.3.1 RDCoreProject
 
+### 2.2.3.1 RDCoreProject
 A _serializable_ model representing a RD-VBA _project_.
 
 ```javascript
@@ -93,7 +99,6 @@ A _serializable_ model representing a RD-VBA _project_.
 
 
 ### 2.2.3.2. RDCoreReference
-
 Describes a _reference_ within a _project_.
 
 ```javascript
@@ -120,8 +125,8 @@ Describes a _reference_ within a _project_.
 > 🧩 A supplied `Guid` necessarily refers to a COM registered library that implies platform-specific _Windows Registry_ lookups to resolve;
 > The _environment host_ may use _implementation-dependent_ alternative means to provide _symbols_ and _semantics_ for such references.
 
-### 2.2.3.2 RDCoreModule
 
+### 2.2.3.2 RDCoreModule
 Describes the modules (source files) of a _workspace folder_.
 
 ```javascript
@@ -138,6 +143,7 @@ Describes the modules (source files) of a _workspace folder_.
 
 >[!IMPORTANT]
 > The value of the `Name` property of a `RDCoreModule` must be unique across the entire _workspace_ and is always supplied by a `VB_Name` _attribute_. In case of a mismatch with the value of a `VB_Name` attribute, _the attribute value always takes precedence_.
+
 
 #### 2.2.3.2.1 DocClassType Enum
 > [!NOTE]
@@ -163,6 +169,7 @@ Workspace source code that is directly dependent on a _host document_ necessaril
 
 > 🎯 A more portable approach would be to refactor the MS-VBA legacy code such that any host-dependent calls are decoupled from the logic. RDCore semantic analysis capabilities should provide ample support for all the diagnostics and refactoring tools that would be needed to do this.
 
+
 ### 2.2.3.3 RDCoreFile
 Describes additional(non-source) files contained in a _workspace folder_ but not necessarily given to a _language server_ for processing.
 
@@ -179,5 +186,6 @@ Describes additional(non-source) files contained in a _workspace folder_ but not
 | Name | The _identifier name_ (token) used in workspace source code to reference this module. |
 
 
+---
 > ⏮️ [**RD-VBAL§2.1** Computational Environment](rd-vbal.2.1.implicit-storage.html) | ⏭️ [**RD-VBAL§2.3** Application Host](rd-vbal.2.3.application-host.html)
 

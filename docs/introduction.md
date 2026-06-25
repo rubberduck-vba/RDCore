@@ -4,6 +4,8 @@
 **RDCore™** is an **open-source project** engineered and maintained by a private company, aiming to build a modern language platform for _Visual Basic for Applications_ (VBA).  
 It ultimately provides a complete semantic model, runtime infrastructure, and extensible tooling surface to analyze, execute, and evolve VBA code **outside of its historical environment**.
 
+
+---
 ## 💡 The idea
 
 Think **Roslyn, but for VBA**.  
@@ -19,6 +21,7 @@ RDCore aims to to provide a sustainable, extensible platform for understanding a
 VBA is not just a legacy runtime - it is a _language specification_. RDCore simply treats it as such.
 
 
+---
 ## 🚀 Architecture
 
 - **The RDCore.SDK library** is licensed under **⚖️MIT**;
@@ -32,6 +35,7 @@ RDCore is composed of:
 - **Hosts** (GPLv3) include a CLI client (rdc.exe), a LSP server, and other applications that orchestrate execution and interactions.
 
 
+---
 ## ✨ What RDCore Enables
 - **Analyze VBA code** at depths only _LSP analyzers_ can reach
 - **Execute** VBA code outside the VBIDE
@@ -40,6 +44,7 @@ RDCore is composed of:
 - **Extend the platform** with analyzers and plugins
 
 
+---
 ## 📊 Project Status
 RDCore is currently in active **pre-alpha** development.  
 

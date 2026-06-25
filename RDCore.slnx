@@ -16,7 +16,7 @@
   </Folder>
   <Folder Name="/Documents/">
     <File Path="CONTRIBUTING.md" />
-    <File Path="README.en.md" />
+    <File Path="README.fr.md" />
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Solution Items/">

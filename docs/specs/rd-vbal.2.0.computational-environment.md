@@ -17,6 +17,7 @@
 
 This means a RD-VBA project must necessarily stand on its own and _physically exist_ in the file system, which constitutes a _fundamental paradigm shift_ for VBA code.
 
+---
 ## 2.0.1 Supported Languages
 
 A **RD-VBA** _environment host_ may configure language-level _restrictions_ or _extensions_, depending on the _capabilities_ of the _host application_:
@@ -33,6 +34,7 @@ This list is _prioritized_ but not intended to be exhaustive; additional _dialec
 > 👉 The LSP paradigm shift _alone_ brings RD-VBA much closer to how VB6 works already.  
 
 
+---
 ## 2.0.2 Client/Server Capabilities
 > [!NOTE]
 > This documentation is incomplete.
@@ -46,8 +48,8 @@ This section intends to exhaustively document all supported RDCore platform capa
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
 
----
 
+---
 ## In this section
 - [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.html)
 - [**RD-VBAL §2.2** Project Structure](rd-vbal.2.2.rdproj-structure.html)
@@ -55,4 +57,6 @@ This section intends to exhaustively document all supported RDCore platform capa
 - [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html)
 - [**RD-VBAL §2.5** Runtime Values](rd-vbal.2.5.runtime-values.html)
 
+
+---
 > ⏮️ [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.html) | ⏭️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html)  

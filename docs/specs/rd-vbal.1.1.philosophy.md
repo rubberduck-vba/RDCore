@@ -4,6 +4,8 @@ RD-VBA is not a _reinterpretation_ of VBA - it is an effort to ***fully realize*
 
 The _language core_ shall remain **strictly compatible** with MS-VBAL specifications, but it shall **not** be treated as a _fossilized language_, either.  
 
+
+---
 ## 1.1.1 Platform Extensions
 >🧩 RDCore operates on a **capability-driven host model**, where extended features may or may not be available depending on the execution environment. Extensions must be resilient to partial capability availability.
 
@@ -13,6 +15,7 @@ The _platform_ is intended to be massively extended through first and third part
 > In the **RDCore** ecosystem, the default _RD-VBA environment host_ is `rdc.exe`. Other LSP clients may eventually join the family, but would be packaged separately from the **RDCore language platform**.
 
 
+---
 ## 1.1.2 Language Core Extensions
 
 Where the specification defines implicit behaviors, RD-VBA may choose to make these behaviors explicit, provided that:
@@ -91,6 +94,7 @@ The description of compilation and run-time errors shall match _exactly_ with th
 > A third-party extension that issues _already-documented first-party diagnostic codes_ may be **required to modify** its codes before it can be distributed through the platform's official distribution channels. This ensures that all diagnostic codes published under the platform remain **traceable and searchable online**.
 
 
+---
 ## 1.1.5 Extension Manifest
 
 **RDCore** extensions are _discovered_ by the _environment host_ during the _composition_ of the host environment. The _extension manifest_ is a small text file in a human-readable JSON serialized format that describes the extension to the platform.
@@ -145,6 +149,7 @@ If the validation result is `NoFlags`, the host may proceed to configure a _clie
 > In order to facilitate building _platform extensions_, the `rdc.exe` host may be configured to allow unsigned extension builds using a `--unsafe-dev-mode` command-line flag.
 
 
+---
 ## 1.1.6 Capabilities Provider
 
 An _environment host_ must implement [IExtensionCapabilityProvider](../api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html) and provide all available extension capabilities. 
@@ -160,5 +165,6 @@ An abstract server application in the SDK should already handle these lifecycle 
 If an extension _successfully_ registers **any** capability, its process continues to run and may handle a reduced set of LSP requests and notifications; otherwise the _environment host_ requests the termination of the extension server process.
 
 
+---
 > ⏮️ [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.html) | ⏭️ [**RD-VBAL §2.0** Computational Environment](rd-vbal.2.0.computational-environment.html)  
 

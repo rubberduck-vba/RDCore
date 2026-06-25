@@ -5,7 +5,6 @@
 > _This section is only available in English_.
 
 ---
-
 ## Table of Contents
 
 - 1. [Introduction](rd-vbal.1.0.introduction.html)
@@ -33,7 +32,6 @@
 This platform specification presents a similar _technical prose_ style as its inspirational _Open Spec_ source material.
 
 ---
-
 ## Intellectual Property Rights Notice for Open Specifications Documentation
 
 > [!IMPORTANT]
@@ -48,7 +46,6 @@ The publisher of the **RDCore** platform project and of _this present documentat
 ✅ **Challenge: Accepted**.
 
 ---
-
 ## Revisions
 
 |Date|Version|Description|

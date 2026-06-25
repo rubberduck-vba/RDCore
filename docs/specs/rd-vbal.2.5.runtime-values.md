@@ -5,12 +5,12 @@
 If [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html) is at the core of _static semantics_, then [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) is at the core of _runtime semantics_.
 
 
+---
 ## 2.5.1 Runtime entities
-
 A _runtime entity_ is a simple abstraction that associates a [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html) with a [Symbol](../api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html), which means every RD-VBA _runtime entity_ is addressable with a `Uri` that is unique across the _workspace_.  
 
-## 2.5.1.1 Symbols
 
+## 2.5.1.1 Symbols
 A _symbol_ necessarily has a `Uri` and a `Name`, but also a [ScopeKind](../api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html) and an _(extended) LSP_ [SymbolKind](../api/RDCore.SDK.Server.ProtocolExtensions.SymbolKindExt.html).
 
 - The `Uri` of a symbol is a _semantic ID_ that uniquely identifies a symbol across an entire _workspace_; see [RDCoreUriNamespaces](../api/RDCore.SDK.Extensibility.RDCoreUriNamespaces.html). The `Uri` is assembled from the _workspace root_ `Uri` and a relative `Uri` that may include a _fragment_. The content of the fragment is implementation-defined, but the relative `Uri` path should be that of the parent module or procedure scope.
@@ -73,12 +73,13 @@ The _symbol kind_ of a `Symbol` is as per specified in **LSP 3.17**. The values 
 
 These extended _symbol kinds_ may or may not be supported by a LSP client (editor), but can help supply more precise _hover tips_ when they are.
 
-## 2.5.2 VBTypedValue
 
+---
+## 2.5.2 VBTypedValue
 RD-VBA defines MS-VBAL _data values_ explicitly, using types inherited from a base [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).  
 
-### 2.5.2.1 Intrinsic Type Values
 
+### 2.5.2.1 Intrinsic Type Values
 The _data values_ of the non-numeric _intrinsic types_ are the following:
 
 |VBTypedValue |VBType |
@@ -101,7 +102,6 @@ The _data values_ of the non-numeric _intrinsic types_ are the following:
 
 
 #### 2.5.2.1.1 VBNumericTypedValue
-
 All numeric _data values_ inherit [VBNumericTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBNumericTypedValue.html), which simplifies implementing semantics implicating "_any numeric type_" specifications. This base class implements [INumericType](../api/RDCore.SDK.Model.Values.Abstract.INumericValue.html), a _non-generic_ base abstraction that ensures every numeric type minimally has a `double` managed representation.  
 
 Each numeric type of value minimally defines a typed representation of its `MinValue`, `MaxValue`, and `Zero`; other _static values_ may be defined as required by runtime semantics.  
@@ -129,8 +129,8 @@ Additionally, _precompiler constants_ are interpreted as `Integer` values:
 
 - [PrecompilerConstantValue](../api/RDCore.SDK.Model.Values.PrecompilerConstantValue.html)
 
-#### 2.5.2.1.2 Array Values
 
+#### 2.5.2.1.2 Array Values
 An _array declaration_ creates an _array value_ of the appropriate _array type_ in the _scope_ of the declaration, depending on how its _dimensions_ are declared:
 
 - An array declaration _with_ dimension specifications creates a `VBFixedSizeArrayValue`;
@@ -152,7 +152,6 @@ Each dimension of an _array value_ encapsulates a _managed array_ of the underly
 
 
 #### 2.5.2.1.3 User-Defined Types (UDT) Values
-
 An instance of a UDT is a [VBUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html).
 
 The _data type_ of a UDT value is defined by the UDT declaration of its _declared type_.  
@@ -161,14 +160,12 @@ The _data type_ of a UDT value is defined by the UDT declaration of its _declare
 
 
 #### 2.5.2.1.4 Object Values
-
 An instance of a [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html) is always a [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).
 
 The underlying value of an _object value_ is a unique addressable ID.
 
 
 #### 2.5.2.1.5 Variant Values
-
 A [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) has an underlying _managed value_ that is a managed `struct` type intended to eventually interop with actual COM (unmanaged) variant values.
 
 The structure of this internal representation is defined as follows:
@@ -182,6 +179,6 @@ A `VBVariantValue` is always allocated in the _heap memory_, in the same memory 
 > [!NOTE]
 > The act of "unwrapping" a `VBVariantValue` value consists of looking up its allocated internal struct, retrieving its `ValuePtr`, then looking up that value in the appropriate memory space; this yields a scoped `VBTypedValue` that may or may not be an immediately usable _intrinsic data type_ - it may be also be another `VBVariantValue` requiring a new _unwrapping frame_.
 
-
+---
 > ⏮️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html) | ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html)
 

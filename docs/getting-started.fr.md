@@ -5,6 +5,7 @@
 > ❌ Les contributions externes sont **présentement fermées**.  
 > 👉 Surveillez l'annonce prochaine d'une **CLA** et l'ouverture officielle de ce projet _open-core_.
 
+---
 ## 🚀 Démarrage
 
 1. **Lisez et signez d'abord** l'accord de licence contributeur (CLA) approprié (ça facilitera la suite);
@@ -22,6 +23,7 @@
   - 👉 Le _squash merge_ détruira le détail de l'historique de vos _commits_ dans le référentiel central, ce qui complique rapidement les choses si des commits additionnels s'ajoutent à une branche déjà complétée; un correctif peut être soumis en démarrant une nouvelle branche à partir de _main_ resynchronisé avec le _merge commit_.
 
 
+---
 ## 🧩 Créer une extension RDCore
 
 Il suffit de quelques lignes dans votre point d'entrée pour que votre application **RDCore** soit prise en charge :
@@ -160,6 +162,7 @@ Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet
 > **Les extensions tant de première que de tierces parties** distribuées à travers l'**infranuagique RDCore**  _PEUVENT_ utiliser un _capability provider_ qui _PEUT_ valider la disponibilité de certains capacités avancées en **requérant une authentification 2FA**, la validation d'une **inscription active** (gratuite ou payante), et la validation d'un _build signé_ avec le _build officiel_ du canal de distribution certifié.
 
 
+---
 ## 🧩 Extension de la plateforme (SDK et _coeur de langage_)
 
 Le _coeur de langage_ est conçu pour être étendu à travers des extensions de la plateforme de type _serveur_, moyennant un échange de _capacités_ donnant accès à des points d'extensions.

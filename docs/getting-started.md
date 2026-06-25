@@ -5,6 +5,7 @@
 > ❌ External contributions are **presently closed**.  
 > 👉 Keep an eye out for the announcement of a **CLA** and the official _open-core_ project launch soon!
 
+---
 ## 🚀 Getting Started
 
 1. **First read and sign** the Contributor Licence Agreement (CLA) as appropriate for your situation (it will make the next steps smoother);
@@ -22,6 +23,7 @@
   - 👉 The _squash merge_ will destroy the details of your commit history in the central repository, which quickly complicates things if additional commits get added to an already-completed branch; a patch may be submitted by starting a new branch from _main_ resynchronized to contain the _merge commit_.
 
 
+---
 ## 🧩 Building a RDCore extension
 
 It only takes a few lines in your entry point to make your application a RDCore app:
@@ -158,6 +160,7 @@ RDCore platform extensions with a valid _manifest_ that gets them to initiate a 
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
 
+---
 ## 🧩 Platform-level extensions (SDK and _language core_)
 
 The _lgnauge core_ is engineered to be extended through _server_ type extensions, via an exchange of _capabilities_ giving access to extension points.

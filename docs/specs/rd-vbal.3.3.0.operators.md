@@ -6,7 +6,6 @@
 >  - [**RD-VBAL §3.3.3** Logical (Bitwise) Operators]<!--(./rd-vbal.3.3.3.logical-operators.html)-->
 >  - [**RD-VBAL §3.3.4** Relational (Comparison) Operators]<!--(./rd-vbal.3.3.4.relational-operators.html)--> 
 
-
 An _operator_ consists of a _bound expression node_ that yields a deterministic _result_ given one or more _operand_ inputs.
 
 - An operator that accepts a single input is a **unary operator**;
@@ -32,6 +31,7 @@ Each layer of this inheritance hierarchy refines its members with more specializ
 > This is also the case for all _semantics_, both _static_ and _runtime_.
 
 <!-- TODO
+---
 ## In this section
 
 - [**RD-VBAL §3.3.1** Unary Operators](./rd-vbal.3.3.1.unary-operators.html)
@@ -40,5 +40,6 @@ Each layer of this inheritance hierarchy refines its members with more specializ
 - [**RD-VBAL §3.3.4** Relational (Comparison) Operators](./rd-vbal.3.3.4.relational-operators.html) 
 -->
 
+---
 > ⏮️ [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
 

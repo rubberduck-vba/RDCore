@@ -2,6 +2,8 @@
 
 This section describes the nodes of a RD-VBA _abstract syntax tree_, which is the output of the _parser_.
 
+
+---
 ## 3.0.1 Token Semantics
 
 The _token semantics_ of RD-VBA are as specified by MS-VBAL, with the exception(s) described in this sub-section.
@@ -14,8 +16,8 @@ Token semantics are be _provided_ to the _parser_ by a `ITokenSemanticsProvider`
 The token semantics provider specifics are not yet designed, but its requirements are as follows:
 - The provider accepts a base `Antlr4.Runtime.` 
 
-### 3.0.1.1 Comment Annotations Syntax
 
+### 3.0.1.1 Comment Annotations Syntax
 RD-VBA comments can contain semantically meaningful metadata in the form of **annotations**, that both the _language core_ and _platform extensions_ can consume as they see fit.
 
 Annotations can bind to:
@@ -33,7 +35,9 @@ There are different rules of annotation bindings, depending on their intended _t
 
 Exactly what annotations are supported or semantically meaningful is _implementation-dependent_.
 
+
 #### 3.0.1.1 Annotation List
+Annotations may appear as a comma-separated _annotations list_, defined as follows:
 
 ```antlr
 annotationList: SINGLEQUOTE (AT annotation)+ (COLON commentBody)?;
@@ -53,6 +57,7 @@ Where:
 
 
 #### 3.0.1.2 Annotation
+The annotation itself consists of its _name_ and an optional _argument list_:
 
 ```antlr
 annotation: annotationName annotationArgList? whiteSapce?;
@@ -89,7 +94,6 @@ Annotations may be parameterized. If the annotation is part of an _annotations l
 ```
 
 #### 3.0.1.3 Annotation Arguments
-
 > [!TIP]
 > Whether annotation arguments can be another type of _expression_ than _literal expressions_ is host-dependent; _annotation comments are not intended to be executable_.
 
@@ -115,7 +119,6 @@ Where:
 
 
 ### 3.0.2 Node Types
-
 All AST nodes inherit [BoundNode](../api/RDCore.SDK.Model.AST.Abstract.BoundNode.html), an _abstract_ node that  associates a _semantic ID_ (`Uri`) with a specific _location_ in a _workspace source file_.
 
 The node types _directly_ derived from `BoundNode` are as follows:
@@ -124,8 +127,8 @@ The node types _directly_ derived from `BoundNode` are as follows:
 - [BoundStatement](../api/RDCore.SDK.Model.AST.Abstract.BoundStatement.html)
 
 
+---
 ## 3.0.3 Binding Contexts
-
 **MS-VBAL§5.6.4** breaks down _expression binding contexts_ (for resolving _name lookups_) as follows:
 - _Default binding context_ used by most expressions;
 - _Type binding context_ used by expressions that expect to reference a _type_ or _class name_;
@@ -141,8 +144,8 @@ Because the type system includes and leverages meta-types such as `VBTypeDescVal
 > [!WARNING]
 > Because a `VBTypeDescValue` is a _data value_ that represents a _data type_, the implementation of both static and runtime semantics must be mindful of the possbility of accidentally pattern-matching such a _type descriptor_.  
 
----
 
+---
 ## In this section
 - [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)
 - [**RD-VBAL §3.2** Literals](rd-vbal.3.2.literals.md)
@@ -152,5 +155,5 @@ Because the type system includes and leverages meta-types such as `VBTypeDescVal
 - [**RD-VBAL §3.5** Instructions](rd-vbal.3.5.0.instructions.md) 
 -->
 
+---
 > ⏮️ [**RD-VBAL §2.0** Computational Environment](rd-vbal.2.0.computational-environment.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
-
