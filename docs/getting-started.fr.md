@@ -1,5 +1,5 @@
 # Bâtissons RDCore 
-<sup>_This document is available in [English(getting-started.html)]_</sup>
+<sup>_This document is available in [English](getting-started.html)_</sup>
 
 > [!IMPORTANT]
 > ❌ Les contributions externes sont **présentement fermées**.  
