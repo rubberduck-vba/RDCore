@@ -4,12 +4,28 @@ RD-VBA is not a _reinterpretation_ of VBA - it is an effort to ***fully realize*
 
 The _language core_ shall remain **strictly compatible** with MS-VBAL specifications, but it shall **not** be treated as a _fossilized language_, either.  
 
+## How to read this section
+
+The RD-VBA philosophy is based on a simple idea:
+
+- The _language core_ describes what VBA already is.
+- _Extensions_ may build on that reality, but must not alter it.
+
+In other words:
+- The core preserves semantic identity.
+- The platform enables evolution around it.
+
+The following sections formalize this distinction.
+
+> [!NOTE]
+> These principles guide both implementation and contributions: changes to the _language core_ should preserve semantic compatibility with the language specifications, and prioritize clarity over novelty.
+
 
 ---
 ## 1.1.1 Platform Extensions
 >🧩 RDCore operates on a **capability-driven host model**, where extended features may or may not be available depending on the execution environment. Extensions must be resilient to partial capability availability.
 
-The _platform_ is intended to be massively extended through first and third party extensions whose capabiliites are negociated with the _RD-VBA environment host_.  
+The _platform_ is intended to be massively extended through first and third party extensions whose capabilities are negociated with the _RD-VBA environment host_.  
 
 > [!NOTE]
 > In the **RDCore** ecosystem, the default _RD-VBA environment host_ is `rdc.exe`. Other LSP clients may eventually join the family, but would be packaged separately from the **RDCore language platform**.
