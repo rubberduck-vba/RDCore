@@ -4,7 +4,7 @@
 > Ce document est adapté d'une _CLA Individuelle Apache_ et modèles de relicenciement _Harmony_.
 Version 0.1a
 
-Merci de votre intérêt à contribuer à **RDCore** (le **"Projet"**), 
+Merci de votre intérêt à contribuer à **Rubberduck Core** (le **"Projet"**, ou **RDCore**), 
 géré par **9562-7303 Québec inc.**  (**"nous"**, ou **"la Société"**)
 
 Cette Entente étale les termes sous lesquels vous contribuez au Projet. Elle existe afin que le Projet puisse demeurer à code ouvert (open-source) **et** se soutenir commercialement sous un modèle **Open-Core** - tout en vous concédant vos droits sur votre propre travail.
