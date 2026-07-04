@@ -17,7 +17,7 @@
 #     `permissions:` block below).
 # ──────────────────────────────────────────────────────────────────────────────────────────
 
-name: "CLA Assistant"
+name: 'CLA Assistant'
 
 on:
   issue_comment:
@@ -35,28 +35,28 @@ jobs:
   cla:
     runs-on: ubuntu-latest
     steps:
-      - name: "Assistant CLA"
+      - name: 'Assistant CLA'
         if: >
           (github.event.comment.body == 'revérifie' ||
-           github.event.comment.body == 'J\'ai lu et j\'accepte les termes et conditions de la CLA et ce commentaire constitue ma signature' || 
-           github.event_name == 'pull_request_target'
+           github.event.comment.body == 'J''ai lu et j''accepte les termes et conditions de la CLA et ce commentaire constitue ma signature' ||
+           github.event_name == 'pull_request_target')
         uses: contributor-assistant/github-action@v2.6.1   # pin to the latest release before going live
         env:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.RDCORECLA_SIGNATURES }}
         with:
-          path-to-document: "https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md"
-          path-to-signatures: "signatures/v0.1a/cla-signarures.json"
-          branch: "main"
+          path-to-document: 'https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md'
+          path-to-signatures: 'signatures/v0.1a/cla-signarures.json'
+          branch: 'main'
 
           # People who never need to sign (maintainers, bots). Add the rest of the core team.
-          allowlist: "RubberduckAdmin,rubberduck-dev01,dependabot[bot],*[bot]"
+          allowlist: 'RubberduckAdmin,rubberduck-dev01,dependabot[bot],*[bot]'
 
-          remote-organization-name: "rubberduck-vba"
-          remote-repository-name: "RDCore-CLA"
+          remote-organization-name: 'rubberduck-vba'
+          remote-repository-name: 'RDCore-CLA'
 
           custom-notsigned-prcomment: >
-            Merci pour votre contribution ! Afin que nous puissions la fusionner, veuillez s'il vous plaît lire notre **[Entente de Licence Contributeur](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.FR.md)** et la signer en répondant avec le commentaire suivant :
+            Merci pour votre contribution ! Afin que nous puissions la fusionner, veuillez s'il vous plaît lire notre **[Entente de Licence Contributeur](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md)** et la signer en répondant avec le commentaire exact suivant :
 
           custom-pr-sign-comment: >
-            - "J'ai lu et j'accepte les termes et conditions de la CLA et ce commentaire constitue ma signature"
-          custom-allsigned-prcomment: "✅ Tous les contributeurs on signé l'entente CLA. Merci!<br/><hr/>V I V A T 🤝 C U C U M I S ™"
+            - 'J''ai lu et j''accepte les termes et conditions de la CLA et ce commentaire constitue ma signature'
+          custom-allsigned-prcomment: '✅ Tous les contributeurs on signé l''entente CLA. Merci!<br/><hr/>V I V A T 🤝 C U C U M I S ™'
