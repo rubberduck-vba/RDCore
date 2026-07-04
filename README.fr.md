@@ -21,6 +21,7 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 
 ### Voir aussi
 - [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.fr.md](CODE_OF_CONDUCT.fr.md)
 
 ---
 # RDCore

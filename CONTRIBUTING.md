@@ -3,22 +3,21 @@
 
 👋 **Merci pour votre intérêt!** 
 
-> ⏳ Les contributions publiques externes ne sont malheureusement _pas encore_ ouvertes.  
-> 👉 **Surveillez l'annonce** de la publication d'un _Accord de Licence Contributeur Personnel_ (CLA) dans un futur proche.
+Assurez-vous d'abord d'avoir lu et accepté les termes de [l'_Entente de Licence Contributeur_ ("CLA")](CLA.fr.md).
 
 ## Éléments clés
 
 - 🧠 **VOUS DÉCLAREZ** que VOUS ÊTES L'AUTEUR UNIQUE de vos contributions _et que celles-ci sont LIBRES DE DROITS externes_ (i.e. vous effectuez ces contributions en votre propre nom et sans dépendances ou implications légales externes);
+  - Vous pouvez donc expliquer vos contributions, justifier vos décisions, et effectuer par vous-même la maintenance de vos contributions.
 - 🔒 **VOUS CONSERVEZ** votre copyright _sur vos contributions_ - mais la plateforme et ses marques de commerces (détenues ou revendiquées) ne sont pas négociables;
 - ⚖️ **VOS CONTRIBUTIONS DEMEURENT OPEN-SOURCE** sous **⚖️MIT** (RDCore.SDK) ou **⚖️GPLv3** (tout autre projet sous ce référentiel);
 - 🤝 **VOUS AUTORISEZ L'INTÉGRATION** de vos contributions par le détenteur de la plateforme dans une **VERSION PRIVÉE SOUS LICENCE COMMERCIALE**.
 
 Ce dernier point constituant en toute transparence **l'intérêt commercial** motivant la publication et la réalisation de ce projet.
 
-
 ### Je voudrais contribuer, mais _au nom de ma compagnie ou de mon employeur_
 
-- ⏳ **Envisageable sans problème** dès la publication d'une _CLA Corporative_, dont la parution est prévue à cet effet en même temps que celle de la CLA personnelle.
+- ⏳ **Envisageable sans problème** dès la publication d'une _CLA Corporative_, dont la parution est prévue à cet effet.
 
 
 ### Du coup, pas de contributions d'_agents IA_?
@@ -44,13 +43,12 @@ L'usage d'outils de type _Copilot_ est toutefois **fortement encouragée** pour:
 
 👋 **Thank you for your interest!** 
 
-> ⏳ Public external contributions are unfortunately _not yet_ open.   
-> 👉 **Keep an eye out** for the publication of a _Personal Contributor License Agreement_ (CLA) in the near future.
-
+Please first read and accept the terms of our [_Contributor License Agreement_ ("CLA")](CLA.md).
 
 ## Key Elements
 
 - 🧠 **YOU DECLARE** that YOU ARE THE SOLE AUTHOR of your contributions _and that these are FREE OF ANY EXTERNAL RIGHTS_ (i.e. you are making these contributions under your own name, without any external dependencies or legal implications);
+  - You can therefore explain your contributions, justify your decisions, and maintain yourself the code you contribute.
 - 🔒 **YOU KEEP** your copyright _on your contributions_ - but the platform and its trademarks (held or claimed) are not negociable;
 - ⚖️ **YOUR CONTRIBUTIONS REMAIN OPEN-SOURCE** under **⚖️MIT** (RDCore.SDK) or **⚖️GPLv3** (any other project in this repository).
 - 🤝 **YOU AUTHORIZE THE INTEGRATION** of your contributions by the platform owner into a **PRIVATE VERSION UNDER A COMMERCIAL LICENSE**.
@@ -60,7 +58,7 @@ This last point transparently constituting the **commercial interest** motivatin
 
 ### I would like to contribute, but _in the name of my company or employer_
 
-- ⏳ **Will be possible**, under a slightly different _Corporate Contributor License Agreement_ (CLA) that should be published at the same time as the _personal CLA_ document.
+- ⏳ **Will be possible**, under a slightly different _Corporate Contributor License Agreement_ (CLA) that will be published separately from the _personal CLA_ document.
 
 
 ### Wait so no _AI Agent_ contributions then?
