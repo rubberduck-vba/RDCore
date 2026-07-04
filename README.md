@@ -22,6 +22,7 @@ This arrangement protects both the legacy and current contributors while enablin
 
 ### See also
 - [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ---
 # 1.0.1 RDCore
