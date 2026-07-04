@@ -1,7 +1,8 @@
 MIT License
 
 Copyright (c) 2026 9562-7303 Québec inc.
-UNE VERSION FRANÇAISE DE CE DOCUMENT EST DISPONIBLE SUR DEMANDE
+UNE VERSION FRANÇAISE DE CE DOCUMENT EST DISPONIBLE SUR DEMANDE  
+UNLESS EXPLICITLY STATED OTHERWISE, THIS LICENSE APPLIES STRICTLY TO THE **RDCORE.SDK** PROJECT.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
