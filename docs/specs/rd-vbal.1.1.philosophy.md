@@ -63,6 +63,7 @@ Examples of **invalid** _language core_ extensions include:
 
 This however, does not make them invalid extensions in the _RDCore ecosystem_: each and every single one of these could be great [_platform-level_ extensions](#111-platform-extensions).
 
+<!-- TODO move everything that follows under a relevant environment sub-section -->
 
 ### 1.1.3 Core Semantic Flags
 
