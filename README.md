@@ -57,7 +57,7 @@ RDCore is currently in active **pre-alpha** development - the **only deliverable
 - Standard library: 🚧 partially defined
 - Parser: 🚧 exists (barely)
 - CLI host (rdc.exe): 🚧 exists (barely)
-- **Public contributions: ❌ not yet opened**
+- **Public contributions: ✅ opened ([CLA](CLA.md))**
 
 ---
 # 1.0.2 RD-VBA
