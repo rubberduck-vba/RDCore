@@ -1,26 +1,24 @@
 # Let's Build RDCore 
 <sup>_Ce document est disponible en [français](getting-started.fr.html)_</sup>
 
-> [!NOTE]
-> ⏳ External contributions are **presently closed**.  
-> 👉 Keep an eye out for the announcement of a **CLA** and the official _open-core_ project launch soon!
-
 ---
 ## 🚀 Getting Started
 
-1. **First read and sign** the Contributor Licence Agreement (CLA) as appropriate for your situation (it will make the next steps smoother);
+1. **First read and accept** the Contributor Licence Agreement (CLA) as appropriate for your situation (it will make the next steps smoother);
 1. Browse the _project roadmap_ and pick a ticket under the _current milestone_;
 1. _Fork_ the **RDCore** repository to **your GitHub account**;
 1. Download a _clone_ of the repository on a workstation that is free of rights (i.e. NOT your employer's computer);
 1. Open `RDCore.slnx` un _Microsoft Visual Studio Community Editition 2026_ (free for open-source contributions);
-  - 👉 Alternatively, use `dotnet build` CLI tooling to build the solution.
+  a. 👉 Alternatively, use `dotnet build` CLI tooling to build the solution.
 1. Start a new _branch_ from **main**, named in reference to the selected ticket;
 1. Implement and test your contributions in your local branch;
 1. When everything works and is ready for review, open a new _pull request_ referring to the selected ticket;
-  - 👉 Mention `Closes #` followed by the ticket number in the body of the _pull request_.
-  - 👉 Such a mention in a _commit_ of your branch history will appear in the ticket history as soon as your commits are _pushed_ to your _fork_, which signals work in progress to other contributors.
+  a. 👉 Mention `Closes #` followed by the ticket number in the body of the _pull request_.
+  b. 👉 Such a mention in a _commit_ of your branch history will appear in the ticket history as soon as your commits are _pushed_ to your _fork_, which signals work in progress to other contributors.
+1. Sign the CLA by copying the specified signature content into a comment on your PR.
+  a. 👉 This will only be need to be done once.
 1. Once your _pull request_ is completed, **destroy your feature branch** and resynchronize _main_ to start work on a new ticket.
-  - 👉 The _squash merge_ will destroy the details of your commit history in the central repository, which quickly complicates things if additional commits get added to an already-completed branch; a patch may be submitted by starting a new branch from _main_ resynchronized to contain the _merge commit_.
+  a. 👉 The _squash merge_ will destroy the details of your commit history in the central repository, which quickly complicates things if additional commits get added to an already-completed branch; a patch may be submitted by starting a new branch from _main_ resynchronized to contain the _merge commit_.
 
 
 ---

@@ -1,26 +1,24 @@
 # Bâtissons RDCore 
 <sup>_This document is available in [English](getting-started.html)_</sup>
 
-> [!NOTE]
-> ⏳ Les contributions externes sont **présentement fermées**.  
-> 👉 Surveillez l'annonce prochaine d'une **CLA** et l'ouverture officielle de ce projet _open-core_.
-
 ---
 ## 🚀 Démarrage
 
-1. **Lisez et signez d'abord** l'accord de licence contributeur (CLA) approprié (ça facilitera la suite);
+1. **Lisez et acceptez d'abord** l'accord de licence contributeur (CLA) approprié (ça facilitera la suite);
 1. Prenez connaissance de la _feuille de route_ du projet et sélectionnez un ticket;
 1. Démarrez un _fork_ du référentiel **RDCore** sur **votre compte GitHub**;
 1. Téléchargez un _clone_ du référentiel sur un poste libre de droits (donc pas sur un poste fourni par votre employeur);
 1. Ouvrez `RDCore.slnx` dans _Microsoft Visual Studio Community Edition 2026_ (gratuit pour contributions open-source);
-  - 👉 Alternativement, utilisez les outils CLI `dotnet build` pour compiler la solution.
+  à. 👉 Alternativement, utilisez les outils CLI `dotnet build` pour compiler la solution.
 1. Démarrez une nouvelle _branche_ à partir de **main**, nommée en référence au ticket sélectionné;
 1. Effectuez et testez vos contributions dans votre branche locale;
 1. Lorsque tout fonctionne et est prêt pour revue, ouvrez une _pull request_ en y référant le ticket sélectionné;
-  - 👉 Mentionnez `Closes #` suivi du numéro du ticket dans le corps de la _pull request_.
-  - 👉 Une telle mention dans un _commit_ de votre historique apparaîtra sur l'historique de ce ticket dès que vos commits sont poussés dans votre _fork_, ce qui signale un travail en cours aux autres contributeurs.
+  a. 👉 Mentionnez `Closes #` suivi du numéro du ticket dans le corps de la _pull request_.
+  b. 👉 Une telle mention dans un _commit_ de votre historique apparaîtra sur l'historique de ce ticket dès que vos commits sont poussés dans votre _fork_, ce qui signale un travail en cours aux autres contributeurs.
+1. Signez la CLA en copiant le texte de la signature dans un nouveau commentaire sur la PR.
+  a. 👉 Ceci ne sera nécessaire qu'une seule fois.
 1. Une fois votre _pull request_ complétée, **détruisez la branche** et resynchronisez _main_ pour démarrer un nouveau développement. 
-  - 👉 Le _squash merge_ détruira le détail de l'historique de vos _commits_ dans le référentiel central, ce qui complique rapidement les choses si des commits additionnels s'ajoutent à une branche déjà complétée; un correctif peut être soumis en démarrant une nouvelle branche à partir de _main_ resynchronisé avec le _merge commit_.
+  à. 👉 Le _squash merge_ détruira le détail de l'historique de vos _commits_ dans le référentiel central, ce qui complique rapidement les choses si des commits additionnels s'ajoutent à une branche déjà complétée; un correctif peut être soumis en démarrant une nouvelle branche à partir de _main_ resynchronisé avec le _merge commit_.
 
 
 ---
