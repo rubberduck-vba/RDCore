@@ -46,7 +46,7 @@ jobs:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.RDCORECLA_SIGNATURES }}
         with:
           path-to-document: "https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md"
-          path-to-signatures: "signatures/v0.1a/cla-signarures.json"
+          path-to-signatures: "signatures/v0.1a/cla-signatures.json"
           branch: "main"
 
           # People who never need to sign (maintainers, bots). Add the rest of the core team.
@@ -58,6 +58,5 @@ jobs:
           custom-notsigned-prcomment: >
             Thank you for your contribution! In order for it to be merged, please read our **[Contributor License Agreement](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md)** and sign it by replying with the following comment on this _pull request_:
 
-          custom-pr-sign-comment: >
-            - "I have read and agreed with the CLA terms and conditions and I hereby sign the CLA"
-          custom-allsigned-prcomment: "✅ All contributors have signed the CLA. Thank you!<br/><hr/>V I V A T 🤝 C U C U M I S ™"
+          custom-pr-sign-comment: '> I have read and agreed with the CLA terms and conditions and I hereby sign the CLA'
+          custom-allsigned-prcomment: '✅ All contributors have signed the CLA. Thank you!<br/><hr/>V I V A T 🤝 C U C U M I S ™'
