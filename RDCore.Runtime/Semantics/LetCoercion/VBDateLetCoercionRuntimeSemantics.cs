@@ -38,7 +38,7 @@ public record class VBDateLetCoercionRuntimeSemantics(
                     ((VBNumericTypedValue)Provider.EvaluateLetCoercionSemantics(resolver, expression, 
                         frame with { 
                             // we must first create the VBDoubleValue for the managed SerialValue:
-                            SourceValue = VBTypedValueFactory.CreateValue(VBDoubleType.TypeInfo, sourceDateValue.Symbol, sourceDateValue.SerialValue) 
+                            SourceValue = VBTypedValueFactory.CreateValue(VBDoubleType.TypeInfo, sourceDateValue.Symbol, sourceDateValue.ManagedValue) 
                         }).Result!).ManagedValue)),
 
             VBNumericTypedValue or VBBooleanValue when frame.DestinationTypeDesc.Target is VBDateType

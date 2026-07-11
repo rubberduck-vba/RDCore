@@ -59,7 +59,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         if (frame.EffectiveType is VBDecimalType)
         {
             var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhsNumeric.ManagedValue.Decimal == 0)
             {
                 return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
@@ -68,7 +68,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         {
             var lhsNumeric = (VBNumericTypedValue)lhs;
             var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhsNumeric.ManagedValue.Double == 0)
             {
                 //if (lhsNumeric is VBDoubleValue && rhsNumeric is VBDoubleValue)
                 //{
@@ -81,7 +81,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
                 //    // and then let-assignment semantics would know what to do.
                 //}
 
-                return lhsNumeric.ManagedValue == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
+                return lhsNumeric.ManagedValue.Double == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
                     ? OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow)
                     : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }

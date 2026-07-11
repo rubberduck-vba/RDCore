@@ -73,7 +73,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         {
             if (lhs is VBNumericTypedValue lhsValue && rhs is VBNumericTypedValue rhsValue)
             {
-                var divisor = VBNumericType.BankersRounding(rhsValue.ManagedValue);
+                var divisor = VBNumericType.BankersRounding(rhsValue.ManagedValue.Double);
                 if (divisor == 0)
                 {
                     OnDivisionByZero(expression, Exceptions.VBIntegerDivisionOp_DivisionByZero);
@@ -81,7 +81,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
 
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBTypedValueFactory.CreateValue((VBNumericType)frame.EffectiveType, expression.ResultSymbol, 
-                        EvaluateManagedNumericOp(lhsValue.ManagedValue, rhsValue.ManagedValue)));
+                        EvaluateManagedNumericOp(lhsValue.ManagedValue.Double, rhsValue.ManagedValue.Double)));
             }
         }
         else if (frame.EffectiveType is VBNullType)

@@ -52,7 +52,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
 
         if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
-            if (lhsNumeric.ManagedValue == 0)
+            if (lhsNumeric.ManagedValue.Double == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
@@ -66,7 +66,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     
         if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
         {
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhsNumeric.ManagedValue.Double == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));

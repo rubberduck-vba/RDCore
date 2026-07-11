@@ -36,8 +36,8 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
                     SourceValue: frame.SourceValue,
                     DestinationTypeDesc: VBTypedValueFactory.DescribeType(VBDoubleType.TypeInfo, expression.ResultSymbol)
                 )).Result is VBDoubleValue coerced
-                    && coerced.ManagedValue > VBErrorType.MinimumStdErrorValue 
-                    && coerced.ManagedValue < VBErrorType.MaximumStdErrorValue
+                    && coerced.ManagedValue.Double > VBErrorType.MinimumStdErrorValue 
+                    && coerced.ManagedValue.Double < VBErrorType.MaximumStdErrorValue
                         ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(VBErrorType.TypeInfo, expression.ResultSymbol, coerced.ManagedValue))
                         : LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), frame),
 

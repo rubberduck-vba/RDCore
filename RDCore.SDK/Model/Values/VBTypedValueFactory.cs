@@ -89,6 +89,20 @@ public static class VBTypedValueFactory
     /// </remarks>
     public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, double numericValue)
         => (VBNumericTypedValue)((INumericValue)CreateValue(typeDesc.Target, symbol)!).WithValue(numericValue);
+
+    /// <summary>
+    /// Creates a new <c>VBNumericValue</c> of the specified described type, with the specified value, for the specified symbol.
+    /// </summary>
+    /// <param name="typeDesc">A <c>VBTypeDescValue</c> describing the target numeric data type.</param>
+    /// <param name="symbol">The symbol to be associated with the new value.</param>
+    /// <param name="numericValue">The underlying (managed) numeric value being wrapped.</param>
+    /// <remarks>
+    /// 👉 Overloads taking a <see cref="VBTypeDescValue"/> <em>type descriptor value</em> parameter are 
+    /// intended for let-coercion semantics and may eventually need to be moved.
+    /// </remarks>
+    public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, ManagedValue managedValue)
+        => (VBNumericTypedValue)CreateValue(typeDesc.Target, symbol, managedValue);
+
     /// <summary>
     /// Creates a new <c>VBNumericValue</c> of the specified described type, with the specified value, for the specified symbol.
     /// </summary>
