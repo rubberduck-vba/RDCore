@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Model.Values;
@@ -16,6 +17,6 @@ public sealed record class PrecompilerConstantValue : VBIntegerValue
     public PrecompilerConstantValue(Symbol symbol, int managedValue)
         : base(symbol)
     {
-        ManagedValue = managedValue;
+        ManagedValue = new(new ManagedInteropValue(managedValue));
     }
 }

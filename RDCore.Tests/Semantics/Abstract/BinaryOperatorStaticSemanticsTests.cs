@@ -10,4 +10,3 @@ public abstract class BinaryOperatorStaticSemanticsTests : StaticSemanticsTests
     protected void AssertDeterminedDeclaredType((VBType lhs, VBType rhs) operandDeclaredTypes, VBType expected) 
         => AssertDeterminedDeclaredType(Semantics, [operandDeclaredTypes.lhs, operandDeclaredTypes.rhs], expected);
 }
-

@@ -10,15 +10,14 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </summary>
 /// <param name="Symbol">The symbol associated with this value.</param>
 public sealed record class VBEmptyValue(Symbol Symbol) : VBTypedValue(VBEmptyType.TypeInfo, Symbol), 
-    IVBTypedValue<VBEmptyValue, nint>
+    IVBTypedValue<VBEmptyValue, int>
 {
     private static readonly Lazy<VBEmptyValue> _emptyValue = new(() => new(GlobalSymbols.StaticSymbols.Empty), LazyThreadSafetyMode.PublicationOnly);
     public static VBEmptyValue Empty { get; } = _emptyValue.Value;
-    public override object BoxedValue => _emptyValue.Value;
 
-    public nint Value => nint.Zero;
+    public int Value => 0;
     public override int Size => sizeof(int);
 
-    public bool Equals(IVBTypedValue<VBEmptyValue, nint>? other) => Value == other?.Value;
+    public bool Equals(IVBTypedValue<VBEmptyValue, int>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }

@@ -24,6 +24,8 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     }
 
     protected override bool ComparisonOp(double lhs, double rhs) => throw new NotSupportedException();
+    protected override bool ComparisonOp(decimal lhs, decimal rhs) => throw new NotSupportedException();
+    protected override bool ComparisonOp(long lhs, long rhs) => throw new NotSupportedException();
 
     private static string ToRegex(string likePattern)
     {

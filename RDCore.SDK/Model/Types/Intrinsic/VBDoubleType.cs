@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Model.Types;
@@ -20,26 +21,26 @@ public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VB
     /// </summary>
     public const int SignificantIntegerDigits = 15;
 
-    private static readonly Lazy<VBDoubleValue> _minValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleMinValue) { ManagedValue = double.MinValue * Math.Pow(10, -4), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDoubleValue> _minValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleMinValue) { ManagedValue = new(new Values.Interop.ManagedInteropValue(double.MinValue * Math.Pow(10, -4))), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => _minValue.Value.ManagedValue;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue.InteropValue!.Value.Double;
 
-    private static readonly Lazy<VBDoubleValue> _maxValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleMaxValue) { ManagedValue = double.MaxValue * Math.Pow(10, -4), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDoubleValue> _maxValue = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleMaxValue) { ManagedValue = new(new ManagedInteropValue(double.MaxValue * Math.Pow(10, -4))), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue.InteropValue!.Value.Double;
 
-    private static readonly Lazy<VBDoubleValue> _zero = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleZeroValue) { ManagedValue = 0, TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDoubleValue> _zero = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleZeroValue) { ManagedValue = new(ManagedInteropValue.DoubleZeroValue), TypeInfo = VBDoubleType.TypeInfo }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBDoubleValue Zero => _zero.Value;
-    private static readonly Lazy<VBDoubleValue> _one = new(() => new (GlobalSymbols.ExtensionSymbols.VBDoubleOneValue), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDoubleValue> _one = new(() => new(GlobalSymbols.ExtensionSymbols.VBDoubleOneValue) { ManagedValue = new(new Values.Interop.ManagedInteropValue(1d)) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>1</c> (one) representation of this data type.
     /// </summary>

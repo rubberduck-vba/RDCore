@@ -23,7 +23,7 @@ public class LetCoercionTraceFormatter : DefaultStackTraceFormatter, IStackTrace
 
     private static void FormatOperands(StringBuilder builder, IStackFrame<InputIndex> frame, bool withValues = false) => 
         builder
-            .WithEnclosedIf(withValues, "[", frame[InputIndex.CoercionSourceValue].BoxedValue.ToString() ?? "🦄", "]:")
+            .WithEnclosedIf(withValues, "[", frame[InputIndex.CoercionSourceValue].ManagedValue.ToString() ?? "🦄", "]:")
             .Append(frame[InputIndex.CoercionSourceValue].TypeInfo.Name)
             .Append(" -> ")
             .Append(((VBTypeDescValue)frame[InputIndex.CoercionDestinationType]).Target.Name);

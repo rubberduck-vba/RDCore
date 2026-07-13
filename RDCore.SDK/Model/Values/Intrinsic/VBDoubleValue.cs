@@ -11,12 +11,8 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBDoubleValue(Symbol Symbol) : VBNumericTypedValue(VBDoubleType.TypeInfo, Symbol),
     IVBTypedValue<VBDoubleValue, double>, INumericValue<VBDoubleValue>
 {
-    public double Value => ManagedValue;
+    public double Value => ManagedValue.InteropValue!.Value.Double;
     public override int Size => 8;
-    public override double ManagedValue { get; init; }
-    public override object BoxedValue => ManagedValue;
-
-    public new VBDoubleValue WithValue(double value) => this with { ManagedValue = value };
 
     public bool Equals(IVBTypedValue<VBDoubleValue, double>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

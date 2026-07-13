@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// The default value of a <c>VBObjectValue</c> is <see cref="VBNothingValue"/>.
 /// </remarks>
 public record class VBObjectValue : VBTypedValue,
-    IVBTypedValue<VBObjectValue, int>
+    IVBTypedValue<VBObjectValue, int> // FIXME
 {
     private static readonly Lazy<VBObjectValue> _nothing = new(() 
         => new VBNothingValue(GlobalSymbols.StaticSymbols.Nothing), LazyThreadSafetyMode.PublicationOnly);
@@ -22,8 +22,6 @@ public record class VBObjectValue : VBTypedValue,
 
     public int Value { get; init; }
     public override int Size => sizeof(int);
-
-    public override object BoxedValue => Value;
 
     public bool IsNothing() => Value == Nothing.Value;
 

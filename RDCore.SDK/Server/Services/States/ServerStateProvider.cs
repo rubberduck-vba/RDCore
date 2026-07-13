@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.SDK.Server.Services.States;
 
@@ -81,9 +82,9 @@ public sealed class ServerStateProvider(IConfiguration configuration) : IServerS
 
     public void OnInitialize() => _state = GetValidStateOrThrow(State, typeof(StartingServerState), ServerState.Initializing);
     public void OnInitialized() => _state = GetValidStateOrThrow(State, typeof(InitializingServerState),
-        Enum.Parse<LogLevel>(configuration["Server.TraceLevel"]!) == LogLevel.None
+        Enum.Parse<LogLevel>(configuration["Server:TraceLevel"] ?? LogLevel.None.ToString()) == LogLevel.None
             ? ServerState.RunningTraceless
-            : Convert.ToBoolean(configuration["Server:Verbose"])
+            : Convert.ToBoolean(configuration["Server:Verbose"] ?? false.ToString())
                 ? ServerState.RunningVerbose
                 : ServerState.Running);
 
@@ -91,7 +92,7 @@ public sealed class ServerStateProvider(IConfiguration configuration) : IServerS
     {
         _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.ShuttingDown);
         _requestTokenSource.Cancel();
-        _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Convert.ToInt32(configuration["Server:ShutdownTimeoutSeconds"])));
+        _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Convert.ToInt32(configuration["Server:ShutdownTimeoutSeconds"] ?? "5")));
     }
 
     public void OnExit()
@@ -101,7 +102,7 @@ public sealed class ServerStateProvider(IConfiguration configuration) : IServerS
     }
 
     private static ServerState GetValidStateOrThrow(ServerState currentState, Type condition, ServerState validState) 
-        => currentState.GetType().Equals(condition) ? validState : throw new InvalidServerStateException(currentState.Value);
+        => currentState.GetType().IsAssignableTo(condition) ? validState : throw new InvalidServerStateException(currentState.Value);
 
     public void OnTraceOff() => _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.RunningTraceless);
     public void OnTraceMessages() => _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.Running);

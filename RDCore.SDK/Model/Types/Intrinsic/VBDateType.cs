@@ -29,7 +29,7 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     /// </summary>
     public const double MinSerial = -657434;
     private static readonly Lazy<VBDateValue> _minValue = new(() 
-        => new(GlobalSymbols.ExtensionSymbols.VBDateMinValue) { Value = new DateTime(100, 01, 01) }, LazyThreadSafetyMode.PublicationOnly);
+        => new(GlobalSymbols.ExtensionSymbols.VBDateMinValue) { ManagedValue = new(new Values.Interop.ManagedInteropValue(new DateTime(100, 01, 01).ToOADate())) }, LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
     /// Gets the minimum representable value for this data type.
@@ -39,9 +39,12 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     /// <summary>
     /// The maximum valid value for a <c>DateSerial</c>.
     /// </summary>
-    public const double MaxSerial = 2958465;
+    /// <remarks>
+    /// Corresponds to <strong>9999-12-31T23:59:59Z</strong>
+    /// </remarks>
+    public const double MaxSerial = 2958465.999998843d;
     private static readonly Lazy<VBDateValue> _maxValue = new(() 
-        => new(GlobalSymbols.ExtensionSymbols.VBDateMaxValue) { Value = new DateTime(9999, 12, 31, 23, 59, 59) }, LazyThreadSafetyMode.PublicationOnly);
+        => new(GlobalSymbols.ExtensionSymbols.VBDateMaxValue) { ManagedValue = new(new Values.Interop.ManagedInteropValue(MaxSerial)) }, LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
     /// Gets the maximum representable value for this data type.
@@ -49,7 +52,7 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     public static VBDateValue MaxValue => _maxValue.Value;
 
     private static readonly Lazy<VBDateValue> _zero = new(() 
-        => new(GlobalSymbols.ExtensionSymbols.VBDateZeroValue) { Value = new DateTime(1899, 12, 30) }, LazyThreadSafetyMode.PublicationOnly);
+        => new(GlobalSymbols.ExtensionSymbols.VBDateZeroValue) { ManagedValue = new(new Values.Interop.ManagedInteropValue(new DateTime(1899, 12, 30).ToOADate())) }, LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.

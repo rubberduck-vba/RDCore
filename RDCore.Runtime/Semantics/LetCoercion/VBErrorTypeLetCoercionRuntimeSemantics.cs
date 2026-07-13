@@ -36,9 +36,9 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
                     SourceValue: frame.SourceValue,
                     DestinationTypeDesc: VBTypedValueFactory.DescribeType(VBDoubleType.TypeInfo, expression.ResultSymbol)
                 )).Result is VBDoubleValue coerced
-                    && coerced.ManagedValue > VBErrorType.MinimumStdErrorValue 
-                    && coerced.ManagedValue < VBErrorType.MaximumStdErrorValue
-                        ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(VBErrorType.TypeInfo, expression.ResultSymbol, coerced.ManagedValue))
+                    && coerced.ManagedValue.InteropValue!.Value.Double > VBErrorType.MinimumStdErrorValue 
+                    && coerced.ManagedValue.InteropValue!.Value.Double < VBErrorType.MaximumStdErrorValue
+                        ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(VBErrorType.TypeInfo, expression.ResultSymbol, coerced.ManagedValue.InteropValue.Value.Double))
                         : LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), frame),
 
             _ => LetCoercionResult.NotApplicable(frame)

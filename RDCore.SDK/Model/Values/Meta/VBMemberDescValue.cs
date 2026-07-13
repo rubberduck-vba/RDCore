@@ -10,6 +10,4 @@ public record class VBMemberDescValue(Symbol Symbol, VBTypeMemberSymbol Member, 
     : VBTypedValue(Member.ResolvedType, Symbol)
 {
     public override int Size => sizeof(int);
-
-    public override object BoxedValue => 0;
 }

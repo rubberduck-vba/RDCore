@@ -1,5 +1,6 @@
 ﻿using RDCore.LanguageServer;
 using RDCore.LanguageServer.Workspace;
+using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server;
 using System.Text.Json;
 
@@ -87,7 +88,7 @@ public sealed class ProjectFileTests
         var result = JsonSerializer.Deserialize<ProjectFile>(serialized)!;
 
         // assert
-        Assert.AreEqual(string.Empty, result.Uri);
+        Assert.AreEqual(RDCoreUriNamespaces.RDCoreWorkspaceUri, result.Uri);
     }
 
     [TestMethod]

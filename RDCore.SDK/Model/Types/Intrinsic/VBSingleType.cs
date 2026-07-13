@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Model.Types;
@@ -29,21 +30,21 @@ public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle),
     private static readonly Lazy<VBSingleValue> _defaultValue = new(() => VBSingleType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBSingleValue> _minValue = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleMinValue) { ManagedValue = float.MinValue }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBSingleValue> _minValue = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleMinValue) { ManagedValue = new(ManagedInteropValue.SingleMinValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBSingleValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => _minValue.Value.ManagedValue;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue.InteropValue!.Value.Single;
 
-    private static readonly Lazy<VBSingleValue> _maxValue = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleMaxValue) { ManagedValue = float.MaxValue }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBSingleValue> _maxValue = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleMaxValue) { ManagedValue = new(ManagedInteropValue.SingleMaxValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBSingleValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue.InteropValue!.Value.Single;
 
-    private static readonly Lazy<VBSingleValue> _zero = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBSingleValue> _zero = new(() => new VBSingleValue(GlobalSymbols.ExtensionSymbols.VBSingleZeroValue) { ManagedValue = new(ManagedInteropValue.SingleZeroValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>

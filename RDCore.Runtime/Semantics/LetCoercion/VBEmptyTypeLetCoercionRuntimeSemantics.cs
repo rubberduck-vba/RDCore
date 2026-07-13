@@ -25,7 +25,7 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
         frame.DestinationTypeDesc.Target switch
         {
             VBNumericType numericType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateValue(numericType, expression.ResultSymbol, ((VBNumericTypedValue)frame.SourceValue).ManagedValue)),
+                VBTypedValueFactory.CreateValue(numericType, expression.ResultSymbol, ((VBNumericTypedValue)frame.SourceValue).ManagedValue.InteropValue!.Value)),
         
             VBBooleanType => LetCoercionResult.Success(
                 VBTypedValueFactory.CreateBooleanValue(expression.ResultSymbol, VBBooleanValue.False)),

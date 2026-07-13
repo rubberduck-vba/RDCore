@@ -17,8 +17,6 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeMemberSymbol>()
         .Sum(member => member.ResolvedType!.DefaultValue.Size);
 
-    public override object BoxedValue => Value;
-
     public bool Equals(IVBTypedValue<VBUserDefinedTypeValue, VBLongPtrValue>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }

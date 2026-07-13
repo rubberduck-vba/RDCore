@@ -108,7 +108,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <returns><c>true</c> if the specified <c>sourceValue</c> is within the range of the <c>destinationDeclaredType</c>; <c>false</c> otherwise.</returns>
     protected bool ValidateDestinationTypeRange(BoundExpression expression, LetCoercionStackFrame frame, [MaybeNullWhen(true)][NotNullWhen(false)] out VBRuntimeErrorInfo? error)
     {
-        error = VBNumericType.IsWithinRange(((VBNumericTypedValue)frame.SourceValue).ManagedValue, (VBNumericType)frame.DestinationTypeDesc.Target) 
+        error = VBNumericType.IsWithinRange(frame.SourceValue.ManagedValue.InteropValue!.Value.Double, (VBNumericType)frame.DestinationTypeDesc.Target) 
             ? null : OnLetCoercionOverflow(expression, frame);
         // the value is within range if we don't have an impending overflow error:
         return error is null;

@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Meta;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Meta;
 using System.Globalization;
 namespace RDCore.SDK.Model.Values.Abstract;
@@ -70,11 +71,9 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol ResolvedSymbol
     public abstract int Size { get; }
 
     /// <summary>
-    /// Gets the <em>boxed</em> (<c>object</c>) underlying managed value.
+    /// Gets a wrapper for the underlying managed value.
     /// </summary>
-    /// <remarks>
-    /// 👉 This member is provided as a <em>non-generic</em> convenience for contexts where the type is unknown.
-    /// Use the generic <c>ITypedValue&lt;T&gt;</c> whenever possible instead.
-    /// </remarks>
-    public abstract object BoxedValue { get; }
+    public ManagedInteropWrapper ManagedValue { get; init; }
+
+    public VBTypedValue WithValue(ManagedInteropWrapper value) => this with { ManagedValue = value };
 }

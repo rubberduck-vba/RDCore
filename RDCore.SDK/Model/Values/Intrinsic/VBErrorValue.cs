@@ -14,8 +14,6 @@ public sealed record class VBErrorValue(Symbol Symbol, int Value = 0) : VBTypedV
 {
     public override int Size => sizeof(int);
 
-    public override object BoxedValue => Value;
-
     public bool Equals(IVBTypedValue<VBErrorValue, int>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }

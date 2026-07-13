@@ -11,6 +11,4 @@ public record class VBParameterDescValue(Symbol Symbol, VBParameterSymbol Parame
     : VBTypedValue(Parameter.ResolvedType, Symbol)
 {
     public override int Size => sizeof(int);
-
-    public override object BoxedValue => 0;
 }

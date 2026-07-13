@@ -52,10 +52,10 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
 
         if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
-            if (lhsNumeric.ManagedValue == 0)
+            if (lhsNumeric.ManagedValue.InteropValue!.Value.Double == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue.InteropValue!.Value));
             }
             else
             {
@@ -66,10 +66,10 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     
         if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
         {
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhsNumeric.ManagedValue.InteropValue!.Value.Double == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue));
+                    VBTypedValueFactory.CreateValue(frame.EffectiveType, expression.ResultSymbol, VBIntegerType.Zero.ManagedValue.InteropValue!.Value));
             }
             else
             {

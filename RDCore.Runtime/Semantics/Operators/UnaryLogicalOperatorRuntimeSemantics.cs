@@ -52,7 +52,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, Symbol symbol, VBNumericTypedValue operand) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(operand.ManagedValue));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(operand.ManagedValue.InteropValue!.Value.Int32));
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary logical operator
@@ -62,7 +62,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, Symbol symbol, VBNumericTypedValue operand) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(operand.ManagedValue));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(operand.ManagedValue.InteropValue!.Value.Int32));
 
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNullType effectiveType, Symbol symbol, VBNullValue operand) =>
         VBTypedValueFactory.CreateValue(effectiveType, symbol)!;

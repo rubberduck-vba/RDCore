@@ -25,6 +25,8 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => throw new NotSupportedException();
     protected override bool ComparisonOp(double lhs, double rhs) => throw new NotSupportedException();
+    protected override bool ComparisonOp(decimal lhs, decimal rhs) => throw new NotSupportedException();
+    protected override bool ComparisonOp(long lhs, long rhs) => throw new NotSupportedException();
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,

@@ -11,11 +11,8 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBByteValue(Symbol Symbol) 
     : VBNumericTypedValue(VBByteType.TypeInfo, Symbol), IVBTypedValue<VBByteValue, byte>, INumericValue<VBByteValue>
 {
-    public byte Value => (byte)ManagedValue;
+    public byte Value => ManagedValue.InteropValue!.Value.Byte;
     public override int Size { get; } = sizeof(byte);
-    public override double ManagedValue { get; init; }
-
-    public override object BoxedValue => ManagedValue;
 
     public bool Equals(IVBTypedValue<VBByteValue, byte>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

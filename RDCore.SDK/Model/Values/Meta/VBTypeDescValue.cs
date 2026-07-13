@@ -21,8 +21,6 @@ public record class VBTypeDescValue(VBType Target, Symbol Symbol) : VBTypedValue
     public static VBTypedValue DefaultValue => _defaultValue.Value;
 
     public override int Size => sizeof(int);
-
-    public override object BoxedValue => 0;
 }
 
 /// <summary>

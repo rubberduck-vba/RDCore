@@ -12,14 +12,8 @@ public sealed record class VBSingleValue(Symbol Symbol) : VBNumericTypedValue(VB
     IVBTypedValue<VBSingleValue, float>,
     INumericValue<VBSingleValue>
 {
-    public float Value => (float)ManagedValue;
+    public float Value => ManagedValue.InteropValue!.Value.Single;
     public override int Size => sizeof(float);
-    public override double ManagedValue { get; init; }
-
-    public override object BoxedValue => ManagedValue;
-
-    public new VBSingleValue WithValue(double value) => this with { ManagedValue = (float)value };
-
     public bool Equals(IVBTypedValue<VBSingleValue, float>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();
 }

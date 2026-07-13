@@ -15,9 +15,7 @@ public sealed record class VBUnknownValue(Symbol Symbol) : VBTypedValue(VBUnknow
     public static VBUnknownValue DefaultValue => _defaultValue.Value;
 
     public override int Size => sizeof(int);
-    public object Value => BoxedValue;
-
-    public override object BoxedValue => null!;
+    public object Value => ManagedValue;
 
     public bool Equals(IVBTypedValue<VBUnknownValue, object>? other) => false;
 }

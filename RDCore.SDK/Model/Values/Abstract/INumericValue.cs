@@ -11,7 +11,7 @@ public interface INumericValue
     /// <summary>
     /// Gets a managed (.net) internal representation the numeric value. This is always a <c>double</c>.
     /// </summary>
-    double ManagedValue { get; }
+    //double ManagedValue { get; }
 
     /// <summary>
     /// Gets a copy of this value, with the specified underlying value.
@@ -20,7 +20,7 @@ public interface INumericValue
     /// 💥<see cref="VBRuntimeErrorId.Overflow"/> may be raised as specified in the appropraite <em>run-time semantics</em> if the specified value is outside the bounds representable by the <see cref="VBType"/>.
     /// </remarks>
     /// <param name="value">The <em>managed value</em> of the numeric value to be produced.</param>
-    INumericValue WithValue(double value);
+    INumericValue WithValue<T>(T value) where T : struct;
 }
 
 /// <summary>

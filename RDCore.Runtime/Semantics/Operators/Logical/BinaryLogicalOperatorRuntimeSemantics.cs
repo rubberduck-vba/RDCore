@@ -89,11 +89,11 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
                 return RuntimeSemanticsEvaluationResult.Error((lhsCoercion.ErrorInfo ?? rhsCoercion.ErrorInfo)!);
             }
 
-            if (lhsValue?.ManagedValue is double lhsDouble && rhsValue?.ManagedValue is double rhsDouble)
+            if (lhsValue is VBDoubleValue lhsDouble && rhsValue is VBDoubleValue rhsDouble)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBTypedValueFactory.CreateValue(VBIntegerType.TypeInfo, expression.Symbol,
-                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble), Convert.ToInt32(rhsDouble))));
+                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.ManagedValue.InteropValue!.Value.Double), Convert.ToInt32(rhsDouble.ManagedValue.InteropValue!.Value.Double))));
             }
         }
         else if (lhs is VBNullValue && rhs is VBNullValue)
@@ -125,19 +125,18 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBNumericType effectiveType, Symbol symbol, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue, rhs.ManagedValue));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue.InteropValue!.Value.Int32, rhs.ManagedValue.InteropValue!.Value.Int32));
 
     /// <summary>
     /// Evaluates the runtime semantics of a binary logical operator
     /// </summary>
     /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
     /// <param name="symbol">The binary operator expression symbol.</param>
-    /// <param name="operand">The binary operand being evaluated.</param>
     /// <param name="lhs">The left-hand side (LHS) numeric binary expression operand.</param>
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBDateType effectiveType, Symbol symbol, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue, rhs.ManagedValue));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue.InteropValue!.Value.Int32, rhs.ManagedValue.InteropValue!.Value.Int32));
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,

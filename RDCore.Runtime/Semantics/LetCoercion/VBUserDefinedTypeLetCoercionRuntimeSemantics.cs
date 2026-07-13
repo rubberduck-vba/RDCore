@@ -26,8 +26,7 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             VBUserDefinedTypeValue sourceUDT when sourceUDT.TypeInfo == frame.DestinationTypeDesc.Target => 
-                LetCoercionResult.Success(VBTypedValueFactory.CreateValue(frame.DestinationTypeDesc, sourceUDT.ResolvedSymbol, 
-                    sourceUDT.Value.ManagedValue)),
+                LetCoercionResult.Success(VBTypedValueFactory.CreateValue(frame.DestinationTypeDesc, sourceUDT.ResolvedSymbol, sourceUDT.Value)),
 
             VBUserDefinedTypeValue when frame.DestinationTypeDesc.Target is not VBVariantType =>
                 LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),

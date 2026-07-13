@@ -36,14 +36,16 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
             && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric 
             && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric)
         {
-            if (rhsNumeric.ManagedValue == 0)
+            if (rhsNumeric.ManagedValue.InteropValue!.Value.Double == 0)
             {
                 OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
 
             return RuntimeSemanticsEvaluationResult.Success(
                 VBTypedValueFactory.CreateValue((VBNumericType)frame.EffectiveType, expression.ResultSymbol,
-                EvaluateManagedNumericOp(lhsNumeric.ManagedValue, rhsNumeric.ManagedValue)));
+                EvaluateManagedNumericOp(
+                    lhsNumeric.ManagedValue.InteropValue!.Value.Double, 
+                    rhsNumeric.ManagedValue.InteropValue!.Value.Double)));
         }
         else if (frame.EffectiveType is VBNullType)
         {

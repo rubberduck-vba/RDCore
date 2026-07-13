@@ -12,12 +12,8 @@ public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLo
     IVBTypedValue<VBLongValue, int>,
     INumericValue<VBLongValue>
 {
-
-    public int Value => (int)ManagedValue;
+    public int Value => ManagedValue.InteropValue!.Value.Int32;
     public override int Size => sizeof(int);
-    public override double ManagedValue { get; init; }
-
-    public override object BoxedValue => ManagedValue;
 
     public bool Equals(IVBTypedValue<VBLongValue, int>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();

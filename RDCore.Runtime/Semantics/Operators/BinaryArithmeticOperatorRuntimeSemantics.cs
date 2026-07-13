@@ -146,7 +146,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         VBNumericTypedValue lhs, VBNumericTypedValue rhs) 
         => RuntimeSemanticsEvaluationResult.Success(
             VBTypedValueFactory.CreateValue(effectiveType, symbol, 
-                EvaluateManagedNumericOp(lhs.ManagedValue, rhs.ManagedValue)));
+                EvaluateManagedNumericOp(lhs.ManagedValue.InteropValue!.Value.Double, rhs.ManagedValue.InteropValue!.Value.Double)));
 
     /// <summary>
     /// Evaluates the <see cref="VBDateType"/> runtime semantics of a <em>binary arithmetic operator</em>.<br/>
@@ -175,7 +175,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
         RuntimeSemanticsEvaluationResult.Success(
             VBTypedValueFactory.CreateValue(effectiveType, symbol, 
-                EvaluateManagedNumericOp(lhs.ManagedValue, rhs.ManagedValue)));
+                EvaluateManagedNumericOp(lhs.ManagedValue.InteropValue!.Value.Double, rhs.ManagedValue.InteropValue!.Value.Double)));
 
     /// <summary>
     /// 💥 Creates and returns a new <see cref="RuntimeSemanticsEvaluationResult"/> with a <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> error.

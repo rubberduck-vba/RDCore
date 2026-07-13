@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Model.Types;
@@ -28,21 +29,21 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), 
     private static readonly Lazy<VBLongLongValue> _defaultValue = new(() => VBLongLongType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBLongLongValue> _minValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongMinValue) { ManagedValue = long.MinValue }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBLongLongValue> _minValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongMinValue) { ManagedValue = new(ManagedInteropValue.Int64MinValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => _minValue.Value.ManagedValue;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue.InteropValue!.Value.Int64;
 
-    private static readonly Lazy<VBLongLongValue> _maxValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongMaxValue) { ManagedValue = long.MaxValue }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBLongLongValue> _maxValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongMaxValue) { ManagedValue = new(ManagedInteropValue.Int64MaxValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue.InteropValue!.Value.Int64;
 
-    private static readonly Lazy<VBLongLongValue> _zeroValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBLongLongValue> _zeroValue = new(() => new VBLongLongValue(GlobalSymbols.ExtensionSymbols.VBLongLongZeroValue) { ManagedValue = new(ManagedInteropValue.Int64ZeroValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>

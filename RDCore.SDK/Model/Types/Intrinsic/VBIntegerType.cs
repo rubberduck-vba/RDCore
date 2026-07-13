@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.SDK.Model.Types;
@@ -25,30 +26,30 @@ public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VB
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     private static readonly Lazy<VBIntegerValue> _minValue = new(() 
-        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerMinValue) { ManagedValue = short.MinValue }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerMinValue) { ManagedValue = new(ManagedInteropValue.Int16MinValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBIntegerValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => _minValue.Value.ManagedValue;
+    public override double ManagedMinValue => _minValue.Value.ManagedValue.InteropValue!.Value.Int16;
 
     private static readonly Lazy<VBIntegerValue> _maxValue = new(()
-        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerMaxValue) { ManagedValue = short.MaxValue }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerMaxValue) { ManagedValue = new(ManagedInteropValue.Int16MaxValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBIntegerValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => _maxValue.Value.ManagedValue;
+    public override double ManagedMaxValue => _maxValue.Value.ManagedValue.InteropValue!.Value.Int16;
 
     private static readonly Lazy<VBIntegerValue> _zero = new(() 
-        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerZeroValue) { ManagedValue = 0 }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerZeroValue) { ManagedValue = new(ManagedInteropValue.Int16ZeroValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBIntegerValue Zero => _zero.Value;
 
     private static readonly Lazy<VBIntegerValue> _negativeOne = new(() 
-        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerNegativeOneValue) { ManagedValue = -1 }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBIntegerValue(GlobalSymbols.ExtensionSymbols.VBIntegerNegativeOneValue) { ManagedValue = new(new ManagedInteropValue((short)-1)) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>-1</c> (negative one) representation of this data type.
     /// </summary>

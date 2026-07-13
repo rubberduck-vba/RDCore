@@ -1,6 +1,4 @@
-﻿using RDCore.LanguageServer;
-using RDCore.SDK.Extensibility;
-using RDCore.SDK.Server;
+﻿using RDCore.SDK.Extensibility;
 using System.Text.Json.Serialization;
 
 namespace RDCore.LanguageServer.Workspace;

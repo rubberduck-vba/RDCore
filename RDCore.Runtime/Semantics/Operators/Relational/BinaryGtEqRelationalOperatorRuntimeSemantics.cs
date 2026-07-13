@@ -13,4 +13,6 @@ public sealed record class BinaryGtEqRelationalOperatorRuntimeSemantics(
 {
     protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => lhs.CompareTo(rhs, comparison) >= 0;
     protected override bool ComparisonOp(double lhs, double rhs) => lhs.CompareTo(rhs) >= 0;
+    protected override bool ComparisonOp(decimal lhs, decimal rhs) => lhs.CompareTo(rhs) >= 0;
+    protected override bool ComparisonOp(long lhs, long rhs) => lhs.CompareTo(rhs) >= 0;
 }
