@@ -62,10 +62,6 @@ public abstract record class VBTypedValue(VBType TypeInfo, Symbol ResolvedSymbol
     public bool IsWithBlockVariable { get; init; }
 
     /// <summary>
-    /// The raw memory address of this typed value.
-    /// </summary>
-    public long RawAddress { get; init; }
-    /// <summary>
     /// The allocated size (in bytes) of this value.
     /// </summary>
     public abstract int Size { get; }
