@@ -126,7 +126,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     public long Allocate(Uri symbolUri, int size)
     {
         var address = _nextAddress;
-        _nextAddress += (size / _ptrSize + 1) * _ptrSize;
+        _nextAddress += (int)(size / _ptrSize + 0.5) * _ptrSize;
 
         _rawAddressMap[symbolUri] = address;
 
