@@ -1,7 +1,9 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 using RDCore.SDK.Model.Values.Intrinsic;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Model.Types;
 
@@ -11,7 +13,7 @@ namespace RDCore.SDK.Model.Types;
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>bool</c>.
 /// </remarks>
-public sealed record class VBBooleanType() : VBIntrinsicType<bool>(VBTypeNames.VBBoolean)
+public sealed record class VBBooleanType() : VBIntrinsicType<ManagedBooleanInteropValue>(VBTypeNames.VBBoolean)
 {
     private static readonly Lazy<VBBooleanType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
@@ -25,5 +27,5 @@ public sealed record class VBBooleanType() : VBIntrinsicType<bool>(VBTypeNames.V
     /// </summary>
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(bool);
+    public override int Size => sizeof(short);
 }

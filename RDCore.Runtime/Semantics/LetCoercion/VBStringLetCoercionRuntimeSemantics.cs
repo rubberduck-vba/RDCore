@@ -47,7 +47,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
 
             VBBooleanValue booleanSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(
-                    VBTypedValueFactory.CreateStringValue(expression.ResultSymbol, booleanSourceValue.Value ? Tokens.True : Tokens.False)),
+                    VBTypedValueFactory.CreateStringValue(expression.ResultSymbol, (bool)booleanSourceValue.Value ? Tokens.True : Tokens.False)),
 
             VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(

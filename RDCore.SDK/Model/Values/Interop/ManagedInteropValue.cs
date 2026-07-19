@@ -5,16 +5,22 @@ public interface IManagedInteropValue
 {
     object BoxedValue { get; }
 }
+public interface IManagedInteropValue<T> : IManagedInteropValue 
+    where T : struct
+{
+    T StoredValue { get; }
+}
 
 /// <summary>
 /// The managed (.net) representation of a runtime value.
 /// </summary>
-public readonly struct ManagedInteropValue<T>(T value) : IManagedInteropValue
+public readonly struct ManagedInteropValue<T>(T value) : IManagedInteropValue<T>, IEquatable<ManagedInteropValue<T>>
     where T : struct
 {
     public readonly T Value = value;
 
     public object BoxedValue => Value;
+    public T StoredValue => Value;
 
     public static ManagedInteropValue<bool> BooleanFalse { get; } = new(false);
     public static ManagedInteropValue<bool> BooleanTrue { get; } = new(true);
@@ -51,7 +57,17 @@ public readonly struct ManagedInteropValue<T>(T value) : IManagedInteropValue
 
     public override bool Equals([NotNullWhen(true)] object? obj)
     {
-        return Value.Equals(obj);
+        if (obj is ManagedInteropValue<T> other)
+        {
+            return Equals(other);
+        }
+
+        return false;
+    }
+
+    public bool Equals(ManagedInteropValue<T> other)
+    {
+        return other.StoredValue.Equals(StoredValue);
     }
 
     public static bool operator ==(ManagedInteropValue<T> left, ManagedInteropValue<T> right)

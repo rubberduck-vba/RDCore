@@ -57,13 +57,13 @@ public static class VBTypedValueFactory
     /// </summary>
     /// <param name="symbol">The symbol to be associated with the new value.</param>
     public static VBBooleanValue CreateBooleanValue(Symbol symbol, VBBooleanValue value)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(value.Value == true)) };
+        => new(symbol) { ManagedValue = new(value.Value) };
     /// <summary>
     /// Creates a new <c>VBBooleanValue</c> with the specified value for the specified symbol.
     /// </summary>
     /// <param name="symbol">The symbol to be associated with the new value.</param>
     public static VBBooleanValue CreateBooleanValue(Symbol symbol, bool value)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(value == true)) };
+        => new(symbol) { ManagedValue = new(new ManagedBooleanInteropValue(value)) };
 
 
     public static VBTypedValue CreateValue(VBType type, Symbol symbol, IManagedInteropValue value)

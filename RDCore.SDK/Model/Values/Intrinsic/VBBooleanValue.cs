@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </summary>
 /// <param name="Symbol">The <see cref="Symbol"/> associated with this value.</param>
 public sealed record class VBBooleanValue(Symbol Symbol) 
-    : VBTypedValue(VBBooleanType.TypeInfo, Symbol), IVBTypedValue<VBBooleanValue, bool>
+    : VBTypedValue(VBBooleanType.TypeInfo, Symbol), IVBTypedValue<VBBooleanValue, ManagedBooleanInteropValue>
 {
     private static readonly Lazy<VBBooleanValue> _falseValue = new(() => new VBBooleanValue(GlobalSymbols.StaticSymbols.False) { ManagedValue = new(ManagedInteropValue<bool>.BooleanFalse) });
     public static VBBooleanValue False { get; } = _falseValue.Value;
@@ -19,12 +19,12 @@ public sealed record class VBBooleanValue(Symbol Symbol)
     private static readonly Lazy<VBBooleanValue> _trueValue = new(() => new VBBooleanValue(GlobalSymbols.StaticSymbols.True) { ManagedValue = new(ManagedInteropValue<bool>.BooleanTrue) });
     public static VBBooleanValue True { get; } = _trueValue.Value;
 
-    public bool Value => ((ManagedInteropValue<bool>)ManagedValue.InteropValue!).Value;
+    public ManagedBooleanInteropValue Value => (ManagedBooleanInteropValue)ManagedValue.InteropValue!;
     public override int Size { get; } = 16;
 
-    public override string ToString() => Value ? Tokens.True : Tokens.False;
+    public override string ToString() => Value.StoredValue != 0 ? Tokens.True : Tokens.False;
 
-    public bool Equals(IVBTypedValue<VBBooleanValue, bool>? other) => Value == other?.Value;
+    public bool Equals(IVBTypedValue<VBBooleanValue, ManagedBooleanInteropValue>? other) => Value == other?.Value;
     public override int GetHashCode() => Value.GetHashCode();
 
 

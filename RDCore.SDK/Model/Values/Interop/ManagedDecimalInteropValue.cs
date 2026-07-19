@@ -1,8 +1,11 @@
-﻿namespace RDCore.SDK.Model.Values.Interop;
+﻿using System.Runtime.InteropServices;
+
+namespace RDCore.SDK.Model.Values.Interop;
 
 /// <summary>
 /// Represents a <c>decimal</c> value using 14 bytes, including a 96-bit numerator.
 /// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly record struct ManagedDecimalInteropValue : IManagedInteropValue
 {
     public ManagedDecimalInteropValue(decimal value)
