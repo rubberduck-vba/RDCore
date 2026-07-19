@@ -10,11 +10,10 @@ public interface IManagedInteropValue
 /// <summary>
 /// The managed (.net) representation of a runtime value.
 /// </summary>
-[StructLayout(LayoutKind.Explicit)]
 public readonly struct ManagedInteropValue<T>(T value) : IManagedInteropValue
     where T : struct
 {
-    [FieldOffset(0)] public readonly T Value = value;
+    public readonly T Value = value;
 
     public object BoxedValue => Value;
 
