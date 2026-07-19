@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -12,7 +13,7 @@ public sealed record class VBLongValue(Symbol Symbol) : VBNumericTypedValue(VBLo
     IVBTypedValue<VBLongValue, int>,
     INumericValue<VBLongValue>
 {
-    public int Value => ManagedValue.InteropValue!.Value.Int32;
+    public int Value => ((ManagedInteropValue<int>)ManagedValue.InteropValue!).Value;
     public override int Size => sizeof(int);
 
     public bool Equals(IVBTypedValue<VBLongValue, int>? other) => Value == other?.Value;

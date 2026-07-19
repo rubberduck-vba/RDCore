@@ -27,21 +27,21 @@ public record class VBLongPtrType_x64() : VBIntrinsicType<long>(VBTypeNames.VBLo
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
     private static readonly Lazy<VBLongPtrValue> _minValue = new(()
-        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64MinValue) { ManagedValue = new(ManagedInteropValue.Int64MinValue) }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64MinValue) { ManagedValue = new(ManagedInteropValue<long>.Int64MinValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBLongPtrValue MinValue => _minValue.Value;
 
     private static readonly Lazy<VBLongPtrValue> _maxValue = new(()
-        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64MaxValue) { ManagedValue = new(ManagedInteropValue.Int64MaxValue) }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64MaxValue) { ManagedValue = new(ManagedInteropValue<long>.Int64MaxValue) }, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBLongPtrValue MaxValue => _maxValue.Value;
 
     private static readonly Lazy<VBLongPtrValue> _zero = new(()
-        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64ZeroValue) { ManagedValue = new(ManagedInteropValue.Int64ZeroValue) }, LazyThreadSafetyMode.PublicationOnly);
+        => new VBLongPtrValue(Is64Bit: true, GlobalSymbols.ExtensionSymbols.VBLongPtr64ZeroValue) { ManagedValue = new(ManagedInteropValue<long>.Int64ZeroValue) }, LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.

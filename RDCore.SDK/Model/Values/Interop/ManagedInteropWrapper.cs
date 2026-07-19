@@ -2,7 +2,7 @@
 
 public readonly record struct ManagedInteropWrapper
 {
-    public ManagedInteropWrapper(ManagedInteropValue value)
+    public ManagedInteropWrapper(IManagedInteropValue value)
     {
         InteropValue = value;
     }
@@ -15,7 +15,7 @@ public readonly record struct ManagedInteropWrapper
         InteropVariant = variant;
     }
 
-    public ManagedInteropValue? InteropValue { get; init; }
+    public IManagedInteropValue? InteropValue { get; init; }
     public ManagedInteropReference? InteropReference { get; init; }
     public ManagedInteropVariant? InteropVariant { get; init; }
 }

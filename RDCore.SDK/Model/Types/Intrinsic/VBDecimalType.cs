@@ -25,21 +25,21 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
     private static readonly Lazy<VBDecimalValue> _defaultValue = new(() => VBDecimalType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBDecimalValue> _minValue = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalMinValue).WithValue(long.MinValue * Math.Pow(10, -4)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _minValue = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalMinValue).WithValue(new(new ManagedDecimalInteropValue(Convert.ToDecimal(long.MinValue * Math.Pow(10, -4))))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.ManagedValue.InteropValue!.Value.Decimal);
+    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.ManagedValue.InteropValue!.BoxedValue);
 
-    private static readonly Lazy<VBDecimalValue> _maxValue = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalMaxValue).WithValue(long.MaxValue * Math.Pow(10, -4)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _maxValue = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalMaxValue).WithValue(new(new ManagedDecimalInteropValue(Convert.ToDecimal(long.MaxValue * Math.Pow(10, -4))))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.ManagedValue.InteropValue!.Value.Decimal);
+    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.ManagedValue.InteropValue!.BoxedValue);
 
-    private static readonly Lazy<VBDecimalValue> _zero = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalZeroValue).WithValue(ManagedInteropValue.DecimalZeroValue), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _zero = new(() => (VBDecimalValue)new VBDecimalValue(GlobalSymbols.ExtensionSymbols.VBDecimalZeroValue).WithValue(ManagedInteropValue<ManagedDecimalInteropValue>.DecimalZeroValue), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>

@@ -93,7 +93,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBTypedValueFactory.CreateValue(VBIntegerType.TypeInfo, expression.Symbol,
-                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.ManagedValue.InteropValue!.Value.Double), Convert.ToInt32(rhsDouble.ManagedValue.InteropValue!.Value.Double))));
+                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.ManagedValue.InteropValue!.BoxedValue), Convert.ToInt32(rhsDouble.ManagedValue.InteropValue!.BoxedValue))));
             }
         }
         else if (lhs is VBNullValue && rhs is VBNullValue)
@@ -125,7 +125,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBNumericType effectiveType, Symbol symbol, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue.InteropValue!.Value.Int32, rhs.ManagedValue.InteropValue!.Value.Int32));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp((int)lhs.ManagedValue.InteropValue!.BoxedValue, (int)rhs.ManagedValue.InteropValue!.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a binary logical operator
@@ -136,7 +136,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBDateType effectiveType, Symbol symbol, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp(lhs.ManagedValue.InteropValue!.Value.Int32, rhs.ManagedValue.InteropValue!.Value.Int32));
+        VBTypedValueFactory.CreateValue(effectiveType, symbol, EvaluateBitwiseOp((int)lhs.ManagedValue.InteropValue!.BoxedValue, (int)rhs.ManagedValue.InteropValue!.BoxedValue));
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,

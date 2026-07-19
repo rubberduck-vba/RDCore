@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBCurrencyValue(Symbol Symbol) 
     : VBNumericTypedValue(VBCurrencyType.TypeInfo, Symbol), IVBTypedValue<VBCurrencyValue, ManagedCurrencyInteropValue>, INumericValue<VBCurrencyValue>
 {
-    public ManagedCurrencyInteropValue Value => ManagedValue.InteropValue!.Value.Currency!.Value;
+    public ManagedCurrencyInteropValue Value => ((ManagedInteropValue<ManagedCurrencyInteropValue>)ManagedValue.InteropValue!).Value;
     public override int Size => sizeof(long);
 
     public bool Equals(IVBTypedValue<VBCurrencyValue, ManagedCurrencyInteropValue>? other) => Value.StoredValue == other?.Value.StoredValue;
