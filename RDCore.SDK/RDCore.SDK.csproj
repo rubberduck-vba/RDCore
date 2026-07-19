@@ -13,12 +13,15 @@
 
   <ItemGroup>
     <Compile Remove="Logger\**" />
+    <Compile Remove="Model\Symbols\Statements\**" />
     <Compile Remove="Model\Types\Builders\**" />
     <Compile Remove="_site\**" />
     <EmbeddedResource Remove="Logger\**" />
+    <EmbeddedResource Remove="Model\Symbols\Statements\**" />
     <EmbeddedResource Remove="Model\Types\Builders\**" />
     <EmbeddedResource Remove="_site\**" />
     <None Remove="Logger\**" />
+    <None Remove="Model\Symbols\Statements\**" />
     <None Remove="Model\Types\Builders\**" />
     <None Remove="_site\**" />
   </ItemGroup>
@@ -36,11 +39,6 @@
     <PackageReference Include="OmniSharp.Extensions.LanguageProtocol" Version="0.19.9" />
     <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
     <PackageReference Include="System.IO.Abstractions" Version="22.1.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Model\AST\Statements\" />
-    <Folder Include="Model\Symbols\Statements\" />
   </ItemGroup>
 
   <ItemGroup>
