@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Interop;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -11,7 +12,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 public sealed record class VBDoubleValue(Symbol Symbol) : VBNumericTypedValue(VBDoubleType.TypeInfo, Symbol),
     IVBTypedValue<VBDoubleValue, double>, INumericValue<VBDoubleValue>
 {
-    public double Value => ManagedValue.InteropValue!.Value.Double;
+    public double Value => ((ManagedInteropValue<double>)ManagedValue.InteropValue!).Value;
     public override int Size => 8;
 
     public bool Equals(IVBTypedValue<VBDoubleValue, double>? other) => Value == other?.Value;

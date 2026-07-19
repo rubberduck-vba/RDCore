@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.Runtime.Execution;
 
@@ -19,32 +20,35 @@ namespace RDCore.Runtime.Execution;
 /// <remarks>If no bitness is specified, uses the bitness of the host process.</remarks>
 public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
 {
+    private record struct HeapEntry(IBindingHandle Handle);
+
     private static readonly long _offset = 0x1000;
     private readonly int _ptrSize = (Is64Bit ?? Environment.Is64BitProcess) ? VBLongPtrType_x64.BitnessAwarePtrSize : VBLongPtrType_x86.BitnessAwarePtrSize;
 
     public bool Is64Bit { get; } = Is64Bit ?? Environment.Is64BitProcess;
 
-    //private static readonly long _addressSpace = 0x10FF; // TODO update from MS-VBAL, if specified
 
-    private readonly ConcurrentDictionary<Symbol, VBTypedValue> _globalHeap = [];
-    private readonly ConcurrentDictionary<Symbol, VBTypedValue> _workspaceHeap = [];
-    private readonly ConcurrentDictionary<Symbol, VBTypedValue> _staticLocalsHeap = []; // "static" in the VB sense here.
+    private readonly Dictionary<Symbol, HeapEntry> _globalHeap = [];
+    private readonly Dictionary<Symbol, HeapEntry> _workspaceHeap = [];
+    private readonly Dictionary<Symbol, HeapEntry> _staticLocalsHeap = []; // "static" in the VB sense here.
 
     // holds all references associated to the symbol mapped to an object
-    private readonly ConcurrentDictionary<VBObjectValue, ConcurrentDictionary<Symbol, VBTypedValue>> _objectHeap = [];
+    private readonly Dictionary<VBObjectValue, Dictionary<Symbol, HeapEntry>> _objectHeap = [];
 
     private long _nextAddress = _offset;
 
-    private readonly ConcurrentDictionary<Uri, Symbol> _symbolTable = [];
-    private readonly ConcurrentDictionary<string, string> _nameTable = [];
+    private readonly Dictionary<Uri, Symbol> _symbolTable = [];
+    private readonly Dictionary<string, string> _nameTable = [];
 
-    private readonly ConcurrentDictionary<long, VBTypedValue> _memoryMap = [];
-    private readonly ConcurrentDictionary<Uri, long> _rawAddressMap = [];
+    private readonly Dictionary<long, HeapEntry> _memoryMap = [];
+    private readonly Dictionary<Uri, long> _rawAddressMap = [];
+
+    private readonly Queue<long> _availableAddresses = [];
 
     public VBObjectValue CreateObject(VBClassModuleSymbol symbol)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, _ptrSize);
+        _nextAddress += _ptrSize;
 
         var obj = new VBObjectValue(symbol);
 
@@ -72,24 +76,30 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
         foreach (var parameter in returningMember.Parameters) { Define(parameter); }
     }
 
-    public bool TryRead(long address, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue value) 
-        => _memoryMap.TryGetValue(address, out value);
+    public bool TryRead(long address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle value)
+    {
+        var result = _memoryMap.TryGetValue(address, out var binding);
+        value = result ? binding.Handle : default;
+        return result;
+    }
 
-    public VBTypedValue GetValue(Symbol symbol)
-        => symbol switch
+    public IBindingHandle GetValue(Symbol symbol)
+    {
+        return symbol switch
         {
-            VBStaticLocalVariableSymbol => _staticLocalsHeap[symbol],
-            Symbol s when s.ScopeKind == ScopeKind.Module => _workspaceHeap[symbol],
-            Symbol s when s.ScopeKind == ScopeKind.Global => _globalHeap[symbol],
+            VBStaticLocalVariableSymbol => _staticLocalsHeap[symbol].Handle,
+            Symbol s when s.ScopeKind == ScopeKind.Module => _workspaceHeap[symbol].Handle,
+            Symbol s when s.ScopeKind == ScopeKind.Global => _globalHeap[symbol].Handle,
 
             _ => throw new InvalidOperationException()
         };
+    }
 
-    public void SetValue(Symbol symbol, VBTypedValue value)
+    public void SetValue(Symbol symbol, IBindingHandle handle)
     {
         if (symbol is VBStaticLocalVariableSymbol)
         {
-            _staticLocalsHeap[symbol] = value;
+            _staticLocalsHeap[symbol] = new(handle);
         }
 
         switch (symbol.ScopeKind)
@@ -100,15 +110,15 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
                 break;
 
             case ScopeKind.Global:
-                _globalHeap[symbol] = value;
+                _globalHeap[symbol] = new(handle);
                 break;
 
             case ScopeKind.Module:
-                _workspaceHeap[symbol] = value;
+                _workspaceHeap[symbol] = new(handle);
                 break;
 
             case ScopeKind.Instance:
-
+                // TODO
                 break;
         }
     }
@@ -116,7 +126,7 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     public long Allocate(Uri symbolUri, int size)
     {
         var address = _nextAddress;
-        Interlocked.Add(ref _nextAddress, Math.Max(size, _ptrSize));
+        _nextAddress += (int)(size / _ptrSize + 0.5) * _ptrSize;
 
         _rawAddressMap[symbolUri] = address;
 
@@ -127,36 +137,30 @@ public class VirtualHeap(bool? Is64Bit = true) : IVirtualHeap
     //private static readonly object _lock = new object();
     public long Allocate(Uri symbolUri, VBTypedValue value)
     {
-        var address = _nextAddress;
+        var address = _availableAddresses.TryDequeue(out var result) ? result : _nextAddress;
         Interlocked.Add(ref _nextAddress, _ptrSize);
 
-        var addressedValue = value with { RawAddress = address };
-
-        //lock (_lock) // concurrent doesn't mean atomic. see if this lock could be needed.
-        //{
         _rawAddressMap[symbolUri] = address;
-        _memoryMap[address] = addressedValue;
-        //}
+        _memoryMap[address] = new(value.Handle);
+
         return address;
     }
 
     public void Deallocate(Uri symbolUri)
     {
-        // concurrent dictionaries don't magically make things atomic...
-        //lock (_lock) 
-        //{
-        if (!_rawAddressMap.TryRemove(symbolUri, out var address))
+        if (!_rawAddressMap.Remove(symbolUri, out var address))
         {
             // 🔥this is fine🔥
             // TODO at least log a warning here
             return;
         }
 
-        if (!_memoryMap.TryRemove(address, out var _))
+        if (!_memoryMap.Remove(address, out var _))
         {
             throw new VirtualHeapCorruptionException($"An allocated value was expected to be found at {address:X} for symbol {symbolUri}, but the value was not found.");
         }
-        //}
+
+        _availableAddresses.Enqueue(address);
     }
 
     public Symbol? Resolve(string name, ScopeKind scope, Uri handle)

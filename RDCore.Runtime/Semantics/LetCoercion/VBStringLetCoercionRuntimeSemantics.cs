@@ -145,32 +145,32 @@ public record class VBStringLetCoercionRuntimeSemantics(
     }
 
     private static LetCoercionResult CoerceToVBBoolean(VBNumericTypedValue value, Symbol resultSymbol, LetCoercionStackFrame frame)
-        => LetCoercionResult.Success(VBTypedValueFactory.CreateBooleanValue(resultSymbol, value.ManagedValue.InteropValue!.Value.Double != 0), [frame]);
+        => LetCoercionResult.Success(VBTypedValueFactory.CreateBooleanValue(resultSymbol, (double)value.ManagedValue.InteropValue!.BoxedValue != 0), [frame]);
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, Symbol resultSymbol, CultureInfo cultureInfo)
     {
-        var numericValue = value.ManagedValue.InteropValue!.Value;
-        if (numericValue.Double == 0)
+        var numericValue = (double)value.ManagedValue.InteropValue!.BoxedValue;
+        if (numericValue == 0)
         {
             return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(resultSymbol, VBStringValue.Zero));
         }
-        else if (double.IsPositiveInfinity(numericValue.Double))
+        else if (double.IsPositiveInfinity(numericValue))
         {
             return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(resultSymbol, VBStringValue.PositiveInfinity));
         }
-        else if (double.IsNegativeInfinity(numericValue.Double))
+        else if (double.IsNegativeInfinity(numericValue))
         {
             return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(resultSymbol, VBStringValue.NegativeInfinity));
         }
-        else if (double.IsNaN(numericValue.Double))
+        else if (double.IsNaN(numericValue))
         {
             return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(resultSymbol, VBStringValue.NaN));
         }
 
-        var isNegative = numericValue.Double < 0;
+        var isNegative = numericValue < 0;
         var sign = isNegative ? "-" : string.Empty;
 
-        var absoluteValue = Math.Abs(numericValue.Double);
+        var absoluteValue = Math.Abs(numericValue);
         var stringValue = absoluteValue.ToString(cultureInfo);
 
         var dot = cultureInfo.NumberFormat.NumberDecimalSeparator;
@@ -186,14 +186,14 @@ public record class VBStringLetCoercionRuntimeSemantics(
             if (value is VBSingleValue && integerString.Length > VBSingleType.SignificantIntegerDigits)
             {
                 var significantIntegerDigits = VBSingleType.SignificantIntegerDigits;
-                stringValue = ToVBScientificNotation(numericValue.Double, significantIntegerDigits, dot, cultureInfo);
+                stringValue = ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo);
 
             }
             else if (integerString.Length > VBDoubleType.SignificantIntegerDigits)
             {
                 // Double (or any other numeric type for that matter): truncate to 15 significant digits
                 var significantIntegerDigits = VBDoubleType.SignificantIntegerDigits;
-                stringValue = ToVBScientificNotation(numericValue.Double, significantIntegerDigits, dot, cultureInfo);
+                stringValue = ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo);
             }
         }
         else

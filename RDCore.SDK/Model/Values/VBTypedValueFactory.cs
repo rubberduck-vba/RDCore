@@ -37,7 +37,7 @@ public static class VBTypedValueFactory
     /// <param name="symbol">The symbol to be associated with the new value.</param>
     /// <param name="dateTimeValue">The underying (managed) <c>DateTime</c> value being wrapped.</param>
     public static VBDateValue CreateValue(Symbol symbol, DateTime dateTimeValue)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue(dateTimeValue.ToOADate())) };
+        => new(symbol) { ManagedValue = new(new ManagedInteropValue<double>(dateTimeValue.ToOADate())) };
 
     /// <summary>
     /// Creates a new <c>VBBooleanValue</c> with the specified value for the specified symbol.
@@ -45,22 +45,28 @@ public static class VBTypedValueFactory
     /// <param name="symbol">The symbol to be associated with the new value.</param>
     /// <param name="boolValue">The underying (managed) <c>bool</c> value being wrapped.</param>
     public static VBBooleanValue CreateValue(Symbol symbol, bool boolValue)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue(boolValue)) };
+        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(boolValue)) };
     /// <summary>
     /// Creates a new <c>VBBooleanValue</c> with the specified value for the specified symbol.
     /// </summary>
     /// <param name="symbol">The symbol to be associated with the new value.</param>
-    /// <param name="boolValue">The underying (managed) <c>bool</c> value being wrapped.</param>
     public static VBBooleanValue CreateBooleanValue(Symbol symbol, double numericValue)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue(numericValue != 0)) };
-
+        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(numericValue != 0)) };
+    /// <summary>
+    /// Creates a new <c>VBBooleanValue</c> with the specified value for the specified symbol.
+    /// </summary>
+    /// <param name="symbol">The symbol to be associated with the new value.</param>
     public static VBBooleanValue CreateBooleanValue(Symbol symbol, VBBooleanValue value)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue(value.Value == true)) };
+        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(value.Value == true)) };
+    /// <summary>
+    /// Creates a new <c>VBBooleanValue</c> with the specified value for the specified symbol.
+    /// </summary>
+    /// <param name="symbol">The symbol to be associated with the new value.</param>
     public static VBBooleanValue CreateBooleanValue(Symbol symbol, bool value)
-        => new(symbol) { ManagedValue = new(new ManagedInteropValue(value == true)) };
+        => new(symbol) { ManagedValue = new(new ManagedInteropValue<bool>(value == true)) };
 
 
-    public static VBTypedValue CreateValue(VBType type, Symbol symbol, ManagedInteropValue value)
+    public static VBTypedValue CreateValue(VBType type, Symbol symbol, IManagedInteropValue value)
         => CreateValue(type, symbol)!.WithValue(new(value));
 
     /// <summary>
@@ -96,12 +102,12 @@ public static class VBTypedValueFactory
     /// </summary>
     /// <param name="typeDesc">A <c>VBTypeDescValue</c> describing the target numeric data type.</param>
     /// <param name="symbol">The symbol to be associated with the new value.</param>
-    /// <param name="numericValue">The underlying (managed) numeric value being wrapped.</param>
+    /// <param name="managedValue">The underlying (managed) numeric value being wrapped.</param>
     /// <remarks>
     /// 👉 Overloads taking a <see cref="VBTypeDescValue"/> <em>type descriptor value</em> parameter are 
     /// intended for let-coercion semantics and may eventually need to be moved.
     /// </remarks>
-    public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, ManagedInteropValue managedValue)
+    public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, IManagedInteropValue managedValue)
         => (VBNumericTypedValue)CreateValue(typeDesc.Target, symbol, managedValue);
 
     /// <summary>
@@ -115,7 +121,7 @@ public static class VBTypedValueFactory
     /// intended for let-coercion semantics and may eventually need to be moved.
     /// </remarks>
     public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, VBNumericTypedValue source)
-        => CreateValue(typeDesc.Target, symbol, source.ManagedValue.InteropValue!.Value);
+        => CreateValue(typeDesc.Target, symbol, source.ManagedValue.InteropValue!);
     /// <summary>
     /// Creates a new <c>VBNumericValue</c> of the specified described type, with the specified value, for the specified symbol.
     /// </summary>
@@ -127,10 +133,10 @@ public static class VBTypedValueFactory
     /// intended for let-coercion semantics and may eventually need to be moved.
     /// </remarks>
     public static VBTypedValue CreateValue(VBTypeDescValue typeDesc, Symbol symbol, VBDateValue source)
-        => CreateValue(typeDesc.Target, symbol, source.ManagedValue.InteropValue!.Value);
+        => CreateValue(typeDesc.Target, symbol, source.ManagedValue.InteropValue!);
 
     public static VBTypedValue CreateValue(Symbol symbol, VBDateValue value)
-        => CreateValue(VBDateType.TypeInfo, symbol, value.ManagedValue.InteropValue!.Value);
+        => CreateValue(VBDateType.TypeInfo, symbol, value.ManagedValue.InteropValue!);
 
     /// <summary>
     /// Creates a new <c>VBStringValue</c> with the specified value, for the specified symbol.

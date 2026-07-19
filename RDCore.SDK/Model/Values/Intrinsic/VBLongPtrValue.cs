@@ -13,7 +13,7 @@ public sealed record class VBLongPtrValue(bool Is64Bit, Symbol Symbol)
     : VBNumericTypedValue(Is64Bit ? VBLongPtrType_x64.TypeInfo : VBLongPtrType_x86.TypeInfo, Symbol), 
     IVBTypedValue<VBLongPtrValue, long>, INumericValue<VBLongPtrValue>
 {
-    public long Value => Is64Bit ? ManagedValue.InteropValue!.Value.Int64 : ManagedValue.InteropValue!.Value.Int32;
+    public long Value => (long)ManagedValue.InteropValue!.BoxedValue;
     public override int Size => Is64Bit ? VBLongPtrType_x64.TypeInfo.Size : VBLongPtrType_x86.TypeInfo.Size;
 
     public bool Equals(IVBTypedValue<VBLongPtrValue, long>? other) => Value == other?.Value;

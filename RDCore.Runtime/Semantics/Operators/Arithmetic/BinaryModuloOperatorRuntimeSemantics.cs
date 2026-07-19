@@ -36,7 +36,7 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
             && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric 
             && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric)
         {
-            if (rhsNumeric.ManagedValue.InteropValue!.Value.Double == 0)
+            if ((double)rhsNumeric.ManagedValue.InteropValue!.BoxedValue == 0)
             {
                 OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
@@ -44,8 +44,8 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
             return RuntimeSemanticsEvaluationResult.Success(
                 VBTypedValueFactory.CreateValue((VBNumericType)frame.EffectiveType, expression.ResultSymbol,
                 EvaluateManagedNumericOp(
-                    lhsNumeric.ManagedValue.InteropValue!.Value.Double, 
-                    rhsNumeric.ManagedValue.InteropValue!.Value.Double)));
+                    (double)lhsNumeric.ManagedValue.InteropValue!.BoxedValue, 
+                    (double)rhsNumeric.ManagedValue.InteropValue!.BoxedValue)));
         }
         else if (frame.EffectiveType is VBNullType)
         {

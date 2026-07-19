@@ -38,7 +38,7 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// that the least-significant digit is even.
     /// </summary>
     /// <param name="value">The floating-point numeric value to be rounded.</param>
-    public static int BankersRounding(VBNumericTypedValue value) => (int)BankersRounding(value.ManagedValue.InteropValue!.Value.Double, 1);
+    public static int BankersRounding(VBNumericTypedValue value) => (int)BankersRounding((double)value.ManagedValue.InteropValue!.BoxedValue, 1);
     /// <summary>
     /// Implements <strong>MS-VBAL 5.5.1.2.1.1</strong> Banker's Rounding.
     /// A midpoint rounding scheme also known as "round-to-even" rounds to the nearest rounded value such

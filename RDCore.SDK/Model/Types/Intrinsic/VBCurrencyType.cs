@@ -30,14 +30,14 @@ public record class VBCurrencyType() : VBNumericType<decimal>(VBTypeNames.VBCurr
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBCurrencyValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => Convert.ToDouble(ManagedInteropValue.CurrencyMinValue.Currency!.Value);
+    public override double ManagedMinValue => Convert.ToDouble(ManagedInteropValue<ManagedCurrencyInteropValue>.CurrencyMinValue.Value.Value);
 
     private static readonly Lazy<VBCurrencyValue> _maxValue = new(() => (VBCurrencyValue)new VBCurrencyValue(GlobalSymbols.ExtensionSymbols.VBCurrencyMaxValue).WithValue(long.MaxValue * Math.Pow(10, -4)), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBCurrencyValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => Convert.ToDouble(ManagedInteropValue.CurrencyMaxValue.Currency!.Value);
+    public override double ManagedMaxValue => Convert.ToDouble(ManagedInteropValue<ManagedCurrencyInteropValue>.CurrencyMaxValue.Value.Value);
 
     private static readonly Lazy<VBCurrencyValue> _zero = new(() => (VBCurrencyValue)new VBCurrencyValue(GlobalSymbols.ExtensionSymbols.VBCurrencyZeroValue).WithValue(0d), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
