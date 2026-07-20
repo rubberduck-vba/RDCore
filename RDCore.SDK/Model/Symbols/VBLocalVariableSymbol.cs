@@ -1,8 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -17,7 +17,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="IsStatic"><c>true</c> if the symbol declaration includes an explicit <c>Static</c> token.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
-public record class VBLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, Range Range, Range SelectionRange, bool IsStatic = false, VBType? ResolvedType = default) 
+public record class VBLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, bool IsStatic = false, VBType? ResolvedType = default) 
     : BoundTypedSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Variable, Range, SelectionRange, ResolvedType ?? VBUnknownType.TypeInfo) 
 {
     /// <summary>

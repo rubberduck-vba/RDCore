@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -18,7 +18,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
-public record class VBInstanceFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange, VBType ResolvedType, AccessModifier AccessModifier)
+public record class VBInstanceFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, VBType ResolvedType, AccessModifier AccessModifier)
     : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Field, ResolvedType, Range, SelectionRange, AccessModifier)
 { }
 

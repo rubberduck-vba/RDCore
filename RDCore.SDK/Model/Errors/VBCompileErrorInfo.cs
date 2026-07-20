@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Errors.Abstract;
 
 namespace RDCore.SDK.Model.Errors;
@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.Errors;
 /// </remarks>
 public record class VBCompileErrorInfo : VBErrorInfo
 {
-    private VBCompileErrorInfo(VBCompileErrorId errorId, Location location, string description, string verbose)
+    private VBCompileErrorInfo(VBCompileErrorId errorId, SourceLocation location, string description, string verbose)
         : base((int)errorId, location, description, verbose) 
     {
         VBCompileErrorId = errorId;
@@ -27,13 +27,13 @@ public record class VBCompileErrorInfo : VBErrorInfo
     public VBCompileErrorId VBCompileErrorId { get; }
 
     /// <summary>
-    /// Creates a new <see cref="VBCompileErrorInfo"/> describing the specified <see cref="VBCompileErrorId"/> at the specified <see cref="Location"/>.
+    /// Creates a new <see cref="VBCompileErrorInfo"/> describing the specified <see cref="VBCompileErrorId"/> at the specified <see cref="SourceLocation"/>.
     /// </summary>
     /// <param name="errorId">The formal <see cref="VBCompileErrorId"/> value for this error.</param>
     /// <param name="location">The document location of the problematic <em>node</em>.</param>
     /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
     /// <returns>A new instance of a <see cref="VBSyntaxErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
-    public static VBCompileErrorInfo For(VBCompileErrorId errorId, Location location, string verbose) 
+    public static VBCompileErrorInfo For(VBCompileErrorId errorId, SourceLocation location, string verbose) 
         => new(errorId, location, GetErrorString(errorId), verbose);
 
     /// <summary>

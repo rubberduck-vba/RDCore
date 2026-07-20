@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.AST.Abstract;
 
@@ -10,4 +10,4 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// </remarks>
 /// <param name="SemanticId">A semantic <c>Uri</c> uniquely identifying this specific node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of this node.</param>
-public abstract record class BoundNode(Uri SemanticId, Location Location);
+public abstract record class BoundNode(Uri SemanticId, SourceLocation Location);

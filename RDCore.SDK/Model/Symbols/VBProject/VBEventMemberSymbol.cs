@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -14,7 +14,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
-public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange, AccessModifier AccessModifier)
+public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
     : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier) { }
 
 /// <summary>

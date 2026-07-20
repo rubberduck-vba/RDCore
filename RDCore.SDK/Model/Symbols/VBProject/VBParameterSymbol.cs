@@ -1,8 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -46,7 +46,7 @@ public enum ParameterKind
 /// <param name="ParameterKind">Describes how an argument is passed to this parameter.</param>
 /// <param name="ResolvedType">The resolved type of the symbol, if available. <c>VBUnknownType</c> otherwise.</param>
 /// <param name="IsOptional"><c>true</c> if the parameter has an <c>Optional</c> token.</param>
-public record VBParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange, ParameterKind ParameterKind, VBType ResolvedType, bool IsOptional = false)
+public record VBParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, ParameterKind ParameterKind, VBType ResolvedType, bool IsOptional = false)
     : VBLocalVariableSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Local, Range, SelectionRange, ResolvedType: ResolvedType) 
 { }
 
@@ -61,6 +61,6 @@ public record UnboundVBParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string 
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="ParameterKind">Describes how an argument is passed to this parameter.</param>
-public record ParamArrayParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange, ParameterKind ParameterKind)
+public record ParamArrayParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, ParameterKind ParameterKind)
     : VBParameterSymbol(WorkspaceRoot, ParentUri, Name, Range, SelectionRange, ParameterKind, VBFixedSizeArrayType.TypeInfo, IsOptional: false)
 { }

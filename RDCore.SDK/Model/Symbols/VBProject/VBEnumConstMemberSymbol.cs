@@ -1,7 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -18,5 +18,5 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-public sealed record class VBEnumConstMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, Range Range, Range SelectionRange) 
+public sealed record class VBEnumConstMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange) 
     : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, VBLongType.TypeInfo, Range, SelectionRange, AccessModifier.Implicit) { }

@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
@@ -20,7 +20,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
-public abstract record class VBTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, Range Range, Range SelectionRange, AccessModifier AccessModifier)
+public abstract record class VBTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
     : AccessibleTypedSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier) { }
 
 /// <summary>

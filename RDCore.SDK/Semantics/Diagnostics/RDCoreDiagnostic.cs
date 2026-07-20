@@ -2,6 +2,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Server.ProtocolExtensions;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Model;
@@ -35,7 +36,7 @@ internal record class RDCoreDiagnostic : Diagnostic
             Message = vbError.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = vbError.Location.Range,
+            Range = vbError.Location.Range.ToLsp(),
             Data = vbError.Verbose
         };
     }
@@ -50,7 +51,7 @@ internal record class RDCoreDiagnostic : Diagnostic
             Message = vbError.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = vbError.Location.Range,
+            Range = vbError.Location.Range.ToLsp(),
         };
     }
 

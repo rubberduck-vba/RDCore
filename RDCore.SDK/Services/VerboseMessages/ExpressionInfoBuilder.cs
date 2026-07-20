@@ -49,7 +49,7 @@ public record class ExpressionInfoBuilder: IExpressionInfoFormatter
             .WithIconIf(_options.ShowDocumentLocationIcon, _options.DocumentLocationIcon)
             .Append('L').Append(expression.Location.Range.Start.Line)
             .Append('C').Append(expression.Location.Range.Start.Character)
-            .WithConditional(!expression.Location.Range.IsEmpty(), sb2 => sb2.Append(" ..")
+            .WithConditional(!expression.Location.Range.IsEmpty, sb2 => sb2.Append(" ..")
                 .Append('L').Append(expression.Location.Range.End.Line)
                 .Append('C').Append(expression.Location.Range.End.Character)));
 }

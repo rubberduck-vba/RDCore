@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -13,7 +13,7 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// </remarks>
 /// <param name="SemanticId">A semantic <c>Uri</c> uniquely identifying this specific node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
-public record class VBAttributeExpression(Uri SemanticId, Location Location, BoundExpression NameExpression, BoundExpression ValueExpression) 
+public record class VBAttributeExpression(Uri SemanticId, SourceLocation Location, BoundExpression NameExpression, BoundExpression ValueExpression) 
     : BoundExpression(SemanticId, Location) { }
 
 /// <summary>
@@ -24,7 +24,7 @@ public record class VBAttributeExpression(Uri SemanticId, Location Location, Bou
 /// <param name="TypeName">The <em>name value</em> of the <c>As &lt;Type&gt;</c> clause.</param>
 /// <param name="QualifierName">The qualifying module or library name, if present.</param>
 /// <param name="AsAutoObject"><c>true</c> if the expression includes a <c>New</c> token, declaring an <em>auto-object</em>.</param>
-public record class VBAsTypeExpression(Uri SemanticId, Location Location, string TypeName, string? QualifierName = default, bool AsAutoObject = false)
+public record class VBAsTypeExpression(Uri SemanticId, SourceLocation Location, string TypeName, string? QualifierName = default, bool AsAutoObject = false)
     : BoundExpression(SemanticId, Location) { }
 
 /// <summary>
@@ -34,7 +34,7 @@ public record class VBAsTypeExpression(Uri SemanticId, Location Location, string
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="IdentifierName">The <em>identifier</em> name of the declared symbol.</param>
 /// <param name="AsTypeExpression">The <c>As &lt;Type&gt;</c> clause of the declaration, if present.</param>
-public record class VBTypedDeclarationExpression(Uri SemanticId, Location Location, string IdentifierName, VBAsTypeExpression? AsTypeExpression = default) 
+public record class VBTypedDeclarationExpression(Uri SemanticId, SourceLocation Location, string IdentifierName, VBAsTypeExpression? AsTypeExpression = default) 
     : BoundExpression(SemanticId, Location) { }
 
 
@@ -47,9 +47,9 @@ public record class VBTypedDeclarationExpression(Uri SemanticId, Location Locati
 /// <param name="Modifier">The access modifier token specified, if any.</param>
 /// <param name="IsWithEvents"><c>true</c> if the declaration list includes the <c>WithEvents</c> keyword.</param>
 /// <param name="IsStatic"><c>true</c> if the declaration list includes the <c>Static</c> keyword.</param>
-public record class VBDeclarationStatement(Uri SemanticId, Location Location, VBTypedDeclarationExpression[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false) 
+public record class VBDeclarationStatement(Uri SemanticId, SourceLocation Location, VBTypedDeclarationExpression[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false) 
     : BoundStatement(SemanticId, Location) { }
 
 
-//public record class VBAssignationStatement(Uri SemanticId, Location Location, SimpleNameExpression TargetExpression, BoundExpression ValueExpression)
+//public record class VBAssignationStatement(Uri SemanticId, SourceLocation Location, SimpleNameExpression TargetExpression, BoundExpression ValueExpression)
 //    : BoundStatement(SemanticId, Location) { }

@@ -1,8 +1,8 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -18,5 +18,5 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <see cref="VBUnknownType"/> if the type isn't resolved yet.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <see cref="AccessModifier.Implicit"/> if none is specified.</param>
-public sealed record class VBExternalSubMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, Range Range, Range SelectionRange, AccessModifier AccessModifier, bool IsPtrSafe, string Lib, string? Alias)
+public sealed record class VBExternalSubMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier, bool IsPtrSafe, string Lib, string? Alias)
     : VBProcedureMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier) { }
