@@ -13,3 +13,4 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="Inputs">The <em>inputs</em> of the executable statement; expressions evaluated immediately before the call.</param>
 public record class CallStatement(Uri SemanticId, Location Location, string Token, ImmutableArray<BoundExpression> Inputs)
     : BoundStatement(SemanticId, Location, Token, Inputs);
+
