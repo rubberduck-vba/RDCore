@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Errors.Abstract;
 
 namespace RDCore.SDK.Model.Errors;
@@ -13,5 +13,5 @@ namespace RDCore.SDK.Model.Errors;
 /// <param name="Location">The document location of the faulted CST node.</param>
 /// <param name="Description">An optional error description. "Syntax error" unless specified otherwise.</param>
 /// <param name="Verbose">A detailed description of the error.</param>
-public record class VBApplicationErrorInfo(int CustomErrorCode, Location Location, string Description, string Verbose)
+public record class VBApplicationErrorInfo(int CustomErrorCode, SourceLocation Location, string Description, string Verbose)
     : VBErrorInfo(CustomErrorCode, Location, Description, Verbose) { }

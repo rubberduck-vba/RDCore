@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.AST.Abstract;
 
@@ -7,4 +7,4 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// A <c>BoundNode</c> representing a <em>module directive</em>, which is module metadata that is neither typed, nor executable.
 /// </summary>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
-public abstract record class BoundDirective(Uri SemanticId, Location Location) : BoundNode(SemanticId, Location);
+public abstract record class BoundDirective(Uri SemanticId, SourceLocation Location) : BoundNode(SemanticId, Location);

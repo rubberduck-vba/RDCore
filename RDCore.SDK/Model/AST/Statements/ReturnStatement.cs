@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -8,5 +8,5 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// </summary>
 /// <param name="SemanticId">A semantic <c>Uri</c> uniquely identifying this specific node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
-public record class ReturnStatement(Uri SemanticId, Location Location)
+public record class ReturnStatement(Uri SemanticId, SourceLocation Location)
     : BoundStatement(SemanticId, Location, $"{Tokens.Return}", []);

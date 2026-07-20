@@ -1,5 +1,5 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+﻿using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -16,5 +16,5 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-public sealed record VBStaticLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, Range Range, Range SelectionRange)
+public sealed record VBStaticLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange)
     : VBLocalVariableSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Local, Range, SelectionRange, IsStatic: true){ }

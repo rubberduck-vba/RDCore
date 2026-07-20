@@ -1,6 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -14,7 +13,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="Kind">A <c>SymbolKind</c> (extensible) metadata value describing the kind of symbol.</param>
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
-public record class DeferredSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name, SymbolKindExt Kind, Range Range, Range SelectionRange) 
+public record class DeferredSymbol(Uri WorkspaceRoot, Uri ParentUri, ScopeKind Scope, string Name, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange) 
     : BoundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange)
 {
 }

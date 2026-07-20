@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics.Context.Abstract;
-using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 

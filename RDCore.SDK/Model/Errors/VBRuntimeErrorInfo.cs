@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Errors.Abstract;
 
 namespace RDCore.SDK.Model.Errors;
@@ -15,17 +15,17 @@ namespace RDCore.SDK.Model.Errors;
 /// <param name="Verbose">A detailed message identifying the faulted AST node and detailing its semantics.</param>
 public record class VBRuntimeErrorInfo : VBErrorInfo
 {
-    private VBRuntimeErrorInfo(VBRuntimeErrorId vbRuntimeErrorId, Location location, string description, string verbose)
+    private VBRuntimeErrorInfo(VBRuntimeErrorId vbRuntimeErrorId, SourceLocation location, string description, string verbose)
         : base((int)vbRuntimeErrorId, location, description, verbose) { }
 
     /// <summary>
-    /// Creates a new <see cref="VBRuntimeErrorInfo"/> describing the specified <see cref="VBRuntimeErrorId"/> at the specified <see cref="Location"/>.
+    /// Creates a new <see cref="VBRuntimeErrorInfo"/> describing the specified <see cref="VBRuntimeErrorId"/> at the specified <see cref="SourceLocation"/>.
     /// </summary>
     /// <param name="vbCompileErrorId">The formal <see cref="VBRuntimeErrorId"/> value for this error.</param>
     /// <param name="location">The document location of the problematic <em>node</em>.</param>
     /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
     /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
-    public static VBRuntimeErrorInfo For(VBRuntimeErrorId vbCompileErrorId, Location location, string verbose)
+    public static VBRuntimeErrorInfo For(VBRuntimeErrorId vbCompileErrorId, SourceLocation location, string verbose)
         => new(vbCompileErrorId, location, GetErrorString(vbCompileErrorId), verbose);
 
     /// <summary>

@@ -1,5 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
@@ -74,13 +73,6 @@ public abstract record class Symbol
     /// Serialized as a simple <c>int</c>; the internal model uses an extended set beyond LSP 3.17 that clients may ignore.
     /// </remarks>
     public SymbolKindExt Kind { get; init; }
-    /// <summary>
-    /// Describes the <c>SymbolKind</c>, the type of symbol.
-    /// </summary>
-    /// <remarks>
-    /// Can be used by a LSP client to categorize symbols.
-    /// </remarks>
-    public SymbolKind SymbolKind => (SymbolKind)Kind;
 
     /// <summary>
     /// An immutable array where each <c>Uri</c> element refers to the <c>Uri</c> of a child symbol.

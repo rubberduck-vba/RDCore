@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -9,5 +9,5 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="SemanticId">A semantic <c>Uri</c> uniquely identifying this specific node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="NumberExpression">The number/code of the run-time error to raise.</param>
-public record class ErrorStatement(Uri SemanticId, Location Location, BoundExpression NumberExpression)
+public record class ErrorStatement(Uri SemanticId, SourceLocation Location, BoundExpression NumberExpression)
     : BoundStatement(SemanticId, Location, $"{Tokens.Error}", [NumberExpression]);

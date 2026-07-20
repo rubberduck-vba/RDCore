@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -13,6 +13,6 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <remarks>
 /// This loop construct exits (and may not even enter) when the <c>ConditionExpression</c> evaluates to <c>False</c>.
 /// </remarks>
-public record WhileWendStatement(Uri SemanticId, Location Location, BoundExpression ConditionExpression, StatementBlock Body)
+public record WhileWendStatement(Uri SemanticId, SourceLocation Location, BoundExpression ConditionExpression, StatementBlock Body)
     : BoundStatement(SemanticId, Location, $"{Tokens.While}-{Tokens.Wend}", [ConditionExpression]);
 

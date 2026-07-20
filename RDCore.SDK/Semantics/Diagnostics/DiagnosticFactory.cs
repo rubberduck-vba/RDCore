@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.SDK.Semantics.Diagnostics;
 
@@ -78,7 +79,7 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
             Message = error.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = error.Location.Range,
+            Range = error.Location.Range.ToLsp(),
             Data = JToken.FromObject(CreateErrorMetadata(error.ErrorId, error.Verbose))
         };
     }
@@ -93,7 +94,7 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
             Message = error.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = error.Location.Range,
+            Range = error.Location.Range.ToLsp(),
             Data = JToken.FromObject(CreateErrorMetadata(error.ErrorId, error.Verbose))
         };
     }
@@ -108,7 +109,7 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
             Message = error.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = error.Location.Range,
+            Range = error.Location.Range.ToLsp(),
             Data = JToken.FromObject(CreateErrorMetadata(error.ErrorId, error.Verbose))
         };
     }
@@ -123,7 +124,7 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
             Message = error.Description,
             Severity = DiagnosticSeverity.Error,
             Source = nameof(RDCore),
-            Range = error.Location.Range,
+            Range = error.Location.Range.ToLsp(),
             Data = JToken.FromObject(CreateErrorMetadata(error.CustomErrorCode, error.Verbose))
         };
     }

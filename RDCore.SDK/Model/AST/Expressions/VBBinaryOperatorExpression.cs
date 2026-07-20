@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -21,7 +21,7 @@ namespace RDCore.SDK.Model.AST.Expressions;
 public record class VBBinaryOperatorExpression<TContext, TFlags>(Uri SemanticId, 
     OperatorSymbol<TContext, TFlags> Symbol, 
     OperatorExpressionValueSymbol ResultSymbol,
-    Location Location, 
+    SourceLocation Location, 
     BoundExpression Left, 
     BoundExpression Right) 
     : VBOperatorExpression<TContext, TFlags>(SemanticId, Symbol, ResultSymbol, Location) 

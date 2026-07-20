@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Errors.Abstract;
 
@@ -12,4 +12,4 @@ namespace RDCore.SDK.Model.Errors.Abstract;
 /// <param name="Location">The document location of the faulted CST node.</param>
 /// <param name="Description">An optional error description. "Syntax error" unless specified otherwise.</param>
 /// <param name="Verbose">A detailed message identifying the faulted CST token and detailing its semantics.</param>
-public abstract record class VBErrorInfo(int ErrorId, Location Location, string Description, string Verbose);
+public abstract record class VBErrorInfo(int ErrorId, SourceLocation Location, string Description, string Verbose);

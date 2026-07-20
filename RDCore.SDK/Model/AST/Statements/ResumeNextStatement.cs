@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -11,5 +11,5 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <remarks>
 /// This statement is only legal with an active error state.
 /// </remarks>
-public record class ResumeNextStatement(Uri SemanticId, Location Location)
+public record class ResumeNextStatement(Uri SemanticId, SourceLocation Location)
     : BoundStatement(SemanticId, Location, $"{Tokens.Resume}-{Tokens.Next}", []);

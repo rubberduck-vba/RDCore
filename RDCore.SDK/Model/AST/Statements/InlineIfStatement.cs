@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -11,5 +11,5 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="Condition">A <em>Boolean expression</em> that determines whether execution branches into the <em>conditional statement</em> or not.</param>
 /// <param name="ConditionalStatement">An <em>executable node</em> that is executed if the <em>Condition</em> expression evaluates to <c>True</c>.</param>
 /// <param name="ElseStatement">An <em>executable node</em> that is executed if the <em>Condition</em> expression evaluates to <c>False</c>. <strong>Optional</strong></param>
-public record class InlineIfStatement(Uri SemanticId, Location Location, BoundExpression Condition, BoundStatement ConditionalStatement, BoundStatement? ElseStatement = default)
+public record class InlineIfStatement(Uri SemanticId, SourceLocation Location, BoundExpression Condition, BoundStatement ConditionalStatement, BoundStatement? ElseStatement = default)
     : BoundStatement(SemanticId, Location, Tokens.If, [Condition]);

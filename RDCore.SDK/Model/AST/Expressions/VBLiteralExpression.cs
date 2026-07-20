@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -15,5 +15,5 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <param name="SemanticId">The unique <c>Uri</c> identifying this specific expression node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="StaticValue">The parsed literal value.</param>
-public sealed record class VBLiteralExpression(Uri SemanticId, Location Location, VBTypedValue StaticValue) 
+public sealed record class VBLiteralExpression(Uri SemanticId, SourceLocation Location, VBTypedValue StaticValue) 
     : BoundExpression(SemanticId, Location) { }

@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -11,6 +11,6 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="ControlExpression">An object or variant expression that resolves to the loop control variable.</param>
 /// <param name="CollectionExpression">An object expression that resolves to an enumerable object (or array).</param>
 /// <param name="Body">The executable statements in the body of the loop.</param>
-public record class ForEachStatement(Uri SemanticId, Location Location, BoundExpression ControlExpression, BoundExpression CollectionExpression, StatementBlock Body)
+public record class ForEachStatement(Uri SemanticId, SourceLocation Location, BoundExpression ControlExpression, BoundExpression CollectionExpression, StatementBlock Body)
     : BoundStatement(SemanticId, Location, $"{Tokens.ForEach}-{Tokens.Next}", [ControlExpression, CollectionExpression]);
 

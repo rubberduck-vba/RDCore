@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 using System.Collections.Immutable;
 
@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="ControlExpression">The control expression whose evaluation result each <c>Case</c> expression gets compared to.</param>
 /// <param name="CaseExpressionBlocks">The <c>Case</c> sub-expressions.</param>
-public record class SelectCaseStatement(Uri SemanticId, Location Location, BoundExpression ControlExpression, ImmutableArray<CaseExpressionStatement> CaseExpressionBlocks)
+public record class SelectCaseStatement(Uri SemanticId, SourceLocation Location, BoundExpression ControlExpression, ImmutableArray<CaseExpressionStatement> CaseExpressionBlocks)
     : BoundStatement(SemanticId, Location, Tokens.Select, [ControlExpression]);
 
 /// <summary>
@@ -21,5 +21,5 @@ public record class SelectCaseStatement(Uri SemanticId, Location Location, Bound
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="Expression">The expression whose evaluation result is to be compared to the <c>Select</c> control expression.</param>
 /// <param name="Block">The body of the <c>Case</c> block.</param>
-public record class CaseExpressionStatement(Uri SemanticId, Location Location, BoundExpression Expression, StatementBlock Block)
+public record class CaseExpressionStatement(Uri SemanticId, SourceLocation Location, BoundExpression Expression, StatementBlock Block)
     : BoundStatement(SemanticId, Location, Tokens.Case, [Expression]);

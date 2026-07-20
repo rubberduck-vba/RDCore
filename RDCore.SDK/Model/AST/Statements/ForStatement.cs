@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -13,6 +13,6 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="EndExpression">A numeric expression that evaluates to the final value of the loop counter.</param>
 /// <param name="StepExpression">A numeric expression that evaluates to the iteration increment of the control variable.</param>
 /// <param name="Body">The executable statements in the body of the loop.</param>
-public record class ForStatement(Uri SemanticId, Location Location, BoundExpression ControlExpression, BoundExpression StartExpression, BoundExpression EndExpression, BoundExpression StepExpression, StatementBlock Body)
+public record class ForStatement(Uri SemanticId, SourceLocation Location, BoundExpression ControlExpression, BoundExpression StartExpression, BoundExpression EndExpression, BoundExpression StepExpression, StatementBlock Body)
     : BoundStatement(SemanticId, Location, $"{Tokens.For}-{Tokens.Next}", [ControlExpression, StartExpression, EndExpression, StepExpression]);
 

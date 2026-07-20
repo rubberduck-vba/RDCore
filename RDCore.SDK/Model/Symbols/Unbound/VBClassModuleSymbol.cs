@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Server.ProtocolExtensions;
+﻿using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Symbols.Unbound;
 

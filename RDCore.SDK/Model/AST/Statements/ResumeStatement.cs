@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.SDK.Model.AST.Statements;
@@ -12,5 +12,5 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <remarks>
 /// This statement is only legal with an active error state.
 /// </remarks>
-public record class ResumeStatement(Uri SemanticId, Location Location, BoundExpression? LabelExpression)
+public record class ResumeStatement(Uri SemanticId, SourceLocation Location, BoundExpression? LabelExpression)
     : BoundStatement(SemanticId, Location, $"{Tokens.Resume}{(LabelExpression is null ? string.Empty : $"-Label")}", LabelExpression is null ? [] : [LabelExpression]);

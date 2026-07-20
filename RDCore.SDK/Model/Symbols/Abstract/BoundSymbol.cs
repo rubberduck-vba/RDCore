@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+﻿using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
@@ -14,7 +13,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 public abstract record class BoundSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, 
-    Range Range, Range SelectionRange) : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind) { }
+    SourceRange Range, SourceRange SelectionRange) : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind) { }
 
 /// <summary>
 /// A <c>Symbol</c> that is <strong>not bound</strong> to a workspace document <c>Location</c>.

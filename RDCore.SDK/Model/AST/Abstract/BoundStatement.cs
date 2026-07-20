@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST.Abstract;
@@ -10,5 +10,5 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
 /// <param name="Token">The <c>string</c> <em>token</em> of the statement, e.g. <c>Open</c>, <c>Input</c>, <c>Print</c>, <c>Assert</c>, etc..</param>
 /// <param name="Inputs">The <em>inputs</em> of the executable statement; expressions evaluated immediately before the call.</param>
-public abstract record class BoundStatement(Uri SemanticId, Location Location, string Token, ImmutableArray<BoundExpression> Inputs) 
+public abstract record class BoundStatement(Uri SemanticId, SourceLocation Location, string Token, ImmutableArray<BoundExpression> Inputs)
     : BoundNode(SemanticId, Location), IExecutableNode;

@@ -1,6 +1,5 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Server.ProtocolExtensions;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;
 
@@ -15,7 +14,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
-public abstract record class BoundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, Range Range, Range SelectionRange, VBType ResolvedType)
+public abstract record class BoundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange, VBType ResolvedType)
     : BoundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange) { }
 
 /// <summary>
