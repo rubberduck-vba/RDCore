@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;

@@ -1,41 +1,46 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+namespace RDCore.SDK.Model.Source;
 
-namespace RDCore.SDK.Server.ProtocolExtensions;
-
+/// <summary>
+/// Describes the kind of a <c>Symbol</c>, extending the set defined by the LSP <c>SymbolKind</c>.
+/// </summary>
+/// <remarks>
+/// Values below 128 numerically match the LSP <c>SymbolKind</c> constants; conversion to the protocol
+/// type happens at the protocol boundary (<c>Server/ProtocolExtensions</c>).
+/// </remarks>
 public enum SymbolKindExt
 {
     // NOTE: values 1-18 (from the initial LSP version) are deemed supported if DocumentSymbolClientCapabilities.SymbolKind is not specified.
 
     #region LSP@1.0
-    //File = SymbolKind.File,
-    Module = SymbolKind.Module,
-    //Namespace_ = SymbolKind.Namespace,
-    Project = SymbolKind.Namespace,
-    Class = SymbolKind.Class,
-    Procedure = SymbolKind.Method,
-    Property = SymbolKind.Property,
-    Field = SymbolKind.Field,
-    //Constructor_ = SymbolKind.Constructor,
-    Enum = SymbolKind.Enum,
-    Interface = SymbolKind.Interface,
-    Function = SymbolKind.Function,
-    Variable = SymbolKind.Variable,
-    Constant = SymbolKind.Constant,
-    StringLiteral = SymbolKind.String,
-    NumberLiteral = SymbolKind.Number,
-    BooleanLiteral = SymbolKind.Boolean,
-    Array = SymbolKind.Array,
+    //File = 1,
+    Module = 2,
+    //Namespace_ = 3,
+    Project = 3,
+    Class = 5,
+    Procedure = 6,
+    Property = 7,
+    Field = 8,
+    //Constructor_ = 9,
+    Enum = 10,
+    Interface = 11,
+    Function = 12,
+    Variable = 13,
+    Constant = 14,
+    StringLiteral = 15,
+    NumberLiteral = 16,
+    BooleanLiteral = 17,
+    Array = 18,
     #endregion
 
     #region LSP@3.17
-    Object = SymbolKind.Object,
-    Key = SymbolKind.Key,
-    Null = SymbolKind.Null,
-    EnumMember = SymbolKind.EnumMember,
-    UserDefinedType = SymbolKind.Struct,
-    Event = SymbolKind.Event,
-    Operator = SymbolKind.Operator,
-    //TypeParameter_ = SymbolKind.TypeParameter,
+    Object = 19,
+    Key = 20,
+    Null = 21,
+    EnumMember = 22,
+    UserDefinedType = 23,
+    Event = 24,
+    Operator = 25,
+    //TypeParameter_ = 26,
     #endregion
 
     /* padding */

@@ -1,4 +1,4 @@
-using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.Abstract;

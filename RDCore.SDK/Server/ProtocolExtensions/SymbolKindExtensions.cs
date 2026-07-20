@@ -1,4 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Server.ProtocolExtensions;
 

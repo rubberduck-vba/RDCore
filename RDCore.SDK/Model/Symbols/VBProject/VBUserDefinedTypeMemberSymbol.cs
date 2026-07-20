@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
