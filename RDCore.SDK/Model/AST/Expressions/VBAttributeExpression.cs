@@ -47,8 +47,8 @@ public record class VBTypedDeclarationExpression(Uri SemanticId, Location Locati
 /// <param name="Modifier">The access modifier token specified, if any.</param>
 /// <param name="IsWithEvents"><c>true</c> if the declaration list includes the <c>WithEvents</c> keyword.</param>
 /// <param name="IsStatic"><c>true</c> if the declaration list includes the <c>Static</c> keyword.</param>
-public record class VBDeclarationStatement(Uri SemanticId, Location Location, VBTypedDeclarationExpression[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false) 
-    : BoundStatement(SemanticId, Location) { }
+public record class VBDeclarationStatement(Uri SemanticId, Location Location, VBTypedDeclarationExpression[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false)
+    : BoundStatement(SemanticId, Location, string.Empty, []) { }
 
 
 //public record class VBAssignationStatement(Uri SemanticId, Location Location, SimpleNameExpression TargetExpression, BoundExpression ValueExpression)
