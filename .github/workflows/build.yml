@@ -21,8 +21,14 @@ jobs:
      with:
       dotnet-version: 10.0
 
-   - name: Build
+   - name: Build (Debug)
+     run: dotnet build RDCore.slnx --configuration Debug
+
+   - name: Test (Debug)
+     run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal
+
+   - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
-   - name: Test
+   - name: Test (Release)
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal
