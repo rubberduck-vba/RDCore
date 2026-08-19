@@ -22,7 +22,7 @@ Ce dernier point constituant en toute transparence **l'intérêt commercial** mo
 
 ### Du coup, pas de contributions d'_agents IA_?
 
-- ❌ **Exact. Aucune contribution** d'agents IA 🤖 n'est acceptée dans _ce référentiel_.
+- ❌ **Exact. Aucune contribution directe et automatisée** d'agents IA 🤖 n'est acceptée dans _ce référentiel_.
 
 L'usage d'outils de type _Copilot_ est toutefois **fortement encouragée** pour:
 
@@ -77,7 +77,7 @@ This last point transparently constituting the **commercial interest** motivatin
 
 ### Wait so no _AI Agent_ contributions then?
 
-- ❌ **Exactly. No AI agent contribution** 🤖 is accepted in _this repository_.
+- ❌ **Exactly. No autonomous and automated AI agent contribution** 🤖 is accepted in _this repository_.
 
 The use of _Copilot_ type tools is however **warmly recommended** for:
 
