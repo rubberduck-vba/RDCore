@@ -22,12 +22,26 @@ Ce dernier point constituant en toute transparence **l'intérêt commercial** mo
 
 ### Du coup, pas de contributions d'_agents IA_?
 
-- ❌ **Exact. Aucune contribution** d'agents IA 🤖 n'est acceptée dans _ce référentiel_.
+- ❌ **Exact. Aucune contribution directe et automatisée** d'agents IA 🤖 n'est acceptée dans _ce référentiel_.
 
 L'usage d'outils de type _Copilot_ est toutefois **fortement encouragée** pour:
 
 - ✅ Complétion automatisée de _patterns_ répétitifs fortement prévisibles;
 - ✅ Validation et brassage d'idées d'implémentation, de solutions, d'architectures, etc.;
+
+
+## Bâtir et tester
+
+RDCore cible **.NET 10**; le [SDK .NET 10](https://dotnet.microsoft.com/download) constitue le seul prérequis.
+
+À partir de la racine du référentiel:
+
+```powershell
+dotnet build RDCore.slnx
+dotnet test RDCore.slnx
+```
+
+Une exécution réussie **doit rapporter un nombre de tests non nul**: une exécution qui ne découvre aucun test n'est pas une exécution réussie. L'option `--configuration Release` bâtit et teste de la même manière; l'intégration continue valide les deux configurations.
 
 
 **Toute valeur commerciale éventuelle de la plateforme _repose d'abord et avant tout sur la force de sa communauté_, pas sur la vélocité de sa complétion**.
@@ -63,12 +77,26 @@ This last point transparently constituting the **commercial interest** motivatin
 
 ### Wait so no _AI Agent_ contributions then?
 
-- ❌ **Exactly. No AI agent contribution** 🤖 is accepted in _this repository_.
+- ❌ **Exactly. No autonomous and automated AI agent contribution** 🤖 is accepted in _this repository_.
 
 The use of _Copilot_ type tools is however **warmly recommended** for:
 
 - ✅ Automatic completion of highly predictable, repetitive patterns;
 - ✅ Validation and brainstorming of implementation ideas, solutions, architectures, etc.;
+
+
+## Building and testing
+
+RDCore targets **.NET 10**; the [.NET 10 SDK](https://dotnet.microsoft.com/download) is the only prerequisite.
+
+From the repository root:
+
+```powershell
+dotnet build RDCore.slnx
+dotnet test RDCore.slnx
+```
+
+A successful run **must report a non-zero test count**: a run that discovers no tests is not a passing run. The `--configuration Release` switch builds and tests the same way; continuous integration validates both configurations.
 
 
 **Any eventual commercial value of the platform _stems first and foremost from the strength of its community_, not the velocity of its completion**.
