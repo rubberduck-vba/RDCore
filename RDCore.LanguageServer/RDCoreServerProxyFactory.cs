@@ -2,25 +2,22 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services;
-using System.IO.Abstractions;
 
 namespace RDCore.LanguageServer;
 
-internal class RDCoreServerProxyFactory(
-    IOptions<SdkAppOptions> options,
-    IRDCoreServerProcess serverProcess,
-    IFileSystem fileSystem,
-    IHealthCheckService<RDCoreServerProxy> healthCheckService,
-    ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<RDCoreServerProxy> logger) : IRDCoreServerProxyFactory
+internal class RDCoreServerProxyFactory(IServiceProvider services) : IRDCoreServerProxyFactory
 {
     public RDCoreServerProxy Create(CoreServerComponent platformComponent, CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder>? configureHandlers = default,
         Action<IServiceCollection>? configureServices = default)
-        => new(options, platformComponent, capabilities, configureHandlers ?? (builder => { }), configureServices ?? (services => { }),
-            serverProcess, fileSystem, healthCheckService, transportLayer, logger);
+        // IChildConnectionFactory resolves a fresh process + transport per proxy.
+        => new(services.GetRequiredService<IOptions<SdkAppOptions>>(),
+            platformComponent, capabilities,
+            configureHandlers ?? (builder => { }), configureServices ?? (services => { }),
+            services.GetRequiredService<IChildConnectionFactory>(),
+            services.GetRequiredService<ILogger<RDCoreClientApp>>());
 }

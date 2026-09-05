@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -21,9 +22,8 @@ public interface IPlatformCompositionService
     ImmutableArray<ExtensionInfo> GetExtensions();
 }
 
-public class PlatformCompositionService(IFileSystem fileSystem, IExtensionsProvider extensions) : IPlatformCompositionService
+public class PlatformCompositionService(IFileSystem fileSystem, IPlatformEnvironment environment, IExtensionsProvider extensions) : IPlatformCompositionService
 {
-    private static readonly string _manifestFileName = "rdcore.json";
     private PlatformManifest? _cached;
     private ImmutableArray<ExtensionInfo>? _extensions;
 
@@ -38,8 +38,7 @@ public class PlatformCompositionService(IFileSystem fileSystem, IExtensionsProvi
     {
         if (_cached is null)
         {
-            var path = fileSystem.Path.Combine(fileSystem.Directory.GetParent(fileSystem.Directory.GetCurrentDirectory())!.FullName, _manifestFileName);
-            var content = fileSystem.File.ReadAllText(path);
+            var content = fileSystem.File.ReadAllText(environment.ManifestPath);
             _cached = JsonSerializer.Deserialize<PlatformManifest>(content, _serializationOptions)
                 ?? throw new InvalidOperationException();
         }
@@ -67,16 +66,13 @@ public class RDCoreServerProxy : RDCoreClientApp
 
     public RDCoreServerProxy(
         IOptions<SdkAppOptions> options,
-        CoreServerComponent platformComponent, 
+        CoreServerComponent platformComponent,
         CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder> configureHandlers,
         Action<IServiceCollection> configureServices,
-        IRDCoreServerProcess serverProcess, 
-        IFileSystem fileSystem, 
-        IHealthCheckService<RDCoreClientApp> healthCheckService, 
-        ILanguageServerProtocolTransportLayer transportLayer, 
-        ILogger<RDCoreClientApp> logger) 
-        : base(options, serverProcess, healthCheckService, transportLayer, logger)
+        IChildConnectionFactory connectionFactory,
+        ILogger<RDCoreClientApp> logger)
+        : base(options, connectionFactory, logger)
     {
         _platformComponent = platformComponent;
         _capabilities = capabilities;
@@ -86,15 +82,18 @@ public class RDCoreServerProxy : RDCoreClientApp
 
     public override CoreServerComponent PlatformComponent => _platformComponent;
 
-    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
-    {
-        capabilities.Experimental = new Dictionary<string, JToken>() { ["rdcore"] = JToken.FromObject(_capabilities) };
-        return capabilities;
-    }
+    // platform capabilities travel over rdcore/platform/initialize, not the LSP Experimental node.
+    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities) => capabilities;
+
+    protected override CorePlatformClientCapabilities GetExpectedCapabilities() => _capabilities;
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder) => _configureHandlers(builder);
 
     protected override void ConfigureServices(IServiceCollection services) => _configureServices(services);
+
+    // the owning language server escalates a terminal fault through its own shutdown path
+    // (CoreLanguageServerApp.BringUpCoreComponentAsync), so the proxy does nothing here.
+    protected override void OnConnectionTerminated() { }
 
     protected override void Dispose(bool disposing) { }
 }
