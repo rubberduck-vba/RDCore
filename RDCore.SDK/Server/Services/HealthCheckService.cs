@@ -14,6 +14,14 @@ public interface IHealthCheckService<out TApp> : IDisposable
     void Resume();
 }
 
+internal static class HealthCheckTarget
+{
+    /// <summary>
+    /// A server app watches the client process that owns it; a client app watches the server process it started.
+    /// </summary>
+    internal static bool IsOwnedByClient(Type appType) => typeof(IRDCoreServerApp).IsAssignableFrom(appType);
+}
+
 public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
     where TApp : IRDCoreApp
 {
@@ -34,8 +42,7 @@ public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
         IServerStateProvider serverState, 
         IOptions<SdkServerOptions> options)
     {
-        // a server app watches the client process that owns it; a client app watches the server process it started.
-        TimerCallback callback = typeof(IRDCoreServerApp).IsAssignableFrom(typeof(TApp))
+        TimerCallback callback = HealthCheckTarget.IsOwnedByClient(typeof(TApp))
             ? CheckClientProcessHealth
             : CheckServerProcessHealth;
 
