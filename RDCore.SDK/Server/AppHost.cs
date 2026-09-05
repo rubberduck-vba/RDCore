@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
@@ -183,6 +184,7 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>()
             .AddTransient<IHealthCheckService<TApp>, HealthCheckService<TApp>>()
             .AddTransient<ILanguageServerProtocolTransportLayer, RDCorePlatformDefaultTransportLayer>()
+            .AddSingleton<IChildConnectionFactory, ChildConnectionFactory>()
             .AddSingleton<IFileSystem, FileSystem>()
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()

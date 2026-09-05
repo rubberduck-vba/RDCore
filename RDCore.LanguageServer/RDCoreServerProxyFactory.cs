@@ -2,11 +2,10 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Services;
-using System.IO.Abstractions;
 
 namespace RDCore.LanguageServer;
 
@@ -15,13 +14,10 @@ internal class RDCoreServerProxyFactory(IServiceProvider services) : IRDCoreServ
     public RDCoreServerProxy Create(CoreServerComponent platformComponent, CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder>? configureHandlers = default,
         Action<IServiceCollection>? configureServices = default)
-        // resolve a fresh process + health check per proxy: one instance cannot supervise several children.
+        // IChildConnectionFactory resolves a fresh process + transport per proxy.
         => new(services.GetRequiredService<IOptions<SdkAppOptions>>(),
             platformComponent, capabilities,
             configureHandlers ?? (builder => { }), configureServices ?? (services => { }),
-            services.GetRequiredService<IRDCoreServerProcess>(),
-            services.GetRequiredService<IFileSystem>(),
-            services.GetRequiredService<IHealthCheckService<RDCoreServerProxy>>(),
-            services.GetRequiredService<ILanguageServerProtocolTransportLayer>(),
-            services.GetRequiredService<ILogger<RDCoreServerProxy>>());
+            services.GetRequiredService<IChildConnectionFactory>(),
+            services.GetRequiredService<ILogger<RDCoreClientApp>>());
 }

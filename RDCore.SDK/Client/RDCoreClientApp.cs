@@ -3,23 +3,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using OmniSharp.Extensions.LanguageServer.Shared;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
-using RDCore.SDK.Server.Services;
-using System.IO.Pipelines;
-using System.IO.Pipes;
 using System.Reflection;
-using OmniSharpLanguageClient = OmniSharp.Extensions.LanguageServer.Client.LanguageClient;
 namespace RDCore.SDK.Client;
 
 /// <summary>
@@ -29,14 +24,17 @@ public interface IRDCoreClientApp : IRDCoreApp
 {
     Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>;
     Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams: IRequest;
+    /// <summary>
+    /// Completes once the connection to the child server is <see cref="ConnectionStateValue.Ready"/>;
+    /// faults if the connection reaches a terminal state first.
+    /// </summary>
+    Task WaitForReadyAsync(CancellationToken token);
 }
 
 /// <summary>
 /// A client-side (LSP) RDCore app.
 /// </summary>
-/// <param name="serverProcess">Encapsulates the <c>Process</c> of the server application.</param>
-/// <param name="healthCheckService">A service that monitors the server process.</param>
-/// <param name="transportLayer">The RDCore/LSP transport layer.</param>
+/// <param name="connectionFactory">Creates the <see cref="ChildConnection"/> to the child server.</param>
 /// <param name="logger">A standard logger.</param>
 /// <remarks>
 /// 🧩 Most RDCore apps are server-side, but if you were making an IDE or a CLI app, this would be your LSP app.
@@ -44,25 +42,20 @@ public interface IRDCoreClientApp : IRDCoreApp
 public abstract class RDCoreClientApp : IRDCoreClientApp
 {
     private readonly IOptions<SdkAppOptions> _options;
-    private readonly IRDCoreServerProcess _serverProcess;
-    private readonly IHealthCheckService<RDCoreClientApp> _healthCheckService;
-    private readonly ILanguageServerProtocolTransportLayer _transportLayer;
+    private readonly IChildConnectionFactory _connectionFactory;
     private readonly ILogger<RDCoreClientApp> _logger;
+
+    private ChildConnection? _connection;
+    private IServiceProvider? _hostServices;
 
     protected RDCoreClientApp(
         IOptions<SdkAppOptions> options,
-        IRDCoreServerProcess serverProcess,
-        IHealthCheckService<RDCoreClientApp> healthCheckService,
-        ILanguageServerProtocolTransportLayer transportLayer,
+        IChildConnectionFactory connectionFactory,
         ILogger<RDCoreClientApp> logger)
     {
         _options = options;
-        _serverProcess = serverProcess;
-        _healthCheckService = healthCheckService;
-        _transportLayer = transportLayer;
+        _connectionFactory = connectionFactory;
         _logger = logger;
-
-        PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}";
     }
 
     /// <summary>
@@ -77,20 +70,16 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// </summary>
     public ExtensionInfo? ExtensionInfo { get; init; }
 
-    private CancellationTokenSource? ServerToken { get; set; }
-    private string PipeName { get; }
-    private OmniSharpLanguageClient? Client { get; set; }
-    //private IServiceProvider? ExternalServiceProvider { get; set; }
+    /// <summary>The connection to the child server. Throws before <see cref="RunAsync"/>.</summary>
+    protected ChildConnection Connection => _connection ?? throw new InvalidOperationException("The client has not started.");
 
-    public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult> 
-        => await Client!.SendRequest(request, token);
+    public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
+        => await Connection.SendRequestAsync<TParams, TResult>(request, token);
 
     public Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest
-    {
-        token.ThrowIfCancellationRequested();
-        Client!.SendNotification(notification);
-        return Task.CompletedTask;
-    }
+        => Connection.SendNotificationAsync(notification, token);
+
+    public Task WaitForReadyAsync(CancellationToken token) => Connection.WaitForReadyAsync(token);
 
     protected async virtual Task BeforeRunAsync(string[] args) { }
 
@@ -124,12 +113,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         };
     }
 
-    private NamedPipeClientStream? _namedPipe;
-    private IServiceProvider? _hostServices;
-
     private async Task StartLanguageClientAsync(IPlatformCompositionService platform)
     {
-        ServerToken = new CancellationTokenSource();
         var manifest = platform.GetManifest();
         var path = PlatformComponent switch
         {
@@ -142,29 +127,24 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             _ => throw new NotSupportedException($"Cannot resolve a server executable for platform component '{PlatformComponent}'.")
         };
 
-        // start the process first:
-        await _serverProcess.StartAsync(path, PipeName, ServerToken);
+        _connection = _connectionFactory.Create();
+        var startupToken = _hostServices?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None;
 
-        // configure client-side transport. ConnectAsync already waits for the server pipe to appear,
-        // so there is no fixed start-up delay; race it against the process dying to fail fast on a crash.
-        _namedPipe = _transportLayer.ConfigureClient(PipeName);
-        var timeoutSeconds = _options.Value.Server.ConnectTimeoutSeconds > 0 ? _options.Value.Server.ConnectTimeoutSeconds : 30;
-        var connect = _namedPipe.ConnectAsync((int)TimeSpan.FromSeconds(timeoutSeconds).TotalMilliseconds, ServerToken.Token);
-        if (await Task.WhenAny(connect, _serverProcess.WaitForExitAsync()) != connect || _serverProcess.HasExited)
+        await _connection.ConnectAsync(new ChildConnectionRequest
         {
-            throw new ServerProtocolSdkException($"{PlatformComponent} server process exited before the transport connection was established.");
-        }
-        await connect;
-
-        // the server pipe is connected; hand it to the OmniSharp language client:
-        Client = await OmniSharpLanguageClient.From(ConfigureClient, ServerToken.Token);
+            ServerExecutablePath = path,
+            PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}",
+            ConnectTimeoutSeconds = _options.Value.Server.ConnectTimeoutSeconds,
+            ConfigureClient = ConfigureClient,
+            OnPeerExited = HandlePeerExited,
+        }, startupToken);
     }
 
-    private void HandleUnhealthyServer()
+    private void HandlePeerExited()
     {
-        // the server process this app started is gone; there is nothing left to talk to, so stop the app.
-        // TODO restart-with-backoff belongs in the connection state machine.
-        LogIfEnabled(LogLevel.Warning, "Server process has exited; stopping the client application.");
+        // the child server this app started is gone; there is nothing left to talk to, so stop the app.
+        // phase 2 inserts restart-with-backoff before this escalation.
+        LogIfEnabled(LogLevel.Warning, "Child server has exited; stopping the client application.");
         _hostServices?.GetService<IHostApplicationLifetime>()?.StopApplication();
     }
 
@@ -174,9 +154,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     public void Dispose()
     {
-        ServerToken?.Dispose();
-        Client?.Dispose();
-        _namedPipe?.Dispose();
+        _connection?.Dispose();
 
         Dispose(true);
         GC.SuppressFinalize(this);
@@ -195,11 +173,13 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             : _options.Value.Server.Verbose ? InitializeTrace.Verbose : InitializeTrace.Messages,
     };
 
+    /// <summary>
+    /// Applies the app-specific parts of the language client configuration. The transport (input/output)
+    /// and the <c>ILanguageClientFacade</c> registration are owned by <see cref="ChildConnection"/>.
+    /// </summary>
     private void ConfigureClient(LanguageClientOptions options)
     {
         options
-            .WithInput(PipeReader.Create(_namedPipe!))
-            .WithOutput(PipeWriter.Create(_namedPipe!))
             // basic client app information:
             .WithClientInfo(GetClientInfo())
             .WithClientCapabilities(GetClientCapabilities())
@@ -208,11 +188,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             .OnInitialize(HandleLanguageClientInitializeAsync)
             .OnInitialized(HandleLanguageClientInitializedAsync);
 
-        var services = options.Services;
-        services.AddSingleton<ILanguageClientFacade>(provider => Client!);
-
         // everything else the app wants to do:
-        ConfigureServices(services);
+        ConfigureServices(options.Services);
         ConfigureHandlers(new RDCoreLanguageClientHandlersConfigurationBuilder(options));
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageClientConfigurationCompleted);
     }
@@ -237,7 +214,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// </list>
     /// </remarks>
     protected abstract void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder);
-    
+
     /// <summary>
     /// Gives your class or handler an opportunity to interact with the <see cref="ILanguageClient" /> after the connection has been established.
     /// </summary>
@@ -255,7 +232,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// <param name="request">The <c>Initialize</c> request payload.</param>
     /// <param name="token">A <see cref="CancellationToken"/> for cooperative cancellation.</param>
     /// <remarks>
-    /// 🧩 This method is invoked at the end of the <em>initialization handshake</em>; 
+    /// 🧩 This method is invoked at the end of the <em>initialization handshake</em>;
     /// the base implementation logs handler completion at <c>Trace</c> level.
     /// </remarks>
     protected async virtual Task OnLanguageClientInitializeAsync(ILanguageClient client, InitializeParams request, CancellationToken token)
@@ -268,13 +245,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// <param name="request">The <c>Initialize</c> request payload.</param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> for cooperative cancellation.</param>
     protected async Task HandleLanguageClientInitializeAsync(ILanguageClient client, InitializeParams request, CancellationToken cancellationToken)
-    {
-        if (_serverProcess.ProcessId != 0)
-        {
-            _healthCheckService.Start(_serverProcess.ProcessId, HandleUnhealthyServer);
-        }
-        await OnLanguageClientInitializeAsync(client, request, cancellationToken);
-    }
+        => await OnLanguageClientInitializeAsync(client, request, cancellationToken);
 
     /// <summary>
     /// Signals the completion of the <c>Initialized</c> notification handler.

@@ -12,6 +12,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
 using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -84,11 +85,9 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
 
 internal class RDCoreConsoleClientApp(
     IOptions<SdkAppOptions> options,
-    IRDCoreServerProcess serverProcess,
-    IHealthCheckService<RDCoreConsoleClientApp> healthCheckService,
-    ILanguageServerProtocolTransportLayer transportLayer,
+    IChildConnectionFactory connectionFactory,
     ILogger<RDCoreConsoleClientApp> logger)
-    : RDCoreClientApp(options, serverProcess, healthCheckService, transportLayer, logger)
+    : RDCoreClientApp(options, connectionFactory, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
 

@@ -172,7 +172,8 @@ internal sealed class CoreLanguageServerApp(
             // from configuration in RDCoreServerProcess, so no command-line arguments are passed here.
             // ExternalServices (not the OmniSharp internal container) is where IPlatformCompositionService lives.
             await component.RunAsync(ExternalServices, []);
-            LogIfEnabled(LogLevel.Information, $"✅ Connected to {label}");
+            await component.WaitForReadyAsync(token);
+            LogIfEnabled(LogLevel.Information, $"✅ {label} is ready");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -67,16 +68,13 @@ public class RDCoreServerProxy : RDCoreClientApp
 
     public RDCoreServerProxy(
         IOptions<SdkAppOptions> options,
-        CoreServerComponent platformComponent, 
+        CoreServerComponent platformComponent,
         CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder> configureHandlers,
         Action<IServiceCollection> configureServices,
-        IRDCoreServerProcess serverProcess, 
-        IFileSystem fileSystem, 
-        IHealthCheckService<RDCoreClientApp> healthCheckService, 
-        ILanguageServerProtocolTransportLayer transportLayer, 
-        ILogger<RDCoreClientApp> logger) 
-        : base(options, serverProcess, healthCheckService, transportLayer, logger)
+        IChildConnectionFactory connectionFactory,
+        ILogger<RDCoreClientApp> logger)
+        : base(options, connectionFactory, logger)
     {
         _platformComponent = platformComponent;
         _capabilities = capabilities;
