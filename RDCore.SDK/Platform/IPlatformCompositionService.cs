@@ -82,11 +82,10 @@ public class RDCoreServerProxy : RDCoreClientApp
 
     public override CoreServerComponent PlatformComponent => _platformComponent;
 
-    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
-    {
-        capabilities.Experimental = new Dictionary<string, JToken>() { ["rdcore"] = JToken.FromObject(_capabilities) };
-        return capabilities;
-    }
+    // platform capabilities travel over rdcore/platform/initialize, not the LSP Experimental node.
+    protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities) => capabilities;
+
+    protected override CorePlatformClientCapabilities GetExpectedCapabilities() => _capabilities;
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder) => _configureHandlers(builder);
 

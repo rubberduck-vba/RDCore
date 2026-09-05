@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Shared;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using System.IO.Pipelines;
 using System.IO.Pipes;
@@ -25,6 +26,10 @@ public sealed record class ChildConnectionRequest
     public required Action OnPeerExited { get; init; }
     /// <summary>When <c>true</c>, the child is <c>rdc.exe</c> launched in environment-host mode.</summary>
     public bool HostMode { get; init; }
+    /// <summary>The component the caller expects to be connecting to (sent in the platform handshake).</summary>
+    public CoreServerComponent ExpectedComponent { get; init; }
+    /// <summary>The platform capabilities the caller expects the child to provide.</summary>
+    public CorePlatformClientCapabilities ExpectedCapabilities { get; init; } = new();
     /// <summary>Seconds to wait for the transport connection before failing.</summary>
     public int ConnectTimeoutSeconds { get; init; } = 30;
     /// <summary>Restart attempts after an unexpected failure before escalating.</summary>
@@ -59,6 +64,9 @@ public sealed class ChildConnection(
     private volatile bool _shuttingDown;
 
     public ConnectionState State { get; private set; } = ConnectionState.NotStarted;
+
+    /// <summary>The result of the <c>rdcore/platform/initialize</c> handshake, once the connection is Ready.</summary>
+    public PlatformInitializeResult? PlatformInfo { get; private set; }
 
     /// <summary>The live language client. Throws until the connection is <see cref="ConnectionStateValue.Ready"/>.</summary>
     public ILanguageClient Client => _client ?? throw new InvalidOperationException($"The connection is {State.Value}, not Ready.");
@@ -177,6 +185,15 @@ public sealed class ChildConnection(
         Transition(ConnectionState.Initializing);
         _client?.Dispose();
         _client = await LanguageClient.From(ConfigureClientOptions, ct);
+
+        // non-LSP platform handshake: the child's advertised capabilities become "provided" ones.
+        PlatformInfo = await SendRequestAsync<PlatformInitializeParams, PlatformInitializeResult>(new PlatformInitializeParams
+        {
+            ExpectedComponent = _request.ExpectedComponent,
+            Expected = _request.ExpectedCapabilities,
+        }, ct);
+        logger.LogInformation("Platform handshake with {Component}: provides [{Provided}]",
+            PlatformInfo.Component, string.Join(", ", PlatformInfo.Provided));
 
         Transition(ConnectionState.Ready);
     }

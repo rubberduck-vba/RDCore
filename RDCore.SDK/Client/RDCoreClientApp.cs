@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
@@ -37,6 +38,8 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// Gracefully tears down the child connection: LSP <c>shutdown</c> request, <c>exit</c> notification, then a kill fallback.
     /// </summary>
     Task ShutdownAsync();
+    /// <summary>The result of the <c>rdcore/platform/initialize</c> handshake; <c>null</c> until the connection is Ready.</summary>
+    PlatformInitializeResult? PlatformInfo { get; }
 }
 
 /// <summary>
@@ -92,6 +95,14 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     public Task WaitForTerminalAsync() => Connection.WaitForTerminalAsync();
 
     public Task ShutdownAsync() => _connection?.ShutdownAsync() ?? Task.CompletedTask;
+
+    public PlatformInitializeResult? PlatformInfo => _connection?.PlatformInfo;
+
+    /// <summary>
+    /// The platform capabilities this app expects the child to provide (sent in the platform handshake).
+    /// The base implementation expects nothing; a server proxy overrides this with the LS's expectations.
+    /// </summary>
+    protected virtual CorePlatformClientCapabilities GetExpectedCapabilities() => new();
 
     protected async virtual Task BeforeRunAsync(string[] args) { }
 
@@ -149,6 +160,10 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}",
             // the environment host is rdc.exe itself, run in host mode:
             HostMode = PlatformComponent == CoreServerComponent.EnvironmentHost,
+            // ExpectedComponent is what we are connecting TO (a proxy's PlatformComponent is the child's;
+            // the standalone client connects to the language server).
+            ExpectedComponent = PlatformComponent == CoreServerComponent.ClientApp ? CoreServerComponent.LanguageServer : PlatformComponent,
+            ExpectedCapabilities = GetExpectedCapabilities(),
             ConnectTimeoutSeconds = server.ConnectTimeoutSeconds,
             MaxRestartAttempts = server.MaxRestartAttempts,
             RestartBackoffBaseMs = server.RestartBackoffBaseMs,

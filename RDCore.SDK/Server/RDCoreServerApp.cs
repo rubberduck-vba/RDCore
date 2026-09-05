@@ -13,6 +13,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
+using RDCore.SDK.Server.Handlers.Platform;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using System.IO;
@@ -199,6 +200,7 @@ public abstract class RDCoreServerApp(
         options.WithServices(services =>
         {
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
+            services.AddSingleton(new PlatformComponentContext(PlatformComponent));
             services.AddLogging(builder =>
             {
                 builder.AddLanguageProtocolLogging();
@@ -343,5 +345,6 @@ internal static class LanguageServerOptionsExtensions
     internal static LanguageServerOptions ConfigureCoreSdkHandlers(this LanguageServerOptions options) => options
         .WithHandler<ShutdownHandler>()
         .WithHandler<ExitHandler>()
-        .WithHandler<SetTraceHandler>();
+        .WithHandler<SetTraceHandler>()
+        .WithHandler<PlatformInitializeHandler>();
 }
