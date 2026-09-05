@@ -30,8 +30,13 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        using var host = new RDCoreParserAppHost();
-        return await host.RunAsync(args);
+        var host = new RDCoreParserAppHost();
+        int code;
+        try { code = await host.RunAsync(args); }
+        finally { host.Dispose(); }
+        // background threads can otherwise delay process exit.
+        Environment.Exit(code);
+        return code;
     }
 }
 

@@ -31,6 +31,8 @@ public sealed record class ChildConnectionRequest
     public int RestartBackoffBaseMs { get; init; } = 500;
     /// <summary>Maximum restart delay in milliseconds.</summary>
     public int RestartBackoffMaxMs { get; init; } = 10_000;
+    /// <summary>Seconds to wait for the child to acknowledge a graceful <c>shutdown</c>/<c>exit</c> before it is killed.</summary>
+    public int ShutdownTimeoutSeconds { get; init; } = 5;
 }
 
 /// <summary>
@@ -100,6 +102,49 @@ public sealed class ChildConnection(
 
     /// <summary>Completes once the connection is terminally <see cref="ConnectionStateValue.Exited"/> (restart, if any, exhausted).</summary>
     public Task WaitForTerminalAsync() => _terminated.Task;
+
+    /// <summary>
+    /// Graceful teardown: LSP <c>shutdown</c> request, then <c>exit</c> notification, then a bounded wait
+    /// for the process, then a kill. Suppresses restart. Idempotent.
+    /// </summary>
+    public async Task ShutdownAsync()
+    {
+        if (_shuttingDown || State.IsTerminal) return;
+        _shuttingDown = true;
+
+        if (State.Value is ConnectionStateValue.Ready)
+        {
+            Transition(ConnectionState.ShuttingDown);
+            var timeoutSeconds = _request?.ShutdownTimeoutSeconds ?? 5;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 5);
+            try
+            {
+                await (_client?.Shutdown() ?? Task.CompletedTask).WaitAsync(timeout);
+                _client?.SendNotification("exit");
+                await serverProcess.WaitForExitAsync().WaitAsync(timeout);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning("Graceful shutdown did not complete ({Message}); killing the child.", exception.Message);
+            }
+        }
+
+        if (!serverProcess.HasExited)
+        {
+            serverProcess.Shutdown();
+        }
+        ToTerminal();
+    }
+
+    private void ToTerminal()
+    {
+        if (State.IsTerminal) return;
+        if (State.Value is not ConnectionStateValue.ShuttingDown and not ConnectionStateValue.Faulted)
+        {
+            Transition(ConnectionState.Faulted("connection closed"));
+        }
+        Transition(ConnectionState.Exited);
+    }
 
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
         => await Client.SendRequest(request, token);

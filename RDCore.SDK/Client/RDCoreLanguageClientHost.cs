@@ -67,5 +67,8 @@ public abstract class RDCoreLanguageClientHost<TApp>() : AppHost<TApp>()
         LogIfEnabled(LogLevel.Information, "🔌 Language client connected. Press Ctrl+C to disconnect and exit.");
         await shutdown.Task;
         LogIfEnabled(LogLevel.Information, "🔌 Shutdown signal received; disconnecting language client...");
+
+        // graceful LSP shutdown/exit of the child server before the host tears down.
+        await provider.GetRequiredService<TApp>().ShutdownAsync();
     }
 }

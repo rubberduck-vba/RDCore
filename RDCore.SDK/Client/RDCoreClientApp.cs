@@ -33,6 +33,10 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// Completes once the connection is terminally lost — the child exited and restart-with-backoff was exhausted.
     /// </summary>
     Task WaitForTerminalAsync();
+    /// <summary>
+    /// Gracefully tears down the child connection: LSP <c>shutdown</c> request, <c>exit</c> notification, then a kill fallback.
+    /// </summary>
+    Task ShutdownAsync();
 }
 
 /// <summary>
@@ -86,6 +90,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     public Task WaitForReadyAsync(CancellationToken token) => Connection.WaitForReadyAsync(token);
 
     public Task WaitForTerminalAsync() => Connection.WaitForTerminalAsync();
+
+    public Task ShutdownAsync() => _connection?.ShutdownAsync() ?? Task.CompletedTask;
 
     protected async virtual Task BeforeRunAsync(string[] args) { }
 
@@ -145,6 +151,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             MaxRestartAttempts = server.MaxRestartAttempts,
             RestartBackoffBaseMs = server.RestartBackoffBaseMs,
             RestartBackoffMaxMs = server.RestartBackoffMaxMs,
+            ShutdownTimeoutSeconds = server.ShutdownTimeoutSeconds,
             ConfigureClient = ConfigureClient,
             OnPeerExited = OnConnectionTerminated,
         }, startupToken);

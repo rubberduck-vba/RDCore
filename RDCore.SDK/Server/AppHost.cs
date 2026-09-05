@@ -106,7 +106,9 @@ public abstract class AppHost<TApp>() : IDisposable
         }
         finally
         {
-            await _host.StopAsync();
+            // bounded: a wedged hosted service (e.g. the OmniSharp Rx pipeline) must not hang process exit.
+            try { await _host.StopAsync(TimeSpan.FromSeconds(5)); }
+            catch (Exception exception) { LogIfEnabled(LogLevel.Warning, $"Host did not stop cleanly: {exception.Message}"); }
         }
     }
 
@@ -128,6 +130,10 @@ public abstract class AppHost<TApp>() : IDisposable
             var configuration = builder.Configuration;
             configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
             Configure(configuration, builder.Services, args);
+
+            // bound the generic host's shutdown so a wedged background task cannot hang the process
+            // (this also bounds ConsoleLifetime's ProcessExit wait).
+            builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(5));
 
             ConfigureExternalServices(builder.Services, configuration);
             ConfigureAdditionalExternalServices(builder.Services, configuration);
