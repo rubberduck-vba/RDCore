@@ -52,7 +52,8 @@ public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
         _handleUnhealthy = onUnhealthyProcess;
 
         _didNotify = false;
-        _interval = TimeSpan.FromSeconds(_options.Value.HealthCheckIntervalSeconds);
+        // clamp so an unset/zero configuration value cannot turn the poll into a busy-loop:
+        _interval = TimeSpan.FromSeconds(Math.Max(1, _options.Value.HealthCheckIntervalSeconds));
 
         if (_logger.IsEnabled(LogLevel.Information))
         {

@@ -89,6 +89,27 @@ public record class SdkAppCommandLineArgs
     /// </remarks>
     [Option('w', "workspace")]
     public string? WorkspaceUri { get; set; }
+
+    /// <summary>
+    /// Projects the supplied arguments onto <c>IConfiguration</c> keys.
+    /// </summary>
+    /// <remarks>
+    /// Options that were not supplied are omitted, so <c>appsettings.json</c> values are preserved.
+    /// </remarks>
+    public IEnumerable<KeyValuePair<string, string?>> ToConfigurationOverrides()
+    {
+        if (ClientProcessId is int clientProcessId) yield return new("Configuration:Server:ClientProcessId", clientProcessId.ToString());
+        if (TraceLevel is LogLevel traceLevel) yield return new("Configuration:Server:TraceLevel", traceLevel.ToString());
+        if (Verbose is bool verbose) yield return new("Configuration:Server:Verbose", verbose.ToString());
+        if (ConnectTimeoutSeconds is int connectTimeout) yield return new("Configuration:Server:ConnectTimeoutSeconds", connectTimeout.ToString());
+        if (HealthCheckIntervalSeconds is int healthCheckInterval) yield return new("Configuration:Server:HealthCheckIntervalSeconds", healthCheckInterval.ToString());
+        if (ShutdownTimeoutSeconds is int shutdownTimeout) yield return new("Configuration:Server:ShutdownTimeoutSeconds", shutdownTimeout.ToString());
+        if (UnsafeDevMode is bool unsafeDevMode) yield return new("Configuration:Server:UnsafeDevMode", unsafeDevMode.ToString());
+        if (WorkspaceUri is string workspaceUri) yield return new("Configuration:Workspace:WorkspaceUri", workspaceUri);
+        if (DefaultLocation is string defaultLocation) yield return new("Configuration:Workspace:DefaultLocation", defaultLocation);
+        if (Type is ServerTransportLayerMode transportType) yield return new("Configuration:Platform:Transport:Type", transportType.ToString());
+        if (PipeName is string pipeName) yield return new("Configuration:Platform:Transport:PipeConfig:PipeName", pipeName);
+    }
 }
 
 /// <summary>

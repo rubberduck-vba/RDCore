@@ -32,15 +32,13 @@ public class RDCorePlatformServerHost<TApp>() : AppHost<TApp>()
 
     protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
-        var commandLineArgs = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args);
-        var overrides = new Dictionary<string, string?>
-        {
-            ["Configuration:Platform:Transport:PipeConfig:PipeName"] = commandLineArgs.Value.PipeName ?? throw new ArgumentNullException("args[PipeName]"),
-            ["Configuration:Workspace:WorkspaceUri"] = commandLineArgs.Value.WorkspaceUri ?? throw new ArgumentNullException("args[WorkspaceUri]"),
-            ["Configuration:Server:TraceLevel"] = commandLineArgs.Value.TraceLevel?.ToString() ?? LogLevel.Trace.ToString(),
-            ["Configuration:Server:Verbose"] = commandLineArgs.Value.Verbose?.ToString() ?? false.ToString(),
-        };
-        configuration.AddInMemoryCollection(overrides);
+        var parsed = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value;
+
+        // a server app cannot start without a pipe name and a workspace:
+        _ = parsed.PipeName ?? throw new ArgumentNullException(nameof(SdkAppCommandLineArgs.PipeName));
+        _ = parsed.WorkspaceUri ?? throw new ArgumentNullException(nameof(SdkAppCommandLineArgs.WorkspaceUri));
+
+        configuration.AddInMemoryCollection(parsed.ToConfigurationOverrides());
     }
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {

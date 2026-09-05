@@ -24,14 +24,13 @@ public abstract class RDCoreLanguageClientHost<TApp>() : AppHost<TApp>()
 {
     protected sealed override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
-        var commandLineArgs = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args);
-        var overrides = new Dictionary<string, string?>
-        {
-            ["Configuration:Workspace:WorkspaceUri"] = commandLineArgs.Value.WorkspaceUri ?? throw new ArgumentNullException("args[WorkspaceUri]"),
-            ["Configuration:Server:TraceLevel"] = commandLineArgs.Value.TraceLevel?.ToString() ?? LogLevel.None.ToString(),
-            ["Configuration:Server:Verbose"] = commandLineArgs.Value.Verbose?.ToString() ?? false.ToString(),
-        };
-        foreach (var (key, value) in ConfigureOverrides(args, commandLineArgs.Value))
+        var parsed = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value;
+
+        // a client app cannot start without a workspace:
+        _ = parsed.WorkspaceUri ?? throw new ArgumentNullException(nameof(SdkAppCommandLineArgs.WorkspaceUri));
+
+        var overrides = parsed.ToConfigurationOverrides().ToDictionary(pair => pair.Key, pair => pair.Value);
+        foreach (var (key, value) in ConfigureOverrides(args, parsed))
         {
             overrides[key] = value;
         }

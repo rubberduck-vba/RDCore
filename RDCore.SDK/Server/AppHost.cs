@@ -175,6 +175,7 @@ public abstract class AppHost<TApp>() : IDisposable
     {
         var config = configuration.GetSection("Configuration");
         services.Configure<SdkAppOptions>(config);
+        services.Configure<SdkServerOptions>(config.GetSection("Server"));
 
         services
             .AddSingleton<TApp>()
