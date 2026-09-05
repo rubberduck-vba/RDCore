@@ -180,7 +180,7 @@ public abstract class AppHost<TApp>() : IDisposable
         services
             .AddSingleton<TApp>()
             .AddTransient<IServerStateProvider, ServerStateProvider>()
-            .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>() // FIXME this one needs a provider or factory
+            .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>()
             .AddTransient<IHealthCheckService<TApp>, HealthCheckService<TApp>>()
             .AddTransient<ILanguageServerProtocolTransportLayer, RDCorePlatformDefaultTransportLayer>()
             .AddSingleton<IFileSystem, FileSystem>()

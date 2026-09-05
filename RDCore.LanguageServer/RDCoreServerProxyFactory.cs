@@ -10,17 +10,18 @@ using System.IO.Abstractions;
 
 namespace RDCore.LanguageServer;
 
-internal class RDCoreServerProxyFactory(
-    IOptions<SdkAppOptions> options,
-    IRDCoreServerProcess serverProcess,
-    IFileSystem fileSystem,
-    IHealthCheckService<RDCoreServerProxy> healthCheckService,
-    ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<RDCoreServerProxy> logger) : IRDCoreServerProxyFactory
+internal class RDCoreServerProxyFactory(IServiceProvider services) : IRDCoreServerProxyFactory
 {
     public RDCoreServerProxy Create(CoreServerComponent platformComponent, CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder>? configureHandlers = default,
         Action<IServiceCollection>? configureServices = default)
-        => new(options, platformComponent, capabilities, configureHandlers ?? (builder => { }), configureServices ?? (services => { }),
-            serverProcess, fileSystem, healthCheckService, transportLayer, logger);
+        // resolve a fresh process + health check per proxy: one instance cannot supervise several children.
+        => new(services.GetRequiredService<IOptions<SdkAppOptions>>(),
+            platformComponent, capabilities,
+            configureHandlers ?? (builder => { }), configureServices ?? (services => { }),
+            services.GetRequiredService<IRDCoreServerProcess>(),
+            services.GetRequiredService<IFileSystem>(),
+            services.GetRequiredService<IHealthCheckService<RDCoreServerProxy>>(),
+            services.GetRequiredService<ILanguageServerProtocolTransportLayer>(),
+            services.GetRequiredService<ILogger<RDCoreServerProxy>>());
 }
