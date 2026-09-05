@@ -61,6 +61,18 @@ public abstract class AppHost<TApp>() : IDisposable
     protected virtual Task BeforeAppStartAsync(IServiceProvider provider) => Task.CompletedTask;
 
     /// <summary>
+    /// 🧩 A method that runs after <see cref="IRDCoreApp.RunAsync"/> returns, but before the host is stopped.<br/>
+    /// Base implementation returns a <see cref="Task.CompletedTask"/>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 A <strong>server</strong> app blocks inside <c>RunAsync</c> until its LSP server exits, so the base no-op is correct for it.<br/>
+    /// 👉 A <strong>standalone LSP client</strong> process (e.g. <c>rdc.exe</c>) returns from <c>RunAsync</c> as soon as the
+    /// JSON-RPC connection is established; it <c>override</c>s this method to keep the process alive for the lifetime of that connection.
+    /// </remarks>
+    /// <param name="provider">The constructed service provider.</param>
+    protected virtual Task AfterAppRunAsync(IServiceProvider provider) => Task.CompletedTask;
+
+    /// <summary>
     /// Builds the host, resolves and runs the <c>TApp</c> application.
     /// </summary>
     /// <remarks>
@@ -80,6 +92,7 @@ public abstract class AppHost<TApp>() : IDisposable
             LogIfEnabled(LogLevel.Information, "Host started; starting application...");
 
             await _app.RunAsync(_host.Services, args);
+            await AfterAppRunAsync(_host.Services);
             await _hostTask;
         }
         catch (OperationCanceledException)

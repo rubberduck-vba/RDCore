@@ -45,4 +45,28 @@ public abstract class RDCoreLanguageClientHost<TApp>() : AppHost<TApp>()
     /// <param name="baseArgs">The arguments as base SDK app configuration.</param>
     /// <returns></returns>
     protected virtual IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs) => [];
+
+    /// <summary>
+    /// Keeps the client <em>process</em> alive for the lifetime of the JSON-RPC connection.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RDCoreClientApp.RunAsync(IServiceProvider, string[])"/> returns as soon as the language client is
+    /// connected and initialized. A <strong>standalone</strong> client process (e.g. <c>rdc.exe</c>) must not exit at
+    /// that point, otherwise the transport pipe closes and the language server tears down. Block here until the host
+    /// is asked to stop (Ctrl+C / <c>SIGTERM</c>, surfaced as <see cref="IHostApplicationLifetime.ApplicationStopping"/>)
+    /// or <see cref="AppHost{TApp}.ProcessTokenSource"/> is cancelled.
+    /// </remarks>
+    protected override async Task AfterAppRunAsync(IServiceProvider provider)
+    {
+        var lifetime = provider.GetRequiredService<IHostApplicationLifetime>();
+        var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        static void Signal(object? state) => ((TaskCompletionSource)state!).TrySetResult();
+        using var lifetimeRegistration = lifetime.ApplicationStopping.Register(Signal, shutdown);
+        using var processRegistration = ProcessTokenSource.Token.Register(Signal, shutdown);
+
+        LogIfEnabled(LogLevel.Information, "🔌 Language client connected. Press Ctrl+C to disconnect and exit.");
+        await shutdown.Task;
+        LogIfEnabled(LogLevel.Information, "🔌 Shutdown signal received; disconnecting language client...");
+    }
 }
