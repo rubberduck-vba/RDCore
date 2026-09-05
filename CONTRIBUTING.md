@@ -20,14 +20,14 @@ Ce dernier point constituant en toute transparence **l'intérêt commercial** mo
 - ⏳ **Envisageable sans problème** dès la publication d'une _CLA Corporative_, dont la parution est prévue à cet effet.
 
 
-### Du coup, pas de contributions d'_agents IA_?
+### Contributions assistées par IA
 
-- ❌ **Exact. Aucune contribution directe et automatisée** d'agents IA 🤖 n'est acceptée dans _ce référentiel_.
+- ✅ **Oui — utilisez l'assistance de votre choix**, y compris l'implémentation de fonctionnalités complètes par un agent. L'essentiel est qu'**un·e contributeur·rice humain·e assume le résultat**.
+- ❌ **Aucune soumission autonome.** Un agent qui ouvre une _pull request_ de lui-même, ou du code que la personne qui le soumet ne peut pas expliquer, justifier et maintenir, sera refusé.
 
-L'usage d'outils de type _Copilot_ est toutefois **fortement encouragée** pour:
+Le critère n'est pas la *quantité* de code produite par l'IA — c'est la **paternité et l'imputabilité**. En soumettant, vous faites la même déclaration que tout le monde (voir **Éléments clés** ci-haut et la [CLA](CLA.fr.md)): le travail est le vôtre, vous le comprenez en entier, vous en assumez la conception, et vous en ferez la maintenance. Peu importe le chemin parcouru, **c'est vous** qui ouvrez la _pull request_ et **c'est vous** qui en répondez en révision.
 
-- ✅ Complétion automatisée de _patterns_ répétitifs fortement prévisibles;
-- ✅ Validation et brassage d'idées d'implémentation, de solutions, d'architectures, etc.;
+La complétion automatique de type _Copilot_ et l'usage d'un assistant pour explorer ou valider des idées d'implémentation, de solutions et d'architectures demeurent, comme toujours, **fortement encouragés**.
 
 
 ## Bâtir et tester
@@ -75,14 +75,14 @@ This last point transparently constituting the **commercial interest** motivatin
 - ⏳ **Will be possible**, under a slightly different _Corporate Contributor License Agreement_ (CLA) that will be published separately from the _personal CLA_ document.
 
 
-### Wait so no _AI Agent_ contributions then?
+### AI-assisted contributions
 
-- ❌ **Exactly. No autonomous and automated AI agent contribution** 🤖 is accepted in _this repository_.
+- ✅ **Yes — use whatever assistance you like**, including agent-driven implementation of whole features. What matters is that **a human contributor owns the result**.
+- ❌ **No autonomous submissions.** An agent opening a pull request on its own, or code its submitter cannot explain, justify, and maintain, will be declined.
 
-The use of _Copilot_ type tools is however **warmly recommended** for:
+The bar is not *how much* an AI contributed — it is **authorship and accountability**. When you submit, you make the same declaration as everyone else (see **Key Elements** above and the [CLA](CLA.md)): the work is yours, you understand all of it, you stand behind its design, and you will maintain it. However you got there, **you** open the pull request and **you** answer for it in review.
 
-- ✅ Automatic completion of highly predictable, repetitive patterns;
-- ✅ Validation and brainstorming of implementation ideas, solutions, architectures, etc.;
+_Copilot_-style autocompletion, and using an assistant to explore or validate implementation ideas, solutions and architectures, remain — as always — **warmly encouraged**.
 
 
 ## Building and testing
