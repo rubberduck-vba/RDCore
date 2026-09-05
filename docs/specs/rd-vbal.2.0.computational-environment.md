@@ -36,14 +36,45 @@ This list is _prioritized_ but not intended to be exhaustive; additional _dialec
 
 ---
 ## 2.0.2 Client/Server Capabilities
+
+The RDCore platform is a set of cooperating processes — an LSP client (`rdc.exe` in _client mode_), the language server, the parsing server, the RD-VBA _environment host_ (`rdc.exe` in _host mode_), and any number of _extension_ servers. Every link between two of these processes is a JSON-RPC connection that carries the standard **LSP `initialize`/`initialized`** handshake _plus_ a second, **non-LSP handshake** that exchanges _platform capabilities_.
+
+The LSP layer is kept _pure LSP_: platform capabilities do **not** ride on the LSP `initialize` `experimental` field. They are exchanged by a dedicated request immediately after `initialized`.
+
+### 2.0.2.1 The `rdcore/platform/initialize` handshake
+
+Once the LSP `initialized` notification has been sent on a platform connection, the _connecting_ side sends an `rdcore/platform/initialize` request (client → server) and awaits the response before considering the connection _ready_.
+
+|Message|Shape|
+|---|---|
+|Request — [`PlatformInitializeParams`](../api/RDCore.SDK.Platform.Protocol.PlatformInitializeParams.html)|`ExpectedComponent`: the [`CoreServerComponent`](../api/RDCore.SDK.Client.CoreServerComponent.html) the caller believes it is connecting to. `Expected`: a [`CorePlatformClientCapabilities`](../api/RDCore.SDK.Client.CorePlatformClientCapabilities.html) describing the capabilities the caller expects the peer to provide.|
+|Response — [`PlatformInitializeResult`](../api/RDCore.SDK.Platform.Protocol.PlatformInitializeResult.html)|`Component`: the peer's own [`CoreServerComponent`](../api/RDCore.SDK.Client.CoreServerComponent.html). `Provided`: the flat list of _capability type names_ (e.g. `"ParseFullDocument"`) the peer actually provides.|
+
+The responding side builds `Provided` by _reflecting_ the `[assembly: ProvidesCorePlatformClientCapability<T>]` attributes declared on its entry assembly, so a component's capability set is a compile-time property of the build rather than runtime configuration. The `rdcore/platform/initialize` method itself is answered by a handler the SDK registers on every RDCore server (alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers).
+
 > [!NOTE]
-> This documentation is incomplete.
+> The handshake is currently _informational_. The response is retained (`IRDCoreClientApp.PlatformInfo`) and logged, and `PlatformInitializeResult.Provides<T>()` lets a caller test for a capability, but the platform does not yet _refuse_ a connection whose peer reports the wrong component or a missing required capability. Enforcement is a later milestone.
 
-This section intends to exhaustively document all supported RDCore platform capabilities.
+### 2.0.2.2 Platform components
 
-|Capability|Description|Platform Version|
+|`CoreServerComponent`|Process|Role|
 |---|---|---|
-| | | |
+|`ClientApp`|`rdc.exe` (default)|An LSP client. Cannot be started by another platform process.|
+|`LanguageServer`|`RDCore.LanguageServer.exe`|Platform coordinator; owns the child servers.|
+|`ParsingServer`|`RDCore.ParseServer.exe`|Stateless syntax service.|
+|`EnvironmentHost`|`rdc.exe` with `RDCORE_MODE=host`|Owns the RD-VBA runtime environment.|
+|`Extension`|_(varies)_|A platform extension server. On hold; see below.|
+
+### 2.0.2.3 Defined capabilities
+
+This catalogue is intended to _exhaustively_ document the platform capabilities the SDK defines. Each capability is a [`CorePlatformClientCapability`](../api/RDCore.SDK.Client.CorePlatformClientCapability.html) record and, where it implies an out-of-band request, a non-LSP method.
+
+|Capability|Method|Provided by|Description|
+|---|---|---|---|
+|[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result containing the full syntax tree of a specified workspace document.|
+
+> [!NOTE]
+> `ParseFullDocument` is the only capability defined at this stage. Anchored-offset (fragment) parsing, environment-host symbol and runtime operations, and extension-provided capabilities will be added here as they are implemented.
 
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
