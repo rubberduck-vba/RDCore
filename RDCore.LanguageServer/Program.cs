@@ -9,7 +9,7 @@ public class Program
     {
         try
         {
-            var host = new CoreLanguageServerHost();
+            using var host = new CoreLanguageServerHost();
             return await host.RunAsync(args);
         }
         catch (Exception exception)

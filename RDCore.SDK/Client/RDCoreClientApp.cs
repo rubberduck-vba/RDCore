@@ -133,12 +133,13 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         var manifest = platform.GetManifest();
         var path = PlatformComponent switch
         {
+            // the client app (rdc.exe) launches and connects to the language server;
             CoreServerComponent.ClientApp => manifest.LangService,
-            //CoreServerComponent.EnvironmentHost => manifest.HostService,
-            //CoreServerComponent.LanguageServer => manifest.LangService,
-            //CoreServerComponent.ParsingServer => manifest.ParseServer,
+            // a server proxy owned by the language server launches and connects to a child component:
+            CoreServerComponent.ParsingServer => manifest.ParseServer,
+            CoreServerComponent.EnvironmentHost => manifest.HostService,
             //CoreServerComponent.Extension => fileSystem.Path.Combine(manifest.ExtensionsDirectory, ExtensionInfo!.Name),
-            _ => throw new NotSupportedException()
+            _ => throw new NotSupportedException($"Cannot resolve a server executable for platform component '{PlatformComponent}'.")
         };
 
         // start the process first:

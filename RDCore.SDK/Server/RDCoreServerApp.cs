@@ -52,6 +52,17 @@ public abstract class RDCoreServerApp(
 {
     protected IServerStateProvider ServerStateProvider { get; } = serverStateProvider;
 
+    /// <summary>
+    /// The <em>external</em> (host) service provider, as opposed to the <c>OmniSharp</c> language server's
+    /// internal <see cref="ILanguageServer.Services"/>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Platform services such as <see cref="Platform.IPlatformCompositionService"/> and the orchestration
+    /// services are registered here, not on the internal server container. Server apps that bring up child
+    /// components must pass <strong>this</strong> provider to <see cref="IRDCoreClientApp.RunAsync"/>.
+    /// </remarks>
+    protected IServiceProvider ExternalServices { get; private set; } = default!;
+
     public abstract CoreServerComponent PlatformComponent { get; }
     private OmniSharpLanguageServer? Server { get; set; }
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
@@ -70,6 +81,7 @@ public abstract class RDCoreServerApp(
 
     public async Task RunAsync(IServiceProvider externalServiceProvider, string[] args)
     {
+        ExternalServices = externalServiceProvider;
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerStarting);
         await BeforeRunAsync(args);
 
@@ -136,10 +148,23 @@ public abstract class RDCoreServerApp(
             {
                 builder.AddLanguageProtocolLogging();
             });
+
+            // app-specific registrations (e.g. the dependencies of the handlers configured above):
+            ConfigureServices(services);
         });
 
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerConfigurationCompleted);
     }
+
+    /// <summary>
+    /// Configures services with the <c>OmniSharp</c> language server's <strong>internal</strong> service collection.
+    /// </summary>
+    /// <remarks>
+    /// 🧩 Register here the dependencies required by any handler configured in <see cref="ConfigureHandlers"/>.
+    /// The base implementation does nothing.
+    /// </remarks>
+    /// <param name="services">The <c>OmniSharp</c> language server's internal service collection.</param>
+    protected virtual void ConfigureServices(IServiceCollection services) { }
 
     /// <summary>
     /// Configures <c>OmniSharp</c> LSP-compliant JSON-RPC handlers for any <strong>LSP 3.17</strong> specified protocol event.

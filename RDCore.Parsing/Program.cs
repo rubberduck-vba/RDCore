@@ -10,6 +10,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 
 // for warnings about antlr-generated parser rule context types not requiring CLSCompliantAttribute because not present on assembly.
@@ -34,11 +35,17 @@ public class Program
     }
 }
 
-public class RDCoreParserAppHost : RDCorePlatformServerHost<RDCoreParserApp> 
+public class RDCoreParserAppHost : RDCorePlatformServerHost<RDCoreParserApp>
 {
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         base.ConfigureAdditionalExternalServices(services, configuration);
+    }
+
+    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
+    {
+        builder.AddFile("..\\Logs\\RDCore.ParseServer.log");
+        base.ConfigureExternalLogging(services, builder, configuration);
     }
 }
 
@@ -55,6 +62,14 @@ public class RDCoreParserApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<ParseFullDocumentHandler>();
+    }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        // dependencies of ParseFullDocumentHandler:
+        services.AddSingleton<IFileSystem, FileSystem>();
+        services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
+        services.AddSingleton<IModuleParser, ModuleParser>();
     }
 
     protected override void Dispose(bool disposing)

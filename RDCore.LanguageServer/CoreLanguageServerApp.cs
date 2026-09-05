@@ -33,6 +33,10 @@ internal sealed class CoreLanguageServerApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
+    /// <summary>Cancels in-flight core-component bring-up when the server is shutting down.</summary>
+    private readonly CancellationTokenSource _componentsCts = new();
+    private Task? _parsingServerBringUp;
+
     protected override async Task BeforeRunAsync(string[] args)
     {
         var platform = composition.GetManifest();
@@ -140,24 +144,62 @@ internal sealed class CoreLanguageServerApp(
     protected async override Task OnLanguageServerInitializedAsync(ILanguageServer server, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)
     {
         LogIfEnabled(LogLevel.Information, "🤝 LSP initialization handshake completed");
-
-        await orchestration.ParsingService.RunAsync(server.Services, [$"-p {Environment.ProcessId} -w {request.RootUri} -t Trace -v"]);
         await base.OnLanguageServerInitializedAsync(server, request, response, cancellationToken);
     }
 
     protected override void OnLanguageServerStarted(ILanguageServer server)
     {
         LogIfEnabled(LogLevel.Information, "🚀 Language Server app started");
+
+        // Bring up the core child components once the client<->LS connection is live. This runs as a
+        // supervised background task (not awaited): a child that is slow or fails to attach must not
+        // block or fault the language server. Exceptions are logged here; the connection state machine
+        // will later consume these as component state transitions.
+        _parsingServerBringUp = BringUpCoreComponentAsync("parsing server", orchestration.ParsingService, _componentsCts.Token);
+
         // TODO some ParsingClientService should be responsible for caching ASTs.
-        //var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        ////var uri = new Uri(RDCoreUriNamespaces.RDCoreWorkspaceUri + "/dev-temp1/module1.bas");
-        //var request = new ParseDocumentParams
-        //{
-        //    ModuleType = ModuleType.StdModule,
-        //    DocumentUri = uri
-        //};
-        //_ = orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(request, tokenSource.Token);
     }
 
-    protected override void Dispose(bool disposing) { }
+    /// <summary>
+    /// Launches and connects a core child component via its <see cref="RDCore.SDK.Client.IRDCoreClientApp"/> proxy,
+    /// isolating any failure from the language server's own lifecycle.
+    /// </summary>
+    private async Task BringUpCoreComponentAsync(string label, IRDCoreClientApp component, CancellationToken token)
+    {
+        try
+        {
+            // The proxy derives its own process arguments (owner PID, generated pipe name, workspace)
+            // from configuration in RDCoreServerProcess, so no command-line arguments are passed here.
+            // ExternalServices (not the OmniSharp internal container) is where IPlatformCompositionService lives.
+            await component.RunAsync(ExternalServices, []);
+            LogIfEnabled(LogLevel.Information, $"✅ Connected to {label}");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            LogIfEnabled(LogLevel.Information, $"Bring-up of {label} was cancelled; language server is shutting down.");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Error, $"❌ Failed to bring up {label}:\n{exception}");
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (!disposing)
+        {
+            return;
+        }
+
+        _componentsCts.Cancel();
+        try
+        {
+            _parsingServerBringUp?.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Warning, $"Core-component bring-up did not settle cleanly on shutdown:\n{exception}");
+        }
+        _componentsCts.Dispose();
+    }
 }
