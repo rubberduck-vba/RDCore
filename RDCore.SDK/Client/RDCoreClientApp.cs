@@ -145,11 +145,18 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         // start the process first:
         await _serverProcess.StartAsync(path, PipeName, ServerToken);
 
-        // configure client-side transport:
+        // configure client-side transport. ConnectAsync already waits for the server pipe to appear,
+        // so there is no fixed start-up delay; race it against the process dying to fail fast on a crash.
         _namedPipe = _transportLayer.ConfigureClient(PipeName);
-        await _namedPipe.ConnectAsync((int)TimeSpan.FromSeconds(30 /*_options.Value.Server.ConnectTimeoutSeconds*/).TotalMilliseconds);
+        var timeoutSeconds = _options.Value.Server.ConnectTimeoutSeconds > 0 ? _options.Value.Server.ConnectTimeoutSeconds : 30;
+        var connect = _namedPipe.ConnectAsync((int)TimeSpan.FromSeconds(timeoutSeconds).TotalMilliseconds, ServerToken.Token);
+        if (await Task.WhenAny(connect, _serverProcess.WaitForExitAsync()) != connect || _serverProcess.HasExited)
+        {
+            throw new ServerProtocolSdkException($"{PlatformComponent} server process exited before the transport connection was established.");
+        }
+        await connect;
 
-        // by the time we're configured on this side, the server pipe should be ready:
+        // the server pipe is connected; hand it to the OmniSharp language client:
         Client = await OmniSharpLanguageClient.From(ConfigureClient, ServerToken.Token);
     }
 

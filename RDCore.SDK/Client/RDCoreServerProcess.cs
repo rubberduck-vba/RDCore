@@ -24,6 +24,10 @@ public interface IRDCoreServerProcess : IDisposable
     /// </remarks>
     void Shutdown();
     int ProcessId { get; }
+    /// <summary>Whether the server process has exited (or was never started).</summary>
+    bool HasExited { get; }
+    /// <summary>Completes when the server process exits.</summary>
+    Task WaitForExitAsync();
 }
 
 public enum CoreServerComponent
@@ -72,6 +76,8 @@ public class RDCoreServerProcess(
     private Task? _waitForExit = default;
 
     public int ProcessId => _serverProcess?.Id ?? 0;
+    public bool HasExited => _serverProcess?.HasExited ?? true;
+    public Task WaitForExitAsync() => _waitForExit ?? Task.CompletedTask;
 
     public void Dispose()
     {
@@ -94,7 +100,7 @@ public class RDCoreServerProcess(
 
     public void Shutdown() => _serverProcess?.Kill();
 
-    public async Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource)
+    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource)
     {
         if (_serverProcess is Process running)
         {
@@ -118,12 +124,14 @@ public class RDCoreServerProcess(
         _serverProcess = Process.Start(info) ?? throw new ServerNotFoundException(fullPath);
         _waitForExit = _serverProcess.WaitForExitAsync(_tokenSource.Token);
 
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        // no fixed start-up delay: the caller races the transport connect against WaitForExitAsync().
+        // only guard against a process that fails before it is even scheduled.
         if (_serverProcess.HasExited)
         {
-            // server process was started but unexpectedly exited.
-            throw new ServerProtocolSdkException("Unable to start server process.");
+            throw new ServerProtocolSdkException($"Server process exited immediately with code {_serverProcess.ExitCode}.");
         }
+
+        return Task.CompletedTask;
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()
