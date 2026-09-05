@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;
@@ -21,14 +22,15 @@ public class ExtensionsClient(
     IOptions<SdkAppOptions> options,
     IExtensionManifestValidationService validation,
     IFileSystem fileSystem,
+    IPlatformEnvironment environment,
     ILogger<ExtensionsClient> logger) : IExtensionsProvider
 {
     private readonly IExtensionManifestValidationService _validation = validation;
     private readonly Dictionary<string, ExtensionInfo> _extensions = [];
     private readonly Dictionary<ExtensionInfo, IRDCoreClientApp> _clients = [];
 
-    private IDirectoryInfo ExtensionsFolder => fileSystem.DirectoryInfo.New(
-        fileSystem.Path.Combine(fileSystem.Directory.GetParent(fileSystem.Directory.GetCurrentDirectory())!.FullName, options.Value.Platform.Extensions.Path));
+    private IDirectoryInfo ExtensionsFolder
+        => fileSystem.DirectoryInfo.New(environment.Resolve(options.Value.Platform.Extensions.Path));
 
     /// <summary>
     /// Enables the specified <see cref="ExtensionInfo"/> if the manifest and associated executable pass validation.

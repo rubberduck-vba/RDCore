@@ -192,6 +192,7 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddTransient<ILanguageServerProtocolTransportLayer, RDCorePlatformDefaultTransportLayer>()
             .AddSingleton<IChildConnectionFactory, ChildConnectionFactory>()
             .AddSingleton<IFileSystem, FileSystem>()
+            .AddSingleton<IPlatformEnvironment, PlatformEnvironment>()
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()
             .AddSingleton<IExtensionManifestValidationService, ExtensionManifestValidationService>()

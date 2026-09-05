@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;
 
@@ -12,6 +13,7 @@ public class RDCoreServerProcessTests
 {
     private static RDCoreServerProcess CreateSut() => new(
         Substitute.For<IFileSystem>(),
+        Substitute.For<IPlatformEnvironment>(),
         Options.Create(new SdkAppOptions()),
         Substitute.For<ILogger<RDCoreServerProcess>>());
 

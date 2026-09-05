@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Diagnostics;
 using System.IO.Abstractions;
@@ -70,6 +71,7 @@ public enum CoreServerComponent
 /// <param name="Logger">A standard <see cref="ILogger"/>.</param>
 public class RDCoreServerProcess(
     IFileSystem FileSystem,
+    IPlatformEnvironment PlatformEnvironment,
     IOptions<SdkAppOptions> Options,
     ILogger<RDCoreServerProcess> Logger) : IRDCoreServerProcess
 {
@@ -113,9 +115,7 @@ public class RDCoreServerProcess(
         _serverProcess?.Dispose();
         _serverProcess = null;
 
-        var fullPath = FileSystem.Path.Combine(
-            FileSystem.Directory.GetParent(FileSystem.Directory.GetCurrentDirectory())!.FullName, 
-            relativePath.Replace('/', '\\'));
+        var fullPath = PlatformEnvironment.Resolve(relativePath);
         var workspace = Options.Value.Workspace.WorkspaceUri;
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;

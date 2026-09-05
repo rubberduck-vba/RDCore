@@ -22,9 +22,8 @@ public interface IPlatformCompositionService
     ImmutableArray<ExtensionInfo> GetExtensions();
 }
 
-public class PlatformCompositionService(IFileSystem fileSystem, IExtensionsProvider extensions) : IPlatformCompositionService
+public class PlatformCompositionService(IFileSystem fileSystem, IPlatformEnvironment environment, IExtensionsProvider extensions) : IPlatformCompositionService
 {
-    private static readonly string _manifestFileName = "rdcore.json";
     private PlatformManifest? _cached;
     private ImmutableArray<ExtensionInfo>? _extensions;
 
@@ -39,8 +38,7 @@ public class PlatformCompositionService(IFileSystem fileSystem, IExtensionsProvi
     {
         if (_cached is null)
         {
-            var path = fileSystem.Path.Combine(fileSystem.Directory.GetParent(fileSystem.Directory.GetCurrentDirectory())!.FullName, _manifestFileName);
-            var content = fileSystem.File.ReadAllText(path);
+            var content = fileSystem.File.ReadAllText(environment.ManifestPath);
             _cached = JsonSerializer.Deserialize<PlatformManifest>(content, _serializationOptions)
                 ?? throw new InvalidOperationException();
         }
