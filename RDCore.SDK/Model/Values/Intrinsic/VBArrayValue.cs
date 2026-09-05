@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
@@ -9,7 +10,6 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// <summary>
 /// A <see cref="VBTypedValue"/> representing a runtime value of the <see cref="VBArrayType"/> data type.
 /// </summary>
-/// <param name="Symbol">The <see cref="Symbol"/> associated with this value.</param>
 public abstract record class VBArrayValue : VBTypedValue
 {
     /// <summary>
@@ -22,6 +22,16 @@ public abstract record class VBArrayValue : VBTypedValue
     {
         ItemType = itemType;
         Dimensions = [.. dimensions.Select(e => new VBArrayDimension(ItemType, e.lBound, e.uBound))];
+    }
+
+    /// <summary>
+    /// Creates an array value bound to <paramref name="handle"/>. The element store is not yet
+    /// handle-backed, so the handle is currently inert (see the complex-value follow-up).
+    /// </summary>
+    protected VBArrayValue(IBindingHandle handle, (int lBound, int uBound)[] dimensions, VBType itemType)
+        : this(dimensions, itemType)
+    {
+        Handle = handle;
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -9,6 +10,15 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     IVBTypedValue<VBUserDefinedTypeValue, VBLongPtrValue>
 {
     public VBUserDefinedTypeValue(VBUserDefinedType typeInfo) : base(typeInfo) { }
+
+    /// <summary>
+    /// Creates a UDT value bound to <paramref name="handle"/>. The per-member store is not yet
+    /// handle-backed, so the handle is currently inert (see the complex-value follow-up).
+    /// </summary>
+    public VBUserDefinedTypeValue(IBindingHandle handle, VBUserDefinedType typeInfo) : base(typeInfo)
+    {
+        Handle = handle;
+    }
 
     public VBLongPtrValue Value { get; } = VBLongPtrType_x64.Zero;
 

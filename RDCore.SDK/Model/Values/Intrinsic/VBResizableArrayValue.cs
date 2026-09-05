@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -25,6 +26,10 @@ public sealed record class VBResizableByteArrayValue : VBResizableArrayValue
     /// <param name="dimensions">An array of value tuples containing the lower and upper boundaries of each dimension.</param>
     public VBResizableByteArrayValue((int lBound, int uBound)[] dimensions)
         : base(dimensions, VBByteType.TypeInfo) { }
+
+    /// <summary>Creates a resizable Byte() array bound to <paramref name="handle"/> (currently inert).</summary>
+    public VBResizableByteArrayValue(IBindingHandle handle, (int lBound, int uBound)[] dimensions)
+        : base(handle, dimensions, VBByteType.TypeInfo) { }
 }
 
 /// <summary>
@@ -46,6 +51,10 @@ public record class VBResizableArrayValue : VBArrayValue
     /// <param name="itemType">The type of item held in this array. <c>VBVariantType</c> by default.</param>
     public VBResizableArrayValue((int lBound, int uBound)[] dimensions, VBType? itemType = null)
         : base(dimensions, itemType ?? VBVariantType.TypeInfo) { }
+
+    /// <summary>Creates a resizable array bound to <paramref name="handle"/> (currently inert).</summary>
+    public VBResizableArrayValue(IBindingHandle handle, (int lBound, int uBound)[] dimensions, VBType? itemType = null)
+        : base(handle, dimensions, itemType ?? VBVariantType.TypeInfo) { }
     /*
     public VBArrayValue ReDim((int lBound, int uBound)[] dimensions, bool preserve = false)
     {

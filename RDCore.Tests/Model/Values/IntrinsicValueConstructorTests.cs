@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Values.Bindings;
+﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 
@@ -50,5 +51,19 @@ public sealed class IntrinsicValueConstructorTests
         Assert.AreSame(handle, new VBUnknownValue(handle).Handle);
         Assert.AreSame(handle, new VBMissingValue(handle).Handle);
         Assert.AreSame(handle, new VBErrorValue(handle).Handle);
+    }
+
+    [TestMethod]
+    public void ComplexValues_ExposeAUniformBindingHandleCtor()
+    {
+        var handle = InvalidBindingHandle.Default;
+        (int, int)[] dims = [(0, 2)];
+        // item type kept to a numeric to avoid the pre-existing VBVariant default-value materialization
+        // bug in VBArrayDimension's ctor (out of scope — complex-value follow-up).
+        Assert.AreSame(handle, new VBFixedSizeArrayValue(handle, dims, VBIntegerType.TypeInfo).Handle);
+        Assert.AreSame(handle, new VBResizableArrayValue(handle, dims, VBIntegerType.TypeInfo).Handle);
+        Assert.AreSame(handle, new VBResizableByteArrayValue(handle, dims).Handle);
+        Assert.AreSame(handle, new VBVariantValue(handle, new VBLongValue(1)).Handle);
+        // VBUserDefinedTypeValue(IBindingHandle, VBUserDefinedType) compiles; a UDT fixture needs a Symbol.
     }
 }

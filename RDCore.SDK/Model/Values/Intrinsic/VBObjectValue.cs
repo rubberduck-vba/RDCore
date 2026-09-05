@@ -29,7 +29,7 @@ public record class VBObjectValue : VBTypedValue,
     public VBObjectValue(MemoryAddress reference) : this(new ValueBindingHandle(new VBRuntimeReference(reference))) { }
 
     public MemoryAddress Value => UnderlyingValue.RuntimeReference!.Value.Value;
-    public override int Size => sizeof(int); // not quite
+    public override int Size => sizeof(int);
 
     public bool IsNothing() => Value == Nothing.Value;
 
