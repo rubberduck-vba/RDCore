@@ -29,6 +29,10 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// faults if the connection reaches a terminal state first.
     /// </summary>
     Task WaitForReadyAsync(CancellationToken token);
+    /// <summary>
+    /// Completes once the connection is terminally lost — the child exited and restart-with-backoff was exhausted.
+    /// </summary>
+    Task WaitForTerminalAsync();
 }
 
 /// <summary>
@@ -81,6 +85,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     public Task WaitForReadyAsync(CancellationToken token) => Connection.WaitForReadyAsync(token);
 
+    public Task WaitForTerminalAsync() => Connection.WaitForTerminalAsync();
+
     protected async virtual Task BeforeRunAsync(string[] args) { }
 
     /// <summary>
@@ -130,21 +136,29 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         _connection = _connectionFactory.Create();
         var startupToken = _hostServices?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None;
 
+        var server = _options.Value.Server;
         await _connection.ConnectAsync(new ChildConnectionRequest
         {
             ServerExecutablePath = path,
             PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}",
-            ConnectTimeoutSeconds = _options.Value.Server.ConnectTimeoutSeconds,
+            ConnectTimeoutSeconds = server.ConnectTimeoutSeconds,
+            MaxRestartAttempts = server.MaxRestartAttempts,
+            RestartBackoffBaseMs = server.RestartBackoffBaseMs,
+            RestartBackoffMaxMs = server.RestartBackoffMaxMs,
             ConfigureClient = ConfigureClient,
-            OnPeerExited = HandlePeerExited,
+            OnPeerExited = OnConnectionTerminated,
         }, startupToken);
     }
 
-    private void HandlePeerExited()
+    /// <summary>
+    /// The child server was lost and restart-with-backoff is exhausted. The base implementation stops
+    /// the host application, which is correct for a standalone client (e.g. <c>rdc.exe</c>). A server
+    /// that supervises the child (the language server) overrides this and escalates through its own
+    /// shutdown path instead.
+    /// </summary>
+    protected virtual void OnConnectionTerminated()
     {
-        // the child server this app started is gone; there is nothing left to talk to, so stop the app.
-        // phase 2 inserts restart-with-backoff before this escalation.
-        LogIfEnabled(LogLevel.Warning, "Child server has exited; stopping the client application.");
+        LogIfEnabled(LogLevel.Warning, "Child server could not be restarted; stopping the client application.");
         _hostServices?.GetService<IHostApplicationLifetime>()?.StopApplication();
     }
 

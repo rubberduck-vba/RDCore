@@ -94,5 +94,9 @@ public class RDCoreServerProxy : RDCoreClientApp
 
     protected override void ConfigureServices(IServiceCollection services) => _configureServices(services);
 
+    // the owning language server escalates a terminal fault through its own shutdown path
+    // (CoreLanguageServerApp.BringUpCoreComponentAsync), so the proxy does nothing here.
+    protected override void OnConnectionTerminated() { }
+
     protected override void Dispose(bool disposing) { }
 }

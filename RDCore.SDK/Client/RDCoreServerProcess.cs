@@ -26,6 +26,8 @@ public interface IRDCoreServerProcess : IDisposable
     int ProcessId { get; }
     /// <summary>Whether the server process has exited (or was never started).</summary>
     bool HasExited { get; }
+    /// <summary>The exit code of the process once it has exited; <c>0</c> otherwise.</summary>
+    int ExitCode { get; }
     /// <summary>Completes when the server process exits.</summary>
     Task WaitForExitAsync();
 }
@@ -77,6 +79,7 @@ public class RDCoreServerProcess(
 
     public int ProcessId => _serverProcess?.Id ?? 0;
     public bool HasExited => _serverProcess?.HasExited ?? true;
+    public int ExitCode => _serverProcess is { HasExited: true } process ? process.ExitCode : 0;
     public Task WaitForExitAsync() => _waitForExit ?? Task.CompletedTask;
 
     public void Dispose()
@@ -102,11 +105,13 @@ public class RDCoreServerProcess(
 
     public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource)
     {
-        if (_serverProcess is Process running)
+        if (_serverProcess is Process running && !running.HasExited)
         {
-            // this should not be happening
             throw new ServerAlreadyRunningException(running.Id);
         }
+        // a previous run has ended; allow a restart (see ChildConnection restart-with-backoff).
+        _serverProcess?.Dispose();
+        _serverProcess = null;
 
         var fullPath = FileSystem.Path.Combine(
             FileSystem.Directory.GetParent(FileSystem.Directory.GetCurrentDirectory())!.FullName, 

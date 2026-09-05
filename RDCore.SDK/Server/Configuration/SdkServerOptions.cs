@@ -193,6 +193,18 @@ public record class SdkServerOptions
     /// </remarks>
     public int ShutdownTimeoutSeconds { get; set; }
     /// <summary>
+    /// How many times a supervised child connection is restarted after it fails unexpectedly, before the failure is escalated.
+    /// </summary>
+    public int MaxRestartAttempts { get; set; } = 3;
+    /// <summary>
+    /// The base delay, in milliseconds, before the first restart attempt. Doubles per attempt, capped at <see cref="RestartBackoffMaxMs"/>.
+    /// </summary>
+    public int RestartBackoffBaseMs { get; set; } = 500;
+    /// <summary>
+    /// The maximum delay, in milliseconds, between restart attempts.
+    /// </summary>
+    public int RestartBackoffMaxMs { get; set; } = 10_000;
+    /// <summary>
     /// ⚠️ Allows the server platform to load <strong>unsigned plug-ins</strong>.
     /// </summary>
     /// <remarks>
