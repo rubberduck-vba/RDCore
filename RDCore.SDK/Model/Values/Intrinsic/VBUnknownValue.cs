@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -8,6 +9,9 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </summary>
 public sealed record class VBUnknownValue() : VBTypedValue(VBUnknownType.TypeInfo), IVBTypedValue<VBUnknownValue, object>
 {
+    // for construction uniformity; an unresolved symbol has no meaningful binding.
+    public VBUnknownValue(IBindingHandle handle) : this() { Handle = handle; }
+
     private static readonly Lazy<VBUnknownValue> _defaultValue = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static VBUnknownValue DefaultValue => _defaultValue.Value;
 

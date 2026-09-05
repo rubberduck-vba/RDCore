@@ -40,4 +40,15 @@ public sealed class IntrinsicValueConstructorTests
     public void BindingHandleCtor_YieldsAWritableBinding()
         => Assert.IsTrue(new VBLongLongValue(new ValueBindingHandle(new VBRuntimeValue<long>(1))).Handle
             .BindingCapabilities.HasFlag(BindingCapabilities.SetValue));
+
+    [TestMethod]
+    public void SentinelValues_ExposeAUniformBindingHandleCtor()
+    {
+        var handle = InvalidBindingHandle.Default;
+        Assert.AreSame(handle, new VBEmptyValue(handle).Handle);
+        Assert.AreSame(handle, new VBNullValue(handle).Handle);
+        Assert.AreSame(handle, new VBUnknownValue(handle).Handle);
+        Assert.AreSame(handle, new VBMissingValue(handle).Handle);
+        Assert.AreSame(handle, new VBErrorValue(handle).Handle);
+    }
 }
