@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.JsonRpc;
@@ -99,10 +100,10 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// <param name="provider">An <see cref="IServiceProvider"/> to configure the application.</param>
     public async Task RunAsync(IServiceProvider provider, string[] args)
     {
+        _hostServices = provider;
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageClientStarting);
         await BeforeRunAsync(args);
 
-        //ExternalServiceProvider = provider;
         await StartLanguageClientAsync(provider.GetRequiredService<IPlatformCompositionService>());
     }
 
@@ -124,11 +125,10 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     }
 
     private NamedPipeClientStream? _namedPipe;
+    private IServiceProvider? _hostServices;
 
-    private IPlatformCompositionService? _platform;
     private async Task StartLanguageClientAsync(IPlatformCompositionService platform)
     {
-        _platform = platform;
         ServerToken = new CancellationTokenSource();
         var manifest = platform.GetManifest();
         var path = PlatformComponent switch
@@ -153,9 +153,13 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         Client = await OmniSharpLanguageClient.From(ConfigureClient, ServerToken.Token);
     }
 
-    private void HandleUnhealthyServer(IPlatformCompositionService platform)
-        // server process died: start a new one and monitor it:
-        => StartLanguageClientAsync(platform).RunSynchronously();
+    private void HandleUnhealthyServer()
+    {
+        // the server process this app started is gone; there is nothing left to talk to, so stop the app.
+        // TODO restart-with-backoff belongs in the connection state machine.
+        LogIfEnabled(LogLevel.Warning, "Server process has exited; stopping the client application.");
+        _hostServices?.GetService<IHostApplicationLifetime>()?.StopApplication();
+    }
 
     protected abstract ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities);
 
@@ -260,7 +264,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     {
         if (_serverProcess.ProcessId != 0)
         {
-            _healthCheckService.Start(_serverProcess.ProcessId, () => HandleUnhealthyServer(_platform!));
+            _healthCheckService.Start(_serverProcess.ProcessId, HandleUnhealthyServer);
         }
         await OnLanguageClientInitializeAsync(client, request, cancellationToken);
     }

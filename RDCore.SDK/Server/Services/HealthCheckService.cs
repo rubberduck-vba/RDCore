@@ -34,8 +34,9 @@ public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
         IServerStateProvider serverState, 
         IOptions<SdkServerOptions> options)
     {
-        TimerCallback callback = typeof(TApp) is IRDCoreServerApp 
-            ? CheckClientProcessHealth 
+        // a server app watches the client process that owns it; a client app watches the server process it started.
+        TimerCallback callback = typeof(IRDCoreServerApp).IsAssignableFrom(typeof(TApp))
+            ? CheckClientProcessHealth
             : CheckServerProcessHealth;
 
         _timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);

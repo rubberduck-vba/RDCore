@@ -91,8 +91,20 @@ public abstract class RDCoreServerApp(
 
         Server = await OmniSharpLanguageServer.From(ConfigureServer, externalServiceProvider, ServerStateProvider.ProcessTokenSource.Token);
 
-        await Server.WaitForExit;
+        // the process token is cancelled when the owning client dies (see HandleUnhealthyClient) or on Exit;
+        // Server.WaitForExit does not observe it on its own, so force the shutdown here.
+        using (ServerStateProvider.ProcessTokenSource.Token.Register(() => Server?.ForcefulShutdown()))
+        {
+            await Server.WaitForExit;
+        }
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerWaitForExitTaskCompleted);
+
+        if (ServerStateProvider.ProcessTokenSource.IsCancellationRequested)
+        {
+            // ProcessTokenSource is the platform's "terminate now" signal; the generic host does not
+            // unwind cleanly from here, so honour the documented contract and exit with the state's code.
+            Environment.Exit(ServerStateProvider.State.ExitCode);
+        }
     }
 
     private void HandleUnhealthyClient() => ServerStateProvider.ProcessTokenSource.Cancel();
