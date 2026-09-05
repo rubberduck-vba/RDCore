@@ -14,6 +14,14 @@ public interface IHealthCheckService<out TApp> : IDisposable
     void Resume();
 }
 
+internal static class HealthCheckTarget
+{
+    /// <summary>
+    /// A server app watches the client process that owns it; a client app watches the server process it started.
+    /// </summary>
+    internal static bool IsOwnedByClient(Type appType) => typeof(IRDCoreServerApp).IsAssignableFrom(appType);
+}
+
 public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
     where TApp : IRDCoreApp
 {
@@ -34,8 +42,8 @@ public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
         IServerStateProvider serverState, 
         IOptions<SdkServerOptions> options)
     {
-        TimerCallback callback = typeof(TApp) is IRDCoreServerApp 
-            ? CheckClientProcessHealth 
+        TimerCallback callback = HealthCheckTarget.IsOwnedByClient(typeof(TApp))
+            ? CheckClientProcessHealth
             : CheckServerProcessHealth;
 
         _timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);
@@ -52,7 +60,8 @@ public sealed class HealthCheckService<TApp> : IHealthCheckService<TApp>
         _handleUnhealthy = onUnhealthyProcess;
 
         _didNotify = false;
-        _interval = TimeSpan.FromSeconds(_options.Value.HealthCheckIntervalSeconds);
+        // clamp so an unset/zero configuration value cannot turn the poll into a busy-loop:
+        _interval = TimeSpan.FromSeconds(Math.Max(1, _options.Value.HealthCheckIntervalSeconds));
 
         if (_logger.IsEnabled(LogLevel.Information))
         {

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Diagnostics;
 using System.IO.Abstractions;
@@ -15,7 +16,8 @@ public interface IRDCoreServerProcess : IDisposable
     /// <summary>
     /// Runs a server executable with command-line arguments mapping the specified <c>LanguageClientSettings</c>.
     /// </summary>
-    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource);
+    /// <param name="hostMode">When <c>true</c>, sets <c>RDCORE_MODE=host</c> in the child environment (rdc.exe runs as the environment host).</param>
+    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false);
     /// <summary>
     /// Stops awaiting LSP server process exit to restart it.
     /// </summary>
@@ -23,7 +25,26 @@ public interface IRDCoreServerProcess : IDisposable
     /// This method should be invoked during the <c>Shutdown</c> LSP <em>server lifecycle</em> handler.
     /// </remarks>
     void Shutdown();
+
+    /// <summary>
+    /// The operating-system identifier of the server process.
+    /// </summary>
     int ProcessId { get; }
+
+    /// <summary>
+    /// Whether the server process has exited (or was never started).
+    /// </summary>
+    bool HasExited { get; }
+
+    /// <summary>
+    /// The exit code of the process once it has exited; <c>0</c> otherwise.
+    /// </summary>
+    int ExitCode { get; }
+
+    /// <summary>
+    /// Completes when the server process exits.
+    /// </summary>
+    Task WaitForExitAsync();
 }
 
 public enum CoreServerComponent
@@ -64,6 +85,7 @@ public enum CoreServerComponent
 /// <param name="Logger">A standard <see cref="ILogger"/>.</param>
 public class RDCoreServerProcess(
     IFileSystem FileSystem,
+    IPlatformEnvironment PlatformEnvironment,
     IOptions<SdkAppOptions> Options,
     ILogger<RDCoreServerProcess> Logger) : IRDCoreServerProcess
 {
@@ -72,6 +94,9 @@ public class RDCoreServerProcess(
     private Task? _waitForExit = default;
 
     public int ProcessId => _serverProcess?.Id ?? 0;
+    public bool HasExited => _serverProcess?.HasExited ?? true;
+    public int ExitCode => _serverProcess is { HasExited: true } process ? process.ExitCode : 0;
+    public Task WaitForExitAsync() => _waitForExit ?? Task.CompletedTask;
 
     public void Dispose()
     {
@@ -94,22 +119,28 @@ public class RDCoreServerProcess(
 
     public void Shutdown() => _serverProcess?.Kill();
 
-    public async Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource)
+    public const string ModeEnvironmentVariable = "RDCORE_MODE";
+
+    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false)
     {
-        if (_serverProcess is Process running)
+        if (_serverProcess is Process running && !running.HasExited)
         {
-            // this should not be happening
             throw new ServerAlreadyRunningException(running.Id);
         }
+        // a previous run has ended; allow a restart (see ChildConnection restart-with-backoff).
+        _serverProcess?.Dispose();
+        _serverProcess = null;
 
-        var fullPath = FileSystem.Path.Combine(
-            FileSystem.Directory.GetParent(FileSystem.Directory.GetCurrentDirectory())!.FullName, 
-            relativePath.Replace('/', '\\'));
+        var fullPath = PlatformEnvironment.Resolve(relativePath);
         var workspace = Options.Value.Workspace.WorkspaceUri;
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;
 
         var info = CreateProcessStartInfo(fullPath, $"-p {Environment.ProcessId} -n {pipeName} -w \"{workspace}\" -t {trace} {(verbose ? "-v" : null)}");
+        if (hostMode)
+        {
+            info.Environment[ModeEnvironmentVariable] = "host";
+        }
         if (Logger.IsEnabled(LogLevel.Debug))
         {
             Logger.LogDebug("[ProcessStartInfo]\n\tPath:'{path}'\n\tWorkingDirectory:'{workdir}'\n\tArguments:'{args}'", fullPath, info.WorkingDirectory, info.Arguments);
@@ -118,12 +149,14 @@ public class RDCoreServerProcess(
         _serverProcess = Process.Start(info) ?? throw new ServerNotFoundException(fullPath);
         _waitForExit = _serverProcess.WaitForExitAsync(_tokenSource.Token);
 
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        // no fixed start-up delay: the caller races the transport connect against WaitForExitAsync().
+        // only guard against a process that fails before it is even scheduled.
         if (_serverProcess.HasExited)
         {
-            // server process was started but unexpectedly exited.
-            throw new ServerProtocolSdkException("Unable to start server process.");
+            throw new ServerProtocolSdkException($"Server process exited immediately with code {_serverProcess.ExitCode}.");
         }
+
+        return Task.CompletedTask;
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()

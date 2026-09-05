@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RDCore.SDK.Platform;
+using System.IO;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Services;
 
@@ -23,7 +24,7 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        builder.AddFile("..\\Logs\\RDCore.LanguageServer.log");
+        builder.AddFile(Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.LanguageServer.log"));
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }

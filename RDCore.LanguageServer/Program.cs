@@ -7,16 +7,23 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        var host = new CoreLanguageServerHost();
+        int code;
         try
         {
-            var host = new CoreLanguageServerHost();
-            return await host.RunAsync(args);
+            code = await host.RunAsync(args);
         }
         catch (Exception exception)
         {
             Console.WriteLine(exception.ToString());
-            Console.ReadLine();
-            return -1;
+            code = -1;
         }
+        finally
+        {
+            host.Dispose();
+        }
+        // background threads (Serilog.Async, OmniSharp Rx, console logger) can otherwise delay process exit.
+        Environment.Exit(code);
+        return code;
     }
 }

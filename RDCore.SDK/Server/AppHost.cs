@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
@@ -61,6 +62,18 @@ public abstract class AppHost<TApp>() : IDisposable
     protected virtual Task BeforeAppStartAsync(IServiceProvider provider) => Task.CompletedTask;
 
     /// <summary>
+    /// 🧩 A method that runs after <see cref="IRDCoreApp.RunAsync"/> returns, but before the host is stopped.<br/>
+    /// Base implementation returns a <see cref="Task.CompletedTask"/>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 A <strong>server</strong> app blocks inside <c>RunAsync</c> until its LSP server exits, so the base no-op is correct for it.<br/>
+    /// 👉 A <strong>standalone LSP client</strong> process (e.g. <c>rdc.exe</c>) returns from <c>RunAsync</c> as soon as the
+    /// JSON-RPC connection is established; it <c>override</c>s this method to keep the process alive for the lifetime of that connection.
+    /// </remarks>
+    /// <param name="provider">The constructed service provider.</param>
+    protected virtual Task AfterAppRunAsync(IServiceProvider provider) => Task.CompletedTask;
+
+    /// <summary>
     /// Builds the host, resolves and runs the <c>TApp</c> application.
     /// </summary>
     /// <remarks>
@@ -80,6 +93,7 @@ public abstract class AppHost<TApp>() : IDisposable
             LogIfEnabled(LogLevel.Information, "Host started; starting application...");
 
             await _app.RunAsync(_host.Services, args);
+            await AfterAppRunAsync(_host.Services);
             await _hostTask;
         }
         catch (OperationCanceledException)
@@ -92,7 +106,15 @@ public abstract class AppHost<TApp>() : IDisposable
         }
         finally
         {
-            await _host.StopAsync();
+            // bounded: a wedged hosted service (e.g. the OmniSharp Rx pipeline) must not hang process exit.
+            try
+            {
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception exception)
+            {
+                LogIfEnabled(LogLevel.Warning, $"Host did not stop cleanly: {exception.Message}");
+            }
         }
     }
 
@@ -114,6 +136,10 @@ public abstract class AppHost<TApp>() : IDisposable
             var configuration = builder.Configuration;
             configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
             Configure(configuration, builder.Services, args);
+
+            // bound the generic host's shutdown so a wedged background task cannot hang the process
+            // (this also bounds ConsoleLifetime's ProcessExit wait).
+            builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(5));
 
             ConfigureExternalServices(builder.Services, configuration);
             ConfigureAdditionalExternalServices(builder.Services, configuration);
@@ -162,14 +188,17 @@ public abstract class AppHost<TApp>() : IDisposable
     {
         var config = configuration.GetSection("Configuration");
         services.Configure<SdkAppOptions>(config);
+        services.Configure<SdkServerOptions>(config.GetSection("Server"));
 
         services
             .AddSingleton<TApp>()
             .AddTransient<IServerStateProvider, ServerStateProvider>()
-            .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>() // FIXME this one needs a provider or factory
+            .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>()
             .AddTransient<IHealthCheckService<TApp>, HealthCheckService<TApp>>()
             .AddTransient<ILanguageServerProtocolTransportLayer, RDCorePlatformDefaultTransportLayer>()
+            .AddSingleton<IChildConnectionFactory, ChildConnectionFactory>()
             .AddSingleton<IFileSystem, FileSystem>()
+            .AddSingleton<IPlatformEnvironment, PlatformEnvironment>()
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()
             .AddSingleton<IExtensionManifestValidationService, ExtensionManifestValidationService>()
