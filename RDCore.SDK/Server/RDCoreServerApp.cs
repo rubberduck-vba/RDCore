@@ -105,8 +105,14 @@ public abstract class RDCoreServerApp(
         }))
         {
             // block until the server actually exits (client disconnect) OR shutdown is requested (token).
-            try { await Server.WaitForExit.WaitAsync(ServerStateProvider.ProcessTokenSource.Token); }
-            catch (OperationCanceledException) { /* shutdown requested; the callback forced it */ }
+            try
+            {
+                await Server.WaitForExit.WaitAsync(ServerStateProvider.ProcessTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // shutdown was requested; the token registration above forced the server down.
+            }
 
             // the OmniSharp Rx pipeline does not always complete WaitForExit even after ForcefulShutdown;
             // bound the wait so it cannot hang process exit, then dispose explicitly.
@@ -119,8 +125,14 @@ public abstract class RDCoreServerApp(
 
         if (stopping is not null)
         {
-            try { await stopping.WaitAsync(shutdownTimeout); }
-            catch (Exception exception) { LogIfEnabled(LogLevel.Warning, $"Child shutdown did not settle: {exception.Message}"); }
+            try
+            {
+                await stopping.WaitAsync(shutdownTimeout);
+            }
+            catch (Exception exception)
+            {
+                LogIfEnabled(LogLevel.Warning, $"Child shutdown did not settle: {exception.Message}");
+            }
         }
 
         Server.Dispose();
@@ -206,7 +218,7 @@ public abstract class RDCoreServerApp(
                 builder.AddLanguageProtocolLogging();
             });
 
-            // app-specific registrations (e.g. the dependencies of the handlers configured above):
+            // app-specific service registrations:
             ConfigureServices(services);
         });
 

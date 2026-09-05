@@ -25,12 +25,25 @@ public interface IRDCoreServerProcess : IDisposable
     /// This method should be invoked during the <c>Shutdown</c> LSP <em>server lifecycle</em> handler.
     /// </remarks>
     void Shutdown();
+
+    /// <summary>
+    /// The operating-system identifier of the server process.
+    /// </summary>
     int ProcessId { get; }
-    /// <summary>Whether the server process has exited (or was never started).</summary>
+
+    /// <summary>
+    /// Whether the server process has exited (or was never started).
+    /// </summary>
     bool HasExited { get; }
-    /// <summary>The exit code of the process once it has exited; <c>0</c> otherwise.</summary>
+
+    /// <summary>
+    /// The exit code of the process once it has exited; <c>0</c> otherwise.
+    /// </summary>
     int ExitCode { get; }
-    /// <summary>Completes when the server process exits.</summary>
+
+    /// <summary>
+    /// Completes when the server process exits.
+    /// </summary>
     Task WaitForExitAsync();
 }
 

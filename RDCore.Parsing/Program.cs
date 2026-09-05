@@ -32,8 +32,14 @@ public class Program
     {
         var host = new RDCoreParserAppHost();
         int code;
-        try { code = await host.RunAsync(args); }
-        finally { host.Dispose(); }
+        try
+        {
+            code = await host.RunAsync(args);
+        }
+        finally
+        {
+            host.Dispose();
+        }
         // background threads can otherwise delay process exit.
         Environment.Exit(code);
         return code;
@@ -71,7 +77,6 @@ public class RDCoreParserApp(
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        // dependencies of ParseFullDocumentHandler:
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
         services.AddSingleton<IModuleParser, ModuleParser>();

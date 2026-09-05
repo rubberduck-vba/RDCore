@@ -38,7 +38,9 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// Gracefully tears down the child connection: LSP <c>shutdown</c> request, <c>exit</c> notification, then a kill fallback.
     /// </summary>
     Task ShutdownAsync();
-    /// <summary>The result of the <c>rdcore/platform/initialize</c> handshake; <c>null</c> until the connection is Ready.</summary>
+    /// <summary>
+    /// The result of the <c>rdcore/platform/initialize</c> handshake; <c>null</c> until the connection is Ready.
+    /// </summary>
     PlatformInitializeResult? PlatformInfo { get; }
 }
 
@@ -81,7 +83,9 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// </summary>
     public ExtensionInfo? ExtensionInfo { get; init; }
 
-    /// <summary>The connection to the child server. Throws before <see cref="RunAsync"/>.</summary>
+    /// <summary>
+    /// The connection to the child server. Throws before <see cref="RunAsync"/>.
+    /// </summary>
     protected ChildConnection Connection => _connection ?? throw new InvalidOperationException("The client has not started.");
 
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>

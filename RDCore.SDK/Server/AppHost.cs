@@ -107,8 +107,14 @@ public abstract class AppHost<TApp>() : IDisposable
         finally
         {
             // bounded: a wedged hosted service (e.g. the OmniSharp Rx pipeline) must not hang process exit.
-            try { await _host.StopAsync(TimeSpan.FromSeconds(5)); }
-            catch (Exception exception) { LogIfEnabled(LogLevel.Warning, $"Host did not stop cleanly: {exception.Message}"); }
+            try
+            {
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception exception)
+            {
+                LogIfEnabled(LogLevel.Warning, $"Host did not stop cleanly: {exception.Message}");
+            }
         }
     }
 

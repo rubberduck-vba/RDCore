@@ -13,29 +13,51 @@ namespace RDCore.SDK.Platform;
 /// </remarks>
 public interface IPlatformEnvironment
 {
-    /// <summary>The platform root directory.</summary>
+    /// <summary>
+    /// The platform root directory.
+    /// </summary>
     string Root { get; }
-    /// <summary>Absolute path of the platform manifest, <c>&lt;Root&gt;/rdcore.json</c>.</summary>
+
+    /// <summary>
+    /// Absolute path of the platform manifest, <c>&lt;Root&gt;/rdcore.json</c>.
+    /// </summary>
     string ManifestPath { get; }
-    /// <summary>Absolute path of the platform logs directory, <c>&lt;Root&gt;/Logs</c>, created if missing.</summary>
+
+    /// <summary>
+    /// Absolute path of the platform logs directory, <c>&lt;Root&gt;/Logs</c>, created if missing.
+    /// </summary>
     string LogsDirectory { get; }
-    /// <summary>Resolves a root-relative path (either slash style) to an absolute path under <see cref="Root"/>.</summary>
+
+    /// <summary>
+    /// Resolves a root-relative path (either slash style) to an absolute path under <see cref="Root"/>.
+    /// </summary>
+    /// <param name="rootRelativePath">A path relative to <see cref="Root"/>, using either <c>/</c> or <c>\</c>.</param>
     string Resolve(string rootRelativePath);
 }
 
 /// <inheritdoc/>
 public sealed class PlatformEnvironment : IPlatformEnvironment
 {
-    /// <summary>Overrides the derived root. Set on the entry process; inherited by spawned children.</summary>
+    /// <summary>
+    /// Name of the environment variable that overrides the derived root. Set on the entry process;
+    /// inherited by spawned children.
+    /// </summary>
     public const string RootEnvironmentVariable = "RDCORE_PLATFORM_ROOT";
 
     private static readonly Lazy<IPlatformEnvironment> _default = new(() => new PlatformEnvironment(new FileSystem()));
 
-    /// <summary>A DI-free instance for bootstrap contexts (e.g. logging configuration).</summary>
+    /// <summary>
+    /// A DI-free instance for bootstrap contexts (e.g. logging configuration).
+    /// </summary>
     public static IPlatformEnvironment Default => _default.Value;
 
     private readonly IFileSystem _fileSystem;
 
+    /// <summary>
+    /// Creates a platform environment, deriving <see cref="Root"/> from
+    /// <see cref="RootEnvironmentVariable"/> when set, otherwise from the process base directory.
+    /// </summary>
+    /// <param name="fileSystem">The file system abstraction used to resolve and create paths.</param>
     public PlatformEnvironment(IFileSystem fileSystem)
     {
         _fileSystem = fileSystem;

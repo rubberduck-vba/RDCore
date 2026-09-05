@@ -16,29 +16,65 @@ namespace RDCore.SDK.Client.Connection;
 /// </summary>
 public sealed record class ChildConnectionRequest
 {
-    /// <summary>The server executable to launch, relative to the platform root.</summary>
+    /// <summary>
+    /// The server executable to launch, relative to the platform root.
+    /// </summary>
     public required string ServerExecutablePath { get; init; }
-    /// <summary>The named pipe the child and this connection meet on.</summary>
+
+    /// <summary>
+    /// The named pipe the child and this connection meet on.
+    /// </summary>
     public required string PipeName { get; init; }
-    /// <summary>Applies the app-specific parts of the <c>LanguageClient</c> configuration (client info, capabilities, lifecycle delegates, handlers, services).</summary>
+
+    /// <summary>
+    /// Applies the app-specific parts of the <c>LanguageClient</c> configuration (client info,
+    /// capabilities, lifecycle delegates, handlers, services).
+    /// </summary>
     public required Action<LanguageClientOptions> ConfigureClient { get; init; }
-    /// <summary>Invoked when the child is lost and cannot be restarted (attempts exhausted).</summary>
+
+    /// <summary>
+    /// Invoked when the child is lost and cannot be restarted (attempts exhausted).
+    /// </summary>
     public required Action OnPeerExited { get; init; }
-    /// <summary>When <c>true</c>, the child is <c>rdc.exe</c> launched in environment-host mode.</summary>
+
+    /// <summary>
+    /// When <c>true</c>, the child is <c>rdc.exe</c> launched in environment-host mode.
+    /// </summary>
     public bool HostMode { get; init; }
-    /// <summary>The component the caller expects to be connecting to (sent in the platform handshake).</summary>
+
+    /// <summary>
+    /// The component the caller expects to be connecting to (sent in the platform handshake).
+    /// </summary>
     public CoreServerComponent ExpectedComponent { get; init; }
-    /// <summary>The platform capabilities the caller expects the child to provide.</summary>
+
+    /// <summary>
+    /// The platform capabilities the caller expects the child to provide.
+    /// </summary>
     public CorePlatformClientCapabilities ExpectedCapabilities { get; init; } = new();
-    /// <summary>Seconds to wait for the transport connection before failing.</summary>
+
+    /// <summary>
+    /// Seconds to wait for the transport connection before failing.
+    /// </summary>
     public int ConnectTimeoutSeconds { get; init; } = 30;
-    /// <summary>Restart attempts after an unexpected failure before escalating.</summary>
+
+    /// <summary>
+    /// Restart attempts after an unexpected failure before escalating.
+    /// </summary>
     public int MaxRestartAttempts { get; init; } = 3;
-    /// <summary>Base restart delay in milliseconds; doubles per attempt, capped at <see cref="RestartBackoffMaxMs"/>.</summary>
+
+    /// <summary>
+    /// Base restart delay in milliseconds; doubles per attempt, capped at <see cref="RestartBackoffMaxMs"/>.
+    /// </summary>
     public int RestartBackoffBaseMs { get; init; } = 500;
-    /// <summary>Maximum restart delay in milliseconds.</summary>
+
+    /// <summary>
+    /// Maximum restart delay in milliseconds.
+    /// </summary>
     public int RestartBackoffMaxMs { get; init; } = 10_000;
-    /// <summary>Seconds to wait for the child to acknowledge a graceful <c>shutdown</c>/<c>exit</c> before it is killed.</summary>
+
+    /// <summary>
+    /// Seconds to wait for the child to acknowledge a graceful <c>shutdown</c>/<c>exit</c> before it is killed.
+    /// </summary>
     public int ShutdownTimeoutSeconds { get; init; } = 5;
 }
 
@@ -63,15 +99,24 @@ public sealed class ChildConnection(
     private LanguageClient? _client;
     private volatile bool _shuttingDown;
 
+    /// <summary>
+    /// The current lifecycle state of the connection.
+    /// </summary>
     public ConnectionState State { get; private set; } = ConnectionState.NotStarted;
 
-    /// <summary>The result of the <c>rdcore/platform/initialize</c> handshake, once the connection is Ready.</summary>
+    /// <summary>
+    /// The result of the <c>rdcore/platform/initialize</c> handshake, once the connection is Ready.
+    /// </summary>
     public PlatformInitializeResult? PlatformInfo { get; private set; }
 
-    /// <summary>The live language client. Throws until the connection is <see cref="ConnectionStateValue.Ready"/>.</summary>
+    /// <summary>
+    /// The live language client. Throws until the connection is <see cref="ConnectionStateValue.Ready"/>.
+    /// </summary>
     public ILanguageClient Client => _client ?? throw new InvalidOperationException($"The connection is {State.Value}, not Ready.");
 
-    /// <summary>Raised on every state transition.</summary>
+    /// <summary>
+    /// Raised on every state transition.
+    /// </summary>
     public event Action<ConnectionState>? StateChanged;
 
     /// <summary>
@@ -79,6 +124,8 @@ public sealed class ChildConnection(
     /// <see cref="ConnectionStateValue.Ready"/>. Initial failures are not retried: the state becomes
     /// <see cref="ConnectionStateValue.Faulted"/> and the exception is rethrown.
     /// </summary>
+    /// <param name="request">The connection inputs.</param>
+    /// <param name="token">Cancels the connection attempt.</param>
     public async Task ConnectAsync(ChildConnectionRequest request, CancellationToken token)
     {
         _request = request;
@@ -101,16 +148,28 @@ public sealed class ChildConnection(
     /// Completes once the connection is <see cref="ConnectionStateValue.Ready"/> (waiting through any
     /// in-progress restart); faults only once the connection is terminally <see cref="ConnectionStateValue.Exited"/>.
     /// </summary>
+    /// <param name="token">Cancels the wait.</param>
     public Task WaitForReadyAsync(CancellationToken token)
     {
-        if (State.IsUsable) return Task.CompletedTask;
-        if (State.IsTerminal) return Task.FromException(new ServerProtocolSdkException("The connection has exited."));
+        if (State.IsUsable)
+        {
+            return Task.CompletedTask;
+        }
+        if (State.IsTerminal)
+        {
+            return Task.FromException(new ServerProtocolSdkException("The connection has exited."));
+        }
         return _ready.Task.WaitAsync(token);
     }
 
+    /// <summary>
+    /// Completes when the child process exits.
+    /// </summary>
     public Task WaitForExitAsync() => serverProcess.WaitForExitAsync();
 
-    /// <summary>Completes once the connection is terminally <see cref="ConnectionStateValue.Exited"/> (restart, if any, exhausted).</summary>
+    /// <summary>
+    /// Completes once the connection is terminally <see cref="ConnectionStateValue.Exited"/> (restart, if any, exhausted).
+    /// </summary>
     public Task WaitForTerminalAsync() => _terminated.Task;
 
     /// <summary>
@@ -119,7 +178,10 @@ public sealed class ChildConnection(
     /// </summary>
     public async Task ShutdownAsync()
     {
-        if (_shuttingDown || State.IsTerminal) return;
+        if (_shuttingDown || State.IsTerminal)
+        {
+            return;
+        }
         _shuttingDown = true;
 
         if (State.Value is ConnectionStateValue.Ready)
@@ -148,7 +210,10 @@ public sealed class ChildConnection(
 
     private void ToTerminal()
     {
-        if (State.IsTerminal) return;
+        if (State.IsTerminal)
+        {
+            return;
+        }
         if (State.Value is not ConnectionStateValue.ShuttingDown and not ConnectionStateValue.Faulted)
         {
             Transition(ConnectionState.Faulted("connection closed"));
@@ -156,9 +221,22 @@ public sealed class ChildConnection(
         Transition(ConnectionState.Exited);
     }
 
+    /// <summary>
+    /// Sends a request over the connection.
+    /// </summary>
+    /// <typeparam name="TParams">The request parameter type.</typeparam>
+    /// <typeparam name="TResult">The response type.</typeparam>
+    /// <param name="request">The request parameters.</param>
+    /// <param name="token">Cancels the request.</param>
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
         => await Client.SendRequest(request, token);
 
+    /// <summary>
+    /// Sends a notification over the connection.
+    /// </summary>
+    /// <typeparam name="TParams">The notification parameter type.</typeparam>
+    /// <param name="notification">The notification parameters.</param>
+    /// <param name="token">Cancels before the notification is sent.</param>
     public Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest
     {
         token.ThrowIfCancellationRequested();
@@ -202,7 +280,14 @@ public sealed class ChildConnection(
     {
         while (true)
         {
-            try { await serverProcess.WaitForExitAsync(); } catch { /* handled below */ }
+            try
+            {
+                await serverProcess.WaitForExitAsync();
+            }
+            catch
+            {
+                // the exit reason is inspected below via serverProcess.ExitCode.
+            }
 
             if (_shuttingDown || State.Value is ConnectionStateValue.Exited or ConnectionStateValue.ShuttingDown)
             {
@@ -254,7 +339,12 @@ public sealed class ChildConnection(
         return false;
     }
 
-    /// <summary>Exponential backoff: <c>baseMs · 2^attempt</c>, capped at <paramref name="maxMs"/>.</summary>
+    /// <summary>
+    /// Exponential backoff: <c>baseMs · 2^attempt</c>, capped at <paramref name="maxMs"/>.
+    /// </summary>
+    /// <param name="attempt">The zero-based restart attempt.</param>
+    /// <param name="baseMs">The base delay in milliseconds.</param>
+    /// <param name="maxMs">The maximum delay in milliseconds.</param>
     internal static int RestartDelayMs(int attempt, int baseMs, int maxMs)
         => (int)Math.Min(maxMs, (long)baseMs << attempt);
 
@@ -274,7 +364,10 @@ public sealed class ChildConnection(
             State = State.AdvanceTo(target);
         }
         logger.LogInformation("Connection state -> {State}", State.Value);
-        if (State.IsUsable) _ready.TrySetResult();
+        if (State.IsUsable)
+        {
+            _ready.TrySetResult();
+        }
         if (State.IsTerminal)
         {
             _ready.TrySetException(new ServerProtocolSdkException("The connection has exited."));
@@ -287,13 +380,19 @@ public sealed class ChildConnection(
     {
         lock (_gate)
         {
-            if (State.Value is ConnectionStateValue.Faulted) return;
+            if (State.Value is ConnectionStateValue.Faulted)
+            {
+                return;
+            }
             State = State.AdvanceTo(ConnectionState.Faulted(reason));
         }
         logger.LogWarning("Connection faulted: {Reason}", reason);
         StateChanged?.Invoke(State);
     }
 
+    /// <summary>
+    /// Cancels any in-flight connection work and disposes the process, pipe, and client.
+    /// </summary>
     public void Dispose()
     {
         _shuttingDown = true;

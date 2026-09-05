@@ -33,7 +33,9 @@ internal sealed class CoreLanguageServerApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
 
-    /// <summary>Cancels in-flight core-component bring-up when the server is shutting down.</summary>
+    /// <summary>
+    /// Cancels in-flight core-component bring-up when the server is shutting down.
+    /// </summary>
     private readonly CancellationTokenSource _componentsCts = new();
     private readonly List<Task> _coreComponentBringUps = [];
 
