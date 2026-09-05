@@ -16,7 +16,8 @@ public interface IRDCoreServerProcess : IDisposable
     /// <summary>
     /// Runs a server executable with command-line arguments mapping the specified <c>LanguageClientSettings</c>.
     /// </summary>
-    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource);
+    /// <param name="hostMode">When <c>true</c>, sets <c>RDCORE_MODE=host</c> in the child environment (rdc.exe runs as the environment host).</param>
+    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false);
     /// <summary>
     /// Stops awaiting LSP server process exit to restart it.
     /// </summary>
@@ -105,7 +106,9 @@ public class RDCoreServerProcess(
 
     public void Shutdown() => _serverProcess?.Kill();
 
-    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource)
+    public const string ModeEnvironmentVariable = "RDCORE_MODE";
+
+    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false)
     {
         if (_serverProcess is Process running && !running.HasExited)
         {
@@ -121,6 +124,10 @@ public class RDCoreServerProcess(
         var verbose = true; //Options.Value.Server.Verbose;
 
         var info = CreateProcessStartInfo(fullPath, $"-p {Environment.ProcessId} -n {pipeName} -w \"{workspace}\" -t {trace} {(verbose ? "-v" : null)}");
+        if (hostMode)
+        {
+            info.Environment[ModeEnvironmentVariable] = "host";
+        }
         if (Logger.IsEnabled(LogLevel.Debug))
         {
             Logger.LogDebug("[ProcessStartInfo]\n\tPath:'{path}'\n\tWorkingDirectory:'{workdir}'\n\tArguments:'{args}'", fullPath, info.WorkingDirectory, info.Arguments);

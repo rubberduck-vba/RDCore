@@ -35,23 +35,25 @@ internal sealed class CoreLanguageServerApp(
 
     /// <summary>Cancels in-flight core-component bring-up when the server is shutting down.</summary>
     private readonly CancellationTokenSource _componentsCts = new();
-    private Task? _parsingServerBringUp;
+    private readonly List<Task> _coreComponentBringUps = [];
 
     protected override async Task BeforeRunAsync(string[] args)
     {
         var platform = composition.GetManifest();
         LogIfEnabled(LogLevel.Information, "✅ Acquired platform manifest");
 
-        orchestration.RegisterCoreComponent(factory =>
-            factory.Create(CoreServerComponent.ParsingServer,
-                new CorePlatformClientCapabilities
-                {
-                    Parsing = new ParserCapabilities
+        orchestration
+            .RegisterCoreComponent(factory =>
+                factory.Create(CoreServerComponent.ParsingServer,
+                    new CorePlatformClientCapabilities
                     {
-                        ParseFullDocument = new ParseFullDocument(true)
-                    }
-                }));
-        //.RegisterCoreComponent(factory => factory.Create(CoreServerComponent.EnvironmentHost, TODO));
+                        Parsing = new ParserCapabilities
+                        {
+                            ParseFullDocument = new ParseFullDocument(true)
+                        }
+                    }))
+            .RegisterCoreComponent(factory =>
+                factory.Create(CoreServerComponent.EnvironmentHost, new CorePlatformClientCapabilities()));
 
         LogIfEnabled(LogLevel.Information, "✅ Registered RDCore platform components");
 
@@ -151,11 +153,11 @@ internal sealed class CoreLanguageServerApp(
     {
         LogIfEnabled(LogLevel.Information, "🚀 Language Server app started");
 
-        // Bring up the core child components once the client<->LS connection is live. This runs as a
+        // Bring up the core child components once the client<->LS connection is live. Each runs as a
         // supervised background task (not awaited): a child that is slow or fails to attach must not
-        // block or fault the language server. Exceptions are logged here; the connection state machine
-        // will later consume these as component state transitions.
-        _parsingServerBringUp = BringUpCoreComponentAsync("parsing server", orchestration.ParsingService, _componentsCts.Token);
+        // block or fault the language server.
+        _coreComponentBringUps.Add(BringUpCoreComponentAsync("parsing server", orchestration.ParsingService, _componentsCts.Token));
+        _coreComponentBringUps.Add(BringUpCoreComponentAsync("environment host", orchestration.RuntimeEnvironment, _componentsCts.Token));
 
         // TODO some ParsingClientService should be responsible for caching ASTs.
     }
@@ -203,20 +205,11 @@ internal sealed class CoreLanguageServerApp(
 
     protected override void Dispose(bool disposing)
     {
-        if (!disposing)
+        if (disposing)
         {
-            return;
+            // the bring-up tasks observe this token; graceful child shutdown already ran in OnServerStoppingAsync.
+            _componentsCts.Cancel();
+            _componentsCts.Dispose();
         }
-
-        _componentsCts.Cancel();
-        try
-        {
-            _parsingServerBringUp?.Wait(TimeSpan.FromSeconds(5));
-        }
-        catch (Exception exception)
-        {
-            LogIfEnabled(LogLevel.Warning, $"Core-component bring-up did not settle cleanly on shutdown:\n{exception}");
-        }
-        _componentsCts.Dispose();
     }
 }

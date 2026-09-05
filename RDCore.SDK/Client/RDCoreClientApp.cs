@@ -147,6 +147,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         {
             ServerExecutablePath = path,
             PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}",
+            // the environment host is rdc.exe itself, run in host mode:
+            HostMode = PlatformComponent == CoreServerComponent.EnvironmentHost,
             ConnectTimeoutSeconds = server.ConnectTimeoutSeconds,
             MaxRestartAttempts = server.MaxRestartAttempts,
             RestartBackoffBaseMs = server.RestartBackoffBaseMs,

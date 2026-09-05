@@ -23,6 +23,8 @@ public sealed record class ChildConnectionRequest
     public required Action<LanguageClientOptions> ConfigureClient { get; init; }
     /// <summary>Invoked when the child is lost and cannot be restarted (attempts exhausted).</summary>
     public required Action OnPeerExited { get; init; }
+    /// <summary>When <c>true</c>, the child is <c>rdc.exe</c> launched in environment-host mode.</summary>
+    public bool HostMode { get; init; }
     /// <summary>Seconds to wait for the transport connection before failing.</summary>
     public int ConnectTimeoutSeconds { get; init; } = 30;
     /// <summary>Restart attempts after an unexpected failure before escalating.</summary>
@@ -159,7 +161,7 @@ public sealed class ChildConnection(
     private async Task AttemptConnectAsync(CancellationToken ct)
     {
         Transition(ConnectionState.Spawning);
-        await serverProcess.StartAsync(_request!.ServerExecutablePath, _request.PipeName, _connectionCts);
+        await serverProcess.StartAsync(_request!.ServerExecutablePath, _request.PipeName, _connectionCts, _request.HostMode);
 
         Transition(ConnectionState.Connecting);
         _pipe?.Dispose();

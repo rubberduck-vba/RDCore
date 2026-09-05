@@ -95,18 +95,22 @@ public abstract class RDCoreServerApp(
         var shutdownTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.Server.ShutdownTimeoutSeconds));
         Task? stopping = null;
 
-        // the process token is cancelled when the owning client dies or on Exit; Server.WaitForExit does
-        // not observe it on its own, so force the shutdown. The OmniSharp Rx pipeline does not always
-        // complete WaitForExit even then, so bound the wait and dispose explicitly.
         using (ServerStateProvider.ProcessTokenSource.Token.Register(() =>
         {
+            // shutdown was requested (owning client died, Exit handled, or fatal child fault):
             // begin tearing down any supervised children while our own server stops.
             stopping = OnServerStoppingAsync();
             Server?.ForcefulShutdown();
         }))
         {
-            var completed = await Task.WhenAny(Server.WaitForExit, Task.Delay(shutdownTimeout));
-            if (completed != Server.WaitForExit)
+            // block until the server actually exits (client disconnect) OR shutdown is requested (token).
+            try { await Server.WaitForExit.WaitAsync(ServerStateProvider.ProcessTokenSource.Token); }
+            catch (OperationCanceledException) { /* shutdown requested; the callback forced it */ }
+
+            // the OmniSharp Rx pipeline does not always complete WaitForExit even after ForcefulShutdown;
+            // bound the wait so it cannot hang process exit, then dispose explicitly.
+            if (!Server.WaitForExit.IsCompleted
+                && await Task.WhenAny(Server.WaitForExit, Task.Delay(shutdownTimeout)) != Server.WaitForExit)
             {
                 LogIfEnabled(LogLevel.Warning, "Language server did not stop within the shutdown timeout; forcing.");
             }
