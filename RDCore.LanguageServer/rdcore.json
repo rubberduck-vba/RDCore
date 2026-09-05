@@ -1,8 +1,0 @@
-﻿{
-  "generatedUtc": "2026-08-29T17:13:34.2002132Z",
-  "extensionsDirectory": "Extensions",
-  "langService": "../../../../../RDCore.LanguageServer/bin/Debug/net10.0/RDCore.LanguageServer.exe",
-  "hostService": "../../../../../RDCore.CLI/bin/Debug/net10.0/rdc.exe",
-  "platformVersion": "0.1",
-  "parseServer": "../../../../../RDCore.Parsing/bin/Debug/net10.0/RDCore.ParseServer.exe"
-}

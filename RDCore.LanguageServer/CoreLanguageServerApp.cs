@@ -190,6 +190,17 @@ internal sealed class CoreLanguageServerApp(
         }
     }
 
+    protected override async Task OnServerStoppingAsync()
+    {
+        await _componentsCts.CancelAsync();
+        // graceful LSP shutdown/exit of the child components before this process exits.
+        await Task.WhenAll(
+            new[] { orchestration.ParsingService, orchestration.RuntimeEnvironment }
+                .Concat(orchestration.Extensions)
+                .Where(component => component is not null)
+                .Select(component => component.ShutdownAsync()));
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (!disposing)

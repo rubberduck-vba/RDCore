@@ -15,6 +15,7 @@ using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using System.IO;
 using System.IO.Pipelines;
 using System.IO.Pipes;
 using System.Reflection;
@@ -85,29 +86,67 @@ public abstract class RDCoreServerApp(
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerStarting);
         await BeforeRunAsync(args);
 
-        _namedPipe = transportLayer.ConfigureServer();
+        _namedPipe = await CreateServerPipeAsync();
         await _namedPipe.WaitForConnectionAsync();
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerConnected);
 
         Server = await OmniSharpLanguageServer.From(ConfigureServer, externalServiceProvider, ServerStateProvider.ProcessTokenSource.Token);
 
+        var shutdownTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.Server.ShutdownTimeoutSeconds));
+        Task? stopping = null;
+
         // the process token is cancelled when the owning client dies or on Exit; Server.WaitForExit does
         // not observe it on its own, so force the shutdown. The OmniSharp Rx pipeline does not always
         // complete WaitForExit even then, so bound the wait and dispose explicitly.
-        using (ServerStateProvider.ProcessTokenSource.Token.Register(() => Server?.ForcefulShutdown()))
+        using (ServerStateProvider.ProcessTokenSource.Token.Register(() =>
         {
-            var shutdownTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.Server.ShutdownTimeoutSeconds));
+            // begin tearing down any supervised children while our own server stops.
+            stopping = OnServerStoppingAsync();
+            Server?.ForcefulShutdown();
+        }))
+        {
             var completed = await Task.WhenAny(Server.WaitForExit, Task.Delay(shutdownTimeout));
             if (completed != Server.WaitForExit)
             {
                 LogIfEnabled(LogLevel.Warning, "Language server did not stop within the shutdown timeout; forcing.");
             }
         }
+
+        if (stopping is not null)
+        {
+            try { await stopping.WaitAsync(shutdownTimeout); }
+            catch (Exception exception) { LogIfEnabled(LogLevel.Warning, $"Child shutdown did not settle: {exception.Message}"); }
+        }
+
         Server.Dispose();
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerWaitForExitTaskCompleted);
     }
 
+    /// <summary>
+    /// Invoked when the server has been asked to stop, concurrently with its own teardown.
+    /// Override to gracefully shut down any supervised child components. Base implementation does nothing.
+    /// </summary>
+    protected virtual Task OnServerStoppingAsync() => Task.CompletedTask;
+
     private void HandleUnhealthyClient() => ServerStateProvider.ProcessTokenSource.Cancel();
+
+    // a just-killed predecessor can leave the named pipe instance briefly reserved (MaximumInstances=1).
+    private async Task<NamedPipeServerStream> CreateServerPipeAsync()
+    {
+        const int maxAttempts = 10;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return transportLayer.ConfigureServer();
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                LogIfEnabled(LogLevel.Warning, $"Transport pipe is busy; retrying ({attempt}/{maxAttempts}).");
+                await Task.Delay(250);
+            }
+        }
+    }
 
     /// <summary>
     /// Disposes of any unmanaged resources held at instance level.

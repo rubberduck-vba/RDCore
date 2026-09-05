@@ -68,8 +68,9 @@ public interface IServerStateProvider
 /// 👉 This class works with <see cref="IConfiguration"/> rather than <see cref="IOptions{T}"/> 
 /// because it must be created before the application is fully configured, and must also <strong>survive the destruction</strong> of the application host in case of a hard crash.
 /// </remarks>
-public sealed class ServerStateProvider(IConfiguration configuration) : IServerStateProvider, IDisposable
+public sealed class ServerStateProvider : IServerStateProvider, IDisposable
 {
+    private readonly IConfiguration _configuration;
     private readonly CancellationTokenSource _processTokenSource = new();
     private readonly CancellationTokenSource _requestTokenSource = new();
     private readonly CancellationTokenSource _shutdownTimeoutTokenSource = new();
@@ -77,14 +78,27 @@ public sealed class ServerStateProvider(IConfiguration configuration) : IServerS
     private ServerState _state = ServerState.Starting;
     public ServerState State => _state;
 
+    public ServerStateProvider(IConfiguration configuration)
+    {
+        _configuration = configuration;
+        // if a Shutdown request is not followed by an Exit within the timeout, exit anyway.
+        _shutdownTimeoutTokenSource.Token.Register(() =>
+        {
+            if (_state is ShuttingDownServerState)
+            {
+                OnExit();
+            }
+        });
+    }
+
     public CancellationTokenSource ShutdownRequestTokenSource => _requestTokenSource;
     public CancellationTokenSource ProcessTokenSource => _processTokenSource;
 
     public void OnInitialize() => _state = GetValidStateOrThrow(State, typeof(StartingServerState), ServerState.Initializing);
     public void OnInitialized() => _state = GetValidStateOrThrow(State, typeof(InitializingServerState),
-        Enum.Parse<LogLevel>(configuration["Server:TraceLevel"] ?? LogLevel.None.ToString()) == LogLevel.None
+        Enum.Parse<LogLevel>(_configuration["Server:TraceLevel"] ?? LogLevel.None.ToString()) == LogLevel.None
             ? ServerState.RunningTraceless
-            : Convert.ToBoolean(configuration["Server:Verbose"] ?? false.ToString())
+            : Convert.ToBoolean(_configuration["Server:Verbose"] ?? false.ToString())
                 ? ServerState.RunningVerbose
                 : ServerState.Running);
 
@@ -92,7 +106,7 @@ public sealed class ServerStateProvider(IConfiguration configuration) : IServerS
     {
         _state = GetValidStateOrThrow(State, typeof(RunningServerState), ServerState.ShuttingDown);
         _requestTokenSource.Cancel();
-        _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Convert.ToInt32(configuration["Server:ShutdownTimeoutSeconds"] ?? "5")));
+        _shutdownTimeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(Convert.ToInt32(_configuration["Server:ShutdownTimeoutSeconds"] ?? "5")));
     }
 
     public void OnExit()
