@@ -1,4 +1,3 @@
-using System.Linq;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model;

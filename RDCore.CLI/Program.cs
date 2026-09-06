@@ -179,11 +179,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
 
-    /// <summary>
-    /// Composes the runtime session from the workspace the language server initialized against. A
-    /// load failure is logged, not fatal: the host still completes the handshake and can be sent
-    /// symbols afterwards.
-    /// </summary>
+    // composes the runtime session from the workspace the language server initialized against;
+    // a load failure is logged, not fatal — the host still completes the handshake.
     protected override async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {
         await ComposeSessionAsync(request);

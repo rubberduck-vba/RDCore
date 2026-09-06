@@ -75,16 +75,24 @@ public record class DefineSymbolsResult
 /// </summary>
 public record class SymbolDescriptor
 {
-    /// <summary>The member's identifier name.</summary>
+    /// <summary>
+    /// The member's identifier name.
+    /// </summary>
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>Which kind of member symbol to reconstruct.</summary>
+    /// <summary>
+    /// Which kind of member symbol to reconstruct.
+    /// </summary>
     public SymbolDescriptorKind Kind { get; init; }
 
-    /// <summary>The declared access modifier; <see cref="AccessModifier.Implicit"/> when none was written.</summary>
+    /// <summary>
+    /// The declared access modifier; <see cref="AccessModifier.Implicit"/> when none was written.
+    /// </summary>
     public AccessModifier AccessModifier { get; init; } = AccessModifier.Implicit;
 
-    /// <summary>The allocation scope the symbol is defined in.</summary>
+    /// <summary>
+    /// The allocation scope the symbol is defined in.
+    /// </summary>
     public ScopeKind Scope { get; init; } = ScopeKind.Instance;
 
     /// <summary>
@@ -94,13 +102,19 @@ public record class SymbolDescriptor
     /// </summary>
     public string? DeclaredTypeName { get; init; }
 
-    /// <summary>The source span of the whole declaration.</summary>
+    /// <summary>
+    /// The source span of the whole declaration.
+    /// </summary>
     public SourceRange Range { get; init; }
 
-    /// <summary>The source span to select when navigating to the symbol (typically its name token).</summary>
+    /// <summary>
+    /// The source span to select when navigating to the symbol (typically its name token).
+    /// </summary>
     public SourceRange SelectionRange { get; init; }
 
-    /// <summary>Parameters, for the procedure, function and property kinds.</summary>
+    /// <summary>
+    /// Parameters, for the procedure, function, property and event kinds.
+    /// </summary>
     public ImmutableArray<ParameterDescriptor> Parameters { get; init; } = [];
 
     /// <summary>
@@ -121,22 +135,34 @@ public record class SymbolDescriptor
 /// </summary>
 public record class ParameterDescriptor
 {
-    /// <summary>The parameter's identifier name.</summary>
+    /// <summary>
+    /// The parameter's identifier name.
+    /// </summary>
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>How an argument is passed to the parameter.</summary>
+    /// <summary>
+    /// How an argument is passed to the parameter.
+    /// </summary>
     public ParameterKind ParameterKind { get; init; } = ParameterKind.ImplicitByRef;
 
-    /// <summary>Whether the parameter carries an <c>Optional</c> token.</summary>
+    /// <summary>
+    /// Whether the parameter carries an <c>Optional</c> token.
+    /// </summary>
     public bool IsOptional { get; init; }
 
-    /// <summary>Whether the parameter is a <c>ParamArray</c>.</summary>
+    /// <summary>
+    /// Whether the parameter is a <c>ParamArray</c>.
+    /// </summary>
     public bool IsParamArray { get; init; }
 
-    /// <summary>The declared type's name, or <c>null</c> — resolved host-side like a member's.</summary>
+    /// <summary>
+    /// The declared type's name, or <c>null</c> — resolved host-side like a member's.
+    /// </summary>
     public string? DeclaredTypeName { get; init; }
 
-    /// <summary>The source span of the parameter declaration.</summary>
+    /// <summary>
+    /// The source span of the parameter declaration.
+    /// </summary>
     public SourceRange Range { get; init; }
 }
 
@@ -145,13 +171,19 @@ public record class ParameterDescriptor
 /// </summary>
 public record class ExternalDescriptor
 {
-    /// <summary>Whether the declaration carries the <c>PtrSafe</c> token.</summary>
+    /// <summary>
+    /// Whether the declaration carries the <c>PtrSafe</c> token.
+    /// </summary>
     public bool IsPtrSafe { get; init; }
 
-    /// <summary>The library name from the <c>Lib "…"</c> clause.</summary>
+    /// <summary>
+    /// The library name from the <c>Lib "…"</c> clause.
+    /// </summary>
     public string Library { get; init; } = string.Empty;
 
-    /// <summary>The exported name from the <c>Alias "…"</c> clause, or <c>null</c>.</summary>
+    /// <summary>
+    /// The exported name from the <c>Alias "…"</c> clause, or <c>null</c>.
+    /// </summary>
     public string? Alias { get; init; }
 }
 
@@ -162,32 +194,73 @@ public record class ExternalDescriptor
 /// </summary>
 public enum SymbolDescriptorKind
 {
-    /// <summary>A <c>Sub</c> procedure.</summary>
+    /// <summary>
+    /// A <c>Sub</c> procedure.
+    /// </summary>
     Procedure,
-    /// <summary>A <c>Function</c> procedure.</summary>
+
+    /// <summary>
+    /// A <c>Function</c> procedure.
+    /// </summary>
     Function,
-    /// <summary>A <c>Property Get</c> accessor.</summary>
+
+    /// <summary>
+    /// A <c>Property Get</c> accessor.
+    /// </summary>
     PropertyGet,
-    /// <summary>A <c>Property Let</c> accessor.</summary>
+
+    /// <summary>
+    /// A <c>Property Let</c> accessor.
+    /// </summary>
     PropertyLet,
-    /// <summary>A <c>Property Set</c> accessor.</summary>
+
+    /// <summary>
+    /// A <c>Property Set</c> accessor.
+    /// </summary>
     PropertySet,
-    /// <summary>A <c>Declare Sub</c>.</summary>
+
+    /// <summary>
+    /// A <c>Declare Sub</c>.
+    /// </summary>
     ExternalProcedure,
-    /// <summary>A <c>Declare Function</c>.</summary>
+
+    /// <summary>
+    /// A <c>Declare Function</c>.
+    /// </summary>
     ExternalFunction,
-    /// <summary>An <c>Event</c> declaration.</summary>
+
+    /// <summary>
+    /// An <c>Event</c> declaration.
+    /// </summary>
     Event,
-    /// <summary>A <c>Type … End Type</c> declaration.</summary>
+
+    /// <summary>
+    /// A <c>Type … End Type</c> declaration.
+    /// </summary>
     UserDefinedType,
-    /// <summary>A field of a user-defined <c>Type</c>.</summary>
+
+    /// <summary>
+    /// A field of a user-defined <c>Type</c>.
+    /// </summary>
     UserDefinedTypeField,
-    /// <summary>An <c>Enum … End Enum</c> declaration.</summary>
+
+    /// <summary>
+    /// An <c>Enum … End Enum</c> declaration.
+    /// </summary>
     Enum,
-    /// <summary>A member of an <c>Enum</c>.</summary>
+
+    /// <summary>
+    /// A member of an <c>Enum</c>.
+    /// </summary>
     EnumMember,
-    /// <summary>A module-scoped variable (<c>Dim</c>/<c>Private</c>/<c>Public</c> field).</summary>
+
+    /// <summary>
+    /// A module-scoped variable (<c>Dim</c>/<c>Private</c>/<c>Public</c> field).
+    /// </summary>
     ModuleField,
-    /// <summary>A module-scoped <c>Const</c>.</summary>
+
+    /// <summary>
+    /// A module-scoped <c>Const</c>.
+    /// </summary>
     ModuleConstant,
 }

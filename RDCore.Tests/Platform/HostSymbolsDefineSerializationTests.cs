@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using RDCore.SDK.Model;
-using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;

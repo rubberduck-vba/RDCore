@@ -1,5 +1,4 @@
 using System.IO.Abstractions.TestingHelpers;
-using System.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host;
