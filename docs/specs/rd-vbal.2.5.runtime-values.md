@@ -154,7 +154,9 @@ Each dimension of an _array value_ encapsulates a _managed array_ of the underly
 #### 2.5.2.1.3 User-Defined Types (UDT) Values
 An instance of a UDT is a [VBUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html).
 
-The _data type_ of a UDT value is defined by the UDT declaration of its _declared type_.  
+The _data type_ of a UDT value is defined by the UDT declaration of its _declared type_. Like an
+_object value_, the underlying value of a UDT value is a unique addressable ID (a location in the
+heap); a UDT has location identity and is never copied by value at that level.
 
 > 👉 UDT values **MUST** be passed by reference (`ByRef`).
 

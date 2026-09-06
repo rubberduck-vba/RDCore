@@ -2,9 +2,38 @@
 
 [VBLiteralExpression](../api/RDCore.SDK.Model.AST.Expressions.VBLiteralExpression.html) (**MS-VBAL §5.6.5**) represents a value that is statically resolved to a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).
 
+The parser resolves the literal's _declared type_ from the source token: a `LiteralExpressionNode` already carries a fully-typed [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html), including the effect of any _type-declaration character_.
+
 
 ---
-## 3.2.0.1 Static Symbols
+## 3.2.0.1 Numeric Literal Types
+
+The declared type of a numeric literal follows **MS-VBAL §3.3.2**:
+
+1. An explicit _type-declaration character_ suffix, if present, forces the type:
+
+   |Suffix|Declared type|
+   |---|---|
+   |`%`|`Integer`|
+   |`&`|`Long`|
+   |`^`|`LongLong`|
+   |`!`|`Single`|
+   |`#`|`Double`|
+   |`@`|`Currency`|
+
+2. Otherwise, an **integer literal** (no fractional part, no exponent — decimal, `&H…` hexadecimal, or
+   `&O…` octal) takes the smallest of `Integer`, `Long`, `Double` that can hold its value.
+
+3. Otherwise, a **floating-point literal** (fractional part or exponent) is `Double`.
+
+> [!NOTE]
+> `LongLong` is only produced by the `^` suffix — an unsuffixed integer literal that exceeds `Long`
+> range widens to `Double`, never `LongLong`. String and `$`-suffixed identifiers are covered by the
+> declared-type rules for `String`, not here.
+
+
+---
+## 3.2.0.2 Static Symbols
 
 The _environment host_ defines a number of [_static symbols_](../api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html) that are globally defined, on top of the global [IStdConstantsModule](../api/IStdConstantsModule.html): 
 
@@ -17,7 +46,7 @@ The _environment host_ defines a number of [_static symbols_](../api/RDCore.SDK.
 
 
 ---
-## 3.2.0.1.1 Instance Expressions - "Me"
+## 3.2.0.2.1 Instance Expressions - "Me"
 > [!NOTE]
 > **MS-VBAL §5.6.11** describes _instance expressions_ as _values_ with the _declared type_ defined by the class module containing the _enclosing procedure_, statically invalid within a procedural ("standard") module. At run-time, it represents the _current instance_ of the type defined by the enclosing class module and has this type as its _value type_.
 
