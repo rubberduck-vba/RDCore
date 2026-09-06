@@ -26,12 +26,7 @@ public sealed class RuntimeSessionComposerTests
 
     [TestMethod]
     public void ComposedSession_CarriesTheEnvironment()
-    {
-        var session = Compose(is64Bit: true, new RDCoreProject());
-
-        Assert.IsTrue(session.Environment.Is64Bit);
-        Assert.IsTrue(session.Is64Bit); // default interface member off Environment
-    }
+        => Assert.IsTrue(Compose(is64Bit: true, new RDCoreProject()).Environment.Is64Bit);
 
     [TestMethod]
     public void ConfigurationSymbols_ResolveInTheSession()
