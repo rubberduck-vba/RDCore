@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
+using OmniSharp.Extensions.LanguageServer.Protocol.General;
 using OmniSharp.Extensions.LanguageServer.Shared;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
@@ -184,20 +185,46 @@ public sealed class ChildConnection(
         }
         _shuttingDown = true;
 
-        if (State.Value is ConnectionStateValue.Ready)
+        if (State.Value is ConnectionStateValue.Ready && _client is ILanguageClient client)
         {
             Transition(ConnectionState.ShuttingDown);
             var timeoutSeconds = _request?.ShutdownTimeoutSeconds ?? 5;
             var timeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 5);
+
+            // Drive the LSP shutdown/exit handshake directly rather than LanguageClient.Shutdown(),
+            // which also stops and disposes the connection and races the in-flight response to an
+            // "Internal error." A shared-console Ctrl+C also hits the child directly, so any step here
+            // may fail because the peer is already gone — each is bounded and non-fatal; the kill
+            // fallback below is the backstop.
             try
             {
-                await (_client?.Shutdown() ?? Task.CompletedTask).WaitAsync(timeout);
-                _client?.SendNotification("exit");
-                await serverProcess.WaitForExitAsync().WaitAsync(timeout);
+                await client.RequestShutdown().WaitAsync(timeout);
             }
             catch (Exception exception)
             {
-                logger.LogWarning("Graceful shutdown did not complete ({Message}); killing the child.", exception.Message);
+                logger.LogDebug("Child did not acknowledge shutdown ({Message}).", exception.Message);
+            }
+
+            try
+            {
+                client.SendExit();
+            }
+            catch (Exception exception)
+            {
+                logger.LogDebug("Could not send exit to the child ({Message}).", exception.Message);
+            }
+
+            try
+            {
+                await serverProcess.WaitForExitAsync().WaitAsync(timeout);
+            }
+            catch (TimeoutException)
+            {
+                logger.LogWarning("Child did not exit within {Timeout}s of the shutdown handshake; killing it.", timeout.TotalSeconds);
+            }
+            catch (Exception exception)
+            {
+                logger.LogDebug("Wait for child exit ended ({Message}).", exception.Message);
             }
         }
 
