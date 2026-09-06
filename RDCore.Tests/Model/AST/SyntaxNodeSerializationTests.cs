@@ -1,7 +1,11 @@
-﻿using RDCore.SDK.Model.AST.Abstract;
+﻿using RDCore.Parsing;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
@@ -72,5 +76,45 @@ public sealed class SyntaxNodeSerializationTests
         Assert.AreEqual(json, JsonSerializer.Serialize(rehydrated, Options));
         Assert.AreEqual(3, ((ModuleNode)rehydrated!).Children.Length);
         Assert.IsInstanceOfType<PrecompilerTriviaNode>(((ModuleNode)rehydrated).Children[2]);
+    }
+
+    [TestMethod]
+    public void LiteralValue_RoundTripsAsTypeAndScalar()
+    {
+        // VBTypedValueJsonConverter: a literal is (type, scalar), not the runtime graph
+        // (VBType.DefaultValue -> TypeInfo -> DefaultValue ... would otherwise cycle).
+        var literal = new LiteralExpressionNode(new("file:///t.bas", [0]), TestLocations.TestLocation, new VBIntegerValue((short)42));
+
+        var json = JsonSerializer.Serialize<SyntaxNode>(literal, Options);
+        var back = (LiteralExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(json, Options)!;
+
+        Assert.IsInstanceOfType<VBIntegerValue>(back.StaticValue);
+        Assert.AreEqual((short)42, ((VBIntegerValue)back.StaticValue).Value);
+        Assert.AreEqual(json, JsonSerializer.Serialize<SyntaxNode>(back, Options));
+    }
+
+    [TestMethod]
+    public void ParsedModuleWithConstantsAndPrecompilerTrivia_RoundTripsStably()
+    {
+        const string content = """
+            Option Explicit
+            #Const RDDEBUG = 1
+            Public Const Answer As Long = 42
+            #If RDDEBUG Then
+            Public Const Mode As String = "debug"
+            #Else
+            Public Const Mode As String = "release"
+            #End If
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var treeJson = JsonSerializer.Serialize(result.SyntaxTree, Options);
+        Assert.AreEqual(treeJson, JsonSerializer.Serialize(JsonSerializer.Deserialize<ModuleNode>(treeJson, Options), Options));
+
+        Assert.IsNotEmpty(result.PrecompilerTrivia);
+        var triviaJson = JsonSerializer.Serialize(result.PrecompilerTrivia, Options);
+        Assert.AreEqual(triviaJson, JsonSerializer.Serialize(JsonSerializer.Deserialize<ImmutableArray<SyntaxNode>>(triviaJson, Options), Options));
     }
 }
