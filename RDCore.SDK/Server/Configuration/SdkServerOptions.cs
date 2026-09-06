@@ -139,6 +139,34 @@ public record class SdkAppOptions
     /// Platform options.
     /// </summary>
     public SdkPlatformOptions Platform { get; set; } = new();
+    /// <summary>
+    /// Runtime environment profile options — the host facts VBA semantics depend on.
+    /// </summary>
+    public SdkEnvironmentOptions Environment { get; set; } = new();
+}
+
+/// <summary>
+/// Runtime environment settings, bound from <c>appsettings.json</c>. These become the session's
+/// <c>IRuntimeEnvironmentProfile</c>.
+/// </summary>
+public record class SdkEnvironmentOptions
+{
+    /// <summary>
+    /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
+    /// </summary>
+    public bool Is64Bit { get; set; } = true;
+    /// <summary>
+    /// The environment locale identifier. <c>0</c> (the default) means the invariant locale.
+    /// </summary>
+    public int Lcid { get; set; }
+    /// <summary>
+    /// The ANSI code page for <c>Byte()</c> ↔ <c>String</c> and non-Unicode <c>Chr</c> / <c>Asc</c>.
+    /// </summary>
+    public int AnsiCodePage { get; set; } = 1252;
+    /// <summary>
+    /// <c>true</c> when the host supports the <c>Option Compare Database</c> directive (Microsoft Access).
+    /// </summary>
+    public bool SupportsOptionCompareDatabase { get; set; }
 }
 
 public record class SdkServerAppOptions

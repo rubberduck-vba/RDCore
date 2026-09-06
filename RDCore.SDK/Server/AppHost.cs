@@ -2,11 +2,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
@@ -191,6 +194,8 @@ public abstract class AppHost<TApp>() : IDisposable
         services.Configure<SdkServerOptions>(config.GetSection("Server"));
 
         services
+            .AddSingleton<IRuntimeEnvironmentProfile>(sp =>
+                RuntimeEnvironmentProfile.From(sp.GetRequiredService<IOptions<SdkAppOptions>>().Value.Environment))
             .AddSingleton<TApp>()
             .AddTransient<IServerStateProvider, ServerStateProvider>()
             .AddTransient<IRDCoreServerProcess, RDCoreServerProcess>()
