@@ -17,6 +17,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -32,12 +33,53 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// <summary>
     /// Evaluates the numeric result of a binary arithmetic operation.
     /// </summary>
-    /// <param name="lhs">The underlying managed value of the left-hand side (LHS) numeric binary expression operand.</param>
-    /// <param name="rhs">The underlying managed value of the right-hand side (RHS) numeric binary expression operand.</param>
+    /// <param name="lhs">The managed value of the left-hand side (LHS) numeric binary expression operand, in the operation's effective type.</param>
+    /// <param name="rhs">The managed value of the right-hand side (RHS) numeric binary expression operand, in the operation's effective type.</param>
+    /// <typeparam name="T">The CLR representation of the operation's <em>effective numeric type</em>.</typeparam>
     /// <remarks>
-    /// 👉 This method is templated by the <see cref="EvaluateBinaryExpressionResult"/> overloads.
+    /// 👉 This method is templated by the <see cref="EvaluateBinaryExpressionResult(VBNumericType, VBNumericTypedValue, VBNumericTypedValue, ExpressionNode)"/> dispatcher,
+    /// which computes the result in the effective type's own representation (a <c>checked</c> context surfaces integral overflow as <see cref="VBRuntimeErrorId.Overflow"/>).
     /// </remarks>
-    protected abstract double EvaluateManagedNumericOp(double lhs, double rhs);
+    protected abstract T EvaluateManagedNumericOp<T>(T lhs, T rhs) where T : INumber<T>;
+
+    /// <summary>
+    /// Computes the arithmetic result in the effective type's own CLR representation, dispatching
+    /// <see cref="EvaluateManagedNumericOp{T}(T, T)"/> on the effective numeric type. Overflow and
+    /// division-by-zero raised by the managed operation are surfaced as run-time errors.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Both operands have already been let-coerced to <paramref name="effectiveType"/> by the evaluation pipeline, so the casts are safe.
+    /// </remarks>
+    protected RuntimeSemanticsEvaluationResult EvaluateManagedArithmetic(
+        VBNumericType effectiveType,
+        VBNumericTypedValue lhs, VBNumericTypedValue rhs,
+        ExpressionNode expression)
+    {
+        try
+        {
+            VBTypedValue result = effectiveType switch
+            {
+                VBByteType => new VBByteValue(EvaluateManagedNumericOp(((VBByteValue)lhs).Value, ((VBByteValue)rhs).Value)),
+                VBIntegerType => new VBIntegerValue(EvaluateManagedNumericOp(((VBIntegerValue)lhs).Value, ((VBIntegerValue)rhs).Value)),
+                VBLongType => new VBLongValue(EvaluateManagedNumericOp(((VBLongValue)lhs).Value, ((VBLongValue)rhs).Value)),
+                VBLongLongType => new VBLongLongValue(EvaluateManagedNumericOp(((VBLongLongValue)lhs).Value, ((VBLongLongValue)rhs).Value)),
+                VBSingleType => new VBSingleValue(EvaluateManagedNumericOp(((VBSingleValue)lhs).Value, ((VBSingleValue)rhs).Value)),
+                VBDoubleType => new VBDoubleValue(EvaluateManagedNumericOp(((VBDoubleValue)lhs).Value, ((VBDoubleValue)rhs).Value)),
+                VBCurrencyType => new VBCurrencyValue(EvaluateManagedNumericOp(((VBCurrencyValue)lhs).Value.Value, ((VBCurrencyValue)rhs).Value.Value)),
+                VBDecimalType => new VBDecimalValue(EvaluateManagedNumericOp(((VBDecimalValue)lhs).Value, ((VBDecimalValue)rhs).Value)),
+                _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported arithmetic numeric type."),
+            };
+            return RuntimeSemanticsEvaluationResult.Success(result);
+        }
+        catch (OverflowException)
+        {
+            return OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow);
+        }
+        catch (DivideByZeroException)
+        {
+            return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
+        }
+    }
 
     protected sealed override OperatorAnalysisContext<ArithmeticOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,
@@ -138,11 +180,10 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// </list>
     /// </returns>
     protected virtual RuntimeSemanticsEvaluationResult EvaluateBinaryExpressionResult(
-        VBNumericType effectiveType, 
-        VBNumericTypedValue lhs, VBNumericTypedValue rhs) 
-        => RuntimeSemanticsEvaluationResult.Success(
-            new VBDateValue(
-                EvaluateManagedNumericOp((double)lhs.RuntimeValue.BoxedValue, (double)rhs.RuntimeValue.BoxedValue)));
+        VBNumericType effectiveType,
+        VBNumericTypedValue lhs, VBNumericTypedValue rhs,
+        ExpressionNode expression)
+        => EvaluateManagedArithmetic(effectiveType, lhs, rhs, expression);
 
 
     /// <summary>
@@ -166,11 +207,12 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// </list>
     /// </returns>
     protected virtual RuntimeSemanticsEvaluationResult EvaluateBinaryExpressionResult(
-        VBDateType effectiveType, 
-        VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
+        VBDateType effectiveType,
+        VBNumericTypedValue lhs, VBNumericTypedValue rhs,
+        ExpressionNode expression) =>
         RuntimeSemanticsEvaluationResult.Success(
             new VBDateValue(
-                EvaluateManagedNumericOp((double)lhs.RuntimeValue.BoxedValue, (double)rhs.RuntimeValue.BoxedValue)));
+                EvaluateManagedNumericOp(((VBDoubleValue)lhs).Value, ((VBDoubleValue)rhs).Value)));
 
     /// <summary>
     /// 💥 Creates and returns a new <see cref="RuntimeSemanticsEvaluationResult"/> with a <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> error.

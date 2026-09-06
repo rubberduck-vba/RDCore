@@ -1,6 +1,8 @@
 ﻿using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -11,6 +13,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -45,26 +48,51 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
         => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
     /// <summary>
-    /// Evaluates the runtime semantics of a unary arithmetic operator and returns a value of the effective numeric data type.
+    /// Evaluates the runtime semantics of a unary arithmetic operator, computing the result in the
+    /// effective type's own CLR representation. Integral overflow (e.g. negating the minimum value of
+    /// a signed integral type) is surfaced as <see cref="VBRuntimeErrorId.Overflow"/>.
+    /// </summary>
+    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
+    /// <param name="operand">The unary operand being evaluated, already let-coerced to <paramref name="effectiveType"/>.</param>
+    /// <param name="expression">The unary operator expression, for error attribution.</param>
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand, ExpressionNode expression)
+    {
+        try
+        {
+            VBTypedValue result = effectiveType switch
+            {
+                VBByteType => new VBByteValue(EvaluateNumericOp(((VBByteValue)operand).Value)),
+                VBIntegerType => new VBIntegerValue(EvaluateNumericOp(((VBIntegerValue)operand).Value)),
+                VBLongType => new VBLongValue(EvaluateNumericOp(((VBLongValue)operand).Value)),
+                VBLongLongType => new VBLongLongValue(EvaluateNumericOp(((VBLongLongValue)operand).Value)),
+                VBSingleType => new VBSingleValue(EvaluateNumericOp(((VBSingleValue)operand).Value)),
+                VBDoubleType => new VBDoubleValue(EvaluateNumericOp(((VBDoubleValue)operand).Value)),
+                VBCurrencyType => new VBCurrencyValue(EvaluateNumericOp(((VBCurrencyValue)operand).Value.Value)),
+                VBDecimalType => new VBDecimalValue(EvaluateNumericOp(((VBDecimalValue)operand).Value)),
+                _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported arithmetic numeric type."),
+            };
+            return RuntimeSemanticsEvaluationResult.Success(result);
+        }
+        catch (OverflowException)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression, Exceptions.VBRuntimeError_ArithmeticOverflow));
+        }
+    }
+
+    /// <summary>
+    /// Evaluates the runtime semantics of a unary arithmetic operator whose effective type is <see cref="VBDateType"/>.<br/>
+    /// 👉 the operand has been let-coerced to a <see cref="VBDoubleValue"/> during validation.
     /// </summary>
     /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
     /// <param name="operand">The unary operand being evaluated.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand) 
-        => effectiveType.CreateValue(EvaluateNumericOp((double)operand.RuntimeValue.BoxedValue));
+    /// <param name="expression">The unary operator expression, for error attribution.</param>
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand, ExpressionNode expression)
+        => RuntimeSemanticsEvaluationResult.Success(new VBDateValue(EvaluateNumericOp(((VBDoubleValue)operand).Value)));
 
     /// <summary>
-    /// Evaluates the runtime semantics of a unary arithmetic operator
+    /// Evaluates the numeric result of a unary arithmetic operation in the effective type's own representation.
     /// </summary>
-    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
-    /// <param name="operand">The unary operand being evaluated.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand) 
-        => new VBDateValue(EvaluateNumericOp((double)operand.RuntimeValue.BoxedValue));
-
-    /// <summary>
-    /// Evaluates the numeric result of a unary arithmetic operation.
-    /// </summary>
-    /// <param name="operand">The underlying managed value of a numeric unary expression operand.</param>
-    protected abstract double EvaluateNumericOp(double operand);
+    /// <typeparam name="T">The CLR representation of the operation's <em>effective numeric type</em>.</typeparam>
+    /// <param name="operand">The managed value of a numeric unary expression operand, in the operation's effective type.</param>
+    protected abstract T EvaluateNumericOp<T>(T operand) where T : INumber<T>;
 }

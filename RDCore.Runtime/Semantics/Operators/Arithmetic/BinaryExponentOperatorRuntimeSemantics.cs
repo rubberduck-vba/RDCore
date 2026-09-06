@@ -24,7 +24,9 @@ public record class BinaryExponentOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
 {
-    protected override double EvaluateManagedNumericOp(double lhs, double rhs) => Math.Pow(lhs, rhs);
+    // '^' always has a Double effective type; IEEE-754 exponentiation does not fit INumber<T> cleanly.
+    protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs)
+        => T.CreateChecked(Math.Pow(double.CreateChecked(lhs), double.CreateChecked(rhs)));
 
     protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver, 
@@ -49,13 +51,13 @@ public record class BinaryExponentOperatorRuntimeSemantics(
             && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsValue 
             && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsValue)
         {
-            if ((double)lhsValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.RuntimeValue.BoxedValue == 0)
+            if (lhsValue.AsDouble == 0 && rhsValue.AsDouble == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     ((VBNumericType)frame.EffectiveType).CreateValue(VBDoubleType.One.Value));
             }
 
-            if ((double)lhsValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.RuntimeValue.BoxedValue < 0)
+            if (lhsValue.AsDouble == 0 && rhsValue.AsDouble < 0)
             {
                 // if LHS is zero and RHS is negative, we must raise error 5.
                 return OnInvalidProcedureCallOrArgument(expression, Exceptions.VBExponentOp_InvalidProcedureCallOrArgument_Verbose);
@@ -63,7 +65,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
 
             return RuntimeSemanticsEvaluationResult.Success(
                 ((VBNumericType)frame.EffectiveType).CreateValue(
-                EvaluateManagedNumericOp((double)lhsValue.RuntimeValue.BoxedValue, (double)rhsValue.RuntimeValue.BoxedValue)));
+                EvaluateManagedNumericOp(lhsValue.AsDouble, rhsValue.AsDouble)));
         }
         else if (frame.EffectiveType is VBNullType)
         {

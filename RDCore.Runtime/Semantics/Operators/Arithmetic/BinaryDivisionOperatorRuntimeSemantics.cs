@@ -25,7 +25,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
 {
-    protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs / rhs;
+    protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => lhs / rhs;
 
     protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver, 
@@ -57,19 +57,22 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        if (frame.EffectiveType is VBDecimalType)
+        if (frame.EffectiveType is VBDecimalType decimalEffectiveType)
         {
+            var lhsNumeric = (VBNumericTypedValue)lhs;
             var rhsNumeric = (VBNumericTypedValue)rhs;
             if (((VBRuntimeDecimalValue)rhsNumeric.RuntimeValue).ManagedValue == 0)
             {
                 return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
+
+            return EvaluateBinaryExpressionResult(decimalEffectiveType, lhsNumeric, rhsNumeric, expression);
         }
         else if (frame.EffectiveType is VBSingleType or VBDoubleType)
         {
             var lhsNumeric = (VBNumericTypedValue)lhs;
             var rhsNumeric = (VBNumericTypedValue)rhs;
-            if ((double)rhsNumeric.RuntimeValue.BoxedValue == 0)
+            if (rhsNumeric.AsDouble == 0)
             {
                 //if (lhsNumeric is VBDoubleValue && rhsNumeric is VBDoubleValue)
                 //{
@@ -82,12 +85,12 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
                 //    // and then let-assignment semantics would know what to do.
                 //}
 
-                return (double)lhsNumeric.RuntimeValue.BoxedValue == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
+                return lhsNumeric.AsDouble == 0 && !(lhs is VBSingleValue or VBDoubleValue or VBStringValue or VBDateValue && rhs is VBEmptyValue)
                     ? OnOverflow(expression, Exceptions.VBRuntimeError_ArithmeticOverflow)
                     : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
 
-            return EvaluateBinaryExpressionResult((VBNumericType)frame.EffectiveType, lhsNumeric, rhsNumeric);
+            return EvaluateBinaryExpressionResult((VBNumericType)frame.EffectiveType, lhsNumeric, rhsNumeric, expression);
         }
         else if (frame.EffectiveType is VBNullType)
         {

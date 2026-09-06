@@ -23,7 +23,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
 {
-    protected sealed override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs + rhs;
+    protected sealed override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs + rhs);
 
     protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver, 
@@ -48,12 +48,14 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
             case VBNumericType numericEffectiveType:
                 return EvaluateBinaryExpressionResult(numericEffectiveType,
                     (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
-                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]);
+                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand],
+                    expression);
 
             case VBDateType dateEffectiveType:
                 return EvaluateBinaryExpressionResult(dateEffectiveType,
                     (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
-                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand]);
+                    (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand],
+                    expression);
 
             case VBStringType stringEffectiveType:
                 // The result is the right operand string concatenated to the left operand string

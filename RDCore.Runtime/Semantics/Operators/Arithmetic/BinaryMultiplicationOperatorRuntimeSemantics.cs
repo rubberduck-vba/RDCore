@@ -22,7 +22,7 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
 {
-    protected override double EvaluateManagedNumericOp(double lhs, double rhs) => lhs * rhs;
+    protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs * rhs);
 
     protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver,
@@ -58,7 +58,7 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
             VBNumericType numericEffectiveType
                 when frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric
                   && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric
-                    => EvaluateBinaryExpressionResult(numericEffectiveType, lhsNumeric, rhsNumeric),
+                    => EvaluateBinaryExpressionResult(numericEffectiveType, lhsNumeric, rhsNumeric, expression),
 
             VBNullType => EvaluateNullBinaryExpressionResult(),
 
