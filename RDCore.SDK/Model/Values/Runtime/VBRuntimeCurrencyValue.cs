@@ -18,7 +18,7 @@ public readonly record struct VBRuntimeCurrencyValue : IRuntimeValue
     /// <summary>
     /// Gets the scaled decimal representation of the stored value.
     /// </summary>
-    public decimal Value => StoredValue / ScaleFactor;
+    public decimal Value => (decimal)StoredValue / ScaleFactor;
 
     /// <summary>
     /// Gets the scale factor.

@@ -18,9 +18,8 @@ public sealed class IntrinsicValueConstructorTests
         => Assert.AreEqual(5_000_000_000L, new VBLongLongValue(5_000_000_000L).Value);
 
     [TestMethod]
-    public void VBCurrencyValue_ManagedCtor_ScalesToStoredValue()
-        // asserts on the raw scaled long; VBRuntimeCurrencyValue.Value descaling is a separate concern.
-        => Assert.AreEqual(123456L, new VBCurrencyValue(12.3456m).Value.StoredValue);
+    public void VBCurrencyValue_ManagedCtor_RoundTrips()
+        => Assert.AreEqual(12.3456m, new VBCurrencyValue(12.3456m).Value.Value);
 
     [TestMethod]
     public void VBDecimalValue_ManagedCtor_RoundTrips()
