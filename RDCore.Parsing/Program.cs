@@ -36,12 +36,16 @@ public class Program
         {
             code = await host.RunAsync(args);
         }
-        finally
+        catch (Exception exception)
         {
-            host.Dispose();
+            Console.WriteLine(exception.ToString());
+            code = -1;
         }
-        // background threads can otherwise delay process exit.
-        Environment.Exit(code);
+
+        // the shutdown sequence is bounded and returns promptly; this only guards against a wedged
+        // background thread keeping the process alive past a clean exit.
+        ProcessWatchdog.Arm(code);
+        try { host.Dispose(); } catch (Exception exception) { Console.WriteLine(exception); }
         return code;
     }
 }
