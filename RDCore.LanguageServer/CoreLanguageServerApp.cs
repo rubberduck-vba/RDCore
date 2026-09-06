@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
@@ -32,6 +33,7 @@ internal sealed class CoreLanguageServerApp(
     ILanguageServerProtocolTransportLayer transportLayer,
     IWorkspaceService workspace,
     IParsingClientService parsing,
+    ISymbolSyncService symbolSync,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -59,7 +61,14 @@ internal sealed class CoreLanguageServerApp(
                         }
                     }))
             .RegisterCoreComponent(factory =>
-                factory.Create(CoreServerComponent.EnvironmentHost, new CorePlatformClientCapabilities()));
+                factory.Create(CoreServerComponent.EnvironmentHost,
+                    new CorePlatformClientCapabilities
+                    {
+                        EnvironmentHost = new EnvironmentHostCapabilities
+                        {
+                            DefineSymbols = new DefineSymbols(true)
+                        }
+                    }));
 
         LogIfEnabled(LogLevel.Information, "✅ Registered RDCore platform components");
 
@@ -189,8 +198,15 @@ internal sealed class CoreLanguageServerApp(
         _coreComponentBringUps.Add(BringUpCoreComponentAsync("parsing server", orchestration.ParsingService, _componentsCts.Token));
         _coreComponentBringUps.Add(BringUpCoreComponentAsync("environment host", orchestration.RuntimeEnvironment, _componentsCts.Token));
 
-        // once the parsing server is ready, parse every loaded workspace document and cache the ASTs.
-        _coreComponentBringUps.Add(parsing.ParseWorkspaceAsync(_componentsCts.Token));
+        // once the parsing server is ready, parse every loaded workspace document and cache the ASTs,
+        // then extract each module's symbols and define them in the environment host.
+        _coreComponentBringUps.Add(ParseWorkspaceThenSyncSymbolsAsync(_componentsCts.Token));
+    }
+
+    private async Task ParseWorkspaceThenSyncSymbolsAsync(CancellationToken token)
+    {
+        await parsing.ParseWorkspaceAsync(token);
+        await symbolSync.SyncWorkspaceAsync(token);
     }
 
     /// <summary>
