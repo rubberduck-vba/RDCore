@@ -7,9 +7,11 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
+using RDCore.CLI.Host;
 using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -18,6 +20,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
 namespace RDCore.CLI;
@@ -129,6 +132,15 @@ internal class RDCoreConsoleClientApp(
 /// </summary>
 internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreConsoleEnvironmentHostApp>
 {
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
+    {
+        base.ConfigureAdditionalExternalServices(services, configuration);
+
+        // the runtime session this host owns for the workspace it was launched against; composed on
+        // the LSP initialize handshake, then populated as the language server sends symbol descriptors.
+        services.AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
+    }
+
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
         builder.AddFile(System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"));
@@ -141,14 +153,53 @@ internal class RDCoreConsoleEnvironmentHostApp(
     IServerStateProvider serverStateProvider,
     IHealthCheckService<RDCoreConsoleEnvironmentHostApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
+    IProjectFileLoader projectFileLoader,
+    IEnvironmentSessionProvider sessionProvider,
     ILogger<RDCoreConsoleEnvironmentHostApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.EnvironmentHost;
 
-    // TODO (roadmap B): own the RD-VBA runtime environment; reference RDCore.Runtime; handle rdcore/host/symbols/define.
+    // TODO (roadmap B): handle rdcore/host/symbols/define.
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder) { }
-    protected override void ConfigureServices(IServiceCollection services) { }
+
+    // bridge the outer-container singleton into the language-server handler container so a handler
+    // resolves the same session provider the app composes on initialize.
+    protected override void ConfigureServices(IServiceCollection services)
+        => services.AddSingleton(sessionProvider);
+
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
+
+    /// <summary>
+    /// Composes the runtime session from the workspace the language server initialized against. A
+    /// load failure is logged, not fatal: the host still completes the handshake and can be sent
+    /// symbols afterwards.
+    /// </summary>
+    protected override async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
+    {
+        await ComposeSessionAsync(request);
+        await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
+    }
+
+    private async Task ComposeSessionAsync(InitializeParams request)
+    {
+        if (request.RootUri is null)
+        {
+            LogIfEnabled(LogLevel.Warning, "No RootUri in the initialize request; the runtime session will not be composed.");
+            return;
+        }
+
+        try
+        {
+            var project = await projectFileLoader.LoadAsync(request.RootUri.GetFileSystemPath());
+            sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
+            LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Error, $"❌ Runtime session could not be composed:\n{exception}");
+        }
+    }
+
     protected override void Dispose(bool disposing) { }
 }
