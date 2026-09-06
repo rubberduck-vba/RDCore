@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 
@@ -15,10 +14,10 @@ public sealed record class VBFixedSizeArrayValue : VBArrayValue
     /// </summary>
     /// <param name="dimensions">The lower and upper bound of each dimension.</param>
     /// <param name="itemType">The element type; <see cref="VBVariantType"/> when unspecified.</param>
-    public VBFixedSizeArrayValue((int uBound, int lBound)[] dimensions, VBType? itemType = null)
+    public VBFixedSizeArrayValue((int lBound, int uBound)[] dimensions, VBType? itemType = null)
         : base(dimensions, itemType ?? VBVariantType.TypeInfo) { }
 
     /// <summary>Creates a fixed-size array bound to <paramref name="handle"/> (currently inert).</summary>
-    public VBFixedSizeArrayValue(IBindingHandle handle, (int uBound, int lBound)[] dimensions, VBType? itemType = null)
+    public VBFixedSizeArrayValue(IBindingHandle handle, (int lBound, int uBound)[] dimensions, VBType? itemType = null)
         : base(handle, dimensions, itemType ?? VBVariantType.TypeInfo) { }
 }

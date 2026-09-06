@@ -137,7 +137,7 @@ An _array declaration_ creates an _array value_ of the appropriate _array type_ 
 - An array declaration _without_ dimension specifications creates a `VBResizableArrayValue`;
 - A _resizable array declaration_ that specifies a `Byte` _item type_ creates a `VBResizableByteArrayValue`.
 
-The declaration provides the number and size of each dimension (up to **60**). Array value _dimensions_ are initialized with the _default value_ of the declared _item type_ of the array; the specialized array values exist to simplify pattern-matching in both static and runtime semantics.  
+The declaration provides the number and size of each dimension (up to **60**). Each dimension records only its _lower_ and _upper bound_ (the operands of `LBound` and `UBound`); the specialized array values exist to simplify pattern-matching in both static and runtime semantics.
 
 > 👉 If no _item type_ is specified in the declaration, then the _declared item type_ of the array is `Variant`.
 
@@ -146,9 +146,9 @@ An _array value_ is considered _initialized_ when it has any number of dimension
 - The _upper bound_ of an _uninitialized array value_ is `-1`.
 - The _lower bound_ of an _uninitialized array value_ is dependent on the value of the `Option Base` directive, which is `0` by default but could be set to `1`.
 
-Each dimension of an _array value_ encapsulates a _managed array_ of the underlying _managed type_ of the _declared item type_.  
+The elements of an _array value_ are stored in a single flat block addressed in **column-major order** — the first subscript varies fastest, matching an OLE `SAFEARRAY` — so that a multi-dimensional array is a contiguous store rather than an array of per-dimension arrays. Each element is initialized to the _default value_ of the _declared item type_, and element storage is mutable.
 
-> 👉 Implementation may optimize certain specific array values for storage and performance. For example 2D arrays may be implemented in a way that optimizes their managed memory layout to avoid unnecessarily iterating individual dimensions for _copy_ operations.
+> 👉 The element block is a value-model detail today; the _environment host_ session is expected to move it to addressable session storage (a contiguous byte block per array), so that iteration and _copy_ operations can run directly against the underlying storage without materializing a `VBTypedValue` per element.
 
 
 #### 2.5.2.1.3 User-Defined Types (UDT) Values
