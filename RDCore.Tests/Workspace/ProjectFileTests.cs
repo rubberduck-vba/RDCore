@@ -1,7 +1,6 @@
-﻿using RDCore.LanguageServer;
-using RDCore.LanguageServer.Workspace;
-using RDCore.SDK.Extensibility;
+﻿using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server;
+using RDCore.SDK.Workspace;
 using System.Text.Json;
 
 namespace RDCore.Tests.Workspace;
@@ -235,6 +234,31 @@ public sealed class ProjectFileTests
         // assert
         Assert.IsTrue(result.IsDirty, "IsDirty flag was not set");
         Assert.IsFalse(result.ProjectInfo.Folders.Contains(TestFolder), "The folder was not removed.");
+    }
+
+    [TestMethod]
+    public void WithPrecompilerConstant_AddsWithDirtyFlag()
+    {
+        var sut = new ProjectFile(TestWorkspaceUri);
+
+        var result = sut.WithPrecompilerConstant("RDDEBUG", "1");
+
+        Assert.IsTrue(result.IsDirty, "IsDirty flag was not set");
+        Assert.AreEqual("1", result.ProjectInfo.PrecompilerConstants["rddebug"], "constant lookup is case-insensitive");
+    }
+
+    [TestMethod]
+    public void PrecompilerConstants_RoundTripThroughRdprojJson()
+    {
+        var sut = new ProjectFile(TestWorkspaceUri, new RDCoreProject
+        {
+            PrecompilerConstants = { ["RDDEBUG"] = "1", ["MODE"] = "\"debug\"" },
+        });
+
+        var result = JsonSerializer.Deserialize<ProjectFile>(JsonSerializer.Serialize(sut))!;
+
+        Assert.AreEqual("1", result.ProjectInfo.PrecompilerConstants["RDDEBUG"]);
+        Assert.AreEqual("\"debug\"", result.ProjectInfo.PrecompilerConstants["MODE"]);
     }
 
     [TestMethod]

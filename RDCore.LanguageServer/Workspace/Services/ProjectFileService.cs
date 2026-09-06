@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using RDCore.SDK.Workspace;
 using System.Text.Json;
 
 namespace RDCore.LanguageServer.Workspace.Services;

@@ -1,9 +1,13 @@
 ﻿using RDCore.SDK.Extensibility;
+using RDCore.SDK.Server;
 using System.Text.Json.Serialization;
 
-namespace RDCore.LanguageServer.Workspace;
+namespace RDCore.SDK.Workspace;
 
-internal sealed record class ProjectFile : IEquatable<ProjectFile>
+/// <summary>
+/// The in-memory model of a workspace's <c>.rdproj</c> project file.
+/// </summary>
+public sealed record class ProjectFile : IEquatable<ProjectFile>
 {
     /// <summary>
     /// The <c>ProjectFile</c> filename is the same for all instances.
@@ -19,7 +23,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = uri;
         ProjectInfo = project;
-        Version = CoreLanguageServerHost.Info.Version!.ToString(3);
+        Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
         IsDirty = false;
         Configuration = [];
     }
@@ -29,7 +33,7 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
 
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
-        Version = CoreLanguageServerHost.Info.Version!.ToString(3);
+        Version = AppHost<RDCoreServerApp>.Info.Version!.ToString(3);
         IsDirty = false;
         Configuration = source.Configuration;
     }
@@ -67,23 +71,35 @@ internal sealed record class ProjectFile : IEquatable<ProjectFile>
     public ProjectFile WithModule(RDCoreModule module) => this with { ProjectInfo = ProjectInfo.WithModule(module), IsDirty = true };
     public ProjectFile WithDocument(RDCoreFile document) => this with { ProjectInfo = ProjectInfo.WithDocument(document), IsDirty = true };
     public ProjectFile WithFolder(string folder) => this with { ProjectInfo = ProjectInfo.WithFolder(folder), IsDirty = true };
+    public ProjectFile WithPrecompilerConstant(string name, string value) => this with { ProjectInfo = ProjectInfo.WithPrecompilerConstant(name, value), IsDirty = true };
 
     public ProjectFile WithoutReference(RDCoreReference reference) => this with { ProjectInfo = ProjectInfo.WithoutReference(reference), IsDirty = true };
     public ProjectFile WithoutModule(RDCoreModule module) => this with { ProjectInfo = ProjectInfo.WithoutModule(module), IsDirty = true };
     public ProjectFile WithoutDocument(RDCoreFile document) => this with { ProjectInfo = ProjectInfo.WithoutDocument(document), IsDirty = true };
     public ProjectFile WithoutFolder(string folder) => this with { ProjectInfo = ProjectInfo.WithoutFolder(folder), IsDirty = true };
+    public ProjectFile WithoutPrecompilerConstant(string name) => this with { ProjectInfo = ProjectInfo.WithoutPrecompilerConstant(name), IsDirty = true };
 
     public override int GetHashCode() => Uri.GetHashCode();
     public bool Equals(ProjectFile? other) => other?.Uri is string uri && Uri.Equals(uri);
 }
 
-internal record class RDCoreProject
+/// <summary>
+/// The workspace structure and project-level configuration declared by a <c>.rdproj</c>.
+/// </summary>
+public record class RDCoreProject
 {
     public string Name { get; init; } = string.Empty;
     public RDCoreReference[] References { get; init; } = [RDCoreReference.VBStandardLibrary];
     public RDCoreModule[] Modules { get; init; } = [];
     public RDCoreFile[] OtherFiles { get; init; } = [];
     public string[] Folders { get; set; } = [];
+
+    /// <summary>
+    /// Project-level precompiler constants (<c>#Const</c>), keyed by name. The value is the literal
+    /// source text of the constant expression (e.g. <c>"1"</c>, <c>"-1"</c>, <c>"\"debug\""</c>).
+    /// CLI <c>--define</c> arguments override these.
+    /// </summary>
+    public Dictionary<string, string> PrecompilerConstants { get; init; } = [];
 
     public HashSet<string> GetWorkspaceFolders(string srcRoot) =>
         [
@@ -103,14 +119,18 @@ internal record class RDCoreProject
     public RDCoreProject WithModule(RDCoreModule module) => this with { Modules = [.. Modules, module] };
     public RDCoreProject WithDocument(RDCoreFile document) => this with { OtherFiles = [.. OtherFiles, document] };
     public RDCoreProject WithFolder(string folder) => this with { Folders = [.. Folders, folder] };
+    public RDCoreProject WithPrecompilerConstant(string name, string value)
+        => this with { PrecompilerConstants = new(PrecompilerConstants, StringComparer.OrdinalIgnoreCase) { [name] = value } };
 
     public RDCoreProject WithoutReference(RDCoreReference reference) => this with { References = [.. References.Where(r => r != reference)] };
     public RDCoreProject WithoutModule(RDCoreModule module) => this with { Modules = [.. Modules.Where(m => m != module)] };
     public RDCoreProject WithoutDocument(RDCoreFile document) => this with { OtherFiles = [.. OtherFiles.Where(d => d != document)] };
     public RDCoreProject WithoutFolder(string folder) => this with { Folders = [.. Folders.Where(f => f != folder)] };
+    public RDCoreProject WithoutPrecompilerConstant(string name)
+        => this with { PrecompilerConstants = new(PrecompilerConstants.Where(e => !string.Equals(e.Key, name, StringComparison.OrdinalIgnoreCase)), StringComparer.OrdinalIgnoreCase) };
 }
 
-internal sealed record class RDCoreReference : IEquatable<RDCoreReference>
+public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 {
     public static RDCoreReference VBStandardLibrary { get; } = new RDCoreReference
     {
@@ -136,7 +156,7 @@ internal sealed record class RDCoreReference : IEquatable<RDCoreReference>
     public bool Equals(RDCoreReference? other) => other?.Name is string name && Name.Equals(name);
 }
 
-internal record class RDCoreFile : IEquatable<RDCoreFile>
+public record class RDCoreFile : IEquatable<RDCoreFile>
 {
     public string RelativeUri { get; init; } = string.Empty;
 
@@ -151,7 +171,7 @@ internal record class RDCoreFile : IEquatable<RDCoreFile>
     public virtual bool Equals(RDCoreFile? other) => other?.RelativeUri is string uri && RelativeUri.Equals(uri);
 }
 
-internal enum DocClassType
+public enum DocClassType
 {
     Unknown = 0,
     ExcelWorkbook = 1,
@@ -160,7 +180,7 @@ internal enum DocClassType
     AccessReport = 4,
 }
 
-internal record class RDCoreModule : RDCoreFile
+public record class RDCoreModule : RDCoreFile
 {
     public DocClassType? Super { get; init; }
 }
