@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Server;
+using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Platform;
@@ -39,7 +40,9 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
             .AddSingleton<IDocumentStateProvider, DocumentStateProvider>()
             .AddSingleton<IWorkspaceDocumentService, WorkspaceDocumentService>()
             .AddSingleton<IWorkspaceService, WorkspaceService>()
-            .AddSingleton<IParsingClientService, ParsingClientService>();
+            .AddSingleton<IParsingClientService, ParsingClientService>()
+            // intrinsic-only type resolution until project/library symbols can be composed (Slice 4).
+            .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver, IntrinsicSymbolResolver>();
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

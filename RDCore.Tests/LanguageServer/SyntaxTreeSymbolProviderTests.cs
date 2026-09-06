@@ -67,6 +67,15 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
+    public void IntrinsicReturnType_ResolvesThroughTheIntrinsicResolver()
+    {
+        var symbol = Single<VBFunctionMemberSymbol>(Provide(
+            "Function Bar() As Long\r\nEnd Function", new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual(VBTypeNames.VBLong, symbol.ResolvedType.Name);
+    }
+
+    [TestMethod]
     public void Sub_Parameters_AreYieldedWithKindAndArity()
     {
         var symbol = Single<VBProcedureMemberSymbol>(Provide(
