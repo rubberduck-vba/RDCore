@@ -44,7 +44,7 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// that the least-significant digit is even.
     /// </summary>
     /// <param name="value">The numeric value to be rounded.</param>
-    public static int BankersRounding(VBNumericTypedValue value) => BankersRounding((double)value.RuntimeValue.BoxedValue);
+    public static int BankersRounding(VBNumericTypedValue value) => BankersRounding(value.AsDouble);
 
     /// <summary>
     /// A helper function to test if a given source numeric value is within the range of a destination data type.

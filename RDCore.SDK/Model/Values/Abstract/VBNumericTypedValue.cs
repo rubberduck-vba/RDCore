@@ -18,10 +18,11 @@ public abstract record class VBNumericTypedValue(VBType TypeInfo) : VBTypedValue
     public const int SignificantIntegerDigits = VBDoubleType.SignificantIntegerDigits;
 
     /// <summary>
-    /// Gets a copy of this value, with the specified underlying value.
+    /// The value as a managed <c>double</c>. A transitional accessor while the semantic layer still
+    /// computes on <c>double</c> for anything numeric — safe against the boxed-primitive cast that a
+    /// bare <c>(double)RuntimeValue.BoxedValue</c> would throw.
     /// </summary>
-    /// <remarks>
-    /// 💥<see cref="VBRuntimeErrorId.Overflow"/> may be raised as specified in the appropraite <em>run-time semantics</em> if the specified value is outside the bounds representable by the <see cref="VBType"/>.
-    /// </remarks>
+    public double AsDouble => Convert.ToDouble(RuntimeValue.BoxedValue);
+
     public override int GetHashCode() => RuntimeValue.GetHashCode();
 }

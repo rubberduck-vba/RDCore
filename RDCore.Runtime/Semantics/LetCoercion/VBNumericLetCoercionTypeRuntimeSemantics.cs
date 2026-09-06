@@ -29,7 +29,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                 // if the source value is within the range of the destination type, the result is a copy of the value.
                 => ValidateDestinationTypeRange(expression, frame, out var numericCoercionError)
                     ? LetCoercionResult.Success(
-                        frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(((VBNumericTypedValue)frame.SourceValue).RuntimeValue)))
+                        ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(((VBNumericTypedValue)frame.SourceValue).AsDouble))
                     : LetCoercionResult.Error(numericCoercionError),
 
             IFloatingPointNumericType or IFixedPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType
@@ -54,7 +54,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                 //      && !double.IsNaN(sourceValue.ManagedValue) && !double.IsInfinity(sourceValue.ManagedValue) 
                 => ValidateDestinationTypeRange(expression, frame, out var floatCoercionError)
                     ? LetCoercionResult.Success(
-                        frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(((VBNumericTypedValue)frame.SourceValue).RuntimeValue)))
+                        ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(((VBNumericTypedValue)frame.SourceValue).AsDouble))
                     : LetCoercionResult.Error(floatCoercionError),
 
             _ => LetCoercionResult.NotApplicable(frame)
