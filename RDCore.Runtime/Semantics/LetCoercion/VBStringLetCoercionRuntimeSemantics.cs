@@ -80,7 +80,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
     {
         if (DateTime.TryParse(stringSourceValue.Value, cultureInfo, out var dateValue))
         {
-            return LetCoercionResult.Success(VBTypedValueFactory.CreateValue(dateValue));
+            return LetCoercionResult.Success(new VBDateValue(dateValue.ToOADate()));
         }
 
         if (Decimal.TryParse(stringSourceValue.Value, cultureInfo, out var decimalValue))

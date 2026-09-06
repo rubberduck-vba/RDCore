@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -26,13 +27,13 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
         frame.DestinationTypeDesc.Target switch
         {
             VBNumericType numericType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateValue(new VBTypeDescValue(numericType), ((VBNumericTypedValue)frame.SourceValue).UnderlyingValue.RuntimeValue!)),
+                numericType.DefaultValue.WithValue(new VBRuntimeValueWrapper(((VBNumericTypedValue)frame.SourceValue).UnderlyingValue.RuntimeValue!))),
         
             VBBooleanType => LetCoercionResult.Success(VBBooleanValue.False),
 
-            VBDateType => LetCoercionResult.Success(VBTypedValueFactory.CreateValue(new VBTypeDescValue(VBDateType.TypeInfo), VBDateType.Zero.UnderlyingValue.RuntimeValue!)),
+            VBDateType => LetCoercionResult.Success(VBDateType.TypeInfo.DefaultValue.WithValue(new VBRuntimeValueWrapper(VBDateType.Zero.UnderlyingValue.RuntimeValue!))),
             VBFixedStringType fixedStringDestinationType => LetCoercionResult.Success(
-                VBTypedValueFactory.CreateValue(fixedStringDestinationType)!),
+                fixedStringDestinationType.DefaultValue),
 
             VBStringType => LetCoercionResult.Success(VBStringValue.ZeroLengthString),
         

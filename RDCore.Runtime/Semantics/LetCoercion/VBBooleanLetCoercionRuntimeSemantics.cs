@@ -26,18 +26,18 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
         {
             IFixedPointNumericType or IFloatingPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType and VBNumericType numericDestinationType
                 => ValidateDestinationTypeRange(expression, frame, out var error) 
-                    ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(numericDestinationType, (double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success((VBNumericTypedValue)((VBNumericTypedValue)numericDestinationType.DefaultValue).WithValue((double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             IIntegralNumericType when frame.DestinationTypeDesc.Target is IFixedPointNumericType or IFloatingPointNumericType
                 => ValidateDestinationTypeRange(expression, frame, out var error)
-                    ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(frame.DestinationTypeDesc.Target, (double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success((VBNumericTypedValue)((VBNumericTypedValue)frame.DestinationTypeDesc.Target.DefaultValue).WithValue((double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             // NOTE: MS-VBAL specifies this block first, but the pattern-matching would make the other blocks unreacheable.
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBNumericType numericDestinationType
                 => ValidateDestinationTypeRange(expression, frame, out var error)
-                    ? LetCoercionResult.Success(VBTypedValueFactory.CreateValue(numericDestinationType, (double)numericSourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success((VBNumericTypedValue)((VBNumericTypedValue)numericDestinationType.DefaultValue).WithValue((double)numericSourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             _ => LetCoercionResult.NotApplicable(frame)
