@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using System.Text.Json.Serialization;
 
 namespace RDCore.SDK.Model.Types.Abstract;
 
@@ -18,6 +19,12 @@ public abstract record class VBType
     /// <summary>
     /// The underlying managed (.net) type that represents this VB type, if any.
     /// </summary>
+    /// <remarks>
+    /// 👉 A runtime convenience, not serialized: an AST or symbol payload that crosses a process
+    /// boundary carries the type identity, and the receiving side resolves the singleton
+    /// <c>VBType</c> (and hence this) from it. <see cref="System.Type"/> is not JSON-serializable.
+    /// </remarks>
+    [JsonIgnore]
     public Type? ManagedType { get; init; }
 
     /// <summary>

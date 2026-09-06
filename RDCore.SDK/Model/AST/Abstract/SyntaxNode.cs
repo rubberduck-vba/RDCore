@@ -19,6 +19,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonPolymorphic]
 [JsonDerivedType(typeof(AnnotationTriviaNode), "AnnotationTrivia")]
 [JsonDerivedType(typeof(CommentTriviaNode), "CommentTrivia")]
+[JsonDerivedType(typeof(PrecompilerTriviaNode), "PrecompilerTrivia")]
 
 [JsonDerivedType(typeof(AttributeDirectiveNode), "AttributeDirective")]
 [JsonDerivedType(typeof(CallStatementNode), "CallStatement")]
@@ -30,6 +31,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(DoUntilLoopStatementNode), "DoUntilLoopStatement")]
 [JsonDerivedType(typeof(DoWhileLoopStatementNode), "DoWhileLoopStatement")]
 [JsonDerivedType(typeof(ElseIfBlockStatementNode), "ElseIfBlockStatement")]
+[JsonDerivedType(typeof(ElseBlockStatementNode), "ElseBlockStatement")]
 [JsonDerivedType(typeof(ErrorStatementNode), "ErrorStatement")]
 [JsonDerivedType(typeof(ExternalMemberDeclarationNode), "DeclareStatement")]
 [JsonDerivedType(typeof(ForEachStatementNode), "ForEachStatement")]
@@ -54,6 +56,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(TypeDefDirectiveNode), "TypeDefDirective")]
 [JsonDerivedType(typeof(VariableDeclarationNode), "Variable")]
 [JsonDerivedType(typeof(AsTypeExpressionNode), "AsTypeExpression")]
+[JsonDerivedType(typeof(VBTypedDeclarationExpressionNode), "TypedDeclarationExpression")]
 [JsonDerivedType(typeof(VBBinaryOperatorExpressionNode), "BinaryOpExpression")]
 [JsonDerivedType(typeof(VBDeclarationStatementNode), "DeclarationStatement")]
 [JsonDerivedType(typeof(LiteralExpressionNode), "LiteralExpression")]
@@ -67,6 +70,8 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(PrecompilerInlineIfStatementNode), "PrecompilerConditional")]
 [JsonDerivedType(typeof(PrecompilerIfBlockStatementNode), "PrecompilerConditionalBlock")]
 [JsonDerivedType(typeof(PrecompilerElseIfBlockStatementNode), "PrecompilerConditionalElseBlock")]
+[JsonDerivedType(typeof(PrecompilerElseBlockStatementNode), "PrecompilerConditionalElse")]
+[JsonDerivedType(typeof(PrecompilerNameExpressionNode), "PrecompilerName")]
 public abstract record class SyntaxNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children)
 {
     /// <summary>
