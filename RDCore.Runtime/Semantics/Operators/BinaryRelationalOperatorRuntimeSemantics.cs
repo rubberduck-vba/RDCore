@@ -53,8 +53,8 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasStandardErrorCodes);
         }
 
-        if (operands.Any(operand => operand.TypeInfo is IFloatingPointNumericType && (
-        double.IsNaN((double)operand.RuntimeValue.BoxedValue) || float.IsNaN((float)operand.RuntimeValue.BoxedValue))))
+        if (operands.Any(operand => operand.TypeInfo is IFloatingPointNumericType
+            && double.IsNaN(Convert.ToDouble(operand.RuntimeValue.BoxedValue))))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasNaNOperand);
         }
@@ -193,32 +193,37 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     {
         var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand];
         var rhs = frame.Operands[(int)InputIndex.BinaryRightOperand];
-        
+
+        // operands have been let-coerced to the effective type by the pipeline; the comparison is
+        // exact in that type's own representation (Long is lossless for every integral effective type).
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType)
         {
-            var result = ComparisonOp((long)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue, (long)((VBNumericTypedValue)rhs).RuntimeValue.BoxedValue);
+            var result = ComparisonOp(
+                Convert.ToInt64(((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue),
+                Convert.ToInt64(((VBNumericTypedValue)rhs).RuntimeValue.BoxedValue));
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBCurrencyType)
         {
-            var result = ComparisonOp(((VBRuntimeCurrencyValue)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue).Value, ((VBRuntimeCurrencyValue)((VBNumericTypedValue)rhs).RuntimeValue).Value);
+            var result = ComparisonOp(((VBCurrencyValue)lhs).Value.Value, ((VBCurrencyValue)rhs).Value.Value);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBDecimalType)
         {
-            var result = ComparisonOp(((VBRuntimeDecimalValue)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue).ManagedValue, ((VBRuntimeDecimalValue)((VBNumericTypedValue)rhs).RuntimeValue).ManagedValue);
+            var result = ComparisonOp(((VBDecimalValue)lhs).Value, ((VBDecimalValue)rhs).Value);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBSingleType or VBDoubleType)
         {
-            if (float.IsNaN((float)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue) || 
-                double.IsNaN((double)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue))
+            var lhsDouble = ((VBNumericTypedValue)lhs).AsDouble;
+            var rhsDouble = ((VBNumericTypedValue)rhs).AsDouble;
+            if (double.IsNaN(lhsDouble) || double.IsNaN(rhsDouble))
             {
-                return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression, 
+                return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression,
                     Exceptions.LetCoercionRuntimeErrorExceptionOverflow_Verbose));
             }
 
-            var result = ComparisonOp((double)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue, (double)((VBNumericTypedValue)rhs).RuntimeValue.BoxedValue);
+            var result = ComparisonOp(lhsDouble, rhsDouble);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
 
