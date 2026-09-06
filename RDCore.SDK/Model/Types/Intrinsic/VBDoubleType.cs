@@ -26,14 +26,14 @@ public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VB
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => ((VBRuntimeValue<double>)_minValue.Value.RuntimeValue).StoredValue;
+    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.RuntimeValue.BoxedValue);
 
     private static readonly Lazy<VBDoubleValue> _maxValue = new(() => new(double.MaxValue), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDoubleValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => ((VBRuntimeValue<double>)_maxValue.Value.RuntimeValue).StoredValue;
+    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.RuntimeValue.BoxedValue);
 
     private static readonly Lazy<VBDoubleValue> _zero = new(() => new(0d), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
