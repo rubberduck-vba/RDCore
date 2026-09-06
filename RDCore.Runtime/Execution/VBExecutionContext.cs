@@ -5,13 +5,10 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Runtime.Execution;
 
 /// <summary>
-/// Represents and encapsulates the execution environment and memory space.
+/// Represents and encapsulates the execution environment for a bound node evaluation.
 /// </summary>
-public sealed class VBExecutionContext(IVirtualHeap memory, StackManager<CallStackFrame> stack) : IVBExecutionContext
+public sealed class VBExecutionContext(IRuntimeSession session, StackManager<CallStackFrame> stack) : IVBExecutionContext
 {
-    required public bool Is64Bit { get; init; }
-
-    IVirtualHeap IVBExecutionContext.Memory { get; } = memory;
-    private IVirtualHeap Memory => ((IVBExecutionContext)this).Memory;
+    public IRuntimeSession Session { get; } = session;
     private StackManager<CallStackFrame> Stack { get; } = stack;
 }

@@ -1,4 +1,5 @@
-﻿namespace RDCore.Runtime.Execution.Memory;
+﻿using RDCore.SDK.Runtime.Shared;
+namespace RDCore.Runtime.Execution.Memory;
 
 internal class SessionMemoryBlockSizeComparer : IComparer<SessionMemoryBlock>
 {

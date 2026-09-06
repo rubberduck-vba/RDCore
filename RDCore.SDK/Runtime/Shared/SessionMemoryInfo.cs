@@ -1,4 +1,4 @@
-﻿namespace RDCore.Runtime.Execution.Memory;
+﻿namespace RDCore.SDK.Runtime.Shared;
 
 public record struct SessionMemoryInfo(
     int ReservedSegmentBytes, 

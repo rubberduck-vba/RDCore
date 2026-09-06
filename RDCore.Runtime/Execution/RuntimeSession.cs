@@ -1,20 +1,14 @@
-﻿using RDCore.Runtime.Execution.Memory;
-using RDCore.SDK.Model;
+﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
-using System.Diagnostics.CodeAnalysis;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("RDCore.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 namespace RDCore.Runtime.Execution;
 
-public interface IRuntimeSession
-{
-    bool Is64Bit { get; }
-    ISessionMemoryAllocator Memory { get; }
-}
 internal sealed class RuntimeSession(ISessionMemoryAllocator memory, ISessionSymbols symbols, ISessionObjects objects) : IRuntimeSession
 {
     public bool Is64Bit { get; init; }
@@ -23,13 +17,6 @@ internal sealed class RuntimeSession(ISessionMemoryAllocator memory, ISessionSym
     public ISessionObjects Objects { get; init; } = objects;
 }
 
-public interface ISessionObjects
-{
-    VBRuntimeObjectId CreateObject();
-    bool TryRemoveObject(VBRuntimeObjectId instance);
-    void AddRef(VBRuntimeObjectId instance, IBindingHandle handle);
-    int RemoveRef(VBRuntimeObjectId instance, IBindingHandle handle);
-}
 internal sealed class SessionObjects : ISessionObjects
 {
     private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
@@ -81,11 +68,6 @@ internal sealed class SessionObjects : ISessionObjects
     }
 }
 
-public interface ISessionSymbols
-{
-    bool TryDefine(Symbol symbol, ScopeKind scope);
-    bool TryResolve(string name, Symbol scope, out Symbol? symbol);
-}
 internal sealed class SessionSymbols : ISessionSymbols
 {
     private readonly HashSet<Symbol> _globalSymbols = [];
