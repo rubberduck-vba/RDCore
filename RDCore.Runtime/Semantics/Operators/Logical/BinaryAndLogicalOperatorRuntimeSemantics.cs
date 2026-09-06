@@ -43,7 +43,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // already determined, but the method still needs an override.
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        IVBExecutionContext context, 
+        ISymbolResolver resolver, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {

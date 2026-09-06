@@ -91,7 +91,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
     }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         ConcatOperationSemanticContext context, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame) =>

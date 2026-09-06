@@ -59,7 +59,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -69,14 +69,14 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
 
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
         {
-            var lhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(runtime.Memory, expression, new(
+            var lhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
                 NodeId: expression.Identity, 
                 OperandIndex: InputIndex.BinaryLeftOperand, 
                 SourceValue: lhs, 
                 DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
             var lhsValue = lhsCoercion.Result as VBNumericTypedValue;
 
-            var rhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(runtime.Memory, expression, new(
+            var rhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
                 NodeId: expression.Identity,
                 OperandIndex: InputIndex.BinaryRightOperand,
                 SourceValue: rhs,
@@ -100,7 +100,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             return EvaluateNullBinaryExpressionResult();
         }
 
-        return EvaluateSemanticallly(runtime, expression, frame);
+        return EvaluateSemanticallly(resolver, expression, frame);
     }
 
     /// <summary>
@@ -111,7 +111,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// Base implementation has already handled the case where both operands are <see cref="IIntegralNumericType"/>, and the case where they're both <see cref="VBNullValue"/>.
     /// </remarks>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        IVBExecutionContext context, 
+        ISymbolResolver resolver, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame);
 

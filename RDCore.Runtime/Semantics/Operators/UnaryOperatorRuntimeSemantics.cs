@@ -107,6 +107,6 @@ where TFlags : struct, Enum
     /// This implementation satifies the specifiations of every defined unary operator with regards to <c>VBNullValue</c> operands.
     /// </remarks>
     /// <returns>An evaluation result containing the value <c>VBNullValue.Null</c>.</returns>
-    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(IVBExecutionContext runtime, VBUnaryOperatorExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
+    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(ISymbolResolver resolver, VBUnaryOperatorExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
         RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
 }

@@ -38,7 +38,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
         };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -62,14 +62,14 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
 
                 var leftOperand = frame[InputIndex.BinaryLeftOperand];
                 var leftCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(
-                    resolver: runtime.Memory, 
+                    resolver: resolver, 
                     expression: expression, 
                     frame: new(expression.Identity, InputIndex.BinaryLeftOperand, leftOperand, 
                         new VBTypeDescValue(stringEffectiveType)));
 
                 var rightOperand = frame[InputIndex.BinaryRightOperand];
                 var rightCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(
-                    resolver: runtime.Memory,
+                    resolver: resolver,
                     expression: expression,
                     frame: new(expression.Identity, InputIndex.BinaryRightOperand, rightOperand,
                         new VBTypeDescValue(stringEffectiveType)));

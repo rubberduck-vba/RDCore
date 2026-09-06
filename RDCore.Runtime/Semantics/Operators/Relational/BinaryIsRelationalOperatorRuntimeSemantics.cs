@@ -36,7 +36,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.Success(VBBooleanType.TypeInfo);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame)

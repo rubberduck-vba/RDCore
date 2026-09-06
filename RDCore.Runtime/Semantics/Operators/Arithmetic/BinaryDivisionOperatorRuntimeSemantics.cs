@@ -49,7 +49,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)

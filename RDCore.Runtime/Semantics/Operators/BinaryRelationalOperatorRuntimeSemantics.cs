@@ -186,7 +186,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame)

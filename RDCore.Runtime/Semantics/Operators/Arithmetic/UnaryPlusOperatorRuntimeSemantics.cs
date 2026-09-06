@@ -43,7 +43,7 @@ public sealed record class UnaryPlusOperatorRuntimeSemantics(
         };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         UnaryArithmeticOperatorSemanticContext context,
         VBOperatorExpression expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

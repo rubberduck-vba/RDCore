@@ -28,7 +28,7 @@ public record class BinarySubtractionOperatorRuntimeSematics(
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // no operator-specific overrides
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

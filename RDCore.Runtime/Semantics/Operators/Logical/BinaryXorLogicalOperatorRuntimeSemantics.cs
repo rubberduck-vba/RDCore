@@ -24,7 +24,7 @@ public record class BinaryXorLogicalOperatorRuntimeSemantics(
     protected override double EvaluateBitwiseOp(int lhs, int rhs) => (long)lhs ^ (long)rhs;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        IVBExecutionContext context,
+        ISymbolResolver resolver,
         VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
     {

@@ -37,7 +37,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
     protected override double EvaluateNumericOp(double operand) => 0 - operand;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         UnaryArithmeticOperatorSemanticContext context,
         VBOperatorExpression expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

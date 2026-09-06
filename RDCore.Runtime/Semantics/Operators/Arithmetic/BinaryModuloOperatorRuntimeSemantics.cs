@@ -26,7 +26,7 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
 {
     protected override double EvaluateManagedNumericOp(double lhs, double rhs) => Math.DivRem((int)lhs, (int)rhs).Remainder;
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        IVBExecutionContext runtime,
+        ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -35,8 +35,8 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
             && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsNumeric 
             && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsNumeric)
         {
-            var lhs = (double)lhsNumeric.Handle.GetValue(runtime).BoxedValue;
-            var rhs = (double)rhsNumeric.Handle.GetValue(runtime).BoxedValue;
+            var lhs = lhsNumeric.AsDouble;
+            var rhs = rhsNumeric.AsDouble;
 
             if (rhs == 0d)
             {

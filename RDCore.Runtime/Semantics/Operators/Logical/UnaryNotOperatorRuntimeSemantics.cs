@@ -25,7 +25,7 @@ public record class UnaryNotOperatorRuntimeSemantics(
 {
     protected override double EvaluateBitwiseOp(double operand) => ~(long)operand;
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(IVBExecutionContext runtime,
+    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(ISymbolResolver resolver,
         UnaryLogicalOperatorSemanticContext context,
         VBOperatorExpression expression,
         OperatorEvaluationFrame frame) =>
