@@ -16,7 +16,7 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ParsingClientServiceTests
 {
-    private const string Root = @"C:\ws";
+    private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
 
     private static ModuleParseResult SampleResult
         => new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub");

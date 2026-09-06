@@ -13,7 +13,8 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
-    private const string Root = @"C:\ws";
+    // an absolute path the MockFileSystem accepts on both Windows and the Linux CI runner.
+    private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
     private static readonly string ProjectFilePath = Path.Combine(Root, ProjectFile.FileName);
 
     private static MockFileSystem FileSystemWith(params (string RelativePath, string Content)[] files)
