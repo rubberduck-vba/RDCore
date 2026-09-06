@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types.Complex;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -14,7 +15,14 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
 public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
-    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier) { }
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier)
+{
+    /// <summary>
+    /// The event's declared parameters, in declaration order. An <c>Event</c> has no body, so these
+    /// describe the signature a handler must match.
+    /// </summary>
+    public ImmutableArray<VBParameterSymbol> Parameters { get; init; } = [];
+}
 
 /// <summary>
 /// Represents an unbound <c>Event</c> declaration symbol.

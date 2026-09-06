@@ -181,12 +181,24 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
-    public void Event_YieldsEventSymbol()
+    public void Event_YieldsEventSymbol_WithParameters()
     {
         var symbol = Single<VBEventMemberSymbol>(Provide("Public Event Changed(ByVal NewValue As Long)"));
 
         Assert.AreEqual("Changed", symbol.Name);
         Assert.AreEqual(SymbolKindExt.Event, symbol.Kind);
+        Assert.HasCount(1, symbol.Parameters);
+        Assert.AreEqual("NewValue", symbol.Parameters[0].Name);
+        Assert.AreEqual(symbol.Uri, symbol.Parameters[0].ParentUri);
+    }
+
+    [TestMethod]
+    public void PropertyGet_ReturnType_ResolvesThroughTheResolver()
+    {
+        var getter = Single<VBPropertyGetMemberSymbol>(Provide(
+            "Public Property Get Label() As String\r\nEnd Property", new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual(VBTypeNames.VBString, getter.ResolvedType.Name);
     }
 
     [TestMethod]
@@ -211,7 +223,7 @@ public sealed class SyntaxTreeSymbolProviderTests
 
         var symbols = Provide(source);
         var type = Single<VBUserDefinedTypeMemberSymbol>(symbols);
-        var fields = symbols.OfType<VBModuleFieldVariableMemberSymbol>().ToArray();
+        var fields = symbols.OfType<VBUserDefinedTypeFieldSymbol>().ToArray();
 
         Assert.AreEqual("TPoint", type.Name);
         Assert.AreEqual(SymbolKindExt.UserDefinedType, type.Kind);

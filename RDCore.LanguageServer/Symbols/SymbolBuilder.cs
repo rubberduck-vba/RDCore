@@ -20,6 +20,12 @@ namespace RDCore.LanguageServer.Symbols;
 /// resolver with intrinsic/library/project symbols is available; a type reference that doesn't
 /// resolve stays <see cref="VBUnknownType"/>.
 /// </summary>
+/// <remarks>
+/// Deferred, pending decisions the author owns: members are all <see cref="ScopeKind.Instance"/> and
+/// <c>Declare</c>s <see cref="ScopeKind.External"/> regardless of the module kind (a runtime-model
+/// call); and <c>Const Foo$</c> loses its type-declaration character because
+/// <c>ConstantDeclarationNode</c> has no type-hint field (a parser change).
+/// </remarks>
 internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolResolver resolver)
 {
     // MS-VBAL 3.3.2 type-declaration characters name a reserved type the resolver can bind.
@@ -61,7 +67,11 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
         var range = RangeOf(node);
         var symbol = new VBPropertyGetMemberSymbol(
             workspaceRoot, moduleUri, ScopeKind.Instance, node.Name, range, range, node.AccessModifier);
-        return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
+        return symbol with
+        {
+            ResolvedType = ReturnType(node, symbol.Uri),
+            Parameters = BuildParameters(node, symbol.Uri),
+        };
     }
 
     public Symbol BuildPropertyLet(MemberDeclarationNode node)
@@ -106,7 +116,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     public Symbol BuildEvent(MemberDeclarationNode node)
     {
         var range = RangeOf(node);
-        return new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, range, range, node.AccessModifier);
+        var symbol = new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, range, range, node.AccessModifier);
+        return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
 
     public Symbol BuildUserDefinedType(MemberDeclarationNode node)
@@ -157,7 +168,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), typeHint: null, userDefinedTypeUri);
-        return new VBModuleFieldVariableMemberSymbol(
+        return new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier);
     }
 

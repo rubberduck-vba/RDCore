@@ -40,7 +40,6 @@ internal static class SymbolDescriptorProjector
     private static SymbolDescriptor Describe(Symbol symbol, SymbolDescriptorKind kind, IEnumerable<Symbol> children)
     {
         var accessible = symbol as AccessibleTypedSymbol;
-        var childKind = kind == SymbolDescriptorKind.UserDefinedType ? SymbolDescriptorKind.UserDefinedTypeField : (SymbolDescriptorKind?)null;
 
         return new SymbolDescriptor
         {
@@ -52,7 +51,7 @@ internal static class SymbolDescriptorProjector
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
             Parameters = ParametersOf(symbol),
-            Members = [.. children.Select(child => Describe(child, childKind ?? KindOf(child), []))],
+            Members = [.. children.Select(child => Describe(child, KindOf(child), []))],
             External = ExternalOf(symbol),
         };
     }
@@ -72,6 +71,7 @@ internal static class SymbolDescriptorProjector
         VBEnumMemberSymbol => SymbolDescriptorKind.Enum,
         VBEnumConstMemberSymbol => SymbolDescriptorKind.EnumMember,
         VBConstantMemberSymbol => SymbolDescriptorKind.ModuleConstant,
+        VBUserDefinedTypeFieldSymbol => SymbolDescriptorKind.UserDefinedTypeField,
         VBModuleFieldVariableMemberSymbol => SymbolDescriptorKind.ModuleField,
         _ => SymbolDescriptorKind.ModuleField,
     };
@@ -87,6 +87,7 @@ internal static class SymbolDescriptorProjector
         {
             VBReturningMemberSymbol returning => returning.Parameters,
             VBProcedureMemberSymbol procedure => procedure.Parameters,
+            VBEventMemberSymbol @event => @event.Parameters,
             _ => [],
         };
         if (parameters.IsDefaultOrEmpty)

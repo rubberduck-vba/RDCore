@@ -118,9 +118,12 @@ public static class SymbolDescriptorReader
                 break;
             }
             case SymbolDescriptorKind.Event:
-                yield return new VBEventMemberSymbol(
+            {
+                var evt = new VBEventMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Range, node.SelectionRange, node.AccessModifier);
+                yield return evt with { Parameters = Parameters(evt.Uri) };
                 break;
+            }
 
             case SymbolDescriptorKind.UserDefinedType:
             {
@@ -178,7 +181,7 @@ public static class SymbolDescriptorReader
             ? resolved
             : VBUnknownType.TypeInfo;
 
-        return new VBModuleFieldVariableMemberSymbol(
+        return new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, field.Name, type, field.Range, field.SelectionRange, field.AccessModifier);
     }
 

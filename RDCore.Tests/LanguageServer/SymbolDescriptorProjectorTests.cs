@@ -98,6 +98,26 @@ public sealed class SymbolDescriptorProjectorTests
     }
 
     [TestMethod]
+    public void PropertyGet_CarriesIntrinsicReturnTypeName()
+    {
+        var descriptor = Project("Public Property Get Label() As String\r\nEnd Property").Single();
+
+        Assert.AreEqual(SymbolDescriptorKind.PropertyGet, descriptor.Kind);
+        Assert.AreEqual("String", descriptor.DeclaredTypeName);
+    }
+
+    [TestMethod]
+    public void Event_CarriesItsParameters()
+    {
+        var descriptor = Project("Public Event Changed(ByVal NewValue As Long)").Single();
+
+        Assert.AreEqual(SymbolDescriptorKind.Event, descriptor.Kind);
+        Assert.AreEqual(1, descriptor.Parameters.Length);
+        Assert.AreEqual("NewValue", descriptor.Parameters[0].Name);
+        Assert.AreEqual("Long", descriptor.Parameters[0].DeclaredTypeName);
+    }
+
+    [TestMethod]
     public void PropertyGetAndLet_ProjectAsDistinctKinds()
     {
         var descriptors = Project("""

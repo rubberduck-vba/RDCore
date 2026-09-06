@@ -92,10 +92,26 @@ public sealed class SymbolDescriptorReaderTests
 
         Assert.AreEqual(3, symbols.Length);
         var udt = (VBUserDefinedTypeMemberSymbol)symbols[0];
-        var fields = symbols.OfType<VBModuleFieldVariableMemberSymbol>().ToArray();
+        var fields = symbols.OfType<VBUserDefinedTypeFieldSymbol>().ToArray();
         Assert.AreEqual(2, fields.Length);
         Assert.IsTrue(fields.All(f => f.ParentUri == udt.Uri));
         Assert.IsTrue(fields.All(f => f.ResolvedType.Name == VBTypeNames.VBLong));
+    }
+
+    [TestMethod]
+    public void Event_ReconstructsWithParametersParentedToTheEvent()
+    {
+        var evt = (VBEventMemberSymbol)Read(new SymbolDescriptor
+        {
+            Name = "Changed",
+            Kind = SymbolDescriptorKind.Event,
+            Parameters = [new ParameterDescriptor { Name = "NewValue", DeclaredTypeName = "Long" }],
+        }).Single();
+
+        Assert.AreEqual(1, evt.Parameters.Length);
+        Assert.AreEqual("NewValue", evt.Parameters[0].Name);
+        Assert.AreEqual(evt.Uri, evt.Parameters[0].ParentUri);
+        Assert.AreEqual(VBTypeNames.VBLong, evt.Parameters[0].ResolvedType.Name);
     }
 
     [TestMethod]
