@@ -93,7 +93,6 @@ public abstract record class VBDeferredType : VBType, IVBDeferrableType
         Uri = uri;
     }
 
-    public override int Size => sizeof(int);
 
     public Uri Uri { get; init; }
 

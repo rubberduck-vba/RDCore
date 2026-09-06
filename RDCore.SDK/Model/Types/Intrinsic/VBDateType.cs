@@ -60,5 +60,4 @@ public sealed record class VBDateType() : VBIntrinsicType<DateTime>(VBTypeNames.
     /// </summary>
     public static VBDateValue Zero => _zero.Value;
 
-    public override int Size => sizeof(double);
 }

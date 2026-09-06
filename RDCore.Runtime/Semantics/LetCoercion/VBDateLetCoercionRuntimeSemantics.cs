@@ -62,12 +62,12 @@ public record class VBDateLetCoercionRuntimeSemantics(
         var destinationType = frame.DestinationTypeDesc.Target;
         builder.AddLetCoercionFlags(ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
         {
-            VBDateValue when destinationType is VBNumericType or VBBooleanType && destinationType.Size < VBDoubleType.TypeInfo.Size
+            VBDateValue when destinationType is VBNumericType or VBBooleanType && destinationType.DefaultValue.Size < VBDoubleType.TypeInfo.DefaultValue.Size
                 => ConversionSemanticFlags.DateSerial | ConversionSemanticFlags.Narrowing,
             VBDateValue when destinationType is VBNumericType or VBBooleanType
                 => ConversionSemanticFlags.DateSerial,
 
-            VBNumericTypedValue or VBBooleanValue when destinationType is VBDateType && frame.SourceValue.Size < VBDoubleType.TypeInfo.Size
+            VBNumericTypedValue or VBBooleanValue when destinationType is VBDateType && frame.SourceValue.Size < VBDoubleType.TypeInfo.DefaultValue.Size
                 => ConversionSemanticFlags.Numeric | ConversionSemanticFlags.Widening,
             VBNumericTypedValue or VBBooleanValue when destinationType is VBDateType
                 => ConversionSemanticFlags.Numeric,

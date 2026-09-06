@@ -48,12 +48,12 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric | ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
         {
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBNumericType numericDestinationType
-                && numericSourceValue.Size > numericDestinationType.Size
+                && numericSourceValue.Size > numericDestinationType.DefaultValue.Size
                 && ValidateDestinationTypeRange(expression, frame, out _)
                     => ConversionSemanticFlags.Narrowing,
 
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBNumericType numericDestinationType
-                && numericSourceValue.Size < numericDestinationType.Size
+                && numericSourceValue.Size < numericDestinationType.DefaultValue.Size
                 && ValidateDestinationTypeRange(expression, frame, out _)
                     => ConversionSemanticFlags.Widening,
 

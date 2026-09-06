@@ -21,5 +21,4 @@ public sealed record class VBNullType() : VBIntrinsicType<int>(VBTypeNames.VBNul
 
     private static readonly Lazy<VBNullValue> _defaultValue = new(() => VBNullValue.Null, LazyThreadSafetyMode.PublicationOnly);
     public override VBNullValue DefaultValue => _defaultValue.Value;
-    public override int Size => sizeof(int);
 }

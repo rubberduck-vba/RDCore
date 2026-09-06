@@ -13,7 +13,6 @@ public abstract record class VBProjectType(string Name, Uri Uri, ProjectTypeId P
 {
     private static readonly Lazy<VBTypedValue> _defaultValue = new(() => VBLongPtrType_x86.TypeInfo.DefaultValue, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
-    public override int Size => sizeof(int);
 
     /// <summary>
     /// An immutable array containing a <c>Uri</c> identifying each module in this library.

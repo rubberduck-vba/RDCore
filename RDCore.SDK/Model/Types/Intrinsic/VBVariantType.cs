@@ -27,5 +27,4 @@ public sealed record class VBVariantType(VBType SubType) : VBIntrinsicType<objec
     /// </summary>
     public VBType Subtype => SubType;
 
-    public override int Size => sizeof(int); // FIXME this is a lie
 }

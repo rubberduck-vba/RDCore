@@ -45,5 +45,4 @@ public record class VBCurrencyType() : VBNumericType<VBRuntimeCurrencyValue>(VBT
     public static VBCurrencyValue Zero => _zero.Value;
 
 
-    public override int Size => sizeof(decimal);
 }

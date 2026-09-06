@@ -46,5 +46,4 @@ public record class VBLongType() : VBNumericType<int>(VBTypeNames.VBLong), IInte
     public static VBLongValue Zero => _zero.Value;
 
     public override VBTypedValue DefaultValue => VBLongType.Zero;
-    public override int Size => sizeof(int);
 }

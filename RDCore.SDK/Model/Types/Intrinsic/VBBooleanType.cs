@@ -27,5 +27,4 @@ public sealed record class VBBooleanType() : VBIntrinsicType<VBRuntimeBooleanVal
     /// </summary>
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(short);
 }

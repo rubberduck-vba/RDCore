@@ -21,5 +21,4 @@ public record class VBVoidType() : VBType(typeof(int), VBTypeNames.VBVoid, isHid
     private readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => 0;
 }

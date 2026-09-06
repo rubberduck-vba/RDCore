@@ -12,7 +12,6 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// <param name="Name">The <em>identifier name</em> of the member.</param>
 public abstract record class VBMemberDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBType(typeof(Type), Name, isHidden: true)
 {
-    public override int Size => sizeof(int);
 
     // NOTE: a value of this type is VBUnknown until determined with name resolution semantics.
     private static readonly Lazy<VBTypedValue> _defaultValue = new(() => VBUnknownValue.DefaultValue, LazyThreadSafetyMode.PublicationOnly);

@@ -50,5 +50,4 @@ public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle),
     /// </summary>
     public static VBSingleValue Zero => _zero.Value;
 
-    public override int Size => sizeof(float);
 }

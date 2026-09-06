@@ -25,12 +25,4 @@ public abstract record class VBArrayType(VBType ItemType) :
     /// Gets an empty (uninitialized) <c>VBResizableArrayValue</c>.
     /// </summary>
     public override VBTypedValue DefaultValue => _defaultValue.Value;
-
-    /// <summary>
-    /// The size of an array pointer.
-    /// </summary>
-    /// <remarks>
-    /// You may be looking for <c>VBArrayValue.Size</c>.
-    /// </remarks>
-    public override int Size => sizeof(int);
 }

@@ -43,12 +43,4 @@ public abstract record class VBType
     /// Failure to do so would lock up the static context initialization of the <c>StaticSymbol</c> symbols.
     /// </remarks>
     public abstract VBTypedValue DefaultValue { get; }
-
-    /// <summary>
-    /// The size (in bytes) of a value of this type.
-    /// </summary>
-    /// <remarks>
-    /// Determines the length of the allocated memory space for a value of this type.
-    /// </remarks>
-    public abstract int Size { get; }
 }

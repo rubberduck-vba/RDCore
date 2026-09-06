@@ -53,5 +53,4 @@ public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VB
     /// </summary>
     public static VBIntegerValue NegativeOne => _negativeOne.Value;
 
-    public override int Size => sizeof(short);
 }

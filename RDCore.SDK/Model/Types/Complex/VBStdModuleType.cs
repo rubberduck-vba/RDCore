@@ -34,7 +34,6 @@ public record class VBStdModuleType(string Name, bool IsHidden = false) : VBType
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
 
-    public override int Size => 0; // TODO compute the size of the address space of the module?
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];

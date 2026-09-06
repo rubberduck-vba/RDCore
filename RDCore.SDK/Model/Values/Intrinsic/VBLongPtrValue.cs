@@ -17,12 +17,12 @@ public sealed record class VBLongPtrValue(bool Is64Bit)
     public VBLongPtrValue(long value) : this(true)
     {
         UnderlyingValue = new(new VBRuntimeValue<long>(value));
-        Size = VBLongPtrType_x64.TypeInfo.Size;
+        Size = VBLongPtrType_x64.BitnessAwarePtrSize;
     }
     public VBLongPtrValue(int value) : this(true)
     {
         UnderlyingValue = new(new VBRuntimeValue<int>(value));
-        Size = VBLongPtrType_x86.TypeInfo.Size;
+        Size = VBLongPtrType_x86.BitnessAwarePtrSize;
     }
 
     public long Value => (long)UnderlyingValue.RuntimeValue!.BoxedValue;

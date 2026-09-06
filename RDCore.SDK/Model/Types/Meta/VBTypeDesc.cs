@@ -19,5 +19,4 @@ public sealed record class VBTypeDesc(string Name) : VBType(typeof(Type), Name, 
     private static readonly Lazy<VBTypeDescValue> _defaultValue = new(() => new VBTypeDescValue(VBVariantType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
 }

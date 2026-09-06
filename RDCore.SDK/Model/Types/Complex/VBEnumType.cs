@@ -21,7 +21,6 @@ public sealed record class VBEnumType(Symbol Symbol, bool IsHidden = false) : VB
     private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];

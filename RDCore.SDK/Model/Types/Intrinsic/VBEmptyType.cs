@@ -22,5 +22,4 @@ public sealed record class VBEmptyType() : VBIntrinsicType<int>(VBTypeNames.VBEm
     private static readonly Lazy<VBEmptyValue> _defaultValue = new(() => VBEmptyValue.Empty, LazyThreadSafetyMode.PublicationOnly);
     public override VBEmptyValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
 }

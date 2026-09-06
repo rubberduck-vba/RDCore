@@ -21,9 +21,4 @@ public record class VBStringType() : VBIntrinsicType<string?>(VBTypeNames.VBStri
 
     private static readonly Lazy<VBStringValue> _defaultValue = new(() => VBStringValue.VBNullString, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
-
-    /// <summary>
-    /// Gets the size of a string pointer.
-    /// </summary>
-    public override int Size => sizeof(int);
 }

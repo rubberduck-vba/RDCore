@@ -26,5 +26,4 @@ public record class VBMissingType() : VBIntrinsicType<int>(VBTypeNames.VBMissing
     private static readonly Lazy<VBMissingValue> _defaultValue = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public override VBMissingValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
 }

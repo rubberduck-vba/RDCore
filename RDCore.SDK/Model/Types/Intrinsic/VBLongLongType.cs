@@ -49,5 +49,4 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), 
     /// </summary>
     public static VBLongLongValue Zero => _zeroValue.Value;
 
-    public override int Size => sizeof(long);
 }

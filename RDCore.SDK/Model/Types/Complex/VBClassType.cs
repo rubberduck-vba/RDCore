@@ -14,7 +14,6 @@ namespace RDCore.SDK.Model.Types.Complex;
 public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTypeMemberSymbol> Members, bool IsHidden = false) 
     : VBType(typeof(object), Symbol.Name, IsHidden), IVBMemberOwnerType
 {
-    public override int Size => sizeof(int);
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.

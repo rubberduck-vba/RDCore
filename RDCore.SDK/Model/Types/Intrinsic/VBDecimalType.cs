@@ -45,5 +45,4 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
     /// </summary>
     public static VBDecimalValue Zero => _zero.Value;
 
-    public override int Size => 14; // NOTE: managed decimal is 16.
 }

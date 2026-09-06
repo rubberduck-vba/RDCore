@@ -51,5 +51,4 @@ public sealed record class VBErrorType() : VBIntrinsicType<int>(VBTypeNames.VBEr
     /// </summary>
     public static int MaximumStdErrorValue => ushort.MaxValue;
 
-    public override int Size => sizeof(int);
 }

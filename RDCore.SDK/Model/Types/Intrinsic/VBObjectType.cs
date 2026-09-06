@@ -23,5 +23,4 @@ public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    public override int Size => sizeof(int);
 }

@@ -20,7 +20,6 @@ public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMember
     IVBMemberOwnerType, IEquatable<VBUserDefinedType>
 {
     public override VBTypedValue DefaultValue => VBVoidValue.Void; // FIXME there should be a static default value defined for each UDT definition; this may not be possible to implement here.
-    public override int Size => Members.Sum(member => member.ResolvedType.Size); // FIXME this is wrong, there's actually some padding going on
 
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];
 

@@ -43,5 +43,4 @@ public sealed record class VBByteType() : VBNumericType<byte>(VBTypeNames.VBByte
     /// </summary>
     public static VBByteValue Zero => _zero.Value;
 
-    public override int Size => sizeof(byte);
 }

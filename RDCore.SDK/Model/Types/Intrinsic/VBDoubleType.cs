@@ -58,5 +58,4 @@ public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VB
     /// </summary>
     public static VBDoubleType TypeInfo => _instance.Value;
 
-    public override int Size => sizeof(double);
 }

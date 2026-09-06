@@ -12,7 +12,6 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// <param name="IsByRef"><c>true</c> if the parameter is (or must be) passed by reference.</param>
 public record class VBParameterDesc(string Name, bool IsByRef) : VBType(typeof(Type), Name, isHidden: true)
 {
-    public override int Size => sizeof(int);
 
     // NOTE: a value of this type is VBUnknown until determined with name resolution semantics.
     private static readonly Lazy<VBTypedValue> _defaultValue = new(() => VBUnknownValue.DefaultValue, LazyThreadSafetyMode.PublicationOnly);
