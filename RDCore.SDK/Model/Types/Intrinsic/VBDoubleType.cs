@@ -58,4 +58,7 @@ public sealed record class VBDoubleType() : VBNumericType<double>(VBTypeNames.VB
     /// </summary>
     public static VBDoubleType TypeInfo => _instance.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBDoubleValue(value);
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBDoubleValue(handle);
 }

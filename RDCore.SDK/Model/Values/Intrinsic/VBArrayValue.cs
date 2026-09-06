@@ -100,7 +100,7 @@ public abstract record class VBArrayValue : VBTypedValue
                     if (_itemType is VBNumericType numericType)
                     {
                         var value = (double)_state[index]!;
-                        return (VBNumericTypedValue)((VBNumericTypedValue)numericType.DefaultValue).WithValue(value);
+                        return (VBNumericTypedValue)numericType.CreateValue(value);
                     }
                     else if (_itemType is VBStringType stringType)
                     {

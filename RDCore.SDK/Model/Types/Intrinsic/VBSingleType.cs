@@ -50,4 +50,7 @@ public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle),
     /// </summary>
     public static VBSingleValue Zero => _zero.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBSingleValue(Convert.ToSingle(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBSingleValue(handle);
 }

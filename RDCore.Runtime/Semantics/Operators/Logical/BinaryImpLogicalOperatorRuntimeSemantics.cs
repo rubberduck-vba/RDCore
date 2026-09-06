@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
@@ -44,22 +43,22 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
         if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType
             && lhs is VBNumericTypedValue lhsIntegralNumeric && rhs is VBNumericTypedValue rhsIntegralNumeric)
         {
-            return RuntimeSemanticsEvaluationResult.Success(RuntimeNumericValue.Of(VBIntegerType.TypeInfo,
-                EvaluateBitwiseOp((double)lhsIntegralNumeric.UnderlyingValue.RuntimeValue!.BoxedValue, 
+            return RuntimeSemanticsEvaluationResult.Success(VBIntegerType.TypeInfo.CreateValue(
+                EvaluateBitwiseOp((double)lhsIntegralNumeric.UnderlyingValue.RuntimeValue!.BoxedValue,
                                   (double)rhsIntegralNumeric.UnderlyingValue.RuntimeValue!.BoxedValue)));
         }
         else if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
             return (double)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue != (double)VBIntegerType.NegativeOne.UnderlyingValue.RuntimeValue!.BoxedValue
                 ? RuntimeSemanticsEvaluationResult.Success(
-                    RuntimeNumericValue.Of(VBIntegerType.TypeInfo, 
+                    VBIntegerType.TypeInfo.CreateValue(
                     EvaluateBitwiseOp((int)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue, (int)VBIntegerType.Zero.UnderlyingValue.RuntimeValue!.BoxedValue)))
                 : EvaluateNullBinaryExpressionResult();
         }
         else if (lhs is VBNullValue && rhs.TypeInfo is IIntegralNumericType && rhs is VBNumericTypedValue rhsNumeric && (double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue != 0)
         {
             return RuntimeSemanticsEvaluationResult.Success(
-                RuntimeNumericValue.Of(frame.EffectiveType, (double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue));
+                ((VBNumericType)frame.EffectiveType).CreateValue((double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue));
         }
         else if (lhs is VBNullValue && rhs is VBNumericTypedValue rhsMaybeZero && (double)rhsMaybeZero.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
         {

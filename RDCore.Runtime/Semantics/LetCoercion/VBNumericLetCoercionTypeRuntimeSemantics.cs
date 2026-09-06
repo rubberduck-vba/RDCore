@@ -39,8 +39,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                         // NOTE semantic flags should note a lossy conversion here;
                         // if the source value is small enough, it can convert to zero.
                         // IMPLEMENTATION NOTE: MS-VBAL actually makes the above remark about lossy conversion in the next block.
-                        (VBNumericTypedValue)((VBNumericTypedValue)frame.DestinationTypeDesc.Target.DefaultValue)
-                            .WithValue(VBNumericType.BankersRounding((VBNumericTypedValue)frame.SourceValue)))
+                        ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(VBNumericType.BankersRounding((VBNumericTypedValue)frame.SourceValue)))
                     : LetCoercionResult.Error(integralCoercionError),
 
             IIntegralNumericType when frame.DestinationTypeDesc.Target is IFloatingPointNumericType or IFixedPointNumericType

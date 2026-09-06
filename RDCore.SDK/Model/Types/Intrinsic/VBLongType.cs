@@ -46,4 +46,7 @@ public record class VBLongType() : VBNumericType<int>(VBTypeNames.VBLong), IInte
     public static VBLongValue Zero => _zero.Value;
 
     public override VBTypedValue DefaultValue => VBLongType.Zero;
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBLongValue(Convert.ToInt32(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBLongValue(handle);
 }

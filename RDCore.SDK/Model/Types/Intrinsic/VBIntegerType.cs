@@ -53,4 +53,7 @@ public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VB
     /// </summary>
     public static VBIntegerValue NegativeOne => _negativeOne.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBIntegerValue(Convert.ToInt16(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBIntegerValue(handle);
 }

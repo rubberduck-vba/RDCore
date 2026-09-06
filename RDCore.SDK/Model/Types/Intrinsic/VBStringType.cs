@@ -21,4 +21,6 @@ public record class VBStringType() : VBIntrinsicType<string?>(VBTypeNames.VBStri
 
     private static readonly Lazy<VBStringValue> _defaultValue = new(() => VBStringValue.VBNullString, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBStringValue(handle);
 }

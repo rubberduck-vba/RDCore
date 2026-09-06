@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Expressions;
@@ -53,7 +52,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
             if ((double)lhsValue.UnderlyingValue.RuntimeValue!.BoxedValue == 0 && (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
-                    RuntimeNumericValue.Of(frame.EffectiveType, VBDoubleType.One.Value));
+                    ((VBNumericType)frame.EffectiveType).CreateValue(VBDoubleType.One.Value));
             }
 
             if ((double)lhsValue.UnderlyingValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue < 0)
@@ -63,7 +62,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
             }
 
             return RuntimeSemanticsEvaluationResult.Success(
-                RuntimeNumericValue.Of(frame.EffectiveType, 
+                ((VBNumericType)frame.EffectiveType).CreateValue(
                 EvaluateManagedNumericOp((double)lhsValue.UnderlyingValue.RuntimeValue.BoxedValue, (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue)));
         }
         else if (frame.EffectiveType is VBNullType)

@@ -14,8 +14,14 @@ public abstract record class VBNumericType<T>(string Name) : VBNumericType(Name,
 /// </summary>
 /// <typeparam name="T">The managed type (internal representation) associated with this data type.</typeparam>
 /// <param name="Name">The name (token) of the data type.</param>
-public abstract record class VBNumericType(string Name, Type ManagedType) : VBIntrinsicType(Name, ManagedType), INumericType 
+public abstract record class VBNumericType(string Name, Type ManagedType) : VBIntrinsicType(Name, ManagedType), INumericType
 {
+    /// <summary>
+    /// Creates a value of this numeric type holding <paramref name="value"/>, converted to this
+    /// type's managed representation (banker's rounding for integral targets, as per <c>Convert</c>).
+    /// </summary>
+    public abstract VBNumericTypedValue CreateValue(double value);
+
     /// <summary>
     /// Gets the minimum representable managed (.net) value for this data type.
     /// </summary>

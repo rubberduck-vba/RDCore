@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -55,7 +54,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         {
             if ((double)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
             {
-                return RuntimeSemanticsEvaluationResult.Success(RuntimeNumericValue.Of(frame.EffectiveType, 0d));
+                return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }
             else
             {
@@ -67,7 +66,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         {
             if ((double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
             {
-                return RuntimeSemanticsEvaluationResult.Success(RuntimeNumericValue.Of(frame.EffectiveType, 0d));
+                return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }
             else
             {

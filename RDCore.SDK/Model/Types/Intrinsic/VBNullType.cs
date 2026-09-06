@@ -1,4 +1,5 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
@@ -21,4 +22,6 @@ public sealed record class VBNullType() : VBIntrinsicType<int>(VBTypeNames.VBNul
 
     private static readonly Lazy<VBNullValue> _defaultValue = new(() => VBNullValue.Null, LazyThreadSafetyMode.PublicationOnly);
     public override VBNullValue DefaultValue => _defaultValue.Value;
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBNullValue(handle);
 }

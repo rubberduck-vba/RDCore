@@ -23,4 +23,6 @@ public record class VBObjectType() : VBIntrinsicType<int>(VBTypeNames.VBObject)
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBObjectValue(handle);
 }

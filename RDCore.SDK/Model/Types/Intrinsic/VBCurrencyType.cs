@@ -24,25 +24,28 @@ public record class VBCurrencyType() : VBNumericType<VBRuntimeCurrencyValue>(VBT
     private static readonly Lazy<VBCurrencyValue> _defaultValue = new(() => VBCurrencyType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBCurrencyValue> _minValue = new(() => (VBCurrencyValue)new VBCurrencyValue().WithValue(long.MinValue * Math.Pow(10, -4)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBCurrencyValue> _minValue = new(() => new VBCurrencyValue((decimal)(long.MinValue * Math.Pow(10, -4))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBCurrencyValue MinValue => _minValue.Value;
     public override double ManagedMinValue => Convert.ToDouble(VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMinValue.Value.Value);
 
-    private static readonly Lazy<VBCurrencyValue> _maxValue = new(() => (VBCurrencyValue)new VBCurrencyValue().WithValue(long.MaxValue * Math.Pow(10, -4)), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBCurrencyValue> _maxValue = new(() => new VBCurrencyValue((decimal)(long.MaxValue * Math.Pow(10, -4))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBCurrencyValue MaxValue => _maxValue.Value;
     public override double ManagedMaxValue => Convert.ToDouble(VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMaxValue.Value.Value);
 
-    private static readonly Lazy<VBCurrencyValue> _zero = new(() => (VBCurrencyValue)new VBCurrencyValue().WithValue(0d), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBCurrencyValue> _zero = new(() => new VBCurrencyValue(0m), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBCurrencyValue Zero => _zero.Value;
 
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBCurrencyValue(Convert.ToDecimal(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBCurrencyValue(handle);
 }

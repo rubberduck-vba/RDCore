@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 
 namespace RDCore.SDK.Model.Types.Abstract;
 
@@ -43,4 +44,15 @@ public abstract record class VBType
     /// Failure to do so would lock up the static context initialization of the <c>StaticSymbol</c> symbols.
     /// </remarks>
     public abstract VBTypedValue DefaultValue { get; }
+
+    /// <summary>
+    /// Creates a value of this type bound to <paramref name="handle"/>.
+    /// </summary>
+    /// <remarks>
+    /// The base implementation throws: only types that can hold a runtime value override this
+    /// (matches the intent of the removed <c>VBTypedValueFactory.CreateValue(VBType)</c> switch,
+    /// which returned <c>null</c> for the rest).
+    /// </remarks>
+    public virtual VBTypedValue CreateValue(IBindingHandle handle)
+        => throw new NotSupportedException($"A value of type '{Name}' cannot be constructed from a binding handle.");
 }

@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
@@ -92,7 +91,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             if (lhsValue is VBDoubleValue lhsDouble && rhsValue is VBDoubleValue rhsDouble)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
-                    RuntimeNumericValue.Of(VBIntegerType.TypeInfo, 
+                    VBIntegerType.TypeInfo.CreateValue(
                         EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.UnderlyingValue.RuntimeValue!.BoxedValue), Convert.ToInt32(rhsDouble.UnderlyingValue.RuntimeValue!.BoxedValue))));
             }
         }
@@ -124,7 +123,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        RuntimeNumericValue.Of(effectiveType, EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
+        effectiveType.CreateValue(EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a binary logical operator
@@ -134,7 +133,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        RuntimeNumericValue.Of(effectiveType, EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
+        new VBDateValue(EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,

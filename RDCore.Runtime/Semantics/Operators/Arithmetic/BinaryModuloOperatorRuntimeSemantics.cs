@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Expressions;
@@ -45,7 +44,7 @@ public sealed record class BinaryModuloOperatorRuntimeSemantics(
             }
 
             return RuntimeSemanticsEvaluationResult.Success(
-                RuntimeNumericValue.Of((VBNumericType)frame.EffectiveType, 
+                ((VBNumericType)frame.EffectiveType).CreateValue(
                 EvaluateManagedNumericOp(lhs, rhs)));
         }
         else if (frame.EffectiveType is VBNullType)

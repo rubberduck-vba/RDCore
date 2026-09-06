@@ -18,4 +18,6 @@ public sealed record class VBUnknownType() : VBType(typeof(object), VBTypeNames.
     private readonly Lazy<VBTypedValue> _defaultValue = new(() => VBEmptyValue.Empty, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBUnknownValue(handle);
 }

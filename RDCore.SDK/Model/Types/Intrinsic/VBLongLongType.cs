@@ -49,4 +49,7 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), 
     /// </summary>
     public static VBLongLongValue Zero => _zeroValue.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBLongLongValue(Convert.ToInt64(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBLongLongValue(handle);
 }

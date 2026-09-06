@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Expressions;
@@ -79,7 +78,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
                 }
 
                 return RuntimeSemanticsEvaluationResult.Success(
-                    RuntimeNumericValue.Of((VBNumericType)frame.EffectiveType, 
+                    ((VBNumericType)frame.EffectiveType).CreateValue(
                         EvaluateManagedNumericOp(
                             (double)lhsValue.UnderlyingValue.RuntimeValue!.BoxedValue, 
                             (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue)));

@@ -27,4 +27,6 @@ public sealed record class VBBooleanType() : VBIntrinsicType<VBRuntimeBooleanVal
     /// </summary>
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBBooleanValue(handle);
 }

@@ -1,4 +1,5 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
@@ -27,4 +28,6 @@ public sealed record class VBVariantType(VBType SubType) : VBIntrinsicType<objec
     /// </summary>
     public VBType Subtype => SubType;
 
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBVariantValue(handle, RDCore.SDK.Model.Values.Intrinsic.VBEmptyValue.Empty);
 }

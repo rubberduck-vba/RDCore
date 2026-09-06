@@ -1,4 +1,5 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -20,27 +21,30 @@ public sealed record class VBByteType() : VBNumericType<byte>(VBTypeNames.VBByte
     /// </summary>
     public static VBByteType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBByteValue> _defaultValue = new(() => (VBByteValue)new VBByteValue().WithValue(VBRuntimeValue<byte>.ByteZeroValue.Value), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBByteValue> _defaultValue = new(() => new VBByteValue(VBRuntimeValue<byte>.ByteZeroValue.Value), LazyThreadSafetyMode.PublicationOnly);
     public override VBByteValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBByteValue> _minValue = new(() => (VBByteValue)new VBByteValue().WithValue(VBRuntimeValue<byte>.ByteMinValue.Value), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBByteValue> _minValue = new(() => new VBByteValue(VBRuntimeValue<byte>.ByteMinValue.Value), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBByteValue MinValue => _minValue.Value;
     public override double ManagedMinValue => (double)((VBRuntimeValue<byte>)_minValue.Value.UnderlyingValue.RuntimeValue!).StoredValue;
 
-    private static readonly Lazy<VBByteValue> _maxValue = new(() => (VBByteValue)new VBByteValue().WithValue(VBRuntimeValue<byte>.ByteMaxValue.Value), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBByteValue> _maxValue = new(() => new VBByteValue(VBRuntimeValue<byte>.ByteMaxValue.Value), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBByteValue MaxValue { get; } = _maxValue.Value;
     public override double ManagedMaxValue => (double)_maxValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue;
 
-    private static readonly Lazy<VBByteValue> _zero = new(() => (VBByteValue)new VBByteValue().WithValue(VBRuntimeValue<byte>.ByteZeroValue.Value), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBByteValue> _zero = new(() => new VBByteValue(VBRuntimeValue<byte>.ByteZeroValue.Value), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBByteValue Zero => _zero.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBByteValue(Convert.ToByte(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBByteValue(handle);
 }

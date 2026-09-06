@@ -46,4 +46,6 @@ public record class VBLongPtrType_x86() : VBIntrinsicType<int>(VBTypeNames.VBLon
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBLongPtrValue Zero => _zero.Value;
+
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBLongPtrValue(handle);
 }

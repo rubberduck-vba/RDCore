@@ -25,24 +25,27 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
     private static readonly Lazy<VBDecimalValue> _defaultValue = new(() => VBDecimalType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
-    private static readonly Lazy<VBDecimalValue> _minValue = new(() => (VBDecimalValue)new VBDecimalValue().WithValue(new(new VBRuntimeDecimalValue(Convert.ToDecimal(long.MinValue * Math.Pow(10, -4))))), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _minValue = new(() => new VBDecimalValue(Convert.ToDecimal(long.MinValue * Math.Pow(10, -4))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MinValue => _minValue.Value;
     public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue);
 
-    private static readonly Lazy<VBDecimalValue> _maxValue = new(() => (VBDecimalValue)new VBDecimalValue().WithValue(new(new VBRuntimeDecimalValue(Convert.ToDecimal(long.MaxValue * Math.Pow(10, -4))))), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _maxValue = new(() => new VBDecimalValue(Convert.ToDecimal(long.MaxValue * Math.Pow(10, -4))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MaxValue => _maxValue.Value;
     public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue);
 
-    private static readonly Lazy<VBDecimalValue> _zero = new(() => (VBDecimalValue)new VBDecimalValue().WithValue(VBRuntimeValue<VBRuntimeDecimalValue>.DecimalZeroValue), LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<VBDecimalValue> _zero = new(() => new VBDecimalValue(0m), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the value <c>0</c> (zero) representation of this data type.
     /// </summary>
     public static VBDecimalValue Zero => _zero.Value;
 
+
+    public override VBNumericTypedValue CreateValue(double value) => new VBDecimalValue(Convert.ToDecimal(value));
+    public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBDecimalValue(handle);
 }
