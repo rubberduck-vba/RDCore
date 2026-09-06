@@ -31,21 +31,14 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// that the least-significant digit is even.
     /// </summary>
     /// <param name="value">The floating-point numeric value to be rounded.</param>
-    public static int BankersRounding(double value) => (int)BankersRounding(value, 1);
+    public static int BankersRounding(double value) => (int)Math.Round(value, MidpointRounding.ToEven);
     /// <summary>
     /// Implements <strong>MS-VBAL 5.5.1.2.1.1</strong> Banker's Rounding.
     /// A midpoint rounding scheme also known as "round-to-even" rounds to the nearest rounded value such
     /// that the least-significant digit is even.
     /// </summary>
-    /// <param name="value">The floating-point numeric value to be rounded.</param>
-    public static int BankersRounding(VBNumericTypedValue value) => (int)BankersRounding((double)value.UnderlyingValue.RuntimeValue!.BoxedValue, 1);
-    /// <summary>
-    /// Implements <strong>MS-VBAL 5.5.1.2.1.1</strong> Banker's Rounding.
-    /// A midpoint rounding scheme also known as "round-to-even" rounds to the nearest rounded value such
-    /// that the least-significant digit is even.
-    /// </summary>
-    /// <param name="value">The floating-point numeric value to be rounded.</param>
-    public static double BankersRounding(double value, int digits) => Math.Round(value, digits);
+    /// <param name="value">The numeric value to be rounded.</param>
+    public static int BankersRounding(VBNumericTypedValue value) => BankersRounding((double)value.UnderlyingValue.RuntimeValue!.BoxedValue);
 
     /// <summary>
     /// A helper function to test if a given source numeric value is within the range of a destination data type.
