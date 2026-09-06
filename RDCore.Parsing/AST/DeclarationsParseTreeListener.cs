@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 using System.Xml.Linq;
 
 namespace RDCore.Parsing.AST;
@@ -277,6 +278,46 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             }
         }
     }
+    // MS-VBAL 3.3.2 numeric type-declaration characters ("type hints"): the suffix forces the type.
+    private static readonly Dictionary<char, Func<double, VBTypedValue>> _typeHintValues = new()
+    {
+        ['%'] = n => new VBIntegerValue(Convert.ToInt16(n)),
+        ['&'] = n => new VBLongValue(Convert.ToInt32(n)),
+        ['^'] = n => new VBLongLongValue(Convert.ToInt64(n)),
+        ['!'] = n => new VBSingleValue(Convert.ToSingle(n)),
+        ['#'] = n => new VBDoubleValue(n),
+        ['@'] = n => new VBCurrencyValue(Convert.ToDecimal(n)),
+    };
+
+    private static (string digits, char hint) SplitTypeHint(string text)
+        => text.Length > 0 && "%&^!#@".IndexOf(text[^1]) >= 0 ? (text[..^1], text[^1]) : (text, '\0');
+
+    /// <summary>
+    /// MS-VBAL 3.3.2: an explicit type-declaration character wins; otherwise an unsuffixed
+    /// floating-point literal is <c>Double</c> and an unsuffixed integer literal takes the smallest
+    /// of <c>Integer</c>, <c>Long</c>, <c>Double</c> that holds it.
+    /// </summary>
+    private static VBTypedValue ResolveNumericLiteral(char hint, double rawValue, bool isFloat)
+    {
+        if (hint != '\0')
+        {
+            return _typeHintValues[hint](rawValue);
+        }
+        if (isFloat)
+        {
+            return new VBDoubleValue(rawValue);
+        }
+        if (rawValue is >= Int16.MinValue and <= Int16.MaxValue)
+        {
+            return new VBIntegerValue(Convert.ToInt16(rawValue));
+        }
+        if (rawValue is >= Int32.MinValue and <= Int32.MaxValue)
+        {
+            return new VBLongValue(Convert.ToInt32(rawValue));
+        }
+        return new VBDoubleValue(rawValue);
+    }
+
     public override void ExitNumberLiteral([NotNull] VBAParser.NumberLiteralContext context)
     {
         if (!IsDeclarationPassExpression)
@@ -288,63 +329,23 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         VBTypedValue value = VBUnknownValue.DefaultValue;
         if (context.INTEGERLITERAL() is ITerminalNode intNumeric)
         {
-            var rawValue = Int64.Parse(intNumeric.Symbol.Text);
-            if (rawValue <= Int16.MaxValue && rawValue >= Int16.MinValue)
-            {
-                value = new VBIntegerValue(Convert.ToInt16(rawValue));
-            }
-            else if (rawValue <= Int32.MaxValue && rawValue >= Int32.MinValue)
-            {
-                value = new VBLongValue(Convert.ToInt32(rawValue));
-            }
-            else
-            {
-                value = new VBDoubleValue(Convert.ToDouble(rawValue));
-            }
+            var (digits, hint) = SplitTypeHint(intNumeric.Symbol.Text);
+            value = ResolveNumericLiteral(hint, Int64.Parse(digits), isFloat: false);
         }
         else if (context.FLOATLITERAL() is ITerminalNode floatNumeric)
         {
-            var rawValue = Double.Parse(floatNumeric.Symbol.Text);
-            if (rawValue <= Single.MaxValue && rawValue >= Single.MinValue)
-            {
-                value = new VBSingleValue(Convert.ToSingle(rawValue));
-            }
-            else
-            {
-                value = new VBDoubleValue(rawValue);
-            }
+            var (digits, hint) = SplitTypeHint(floatNumeric.Symbol.Text);
+            value = ResolveNumericLiteral(hint, Double.Parse(digits, CultureInfo.InvariantCulture), isFloat: true);
         }
         else if (context.HEXLITERAL() is ITerminalNode hexNumeric)
         {
-            var rawValue = Convert.ToInt64(hexNumeric.Symbol.Text[2..], fromBase: 16);
-            if (rawValue <= Int16.MaxValue && rawValue >= Int16.MinValue)
-            {
-                value = new VBIntegerValue(Convert.ToInt16(rawValue));
-            }
-            else if (rawValue <= Int32.MaxValue && rawValue >= Int32.MinValue)
-            {
-                value = new VBLongValue(Convert.ToInt32(rawValue));
-            }
-            else
-            {
-                value = new VBDoubleValue(Convert.ToDouble(rawValue));
-            }
+            var (digits, hint) = SplitTypeHint(hexNumeric.Symbol.Text);
+            value = ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 16), isFloat: false);
         }
         else if (context.OCTLITERAL() is ITerminalNode octNumeric)
         {
-            var rawValue = Convert.ToInt64(octNumeric.Symbol.Text[2..], fromBase: 8);
-            if (rawValue <= Int16.MaxValue && rawValue >= Int16.MinValue)
-            {
-                value = new VBIntegerValue(Convert.ToInt16(rawValue));
-            }
-            else if (rawValue <= Int32.MaxValue && rawValue >= Int32.MinValue)
-            {
-                value = new VBLongValue(Convert.ToInt32(rawValue));
-            }
-            else
-            {
-                value = new VBDoubleValue(Convert.ToDouble(rawValue));
-            }
+            var (digits, hint) = SplitTypeHint(octNumeric.Symbol.Text);
+            value = ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 8), isFloat: false);
         }
 
         OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
