@@ -34,14 +34,14 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), 
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => ((VBRuntimeValue<double>)_minValue.Value.UnderlyingValue.RuntimeValue!).StoredValue;
+    public override double ManagedMinValue => ((VBRuntimeValue<double>)_minValue.Value.RuntimeValue).StoredValue;
 
     private static readonly Lazy<VBLongLongValue> _maxValue = new(() => new VBLongLongValue(long.MaxValue), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBLongLongValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => ((VBRuntimeValue<double>)_maxValue.Value.UnderlyingValue.RuntimeValue!).StoredValue;
+    public override double ManagedMaxValue => ((VBRuntimeValue<double>)_maxValue.Value.RuntimeValue).StoredValue;
 
     private static readonly Lazy<VBLongLongValue> _zeroValue = new(() => new VBLongLongValue(0L), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

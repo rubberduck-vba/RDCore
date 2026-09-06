@@ -15,6 +15,8 @@ public record class ReferenceBindingHandle : IBindingHandle
         _value = value;
     }
 
+    public IRuntimeValue Value => _value;
+
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
     public IRuntimeValue GetValue(IVBExecutionContext context) => _value;

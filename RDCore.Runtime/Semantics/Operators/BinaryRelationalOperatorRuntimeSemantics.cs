@@ -47,14 +47,14 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         OperatorAnalysisContext<ComparisonOperatorSemanticFlags> analysisContext, params VBTypedValue[] operands)
     {
         if (analysisContext.EffectiveTypeResult.Result is VBErrorType 
-            && analysisContext.EvaluationResult.Result!.UnderlyingValue.RuntimeValue!.BoxedValue is int errorCode
+            && analysisContext.EvaluationResult.Result!.RuntimeValue.BoxedValue is int errorCode
             && errorCode > 0 && errorCode < VBErrorType.MaximumStdErrorValue)
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasStandardErrorCodes);
         }
 
         if (operands.Any(operand => operand.TypeInfo is IFloatingPointNumericType && (
-        double.IsNaN((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue) || float.IsNaN((float)operand.UnderlyingValue.RuntimeValue!.BoxedValue))))
+        double.IsNaN((double)operand.RuntimeValue.BoxedValue) || float.IsNaN((float)operand.RuntimeValue.BoxedValue))))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasNaNOperand);
         }
@@ -196,29 +196,29 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType)
         {
-            var result = ComparisonOp((long)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue, (long)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!.BoxedValue);
+            var result = ComparisonOp((long)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue, (long)((VBNumericTypedValue)rhs).RuntimeValue.BoxedValue);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBCurrencyType)
         {
-            var result = ComparisonOp(((VBRuntimeCurrencyValue)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue).Value, ((VBRuntimeCurrencyValue)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!).Value);
+            var result = ComparisonOp(((VBRuntimeCurrencyValue)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue).Value, ((VBRuntimeCurrencyValue)((VBNumericTypedValue)rhs).RuntimeValue).Value);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBDecimalType)
         {
-            var result = ComparisonOp(((VBRuntimeDecimalValue)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue).ManagedValue, ((VBRuntimeDecimalValue)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!).ManagedValue);
+            var result = ComparisonOp(((VBRuntimeDecimalValue)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue).ManagedValue, ((VBRuntimeDecimalValue)((VBNumericTypedValue)rhs).RuntimeValue).ManagedValue);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBSingleType or VBDoubleType)
         {
-            if (float.IsNaN((float)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue) || 
-                double.IsNaN((double)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue))
+            if (float.IsNaN((float)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue) || 
+                double.IsNaN((double)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue))
             {
                 return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression, 
                     Exceptions.LetCoercionRuntimeErrorExceptionOverflow_Verbose));
             }
 
-            var result = ComparisonOp((double)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue, (double)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!.BoxedValue);
+            var result = ComparisonOp((double)((VBNumericTypedValue)lhs).RuntimeValue.BoxedValue, (double)((VBNumericTypedValue)rhs).RuntimeValue.BoxedValue);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
 

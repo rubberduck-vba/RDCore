@@ -23,5 +23,5 @@ public abstract record class VBNumericTypedValue(VBType TypeInfo) : VBTypedValue
     /// <remarks>
     /// 💥<see cref="VBRuntimeErrorId.Overflow"/> may be raised as specified in the appropraite <em>run-time semantics</em> if the specified value is outside the bounds representable by the <see cref="VBType"/>.
     /// </remarks>
-    public override int GetHashCode() => UnderlyingValue.GetHashCode();
+    public override int GetHashCode() => RuntimeValue.GetHashCode();
 }

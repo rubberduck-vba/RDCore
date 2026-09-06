@@ -52,7 +52,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
 
         if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
-            if ((double)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
+            if ((double)lhsNumeric.RuntimeValue.BoxedValue == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }
@@ -64,7 +64,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     
         if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
         {
-            if ((double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
+            if ((double)rhsNumeric.RuntimeValue.BoxedValue == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }

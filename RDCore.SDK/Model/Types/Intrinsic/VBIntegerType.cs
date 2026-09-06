@@ -29,7 +29,7 @@ public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VB
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBIntegerValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => (double)_minValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue;
+    public override double ManagedMinValue => (double)_minValue.Value.RuntimeValue.BoxedValue;
 
     private static readonly Lazy<VBIntegerValue> _maxValue = new(()
         => new VBIntegerValue(short.MaxValue), LazyThreadSafetyMode.PublicationOnly);
@@ -37,7 +37,7 @@ public sealed record class VBIntegerType() : VBNumericType<short>(VBTypeNames.VB
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBIntegerValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => (double)_maxValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue;
+    public override double ManagedMaxValue => (double)_maxValue.Value.RuntimeValue.BoxedValue;
 
     private static readonly Lazy<VBIntegerValue> _zero = new(() 
         => new VBIntegerValue(0), LazyThreadSafetyMode.PublicationOnly);

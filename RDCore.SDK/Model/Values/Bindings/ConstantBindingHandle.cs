@@ -15,6 +15,8 @@ public record class ConstantBindingHandle : IBindingHandle
         _value = value;
     }
 
+    public IRuntimeValue Value => _value;
+
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue;
 
     public IRuntimeValue GetValue(IVBExecutionContext context) => _value;

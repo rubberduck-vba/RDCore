@@ -92,7 +92,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     VBIntegerType.TypeInfo.CreateValue(
-                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.UnderlyingValue.RuntimeValue!.BoxedValue), Convert.ToInt32(rhsDouble.UnderlyingValue.RuntimeValue!.BoxedValue))));
+                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.RuntimeValue.BoxedValue), Convert.ToInt32(rhsDouble.RuntimeValue.BoxedValue))));
             }
         }
         else if (lhs is VBNullValue && rhs is VBNullValue)
@@ -123,7 +123,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        effectiveType.CreateValue(EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
+        effectiveType.CreateValue(EvaluateBitwiseOp((int)lhs.RuntimeValue.BoxedValue, (int)rhs.RuntimeValue.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a binary logical operator
@@ -133,7 +133,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        new VBDateValue(EvaluateBitwiseOp((int)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (int)rhs.UnderlyingValue.RuntimeValue!.BoxedValue));
+        new VBDateValue(EvaluateBitwiseOp((int)lhs.RuntimeValue.BoxedValue, (int)rhs.RuntimeValue.BoxedValue));
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,

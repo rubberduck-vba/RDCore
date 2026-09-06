@@ -14,7 +14,7 @@ public sealed record class VBCurrencyValue()
     public VBCurrencyValue(IBindingHandle handle) : this() { Handle = handle; }
     public VBCurrencyValue(decimal value) : this(new ValueBindingHandle(new VBRuntimeValue<VBRuntimeCurrencyValue>(new VBRuntimeCurrencyValue(value)))) { }
 
-    public VBRuntimeCurrencyValue Value => ((VBRuntimeValue<VBRuntimeCurrencyValue>)UnderlyingValue.RuntimeValue!).Value;
+    public VBRuntimeCurrencyValue Value => ((VBRuntimeValue<VBRuntimeCurrencyValue>)RuntimeValue).Value;
     public override int Size => sizeof(long);
 
     public bool Equals(IVBTypedValue<VBCurrencyValue, VBRuntimeCurrencyValue>? other) => Value.StoredValue == other?.Value.StoredValue;

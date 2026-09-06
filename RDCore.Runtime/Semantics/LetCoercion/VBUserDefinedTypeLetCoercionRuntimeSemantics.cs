@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
@@ -27,7 +28,7 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             VBUserDefinedTypeValue sourceUDT when sourceUDT.TypeInfo == frame.DestinationTypeDesc.Target => 
-                LetCoercionResult.Success(frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(sourceUDT.Value.UnderlyingValue.RuntimeValue!))),
+                LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(sourceUDT.Value.RuntimeValue))),
 
             VBUserDefinedTypeValue when frame.DestinationTypeDesc.Target is not VBVariantType =>
                 LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),

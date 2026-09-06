@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Model.AST.Expressions;
@@ -32,25 +33,25 @@ public record class VBDateLetCoercionRuntimeSemantics(
             VBDateValue sourceDateValue when frame.DestinationTypeDesc.Target is VBDateType 
                 // result is a copy of the source date (no implicit DateSerial semantic flag should be issued here)
                 => LetCoercionResult.Success(
-                    frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(sourceDateValue.UnderlyingValue.RuntimeValue!))),
+                    frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(sourceDateValue.RuntimeValue))),
 
             VBDateValue sourceDateValue when frame.DestinationTypeDesc.Target is VBNumericType or VBBooleanType 
                 // result is the standard Double representation (DateSerial), let-coerced to the destination type
-                => LetCoercionResult.Success(frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(
+                => LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(
                     ((VBNumericTypedValue)Provider.EvaluateLetCoercionSemantics(resolver, expression,
                         frame with {
                             // we must first create the VBDoubleValue for the managed SerialValue:
-                            SourceValue = new VBDoubleValue((double)sourceDateValue.UnderlyingValue.RuntimeValue!.BoxedValue)
-                        }).Result!).UnderlyingValue.RuntimeValue!))),
+                            SourceValue = new VBDoubleValue((double)sourceDateValue.RuntimeValue.BoxedValue)
+                        }).Result!).RuntimeValue))),
 
             VBNumericTypedValue or VBBooleanValue when frame.DestinationTypeDesc.Target is VBDateType
                 // result is the source value let-coerced to Double, then the Double is interpreted as a standard SerialValue.
-                => LetCoercionResult.Success(frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(
+                => LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(
                     ((VBDoubleValue)Provider.EvaluateLetCoercionSemantics(resolver, expression,
                         // we must first create the VBDoubleValue for the managed SerialValue:
                         frame with {
                             DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo)
-                        }).Result!).UnderlyingValue.RuntimeValue!))),
+                        }).Result!).RuntimeValue))),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };

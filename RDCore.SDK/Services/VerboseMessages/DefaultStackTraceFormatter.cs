@@ -124,7 +124,7 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
     protected virtual void FormatFrameInput(StringBuilder builder, VBTypedValue operand, bool withValues = false)
     {
         builder
-            .WithEnclosedIf(withValues, "[", sb => sb.Append(operand.UnderlyingValue), "]:")
+            .WithEnclosedIf(withValues, "[", sb => sb.Append(operand.RuntimeValue), "]:")
             .Append(operand.TypeInfo.Name);
     }
 }

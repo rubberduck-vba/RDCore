@@ -16,16 +16,16 @@ public sealed record class VBLongPtrValue(bool Is64Bit)
     public VBLongPtrValue(IBindingHandle handle) : this(true) { Handle = handle; }
     public VBLongPtrValue(long value) : this(true)
     {
-        UnderlyingValue = new(new VBRuntimeValue<long>(value));
+        Handle = new ValueBindingHandle(new VBRuntimeValue<long>(value));
         Size = VBLongPtrType_x64.BitnessAwarePtrSize;
     }
     public VBLongPtrValue(int value) : this(true)
     {
-        UnderlyingValue = new(new VBRuntimeValue<int>(value));
+        Handle = new ValueBindingHandle(new VBRuntimeValue<int>(value));
         Size = VBLongPtrType_x86.BitnessAwarePtrSize;
     }
 
-    public long Value => (long)UnderlyingValue.RuntimeValue!.BoxedValue;
+    public long Value => (long)RuntimeValue.BoxedValue;
     public override int Size { get; }
 
     public bool Equals(IVBTypedValue<VBLongPtrValue, long>? other) => Value.Equals(other?.Value);

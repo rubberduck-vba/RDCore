@@ -51,7 +51,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand) 
-        => effectiveType.CreateValue(EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        => effectiveType.CreateValue(EvaluateNumericOp((double)operand.RuntimeValue.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary arithmetic operator
@@ -60,7 +60,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand) 
-        => new VBDateValue(EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        => new VBDateValue(EvaluateNumericOp((double)operand.RuntimeValue.BoxedValue));
 
     /// <summary>
     /// Evaluates the numeric result of a unary arithmetic operation.

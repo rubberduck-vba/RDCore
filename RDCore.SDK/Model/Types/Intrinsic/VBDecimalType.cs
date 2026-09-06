@@ -30,14 +30,14 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue);
+    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.RuntimeValue.BoxedValue);
 
     private static readonly Lazy<VBDecimalValue> _maxValue = new(() => new VBDecimalValue(Convert.ToDecimal(long.MaxValue * Math.Pow(10, -4))), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBDecimalValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.UnderlyingValue.RuntimeValue!.BoxedValue);
+    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.RuntimeValue.BoxedValue);
 
     private static readonly Lazy<VBDecimalValue> _zero = new(() => new VBDecimalValue(0m), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

@@ -16,6 +16,8 @@ public record class InvalidBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.None;
 
+    public IRuntimeValue Value => throw new NotSupportedException("The binding is not valid.");
+
     public IRuntimeValue GetValue(IVBExecutionContext context) => throw new NotSupportedException();
 
     public IRuntimeValue Invoke(IVBExecutionContext context, IRuntimeValue[] args) => throw new NotSupportedException();

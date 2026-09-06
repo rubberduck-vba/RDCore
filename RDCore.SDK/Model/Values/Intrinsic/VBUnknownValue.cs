@@ -16,7 +16,7 @@ public sealed record class VBUnknownValue() : VBTypedValue(VBUnknownType.TypeInf
     public static VBUnknownValue DefaultValue => _defaultValue.Value;
 
     public override int Size => sizeof(int);
-    public object Value => UnderlyingValue;
+    public object Value => Handle;
 
     public bool Equals(IVBTypedValue<VBUnknownValue, object>? other) => false;
 }

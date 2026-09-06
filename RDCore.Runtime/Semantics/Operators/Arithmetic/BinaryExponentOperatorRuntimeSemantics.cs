@@ -49,13 +49,13 @@ public record class BinaryExponentOperatorRuntimeSemantics(
             && frame[InputIndex.BinaryLeftOperand] is VBNumericTypedValue lhsValue 
             && frame[InputIndex.BinaryRightOperand] is VBNumericTypedValue rhsValue)
         {
-            if ((double)lhsValue.UnderlyingValue.RuntimeValue!.BoxedValue == 0 && (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue == 0)
+            if ((double)lhsValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.RuntimeValue.BoxedValue == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(
                     ((VBNumericType)frame.EffectiveType).CreateValue(VBDoubleType.One.Value));
             }
 
-            if ((double)lhsValue.UnderlyingValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue < 0)
+            if ((double)lhsValue.RuntimeValue.BoxedValue == 0 && (double)rhsValue.RuntimeValue.BoxedValue < 0)
             {
                 // if LHS is zero and RHS is negative, we must raise error 5.
                 return OnInvalidProcedureCallOrArgument(expression, Exceptions.VBExponentOp_InvalidProcedureCallOrArgument_Verbose);
@@ -63,7 +63,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
 
             return RuntimeSemanticsEvaluationResult.Success(
                 ((VBNumericType)frame.EffectiveType).CreateValue(
-                EvaluateManagedNumericOp((double)lhsValue.UnderlyingValue.RuntimeValue.BoxedValue, (double)rhsValue.UnderlyingValue.RuntimeValue!.BoxedValue)));
+                EvaluateManagedNumericOp((double)lhsValue.RuntimeValue.BoxedValue, (double)rhsValue.RuntimeValue.BoxedValue)));
         }
         else if (frame.EffectiveType is VBNullType)
         {

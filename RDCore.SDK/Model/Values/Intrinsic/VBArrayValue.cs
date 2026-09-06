@@ -71,7 +71,7 @@ public abstract record class VBArrayValue : VBTypedValue
 
             var defaultManagedValue = itemType is VBBooleanType or VBNumericType or VBStringType 
                 ? Activator.CreateInstance(itemType.ManagedType!) 
-                : itemType.DefaultValue.UnderlyingValue;
+                : itemType.DefaultValue.RuntimeValue;
             _state = [.. Enumerable.Range(lBound, uBound).Select(i => defaultManagedValue)];
         }
 

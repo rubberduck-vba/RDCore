@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
@@ -28,7 +29,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                 // if the source value is within the range of the destination type, the result is a copy of the value.
                 => ValidateDestinationTypeRange(expression, frame, out var numericCoercionError)
                     ? LetCoercionResult.Success(
-                        frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(((VBNumericTypedValue)frame.SourceValue).UnderlyingValue.RuntimeValue!)))
+                        frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(((VBNumericTypedValue)frame.SourceValue).RuntimeValue)))
                     : LetCoercionResult.Error(numericCoercionError),
 
             IFloatingPointNumericType or IFixedPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType
@@ -53,7 +54,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                 //      && !double.IsNaN(sourceValue.ManagedValue) && !double.IsInfinity(sourceValue.ManagedValue) 
                 => ValidateDestinationTypeRange(expression, frame, out var floatCoercionError)
                     ? LetCoercionResult.Success(
-                        frame.DestinationTypeDesc.Target.DefaultValue.WithValue(new VBRuntimeValueWrapper(((VBNumericTypedValue)frame.SourceValue).UnderlyingValue.RuntimeValue!)))
+                        frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(((VBNumericTypedValue)frame.SourceValue).RuntimeValue)))
                     : LetCoercionResult.Error(floatCoercionError),
 
             _ => LetCoercionResult.NotApplicable(frame)

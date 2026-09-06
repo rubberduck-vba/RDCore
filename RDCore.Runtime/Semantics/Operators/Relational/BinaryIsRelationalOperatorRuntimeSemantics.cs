@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Expressions;
@@ -58,7 +59,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         {
             return RuntimeSemanticsEvaluationResult.Success(
                 new VBBooleanValue(
-                    Equals(lhs.UnderlyingValue.RuntimeReference!.Value.Value, rhs.UnderlyingValue.RuntimeReference!.Value.Value)));
+                    Equals(((VBRuntimeReference)lhs.RuntimeValue).Value.Value, ((VBRuntimeReference)rhs.RuntimeValue).Value.Value)));
         }
 
         return RuntimeSemanticsEvaluationResult.InternalError();

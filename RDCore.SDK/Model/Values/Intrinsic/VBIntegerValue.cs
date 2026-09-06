@@ -19,7 +19,7 @@ public record class VBIntegerValue : VBNumericTypedValue,
     }
     public VBIntegerValue(short value) : this(new ValueBindingHandle(new VBRuntimeValue<short>(value))) { }
 
-    public short Value => ((VBRuntimeValue<short>)UnderlyingValue.RuntimeValue!).StoredValue;
+    public short Value => ((VBRuntimeValue<short>)RuntimeValue).StoredValue;
     public override int Size { get; } = sizeof(short);
 
     public bool Equals(IVBTypedValue<VBIntegerValue, short>? other) => Value == other?.Value;

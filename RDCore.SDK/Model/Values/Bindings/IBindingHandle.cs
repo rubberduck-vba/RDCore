@@ -72,6 +72,17 @@ public interface IBindingHandle
     IRuntimeValue Invoke(IVBExecutionContext context, IRuntimeValue[] args);
 
     /// <summary>
+    /// The bound runtime value, read without an execution context.
+    /// </summary>
+    /// <remarks>
+    /// 👉 A context-free read for the common literal/value cases. Handles that resolve a value lazily
+    /// or via a reference still expose <see cref="GetValue(IVBExecutionContext)"/>; this interface is
+    /// wider than it needs to be and is expected to be narrowed later.
+    /// </remarks>
+    /// <exception cref="NotSupportedException">The binding has no readable value.</exception>
+    IRuntimeValue Value { get; }
+
+    /// <summary>
     /// Indicates the valid members of this binding.
     /// </summary>
     BindingCapabilities BindingCapabilities { get; }

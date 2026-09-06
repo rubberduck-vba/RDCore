@@ -64,24 +64,15 @@ public abstract record class VBTypedValue(VBType TypeInfo)
     public abstract int Size { get; }
 
     /// <summary>
-    /// Gets a wrapper for the underlying runtime value.
+    /// The runtime value this typed value is currently bound to.
     /// </summary>
-    /// <remarks>
-    /// This wrapper is a crutch, it must eventually disappear.
-    /// </remarks>
-    public VBRuntimeValueWrapper UnderlyingValue 
-    {
-        get => new(Handle.GetValue(null!));
-        init => Handle = value.RuntimeValue is not null 
-            ? new ValueBindingHandle(value.RuntimeValue)
-            : value.RuntimeReference is not null
-                ? new ReferenceBindingHandle(value.RuntimeReference.Value)
-                : value.RuntimeVariant is not null
-                    ? value.RuntimeVariant.Value.Handle
-                    : throw new InvalidOperationException();
-    }
+    public IRuntimeValue RuntimeValue => Handle.Value;
 
     public IBindingHandle Handle { get; init; } = InvalidBindingHandle.Default;
 
-    public VBTypedValue WithValue(VBRuntimeValueWrapper value) => this with { UnderlyingValue = value };
+    /// <summary>
+    /// Returns a copy of this value bound to <paramref name="runtimeValue"/>.
+    /// </summary>
+    public VBTypedValue WithRuntimeValue(IRuntimeValue runtimeValue)
+        => this with { Handle = new ValueBindingHandle(runtimeValue) };
 }

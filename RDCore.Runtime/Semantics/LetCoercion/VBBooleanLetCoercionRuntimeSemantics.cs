@@ -26,18 +26,18 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
         {
             IFixedPointNumericType or IFloatingPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType and VBNumericType numericDestinationType
                 => ValidateDestinationTypeRange(expression, frame, out var error) 
-                    ? LetCoercionResult.Success(numericDestinationType.CreateValue((double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success(numericDestinationType.CreateValue((double)frame.SourceValue.RuntimeValue.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             IIntegralNumericType when frame.DestinationTypeDesc.Target is IFixedPointNumericType or IFloatingPointNumericType
                 => ValidateDestinationTypeRange(expression, frame, out var error)
-                    ? LetCoercionResult.Success(((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue((double)frame.SourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success(((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue((double)frame.SourceValue.RuntimeValue.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             // NOTE: MS-VBAL specifies this block first, but the pattern-matching would make the other blocks unreacheable.
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBNumericType numericDestinationType
                 => ValidateDestinationTypeRange(expression, frame, out var error)
-                    ? LetCoercionResult.Success(numericDestinationType.CreateValue((double)numericSourceValue.UnderlyingValue.RuntimeValue!.BoxedValue))
+                    ? LetCoercionResult.Success(numericDestinationType.CreateValue((double)numericSourceValue.RuntimeValue.BoxedValue))
                     : LetCoercionResult.Error(error),
 
             _ => LetCoercionResult.NotApplicable(frame)
