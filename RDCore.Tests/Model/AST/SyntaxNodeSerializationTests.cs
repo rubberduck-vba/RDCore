@@ -1,4 +1,4 @@
-﻿using RDCore.Parsing;
+using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
