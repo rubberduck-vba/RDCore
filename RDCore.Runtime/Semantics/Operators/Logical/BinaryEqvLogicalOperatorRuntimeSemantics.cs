@@ -21,7 +21,7 @@ public record class BinaryEqvLogicalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    protected override double EvaluateBitwiseOp(int lhs, int rhs) => ~((long)lhs ^ (long)rhs);
+    protected override T EvaluateBitwiseOp<T>(T lhs, T rhs) => ~(lhs ^ rhs);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
         ISymbolResolver resolver, 

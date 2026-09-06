@@ -27,7 +27,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService) 
     : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    protected override double EvaluateBitwiseOp(int lhs, int rhs) => lhs & rhs;
+    protected override T EvaluateBitwiseOp<T>(T lhs, T rhs) => lhs & rhs;
 
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,
@@ -52,7 +52,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
 
         if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
         {
-            if ((double)lhsNumeric.RuntimeValue.BoxedValue == 0)
+            if (lhsNumeric.AsDouble == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }
@@ -61,10 +61,10 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
                 return RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
             }
         }
-    
+
         if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
         {
-            if ((double)rhsNumeric.RuntimeValue.BoxedValue == 0)
+            if (rhsNumeric.AsDouble == 0)
             {
                 return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
             }

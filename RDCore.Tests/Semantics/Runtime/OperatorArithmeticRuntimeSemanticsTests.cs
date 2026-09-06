@@ -89,6 +89,7 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
 
     protected static object ManagedOf(VBTypedValue value) => value switch
     {
+        VBBooleanValue v => (bool)v.Value,
         VBByteValue v => v.Value,
         VBIntegerValue v => v.Value,
         VBLongValue v => v.Value,

@@ -14,6 +14,7 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -26,10 +27,11 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     : UnaryOperatorRuntimeSemantics<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
 {
     /// <summary>
-    /// Evaluates the numeric result of a unary logical/bitwise operation.
+    /// Evaluates the bitwise result of a unary logical operation in the effective type's own representation.
     /// </summary>
-    /// <param name="operand">The underlying managed value of a numeric unary expression operand.</param>
-    protected abstract double EvaluateBitwiseOp(double operand);
+    /// <typeparam name="T">The CLR representation of the operation's <em>effective integral type</em>.</typeparam>
+    /// <param name="operand">The managed value of a unary expression operand, in the operation's effective type.</param>
+    protected abstract T EvaluateBitwiseOp<T>(T operand) where T : IBinaryInteger<T>;
 
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,
@@ -51,7 +53,14 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand) =>
-        effectiveType.CreateValue(EvaluateBitwiseOp((int)operand.RuntimeValue.BoxedValue));
+        effectiveType switch
+        {
+            VBByteType => new VBByteValue(EvaluateBitwiseOp(((VBByteValue)operand).Value)),
+            VBIntegerType => new VBIntegerValue(EvaluateBitwiseOp(((VBIntegerValue)operand).Value)),
+            VBLongType => new VBLongValue(EvaluateBitwiseOp(((VBLongValue)operand).Value)),
+            VBLongLongType => new VBLongLongValue(EvaluateBitwiseOp(((VBLongLongValue)operand).Value)),
+            _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported logical/bitwise type."),
+        };
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary logical operator
@@ -60,7 +69,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand) =>
-        new VBDateValue(EvaluateBitwiseOp((int)operand.RuntimeValue.BoxedValue));
+        new VBDateValue(EvaluateBitwiseOp((int)operand.AsDouble));
 
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNullType effectiveType, VBNullValue operand) =>
         effectiveType.DefaultValue;

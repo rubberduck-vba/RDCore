@@ -17,6 +17,7 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
 
@@ -31,12 +32,39 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     : BinaryOperatorRuntimeSemantics<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
 {
     /// <summary>
-    /// Evaluates the numeric result of a binary logical/bitwise operation.
+    /// Evaluates the bitwise result of a binary logical operation in the effective type's own representation.
     /// </summary>
-    /// <param name="lhs">The underlying managed value of the left-hand side (LHS) numeric binary expression operand.</param>
-    /// <param name="rhs">The underlying managed value of the right-hand side (RHS) numeric binary expression operand.</param>
-    protected abstract double EvaluateBitwiseOp(int lhs, int rhs);
-    protected virtual double EvaluateBitwiseOp(double lhs, double rhs) => EvaluateBitwiseOp(Convert.ToInt32(lhs), Convert.ToInt32(rhs));
+    /// <typeparam name="T">The CLR representation of the operation's <em>effective integral type</em>.</typeparam>
+    /// <param name="lhs">The managed value of the left-hand side (LHS) operand, in the operation's effective type.</param>
+    /// <param name="rhs">The managed value of the right-hand side (RHS) operand, in the operation's effective type.</param>
+    protected abstract T EvaluateBitwiseOp<T>(T lhs, T rhs) where T : IBinaryInteger<T>;
+
+    /// <summary>
+    /// Computes the bitwise result in the effective type's own CLR representation, dispatching
+    /// <see cref="EvaluateBitwiseOp{T}(T, T)"/> on the effective integral type. Operands have already
+    /// been let-coerced to <paramref name="effectiveType"/> by the evaluation pipeline.
+    /// </summary>
+    protected RuntimeSemanticsEvaluationResult EvaluateBitwise(VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
+    {
+        VBTypedValue result = effectiveType switch
+        {
+            VBBooleanType => new VBBooleanValue(EvaluateBitwiseOp(BooleanBits(lhs), BooleanBits(rhs)) != 0),
+            VBByteType => new VBByteValue(EvaluateBitwiseOp(((VBByteValue)lhs).Value, ((VBByteValue)rhs).Value)),
+            VBIntegerType => new VBIntegerValue(EvaluateBitwiseOp(((VBIntegerValue)lhs).Value, ((VBIntegerValue)rhs).Value)),
+            VBLongType => new VBLongValue(EvaluateBitwiseOp(((VBLongValue)lhs).Value, ((VBLongValue)rhs).Value)),
+            VBLongLongType => new VBLongLongValue(EvaluateBitwiseOp(((VBLongLongValue)lhs).Value, ((VBLongLongValue)rhs).Value)),
+            _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported logical/bitwise type."),
+        };
+        return RuntimeSemanticsEvaluationResult.Success(result);
+    }
+
+    // VBA Boolean is bitwise over its -1 / 0 representation.
+    private static int BooleanBits(VBTypedValue value) => value switch
+    {
+        VBBooleanValue b => b.Value.StoredValue != 0 ? -1 : 0,
+        VBNumericTypedValue n => n.AsDouble != 0 ? -1 : 0,
+        _ => 0,
+    };
 
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node, 
@@ -67,33 +95,11 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
+        // both operands are integral (or Boolean): a plain bitwise computation in the effective type.
+        // the evaluation pipeline has already let-coerced them to it.
+        if (lhs.TypeInfo is IIntegralNumericType or VBBooleanType && rhs.TypeInfo is IIntegralNumericType or VBBooleanType)
         {
-            var lhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
-                NodeId: expression.Identity, 
-                OperandIndex: InputIndex.BinaryLeftOperand, 
-                SourceValue: lhs, 
-                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
-            var lhsValue = lhsCoercion.Result as VBNumericTypedValue;
-
-            var rhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
-                NodeId: expression.Identity,
-                OperandIndex: InputIndex.BinaryRightOperand,
-                SourceValue: rhs,
-                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
-            var rhsValue = rhsCoercion.Result as VBNumericTypedValue;
-
-            if (lhsCoercion.ErrorInfo is not null || rhsCoercion.ErrorInfo is not null)
-            {
-                return RuntimeSemanticsEvaluationResult.Error((lhsCoercion.ErrorInfo ?? rhsCoercion.ErrorInfo)!);
-            }
-
-            if (lhsValue is VBDoubleValue lhsDouble && rhsValue is VBDoubleValue rhsDouble)
-            {
-                return RuntimeSemanticsEvaluationResult.Success(
-                    VBIntegerType.TypeInfo.CreateValue(
-                        EvaluateBitwiseOp(Convert.ToInt32(lhsDouble.RuntimeValue.BoxedValue), Convert.ToInt32(rhsDouble.RuntimeValue.BoxedValue))));
-            }
+            return EvaluateBitwise(frame.EffectiveType, lhs, rhs);
         }
         else if (lhs is VBNullValue && rhs is VBNullValue)
         {
@@ -114,26 +120,6 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame);
-
-    /// <summary>
-    /// Evaluates the runtime semantics of a binary logical operator and returns a value of the effective numeric data type.
-    /// </summary>
-    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
-    /// <param name="lhs">The left-hand side (LHS) numeric binary expression operand.</param>
-    /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        effectiveType.CreateValue(EvaluateBitwiseOp((int)lhs.RuntimeValue.BoxedValue, (int)rhs.RuntimeValue.BoxedValue));
-
-    /// <summary>
-    /// Evaluates the runtime semantics of a binary logical operator
-    /// </summary>
-    /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
-    /// <param name="lhs">The left-hand side (LHS) numeric binary expression operand.</param>
-    /// <param name="rhs">The right-hand side (RHS) numeric binary expression operand.</param>
-    /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
-    protected virtual VBTypedValue? EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
-        new VBDateValue(EvaluateBitwiseOp((int)lhs.RuntimeValue.BoxedValue, (int)rhs.RuntimeValue.BoxedValue));
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,
