@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Messages;
 using RDCore.CLI.Host;
+using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes.Model;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -22,6 +23,14 @@ using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
+using System.Runtime.CompilerServices;
+
+// expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
+[assembly: InternalsVisibleTo("RDCore.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+
+// platform capabilities provided by rdc.exe in environment-host mode:
+[assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
 
 namespace RDCore.CLI;
 
@@ -160,8 +169,8 @@ internal class RDCoreConsoleEnvironmentHostApp(
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.EnvironmentHost;
 
-    // TODO (roadmap B): handle rdcore/host/symbols/define.
-    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder) { }
+    protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
+        => builder.WithHandler<DefineSymbolsHandler>();
 
     // bridge the outer-container singleton into the language-server handler container so a handler
     // resolves the same session provider the app composes on initialize.
