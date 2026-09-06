@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
@@ -36,11 +37,11 @@ public record class BinaryOrLogicalOperatorRuntimeSemantics(
         {
             VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue 
                 => RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, (double)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue)),
+                    RuntimeNumericValue.Of(frame.EffectiveType, (double)lhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue)),
 
             VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.TypeInfo is IIntegralNumericType 
                 => RuntimeSemanticsEvaluationResult.Success(
-                    VBTypedValueFactory.CreateValue(frame.EffectiveType, (double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue)),
+                    RuntimeNumericValue.Of(frame.EffectiveType, (double)rhsNumeric.UnderlyingValue.RuntimeValue!.BoxedValue)),
 
             _ => RuntimeSemanticsEvaluationResult.InternalError()
         };

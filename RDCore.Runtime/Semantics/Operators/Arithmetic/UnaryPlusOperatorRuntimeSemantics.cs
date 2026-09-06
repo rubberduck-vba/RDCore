@@ -56,7 +56,7 @@ public sealed record class UnaryPlusOperatorRuntimeSemantics(
                 => RuntimeSemanticsEvaluationResult.Success(EvaluateRuntimeSemantics(dateEffectiveType, numericOperand)!),
 
             VBNullType nullEffectiveType when frame[InputIndex.UnaryOperand] is VBNullValue
-                => RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateValue(nullEffectiveType)!),
+                => RuntimeSemanticsEvaluationResult.Success(nullEffectiveType.DefaultValue),
 
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };

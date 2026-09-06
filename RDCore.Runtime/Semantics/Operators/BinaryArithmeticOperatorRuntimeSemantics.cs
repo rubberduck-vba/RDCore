@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
@@ -141,7 +142,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         VBNumericType effectiveType, 
         VBNumericTypedValue lhs, VBNumericTypedValue rhs) 
         => RuntimeSemanticsEvaluationResult.Success(
-            VBTypedValueFactory.CreateValue(effectiveType, 
+            RuntimeNumericValue.Of(effectiveType, 
                 EvaluateManagedNumericOp((double)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (double)rhs.UnderlyingValue.RuntimeValue!.BoxedValue)));
 
 
@@ -169,7 +170,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         VBDateType effectiveType, 
         VBNumericTypedValue lhs, VBNumericTypedValue rhs) =>
         RuntimeSemanticsEvaluationResult.Success(
-            VBTypedValueFactory.CreateValue(effectiveType, 
+            RuntimeNumericValue.Of(effectiveType, 
                 EvaluateManagedNumericOp((double)lhs.UnderlyingValue.RuntimeValue!.BoxedValue, (double)rhs.UnderlyingValue.RuntimeValue!.BoxedValue)));
 
     /// <summary>

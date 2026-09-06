@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -50,7 +51,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand) 
-        => VBTypedValueFactory.CreateValue(effectiveType, EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        => RuntimeNumericValue.Of(effectiveType, EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary arithmetic operator
@@ -59,7 +60,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand) 
-        => VBTypedValueFactory.CreateValue(effectiveType, EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        => RuntimeNumericValue.Of(effectiveType, EvaluateNumericOp((double)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     /// <summary>
     /// Evaluates the numeric result of a unary arithmetic operation.

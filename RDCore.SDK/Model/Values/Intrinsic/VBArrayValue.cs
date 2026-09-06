@@ -100,12 +100,12 @@ public abstract record class VBArrayValue : VBTypedValue
                     if (_itemType is VBNumericType numericType)
                     {
                         var value = (double)_state[index]!;
-                        return VBTypedValueFactory.CreateValue(numericType, value);
+                        return (VBNumericTypedValue)((VBNumericTypedValue)numericType.DefaultValue).WithValue(value);
                     }
                     else if (_itemType is VBStringType stringType)
                     {
                         var value = (string)(_state[index] ?? string.Empty);
-                        return ((VBStringValue)VBTypedValueFactory.CreateValue(stringType)!).WithValue(value);
+                        return ((VBStringValue)stringType.DefaultValue).WithValue(value);
                     }
                     else
                     {

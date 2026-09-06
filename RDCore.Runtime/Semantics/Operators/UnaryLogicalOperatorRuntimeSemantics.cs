@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -51,7 +52,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand) =>
-        VBTypedValueFactory.CreateValue(effectiveType, EvaluateBitwiseOp((int)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        RuntimeNumericValue.Of(effectiveType, EvaluateBitwiseOp((int)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary logical operator
@@ -60,8 +61,8 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <param name="operand">The unary operand being evaluated.</param>
     /// <returns><c>null</c> if no return value can be evaluated, which would throw a <em>type mismatch</em> error.</returns>
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBDateType effectiveType, VBNumericTypedValue operand) =>
-        VBTypedValueFactory.CreateValue(effectiveType, EvaluateBitwiseOp((int)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
+        RuntimeNumericValue.Of(effectiveType, EvaluateBitwiseOp((int)operand.UnderlyingValue.RuntimeValue!.BoxedValue));
 
     protected virtual VBTypedValue EvaluateRuntimeSemantics(VBNullType effectiveType, VBNullValue operand) =>
-        VBTypedValueFactory.CreateValue(effectiveType)!;
+        effectiveType.DefaultValue;
 }
