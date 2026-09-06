@@ -1,5 +1,5 @@
-﻿using RDCore.Runtime.Execution;
-using RDCore.Runtime.Symbols;
+﻿using RDCore.CLI.Host.Symbols;
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;

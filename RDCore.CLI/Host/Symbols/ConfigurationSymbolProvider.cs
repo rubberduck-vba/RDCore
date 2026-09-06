@@ -1,10 +1,10 @@
-﻿using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 
-namespace RDCore.Runtime.Symbols;
+namespace RDCore.CLI.Host.Symbols;
 
 /// <summary>
 /// Produces the project-level conditional-compilation constants a session starts with: the built-in
@@ -12,7 +12,7 @@ namespace RDCore.Runtime.Symbols;
 /// <c>#Const</c>s, and (highest precedence) <c>--define</c> command-line overrides.
 /// </summary>
 /// <remarks>
-/// ⚖️ GPLv3. Values that are not a recognised literal are skipped.
+/// ⚖️ GPLv3. Runs in the environment-host process. Values that are not a recognised literal are skipped.
 /// </remarks>
 public sealed class ConfigurationSymbolProvider(
     IRuntimeEnvironmentProfile environment,
