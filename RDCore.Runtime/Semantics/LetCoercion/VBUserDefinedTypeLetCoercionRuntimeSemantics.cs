@@ -27,8 +27,10 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
         VBOperatorExpression expression, 
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
-            VBUserDefinedTypeValue sourceUDT when sourceUDT.TypeInfo == frame.DestinationTypeDesc.Target => 
-                LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(sourceUDT.Value.RuntimeValue))),
+            // 5.5.1.2.8 — coercion to the same UDT type. The value is a location; deep field copy is
+            // the execution engine's job, so this shares the source reference.
+            VBUserDefinedTypeValue sourceUDT when sourceUDT.TypeInfo == frame.DestinationTypeDesc.Target =>
+                LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(sourceUDT.Handle)),
 
             VBUserDefinedTypeValue when frame.DestinationTypeDesc.Target is not VBVariantType =>
                 LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
