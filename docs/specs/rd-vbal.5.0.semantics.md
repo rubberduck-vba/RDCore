@@ -37,9 +37,22 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 The _evaluation pipeline_ of all operators follows a clear sequence:
 1. The _effective type_ of the operation is determined, based on the _declared type_ of its _operands_;
 2. Validation: all non-[null](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html) _operands_ are let-coerced to the determined _effective type_ of the operation;
-3. Evaluation: a templated method evaluates a result, having the _execution context_ and the validated _operands_ to work with.
+3. Evaluation: a templated method evaluates a result from the validated _operands_.
 
 The sequence may be aborted at any point to return an _error result_ that encapsulates [VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) error metadata.
+
+**Computation in the effective type.** The result of step 3 is computed in the _effective type_'s own
+representation — `Long` arithmetic in 64-bit integers, `Currency`/`Decimal` in `decimal`, `Single` in
+`float`, and so on — never through a `Double` intermediate. Arithmetic runs in a _checked_ context, so
+an integral or fixed-point result that does not fit the effective type raises
+[Overflow](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html) rather than wrapping or silently
+narrowing; an integral division or `Mod` by zero raises
+[DivisionByZero](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html). The `^` operator is the sole
+exception — its effective type is always `Double`, and it is evaluated as IEEE-754 exponentiation.
+Relational operators compare in the effective type (integral comparisons in 64-bit integers,
+fixed-point in `decimal`) and yield a [VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html);
+a `NaN` operand raises [Overflow](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html). Logical
+operators compute bitwise in the effective integral type (`Boolean` over its `-1`/`0` representation).
 
 
 ### 5.0.2.2 Let-Coercion
