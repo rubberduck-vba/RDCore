@@ -16,4 +16,4 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="Name">The constant's name.</param>
 /// <param name="Value">The constant's data value.</param>
 public sealed record class PrecompilerConstantSymbol(string Name, VBTypedValue Value)
-    : UnboundTypedSymbol(StaticSymbol.GlobalUri, StaticSymbol.GlobalUri, Name, ScopeKind.Unallocated, SymbolKindExt.Constant, VBVariantType.TypeInfo);
+    : UnboundTypedSymbol(StaticSymbol.GlobalUri, StaticSymbol.GlobalUri, Name, ScopeKind.Global, SymbolKindExt.Constant, VBVariantType.TypeInfo);

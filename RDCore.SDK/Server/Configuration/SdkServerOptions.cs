@@ -91,6 +91,32 @@ public record class SdkAppCommandLineArgs
     public string? WorkspaceUri { get; set; }
 
     /// <summary>
+    /// Repeatable <em>command-line argument</em> defining or overriding a project-level precompiler
+    /// constant, in <c>NAME=VALUE</c> form (e.g. <c>--define RDDEBUG=1</c>). Overrides the
+    /// <c>.rdproj</c> and the built-in host constants.
+    /// </summary>
+    [Option('D', "define")]
+    public IEnumerable<string>? Define { get; set; }
+
+    /// <summary>
+    /// The <c>--define</c> arguments parsed into a <c>NAME → VALUE</c> map (case-insensitive; the last
+    /// value wins). Malformed entries are ignored.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> PrecompilerConstantOverrides()
+    {
+        var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in Define ?? [])
+        {
+            var separator = entry.IndexOf('=');
+            if (separator > 0)
+            {
+                overrides[entry[..separator].Trim()] = entry[(separator + 1)..].Trim();
+            }
+        }
+        return overrides;
+    }
+
+    /// <summary>
     /// Projects the supplied arguments onto <c>IConfiguration</c> keys.
     /// </summary>
     /// <remarks>

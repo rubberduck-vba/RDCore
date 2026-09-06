@@ -9,9 +9,13 @@ using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Execution;
 
-internal sealed class RuntimeSession(ISessionMemoryAllocator memory, ISessionSymbols symbols, ISessionObjects objects) : IRuntimeSession
+internal sealed class RuntimeSession(
+    IRuntimeEnvironmentProfile environment,
+    ISessionMemoryAllocator memory,
+    ISessionSymbols symbols,
+    ISessionObjects objects) : IRuntimeSession
 {
-    public bool Is64Bit { get; init; }
+    public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
     public ISessionSymbols Symbols { get; init; } = symbols;
     public ISessionObjects Objects { get; init; } = objects;
@@ -133,7 +137,10 @@ internal sealed class SessionSymbols : ISessionSymbols
             ?? FindCandidates(name, _workspaceSymbols).OfType<AccessibleTypedSymbol>()
                 .SingleOrDefault(s => IsAccessibleFrom(s, scope))
             ?? FindCandidates(name, _globalSymbols).OfType<AccessibleTypedSymbol>()
-                .FirstOrDefault(s => IsAccessibleFrom(s, scope));
+                .FirstOrDefault(s => IsAccessibleFrom(s, scope))
+            // precompiler constants, intrinsic globals, module symbols — not AccessibleTypedSymbol
+            ?? FindCandidates(name, _globalSymbols).FirstOrDefault()
+            ?? FindCandidates(name, _workspaceSymbols).FirstOrDefault();
         return symbol != default;
     }
 
