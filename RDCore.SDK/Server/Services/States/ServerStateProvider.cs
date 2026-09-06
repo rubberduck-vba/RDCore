@@ -48,6 +48,13 @@ public interface IServerStateProvider
     /// <exception cref="InvalidServerStateException"></exception>
     void OnExit();
     /// <summary>
+    /// Records an <em>unrecoverable</em> condition (for example, an essential child component was lost) and
+    /// stops the server deliberately: it transitions through <c>ShuttingDown</c> to <see cref="ExitingServerState"/>
+    /// so the process exits with code <c>0</c> and a supervising client follows it down rather than restarting it.
+    /// Idempotent; valid from any non-terminal state.
+    /// </summary>
+    void OnFatalError();
+    /// <summary>
     /// Sets the server state to <see cref="RunningTracelessServerState"/>.
     /// </summary>
     void OnTraceOff();
@@ -113,6 +120,16 @@ public sealed class ServerStateProvider : IServerStateProvider, IDisposable
     {
         _state = ServerState.Exiting(State.Value);
         _processTokenSource.Cancel();
+    }
+
+    public void OnFatalError()
+    {
+        if (_state is not (ShuttingDownServerState or ExitingServerState))
+        {
+            _state = ServerState.ShuttingDown;
+            _requestTokenSource.Cancel();
+        }
+        OnExit();
     }
 
     private static ServerState GetValidStateOrThrow(ServerState currentState, Type condition, ServerState validState) 

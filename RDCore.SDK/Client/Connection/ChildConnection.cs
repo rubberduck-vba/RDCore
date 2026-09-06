@@ -306,6 +306,21 @@ public sealed class ChildConnection(
 
     private async Task MonitorPeerAsync()
     {
+        try
+        {
+            await MonitorPeerLoopAsync();
+        }
+        catch (Exception exception)
+        {
+            // this runs as a fire-and-forget task: an unobserved throw here would silently strand the
+            // platform. Escalate instead so the owner tears down.
+            logger.LogError(exception, "Peer monitor failed unexpectedly; escalating.");
+            _request?.OnPeerExited();
+        }
+    }
+
+    private async Task MonitorPeerLoopAsync()
+    {
         while (true)
         {
             try
@@ -319,6 +334,17 @@ public sealed class ChildConnection(
 
             if (_shuttingDown || State.Value is ConnectionStateValue.Exited or ConnectionStateValue.ShuttingDown)
             {
+                return;
+            }
+
+            // exit code 0 is a deliberate stop (graceful shutdown, or the peer escalating a fatal
+            // condition it cannot recover from) — following it down, not restarting it, is correct.
+            if (serverProcess.ExitCode == 0)
+            {
+                logger.LogInformation("Child exited cleanly (code 0); treating as a deliberate peer shutdown.");
+                Transition(ConnectionState.ShuttingDown);
+                Transition(ConnectionState.Exited);
+                _request?.OnPeerExited();
                 return;
             }
 

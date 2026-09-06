@@ -182,7 +182,7 @@ internal sealed class CoreLanguageServerApp(
             // a core child is essential: if it is lost for good, the language server cannot continue.
             await component.WaitForTerminalAsync().WaitAsync(token);
             LogIfEnabled(LogLevel.Critical, $"❌ {label} is unrecoverable; shutting down the language server.");
-            ServerStateProvider.OnExit();
+            ServerStateProvider.OnFatalError();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

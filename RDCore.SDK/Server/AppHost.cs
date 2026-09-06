@@ -41,6 +41,11 @@ public abstract class AppHost<TApp>() : IDisposable
     protected readonly CancellationTokenSource ProcessTokenSource = new();
 
     /// <summary>
+    /// The built host's service provider, or <c>null</c> before <see cref="BuildAndRunAsync"/> has built the host.
+    /// </summary>
+    protected IServiceProvider? HostServices => _host?.Services;
+
+    /// <summary>
     /// Gets the <see cref="AssemblyName"/> of this application.
     /// </summary>
     /// <remarks>

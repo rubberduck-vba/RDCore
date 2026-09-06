@@ -78,6 +78,29 @@ public class ServerStateProviderTests
     => TestServerStateTransition(sut => sut.OnExit(), initialState, expectedState);
 
     [TestMethod]
+    [DataRow(ServerStateValue.Starting, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Initializing, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Running, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.RunningVerbose, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.ShuttingDown, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Exiting, ServerStateValue.Exiting)]
+    public void OnFatalError_AlwaysReachesExiting(ServerStateValue? initialState, ServerStateValue? expectedState)
+    => TestServerStateTransition(sut => sut.OnFatalError(), initialState, expectedState);
+
+    [TestMethod]
+    public void OnFatalError_ExitsCleanly_SoASupervisingClientDoesNotRestart()
+    {
+        var sut = new ServerStateProvider(TestConfiguration);
+        sut.OnInitialize();
+        sut.OnInitialized();
+
+        sut.OnFatalError();
+
+        // code 0 == deliberate stop; ChildConnection.MonitorPeerAsync keys the no-restart path off this.
+        Assert.AreEqual(0, sut.State.ExitCode);
+    }
+
+    [TestMethod]
     [DataRow(null, null)]
     [DataRow(ServerStateValue.Starting, null)]
     [DataRow(ServerStateValue.Initializing, null)]
