@@ -31,7 +31,6 @@ public sealed record class VBBooleanValue : VBTypedValue, IVBTypedValue<VBBoolea
     public override string ToString() => Value.StoredValue != 0 ? Tokens.True : Tokens.False;
 
     public bool Equals(IVBTypedValue<VBBooleanValue, VBRuntimeBooleanValue>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 
 
     // TOOD move to let-coercion semantics:

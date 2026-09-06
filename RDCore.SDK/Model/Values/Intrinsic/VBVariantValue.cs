@@ -39,5 +39,4 @@ public record class VBVariantValue(VBTypedValue TypedValue)
     }
 
     public bool Equals(IVBTypedValue<VBVariantValue, VBRuntimeVariantValue>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

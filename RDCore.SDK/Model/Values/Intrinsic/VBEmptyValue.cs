@@ -21,5 +21,4 @@ public sealed record class VBEmptyValue() : VBTypedValue(VBEmptyType.TypeInfo),
     public override int Size => sizeof(int);
 
     public bool Equals(IVBTypedValue<VBEmptyValue, int>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

@@ -23,5 +23,4 @@ public sealed record class VBSingleValue : VBNumericTypedValue,
     public float Value => ((VBRuntimeValue<float>)RuntimeValue).Value;
     public override int Size => sizeof(float);
     public bool Equals(IVBTypedValue<VBSingleValue, float>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

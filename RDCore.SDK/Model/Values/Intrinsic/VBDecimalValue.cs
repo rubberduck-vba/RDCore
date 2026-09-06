@@ -18,5 +18,4 @@ public sealed record class VBDecimalValue()
     public override int Size => sizeof(Decimal);
 
     public bool Equals(IVBTypedValue<VBDecimalValue, decimal>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

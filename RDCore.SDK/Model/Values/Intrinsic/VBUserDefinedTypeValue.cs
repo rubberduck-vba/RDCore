@@ -33,5 +33,4 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
         .Sum(member => member.ResolvedType!.DefaultValue.Size);
 
     public bool Equals(IVBTypedValue<VBUserDefinedTypeValue, MemoryAddress>? other) => Value.Value.Equals(other?.Value.Value);
-    public override int GetHashCode() => Value.GetHashCode();
 }

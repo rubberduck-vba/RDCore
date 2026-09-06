@@ -75,4 +75,27 @@ public abstract record class VBTypedValue(VBType TypeInfo)
     /// </summary>
     public VBTypedValue WithRuntimeValue(IRuntimeValue runtimeValue)
         => this with { Handle = new ValueBindingHandle(runtimeValue) };
+
+    /// <summary>
+    /// The bound managed value, or <c>null</c> when the binding cannot yield one.
+    /// </summary>
+    /// <remarks>
+    /// 👉 <see cref="IBindingHandle"/> is a <em>storage</em> concern, not <em>identity</em>: two typed
+    /// values of the same type holding the same managed value are equal regardless of how (or whether)
+    /// each is currently bound. Equality and hashing therefore key on the exact value type and this
+    /// managed value only — never on <see cref="Handle"/> (which is mutable) or <c>ResolvedSymbol</c>.
+    /// </remarks>
+    private object? BoundManagedValue
+        => Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? Handle.Value.BoxedValue : null;
+
+    /// <summary>
+    /// Two typed values are equal when they have the exact same value type and hold equal managed values.
+    /// </summary>
+    public virtual bool Equals(VBTypedValue? other)
+        => other is not null
+        && EqualityContract == other.EqualityContract
+        && Equals(BoundManagedValue, other.BoundManagedValue);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, BoundManagedValue);
 }

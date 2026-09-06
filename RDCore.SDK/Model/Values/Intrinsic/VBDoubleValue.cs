@@ -22,5 +22,4 @@ public sealed record class VBDoubleValue : VBNumericTypedValue,
     public override int Size => 8;
 
     public bool Equals(IVBTypedValue<VBDoubleValue, double>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

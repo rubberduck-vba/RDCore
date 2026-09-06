@@ -18,5 +18,4 @@ public sealed record class VBCurrencyValue()
     public override int Size => sizeof(long);
 
     public bool Equals(IVBTypedValue<VBCurrencyValue, VBRuntimeCurrencyValue>? other) => Value.StoredValue == other?.Value.StoredValue;
-    public override int GetHashCode() => Value.GetHashCode();
 }

@@ -29,5 +29,4 @@ public sealed record class VBLongPtrValue(bool Is64Bit)
     public override int Size { get; }
 
     public bool Equals(IVBTypedValue<VBLongPtrValue, long>? other) => Value.Equals(other?.Value);
-    public override int GetHashCode() => Value.GetHashCode();
 }

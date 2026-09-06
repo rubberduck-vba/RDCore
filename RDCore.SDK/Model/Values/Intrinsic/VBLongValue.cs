@@ -23,5 +23,4 @@ public sealed record class VBLongValue : VBNumericTypedValue,
     public override int Size => sizeof(int);
 
     public bool Equals(IVBTypedValue<VBLongValue, int>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

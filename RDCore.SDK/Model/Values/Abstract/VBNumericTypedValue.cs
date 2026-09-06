@@ -23,6 +23,4 @@ public abstract record class VBNumericTypedValue(VBType TypeInfo) : VBTypedValue
     /// bare <c>(double)RuntimeValue.BoxedValue</c> would throw.
     /// </summary>
     public double AsDouble => Convert.ToDouble(RuntimeValue.BoxedValue);
-
-    public override int GetHashCode() => RuntimeValue.GetHashCode();
 }

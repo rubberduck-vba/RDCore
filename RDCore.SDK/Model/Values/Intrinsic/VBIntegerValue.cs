@@ -23,5 +23,4 @@ public record class VBIntegerValue : VBNumericTypedValue,
     public override int Size { get; } = sizeof(short);
 
     public bool Equals(IVBTypedValue<VBIntegerValue, short>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

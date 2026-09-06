@@ -73,5 +73,4 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     public override string ToString() => Value ?? VBNullString.Value;
 
     public bool Equals(IVBTypedValue<VBStringValue, string>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

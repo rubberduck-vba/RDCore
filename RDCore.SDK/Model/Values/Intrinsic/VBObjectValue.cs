@@ -34,5 +34,4 @@ public record class VBObjectValue : VBTypedValue,
     public bool IsNothing() => Value == Nothing.Value;
 
     public bool Equals(IVBTypedValue<VBObjectValue, MemoryAddress>? other) => Value.Value.Equals(other?.Value.Value);
-    public override int GetHashCode() => Value.GetHashCode();
 }

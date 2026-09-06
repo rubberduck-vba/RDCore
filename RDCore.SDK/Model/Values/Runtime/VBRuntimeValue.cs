@@ -46,25 +46,13 @@ public readonly struct VBRuntimeValue<T>(T value) : IRuntimeValue<T>, IEquatable
     public static VBRuntimeValue<VBRuntimeDecimalValue> DecimalMaxValue { get; } = new(new VBRuntimeDecimalValue(decimal.MaxValue));
     public static VBRuntimeValue<VBRuntimeDecimalValue> DecimalZeroValue { get; } = new(new VBRuntimeDecimalValue(0m));
 
-    public override int GetHashCode()
-    {
-        return Value?.GetHashCode() ?? 0;
-    }
+    public override int GetHashCode() => EqualityComparer<T>.Default.GetHashCode(Value!);
 
     public override bool Equals([NotNullWhen(true)] object? obj)
-    {
-        if (obj is VBRuntimeValue<T> other)
-        {
-            return Equals(other);
-        }
-
-        return false;
-    }
+        => obj is VBRuntimeValue<T> other && Equals(other);
 
     public bool Equals(VBRuntimeValue<T> other)
-    {
-        return other.StoredValue?.Equals(StoredValue) ?? false;
-    }
+        => EqualityComparer<T>.Default.Equals(StoredValue, other.StoredValue);
 
     public static bool operator ==(VBRuntimeValue<T> left, VBRuntimeValue<T> right)
     {

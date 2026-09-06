@@ -30,5 +30,4 @@ public sealed record class VBDateValue : VBTypedValue,
     public override int Size => sizeof(double);
 
     public bool Equals(IVBTypedValue<VBDateValue, DateTime>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }

@@ -19,5 +19,4 @@ public sealed record class VBByteValue() : VBNumericTypedValue(VBByteType.TypeIn
     public override int Size { get; } = sizeof(byte);
 
     public bool Equals(IVBTypedValue<VBByteValue, byte>? other) => Value == other?.Value;
-    public override int GetHashCode() => Value.GetHashCode();
 }
