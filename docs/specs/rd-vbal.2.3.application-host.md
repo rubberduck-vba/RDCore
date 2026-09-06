@@ -25,41 +25,48 @@ An _execution session_ holds the _state_ of the execution engine and exposes met
 |`StepOut` | Advances execution to the next statement in the current scope, stepping over any statements in-between|
 
 
-### 2.3.1.2 Virtual Heap
-The `IVirtualHeap` interface extends `ISymbolProvider` and `ISymbolResolver` and should typically be exposed to the internal API through these specialized get-only interfaces.
+### 2.3.1.2 Session Services
+An _execution session_ is rooted at an `IRuntimeSession` that exposes the environment bitness
+(`Is64Bit`, which also determines the value of the `#If Win64` and `#If VBA7` pre-compiler directives)
+and three services:
 
-- `ISymbolProvider` exposes a single `Define` method that loads a specified `Symbol` and addresses it using its `Uri`.
+|Service|Responsibility|
+|---|---|
+|`ISessionMemoryAllocator`|Allocates and frees blocks in the session's memory space and reports allocation / fragmentation statistics (`TryAllocate`, `TryDeallocate`, `Info`). This is an _accounting_ layer — it tracks sizes and addresses, MSVBVM-style, not the values themselves.|
+|`ISessionSymbols`|The session's symbol table: `TryDefine` a `Symbol` in a scope, and `TryResolve` a name visible from a scope.|
+|`ISessionObjects`|Object lifetime: `CreateObject`, `AddRef` / `RemoveRef`, and `TryRemoveObject` for an instance whose reference count has reached zero.|
 
-The `ISymbolResolver` interface exposes the following members:
+The read face used by the static and runtime semantic layers is `ISymbolResolver`:
 
 |Member|Description|
 |---|---|
 |`Resolve`|Resolves a specified _identifier name_ to a defined `Symbol` by inspecting a specified _allocation scope_|
-|`GetValue`|Gets the currently held `VBTypedValue` for a specified `Symbol`|
-|`TryRead`|Gets the `VBTypedValue` held at the specified address (offset) if it exists|
+|`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
+|`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
-The `IVirtualHeap` interface represents a _service that manages the run-time memory structure of an execution context_; it exposes the following additional members to the execution engine:
-
-|Member|Description|
-|---|---|
-|`CreateObject`|Creates a new `VBObjectValue` of a specified _class type_|
-|`SetValue`|Associates a specified `VBTypedValue` to a `Symbol`|
-|`Allocate`|Allocates a `VBTypedValue` or a specified number of bytes at the _current memory address_ pointer|
-|`Deallocate`|Deallocates the memory held by the symbol at a specified `Uri`|
+`ISymbolProvider` exposes a single `Define` method that loads a specified `Symbol` into the semantic
+layer (static context) or the session symbol table (runtime context). It is the abstraction behind the
+several _symbol providers_ a session is composed from — configuration flags, AST declarations,
+reflected referenced libraries, and the environment host's own runtime and standard library.
 
 > [!NOTE]
-> The **RDCore** implementation (⚖️GPLv3) of this service is intended to be _thread-safe_. While RD-VBA normally executes on a single thread, its runtime implementation is not _inherently_ single-threaded and it is _host-dependent_ whether a **RD-VBA** _environment host_ supports the concurrent execution of RD-VBA execution threads. This concurrent execution capability is intended to be (optionally) used for eventual _unit testing_ features.
+> Where a `Symbol`'s bound value lives is being moved to an addressable _session storage_ — a
+> contiguous byte block per allocation — so that array iteration and _copy_ operations can run
+> directly against the underlying storage without materializing a `VBTypedValue` per element. Until
+> then, an `IBindingHandle` is itself the value.
 
-An implementation of `IVirtualHeap` should:
-- Maintain an internal _global heap_ to hold a `VBTypedValue` for any given `Symbol` that is globally-scoped;
-- Maintain an internal _workspace heap_ to hold a `VBTypedValue` for any given `Symbol` that is workspace-scoped;
-- Maintain an internal _static locals heap_ to hold a `VBTypedValue` for any given `Symbol` that is module-scoped;
-- Maintain an internal _object heap_ to hold the `Symbol` references and their respective associated `VBTypedValue` for any given `VBObjectValue`;
-- Maintain an internal _address pointer_ to track the current _memory offset_;
+> [!NOTE]
+> The **RDCore** implementations (⚖️GPLv3) of these services are intended to be _thread-safe_. While RD-VBA normally executes on a single thread, its runtime implementation is not _inherently_ single-threaded and it is _host-dependent_ whether a **RD-VBA** _environment host_ supports the concurrent execution of RD-VBA execution threads. This concurrent execution capability is intended to be (optionally) used for eventual _unit testing_ features.
+
+The session's `ISessionSymbols` and `ISessionObjects` implementations should:
+- Maintain an internal _global heap_ to hold an `IBindingHandle` for any given `Symbol` that is globally-scoped;
+- Maintain an internal _workspace heap_ to hold an `IBindingHandle` for any given `Symbol` that is workspace-scoped;
+- Maintain an internal _static locals heap_ to hold an `IBindingHandle` for any given `Symbol` that is module-scoped;
+- Maintain an internal _object heap_ to hold the `Symbol` references and their respective associated bindings for any given `VBObjectValue`;
 - Maintain an internal _symbol table_ mapping a `Uri` to its associated `Symbol`;
-- Maintain an internal _name table_ holding the current representation (casing) of all loaded symbols;
-- Maintain an internal _memory map_ mapping a `VBTypedValue` to a _memory address_ (offset);
-- Maintain an internal _raw address map_ mapping a _memory address_ (offset) to a `Uri`.
+- Maintain an internal _name table_ holding the current representation (casing) of all loaded symbols.
+
+The `ISessionMemoryAllocator` maintains an internal _address pointer_ tracking the current _memory offset_. The _memory map_ (`MemoryAddress` → `IBindingHandle`) and _raw address map_ (`MemoryAddress` → `Uri`) are part of the forthcoming addressable _session storage_.
 
 [ScopeKind](../api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html) defines the _allocation scopes_.
 
