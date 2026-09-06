@@ -24,8 +24,7 @@ public class PlatformInitializeHandler(ILogger<IJsonRpcHandler> logger, Platform
     protected override Task<PlatformInitializeResult> HandleAsync(PlatformInitializeParams request, CancellationToken token)
     {
         var provided = ProvidedCorePlatformCapabilities.Reflect(Assembly.GetEntryAssembly()!);
-        logger.LogInformation("Platform handshake: {Component} provides [{Provided}]",
-            context.Component, string.Join(", ", provided));
+        logger.LogInformation("Platform handshake: {Component} provides {Provided}", context.Component, provided);
 
         return Task.FromResult(new PlatformInitializeResult
         {

@@ -259,7 +259,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// <item><see cref="ShutdownHandler"/></item>
     /// <item><see cref="ExitHandler"/></item>
     /// <item><see cref="SetTraceHandler"/></item>
-    /// <item><see cref="ExecuteCommandHandler"/></item>
+    /// <item><see cref="Handlers.Platform.PlatformInitializeHandler"/></item>
     /// </list>
     /// </remarks>
     protected abstract void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder);

@@ -2,10 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
-using System.Diagnostics;
 
 namespace RDCore.SDK.Server;
 
@@ -44,9 +42,5 @@ public class RDCorePlatformServerHost<TApp>() : AppHost<TApp>()
         _ = parsed.WorkspaceUri ?? throw new ArgumentNullException(nameof(SdkAppCommandLineArgs.WorkspaceUri));
 
         configuration.AddInMemoryCollection(parsed.ToConfigurationOverrides());
-    }
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddSingleton<ExecuteCommandHandler>();
     }
 }

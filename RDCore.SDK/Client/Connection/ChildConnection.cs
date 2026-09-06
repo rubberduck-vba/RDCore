@@ -298,8 +298,8 @@ public sealed class ChildConnection(
             ExpectedComponent = _request.ExpectedComponent,
             Expected = _request.ExpectedCapabilities,
         }, ct);
-        logger.LogInformation("Platform handshake with {Component}: provides [{Provided}]",
-            PlatformInfo.Component, string.Join(", ", PlatformInfo.Provided));
+        logger.LogInformation("Platform handshake with {Component}: provides {Provided}",
+            PlatformInfo.Component, PlatformInfo.Provided);
 
         Transition(ConnectionState.Ready);
     }
