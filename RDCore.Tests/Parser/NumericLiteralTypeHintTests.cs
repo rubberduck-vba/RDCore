@@ -48,7 +48,7 @@ public sealed class NumericLiteralTypeHintTests
         }
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("HintInteger", typeof(VBIntegerValue))]
     [DataRow("HintLong", typeof(VBLongValue))]
     [DataRow("HintLongLong", typeof(VBLongLongValue))]

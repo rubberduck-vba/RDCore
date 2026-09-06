@@ -11,7 +11,7 @@ public sealed class VBNumericLetCoercionTests : LetCoercionRuntimeSemanticsTests
 {
     private static VBNumericLetCoercionTypeRuntimeSemantics Sut() => new(Formatter(), FakeProvider());
 
-    [DataTestMethod]
+    [TestMethod]
     // floating -> integral : banker's rounding (MS-VBAL 5.5.1.2.1.1)
     [DataRow(2.5, (short)2)]
     [DataRow(3.5, (short)4)]

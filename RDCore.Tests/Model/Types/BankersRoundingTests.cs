@@ -6,7 +6,7 @@ namespace RDCore.Tests.Model.Types;
 [TestCategory("RD-VBAL §5.5.1.2.1.1 Banker's Rounding")]
 public sealed class BankersRoundingTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(2.5, 2)]   // tie -> even
     [DataRow(3.5, 4)]   // tie -> even
     [DataRow(0.5, 0)]   // tie -> even
