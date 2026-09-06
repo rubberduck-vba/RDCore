@@ -2,6 +2,8 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
@@ -173,6 +175,39 @@ End Sub
         else
         {
             Assert.Inconclusive(result.SyntaxErrors[0]!.Description);
+        }
+    }
+
+    [TestMethod]
+    public void DeclareOrEvent_DoesNotPoisonLaterModuleDeclarationCapture()
+    {
+        // regression: a Declare/Event has an argList but no body, and ExitArgList used to set
+        // _isInsideProcedure, leaving declaration-pass expression capture off for every module-level
+        // declaration between it and the next procedure.
+        const string content = """
+            Option Explicit
+            Declare PtrSafe Sub Foo Lib "k" (ByVal a As Long)
+            Public Const Answer As Long = 42
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var literal = Descendants(result.SyntaxTree!).OfType<LiteralExpressionNode>().SingleOrDefault();
+        Assert.IsNotNull(literal, "the Const's '42' literal was dropped from the AST");
+        Assert.IsInstanceOfType<VBIntegerValue>(literal!.StaticValue);
+        Assert.AreEqual((short)42, ((VBIntegerValue)literal.StaticValue).Value);
+    }
+
+    private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node)
+    {
+        foreach (var child in node.Children)
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child))
+            {
+                yield return descendant;
+            }
         }
     }
 }

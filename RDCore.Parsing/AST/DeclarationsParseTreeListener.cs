@@ -388,7 +388,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     {
         _parameterIndex = 0;
         _isAfterArgsList = true;
-        _isInsideProcedure = true;
+        // NOTE: do NOT set _isInsideProcedure here. It is already set by OnEnterProcedure for a real
+        // Sub/Function/Property body; a Declare or Event has an argList but no body, and setting it
+        // here left the flag poisoned (declaration-pass expression capture off) for every module-level
+        // declaration between a Declare/Event and the next procedure. This whole flag disappears once
+        // the listener also builds statement nodes (TokenSemanticsListener).
 
         if (_isPropertyWriterMember)
         {
