@@ -1,4 +1,6 @@
-﻿namespace RDCore.LanguageServer.Workspace.Services;
+﻿using RDCore.SDK.Workspace;
+
+namespace RDCore.LanguageServer.Workspace.Services;
 
 internal interface IWorkspaceFolderService
 {
