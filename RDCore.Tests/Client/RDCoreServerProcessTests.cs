@@ -39,4 +39,13 @@ public class RDCoreServerProcessTests
     [TestMethod]
     public void Shutdown_BeforeStart_DoesNotThrow()
         => CreateSut().Shutdown();
+
+    [TestMethod]
+    public void Dispose_IsIdempotent()
+    {
+        var sut = CreateSut();
+
+        sut.Dispose();
+        sut.Dispose(); // a second dispose (host container + explicit) must not throw
+    }
 }

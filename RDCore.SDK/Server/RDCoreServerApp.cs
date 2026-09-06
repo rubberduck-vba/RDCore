@@ -78,6 +78,7 @@ public abstract class RDCoreServerApp(
     }
 
     private NamedPipeServerStream _namedPipe = default!;
+    private bool _disposed;
 
     protected async virtual Task BeforeRunAsync(string[] args) { }
 
@@ -175,6 +176,12 @@ public abstract class RDCoreServerApp(
     /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
         if (transportLayer is IDisposable disposableTransport)
         {
             disposableTransport.Dispose();

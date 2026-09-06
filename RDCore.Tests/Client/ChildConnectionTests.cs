@@ -1,10 +1,28 @@
-﻿using RDCore.SDK.Client.Connection;
+﻿using Microsoft.Extensions.Logging;
+using NSubstitute;
+using RDCore.SDK.Client;
+using RDCore.SDK.Client.Connection;
+using RDCore.SDK.Server;
 
 namespace RDCore.Tests.Client;
 
 [TestClass]
 public class ChildConnectionTests
 {
+    [TestMethod]
+    public void Dispose_IsIdempotent()
+    {
+        var sut = new ChildConnection(
+            Substitute.For<IRDCoreServerProcess>(),
+            Substitute.For<ILanguageServerProtocolTransportLayer>(),
+            Substitute.For<ILogger<ChildConnection>>());
+
+        sut.Dispose();
+        sut.Dispose(); // the CLI disposes via the host container and again explicitly
+
+        Assert.AreEqual(ConnectionStateValue.NotStarted, sut.State.Value);
+    }
+
     [TestMethod]
     [DataRow(0, 500, 10000, 500)]
     [DataRow(1, 500, 10000, 1000)]

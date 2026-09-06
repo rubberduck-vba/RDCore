@@ -99,6 +99,7 @@ public sealed class ChildConnection(
     private NamedPipeClientStream? _pipe;
     private LanguageClient? _client;
     private volatile bool _shuttingDown;
+    private bool _disposed;
 
     /// <summary>
     /// The current lifecycle state of the connection.
@@ -422,8 +423,17 @@ public sealed class ChildConnection(
     /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
         _shuttingDown = true;
-        _connectionCts.Cancel();
+
+        if (!_connectionCts.IsCancellationRequested)
+        {
+            _connectionCts.Cancel();
+        }
         _connectionCts.Dispose();
         _linkedCts?.Dispose();
         _client?.Dispose();

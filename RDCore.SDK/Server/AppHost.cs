@@ -264,12 +264,9 @@ public abstract class AppHost<TApp>() : IDisposable
         {
             if (disposing)
             {
-                _hostTask?.Dispose();
+                // the host owns the TApp singleton's lifetime and disposes it; disposing _app here
+                // as well ran RDCoreClientApp/RDCoreServerApp.Dispose() twice.
                 _host?.Dispose();
-
-                // TODO verify the app doesn't get disposed twice:
-                _app?.Dispose();
-
                 ProcessTokenSource.Dispose();
             }
 

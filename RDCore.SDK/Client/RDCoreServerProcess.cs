@@ -92,6 +92,7 @@ public class RDCoreServerProcess(
     private readonly CancellationTokenSource _tokenSource = new();
     private Process? _serverProcess = default;
     private Task? _waitForExit = default;
+    private bool _disposed;
 
     public int ProcessId => _serverProcess?.Id ?? 0;
     public bool HasExited => _serverProcess?.HasExited ?? true;
@@ -100,22 +101,30 @@ public class RDCoreServerProcess(
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
+        // completes the WaitForExitAsync task so nothing is left awaiting a dead process.
+        if (!_tokenSource.IsCancellationRequested)
+        {
+            _tokenSource.Cancel();
+        }
         _tokenSource.Dispose();
+
+        // a Task is not disposed — that throws while it is still running and buys nothing.
+        _waitForExit = default;
 
         _serverProcess?.Dispose();
         _serverProcess = default;
-
-        _waitForExit?.Dispose();
-        _waitForExit = default;
 
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    protected virtual void Dispose(bool disposing) 
-    {
-        _serverProcess?.Dispose();
-    }
+    protected virtual void Dispose(bool disposing) { }
 
     public void Shutdown() => _serverProcess?.Kill();
 

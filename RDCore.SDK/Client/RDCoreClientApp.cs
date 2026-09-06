@@ -60,6 +60,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     private ChildConnection? _connection;
     private IServiceProvider? _hostServices;
+    private bool _disposed;
 
     protected RDCoreClientApp(
         IOptions<SdkAppOptions> options,
@@ -196,6 +197,12 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
         _connection?.Dispose();
 
         Dispose(true);
