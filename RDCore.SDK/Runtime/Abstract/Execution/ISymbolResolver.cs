@@ -35,17 +35,3 @@ public interface ISymbolResolver
     bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value);
 }
 
-/// <summary>
-/// A service that loads a <see cref="Symbol"/> into the semantic layer.
-/// </summary>
-/// <remarks>
-/// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
-/// </remarks>
-public interface ISymbolProvider
-{
-    /// <summary>
-    /// Defines the specified new <see cref="Symbol"/> in the semantic layer (static context), or in the symbol table (runtime context).
-    /// </summary>
-    /// <param name="symbol">The new <see cref="Symbol"/> to be semantically defined.</param>
-    void Define(Symbol symbol);
-}
