@@ -1,8 +1,10 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -75,16 +77,55 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
-        BinaryLogicalOperatorSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        BinaryLogicalOperatorSemanticContext context,
+        VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
-        => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBByteType or VBNullType when frame[InputIndex.BinaryLeftOperand].TypeInfo is VBByteType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBByteType.TypeInfo),
+    {
+        var lhs = frame[InputIndex.BinaryLeftOperand].GetTargetType();
+        var rhs = frame[InputIndex.BinaryRightOperand].GetTargetType();
 
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+        // MS-VBAL 5.6.9.8: logical operators are first resolved as simple data operators; a dedicated
+        // table applies when either operand is Null. The effective value type is always Byte, Boolean,
+        // Integer, Long, LongLong, Variant or Null — floating-/fixed-point and Date operands resolve
+        // to Long (or LongLong), never to their own type.
+        var effectiveType = (lhs, rhs) switch
+        {
+            (VBByteType, VBByteType or VBNullType) or (VBNullType, VBByteType)
+                => VBByteType.TypeInfo,
+
+            // Boolean stays Boolean; operands are let-coerced to Integer for the bitwise step.
+            (VBBooleanType, VBBooleanType or VBNullType) or (VBNullType, VBBooleanType)
+                => VBBooleanType.TypeInfo,
+
+            (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType or VBNullType,
+                VBByteType or VBBooleanType or VBIntegerType or VBEmptyType)
+                or (VBByteType or VBBooleanType or VBIntegerType or VBEmptyType,
+                    VBByteType or VBBooleanType or VBIntegerType or VBEmptyType or VBNullType)
+                => VBIntegerType.TypeInfo,
+
+            (VBLongLongType, INumericType or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType)
+                or (INumericType or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType, VBLongLongType)
+                => VBLongLongType.TypeInfo,
+
+            (IFloatingPointNumericType or IFixedPointNumericType or VBLongType or VBStringType or VBFixedStringType or VBDateType,
+                (INumericType and not VBLongLongType) or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType)
+                or ((INumericType and not VBLongLongType) or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType,
+                    IFloatingPointNumericType or IFixedPointNumericType or VBLongType or VBStringType or VBFixedStringType or VBDateType)
+                => VBLongType.TypeInfo,
+
+            (VBNullType, VBNullType) => VBNullType.TypeInfo,
+
+            (VBVariantType, not (VBArrayType or VBUserDefinedType)) or (not (VBArrayType or VBUserDefinedType), VBVariantType)
+                => VBVariantType.TypeInfo,
+
+            _ => (VBType?)null,
         };
+
+        return effectiveType is not null
+            ? DetermineOperatorEffectiveTypeResult.Success(effectiveType)
+            : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [lhs.Name, rhs.Name]))));
+    }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,

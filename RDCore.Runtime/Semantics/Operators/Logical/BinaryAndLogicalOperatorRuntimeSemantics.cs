@@ -36,12 +36,6 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         RuntimeSemanticsEvaluationResult evaluationResult,
         LogicalOperatorSemanticFlags semanticFlags) => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
-        BinaryLogicalOperatorSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
-        OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // already determined, but the method still needs an override.
-
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
         ISymbolResolver resolver, 
         VBBinaryOperatorExpressionNode expression, 

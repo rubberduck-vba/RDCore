@@ -2,6 +2,7 @@
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -58,5 +59,13 @@ public abstract class OperatorLogicalRuntimeSemanticsTests : OperatorArithmeticR
         var frame = new OperatorEvaluationFrame(NodeId, [operand], effectiveType);
         return (RuntimeSemanticsEvaluationResult)UnaryEval.Invoke(
             op, [null, new UnaryLogicalOperatorSemanticContext(), ThrowawayUnary, frame])!;
+    }
+
+    /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
+    protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(
+        BinaryLogicalOperatorRuntimeSemantics op, VBType lhsType, VBType rhsType)
+    {
+        var frame = new OperatorEvaluationFrame(NodeId, [lhsType.DefaultValue, rhsType.DefaultValue], VBUnknownType.TypeInfo);
+        return op.DetermineOperatorEffectiveType(null!, new BinaryLogicalOperatorSemanticContext(), ThrowawayBinary, frame);
     }
 }
