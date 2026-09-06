@@ -1,4 +1,4 @@
-﻿using NSubstitute;
+﻿﻿using NSubstitute;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
@@ -21,12 +21,14 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// </summary>
 public abstract class LetCoercionRuntimeSemanticsTests
 {
+    protected static readonly RDCore.SDK.Model.AST.Abstract.SyntaxNodeId NodeId = new(TestUri.TestModuleUri().AbsolutePath, [42]);
+
     protected static IVerboseMessageBuilder Formatter() => Substitute.For<IVerboseMessageBuilder>();
     protected static ILetCoercionRuntimeSemanticsProvider FakeProvider() => Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
 
     // resolver is never dereferenced by EvaluateLetCoercion; expression is only used on error paths
     // (for expression.Location + the substituted formatter), so a throwaway node is enough.
-    private static readonly VBOperatorExpression _expression = new VBBinaryOperatorExpressionNode(
+    protected static readonly VBOperatorExpression ThrowawayExpression = new VBBinaryOperatorExpressionNode(
         "+", default, TestLocations.TestLocation,
         [
             new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBIntegerValue((short)0)),
@@ -35,8 +37,8 @@ public abstract class LetCoercionRuntimeSemanticsTests
 
     protected static LetCoercionResult Coerce(ILetCoercionRuntimeSemantics strategy, VBTypedValue source, VBType destination)
     {
-        var frame = new LetCoercionStackFrame(default, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(destination));
-        return strategy.EvaluateLetCoercion(null!, _expression, frame);
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(destination));
+        return strategy.EvaluateLetCoercion(null!, ThrowawayExpression, frame);
     }
 
     protected static void AssertCoercedTo<TValue>(LetCoercionResult result, object expectedManaged)

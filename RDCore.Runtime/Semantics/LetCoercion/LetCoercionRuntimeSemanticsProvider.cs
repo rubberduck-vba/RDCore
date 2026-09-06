@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract;
@@ -64,8 +65,26 @@ public class LetCoercionRuntimeSemanticsProvider(
 {
     private readonly IVerboseMessageBuilder _formatterService = formatterService;
 
-    private readonly Dictionary<Type, ILetCoercionRuntimeSemantics> _strategies = 
+    private readonly Dictionary<Type, ILetCoercionRuntimeSemantics> _strategies =
         semantics.ToDictionary(strategy => strategy.LetCoercionSpecification, strategy => strategy);
+
+    /// <summary>
+    /// Resolves the strategy for a destination <see cref="VBType"/> by walking its base-type chain
+    /// (a strategy keyed on <c>VBNumericType</c> handles <c>VBIntegerType</c>, <c>VBLongType</c>, …).
+    /// </summary>
+    private bool TryGetStrategy(VBType destinationType, [MaybeNullWhen(false)] out ILetCoercionRuntimeSemantics strategy)
+    {
+        for (var type = destinationType.GetType(); type is not null; type = type.BaseType)
+        {
+            if (_strategies.TryGetValue(type, out var found))
+            {
+                strategy = found;
+                return true;
+            }
+        }
+        strategy = null;
+        return false;
+    }
 
     private readonly HashSet<LetCoercionStackFrame> _frameHash = [];
     private readonly Stack<LetCoercionStackFrame> _frameStack = [];
@@ -142,7 +161,7 @@ public class LetCoercionRuntimeSemanticsProvider(
 
         var operandIndex = frame.OperandIndex;
 
-        if (_strategies.TryGetValue(frame.DestinationTypeDesc.GetType(), out var coercionStrategy) && coercionStrategy is ILetCoercionRuntimeSemantics strategy)
+        if (TryGetStrategy(frame.DestinationTypeDesc.Target, out var strategy))
         {
             // 1. evaluate the strategy that should be applicable for the destination declared type:
             coercionResult = strategy.EvaluateLetCoercion(resolver, expression, frame);
@@ -199,7 +218,7 @@ public class LetCoercionRuntimeSemanticsProvider(
         VBOperatorExpression expression, 
         LetCoercionStackFrame frame)
     {
-        if (!_strategies.TryGetValue(frame.DestinationTypeDesc.GetType(), out var strategy))
+        if (!TryGetStrategy(frame.DestinationTypeDesc.Target, out var strategy))
         {
             // in-and-out: no need to push the coercion frame for this
             return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), [.. _frameStack]);
