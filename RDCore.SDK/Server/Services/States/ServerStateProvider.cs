@@ -124,7 +124,7 @@ public sealed class ServerStateProvider : IServerStateProvider, IDisposable
 
     public void OnFatalError()
     {
-        if (_state is not (ShuttingDownServerState or ExitingServerState))
+        if (_state is not ShuttingDownServerState and not ExitingServerState)
         {
             _state = ServerState.ShuttingDown;
             _requestTokenSource.Cancel();

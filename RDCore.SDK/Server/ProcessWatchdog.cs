@@ -8,7 +8,7 @@ namespace RDCore.SDK.Server;
 public static class ProcessWatchdog
 {
     /// <summary>
-    /// Arms a background thread that calls <see cref="System.Environment.Exit(int)"/> with
+    /// Arms a background thread that calls <see cref="Environment.Exit(int)"/> with
     /// <paramref name="exitCode"/> after <paramref name="graceSeconds"/> seconds. A process that unwinds
     /// cleanly first races ahead of it and the thread is torn down with the process, so this only ever
     /// fires when something is genuinely wedged. Arm it once the shutdown sequence is underway.

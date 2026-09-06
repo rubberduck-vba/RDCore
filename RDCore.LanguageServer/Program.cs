@@ -23,7 +23,16 @@ public class Program
         // the shutdown sequence is bounded and returns promptly; this only guards against a wedged
         // background thread (Serilog.Async, OmniSharp Rx) keeping the process alive past a clean exit.
         ProcessWatchdog.Arm(code);
-        try { host.Dispose(); } catch (Exception exception) { Console.WriteLine(exception); }
+
+        try
+        {
+            host.Dispose();
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.ToString());
+        }
+
         return code;
     }
 }

@@ -15,6 +15,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
+using RDCore.SDK.Server.Handlers.Platform;
 using System.Reflection;
 namespace RDCore.SDK.Client;
 
@@ -259,7 +260,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// <item><see cref="ShutdownHandler"/></item>
     /// <item><see cref="ExitHandler"/></item>
     /// <item><see cref="SetTraceHandler"/></item>
-    /// <item><see cref="Handlers.Platform.PlatformInitializeHandler"/></item>
+    /// <item><see cref="PlatformInitializeHandler"/></item>
     /// </list>
     /// </remarks>
     protected abstract void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder);

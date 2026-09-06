@@ -88,7 +88,7 @@ public class ServerStateProviderTests
     => TestServerStateTransition(sut => sut.OnFatalError(), initialState, expectedState);
 
     [TestMethod]
-    public void OnFatalError_ExitsCleanly_SoASupervisingClientDoesNotRestart()
+    public void OnFatalError_ExitsWithCodeZero()
     {
         var sut = new ServerStateProvider(TestConfiguration);
         sut.OnInitialize();

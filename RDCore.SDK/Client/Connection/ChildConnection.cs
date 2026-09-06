@@ -192,9 +192,9 @@ public sealed class ChildConnection(
             var timeoutSeconds = _request?.ShutdownTimeoutSeconds ?? 5;
             var timeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 5);
 
-            // Drive the LSP shutdown/exit handshake directly rather than LanguageClient.Shutdown(),
+            // drive the LSP shutdown/exit handshake directly rather than LanguageClient.Shutdown(),
             // which also stops and disposes the connection and races the in-flight response to an
-            // "Internal error." A shared-console Ctrl+C also hits the child directly, so any step here
+            // "Internal error." a shared-console Ctrl+C also hits the child directly, so any step here
             // may fail because the peer is already gone — each is bounded and non-fatal; the kill
             // fallback below is the backstop.
             try
