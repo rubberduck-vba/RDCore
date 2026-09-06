@@ -2,6 +2,7 @@
 using RDCore.SDK.Server;
 
 [assembly: InternalsVisibleTo("RDCore.Tests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 namespace RDCore.LanguageServer;
 
 public class Program

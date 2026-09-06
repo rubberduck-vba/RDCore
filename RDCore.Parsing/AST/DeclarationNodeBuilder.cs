@@ -84,6 +84,20 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             MemberKind.UserDefinedType, 
             modifier);
     }
+    public SyntaxNode BuildUserDefinedTypeMember(VBAParser.UdtMemberContext context)
+    {
+        var name = context.reservedNameMemberDeclaration()?.unrestrictedIdentifier().GetText()
+            ?? context.untypedNameMemberDeclaration().untypedIdentifier().GetText();
+
+        return new MemberDeclarationNode(
+            NodeId,
+            context.GetSourceLocation(_rootUri),
+            [.. _children],
+            name,
+            MemberKind.UserDefinedTypeField,
+            AccessModifier.Implicit);
+    }
+
     public SyntaxNode BuildEnumDeclaration(VBAParser.EnumerationStmtContext context)
     {
         var name = context.identifier().untypedIdentifier()?.GetText()

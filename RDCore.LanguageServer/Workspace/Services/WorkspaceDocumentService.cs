@@ -55,6 +55,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
                 var content = await ioFile.ReadAllTextAsync(path);
                 var document = new WorkspaceDocument(relativeUri, _workspaceRoot, content);
+                _documents[document.Id] = document;
 
                 documentStateProvider.OnDocumentLoaded(document.Id);
                 logger.LogInformation("✅ Workspace document was loaded successfully.");

@@ -51,6 +51,7 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
                 _projectFile = project.WithUri(Uri);
 
                 logger.LogInformation("✅ LoadAsync completed. Project file was loaded successfully.");
+                return;
             }
         }
         else

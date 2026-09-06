@@ -63,6 +63,7 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     System.IO.Abstractions.IDirectory ioDirectory,
     IProjectFileService projectFileService,
     IWorkspaceDocumentService documentService,
+    States.IDocumentStateProvider documentStateProvider,
     IEnumerable<SupportedLanguage> supportedLanguages) : IWorkspaceService
 {
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
@@ -264,6 +265,10 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
             .Concat(ProjectInfo.OtherFiles)
             .Select(file => new TextDocumentIdentifier(ioPath.Combine(workspaceRoot, file.RelativeUri)))
             .ToList();
+
+        // seed every known document as Unloaded before loading: the document service transitions
+        // state per file and each transition is only valid from a tracked Unloaded state.
+        documentStateProvider.Initialize(files);
 
         await Task.WhenAll(files.Select(documentService.TryLoadAsync));
         if (logger.IsEnabled(LogLevel.Information))

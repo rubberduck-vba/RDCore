@@ -140,6 +140,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitUdtDeclaration([NotNull] VBAParser.UdtDeclarationContext context)
         => OnExitParent(builder => builder.BuildUserDefinedTypeDeclaration(context));
 
+    public override void EnterUdtMember([NotNull] VBAParser.UdtMemberContext context)
+        => OnEnterParent();
+    public override void ExitUdtMember([NotNull] VBAParser.UdtMemberContext context)
+        => OnExitParent(builder => builder.BuildUserDefinedTypeMember(context));
+
     public override void EnterEnumerationStmt([NotNull] VBAParser.EnumerationStmtContext context)
         => OnEnterParent();
     public override void ExitEnumerationStmt([NotNull] VBAParser.EnumerationStmtContext context)

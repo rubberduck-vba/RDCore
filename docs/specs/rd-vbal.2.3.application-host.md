@@ -44,10 +44,12 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
-`ISymbolProvider` exposes a single `Define` method that loads a specified `Symbol` into the semantic
-layer (static context) or the session symbol table (runtime context). It is the abstraction behind the
-several _symbol providers_ a session is composed from — configuration flags, AST declarations,
-reflected referenced libraries, and the environment host's own runtime and standard library.
+`ISymbolProvider` exposes a single `ProvideSymbols` method that yields the `Symbol`s its source
+defines; the composition root then defines each one into the semantic layer (static context) or the
+session symbol table (runtime context, through `ISessionSymbols.TryDefine`). It is the abstraction
+behind the several _symbol providers_ a session is composed from — configuration flags, AST
+declarations, reflected referenced libraries, and the environment host's own runtime and standard
+library.
 
 > [!NOTE]
 > Where a `Symbol`'s bound value lives is being moved to an addressable _session storage_ — a

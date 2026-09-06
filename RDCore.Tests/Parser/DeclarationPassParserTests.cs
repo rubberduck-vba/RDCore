@@ -199,6 +199,31 @@ End Sub
         Assert.AreEqual((short)42, ((VBIntegerValue)literal.StaticValue).Value);
     }
 
+    [TestMethod]
+    public void UserDefinedType_EmitsMemberFieldNodes()
+    {
+        const string content = """
+            Public Type TPoint
+                X As Long
+                Y As String
+            End Type
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var udt = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>()
+            .Single(member => member.MemberKind == MemberKind.UserDefinedType);
+        var fields = udt.Children.OfType<MemberDeclarationNode>()
+            .Where(member => member.MemberKind == MemberKind.UserDefinedTypeField)
+            .ToArray();
+
+        Assert.HasCount(2, fields);
+        Assert.AreEqual("X", fields[0].Name);
+        Assert.AreEqual("Y", fields[1].Name);
+        Assert.HasCount(1, fields[0].Children.OfType<AsTypeExpressionNode>());
+    }
+
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node)
     {
         foreach (var child in node.Children)

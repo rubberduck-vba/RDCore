@@ -3,6 +3,8 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
@@ -28,6 +30,8 @@ internal sealed class CoreLanguageServerApp(
     IExtensionsProvider extensionsProvider,
     IHealthCheckService<CoreLanguageServerApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
+    IWorkspaceService workspace,
+    IParsingClientService parsing,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -139,10 +143,34 @@ internal sealed class CoreLanguageServerApp(
         };
     }
 
-    protected override Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
+    protected override async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {
-        LogIfEnabled(LogLevel.Information, "Received LSP/Initialize request.");
-        return base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
+        await LoadWorkspaceAsync(request);
+        await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Loads the project file and its documents. Runs here because the server is still
+    /// <c>Initializing</c> — the window <see cref="IWorkspaceService.LoadAsync"/> requires. A load
+    /// failure is logged, not fatal: the server still completes the LSP handshake.
+    /// </summary>
+    private async Task LoadWorkspaceAsync(InitializeParams request)
+    {
+        if (request.RootUri is null)
+        {
+            LogIfEnabled(LogLevel.Warning, "No RootUri in the initialize request; workspace will not be loaded.");
+            return;
+        }
+
+        try
+        {
+            await workspace.LoadAsync(request.RootUri.GetFileSystemPath());
+            LogIfEnabled(LogLevel.Information, "✅ Workspace loaded");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Error, $"❌ Workspace could not be loaded:\n{exception}");
+        }
     }
 
     protected async override Task OnLanguageServerInitializedAsync(ILanguageServer server, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)
@@ -161,7 +189,8 @@ internal sealed class CoreLanguageServerApp(
         _coreComponentBringUps.Add(BringUpCoreComponentAsync("parsing server", orchestration.ParsingService, _componentsCts.Token));
         _coreComponentBringUps.Add(BringUpCoreComponentAsync("environment host", orchestration.RuntimeEnvironment, _componentsCts.Token));
 
-        // TODO some ParsingClientService should be responsible for caching ASTs.
+        // once the parsing server is ready, parse every loaded workspace document and cache the ASTs.
+        _coreComponentBringUps.Add(parsing.ParseWorkspaceAsync(_componentsCts.Token));
     }
 
     /// <summary>
