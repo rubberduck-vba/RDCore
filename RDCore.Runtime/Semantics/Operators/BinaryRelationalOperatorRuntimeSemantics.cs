@@ -197,17 +197,17 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType)
         {
             var result = ComparisonOp((long)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue, (long)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!.BoxedValue);
-            return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateBooleanValue(result));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBCurrencyType)
         {
             var result = ComparisonOp(((VBRuntimeCurrencyValue)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue).Value, ((VBRuntimeCurrencyValue)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!).Value);
-            return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateBooleanValue(result));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBDecimalType)
         {
             var result = ComparisonOp(((VBRuntimeDecimalValue)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue).ManagedValue, ((VBRuntimeDecimalValue)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!).ManagedValue);
-            return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateBooleanValue(result));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBSingleType or VBDoubleType)
         {
@@ -219,7 +219,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             }
 
             var result = ComparisonOp((double)((VBNumericTypedValue)lhs).UnderlyingValue.RuntimeValue!.BoxedValue, (double)((VBNumericTypedValue)rhs).UnderlyingValue.RuntimeValue!.BoxedValue);
-            return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateBooleanValue(result));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
 
         else if (frame.EffectiveType is VBNullType)

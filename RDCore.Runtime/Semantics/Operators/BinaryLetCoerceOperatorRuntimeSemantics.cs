@@ -79,7 +79,7 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
             new(NodeId: expression.Identity, 
                 OperandIndex: InputIndex.BinaryLeftOperand, 
                 SourceValue: frame[InputIndex.BinaryLeftOperand], 
-                DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame[InputIndex.BinaryRightOperand].GetTargetType())));
+                DestinationTypeDesc: new VBTypeDescValue(frame[InputIndex.BinaryRightOperand].GetTargetType())));
 
         return coercionResult.IsSuccess 
             ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)

@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -72,14 +73,14 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
                 NodeId: expression.Identity, 
                 OperandIndex: InputIndex.BinaryLeftOperand, 
                 SourceValue: lhs, 
-                DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame.EffectiveType)));
+                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
             var lhsValue = lhsCoercion.Result as VBNumericTypedValue;
 
             var rhsCoercion = LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(runtime.Memory, expression, new(
                 NodeId: expression.Identity,
                 OperandIndex: InputIndex.BinaryRightOperand,
                 SourceValue: rhs,
-                DestinationTypeDesc: VBTypedValueFactory.DescribeType(frame.EffectiveType)));
+                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
             var rhsValue = rhsCoercion.Result as VBNumericTypedValue;
 
             if (lhsCoercion.ErrorInfo is not null || rhsCoercion.ErrorInfo is not null)

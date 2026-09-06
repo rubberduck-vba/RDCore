@@ -1,4 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
@@ -78,5 +80,5 @@ where TFlags : struct, Enum
     /// </list>
     /// </returns>
     protected virtual RuntimeSemanticsEvaluationResult EvaluateNullBinaryExpressionResult() 
-        => RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateNullValue());
+        => RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
 }

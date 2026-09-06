@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -47,7 +48,7 @@ public record class VBDateLetCoercionRuntimeSemantics(
                     ((VBDoubleValue)Provider.EvaluateLetCoercionSemantics(resolver, expression,
                         // we must first create the VBDoubleValue for the managed SerialValue:
                         frame with { 
-                            DestinationTypeDesc = VBTypedValueFactory.DescribeType(VBDoubleType.TypeInfo) 
+                            DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo) 
                         }).Result!).UnderlyingValue.RuntimeValue!)),
 
             _ => LetCoercionResult.NotApplicable(frame)

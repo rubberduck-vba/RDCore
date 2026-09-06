@@ -56,7 +56,7 @@ public abstract record class VBTypedValue(VBType TypeInfo)
     /// <summary>
     /// Creates a new <see cref="VBTypeDescValue"/> that describes this value.
     /// </summary>
-    public VBTypeDescValue Describe() => VBTypedValueFactory.DescribeType(TypeInfo);
+    public VBTypeDescValue Describe() => new VBTypeDescValue(TypeInfo);
 
     /// <summary>
     /// The allocated size (in bytes) of this value.

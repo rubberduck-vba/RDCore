@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
@@ -276,7 +277,7 @@ where TFlags : struct, Enum
                     NodeId = expression.Identity,
                     OperandIndex = operandIndex,
                     SourceValue = operand,
-                    DestinationTypeDesc = VBTypedValueFactory.DescribeType(frame.EffectiveType),
+                    DestinationTypeDesc = new VBTypeDescValue(frame.EffectiveType),
                 });
     }
 
@@ -306,7 +307,7 @@ where TFlags : struct, Enum
                 NodeId = expression.Identity,
                 OperandIndex = operandIndex,
                 SourceValue = operand,
-                DestinationTypeDesc = VBTypedValueFactory.DescribeType(frame.EffectiveType),
+                DestinationTypeDesc = new VBTypeDescValue(frame.EffectiveType),
             });
     }
 }

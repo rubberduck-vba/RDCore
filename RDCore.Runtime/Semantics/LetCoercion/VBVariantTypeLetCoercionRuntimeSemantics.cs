@@ -25,7 +25,7 @@ public record class VBVariantTypeLetCoercionRuntimeSemantics(
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             not VBObjectValue and not VBNothingValue => 
-                LetCoercionResult.Success(VBTypedValueFactory.CreateVariant(frame.SourceValue)),
+                LetCoercionResult.Success(new VBVariantValue(frame.SourceValue)),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };

@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
@@ -64,14 +65,14 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
                     resolver: runtime.Memory, 
                     expression: expression, 
                     frame: new(expression.Identity, InputIndex.BinaryLeftOperand, leftOperand, 
-                        VBTypedValueFactory.DescribeType(stringEffectiveType)));
+                        new VBTypeDescValue(stringEffectiveType)));
 
                 var rightOperand = frame[InputIndex.BinaryRightOperand];
                 var rightCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(
                     resolver: runtime.Memory,
                     expression: expression,
                     frame: new(expression.Identity, InputIndex.BinaryRightOperand, rightOperand,
-                        VBTypedValueFactory.DescribeType(stringEffectiveType)));
+                        new VBTypeDescValue(stringEffectiveType)));
 
                 if (leftCoercion.IsSuccess && rightCoercion.IsSuccess)
                 {
@@ -91,5 +92,5 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
     }
 
     private static RuntimeSemanticsEvaluationResult EvaluateBinaryExpressionResult(VBStringValue lhs, VBStringValue rhs)
-        => RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateStringValue($"{lhs.Value}{rhs.Value}"));
+        => RuntimeSemanticsEvaluationResult.Success(new VBStringValue($"{lhs.Value}{rhs.Value}"));
 }

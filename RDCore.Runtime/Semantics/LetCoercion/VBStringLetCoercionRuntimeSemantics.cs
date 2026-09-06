@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -34,7 +35,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
         {
             VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 // result is a copy of the source string.
-                => LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(stringSourceValue.Value)),
+                => LetCoercionResult.Success(new VBStringValue(stringSourceValue.Value)),
 
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => CoerceToVBString(numericSourceValue, cultureInfo),
@@ -47,13 +48,13 @@ public record class VBStringLetCoercionRuntimeSemantics(
 
             VBBooleanValue booleanSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(
-                    VBTypedValueFactory.CreateStringValue((bool)booleanSourceValue.Value 
+                    new VBStringValue((bool)booleanSourceValue.Value 
                         ? Tokens.True 
                         : Tokens.False)),
 
             VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(
-                    VBTypedValueFactory.CreateStringValue(dateSourceValue == VBDateType.Zero 
+                    new VBStringValue(dateSourceValue == VBDateType.Zero 
                         ? dateSourceValue.Value.ToLongTimeString()
                         : dateSourceValue.Value.ToShortDateString())),
 
@@ -134,32 +135,32 @@ public record class VBStringLetCoercionRuntimeSemantics(
         var letCoercionFrame = currentFrame with
         {
             SourceValue = currentFrame.SourceValue,
-            DestinationTypeDesc = VBTypedValueFactory.DescribeType(VBDoubleType.TypeInfo)
+            DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo)
         };
         return LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, letCoercionFrame);
     }
 
     private static LetCoercionResult CoerceToVBBoolean(VBNumericTypedValue value, LetCoercionStackFrame frame)
-        => LetCoercionResult.Success(VBTypedValueFactory.CreateBooleanValue((double)value.UnderlyingValue.RuntimeValue!.BoxedValue != 0), [frame]);
+        => LetCoercionResult.Success(new VBBooleanValue((double)value.UnderlyingValue.RuntimeValue!.BoxedValue != 0), [frame]);
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, CultureInfo cultureInfo)
     {
         var numericValue = (double)value.UnderlyingValue.RuntimeValue!.BoxedValue;
         if (numericValue == 0)
         {
-            return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(VBStringValue.Zero));
+            return LetCoercionResult.Success(new VBStringValue(VBStringValue.Zero));
         }
         else if (double.IsPositiveInfinity(numericValue))
         {
-            return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(VBStringValue.PositiveInfinity));
+            return LetCoercionResult.Success(new VBStringValue(VBStringValue.PositiveInfinity));
         }
         else if (double.IsNegativeInfinity(numericValue))
         {
-            return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(VBStringValue.NegativeInfinity));
+            return LetCoercionResult.Success(new VBStringValue(VBStringValue.NegativeInfinity));
         }
         else if (double.IsNaN(numericValue))
         {
-            return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(VBStringValue.NaN));
+            return LetCoercionResult.Success(new VBStringValue(VBStringValue.NaN));
         }
 
         var isNegative = numericValue < 0;
@@ -196,7 +197,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
             stringValue = $"{sign}{stringValue}";
         }
 
-        return LetCoercionResult.Success(VBTypedValueFactory.CreateStringValue(stringValue));
+        return LetCoercionResult.Success(new VBStringValue(stringValue));
     }
 
     private static string ToVBScientificNotation(double value, int significantIntegerDigits, string decimalSeparator, CultureInfo cultureInfo)

@@ -58,7 +58,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
             }
             else
             {
-                return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateNullValue());
+                return RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
             }
         }
     
@@ -70,7 +70,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
             }
             else
             {
-                return RuntimeSemanticsEvaluationResult.Success(VBTypedValueFactory.CreateNullValue());
+                return RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
             }
         }
 
