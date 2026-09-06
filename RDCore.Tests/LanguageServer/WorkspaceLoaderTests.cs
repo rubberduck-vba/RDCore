@@ -36,7 +36,7 @@ public sealed class WorkspaceLoaderTests
     }
 
     private static ProjectFileService ProjectService(MockFileSystem fs)
-        => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File);
+        => new(NullLogger<ProjectFileService>.Instance, fs.Path, fs.File, new ProjectFileLoader(fs));
 
     private static IServerStateProvider InitializingState()
     {
@@ -75,7 +75,7 @@ public sealed class WorkspaceLoaderTests
     {
         var sut = ProjectService(new MockFileSystem());
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => sut.LoadAsync(Root));
+        await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => sut.LoadAsync(Root));
     }
 
     [TestMethod]

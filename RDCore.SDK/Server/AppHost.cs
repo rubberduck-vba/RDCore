@@ -13,6 +13,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Workspace;
 using System.Diagnostics;
 using System.IO.Abstractions;
 using System.Reflection;
@@ -210,6 +211,7 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddTransient<ILanguageServerProtocolTransportLayer, RDCorePlatformDefaultTransportLayer>()
             .AddSingleton<IChildConnectionFactory, ChildConnectionFactory>()
             .AddSingleton<IFileSystem, FileSystem>()
+            .AddSingleton<IProjectFileLoader, ProjectFileLoader>()
             .AddSingleton<IPlatformEnvironment, PlatformEnvironment>()
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()

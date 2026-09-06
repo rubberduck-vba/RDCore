@@ -28,39 +28,22 @@ internal interface IProjectFileService
 
 internal class ProjectFileService(ILogger<ProjectFileService> logger,
     System.IO.Abstractions.IPath ioPath,
-    System.IO.Abstractions.IFile ioFile) : IProjectFileService
+    System.IO.Abstractions.IFile ioFile,
+    IProjectFileLoader projectFileLoader) : IProjectFileService
 {
     private ProjectFile _projectFile = default!;
     public ProjectFile Project => _projectFile;
 
     public async Task LoadAsync(string Uri)
     {
-        var path = ioPath.Combine(Uri, ProjectFile.FileName);
         if (logger.IsEnabled(LogLevel.Trace))
         {
-            logger.LogTrace("Loading project file: {path}", path);
+            logger.LogTrace("Loading project file under: {uri}", Uri);
         }
 
-        if (ioFile.Exists(path))
-        {
-            logger.LogTrace("Project file was found. Deserializing...");
-
-            using var stream = ioFile.Open(path, FileMode.Open);
-            if (await JsonSerializer.DeserializeAsync<ProjectFile>(stream) is ProjectFile project)
-            {
-                _projectFile = project.WithUri(Uri);
-
-                logger.LogInformation("✅ LoadAsync completed. Project file was loaded successfully.");
-                return;
-            }
-        }
-        else
-        {
-            logger.LogTrace("No project file exists at the specified location.");
-        }
-
-        logger.LogWarning("⚠️ Project file could not be deserialized from specified workspace root.");
-        throw new InvalidOperationException("Project file could not be deserialized from specified workspace root.");
+        // the SDK loader is the single deserialization path, shared with the environment host.
+        _projectFile = await projectFileLoader.LoadAsync(Uri);
+        logger.LogInformation("✅ LoadAsync completed. Project file was loaded successfully.");
     }
 
     public async Task SaveAsync()
