@@ -1,8 +1,10 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Meta;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Meta;
+using System.Text.Json.Serialization;
 namespace RDCore.SDK.Model.Values.Abstract;
 
 /// <summary>
@@ -29,6 +31,7 @@ public interface IVBTypedValue<VBTValue, TValue> : IEquatable<IVBTypedValue<VBTV
 /// This class is at the base of the type hierarchy for all typed values.
 /// </remarks>
 /// <param name="TypeInfo">The <c>VBType</c> of the value.</param>
+[JsonConverter(typeof(VBTypedValueJsonConverter))]
 public abstract record class VBTypedValue(VBType TypeInfo) 
     : VBRuntimeEntity(TypeInfo)
 {
