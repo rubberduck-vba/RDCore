@@ -14,10 +14,15 @@ public sealed class ExtensionsClientDescribeTests
     [TestMethod]
     public void Describe_OutsideAnExtensionFolder_ReturnsNull()
     {
-        var fs = new MockFileSystem(new Dictionary<string, MockFileData>(), @"C:\work\not-extensions\MyExt");
+        // rooted paths that work on Windows and Linux CI alike.
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-describe-guard");
+        var currentDirectory = Path.Combine(root, "not-extensions", "MyExt");
+        var extensionsRoot = Path.Combine(root, "platform", "Extensions");
+
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>(), currentDirectory);
 
         var environment = Substitute.For<IPlatformEnvironment>();
-        environment.Resolve("Extensions").Returns(@"C:\platform\Extensions");
+        environment.Resolve("Extensions").Returns(extensionsRoot);
 
         var sut = new ExtensionsClient(
             Options.Create(new SdkAppOptions()),
@@ -26,7 +31,7 @@ public sealed class ExtensionsClientDescribeTests
             environment,
             NullLogger<ExtensionsClient>.Instance);
 
-        // the current directory's parent (C:\work\not-extensions) is not the resolved extensions root.
+        // the current directory's parent (…/not-extensions) is not the resolved extensions root.
         Assert.IsNull(sut.Describe("MyExt.exe", "desc"));
     }
 }
