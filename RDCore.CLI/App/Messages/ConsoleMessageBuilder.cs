@@ -32,12 +32,19 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> Options, IConsoleMes
     private readonly ConsoleMessageBuilder _builder = new();
     private readonly IConsoleMessageWriter _writer = Writer;
 
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+    private sealed class NullScope : IDisposable
     {
-        throw new NotSupportedException();
+        public static readonly NullScope Instance = new();
+        public void Dispose() { }
     }
 
-    public bool IsEnabled(LogLevel logLevel) => logLevel <= Options.Value.TraceLevel;
+    public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+    // enabled when the message is at least as severe as the configured floor (and neither is None).
+    public bool IsEnabled(LogLevel logLevel)
+        => logLevel != LogLevel.None
+           && Options.Value.TraceLevel != LogLevel.None
+           && logLevel >= Options.Value.TraceLevel;
 
     public void Log(ConsoleMessageBuilder builder)
     {
@@ -48,22 +55,25 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> Options, IConsoleMes
     {
         if (IsEnabled(level))
         {
-            var builder = level switch
+            var kind = level switch
             {
-                LogLevel.Trace => _builder.WithKind(MessageKind.Trace),
-                LogLevel.Debug => _builder.WithKind(MessageKind.Trace),
-                LogLevel.Information => _builder.WithKind(MessageKind.Information),
-                LogLevel.Warning => _builder.WithKind(MessageKind.Warning),
-                LogLevel.Error => _builder.WithKind(MessageKind.Error),
-                LogLevel.Critical => _builder.WithKind(MessageKind.Error),
-                _ => _builder
+                LogLevel.Trace or LogLevel.Debug => MessageKind.Trace,
+                LogLevel.Information => MessageKind.Information,
+                LogLevel.Warning => MessageKind.Warning,
+                LogLevel.Error or LogLevel.Critical => MessageKind.Error,
+                _ => MessageKind.Trace,
             };
-            builder.WithTimestamp(DateTimeOffset.UtcNow);
-            builder.WithTitle(title);
-            builder.WithMessageBody(message);
-            if (Options.Value.Verbose)
+
+            // ConsoleMessageBuilder is an immutable record: each With* returns a new instance, so the
+            // chain must be reassigned.
+            var builder = new ConsoleMessageBuilder()
+                .WithKind(kind)
+                .WithTimestamp(DateTimeOffset.UtcNow)
+                .WithTitle(title)
+                .WithMessageBody(message);
+            if (Options.Value.Verbose && verbose.Length > 0)
             {
-                builder.WithVerbose(verbose);
+                builder = builder.WithVerbose(verbose);
             }
 
             _writer.WriteMessage(builder);
@@ -113,6 +123,11 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> Options, IConsoleMes
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
+        if (!IsEnabled(logLevel))
+        {
+            return;
+        }
+
         if (exception is not null)
         {
             Log(exception);
@@ -135,6 +150,13 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> Options, IConsoleMes
                 break;
             case string message:
                 Log(logLevel, string.Empty, message, string.Empty);
+                break;
+            default:
+                // structured logging: honour the message-template formatter for any other state.
+                if (formatter is not null)
+                {
+                    Log(logLevel, string.Empty, formatter(state, exception), string.Empty);
+                }
                 break;
         }
     }

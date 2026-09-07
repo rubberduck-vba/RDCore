@@ -138,7 +138,16 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <exception cref="Exception">Any other exception type is unexpected and if it is fatal, the host application process should exit with a non-zero error code.</exception>
     public async Task<int> RunAsync(string[] args)
     {
-        Console.OutputEncoding = Encoding.Unicode;
+        // UTF-8 for console output: correct for a terminal and for a redirected pipe alike
+        // (UTF-16 corrupts both). Guarded because setting it can throw on some redirected handles.
+        try
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+        }
+        catch (IOException)
+        {
+        }
+
         try
         {
             var builder = Host.CreateApplicationBuilder();

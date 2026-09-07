@@ -1,5 +1,4 @@
-using RDCore.CLI.App.Messages;
-using RDCore.CLI.App.Messages.Model;
+using Microsoft.Extensions.Logging;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 
@@ -26,26 +25,20 @@ internal sealed class NativeCliCommandProvider(IEnumerable<ICliCommand> commands
 
 /// <summary>
 /// Probes discovered extensions for the <see cref="CliCommand"/> capability and (eventually) surfaces
-/// the verbs they contribute. For now it only reports what it finds — adapting an extension's verb
+/// the verbs they contribute. For now it only notes what it finds — adapting an extension's verb
 /// descriptors to <see cref="ICliCommand"/> is a follow-up.
 /// </summary>
-internal sealed class ExtensionCliCommandProvider(IExtensionsProvider extensions, IConsoleMessageWriter writer) : ICliCommandProvider
+internal sealed class ExtensionCliCommandProvider(IExtensionsProvider extensions, ILogger<ExtensionCliCommandProvider> logger) : ICliCommandProvider
 {
     public IEnumerable<ICliCommand> GetCommands()
     {
         foreach (var extension in extensions.Discover())
         {
-            if (!extension.Capabilities.Any(capability => capability.Name == nameof(CliCommand) && capability.IsSupported))
+            if (extension.Capabilities.Any(capability => capability.Name == nameof(CliCommand) && capability.IsSupported))
             {
-                continue;
+                logger.LogDebug("extension {Title} advertises {Capability}", extension.Title, nameof(CliCommand));
+                // TODO load the extension's verb descriptors and adapt them to ICliCommand.
             }
-
-            writer.WriteMessage(new ConsoleMessageBuilder()
-                .WithKind(MessageKind.Trace)
-                .WithTitle("🧩")
-                .WithMessageBody($"{extension.Title} advertises {nameof(CliCommand)}"));
-
-            // TODO load the extension's verb descriptors and adapt them to ICliCommand.
         }
 
         yield break;

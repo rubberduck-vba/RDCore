@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Commands;
-using RDCore.CLI.App.Messages;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 
@@ -30,27 +30,17 @@ public sealed class CliCommandProviderTests
     }
 
     [TestMethod]
-    public void Extension_WithCliCommandCapability_IsReported()
+    public void Extension_Probes_Discover_AndSurfacesNoVerbsYet()
     {
-        var writer = Substitute.For<IConsoleMessageWriter>();
         var extensions = Substitute.For<IExtensionsProvider>();
-        extensions.Discover().Returns([Extension(new PlatformExtensionServerCapability(nameof(CliCommand)))]);
-        var sut = new ExtensionCliCommandProvider(extensions, writer);
-
-        // no verbs surfaced yet (seam), but the advertising extension is reported.
-        Assert.AreEqual(0, sut.GetCommands().Count());
-        writer.ReceivedWithAnyArgs().WriteMessage(default!);
-    }
-
-    [TestMethod]
-    public void Extension_WithoutCliCommandCapability_IsIgnored()
-    {
-        var writer = Substitute.For<IConsoleMessageWriter>();
-        var extensions = Substitute.For<IExtensionsProvider>();
-        extensions.Discover().Returns([Extension(new PlatformExtensionServerCapability("SomethingElse"))]);
-        var sut = new ExtensionCliCommandProvider(extensions, writer);
+        extensions.Discover().Returns(
+        [
+            Extension(new PlatformExtensionServerCapability(nameof(CliCommand))),
+            Extension(new PlatformExtensionServerCapability("SomethingElse")),
+        ]);
+        var sut = new ExtensionCliCommandProvider(extensions, NullLogger<ExtensionCliCommandProvider>.Instance);
 
         Assert.AreEqual(0, sut.GetCommands().Count());
-        writer.DidNotReceiveWithAnyArgs().WriteMessage(default!);
+        extensions.Received(1).Discover();
     }
 }

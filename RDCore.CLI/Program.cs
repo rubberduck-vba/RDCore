@@ -97,7 +97,8 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
         services
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
-            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
+            .AddSingleton(Spectre.Console.AnsiConsole.Console)
+            .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             //.AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
             .AddSingleton<ShowSplashCommand>();
     }
@@ -166,13 +167,31 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
         services
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
-            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
+            .AddSingleton(Spectre.Console.AnsiConsole.Console)
+            .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             // native verbs first: NativeCliCommandProvider is enumerated before the extension one, so
             // a native verb wins a name collision.
             .AddSingleton<ICliCommand, DescribeExtensionCommand>()
             .AddSingleton<ICliCommandProvider, NativeCliCommandProvider>()
             .AddSingleton<ICliCommandProvider, ExtensionCliCommandProvider>()
             .AddSingleton<ICliCommandDispatcher, CliCommandDispatcher>();
+    }
+
+    // route ILogger<T> in command mode through the same Spectre-backed console writer, so CLI code
+    // and framework logs share one rendering. Framework categories are held down to warnings.
+    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
+    {
+        // drop the host builder's default console provider; command-mode logs render through the
+        // Spectre-backed console writer instead.
+        builder.ClearProviders();
+        services.AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>();
+        // a CLI verb shouldn't narrate hosting/discovery chatter — CLI code writes user-facing output
+        // through IConsoleMessageWriter directly; only surface warnings and errors from ILogger.
+        builder.AddFilter("Microsoft", LogLevel.Warning);
+        builder.AddFilter("RDCore", LogLevel.Warning);
+        // extension discovery narrates itself ("no manifest…", "…is valid") — not for a CLI verb.
+        builder.AddFilter("RDCore.SDK.Extensibility", LogLevel.Error);
+        base.ConfigureExternalLogging(services, builder, configuration);
     }
 }
 
