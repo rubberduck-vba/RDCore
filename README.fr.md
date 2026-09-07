@@ -29,7 +29,7 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
 - 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI);
 - 🎯 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
-- 🎯 **RDCore.Parser.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
+- 🎯 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
 - 🎯 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
 - 👉 **RDCore.Runtime.dll**: une librairie renfermant l'implémentation de toute la sémantique et mécanismes du run-time de RD-VBA, _incluant une implémentation de la librairie VBA standard_;
 - 🧩 **RDCore.SDK.dll**: une librairie exposant les abstractions de la plateforme RDCore et encapsulant les implémentations de base du _coeur de langage_ RD-VBA.
@@ -54,8 +54,8 @@ RDCore est présentement en phase active de développement **pré-alpha** - le *
 - SDK langage: ✅ largement défini
 - Runtime: 🚧 implémentation en cours
 - Librarie standard: 🚧 partiellement définie
-- Parser: 🚧 existe (tout juste)
-- Hôte CLI (rdc.exe): 🚧 existe (tout juste)
+- Parser: 🚧 passe de déclarations (document complet)
+- Hôte CLI (rdc.exe): 🚧 chargement du workspace + pipeline de symboles
 - **Contributions publiques individuelles: ✅ ouvertes ([CLA](CLA.fr.md))**
 - Contributions publiques corporatives: ⏳ à venir 
 

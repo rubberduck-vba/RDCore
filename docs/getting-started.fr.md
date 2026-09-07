@@ -56,10 +56,10 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
 }
 ```
 
-...ou alors en héritant de `RDCoreLanguageServerHost` si vous construisez plutôt un _serveur_ :
+...ou alors en héritant de `RDCorePlatformServerHost` si vous construisez plutôt un _serveur_ :
 
 ```csharp
-internal class CoreDiagnosticsAppHost() : RDCoreLanguageServerHost<CoreDiagnosticsApp>()
+internal class CoreDiagnosticsAppHost() : RDCorePlatformServerHost<CoreDiagnosticsApp>()
 {
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -75,12 +75,13 @@ Ensuite pour un client on hérite l'application LSP de `RDCoreClientApp` :
 
 ```csharp
 internal class RDCoreConsoleClientApp(
-    IRDCoreLanguageServerProcess serverProcess,
-    IHealthCheckService<RDCoreConsoleClientApp> healthCheckService,
-    ILanguageServerProtocolTransportLayer transportLayer,
-    ILogger<RDCoreConsoleClientApp> logger) 
-    : RDCoreClientApp(serverProcess, healthCheckService, transportLayer, logger)
+    IOptions<SdkAppOptions> options,
+    IChildConnectionFactory connectionFactory,
+    ILogger<RDCoreConsoleClientApp> logger)
+    : RDCoreClientApp(options, connectionFactory, logger)
 {
+    public override CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
+
     protected override void ConfigureServices(IServiceCollection services)
     {
     }
@@ -107,17 +108,16 @@ internal class RDCoreConsoleClientApp(
 
 ...et pour un serveur on hérite l'application LSP de `RDCoreServerApp` :
 
-```
-internal class CoreDiagnosticsApp : RDCoreServerApp
+```csharp
+internal class CoreDiagnosticsApp(
+    IOptions<SdkAppOptions> options,
+    IServerStateProvider serverStateProvider,
+    IHealthCheckService<CoreDiagnosticsApp> healthCheckService,
+    ILanguageServerProtocolTransportLayer transportLayer,
+    ILogger<CoreDiagnosticsApp> logger)
+    : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
-    public CoreDiagnosticsApp(
-        IServerStateProvider serverStateProvider, 
-        IHealthCheckService<CoreDiagnosticsApp> healthCheckService, 
-        ILanguageServerProtocolTransportLayer transportLayer, 
-        ILogger<CoreDiagnosticsApp> logger) 
-        : base(serverStateProvider, healthCheckService, transportLayer, logger)
-    {
-    }
+    public override CoreServerComponent PlatformComponent => CoreServerComponent.Extension;
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {

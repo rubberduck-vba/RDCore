@@ -31,7 +31,7 @@ This arrangement protects both the legacy and current contributors while enablin
 
 - 🎯 **rdc.exe**: a configurable and extensible RD-VBA _environment host_ and LSP client CLI application;
 - 🎯 **RDCore.LanguageServer.exe**: the platform's "orchestrator" LSP server application;
-- 🎯 **RDCore.Parser.exe**: the platform's parser is a satellite LSP server application owned and coordinated by the main language server;
+- 🎯 **RDCore.ParseServer.exe**: the platform's parser is a satellite LSP server application owned and coordinated by the main language server;
 - 🎯 **RDCore.Diagnostics.exe**: a core platform extension asynchronously issuing _diagnostics_ to the main language server;
 - 👉 **RDCore.Runtime.dll**: a library containing an implementation for all the RD-VBA runtime semantics and mechanics, _including an implementation of the VBA Standard Library_;
 - 🧩 **RDCore.SDK.dll**: a library exposing the RDCore abstractions and encapsulating the base RD-VBA _language core_ implementation.
@@ -55,8 +55,8 @@ RDCore is currently in active **pre-alpha** development - the **only deliverable
 - Language SDK: ✅ largely defined
 - Runtime: 🚧 implementation in progress
 - Standard library: 🚧 partially defined
-- Parser: 🚧 exists (barely)
-- CLI host (rdc.exe): 🚧 exists (barely)
+- Parser: 🚧 full-document declarations pass
+- CLI host (rdc.exe): 🚧 workspace load + symbol pipeline
 - **Public contributions (individuals): ✅ opened ([CLA](CLA.md))**
 - Public contributions (corporate): ⏳ planned
 
