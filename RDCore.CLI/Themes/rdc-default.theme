@@ -41,11 +41,51 @@
   },
 
   "messages": {
-    "error":       { "icon": "⛔", "title": "error-bright",       "body": "error",       "verbose": "error-dim",       "timestamp": "error-dim",       "metric": "error-bright",       "stack-trace": "error-dim" },
-    "warning":     { "icon": "⚠️", "title": "warning-bright",     "body": "warning",     "verbose": "warning-dim",     "timestamp": "warning-dim",     "metric": "warning-bright",     "stack-trace": "warning-dim" },
-    "success":     { "icon": "✅", "title": "success-bright",     "body": "success",     "verbose": "success-dim",     "timestamp": "success-dim",     "metric": "success-bright",     "stack-trace": "success-dim" },
-    "information": { "icon": "ℹ", "title": "information-bright", "body": "information", "verbose": "information-dim", "timestamp": "information-dim", "metric": "information-bright", "stack-trace": "information-dim" },
-    "trace":       { "icon": "·", "title": "trace-bright",       "body": "trace",       "verbose": "trace-dim",       "timestamp": "trace-dim",       "metric": "trace-bright",       "stack-trace": "trace-dim" }
+    "error": {
+      "icon": "⛔",
+      "title": "error-bright",
+      "body": "error",
+      "verbose": "error-dim",
+      "timestamp": "error-dim",
+      "metric": "error-bright",
+      "stack-trace": "error-dim"
+    },
+    "warning": {
+      "icon": "⚠️",
+      "title": "warning-bright",
+      "body": "warning",
+      "verbose": "warning-dim",
+      "timestamp": "warning-dim",
+      "metric": "warning-bright",
+      "stack-trace": "warning-dim"
+    },
+    "success": {
+      "icon": "✅",
+      "title": "success-bright",
+      "body": "success",
+      "verbose": "success-dim",
+      "timestamp": "success-dim",
+      "metric": "success-bright",
+      "stack-trace": "success-dim"
+    },
+    "information": {
+      "icon": "ℹ",
+      "title": "information-bright",
+      "body": "information",
+      "verbose": "information-dim",
+      "timestamp": "information-dim",
+      "metric": "information-bright",
+      "stack-trace": "information-dim"
+    },
+    "trace": {
+      "icon": "·",
+      "title": "trace-bright",
+      "body": "trace",
+      "verbose": "trace-dim",
+      "timestamp": "trace-dim",
+      "metric": "trace-bright",
+      "stack-trace": "trace-dim"
+    }
   },
 
   "syntax": {
