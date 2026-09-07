@@ -77,15 +77,10 @@ internal sealed class CoreLanguageServerApp(
             foreach (var extension in extensionsProvider.Discover())
             {
                 LogIfEnabled(LogLevel.Information, $"🧩 Validating discovered platform extension: {extension.Title}...");
+                // nothing is gated on the extension handshake yet, so no expected capabilities.
                 orchestration.RegisterExtension(extension, factory => factory.Create(CoreServerComponent.Extension,
-                    new() /*TODO provide the extension capabilities here*/));
+                    new(), extensionInfo: extension));
             }
-            //var loadExtensionTasks = extensionsProvider.Discover().Select(extension => Task.Run(() =>
-            //{
-            //    orchestration.RegisterExtension(extension, factory => factory.Create(CoreServerComponent.Extension,
-            //        new() /*TODO provide the extension capabilities here*/));
-            //}));
-            //await Task.WhenAll(loadExtensionTasks);
             LogIfEnabled(LogLevel.Information, "✅ Registered RDCore platform extensions");
         }
         catch (Exception exception)
@@ -201,6 +196,39 @@ internal sealed class CoreLanguageServerApp(
         // once the parsing server is ready, parse every loaded workspace document and cache the ASTs,
         // then extract each module's symbols and define them in the environment host.
         _coreComponentBringUps.Add(ParseWorkspaceThenSyncSymbolsAsync(_componentsCts.Token));
+
+        // extensions are non-essential: bring each discovered one up without escalating a failure
+        // or a terminal exit to the platform.
+        foreach (var extension in orchestration.Extensions)
+        {
+            _coreComponentBringUps.Add(BringUpExtensionAsync(extension, _componentsCts.Token));
+        }
+    }
+
+    /// <summary>
+    /// Launches and connects a discovered extension. Unlike a core child, an extension that fails to
+    /// attach or later exits is logged and left — it must not fault or tear down the language server.
+    /// </summary>
+    private async Task BringUpExtensionAsync(IRDCoreClientApp extension, CancellationToken token)
+    {
+        var label = extension.ExtensionInfo?.Title ?? "extension";
+        try
+        {
+            await extension.RunAsync(ExternalServices, []);
+            await extension.WaitForReadyAsync(token);
+            LogIfEnabled(LogLevel.Information, $"✅ {label} extension is ready");
+
+            await extension.WaitForTerminalAsync().WaitAsync(token);
+            LogIfEnabled(LogLevel.Warning, $"🧩 {label} extension has exited; the platform continues without it.");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            LogIfEnabled(LogLevel.Information, $"Bring-up of {label} extension was cancelled; language server is shutting down.");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Warning, $"🧩 {label} extension could not be brought up:\n{exception}");
+        }
     }
 
     private async Task ParseWorkspaceThenSyncSymbolsAsync(CancellationToken token)
