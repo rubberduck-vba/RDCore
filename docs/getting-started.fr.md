@@ -147,12 +147,22 @@ Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _ca
 
 
 > [!IMPORTANT]
-> 🧩 **Les extensions de la plateforme RDCore** requièrent un _manifest_ pour permettre leur _découverte_ par _l'hôte d'environnement_; le schéma de ce manifest est défini par [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html); _l'hôte d'environnement_ peut founir des _outils de développement_ (CLI) pour faciliter la création d'un manifest pour une extension en cours de développement.
+> 🧩 **Les extensions de la plateforme RDCore** requièrent un _manifest_ (`extension.manifest.json`, schéma [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html)) pour que le serveur de langage puisse les _découvrir_ et les démarrer lors de l'assemblage de la plateforme. Le manifest est généré par la CLI en _mode commande_ :
+>
+> ```
+> rdc.exe describe-ext RDCore.Diagnostics.exe --description "…" --unsafe-dev-mode
+> ```
+>
+> `describe-ext` reflète les capacités déclarées par l'exécutable d'extension (ses déclarations `[assembly: ProvidesCorePlatformClientCapability<T>]`) dans le manifest. `PlatformPublish.ps1` l'exécute une fois par extension lors de l'assemblage de la plateforme.
 
 
 ### Capacités
 
-Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet d'initier un _LSP handshake_ avec la _couche d'orchestration_ LSP doit fournir des paramètres d'initialisation qui spécifient un jeu complet de _capacités_ définies tant par le protocole (LSP) que _définies par l'hôte de l'environnement_.
+Les extensions de la plateforme RDCore avec un _manifest_ valide qui leur permet d'initier un _LSP handshake_ avec la _couche d'orchestration_ LSP doit fournir des paramètres d'initialisation qui spécifient un jeu complet de _capacités_ définies tant par le protocole (LSP) que _définies par l'hôte de l'environnement_. Une extension déclare une capacité de plateforme telle que [`CliCommand`](./api/RDCore.SDK.Client.CliCommand.html) au moyen d'un attribut d'assembly :
+
+```csharp
+[assembly: ProvidesCorePlatformClientCapability<CliCommand>]
+```
 
 > 👉 La liste complète et exhaustive des capacités de la plateforme sera documentée à la section [RD-VBAL §2.0.2](./specs/rd-vbal.2.0.computational-environment.html#202-clientserver-capabilities) à mesure que progresse son implémentation.
 

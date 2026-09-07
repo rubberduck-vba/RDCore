@@ -29,7 +29,7 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 # RDCore
 [RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
-- 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI);
+- 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI), doté d'un _mode commande_ (`rdc.exe <verbe>`, p. ex. `describe-ext`);
 - 🎯 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
 - 🎯 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
 - 🎯 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
@@ -57,7 +57,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Système de types statiques, modèle de types _runtime_ | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
-| Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application |
+| Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 
 **RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧
 
@@ -73,7 +73,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Domaine | |
 |---|---|
 | Cycle de vie LSP | ✅ |
-| Orchestration de la plateforme (démarrage, santé, arrêt) | 🚧 extensions non chargées |
+| Orchestration de la plateforme (démarrage, santé, arrêt) | ✅ enfants _core_ + extensions découvertes |
 | Chargement du _workspace_ → aller-retour d'analyse → extraction de symboles → définition | ✅ types intrinsèques seulement |
 | Fonctionnalités LSP _document_ et _workspace_ | 👉 à saisir — spécifié |
 
@@ -85,7 +85,8 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Session _runtime_ composée depuis `.rdproj` (`--host`) | ✅ |
 | Symboles de session (`rdcore/host/symbols/define`) | 🚧 définition seulement |
 | Modèle de mémoire / d'allocation de session | 🚧 couche de comptabilité; stockage adressable prévu |
-| Mode commande (`describe-extension`, …) · REPL | 🎯 |
+| Mode commande — répartition de verbes, `describe-ext` | ✅ fournisseurs de commandes natifs + extensions |
+| REPL interactif | 🎯 |
 
 **RDCore.Runtime** — sémantiques _runtime_ RD-VBA + librairie standard VBA · 🚧
 
@@ -97,7 +98,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Librairie standard (`IStd*`) | 🎯 |
 | Interpréteur · _IR lowering_ | 🎯 prévu |
 
-**RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 squelette d'analyseur; chargement des extensions bloqué sur le mode commande + génération du _manifest_.
+**RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 squelette d'analyseur; découverte depuis son _manifest_ généré et démarrée par le serveur de langage lors de l'assemblage de la plateforme.
 
 **Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et cycle de vie de la plateforme bien couverts; grammaire du _parser_ et CLI minces; le _runtime_ au-delà des opérateurs n'a encore rien à couvrir.
 
