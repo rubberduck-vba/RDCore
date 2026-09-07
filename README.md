@@ -17,11 +17,10 @@ This repository contains different projects **under active development** produci
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
-👉 We're building a solid _language core_ foundation here, but please note that at the moment the only deliverable is the [documentation site](https://rubberduck-vba.github.io/RDCore/index.html).
+👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end.
 
 ### In this document
 - [Project status](#projectstatus)
-- [Implementation status](#implementationstatus)
 
 ### See also
 - [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -50,18 +49,62 @@ This arrangement protects both the legacy and current contributors while enablin
 <a id="projectstatus"/>
 
 ## 📊 Project Status
-> [!NOTE]
-> This section is kept up to date as implementation progresses.
+RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols) but is not released yet. A rough picture per project — not issue-tracked, just where things stand:
 
-RDCore is currently in active **pre-alpha** development - the **only deliverable for now** consists of its **specification** and **documentation**. 
-- Core architecture: ✅ stable
-- Language SDK: ✅ largely defined
-- Runtime: 🚧 implementation in progress
-- Standard library: 🚧 partially defined
-- Parser: 🚧 full-document declarations pass
-- CLI host (rdc.exe): 🚧 workspace load + symbol pipeline
-- **Public contributions (individuals): ✅ opened ([CLA](CLA.md))**
-- Public contributions (corporate): ⏳ planned
+**RDCore.SDK** — language model + shared plumbing · ✅ stable
+
+| Area | |
+|---|---|
+| Static type system, runtime type model | ✅ |
+| Static semantics — operators, let-coercions | ✅ |
+| Hosts, transport, connection lifecycle, platform-root | ✅ |
+| Capability model (platform + LSP handshake) | 🚧 informational, no enforcement |
+
+**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧
+
+| Area | |
+|---|---|
+| Full-document parse — directives, declarations, UDT members | ✅ |
+| AST statement nodes | 🎯 unblocks the interpreter |
+| Anchored-fragment parse | 🎯 |
+| `#If` expressions past a bare name · float-literal conformance | 🚧 |
+
+**RDCore.LanguageServer** — orchestrator + LSP server · 🚧
+
+| Area | |
+|---|---|
+| LSP lifecycle | ✅ |
+| Platform orchestration (bring-up, health, teardown) | 🚧 extensions not loaded |
+| Workspace load → parse round-trip → symbol extraction → define | ✅ intrinsic types only |
+| LSP document + workspace features | 👉 up for grabs — spec'd |
+
+**RDCore.CLI** → `rdc.exe` — LSP client + environment host · 🚧
+
+| Area | |
+|---|---|
+| Client mode (`--workspace`) drives the platform end to end | ✅ |
+| Runtime session composed from `.rdproj` (`--host`) | ✅ |
+| Session symbols (`rdcore/host/symbols/define`) | 🚧 define-only |
+| Session memory / allocation model | 🚧 accounting layer; addressable storage planned |
+| Command mode (`describe-extension`, …) · REPL | 🎯 |
+
+**RDCore.Runtime** — RD-VBA runtime semantics + VBA stdlib · 🚧
+
+| Area | |
+|---|---|
+| Runtime semantics — operators | ✅ |
+| Runtime semantics — let-coercions | 🚧 |
+| Runtime semantics — set-coercions, statements | 🎯 |
+| Standard library (`IStd*`) | 🎯 |
+| Interpreter · IR lowering | 🎯 planned |
+
+**RDCore.Diagnostics** — core inspection extension · 🚧 analyzer skeleton; extension loading blocked on command mode + manifest generation.
+
+**Tests** · 🎯 target ~70% line coverage (badge above is live) — operator semantics and platform lifecycle well covered; parser grammar and CLI thin; runtime beyond operators has nothing to cover yet.
+
+**Contributions** — individuals ✅ open ([CLA](CLA.md)) · corporate ⏳ planned
+
+<sub>✅ done / stable · 🚧 in progress · 🎯 not started · 👉 up for grabs</sub>
 
 ---
 # 1.0.2 RD-VBA
@@ -71,37 +114,6 @@ The implementation of the platform's _language core_ is a **work in progress**. 
 - 🎯 **aims for strict compliance with the MS-VBAL specifications**, ensuring behavioral compatibility with existing VBA semantics;
 - 🧩 **elevates VBA into a modern, extensible, _and fully open-sourced_ language platform** separating the language definition from its original 1993 implementation;
 - 👀 **makes implicit language behavior explicit**, exposing semantic rules, evaluation steps, call stacks, and error conditions as _observable facts_.
-
-<a id="implementationstatus"/>
-
-## Implementation Status
-> [!NOTE]
-> This section is kept up to date as implementation progresses.
-
-- ✅ Static semantics IMPLEMENTED for all operators  
-- ✅ Static semantics IMPLEMENTED for all let-coercions  
-- ✅ Runtime semantics IMPLEMENTED for all operators  
-- 🚧 Runtime semantics IN PROGRESS for let-coercions  
-- 🎯 Runtime semantics TODO for all statements  
-- 🎯 Runtime semantics TODO for the standard library  
-- 🚧 Evaluation pipeline modelization IN PROGRESS  
-- 🚧 Analysis pipeline modelization IN PROGRESS  
-- 🚧 Execution pipeline modelization IN PROGRESS  
-
-
-### Language Core Semantics
-
-- 🚧 **Static: IN PROGRESS**
-  - Operators: ✅ IMPLEMENTED
-  - Let-coercions: ✅ IMPLEMENTED
-  - Statements: 🎯 TODO
-  - Standard library: 🎯 TODO
-
-- 🚧 **Runtime: IN PROGRESS**
-  - Operators: ✅ IMPLEMENTED
-  - Let-coercions: 🚧 IN PROGRESS (_conceptually_ completed)
-  - Statements: 🎯 TODO 
-  - Standard library: 🎯 TODO
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>

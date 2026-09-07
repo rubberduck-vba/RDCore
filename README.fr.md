@@ -16,11 +16,10 @@ Ce référentiel contient différents projets **en phase de développement actif
 
 Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en protégeant son avenir : **l'implémentation du _runtime_ de RDCore demeurera open-source**.
 
-👉 Nous construisons ici une solide fondation pour le _coeur de langage_, mais veuillez noter qu'en ce moment le seul livrable est le [site de documentation](https://rubberduck-vba.github.io/RDCore/index.fr.html).
+👉 Nous construisons ici une solide fondation pour le _coeur de langage_. Le [site de documentation](https://rubberduck-vba.github.io/RDCore/index.fr.html) demeure la référence principale, mais la plateforme commence à produire de vrais livrables : `rdc.exe` mène un _workspace_ du chargement à l'analyse jusqu'à la définition des symboles, de bout en bout.
 
 ### Dans ce document
 - [Statut du projet](#projectstatus)
-- [État de l'implémentation](#implementationstatus)
 
 ### Voir aussi
 - [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -49,18 +48,62 @@ Entre autres :
 <a id="projectstatus"/>
 
 ### 📊 Statut du projet
-> [!NOTE]
-> Cette section est tenue à jour à mesure que progresse l'implémentation.
+RDCore est en phase active de développement **pré-alpha**. La **spécification** et la **documentation** sont les livrables stables; la plateforme s'exécute de bout en bout (_workspace_ → analyse → symboles) mais n'est pas encore publiée. Un portrait sommaire par projet — non suivi par tickets, simplement l'état des lieux :
 
-RDCore est présentement en phase active de développement **pré-alpha** - le **seul livrable pour l'instant** consiste en sa **spécification** et sa **documentation**.  
-- Architecture: ✅ stable
-- SDK langage: ✅ largement défini
-- Runtime: 🚧 implémentation en cours
-- Librarie standard: 🚧 partiellement définie
-- Parser: 🚧 passe de déclarations (document complet)
-- Hôte CLI (rdc.exe): 🚧 chargement du workspace + pipeline de symboles
-- **Contributions publiques individuelles: ✅ ouvertes ([CLA](CLA.fr.md))**
-- Contributions publiques corporatives: ⏳ à venir 
+**RDCore.SDK** — modèle de langage + plomberie partagée · ✅ stable
+
+| Domaine | |
+|---|---|
+| Système de types statiques, modèle de types _runtime_ | ✅ |
+| Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
+| Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
+| Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application |
+
+**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧
+
+| Domaine | |
+|---|---|
+| Analyse document complet — directives, déclarations, membres d'UDT | ✅ |
+| Nœuds d'AST de _statements_ | 🎯 débloque l'interpréteur |
+| Analyse de fragment ancré | 🎯 |
+| Expressions `#If` au-delà d'un simple nom · conformité des littéraux flottants | 🚧 |
+
+**RDCore.LanguageServer** — orchestrateur + serveur LSP · 🚧
+
+| Domaine | |
+|---|---|
+| Cycle de vie LSP | ✅ |
+| Orchestration de la plateforme (démarrage, santé, arrêt) | 🚧 extensions non chargées |
+| Chargement du _workspace_ → aller-retour d'analyse → extraction de symboles → définition | ✅ types intrinsèques seulement |
+| Fonctionnalités LSP _document_ et _workspace_ | 👉 à saisir — spécifié |
+
+**RDCore.CLI** → `rdc.exe` — client LSP + hôte d'environnement · 🚧
+
+| Domaine | |
+|---|---|
+| Mode client (`--workspace`) pilote la plateforme de bout en bout | ✅ |
+| Session _runtime_ composée depuis `.rdproj` (`--host`) | ✅ |
+| Symboles de session (`rdcore/host/symbols/define`) | 🚧 définition seulement |
+| Modèle de mémoire / d'allocation de session | 🚧 couche de comptabilité; stockage adressable prévu |
+| Mode commande (`describe-extension`, …) · REPL | 🎯 |
+
+**RDCore.Runtime** — sémantiques _runtime_ RD-VBA + librairie standard VBA · 🚧
+
+| Domaine | |
+|---|---|
+| Sémantiques _runtime_ — opérateurs | ✅ |
+| Sémantiques _runtime_ — _let-coercions_ | 🚧 |
+| Sémantiques _runtime_ — _set-coercions_, _statements_ | 🎯 |
+| Librairie standard (`IStd*`) | 🎯 |
+| Interpréteur · _IR lowering_ | 🎯 prévu |
+
+**RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 squelette d'analyseur; chargement des extensions bloqué sur le mode commande + génération du _manifest_.
+
+**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et cycle de vie de la plateforme bien couverts; grammaire du _parser_ et CLI minces; le _runtime_ au-delà des opérateurs n'a encore rien à couvrir.
+
+**Contributions** — individuelles ✅ ouvertes ([CLA](CLA.fr.md)) · corporatives ⏳ à venir
+
+<sub>✅ fait / stable · 🚧 en cours · 🎯 non entamé · 👉 à saisir</sub>
 
 ---
 # RD-VBA
@@ -71,36 +114,6 @@ L'implémentation du _coeur de langage_ de la plateforme est également un **pro
 - 🧩 **élève VBA en une plate-forme de langage moderne, extensible, et _entièrement open-source_**, séparant la _définition du langage_ de son _implémentation originale_ de 1993;
 - 👀 **rend explicite les comportements implicites du langage** en exposant les règles sémantiques, étapes d'évaluation, piles d'appels, et états d'erreur en tant que _faits observables_.
 
-
-<a id="implementationstatus"/>
-
-## État de l'implémentation
-> [!NOTE]
-> Cette section est tenue à jour à mesure que progresse l'implémentation.
-
-- ✅ Sémantiques _statiques_ IMPLÉMENTÉES pour les opérateurs  
-- ✅ Sémantiques _statiques_ IMPLÉMENTÉES pour les _let-coercions_
-- ✅ Sémantiques _runtime_ IMPLÉMENTÉEES pour tous les opérateurs
-- 🚧 Sémantiques _runtime_ EN COURS pour _let-coercions_  
-- 🎯 Sémantiques _runtime_ À FAIRE pour tous les _statements_  
-- 🎯 Sémantiques _runtime_ À FAIRE pour la _librairie standard_  
-- 🚧 Modélisation du pipeline d'évaluation EN COURS
-- 🚧 Modélisation du pipeline d'analyse EN COURS  
-- 🚧 Modélisation du pipeline d'exécution EN COURS
-
-### Sémantique du _coeur de langage_
-
-- 🚧 **Statique: EN COURS**
-  - Opérateurs: ✅ IMPLÉMENTÉ
-  - _Let-coercions_: ✅ IMPLÉMENTÉ
-  - _Statements_: 🎯 À FAIRE
-  - Librarie standard: 🎯 À FAIRE
-
-- 🚧 **Runtime: IN PROGRESS**
-  - Opérateurs: ✅ IMPLÉMENTÉ
-  - _Let-coercions_: 🚧 EN COURS (_conceptuellement_ complété)
-  - _Statements_: 🎯 TODO 
-  - Librarie standard: 🎯 À FAIRE
 
 > [!NOTE]
 > La version française des documents techniques, lorsque disponible, utilise les termes originaux _en anglais_ qui conservent la précision de leur signification, plutôt qu'une traduction approximative qui pourrait facilement être plus confondante qu'utile.

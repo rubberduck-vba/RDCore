@@ -44,9 +44,6 @@ dotnet test RDCore.slnx
 Une exécution réussie **doit rapporter un nombre de tests non nul**: une exécution qui ne découvre aucun test n'est pas une exécution réussie. L'option `--configuration Release` bâtit et teste de la même manière; l'intégration continue valide les deux configurations.
 
 
-**Toute valeur commerciale éventuelle de la plateforme _repose d'abord et avant tout sur la force de sa communauté_, pas sur la vélocité de sa complétion**.
-
-
 **V I V A T 🤝 C U C U M I S** ™
 
 
@@ -97,9 +94,6 @@ dotnet test RDCore.slnx
 ```
 
 A successful run **must report a non-zero test count**: a run that discovers no tests is not a passing run. The `--configuration Release` switch builds and tests the same way; continuous integration validates both configurations.
-
-
-**Any eventual commercial value of the platform _stems first and foremost from the strength of its community_, not the velocity of its completion**.
 
 
 **V I V A T 🤝 C U C U M I S** ™
