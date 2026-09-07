@@ -145,6 +145,39 @@ $ManifestPath = Join-Path $PlatformRoot "rdcore.json"
 $Manifest | Set-Content $ManifestPath -Encoding UTF8
 
 Write-Host ""
+Write-Host "🧩 Generating extension manifests..."
+Write-Host ""
+
+# each extension gets an extension.manifest.json, reflected off its executable by `rdc.exe describe-ext`
+# (command mode, unsafe dev signing). The language server discovers extensions by this manifest.
+$Rdc = Join-Path $PlatformRoot "RDCore.CLI\rdc.exe"
+
+$Extensions = @(
+    @{ Folder = "RDCore.Diagnostics"; Executable = "RDCore.Diagnostics.exe"; Description = "RDCore core inspection extension." }
+)
+
+foreach ($extension in $Extensions)
+{
+    $extensionFolder = Join-Path $PlatformRoot (Join-Path "Extensions" $extension.Folder)
+
+    Push-Location $extensionFolder
+    try
+    {
+        & $Rdc describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "describe-ext failed for $($extension.Folder) (exit $LASTEXITCODE)."
+        }
+    }
+    finally
+    {
+        Pop-Location
+    }
+
+    Write-Host "🧩 $(Join-Path $extensionFolder 'extension.manifest.json')"
+}
+
+Write-Host ""
 Write-Host "Platform root assembled:"
 Write-Host "  $PlatformRoot"
 Write-Host ""
