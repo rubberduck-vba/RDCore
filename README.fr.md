@@ -1,5 +1,8 @@
 # RDCore™
-<sup>_This document is available in [English](./README.en.md)_</sup>
+<sup>_This document is available in [English](./README.md)_</sup>
+
+[![Build and Test](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml/badge.svg)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
 
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 
@@ -88,29 +91,19 @@ L'implémentation du _coeur de langage_ de la plateforme est également un **pro
 ### Sémantique du _coeur de langage_
 
 - 🚧 **Statique: EN COURS**
-  - Opérateurs: ✅ IMPLÉMENTÉ (couverture: 62.4 %blocs | 64.6 %lignes)  
-  - _Let-coercions_: ✅ IMPLÉMENTÉ (couverture: À FAIRE)
+  - Opérateurs: ✅ IMPLÉMENTÉ
+  - _Let-coercions_: ✅ IMPLÉMENTÉ
   - _Statements_: 🎯 À FAIRE
   - Librarie standard: 🎯 À FAIRE
 
 - 🚧 **Runtime: IN PROGRESS**
-  - Opérateurs: ✅ IMPLÉMENTÉ (couverture: À FAIRE)
+  - Opérateurs: ✅ IMPLÉMENTÉ
   - _Let-coercions_: 🚧 EN COURS (_conceptuellement_ complété)
   - _Statements_: 🎯 TODO 
   - Librarie standard: 🎯 À FAIRE
 
 > [!NOTE]
 > La version française des documents techniques, lorsque disponible, utilise les termes originaux _en anglais_ qui conservent la précision de leur signification, plutôt qu'une traduction approximative qui pourrait facilement être plus confondante qu'utile.
-
-
-### Couverture de tests
-- 🧪 couverture TOTALE (rdcore.sdk.dll): 17.4 %blocs; **15.0 %lignes** | ⚠️ SOUS LA CIBLE (>70%)
-
-Des tests exercent les sémantiques statiques des opérateurs à travers une matrice de [VBIntrinsicType](https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) qui traversent la plupart (toutes?) des combinaisons _spécifiées_ d'intrants:
-
-![tests sémantiques statiques opérateurs](./docs/images/operator-static-semantic-tests.png)  
-
-👉 Manquants: tests pour toutes combinaisons _non spécifiées_ (s'il y a lieu), et conditions d'erreur / validations des _type mismatch_.
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>

@@ -1,6 +1,9 @@
 # RDCore™
 <sup>_Ce document est disponible en [français](./README.fr.md)_</sup>
 
+[![Build and Test](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml/badge.svg)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
+
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 
 ## Before we begin.
@@ -89,26 +92,16 @@ The implementation of the platform's _language core_ is a **work in progress**. 
 ### Language Core Semantics
 
 - 🚧 **Static: IN PROGRESS**
-  - Operators: ✅ IMPLEMENTED (coverage: 62.4 %block | 64.6 %lines)  
-  - Let-coercions: ✅ IMPLEMENTED (coverage: TODO)
+  - Operators: ✅ IMPLEMENTED
+  - Let-coercions: ✅ IMPLEMENTED
   - Statements: 🎯 TODO
   - Standard library: 🎯 TODO
 
 - 🚧 **Runtime: IN PROGRESS**
-  - Operators: ✅ IMPLEMENTED (coverage: TODO)
+  - Operators: ✅ IMPLEMENTED
   - Let-coercions: 🚧 IN PROGRESS (_conceptually_ completed)
   - Statements: 🎯 TODO 
   - Standard library: 🎯 TODO
-
-
-### Test Coverage
-- 🧪 OVERALL test coverage (rdcore.sdk.dll): 17.4 %blocks; **15.0 %lines** | ⚠️ BELOW TARGET (>70%)
-
-The current operator tests run the static semantics through a matrix of [VBIntrinsicType](https://rubberduck-vba.github.io/RDCore/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html) that exercises most if not all _specified_  input combinations:
-
-![operator static semantics tests](./docs/images/operator-static-semantic-tests.png)  
-
-👉 Missing: tests for any _unspecified_ combinations (if any), and error conditions / type mismatch checks.
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>

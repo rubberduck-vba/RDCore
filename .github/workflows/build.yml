@@ -7,7 +7,7 @@ on:
   branches: [main]
 
 permissions:
- contents: read
+ contents: write
 
 jobs:
  build-and-test:
@@ -24,11 +24,49 @@ jobs:
    - name: Build (Debug)
      run: dotnet build RDCore.slnx --configuration Debug
 
-   - name: Test (Debug)
-     run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal
+   - name: Test (Debug) + coverage
+     run: |
+       dotnet tool install --global dotnet-coverage
+       dotnet-coverage collect \
+         "dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal" \
+         --output-format cobertura --output coverage.cobertura.xml
 
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
    - name: Test (Release)
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal
+
+   - name: Coverage badge
+     if: github.event_name == 'push'
+     run: |
+       dotnet tool install --global dotnet-reportgenerator-globaltool
+       reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage-report \
+         -reporttypes:JsonSummary "-assemblyfilters:-RDCore.Tests"
+       pct=$(grep -m1 -oE '"linecoverage": [0-9.]+' coverage-report/Summary.json | grep -oE '[0-9.]+$')
+       echo "RDCore product line coverage: ${pct}%"
+       n=${pct%.*}
+       if   [ "$n" -ge 80 ]; then color=brightgreen
+       elif [ "$n" -ge 60 ]; then color=green
+       elif [ "$n" -ge 40 ]; then color=yellowgreen
+       elif [ "$n" -ge 25 ]; then color=yellow
+       elif [ "$n" -ge 10 ]; then color=orange
+       else color=red
+       fi
+       mkdir badge
+       printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$pct" "$color" > badge/coverage.json
+       cat badge/coverage.json
+
+   - name: Publish coverage badge
+     if: github.event_name == 'push'
+     run: |
+       git config --global user.name  'github-actions[bot]'
+       git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+       tmp=$(mktemp -d)
+       cp badge/coverage.json "$tmp/coverage.json"
+       cd "$tmp"
+       git init -q
+       git checkout -q -b badges
+       git add coverage.json
+       git commit -q -m 'coverage badge'
+       git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
