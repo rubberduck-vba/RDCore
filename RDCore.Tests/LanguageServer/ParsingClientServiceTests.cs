@@ -80,4 +80,30 @@ public sealed class ParsingClientServiceTests
 
         await sut.ParseWorkspaceAsync(CancellationToken.None);
     }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_NullResult_CachesAFailedResult()
+    {
+        var (sut, parser, _) = Build();
+        parser.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(default!, default).ReturnsForAnyArgs((ModuleParseResult)null!);
+        var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+
+        var result = await sut.ParseDocumentAsync(uri, ModuleType.StdModule, CancellationToken.None);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(sut.TryGetCached(uri, out var cached));
+        Assert.AreSame(result, cached);
+    }
+
+    [TestMethod]
+    public void ParseDocumentParams_CarriesTheMethodAttribute()
+    {
+        var method = typeof(ParseDocumentParams)
+            .GetCustomAttributes(typeof(OmniSharp.Extensions.JsonRpc.MethodAttribute), false)
+            .Cast<OmniSharp.Extensions.JsonRpc.MethodAttribute>()
+            .SingleOrDefault();
+
+        Assert.IsNotNull(method, "ParseDocumentParams needs [Method] so the JSON-RPC layer can infer the request method by type.");
+        Assert.AreEqual(RDCorePlatformProtocol.ParseFullDocument, method.Method);
+    }
 }

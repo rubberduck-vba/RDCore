@@ -15,7 +15,9 @@ internal class ParseFullDocumentHandler(IFile fileService, IModuleParser moduleP
     {
         if (request?.DocumentUri is Uri uri)
         {
-            var content = fileService.ReadAllText(uri.AbsolutePath);
+            // LocalPath, not AbsolutePath: a file:// uri's AbsolutePath keeps the leading slash and
+            // percent-encoding, so `ReadAllText` can't find it on Windows.
+            var content = fileService.ReadAllText(uri.LocalPath);
             return moduleParser.Parse(uri, request.ModuleType, content);
         }
 

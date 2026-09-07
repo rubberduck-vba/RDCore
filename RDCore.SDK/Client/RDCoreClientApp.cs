@@ -229,14 +229,24 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// </summary>
     private void ConfigureClient(LanguageClientOptions options)
     {
+        var initialization = CreateInitializationParams();
+
         options
             // basic client app information:
-            .WithClientInfo(GetClientInfo())
+            .WithClientInfo(initialization.ClientInfo ?? GetClientInfo())
             .WithClientCapabilities(GetClientCapabilities())
+            .WithTrace(initialization.Trace)
             // wire-up lifecycle delegates:
             .OnStarted(OnLanguageClientStartedAsync)
             .OnInitialize(HandleLanguageClientInitializeAsync)
             .OnInitialized(HandleLanguageClientInitializedAsync);
+
+        // the workspace root the server loads its project from — OmniSharp does not set it itself,
+        // so an absent RootUri here is why a server never loads a workspace.
+        if (initialization.RootUri is { } rootUri)
+        {
+            options.WithRootUri(rootUri);
+        }
 
         // everything else the app wants to do:
         ConfigureServices(options.Services);

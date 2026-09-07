@@ -1,4 +1,6 @@
 ﻿using MediatR;
+using OmniSharp.Extensions.JsonRpc;
+using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
@@ -6,8 +8,10 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
-/// The <em>parameter</em> object for a <c>ParseDocumentCommand</c>.
+/// The <em>parameter</em> object for a <c>ParseDocumentCommand</c>. The <c>[Method]</c> attribute lets
+/// the JSON-RPC layer infer the request method when the caller sends this by type.
 /// </summary>
+[Method(RDCorePlatformProtocol.ParseFullDocument, Direction.ClientToServer)]
 public record class ParseDocumentParams : IRequest, IRequest<ModuleParseResult>
 {
     /// <summary>
