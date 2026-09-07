@@ -3,19 +3,19 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
-using RDCore.CLI.App.Messages;
+using RDCore.CLI.App.Console;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
-using RDCore.CLI.Themes.Model;
+using RDCore.CLI.Themes;
 using RDCore.SDK;
 using RDCore.SDK.Client;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
@@ -95,24 +95,48 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
+            .Configure<AppOptions>(configuration.GetSection("Configuration:CLI"))
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
-            //.AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>()
             .AddSingleton<ShowSplashCommand>();
     }
 
+    // client mode renders its logs through the same Spectre-backed writer; framework lifetime
+    // chatter is quieted, but RDCore platform bring-up stays visible at the configured trace level.
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        builder.AddSimpleConsole(options => options.ColorBehavior = LoggerColorBehavior.Enabled);
-        builder.SetMinimumLevel(LogLevel.Trace /*Enum.Parse<LogLevel>(configuration["Server:TraceLevel"] ?? "None")*/);
+        builder.ClearProviders();
+        services.AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>();
+        builder.AddFilter("Microsoft", LogLevel.Warning);
+        // the CLI host's own bootstrap narration ("application resolved", "host started") is noise
+        // for an interactive shell; connection/platform logs (RDCore.SDK.Client.*) stay visible.
+        builder.AddFilter("RDCore.CLI", LogLevel.Warning);
+        base.ConfigureExternalLogging(services, builder, configuration);
     }
 
     protected override async Task BeforeAppStartAsync(IServiceProvider provider)
     {
-        var command = provider.GetRequiredService<ShowSplashCommand>();
-        command.Execute(new() { Show = true });
+        var themes = provider.GetRequiredService<IAppThemeService>();
+        await themes.InitializeAsync(CancellationToken.None);
+        ApplyShellFrame(themes.Theme);
+
+        provider.GetRequiredService<ShowSplashCommand>().Execute(new() { Show = true });
+    }
+
+    // the C64-style deep-blue shell frame — nearest ConsoleColor of the theme's 24-bit shell colours.
+    private static void ApplyShellFrame(AppTheme theme)
+    {
+        try
+        {
+            System.Console.BackgroundColor = theme.ShellBackground;
+            System.Console.ForegroundColor = theme.ShellForeground;
+            System.Console.Clear();
+        }
+        catch (System.IO.IOException)
+        {
+        }
     }
 }
 
@@ -162,9 +186,13 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
     {
     }
 
+    protected override async Task BeforeAppStartAsync(IServiceProvider provider)
+        => await provider.GetRequiredService<IAppThemeService>().InitializeAsync(CancellationToken.None);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
+            .Configure<AppOptions>(configuration.GetSection("Configuration:CLI"))
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)

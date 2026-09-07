@@ -1,5 +1,5 @@
-using RDCore.CLI.App.Messages;
-using RDCore.CLI.App.Messages.Model;
+using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Commands;
 

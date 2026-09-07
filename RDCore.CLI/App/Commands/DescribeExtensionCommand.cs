@@ -1,7 +1,7 @@
 using CommandLine;
 using Microsoft.Extensions.Options;
-using RDCore.CLI.App.Messages;
-using RDCore.CLI.App.Messages.Model;
+using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;

@@ -1,32 +1,26 @@
 using System.Reflection;
-using RDCore.CLI.App.Messages.Model;
-using RDCore.CLI.Themes.Model;
+using RDCore.CLI.Themes;
+using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.ConsoleIO.Model;
 using Spectre.Console;
 
-namespace RDCore.CLI.App.Messages;
+namespace RDCore.CLI.App.Console;
 
 /// <summary>
-/// Renders a <see cref="ConsoleMessageBuilder"/> through <see cref="IAnsiConsole"/> (Spectre.Console).
-/// The structured part model is kept; only the rendering back-end changes. Content strings are markup-
-/// escaped; style comes from the message <see cref="MessageKind"/> (and the theme icon when one is set).
+/// Renders a <see cref="ConsoleMessageBuilder"/> through <see cref="IAnsiConsole"/> (Spectre.Console),
+/// styling each part with the active <see cref="AppTheme"/>. Content strings are markup-escaped.
 /// </summary>
 public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeService themes) : IConsoleMessageWriter
 {
-    // TODO: fold these into the theme once it moves to Spectre — style is a Spectre token
-    // (named colour, #hex, or "fg on bg"), not a ConsoleColor, so themes can use the full palette.
-    private static (string Glyph, string Style) Face(MessageKind kind) => kind switch
+    // used only when the theme supplies no icon for a kind.
+    private static string GlyphFallback(MessageKind kind) => kind switch
     {
-        MessageKind.Information => ("ℹ", "blue"),
-        MessageKind.Warning => ("▲", "yellow"),
-        MessageKind.Error => ("✖", "red"),
-        MessageKind.Success => ("✔", "green"),
-        _ => ("·", "grey"),
+        MessageKind.Information => "ℹ",
+        MessageKind.Warning => "▲",
+        MessageKind.Error => "✖",
+        MessageKind.Success => "✔",
+        _ => "·",
     };
-
-    // the ConsoleColor override channel is transitional; a Spectre style token (any palette) is the
-    // target once callers/themes stop speaking ConsoleColor.
-    private static string? StyleToken(string? raw)
-        => string.IsNullOrWhiteSpace(raw) ? null : raw.ToLowerInvariant();
 
     public IConsoleMessageWriter Clear()
     {
@@ -40,12 +34,11 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         return this;
     }
 
-    public IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder, ConsoleColor? color = default)
+    public IConsoleMessageWriter WriteMessage(ConsoleMessageBuilder builder)
     {
-        var (glyph, kindStyle) = Face(builder.Kind);
-        var themeIcon = themes.Theme.GetMessageIcon(builder.Kind);
-        var icon = string.IsNullOrWhiteSpace(themeIcon) ? glyph : themeIcon;
-        var accent = StyleToken(color?.ToString()) ?? kindStyle;
+        var kind = builder.Kind;
+        var theme = themes.Theme;
+        var icon = theme.GetIcon(kind) is { Length: > 0 } themed ? themed : GlyphFallback(kind);
 
         var timestamp = builder.Parts.OfType<ConsoleMessageTimestampPart>().FirstOrDefault();
         var title = builder.Parts.OfType<ConsoleMessageTitlePart>().FirstOrDefault();
@@ -55,30 +48,28 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         var head = new List<string>();
         if (timestamp is { Value.Length: > 0 })
         {
-            head.Add($"[grey]{Markup.Escape(timestamp.Value)}[/]");
+            head.Add($"[{theme.GetStyle(kind, MessagePart.Timestamp)}]{Markup.Escape(timestamp.Value)}[/]");
         }
-        head.Add($"[{accent}]{Markup.Escape(icon)}[/]");
+        head.Add($"[{theme.GetStyle(kind, MessagePart.Title)}]{Markup.Escape(icon)}[/]");
         if (title is { Value.Length: > 0 })
         {
-            head.Add($"[bold {accent}]{Markup.Escape(title.Value)}[/]");
+            head.Add($"[bold {theme.GetStyle(kind, MessagePart.Title)}]{Markup.Escape(title.Value)}[/]");
         }
         console.MarkupLine(string.Join(' ', head));
 
         if (body is { Body.Length: > 0 })
         {
-            var text = Substitute(body.Body, placeholders);
-            var bodyToken = StyleToken(body.ColorOverride);
-            console.MarkupLine(bodyToken is null ? $"  {text}" : $"  [{bodyToken}]{text}[/]");
+            console.MarkupLine($"  [{theme.GetStyle(kind, MessagePart.Body)}]{Substitute(kind, theme, body.Body, placeholders)}[/]");
         }
 
         foreach (var verbose in builder.Parts.OfType<ConsoleMessageVerbosePart>().Where(part => part.Value.Length > 0))
         {
-            console.MarkupLine($"  [grey]{Markup.Escape(verbose.Value)}[/]");
+            console.MarkupLine($"  [{theme.GetStyle(kind, MessagePart.Verbose)}]{Markup.Escape(verbose.Value)}[/]");
         }
 
         foreach (var trace in builder.Parts.OfType<ConsoleMessageStackTracePart>().Where(part => part.Value.Length > 0))
         {
-            console.MarkupLine($"[grey]{Markup.Escape(trace.Value)}[/]");
+            console.MarkupLine($"[{theme.GetStyle(kind, MessagePart.StackTrace)}]{Markup.Escape(trace.Value)}[/]");
         }
 
         if (builder.IsWithLineBreak)
@@ -88,13 +79,14 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         return this;
     }
 
-    // markup-escape the literal text, then splice each {$PLACEHOLDER} back in as a bold span.
-    private static string Substitute(string text, IReadOnlyList<ConsoleMessageStringLiteralPlaceholderPart> placeholders)
+    // markup-escape the literal text, then splice each {$PLACEHOLDER} back in as a metric-styled span.
+    private static string Substitute(MessageKind kind, AppTheme theme, string text, IReadOnlyList<ConsoleMessageStringLiteralPlaceholderPart> placeholders)
     {
+        var metric = theme.GetStyle(kind, MessagePart.Metric);
         var result = Markup.Escape(text);
         foreach (var placeholder in placeholders)
         {
-            result = result.Replace(placeholder.Placeholder, $"[bold]{Markup.Escape(placeholder.Value)}[/]");
+            result = result.Replace(placeholder.Placeholder, $"[{metric}]{Markup.Escape(placeholder.Value)}[/]");
         }
         return result;
     }
