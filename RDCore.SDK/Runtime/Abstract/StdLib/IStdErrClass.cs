@@ -1,6 +1,5 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
@@ -40,7 +39,7 @@ public interface IStdErrClass
     /// <param name="helpFile">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <param name="helpContext">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    public RuntimeSemanticsEvaluationResult StdErrClass__Raise(VBRuntimeValue<Int32> number, VBRuntimeVariantValue source, VBVariantValue description, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
+    public RuntimeSemanticsEvaluationResult StdErrClass__Raise(VBLongValue number, VBVariantValue source, VBVariantValue description, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
     #endregion
 
     #region 6.1.3.2.2 Public Properties
@@ -53,7 +52,7 @@ public interface IStdErrClass
     /// </summary>
     /// <param name="value">A <see cref="VBStringValue"/> containing a description of the error.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    public RuntimeSemanticsEvaluationResult StdErrClass_setDescription(VBRuntimeReference value);
+    public RuntimeSemanticsEvaluationResult StdErrClass_setDescription(VBStringValue value);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.3.2.2 HelpContext</strong> Gets a <see cref="VBStringValue"/> containing the <em>HelpContextID</em> of the error.
@@ -71,7 +70,7 @@ public interface IStdErrClass
     /// ℹ️ Unsupported legacy proprietary Microsoft help system. This property is <strong>out of scope</strong> of this implementation.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    public RuntimeSemanticsEvaluationResult StdErrClass_setHelpContext(VBRuntimeReference value);
+    public RuntimeSemanticsEvaluationResult StdErrClass_setHelpContext(VBStringValue value);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.3.2.3 HelpFile</strong> Gets a <see cref="VBStringValue"/> containing the <em>HelpFile</em> of the error.
@@ -89,7 +88,7 @@ public interface IStdErrClass
     /// ℹ️ Unsupported legacy proprietary Microsoft help system. This property is <strong>out of scope</strong> of this implementation.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    public RuntimeSemanticsEvaluationResult StdErrClass_setHelpFile(VBRuntimeReference value);
+    public RuntimeSemanticsEvaluationResult StdErrClass_setHelpFile(VBStringValue value);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.3.2.4 LastDllError</strong> Gets a <see cref="VBLongValue"/> containing a <em>system error code</em> produced by a call to a <em>dynamic-link library</em> (DLL).
@@ -112,6 +111,6 @@ public interface IStdErrClass
     /// <strong>MS-VBAL 6.1.3.2.2.5 Number</strong> Sets a <see cref="VBLongValue"/> containing an error code.
     /// </summary>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    public RuntimeSemanticsEvaluationResult StdErrClass_setNumber(VBRuntimeValue<Int32> value);
+    public RuntimeSemanticsEvaluationResult StdErrClass_setNumber(VBLongValue value);
     #endregion
 }
