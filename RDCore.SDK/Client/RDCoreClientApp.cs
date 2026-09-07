@@ -43,6 +43,10 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// The result of the <c>rdcore/platform/initialize</c> handshake; <c>null</c> until the connection is Ready.
     /// </summary>
     PlatformInitializeResult? PlatformInfo { get; }
+    /// <summary>
+    /// The extension manifest when this client connects to a <see cref="CoreServerComponent.Extension"/>; <c>null</c> otherwise.
+    /// </summary>
+    ExtensionInfo? ExtensionInfo { get; }
 }
 
 /// <summary>
@@ -152,9 +156,14 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             // a server proxy owned by the language server launches and connects to a child component:
             CoreServerComponent.ParsingServer => manifest.ParseServer,
             CoreServerComponent.EnvironmentHost => manifest.HostService,
-            //CoreServerComponent.Extension => fileSystem.Path.Combine(manifest.ExtensionsDirectory, ExtensionInfo!.Name),
+            // an extension lives in <ExtensionsDirectory>/<Title>/<Name>, platform-root-relative;
+            // RDCoreServerProcess.StartAsync resolves it against the platform root.
+            CoreServerComponent.Extension => $"{manifest.ExtensionsDirectory}/{ExtensionInfo!.Title}/{ExtensionInfo!.Name}",
             _ => throw new NotSupportedException($"Cannot resolve a server executable for platform component '{PlatformComponent}'.")
         };
+
+        // keeps two extensions from sharing a pipe base name (the random suffix already separates instances).
+        var pipeDiscriminator = ExtensionInfo?.Title is { Length: > 0 } extensionTitle ? $".{extensionTitle}" : string.Empty;
 
         _connection = _connectionFactory.Create();
         var startupToken = _hostServices?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None;
@@ -163,7 +172,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         await _connection.ConnectAsync(new ChildConnectionRequest
         {
             ServerExecutablePath = path,
-            PipeName = $"RDCore.{PlatformComponent}.Pipe.{Random.Shared.NextInt64()}",
+            PipeName = $"RDCore.{PlatformComponent}{pipeDiscriminator}.Pipe.{Random.Shared.NextInt64()}",
             // the environment host is rdc.exe itself, run in host mode:
             HostMode = PlatformComponent == CoreServerComponent.EnvironmentHost,
             // ExpectedComponent is what we are connecting TO (a proxy's PlatformComponent is the child's;

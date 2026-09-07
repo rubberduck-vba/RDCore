@@ -59,6 +59,7 @@ public static class RDCorePlatformProtocol
 
 [JsonDerivedType(typeof(ParseFullDocument))]
 [JsonDerivedType(typeof(DefineSymbols))]
+[JsonDerivedType(typeof(CliCommand))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -72,3 +73,15 @@ public record class ParseFullDocument(bool IsSupported = false) : CorePlatformCl
 /// <c>rdcore/host/symbols/define</c> for definition in the runtime session.
 /// </summary>
 public record class DefineSymbols(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component contributes <c>rdc.exe</c> command-line verbs.
+/// </summary>
+/// <remarks>
+/// Declared via <c>[assembly: ProvidesCorePlatformClientCapability&lt;CliCommand&gt;]</c>. The CLI itself
+/// declares it for its native verbs; an extension declares it to have <c>rdc.exe describe-ext</c> record
+/// the capability in its <see cref="RDCore.SDK.Extensibility.ExtensionInfo"/> manifest. Providers are
+/// <see cref="CoreServerComponent.ClientApp"/> and <see cref="CoreServerComponent.Extension"/>. Currently
+/// informational: nothing is negotiated over <c>rdcore/platform/initialize</c> for this capability yet.
+/// </remarks>
+public record class CliCommand(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);

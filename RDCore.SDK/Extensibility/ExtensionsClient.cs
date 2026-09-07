@@ -79,26 +79,41 @@ public class ExtensionsClient(
     /// <returns><c>null</c> if the specified extension cannot be described.</returns>
     public ExtensionInfo? Describe(string name, string description)
     {
+        // guard: this must run from inside <ExtensionsRoot>/<ExtensionFolder>/ so the folder name is
+        // the extension title. Compare the resolved extensions root, not a relative path fragment.
         var currentDirectory = fileSystem.DirectoryInfo.New(fileSystem.Directory.GetCurrentDirectory());
-        var currentParentFolder = currentDirectory.Parent?.Name;
-        var expected = fileSystem.Path.GetDirectoryName(options.Value.Platform.Extensions.Path);
-        if (!string.Equals(currentParentFolder, expected, StringComparison.InvariantCultureIgnoreCase))
+        var extensionsRoot = environment.Resolve(options.Value.Platform.Extensions.Path);
+        if (!string.Equals(currentDirectory.Parent?.FullName, extensionsRoot, StringComparison.InvariantCultureIgnoreCase))
         {
             return null;
         }
 
-        var signatureBytes = SHA512.HashData(fileSystem.File.OpenRead(name));
-        var signature = Convert.ToBase64String(signatureBytes);
+        // resolve the named executable against the current directory: Assembly.LoadFrom and the hash
+        // both need a real path, and the caller passes a bare filename.
+        var executablePath = fileSystem.Path.GetFullPath(name);
+        string signature;
+        using (var executableStream = fileSystem.File.OpenRead(executablePath))
+        {
+            signature = Convert.ToBase64String(SHA512.HashData(executableStream));
+        }
 
-        var assembly = Assembly.LoadFile(name);
-        var assemblyName = assembly.GetName()!;
+        // reflect the managed assembly (the companion .dll next to the launch .exe) for its name,
+        // version, publisher metadata, and advertised platform capabilities.
+        var assembly = Assembly.LoadFrom(fileSystem.Path.ChangeExtension(executablePath, ".dll"));
+        var assemblyName = assembly.GetName();
 
         var version = assemblyName.Version ?? new Version(0, 0, 0);
         var title = currentDirectory.Name;
+        var publisher = assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
+        var effectiveDescription = string.IsNullOrWhiteSpace(description)
+            ? assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty
+            : description;
 
-        // TODO read company (publisher) and description metadata (if empty) from assembly attributes.
+        var capabilities = ProvidedCorePlatformCapabilities.Reflect(assembly)
+            .Select(capability => new PlatformExtensionServerCapability(capability))
+            .ToArray();
 
-        return new(name, title, version, string.Empty, string.Empty, description, signature, []);
+        return new(name, title, version, publisher, string.Empty, effectiveDescription, signature, capabilities);
     }
 
     /// <summary>
@@ -114,7 +129,7 @@ public class ExtensionsClient(
         {
             var title = folder.Name;
             if (folder.GetFiles(manifestFileName).FirstOrDefault() is IFileInfo manifest
-                && JsonSerializer.Deserialize<ExtensionInfo>(manifest.OpenRead()) is ExtensionInfo extensionInfo)
+                && ReadManifest(manifest) is ExtensionInfo extensionInfo)
             {
                 var validation = _validation.Validate(extensionInfo);
                 if (validation == ExtensionValidationFlags.NoFlags)
@@ -143,6 +158,13 @@ public class ExtensionsClient(
                 logger.LogWarning("No manifest was found for extension '{title}'.", title);
             }
         }
+    }
+
+    // dispose the read stream: a leaked handle blocks a later rewrite (e.g. describe-ext --overwrite).
+    private static ExtensionInfo? ReadManifest(IFileInfo manifest)
+    {
+        using var stream = manifest.OpenRead();
+        return JsonSerializer.Deserialize<ExtensionInfo>(stream);
     }
 
     private static string GetVerboseValidationFlags(ExtensionValidationFlags flags)

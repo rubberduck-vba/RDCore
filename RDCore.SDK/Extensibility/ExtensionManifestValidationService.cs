@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace RDCore.SDK.Extensibility;
 
@@ -92,9 +92,12 @@ public interface IExtensionManifestValidationService
 /// </summary>
 /// <param name="options">The <em>extensions</em> configuration settings.</param>
 /// <param name="fileSystem">Abstracts the <em>file system</em>.</param>
-public class ExtensionManifestValidationService(IOptions<SdkAppOptions> options, IFileSystem fileSystem) : IExtensionManifestValidationService
+/// <param name="environment">Resolves the extensions folder from the platform root rather than the process working directory.</param>
+public class ExtensionManifestValidationService(IOptions<SdkAppOptions> options, IFileSystem fileSystem, IPlatformEnvironment environment) : IExtensionManifestValidationService
 {
-    private IDirectoryInfo ExtensionsFolder => fileSystem.DirectoryInfo.New(options.Value.Platform.Extensions.Path);
+    // resolve against the platform root: the language server runs with its own subfolder as the
+    // working directory, so the raw relative "Extensions" would never match the real location.
+    private IDirectoryInfo ExtensionsFolder => fileSystem.DirectoryInfo.New(environment.Resolve(options.Value.Platform.Extensions.Path));
 
     /// <summary>
     /// Validates the specified <see cref="ExtensionInfo"/>.
@@ -149,12 +152,10 @@ public class ExtensionManifestValidationService(IOptions<SdkAppOptions> options,
                 ? ExtensionValidationFlags.NoFlags
                 : ExtensionValidationFlags.SignatureMismatch;
 
+    // base64(SHA512) — must match how ExtensionsClient.Describe writes the manifest signature.
     private static string GetSignature(IFileInfo file)
-        => Encoding.UTF8.GetString(GetFileHash(file, SHA512.Create()));
-
-    private static byte[] GetFileHash(IFileInfo file, HashAlgorithm algorithm)
     {
         using var stream = file.OpenRead();
-        return algorithm.ComputeHash(stream);
+        return Convert.ToBase64String(SHA512.HashData(stream));
     }
 }
