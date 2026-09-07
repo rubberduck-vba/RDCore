@@ -49,12 +49,14 @@ internal sealed class ParsingClientService(
     {
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
-        var result = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(
+        var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
             new ParseDocumentParams { DocumentUri = documentUri, ModuleType = moduleType }, token);
 
-        // an error response from the parser comes back as a null result; degrade this one document
+        // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
-        result ??= ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
+        var result = envelope is not null
+            ? envelope.Unwrap<ModuleParseResult>()
+            : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
 
         _cache[documentUri] = result;
         if (logger.IsEnabled(LogLevel.Information))

@@ -1,4 +1,5 @@
-﻿using OmniSharp.Extensions.JsonRpc;
+﻿using Microsoft.Extensions.Logging;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
@@ -8,19 +9,35 @@ using System.IO.Abstractions;
 namespace RDCore.Parsing.Handlers;
 
 [Method(RDCorePlatformProtocol.ParseFullDocument)]
-internal class ParseFullDocumentHandler(IFile fileService, IModuleParser moduleParser)
-    : RDCoreRequestHandler<ParseDocumentParams, ModuleParseResult>
+public class ParseFullDocumentHandler(IFile fileService, IModuleParser moduleParser, ILogger<ParseFullDocumentHandler> logger)
+    : RDCoreRequestHandler<ParseDocumentParams, PlatformJsonEnvelope>
 {
-    protected override async Task<ModuleParseResult> HandleAsync(ParseDocumentParams request, CancellationToken token)
+    protected override async Task<PlatformJsonEnvelope> HandleAsync(ParseDocumentParams request, CancellationToken token)
     {
-        if (request?.DocumentUri is Uri uri)
+        if (request?.DocumentUri is not Uri uri)
+        {
+            logger.LogWarning("📥 {method}: request had no DocumentUri.", RDCorePlatformProtocol.ParseFullDocument);
+            throw new InvalidParametersException(request);
+        }
+
+        logger.LogInformation("📥 {method}: {uri} ({moduleType})", RDCorePlatformProtocol.ParseFullDocument, uri, request.ModuleType);
+        try
         {
             // LocalPath, not AbsolutePath: a file:// uri's AbsolutePath keeps the leading slash and
             // percent-encoding, so `ReadAllText` can't find it on Windows.
             var content = fileService.ReadAllText(uri.LocalPath);
-            return moduleParser.Parse(uri, request.ModuleType, content);
-        }
+            var result = moduleParser.Parse(uri, request.ModuleType, content);
+            logger.LogInformation("📤 {uri}: {status}", uri,
+                result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
 
-        throw new InvalidParametersException(request);
+            // the AST is polymorphic; the transport serializer can't round-trip it. Wrap a
+            // System.Text.Json string the transport carries verbatim.
+            return PlatformJsonEnvelope.Of(result);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "❌ {method} failed for {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
+            throw;
+        }
     }
 }

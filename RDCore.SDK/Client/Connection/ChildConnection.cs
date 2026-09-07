@@ -9,6 +9,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using System.IO.Pipelines;
 using System.IO.Pipes;
+using System.Reflection;
 
 namespace RDCore.SDK.Client.Connection;
 
@@ -257,7 +258,21 @@ public sealed class ChildConnection(
     /// <param name="request">The request parameters.</param>
     /// <param name="token">Cancels the request.</param>
     public async Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>
-        => await Client.SendRequest(request, token);
+    {
+        var method = typeof(TParams).GetCustomAttribute<OmniSharp.Extensions.JsonRpc.MethodAttribute>()?.Method ?? typeof(TParams).Name;
+        logger.LogInformation("→ {method} ({component})", method, _request?.ExpectedComponent);
+        try
+        {
+            var result = await Client.SendRequest(request, token);
+            logger.LogInformation("← {method} completed", method);
+            return result;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "← {method} faulted", method);
+            throw;
+        }
+    }
 
     /// <summary>
     /// Sends a notification over the connection.

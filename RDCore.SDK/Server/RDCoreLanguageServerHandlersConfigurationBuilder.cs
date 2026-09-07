@@ -30,7 +30,9 @@ public class RDCoreLanguageServerHandlersConfigurationBuilder(LanguageServerOpti
     /// <typeparam name="THandler">The specific concrete implementation type of <em>OmniSharp</em> LSP handler class to register.</typeparam>
     IRDCoreLSPHandlerConfigurationBuilder IRDCoreLSPHandlerConfigurationBuilder.WithHandler<THandler>()
     {
-        Options.WithHandler<THandler>(new() { RequestProcessType = RequestProcessType.Parallel });
+        // no JsonRpcHandlerOptions: the SDK core handlers register the same way and route fine;
+        // RequestProcessType.Parallel here left custom-method request handlers undispatched.
+        Options.WithHandler<THandler>();
         return this;
     }
 }

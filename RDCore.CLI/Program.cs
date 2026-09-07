@@ -152,7 +152,9 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        builder.AddFile(System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"));
+        builder.AddFile(
+            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"),
+            ResolveTraceLevel(configuration));
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }

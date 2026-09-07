@@ -11,8 +11,13 @@ namespace RDCore.SDK.Platform.Protocol;
 /// The <em>parameter</em> object for a <c>ParseDocumentCommand</c>. The <c>[Method]</c> attribute lets
 /// the JSON-RPC layer infer the request method when the caller sends this by type.
 /// </summary>
+/// <remarks>
+/// The response is a <see cref="PlatformJsonEnvelope"/> wrapping a <see cref="ModuleParseResult"/> —
+/// the AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it (see
+/// <see cref="PlatformJson"/>).
+/// </remarks>
 [Method(RDCorePlatformProtocol.ParseFullDocument, Direction.ClientToServer)]
-public record class ParseDocumentParams : IRequest, IRequest<ModuleParseResult>
+public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelope>
 {
     /// <summary>
     /// The <c>Uri</c> of the document to parse.

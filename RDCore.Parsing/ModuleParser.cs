@@ -19,7 +19,11 @@ internal interface ISyntaxNodeProvider : IParseTreeListener
     ImmutableArray<SyntaxNode> SyntaxNodes { get; }
 }
 
-internal interface IModuleParser
+/// <summary>
+/// Parses a full module document into a <see cref="ModuleParseResult"/>. Public so the OmniSharp
+/// handler container can construct <c>ParseFullDocumentHandler</c>.
+/// </summary>
+public interface IModuleParser
 {
     ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content);
 }

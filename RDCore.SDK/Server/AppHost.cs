@@ -251,13 +251,26 @@ public abstract class AppHost<TApp>() : IDisposable
     /// </remarks>
     protected virtual void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
     {
-        var traceLevelConfig = configuration["Configuration:Server:TraceLevel"];
-        if (Enum.TryParse<LogLevel>(traceLevelConfig, out var config))
+        builder.SetMinimumLevel(ResolveTraceLevel(configuration));
+
+        // Server:JsonRpcTrace flips OmniSharp's protocol logging on without turning the whole log to Debug.
+        if (configuration.GetValue("Configuration:Server:JsonRpcTrace", false))
         {
-            builder.SetMinimumLevel(config);
+            builder.AddFilter("OmniSharp", LogLevel.Trace);
         }
+
         builder.AddDebug();
     }
+
+    /// <summary>
+    /// The effective minimum log level — <see cref="SdkServerOptions.TraceLevel"/> from configuration,
+    /// or <see cref="LogLevel.Information"/> when it is unset or invalid. Pass this to the
+    /// <c>AddFile(path, level)</c> overload in a <see cref="ConfigureExternalLogging"/> override; the
+    /// bare <c>AddFile(path)</c> pins the file at <see cref="LogLevel.Information"/> and hides
+    /// JSON-RPC protocol tracing.
+    /// </summary>
+    protected static LogLevel ResolveTraceLevel(IConfiguration configuration)
+        => Enum.TryParse<LogLevel>(configuration["Configuration:Server:TraceLevel"], out var level) ? level : LogLevel.Information;
 
     /// <summary>
     /// The standard .NET <em>Dispose Pattern</em>. Override to cleanly dispose of any instance-level <see cref="IDisposable"/> references.

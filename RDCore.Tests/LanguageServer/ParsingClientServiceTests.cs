@@ -18,14 +18,14 @@ public sealed class ParsingClientServiceTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
 
-    private static ModuleParseResult SampleResult
-        => new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub");
+    private static PlatformJsonEnvelope SampleEnvelope
+        => PlatformJsonEnvelope.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub"));
 
     private static (ParsingClientService Sut, IRDCoreClientApp Parser, IWorkspaceDocumentService Documents) Build()
     {
         var parser = Substitute.For<IRDCoreClientApp>();
         parser.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        parser.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(default!, default).ReturnsForAnyArgs(SampleResult);
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs(SampleEnvelope);
 
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.ParsingService.Returns(parser);
@@ -44,10 +44,11 @@ public sealed class ParsingClientServiceTests
         var result = await sut.ParseDocumentAsync(uri, ModuleType.StdModule, CancellationToken.None);
 
         await parser.Received(1).WaitForReadyAsync(Arg.Any<CancellationToken>());
-        await parser.Received(1).SendRequestAsync<ParseDocumentParams, ModuleParseResult>(
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
             Arg.Is<ParseDocumentParams>(p => p.DocumentUri == uri && p.ModuleType == ModuleType.StdModule),
             Arg.Any<CancellationToken>());
 
+        Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(sut.TryGetCached(uri, out var cached));
         Assert.AreSame(result, cached);
     }
@@ -62,10 +63,10 @@ public sealed class ParsingClientServiceTests
 
         await sut.ParseWorkspaceAsync(CancellationToken.None);
 
-        await parser.Received(1).SendRequestAsync<ParseDocumentParams, ModuleParseResult>(
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
             Arg.Is<ParseDocumentParams>(p => p.DocumentUri == module.Id.Uri.ToUri() && p.ModuleType == ModuleType.StdModule),
             Arg.Any<CancellationToken>());
-        await parser.Received(1).SendRequestAsync<ParseDocumentParams, ModuleParseResult>(
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
             Arg.Is<ParseDocumentParams>(p => p.DocumentUri == klass.Id.Uri.ToUri() && p.ModuleType == ModuleType.ClassModule),
             Arg.Any<CancellationToken>());
     }
@@ -75,17 +76,17 @@ public sealed class ParsingClientServiceTests
     {
         var (sut, parser, documents) = Build();
         documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "x")]);
-        parser.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(default!, default)
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default)
             .ThrowsForAnyArgs(new InvalidOperationException("boom"));
 
         await sut.ParseWorkspaceAsync(CancellationToken.None);
     }
 
     [TestMethod]
-    public async Task ParseDocumentAsync_NullResult_CachesAFailedResult()
+    public async Task ParseDocumentAsync_NullEnvelope_CachesAFailedResult()
     {
         var (sut, parser, _) = Build();
-        parser.SendRequestAsync<ParseDocumentParams, ModuleParseResult>(default!, default).ReturnsForAnyArgs((ModuleParseResult)null!);
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs((PlatformJsonEnvelope)null!);
         var uri = new Uri("file:///c:/ws/src/Mod1.bas");
 
         var result = await sut.ParseDocumentAsync(uri, ModuleType.StdModule, CancellationToken.None);
@@ -105,5 +106,17 @@ public sealed class ParsingClientServiceTests
 
         Assert.IsNotNull(method, "ParseDocumentParams needs [Method] so the JSON-RPC layer can infer the request method by type.");
         Assert.AreEqual(RDCorePlatformProtocol.ParseFullDocument, method.Method);
+    }
+
+    [TestMethod]
+    public void PlatformJsonEnvelope_RoundTripsAPolymorphicParseResult()
+    {
+        var original = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule,
+            "Public Function Add(ByVal a As Long) As Long\r\nEnd Function");
+
+        var result = PlatformJsonEnvelope.Of(original).Unwrap<ModuleParseResult>();
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(original.SyntaxTree!.Children.Length, result.SyntaxTree!.Children.Length);
     }
 }
