@@ -131,7 +131,61 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("DescribeExtension_Title", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reflects an extension executable&apos;s advertised capabilities into an extension manifest.
+        /// </summary>
+        public static string DescribeExtension_Summary {
+            get {
+                return ResourceManager.GetString("DescribeExtension_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This command requires the --unsafe-dev-mode switch.
+        /// </summary>
+        public static string DescribeExtension_DevModeRequired {
+            get {
+                return ResourceManager.GetString("DescribeExtension_DevModeRequired", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Could not describe the extension; run this command from within the extension&apos;s folder.
+        /// </summary>
+        public static string DescribeExtension_Failed {
+            get {
+                return ResourceManager.GetString("DescribeExtension_Failed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Extension manifest written: {0}.
+        /// </summary>
+        public static string DescribeExtension_Written {
+            get {
+                return ResourceManager.GetString("DescribeExtension_Written", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown command.
+        /// </summary>
+        public static string Command_Unknown {
+            get {
+                return ResourceManager.GetString("Command_Unknown", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Available commands:.
+        /// </summary>
+        public static string Command_Available {
+            get {
+                return ResourceManager.GetString("Command_Available", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The specified theme was not found..
         /// </summary>

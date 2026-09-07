@@ -197,4 +197,22 @@
   <data name="DescribeExtension_Title" xml:space="preserve">
     <value>Describe Extension</value>
   </data>
+  <data name="DescribeExtension_Summary" xml:space="preserve">
+    <value>Génère un manifeste d'extension à partir des capacités déclarées par l'exécutable d'extension.</value>
+  </data>
+  <data name="DescribeExtension_DevModeRequired" xml:space="preserve">
+    <value>Cette commande requiert le commutateur --unsafe-dev-mode.</value>
+  </data>
+  <data name="DescribeExtension_Failed" xml:space="preserve">
+    <value>Impossible de décrire l'extension; exécutez cette commande depuis le dossier de l'extension.</value>
+  </data>
+  <data name="DescribeExtension_Written" xml:space="preserve">
+    <value>Manifeste d'extension généré : {0}</value>
+  </data>
+  <data name="Command_Unknown" xml:space="preserve">
+    <value>Commande inconnue.</value>
+  </data>
+  <data name="Command_Available" xml:space="preserve">
+    <value>Commandes disponibles :</value>
+  </data>
 </root>

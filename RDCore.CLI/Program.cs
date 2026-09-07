@@ -14,6 +14,7 @@ using RDCore.CLI.App.Messages;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes.Model;
+using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Platform;
@@ -31,6 +32,8 @@ using System.Runtime.CompilerServices;
 
 // platform capabilities provided by rdc.exe in environment-host mode:
 [assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
+// native command-mode verbs provided by rdc.exe:
+[assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
 namespace RDCore.CLI;
 
@@ -46,6 +49,14 @@ public class Program
             {
                 using var environmentHost = new RDCoreConsoleEnvironmentHost();
                 return await environmentHost.RunAsync(args);
+            }
+
+            // a leading non-option token is a command verb (e.g. rdc.exe describe-ext …): command mode,
+            // which needs neither a workspace nor an LSP connection.
+            if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
+            {
+                using var commandHost = new RDCoreConsoleCommandHost();
+                return await commandHost.RunAsync(args);
             }
 
             using var clientHost = new RDCoreConsoleClientHost();
@@ -134,6 +145,62 @@ internal class RDCoreConsoleClientApp(
     }
 
     protected override void Dispose(bool disposing) { }
+}
+
+/// <summary>
+/// <c>rdc.exe &lt;verb&gt; …</c>: command mode. No workspace, no LSP connection — resolves the verb
+/// against the native + extension command providers and runs it.
+/// </summary>
+internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
+{
+    public override int ExitCode => HostServices?.GetService<RDCoreConsoleCommandApp>()?.ExitCode ?? 0;
+
+    // configuration comes from appsettings.json (added by AppHost.RunAsync); per-command switches
+    // such as --unsafe-dev-mode are parsed by the command itself, so there is nothing to bind here.
+    protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
+    {
+    }
+
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services
+            .AddSingleton<IAppThemeService, AppThemeService>()
+            .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
+            .AddSingleton<IConsoleMessageWriter, DefaultConsoleMessageWriter>()
+            // native verbs first: NativeCliCommandProvider is enumerated before the extension one, so
+            // a native verb wins a name collision.
+            .AddSingleton<ICliCommand, DescribeExtensionCommand>()
+            .AddSingleton<ICliCommandProvider, NativeCliCommandProvider>()
+            .AddSingleton<ICliCommandProvider, ExtensionCliCommandProvider>()
+            .AddSingleton<ICliCommandDispatcher, CliCommandDispatcher>();
+    }
+}
+
+internal sealed class RDCoreConsoleCommandApp(
+    ICliCommandDispatcher dispatcher,
+    ILogger<RDCoreConsoleCommandApp> logger) : IRDCoreApp
+{
+    public CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
+
+    /// <summary>The dispatched command's exit code, surfaced by the host once <see cref="RunAsync"/> returns.</summary>
+    public int ExitCode { get; private set; }
+
+    public async Task RunAsync(IServiceProvider provider, string[] args)
+    {
+        var verb = args[0];
+        var verbArgs = args.Skip(1).ToArray();
+        ExitCode = await dispatcher.DispatchAsync(verb, verbArgs, CancellationToken.None);
+    }
+
+    public void LogIfEnabled(LogLevel logLevel, string message)
+    {
+        if (logger.IsEnabled(logLevel))
+        {
+            logger.Log(logLevel, "{message}", message);
+        }
+    }
+
+    public void Dispose() { }
 }
 
 /// <summary>

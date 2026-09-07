@@ -199,4 +199,22 @@ Long Live the Cucumber (Latin)</comment>
   <data name="DescribeExtension_Title" xml:space="preserve">
     <value>Describe Extension</value>
   </data>
+  <data name="DescribeExtension_Summary" xml:space="preserve">
+    <value>Reflects an extension executable's advertised capabilities into an extension manifest.</value>
+  </data>
+  <data name="DescribeExtension_DevModeRequired" xml:space="preserve">
+    <value>This command requires the --unsafe-dev-mode switch.</value>
+  </data>
+  <data name="DescribeExtension_Failed" xml:space="preserve">
+    <value>Could not describe the extension; run this command from within the extension's folder.</value>
+  </data>
+  <data name="DescribeExtension_Written" xml:space="preserve">
+    <value>Extension manifest written: {0}</value>
+  </data>
+  <data name="Command_Unknown" xml:space="preserve">
+    <value>Unknown command.</value>
+  </data>
+  <data name="Command_Available" xml:space="preserve">
+    <value>Available commands:</value>
+  </data>
 </root>
