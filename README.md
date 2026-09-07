@@ -27,7 +27,7 @@ This arrangement protects both the legacy and current contributors while enablin
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ---
-# 1.0.1 RDCore
+# RDCore
 [RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ is an actively evolving _Language Server_ (LSP) platform that is currently a **work in progress**. Ultimately, the RDCore deliverables are:
 
@@ -105,15 +105,6 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 **Contributions** — individuals ✅ open ([CLA](CLA.md)) · corporate ⏳ planned
 
 <sub>✅ done / stable · 🚧 in progress · 🎯 not started · 👉 up for grabs</sub>
-
----
-# 1.0.2 RD-VBA
-[RD-VBAL §1.0.2](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#102-rd-vba)  
-The implementation of the platform's _language core_ is a **work in progress**. Ultimately, RD-VBA:
-
-- 🎯 **aims for strict compliance with the MS-VBAL specifications**, ensuring behavioral compatibility with existing VBA semantics;
-- 🧩 **elevates VBA into a modern, extensible, _and fully open-sourced_ language platform** separating the language definition from its original 1993 implementation;
-- 👀 **makes implicit language behavior explicit**, exposing semantic rules, evaluation steps, call stacks, and error conditions as _observable facts_.
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>
