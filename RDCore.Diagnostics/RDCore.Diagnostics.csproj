@@ -8,6 +8,8 @@
 	<ApplicationIcon>logo.ico</ApplicationIcon>
 	<StartupObject>RDCore.Diagnostics.Program</StartupObject>
     <Authors>9562-7303 Québec inc.</Authors>
+    <Company>9562-7303 Québec inc.</Company>
+    <Description>RDCore core inspection extension — syntax, compilation, runtime, and application diagnostics.</Description>
     <Copyright>Copyright © 2026 ${Authors}</Copyright>
     <Product>RDCore</Product>
   </PropertyGroup>
