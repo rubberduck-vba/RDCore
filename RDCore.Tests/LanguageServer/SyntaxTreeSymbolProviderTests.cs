@@ -17,9 +17,9 @@ public sealed class SyntaxTreeSymbolProviderTests
     private static readonly Uri WorkspaceRoot = TestUri.WorkspaceRoot();
     private static readonly Uri ModuleUri = TestUri.TestModuleUri();
 
-    private static List<Symbol> Provide(string source, ISymbolResolver? resolver = null)
+    private static List<Symbol> Provide(string source, ISymbolResolver? resolver = null, ModuleType moduleType = ModuleType.StdModule)
     {
-        var parseResult = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, source);
+        var parseResult = new ModuleParser().Parse(TestUri.TestModuleUri(), moduleType, source);
         var provider = new SyntaxTreeSymbolProvider(
             WorkspaceRoot, ModuleUri, parseResult, resolver ?? Substitute.For<ISymbolResolver>());
         return [.. provider.ProvideSymbols()];
@@ -59,7 +59,7 @@ public sealed class SyntaxTreeSymbolProviderTests
     {
         var resolver = Substitute.For<ISymbolResolver>();
         resolver.Resolve("Long", ScopeKind.Global, Arg.Any<Uri>())
-            .Returns(new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", VBLongType.TypeInfo));
+            .Returns(new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", ScopeKind.Global, VBLongType.TypeInfo));
 
         var symbol = Single<VBFunctionMemberSymbol>(Provide("Function Bar() As Long\r\nEnd Function", resolver));
 
@@ -157,7 +157,8 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.AreEqual("GetTickCount", symbol.Name);
         Assert.IsTrue(symbol.IsPtrSafe);
         Assert.IsTrue(symbol.Lib.Contains("kernel32"));
-        Assert.AreEqual(ScopeKind.External, symbol.ScopeKind);
+        // a Declare in a standard module is module-scoped (the "external" part is the Lib/Alias, not the symbol scope).
+        Assert.AreEqual(ScopeKind.Module, symbol.ScopeKind);
     }
 
     [TestMethod]
@@ -209,6 +210,26 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.AreEqual("MaxItems", symbol.Name);
         Assert.AreEqual(SymbolKindExt.Constant, symbol.Kind);
         Assert.AreEqual(AccessModifier.Public, symbol.AccessModifier);
+    }
+
+    [TestMethod]
+    public void ModuleConst_TypeDeclarationCharacter_ResolvesTheType()
+    {
+        var symbol = Single<VBConstantMemberSymbol>(Provide(
+            "Public Const Greeting$ = \"hi\"", new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("Greeting", symbol.Name);
+        Assert.AreEqual(VBTypeNames.VBString, symbol.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void MemberScope_FollowsTheModuleKind()
+    {
+        var inStdModule = Single<VBProcedureMemberSymbol>(Provide("Public Sub Foo()\r\nEnd Sub", moduleType: ModuleType.StdModule));
+        Assert.AreEqual(ScopeKind.Module, inStdModule.ScopeKind);
+
+        var inClassModule = Single<VBProcedureMemberSymbol>(Provide("Public Sub Foo()\r\nEnd Sub", moduleType: ModuleType.ClassModule));
+        Assert.AreEqual(ScopeKind.Instance, inClassModule.ScopeKind);
     }
 
     [TestMethod]

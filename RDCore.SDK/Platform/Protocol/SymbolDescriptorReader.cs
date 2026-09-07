@@ -120,7 +120,7 @@ public static class SymbolDescriptorReader
             case SymbolDescriptorKind.Event:
             {
                 var evt = new VBEventMemberSymbol(
-                    workspaceRoot, parentUri, node.Name, node.Range, node.SelectionRange, node.AccessModifier);
+                    workspaceRoot, parentUri, node.Name, node.Scope, node.Range, node.SelectionRange, node.AccessModifier);
                 yield return evt with { Parameters = Parameters(evt.Uri) };
                 break;
             }
@@ -162,7 +162,7 @@ public static class SymbolDescriptorReader
 
             case SymbolDescriptorKind.ModuleField:
                 yield return new VBModuleFieldVariableMemberSymbol(
-                    workspaceRoot, parentUri, node.Name, Declared(node.DeclaredTypeName),
+                    workspaceRoot, parentUri, node.Name, node.Scope, Declared(node.DeclaredTypeName),
                     node.Range, node.SelectionRange, node.AccessModifier);
                 break;
 

@@ -11,11 +11,12 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 /// <param name="Name">The name of the symbol.</param>
+/// <param name="Scope">The allocation scope of the symbol — <see cref="ScopeKind.Module"/> in a standard module, <see cref="ScopeKind.Instance"/> in a class module.</param>
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
-public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
-    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier)
+public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Event, VBVoidType.TypeInfo, Range, SelectionRange, AccessModifier)
 {
     /// <summary>
     /// The event's declared parameters, in declaration order. An <c>Event</c> has no body, so these
@@ -30,5 +31,6 @@ public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri,
 /// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 /// <param name="Name">The name of the symbol.</param>
-public sealed record class UnboundVBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name)
-    : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Event, VBVoidType.TypeInfo) { }
+/// <param name="Scope">The allocation scope of the symbol.</param>
+public sealed record class UnboundVBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope)
+    : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Event, VBVoidType.TypeInfo) { }

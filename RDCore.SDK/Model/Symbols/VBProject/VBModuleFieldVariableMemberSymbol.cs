@@ -13,12 +13,13 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Scope">The allocation scope of the symbol — <see cref="ScopeKind.Module"/> for a standard module's field, <see cref="ScopeKind.Instance"/> for a class module's.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
-public record class VBModuleFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier) 
-    : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Field, ResolvedType, Range, SelectionRange, AccessModifier) { }
+public record class VBModuleFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
+    : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Field, ResolvedType, Range, SelectionRange, AccessModifier) { }
 
 /// <summary>
 /// Represents an unbound module-level variable (field) member declaration.
@@ -29,6 +30,7 @@ public record class VBModuleFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri Par
 /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
+/// <param name="Scope">The allocation scope of the symbol.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
-public record class UnboundVBModuleFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, VBType ResolvedType)
-    : UnboundVBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Instance, SymbolKindExt.Field, ResolvedType) { }
+public record class UnboundVBModuleFieldVariableMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, VBType ResolvedType)
+    : UnboundVBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Field, ResolvedType) { }

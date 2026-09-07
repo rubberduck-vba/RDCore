@@ -249,7 +249,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             name,
             kind,
             [.. _children],
-            modifier);
+            modifier,
+            typeHint);
     }
 
     public SyntaxNode BuildConditionalExpression(VBAParser.ExpressionContext context)

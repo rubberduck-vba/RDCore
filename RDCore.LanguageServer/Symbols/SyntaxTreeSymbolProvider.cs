@@ -25,7 +25,9 @@ internal sealed class SyntaxTreeSymbolProvider(
             yield break;
         }
 
-        var builder = new SymbolBuilder(workspaceRoot, moduleUri, resolver);
+        // a standard module's members are module-scoped; a class module's are instance-scoped.
+        var memberScope = module.ModuleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
+        var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver);
         foreach (var child in module.Children)
         {
             switch (child)

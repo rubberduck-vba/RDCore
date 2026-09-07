@@ -21,12 +21,12 @@ namespace RDCore.LanguageServer.Symbols;
 /// resolve stays <see cref="VBUnknownType"/>.
 /// </summary>
 /// <remarks>
-/// Deferred, pending decisions the author owns: members are all <see cref="ScopeKind.Instance"/> and
-/// <c>Declare</c>s <see cref="ScopeKind.External"/> regardless of the module kind (a runtime-model
-/// call); and <c>Const Foo$</c> loses its type-declaration character because
-/// <c>ConstantDeclarationNode</c> has no type-hint field (a parser change).
+/// <paramref name="memberScope"/> is the allocation scope every module-level member is defined in —
+/// <see cref="ScopeKind.Module"/> for a standard module, <see cref="ScopeKind.Instance"/> for a
+/// class module. Parameters are <see cref="ScopeKind.Local"/> and user-defined-type fields are
+/// <see cref="ScopeKind.Instance"/> (reached through an instance of the type), regardless.
 /// </remarks>
-internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolResolver resolver)
+internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind memberScope, ISymbolResolver resolver)
 {
     // MS-VBAL 3.3.2 type-declaration characters name a reserved type the resolver can bind.
     private static readonly ImmutableDictionary<string, string> _typeHintNames = new Dictionary<string, string>
@@ -44,7 +44,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var symbol = new VBProcedureMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, SymbolKindExt.Procedure,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Procedure,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
@@ -53,7 +53,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var symbol = new VBFunctionMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, SymbolKindExt.Function,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Function,
             VBUnknownType.TypeInfo, range, range, node.AccessModifier);
         return symbol with
         {
@@ -66,7 +66,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var symbol = new VBPropertyGetMemberSymbol(
-            workspaceRoot, moduleUri, ScopeKind.Instance, node.Name, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, memberScope, node.Name, range, range, node.AccessModifier);
         return symbol with
         {
             ResolvedType = ReturnType(node, symbol.Uri),
@@ -78,7 +78,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var symbol = new VBPropertyLetMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, SymbolKindExt.Property,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
@@ -87,7 +87,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         var symbol = new VBPropertySetMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, SymbolKindExt.Property,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
@@ -98,7 +98,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
         if (node.MemberKind == MemberKind.ExternalFunction)
         {
             var function = new VBExternalFunctionMemberSymbol(
-                workspaceRoot, moduleUri, node.Name, ScopeKind.External, SymbolKindExt.Function,
+                workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Function,
                 VBUnknownType.TypeInfo, range, range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
             return function with
             {
@@ -108,7 +108,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
         }
 
         var procedure = new VBExternalSubMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.External, SymbolKindExt.Procedure,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Procedure,
             VBVoidType.TypeInfo, range, range, node.AccessModifier, node.IsPtrSafe, node.Library, node.Alias);
         return procedure with { Parameters = BuildParameters(node, procedure.Uri) };
     }
@@ -116,7 +116,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     public Symbol BuildEvent(MemberDeclarationNode node)
     {
         var range = RangeOf(node);
-        var symbol = new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, range, range, node.AccessModifier);
+        var symbol = new VBEventMemberSymbol(workspaceRoot, moduleUri, node.Name, memberScope, range, range, node.AccessModifier);
         return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
     }
 
@@ -124,14 +124,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
     {
         var range = RangeOf(node);
         return new VBUserDefinedTypeMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, node.Name, memberScope, range, range, node.AccessModifier);
     }
 
     public Symbol BuildEnum(MemberDeclarationNode node)
     {
         var range = RangeOf(node);
         return new VBEnumMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, SymbolKindExt.Enum,
+            workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Enum,
             VBUnknownType.TypeInfo, range, range, node.AccessModifier);
     }
 
@@ -142,7 +142,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
         {
             var range = RangeOf(member);
             yield return new VBEnumConstMemberSymbol(
-                workspaceRoot, enumUri, member.Name, ScopeKind.Instance, SymbolKindExt.EnumMember, range, range);
+                workspaceRoot, enumUri, member.Name, memberScope, SymbolKindExt.EnumMember, range, range);
         }
     }
 
@@ -151,16 +151,15 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ISymbolRes
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
         return new VBModuleFieldVariableMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, type, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
     }
 
     public Symbol BuildConstant(ConstantDeclarationNode node)
     {
         var range = RangeOf(node);
-        // ConstantDeclarationNode carries no type-hint token; resolve from an As clause if present.
-        var type = DeclaredType(AsTypeOf(node), typeHint: null, moduleUri);
+        var type = DeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
         return new VBConstantMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, ScopeKind.Instance, type, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
     }
 
     // A UDT field parents to the enclosing user-defined-type symbol, not the module.

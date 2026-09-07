@@ -12,7 +12,8 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// <param name="Name">The declared identifier name of the member.</param>
 /// <param name="ConstKind">The scope kind of constant declaration.</param>
 /// <param name="AccessModifier">An access modifier, if one was supplied.</param>
-public record class ConstantDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ConstKind ConstKind, ImmutableArray<SyntaxNode> Children, AccessModifier AccessModifier = AccessModifier.Implicit)
+/// <param name="TypeHint">The <em>type-declaration character</em> (e.g. <c>$</c> in <c>Const Foo$</c>), if one was supplied.</param>
+public record class ConstantDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ConstKind ConstKind, ImmutableArray<SyntaxNode> Children, AccessModifier AccessModifier = AccessModifier.Implicit, string? TypeHint = default)
     : SyntaxNode(Identity, Location, Children);
 
 /// <summary>
