@@ -1,5 +1,4 @@
 ﻿using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
 
@@ -27,7 +26,7 @@ public interface IStdCollectionClass
     /// </remarks>
     /// <param name="index"></param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdCollectionClass__Item(VBRuntimeVariantValue index);
+    RuntimeSemanticsEvaluationResult StdCollectionClass__Item(VBVariantValue index);
     #endregion
 
     #region 6.1.3.2 Public Procedures
@@ -45,7 +44,7 @@ public interface IStdCollectionClass
     /// <param name="after">An expression that specifies a relative position in the collection; the item to be added is placed <em>after</em> the item identified by this parameter.<br/>
     /// 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if <strong>both</strong> <em>before</em> and <em>after</em> optional parameters are specified, or if they refer to non-existing items.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdCollectionClass__Add(VBRuntimeVariantValue item, VBRuntimeVariantValue? key = default, VBRuntimeVariantValue? before = default, VBRuntimeVariantValue? after = default);
+    RuntimeSemanticsEvaluationResult StdCollectionClass__Add(VBVariantValue item, VBVariantValue? key = default, VBVariantValue? before = default, VBVariantValue? after = default);
 
     /// <summary>
     /// Removes an item from the collection.
@@ -53,6 +52,6 @@ public interface IStdCollectionClass
     /// <param name="index">The <em>key</em> or <em>positional index</em> of the item to be removed.<br/>
     /// 💥<see cref="VBRuntimeErrorId.MethodOrDataMemberNotFound"/> if no item exists at the specified positional index or with the specified key.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdCollectionClass__Remove(VBRuntimeVariantValue index);
+    RuntimeSemanticsEvaluationResult StdCollectionClass__Remove(VBVariantValue index);
     #endregion
 }
