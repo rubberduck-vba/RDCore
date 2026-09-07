@@ -1,6 +1,6 @@
 using NSubstitute;
 using RDCore.CLI.App.Commands;
-using RDCore.CLI.App.Messages;
+using RDCore.SDK.ConsoleIO;
 
 namespace RDCore.Tests.Cli;
 
