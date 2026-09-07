@@ -74,6 +74,22 @@ public sealed class DefineSymbolsHandlerTests
     }
 
     [TestMethod]
+    public async Task DuplicateDescriptors_MergeIntoOneSymbol_AndAreCounted()
+    {
+        var handler = NewHandler();
+
+        // two descriptors for the same identity (a name declared in both #If branches) reach the
+        // session as a single define; the collapsed one is reported in MergedDefinitions.
+        var result = await handler.Handle(
+            Request(Field("Flags", "Long"), Field("Flags", "Double")),
+            CancellationToken.None);
+
+        Assert.AreEqual(1, result.Defined);
+        Assert.AreEqual(1, result.MergedDefinitions);
+        Assert.AreEqual(0, result.Skipped.Count);
+    }
+
+    [TestMethod]
     public async Task BeforeSessionComposed_IsANoOp()
     {
         var result = await NewHandler(compose: false).Handle(Request(Procedure("DoWork")), CancellationToken.None);

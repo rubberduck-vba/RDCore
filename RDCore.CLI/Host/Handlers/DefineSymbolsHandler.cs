@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.CLI.Host;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
@@ -42,9 +43,19 @@ internal sealed class DefineSymbolsHandler(
         }
 
         var defined = 0;
+        var merged = 0;
         var skipped = new List<string>();
-        foreach (var symbol in SymbolDescriptorReader.Read(request, ResolveType))
+
+        // the language server already collapses #If-branch duplicates, but stay defensive: fuse any
+        // that still arrive with the same identity (uri + concrete type) so the session never sees a
+        // colliding define. Property Get/Let/Set share a uri but not a type, so they stay distinct.
+        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType)
+            .GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
         {
+            var sites = group.ToList();
+            merged += sites.Count - 1;
+            var symbol = sites.Find(candidate => candidate is BoundSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
+
             if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
             {
                 defined++;
@@ -58,8 +69,8 @@ internal sealed class DefineSymbolsHandler(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "📥 {module}: defined {defined} symbol(s), skipped {skipped}, {unresolved} unresolved type name(s).",
-                request.ModuleName, defined, skipped.Count, unresolvedTypeNames.Count);
+                "📥 {module}: defined {defined} symbol(s), merged {merged}, skipped {skipped}, {unresolved} unresolved type name(s).",
+                request.ModuleName, defined, merged, skipped.Count, unresolvedTypeNames.Count);
         }
 
         return Task.FromResult(new DefineSymbolsResult
@@ -67,6 +78,7 @@ internal sealed class DefineSymbolsHandler(
             Defined = defined,
             Skipped = skipped,
             UnresolvedTypeNames = [.. unresolvedTypeNames],
+            MergedDefinitions = merged,
         });
     }
 }
