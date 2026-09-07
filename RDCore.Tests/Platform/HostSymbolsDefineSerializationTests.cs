@@ -71,6 +71,22 @@ public sealed class HostSymbolsDefineSerializationTests
                 Range = new SourceRange(1, 0, 1, 30),
                 SelectionRange = new SourceRange(1, 14, 1, 22),
             },
+            new SymbolDescriptor
+            {
+                Name = "GethWndWorkbook",
+                Kind = SymbolDescriptorKind.ExternalFunction,
+                AccessModifier = AccessModifier.Private,
+                Scope = ScopeKind.External,
+                DeclaredTypeName = "Long",
+                Range = new SourceRange(20, 0, 20, 60),
+                SelectionRange = new SourceRange(20, 25, 20, 39),
+                External = new ExternalDescriptor { IsPtrSafe = true, Library = "user32" },
+                Definitions =
+                [
+                    new DefinitionDescriptor { Range = new SourceRange(20, 0, 20, 60), SelectionRange = new SourceRange(20, 25, 20, 39) },
+                    new DefinitionDescriptor { Range = new SourceRange(24, 0, 24, 55), SelectionRange = new SourceRange(24, 25, 24, 39), State = DefinitionState.Dead },
+                ],
+            },
         ],
     };
 
@@ -88,7 +104,15 @@ public sealed class HostSymbolsDefineSerializationTests
             "serialization is not stable across a round trip");
 
         Assert.AreEqual("Mod1", once.ModuleName);
-        Assert.AreEqual(4, once.Symbols.Length);
+        Assert.AreEqual(5, once.Symbols.Length);
+
+        var multiBranch = once.Symbols[4];
+        Assert.AreEqual("GethWndWorkbook", multiBranch.Name);
+        Assert.AreEqual(2, multiBranch.Definitions.Length);
+        Assert.AreEqual(DefinitionState.Unknown, multiBranch.Definitions[0].State);
+        Assert.AreEqual(DefinitionState.Dead, multiBranch.Definitions[1].State);
+        Assert.AreEqual(new SourceRange(24, 0, 24, 55), multiBranch.Definitions[1].Range);
+        Assert.IsTrue(once.Symbols[0].Definitions.IsDefaultOrEmpty, "a single-branch descriptor keeps Definitions empty");
 
         var add = once.Symbols[0];
         Assert.AreEqual(SymbolDescriptorKind.Function, add.Kind);
@@ -117,11 +141,13 @@ public sealed class HostSymbolsDefineSerializationTests
             Defined = 7,
             Skipped = ["Foo", "Bar"],
             UnresolvedTypeNames = ["Widget"],
+            MergedDefinitions = 2,
         };
 
         var result = JsonSerializer.Deserialize<DefineSymbolsResult>(JsonSerializer.Serialize(original, Options), Options)!;
 
         Assert.AreEqual(7, result.Defined);
+        Assert.AreEqual(2, result.MergedDefinitions);
         CollectionAssert.AreEqual(new[] { "Foo", "Bar" }, result.Skipped.ToArray());
         CollectionAssert.AreEqual(new[] { "Widget" }, result.UnresolvedTypeNames.ToArray());
     }

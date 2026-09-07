@@ -1,4 +1,5 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -129,6 +130,43 @@ public sealed class SymbolDescriptorReaderTests
         Assert.AreEqual("kernel32", external.Lib);
         Assert.AreEqual("GetTickCount64", external.Alias);
         Assert.AreEqual(VBTypeNames.VBLong, external.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void MultiBranchDescriptor_ReconstructsEveryDefinitionSite()
+    {
+        var field = (VBModuleFieldVariableMemberSymbol)Read(new SymbolDescriptor
+        {
+            Name = "Flags",
+            Kind = SymbolDescriptorKind.ModuleField,
+            DeclaredTypeName = "Long",
+            Range = new SourceRange(1, 0, 1, 15),
+            SelectionRange = new SourceRange(1, 4, 1, 9),
+            Definitions =
+            [
+                new DefinitionDescriptor { Range = new SourceRange(1, 0, 1, 15), SelectionRange = new SourceRange(1, 4, 1, 9) },
+                new DefinitionDescriptor { Range = new SourceRange(3, 0, 3, 17), SelectionRange = new SourceRange(3, 4, 3, 9) },
+            ],
+        }).Single();
+
+        Assert.AreEqual(2, field.Definitions.Length);
+        Assert.IsTrue(field.Definitions.All(d => d.State == DefinitionState.Unknown));
+        // Range/SelectionRange stay the primary (first) site.
+        Assert.AreEqual(new SourceRange(1, 0, 1, 15), field.Range);
+        Assert.AreEqual(new SourceRange(3, 0, 3, 17), field.Definitions[1].Range);
+    }
+
+    [TestMethod]
+    public void SingleBranchDescriptor_LeavesDefinitionsEmpty()
+    {
+        var field = (VBModuleFieldVariableMemberSymbol)Read(new SymbolDescriptor
+        {
+            Name = "Total",
+            Kind = SymbolDescriptorKind.ModuleField,
+            DeclaredTypeName = "Long",
+        }).Single();
+
+        Assert.IsTrue(field.Definitions.IsDefaultOrEmpty);
     }
 
     [TestMethod]

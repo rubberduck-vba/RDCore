@@ -18,8 +18,9 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <remarks>
 /// Module symbols are <em>not</em> carried here — the host already has them from the <c>.rdproj</c>.
 /// The descriptors are the transport form of what the language server's <c>SyntaxTreeSymbolProvider</c>
-/// produces, so both live and dead conditional-compilation branches may be present; the host defines
-/// what it is given and leaves branch selection to a later pass.
+/// produces. A name declared in several conditional-compilation branches arrives as one descriptor
+/// carrying every branch in <see cref="SymbolDescriptor.Definitions"/>; the host defines the single
+/// symbol and leaves live/dead branch selection to a later pass.
 /// </remarks>
 [Method(RDCorePlatformProtocol.DefineSymbols, Direction.ClientToServer)]
 public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult>
@@ -67,6 +68,13 @@ public record class DefineSymbolsResult
     /// defined, with <c>VBUnknownType</c>; a later resolver pass can bind them.
     /// </summary>
     public IReadOnlyList<string> UnresolvedTypeNames { get; init; } = [];
+
+    /// <summary>
+    /// The number of duplicate descriptors that were collapsed into an already-reconstructed symbol
+    /// rather than defined separately — a member declared in more than one conditional-compilation
+    /// branch reaches the session as one symbol with multiple <see cref="SymbolDescriptor.Definitions"/>.
+    /// </summary>
+    public int MergedDefinitions { get; init; }
 }
 
 /// <summary>
@@ -103,14 +111,25 @@ public record class SymbolDescriptor
     public string? DeclaredTypeName { get; init; }
 
     /// <summary>
-    /// The source span of the whole declaration.
+    /// The source span of the whole declaration — the primary site (the first branch) when the
+    /// member has multiple <see cref="Definitions"/>.
     /// </summary>
     public SourceRange Range { get; init; }
 
     /// <summary>
-    /// The source span to select when navigating to the symbol (typically its name token).
+    /// The source span to select when navigating to the symbol (typically its name token) — the
+    /// primary site when the member has multiple <see cref="Definitions"/>.
     /// </summary>
     public SourceRange SelectionRange { get; init; }
+
+    /// <summary>
+    /// The declaration sites of this member, in source order — populated only when the same name is
+    /// declared in more than one conditional-compilation branch. Empty for the common
+    /// single-declaration case, in which <see cref="Range"/>/<see cref="SelectionRange"/> are the
+    /// sole site. A consumer that does not support multi-branch symbols can ignore this and use
+    /// <see cref="Range"/>.
+    /// </summary>
+    public ImmutableArray<DefinitionDescriptor> Definitions { get; init; } = [];
 
     /// <summary>
     /// Parameters, for the procedure, function, property and event kinds.
@@ -128,6 +147,29 @@ public record class SymbolDescriptor
     /// <see cref="SymbolDescriptorKind.ExternalProcedure"/> or <see cref="SymbolDescriptorKind.ExternalFunction"/>.
     /// </summary>
     public ExternalDescriptor? External { get; init; }
+}
+
+/// <summary>
+/// A transport-friendly projection of one <c>SymbolDefinition</c> — a single declaration site of a
+/// member declared in more than one conditional-compilation branch.
+/// </summary>
+public record class DefinitionDescriptor
+{
+    /// <summary>
+    /// The full source span of this declaration site.
+    /// </summary>
+    public SourceRange Range { get; init; }
+
+    /// <summary>
+    /// The source span to select when navigating to this site (typically its name token).
+    /// </summary>
+    public SourceRange SelectionRange { get; init; }
+
+    /// <summary>
+    /// Whether this site's conditional-compilation branch compiles.
+    /// <see cref="DefinitionState.Unknown"/> until a precompiler-evaluation pass resolves it.
+    /// </summary>
+    public DefinitionState State { get; init; } = DefinitionState.Unknown;
 }
 
 /// <summary>

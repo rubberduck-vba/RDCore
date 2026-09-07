@@ -40,11 +40,33 @@ public static class SymbolDescriptorReader
 
         foreach (var descriptor in request.Symbols)
         {
+            // the primary symbol is always yielded first, ahead of any nested members (enum
+            // constants, udt fields) that carry their own descriptors — so only the first carries
+            // the descriptor's multi-branch Definitions.
+            var isPrimary = true;
             foreach (var symbol in Read(descriptor, workspaceRoot, moduleUri, resolveType))
             {
-                yield return symbol;
+                yield return isPrimary ? WithDefinitions(symbol, descriptor) : symbol;
+                isPrimary = false;
             }
         }
+    }
+
+    // a member declared in more than one conditional-compilation branch arrives as one descriptor
+    // carrying every site; rebuild them onto the reconstructed symbol. Range/SelectionRange stay the
+    // primary site the ctor already set.
+    private static Symbol WithDefinitions(Symbol symbol, SymbolDescriptor descriptor)
+    {
+        if (descriptor.Definitions.Length <= 1 || symbol is not BoundSymbol bound)
+        {
+            return symbol;
+        }
+
+        return bound with
+        {
+            Definitions = [.. descriptor.Definitions.Select(definition =>
+                new SymbolDefinition(definition.Range, definition.SelectionRange, definition.State))],
+        };
     }
 
     private static IEnumerable<Symbol> Read(SymbolDescriptor node, Uri workspaceRoot, Uri parentUri, Func<string, VBType?> resolveType)
