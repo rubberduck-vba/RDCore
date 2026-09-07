@@ -50,11 +50,24 @@ internal static class SymbolDescriptorProjector
             DeclaredTypeName = DeclaredTypeNameOf(accessible),
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
+            Definitions = DefinitionsOf(symbol),
             Parameters = ParametersOf(symbol),
             Members = [.. children.Select(child => Describe(child, KindOf(child), []))],
             External = ExternalOf(symbol),
         };
     }
+
+    // carried only for a multi-branch symbol; the common single-declaration descriptor stays lean and
+    // consumers read Range/SelectionRange.
+    private static ImmutableArray<DefinitionDescriptor> DefinitionsOf(Symbol symbol)
+        => symbol is BoundSymbol { Definitions.IsDefaultOrEmpty: false } bound
+            ? [.. bound.Definitions.Select(definition => new DefinitionDescriptor
+            {
+                Range = definition.Range,
+                SelectionRange = definition.SelectionRange,
+                State = definition.State,
+            })]
+            : [];
 
     private static SymbolDescriptorKind KindOf(Symbol symbol) => symbol switch
     {

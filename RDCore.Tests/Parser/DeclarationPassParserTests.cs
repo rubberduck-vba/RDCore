@@ -28,6 +28,33 @@ public class DeclarationPassParserTests
     }
 
     [TestMethod]
+    public void SplitStatementConditional_ReportsLocatedSyntaxErrors()
+    {
+        // legal VBA, but a #If that splits a statement (here the function header) cannot be parsed by
+        // an ANTLR grammar — Rubberduck never supported it either. we don't try; we only make sure the
+        // failure survives the two-stage parse as syntax-error metadata a client can anchor a squiggle on.
+        const string content = """
+            #If VBA7 Then
+            Private Function GetPtr() As LongPtr
+            #Else
+            Private Function GetPtr() As Long
+            #End If
+                GetPtr = 0
+            End Function
+            """;
+        var uri = TestUri.TestModuleUri();
+
+        var result = new ModuleParser().Parse(uri, ModuleType.StdModule, content);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotEmpty(result.SyntaxErrors);
+        Assert.IsTrue(result.SyntaxErrors.All(error => error.Location.Uri == uri));
+        Assert.IsTrue(
+            result.SyntaxErrors.Any(error => error.Location.Range.Start.Line > 0),
+            "at least one syntax error should carry a real source location");
+    }
+
+    [TestMethod]
     public void PrecompilerTrivia_IsIncludedInResult()
     {
         const string content = """

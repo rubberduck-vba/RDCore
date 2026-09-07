@@ -2,6 +2,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Tests.LanguageServer;
@@ -132,7 +133,7 @@ public sealed class SymbolDescriptorProjectorTests
     }
 
     [TestMethod]
-    public void ConditionalCompilation_ProjectsBothBranches()
+    public void ConditionalCompilation_ProjectsOneDescriptorCarryingEveryBranch()
     {
         var descriptors = Project("""
             #If DEBUG Then
@@ -142,6 +143,9 @@ public sealed class SymbolDescriptorProjectorTests
             #End If
             """);
 
-        Assert.AreEqual(2, descriptors.Count(d => d.Name == "Foo"));
+        var foo = descriptors.Single(d => d.Name == "Foo");
+        Assert.AreEqual(2, foo.Definitions.Length);
+        Assert.IsTrue(foo.Definitions.All(d => d.State == DefinitionState.Unknown));
+        Assert.AreEqual(foo.Range, foo.Definitions[0].Range);
     }
 }

@@ -109,7 +109,7 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
-    public void ConditionalCompilation_YieldsBothLiveAndDeadBranches()
+    public void ConditionalCompilation_MergesDuplicateNameIntoOneSymbolWithDefinitions()
     {
         const string source = """
             #If DEBUG Then
@@ -122,8 +122,18 @@ public sealed class SyntaxTreeSymbolProviderTests
 
         var fields = Provide(source).OfType<VBModuleFieldVariableMemberSymbol>().ToArray();
 
-        Assert.HasCount(3, fields);
-        Assert.HasCount(2, fields.Where(f => f.Name == "Foo").ToArray());
+        // Foo is declared in both branches -> one symbol, two definition sites; Bar stays single.
+        Assert.HasCount(2, fields);
+
+        var foo = fields.Single(f => f.Name == "Foo");
+        Assert.HasCount(2, foo.Definitions);
+        Assert.IsTrue(foo.Definitions.All(d => d.State == DefinitionState.Unknown));
+        // sites are in source order: the #If branch is first, so it is the primary.
+        Assert.IsTrue(foo.Definitions[0].Range.CompareTo(foo.Definitions[1].Range) < 0);
+        Assert.AreEqual(foo.Range, foo.Definitions[0].Range);
+
+        var bar = fields.Single(f => f.Name == "Bar");
+        Assert.IsEmpty(bar.Definitions);
     }
 
     [TestMethod]
