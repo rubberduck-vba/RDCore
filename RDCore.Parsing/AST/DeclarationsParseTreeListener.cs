@@ -35,7 +35,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public ModuleNode BuildModuleNode()
     {
-        Debug.Assert(_builderStack.Count == 1);
+        // ANTLR error recovery can leave scopes open (an Enter with no matching Exit); unwind to the
+        // module builder so a module with syntax errors still yields whatever declarations parsed.
+        while (_builderStack.Count > 1)
+        {
+            _builderStack.Pop();
+        }
         return _root with { Children = [.. CurrentBuilder.GetChildren] };
     }
 
@@ -46,6 +51,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     private void OnExitParent(Func<DeclarationNodeBuilder, SyntaxNode> provider)
     {
+        // error recovery can fire an Exit with no matching Enter — never pop the module builder.
+        if (_builderStack.Count <= 1)
+        {
+            return;
+        }
         var node = provider.Invoke(_builderStack.Pop());
         CurrentBuilder.AddChild(node);
     }

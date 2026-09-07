@@ -37,11 +37,10 @@ internal partial class ModuleParser() : IModuleParser
         var precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [directiveListener]);
 
         var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
-        var listener = new DeclarationsParseTreeListener(uri, node);
         try
         {
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
-            ParseWithFallback(sanitized, errorListener, [listener]);
+            var listener = ParseWithFallback(sanitized, errorListener, () => new DeclarationsParseTreeListener(uri, node));
 
             var ast = listener.BuildModuleNode();
             return ast.Children.Length > 0 
@@ -73,46 +72,57 @@ internal partial class ModuleParser() : IModuleParser
         {
             parser.AddParseListener(listener);
         }
-        parser.compilationUnit();
+
+        try
+        {
+            parser.compilationUnit();
+        }
+        catch (Exception)
+        {
+            // the conditional-compilation pass is best-effort: default error recovery can fire
+            // unbalanced enter/exit events into a stateful listener. A failure here forfeits the
+            // precompiler trivia for this module, not the module.
+        }
         return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
     }
 
-    private static void ParseWithFallback(string content, ErrorListener errorListener, IParseTreeListener[] listeners)
+    /// <summary>
+    /// Two-stage parse: SLL with a bail-on-first-error strategy (fast, and it never runs default error
+    /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
+    /// on a <em>fresh</em> listener if SLL bailed.
+    /// </summary>
+    private static TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory)
+        where TListener : IParseTreeListener
+    {
+        try
+        {
+            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory());
+        }
+        catch (Exception exception) when (exception is ParseCanceledException or RecognitionException)
+        {
+            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory());
+        }
+    }
+
+    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener)
+        where TListener : IParseTreeListener
     {
         var stream = new AntlrInputStream(content);
         var lexer = new VBALexer(stream);
         var tokens = new CommonTokenStream(lexer);
-
-        try
+        var parser = new VBAParser(tokens)
         {
-            ParseFast(tokens, errorListener, listeners);
-        }
-        catch (InputMismatchException)
-        {
-            ParseSlow(tokens, errorListener, listeners);
-        }
-        catch (RecognitionException)
-        {
-            ParseSlow(tokens, errorListener, listeners);
-        }
-    }
-
-    private static void ParseFast(CommonTokenStream tokenStream, ErrorListener errorListener, IParseTreeListener[] listeners) 
-        => Parse(tokenStream, PredictionMode.Sll, errorListener, listeners);
-
-    private static void ParseSlow(CommonTokenStream tokenStream, ErrorListener errorListener, IParseTreeListener[] listeners) 
-        => Parse(tokenStream, PredictionMode.Ll, errorListener, listeners);
-
-    private static void Parse(CommonTokenStream tokenStream, PredictionMode mode, ErrorListener errorListener, IParseTreeListener[] listeners)
-    {
-        var parser = new VBAParser(tokenStream);
+            ErrorHandler = errorStrategy,
+        };
         parser.Interpreter.PredictionMode = mode;
-        parser.AddErrorListener(errorListener);
-        foreach (var listener in listeners)
+        parser.RemoveErrorListeners();
+        if (errorListener is not null)
         {
-            parser.AddParseListener(listener);
+            parser.AddErrorListener(errorListener);
         }
+        parser.AddParseListener(listener);
         parser.startRule();
+        return listener;
     }
 
     [GeneratedRegex(@"^[ \t]*#.*$", RegexOptions.Multiline)]

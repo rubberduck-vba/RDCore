@@ -47,13 +47,22 @@ internal class PrecompilerDirectiveListener(Uri sourceUri) : VBAConditionalCompi
 
     public ImmutableArray<SyntaxNode> BuildModuleNode()
     {
-        Debug.Assert(_builderStack.Count == 1);
+        // error recovery may leave scopes open — unwind to the root builder.
+        while (_builderStack.Count > 1)
+        {
+            _builderStack.Pop();
+        }
         return [.. CurrentBuilder.GetChildren];
     }
 
     private void OnEnterParent() => _builderStack.Push(new(_rootUri, GetCurrentNodeId()));
     private void OnExitParent(Func<PrecompilerNodeBuilder, SyntaxNode> provider)
     {
+        // an Exit with no matching Enter (error recovery) must not pop the root builder.
+        if (_builderStack.Count <= 1)
+        {
+            return;
+        }
         var node = provider.Invoke(_builderStack.Pop());
         CurrentBuilder.AddChild(node);
     }

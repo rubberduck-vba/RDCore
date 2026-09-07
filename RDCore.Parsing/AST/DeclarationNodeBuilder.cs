@@ -11,16 +11,16 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 { 
     public SyntaxNode BuildAttributeDirective(VBAParser.AttributeStmtContext context)
     {
-        // name may be qualified
+        // the name may be member-qualified (`Attribute Foo.VB_Description = …`).
         var identifiers = context.attributeName().GetText().Split('.');
         var name = identifiers.Length == 1 ? identifiers[0] : identifiers.Last();
         var qualifier = identifiers.Length == 2 ? identifiers[0] : null;
-        return new AttributeDirectiveNode(
-            NodeId,
-            context.GetSourceLocation(_rootUri),
-            name,
-            _children[0],
-            qualifier);
+
+        // read the value straight from the parse tree — the declarations pass does not collect a
+        // procedure body's expressions, so a member-level attribute has no child value node.
+        var value = string.Join(", ", context.attributeValue().Select(node => node.GetText()));
+
+        return new AttributeDirectiveNode(NodeId, context.GetSourceLocation(_rootUri), name, value, qualifier);
     }
     public SyntaxNode BuildImplementsDirective(VBAParser.ImplementsStmtContext context) =>
         new ImplementsDirectiveNode(
