@@ -8,35 +8,27 @@ namespace RDCore.SDK.Model.Errors;
 /// </summary>
 /// <remarks>
 /// A <em>syntax error</em> occurs while traversing the <em>concrete syntax tree</em> (CST) in the parser.
+/// A single positional constructor keeps the type round-trippable through <see cref="System.Text.Json"/>.
 /// </remarks>
-/// <param name="VBCompileErrorId">The formal <see cref="VBCompileErrorId"/> value for this specific syntax error.</param>
+/// <param name="ErrorId">The numeric representation of the <see cref="VBCompileErrorId"/> for this syntax error.</param>
 /// <param name="Location">The document location of the faulted CST node.</param>
-/// <param name="Description">An optional error description. "Syntax error" unless specified otherwise.</param>
+/// <param name="Description">An error description. "Syntax error" unless specified otherwise.</param>
 /// <param name="Verbose">A detailed message identifying the faulted CST token and detailing its semantics.</param>
-public record class VBSyntaxErrorInfo : VBErrorInfo
+public record class VBSyntaxErrorInfo(int ErrorId, SourceLocation Location, string Description, string Verbose)
+    : VBErrorInfo(ErrorId, Location, Description, Verbose)
 {
-    private VBSyntaxErrorInfo(VBCompileErrorId errorId, SourceLocation location, string description, string verbose)
-        : base((int)errorId, location, description, verbose) 
-    {
-        VBCompileErrorId = errorId;
-    }
+    /// <summary>
+    /// The formal error ID — a class of <em>compilation error</em> that occurs during parsing as the
+    /// syntax tree is assembled.
+    /// </summary>
+    public VBCompileErrorId VBCompileErrorId => (VBCompileErrorId)ErrorId;
 
     /// <summary>
-    /// The unique error ID for this <em>syntax error</em>.
+    /// Creates a <see cref="VBSyntaxErrorInfo"/> for the specified <see cref="VBCompileErrorId"/> at the specified <see cref="SourceLocation"/>.
     /// </summary>
-    /// <remarks>
-    /// 👉 <em>Syntax errors</em> are a class of <em>compilation errors</em> that occur during the <em>parsing</em> process, 
-    /// as the <em>abstract syntax tree</em> (AST) is being assembled.
-    /// </remarks>
-    public VBCompileErrorId VBCompileErrorId { get; }
-
-    /// <summary>
-    /// Creates a new <see cref="VBSyntaxErrorInfo"/> describing the specified <see cref="VBCompileErrorId"/> at the specified <see cref="SourceLocation"/>.
-    /// </summary>
-    /// <param name="vbCompileErrorId">The formal <see cref="VBCompileErrorId"/> value for this error.</param>
-    /// <param name="location">The document location of the problematic <em>node</em>.</param>
-    /// <param name="Verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-    /// <returns>A new instance of a <see cref="VBSyntaxErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
-    public static VBSyntaxErrorInfo For(VBCompileErrorId vbCompileErrorId, SourceLocation location, string Verbose) 
-        => new(vbCompileErrorId, location, VBCompileErrorInfo.GetErrorString(vbCompileErrorId), Verbose);
+    /// <param name="vbCompileErrorId">The formal error code.</param>
+    /// <param name="location">The document location of the problematic node.</param>
+    /// <param name="Verbose">A detailed message appended depending on the server trace configuration.</param>
+    public static VBSyntaxErrorInfo For(VBCompileErrorId vbCompileErrorId, SourceLocation location, string Verbose)
+        => new((int)vbCompileErrorId, location, VBCompileErrorInfo.GetErrorString(vbCompileErrorId), Verbose);
 }

@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
@@ -28,6 +29,12 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
     }
 
     public string Token { get; }
+
+    /// <summary>The left operand — <c>Children[0]</c>, reconstructed from <c>Children</c> on deserialization.</summary>
+    [JsonIgnore]
     public ExpressionNode Left { get; }
+
+    /// <summary>The right operand — <c>Children[1]</c>, reconstructed from <c>Children</c> on deserialization.</summary>
+    [JsonIgnore]
     public ExpressionNode Right { get; }
 }

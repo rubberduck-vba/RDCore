@@ -3,6 +3,7 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using System.IO.Abstractions;
 
@@ -36,8 +37,10 @@ public class ParseFullDocumentHandler(IFile fileService, IModuleParser modulePar
         }
         catch (Exception exception)
         {
+            // a parser or serialization failure on one module degrades to a failed result carrying the
+            // detail, rather than a bare JSON-RPC "-32603 Internal error" the caller can't act on.
             logger.LogError(exception, "❌ {method} failed for {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
-            throw;
+            return PlatformJsonEnvelope.Of(ModuleParseResult.Failed(new SourceLocation(uri, SourceRange.Empty), exception.ToString()));
         }
     }
 }

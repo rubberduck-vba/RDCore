@@ -83,7 +83,8 @@ public abstract record class SyntaxNode(SyntaxNodeId Identity, SourceLocation So
     /// </summary>
     public SourceLocation SourceLocation { get; init; } = SourceLocation;
     /// <summary>
-    /// The child syntax nodes.
+    /// The child syntax nodes. A <c>default</c> array is normalized to empty so it always
+    /// enumerates (and serializes) safely.
     /// </summary>
-    public ImmutableArray<SyntaxNode> Children { get; init; } = Children;
+    public ImmutableArray<SyntaxNode> Children { get; init; } = Children.IsDefault ? [] : Children;
 }

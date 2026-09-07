@@ -14,10 +14,7 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// <param name="MemberKind">Specifies the kind of member.</param>
 /// <param name="AccessModifier">An access modifier, if one was supplied.</param>
 public record class MemberDeclarationNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children, string Name, MemberKind MemberKind, AccessModifier AccessModifier = AccessModifier.Implicit)
-    : SyntaxNode(Identity, SourceLocation, Children)
-{
-    ExpressionNode? DeclaredTypeExpression => Children.OfType<ExpressionNode>().SingleOrDefault();
-};
+    : SyntaxNode(Identity, SourceLocation, Children);
 /// <summary>
 /// 
 /// </summary>

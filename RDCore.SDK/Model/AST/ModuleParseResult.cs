@@ -15,7 +15,7 @@ public record class ModuleParseResult
     };
 
     public ModuleNode? SyntaxTree { get; init; }
-    public ImmutableArray<SyntaxNode> PrecompilerTrivia { get; init; }
+    public ImmutableArray<SyntaxNode> PrecompilerTrivia { get; init; } = [];
     public ImmutableArray<VBSyntaxErrorInfo> SyntaxErrors { get; init; } = [];
 
     public bool IsSuccess => SyntaxTree is not null && SyntaxErrors.Length == 0;

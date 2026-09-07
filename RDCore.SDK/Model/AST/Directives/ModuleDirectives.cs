@@ -62,11 +62,12 @@ public record class TypeDefDirectiveNode(SyntaxNodeId Identity, SourceLocation L
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> of the directive.</param>
-public record class ImplementsDirectiveNode(SyntaxNodeId Identity, SourceLocation Location, ExpressionNode? NameExpression = null)
+public record class ImplementsDirectiveNode(SyntaxNodeId Identity, SourceLocation Location, SyntaxNode? NameExpression = null)
     : DirectiveNode(Identity, Location, NameExpression is null ? [] : [NameExpression])
 {
     /// <summary>
-    /// Gets an expression resolving the identifier name of the implemented interface.
+    /// The name expression resolving the implemented interface — the directive's single child.
     /// </summary>
-    public ExpressionNode NameExpression => Children.OfType<ExpressionNode>().Single();
+    [JsonIgnore]
+    public SyntaxNode NameExpression => Children.Single();
 }

@@ -64,6 +64,13 @@ internal sealed class ParsingClientService(
             logger.LogInformation("📄 Parsed {uri}: {status}", documentUri,
                 result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
         }
+        if (!result.IsSuccess && logger.IsEnabled(LogLevel.Warning))
+        {
+            foreach (var error in result.SyntaxErrors)
+            {
+                logger.LogWarning("   ↳ {detail}", error.Verbose);
+            }
+        }
         return result;
     }
 
@@ -73,13 +80,30 @@ internal sealed class ParsingClientService(
         {
             await orchestration.ParsingService.WaitForReadyAsync(token);
 
+            var parsed = 0;
+            var failed = 0;
             foreach (var document in documents.GetAllDocuments())
             {
                 token.ThrowIfCancellationRequested();
-                await ParseDocumentAsync(document.Id.Uri.ToUri(), ModuleTypeOf(document), token);
+                var uri = document.Id.Uri.ToUri();
+                try
+                {
+                    await ParseDocumentAsync(uri, ModuleTypeOf(document), token);
+                    parsed++;
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    // a parser failure on one module must not abort the whole workspace parse.
+                    failed++;
+                    logger.LogError(exception, "❌ Parse failed for {uri}.", uri);
+                }
             }
 
-            LogIfEnabled(LogLevel.Information, "✅ Workspace parse completed");
+            LogIfEnabled(LogLevel.Information, $"✅ Workspace parse completed ({parsed} ok, {failed} failed)");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
