@@ -34,9 +34,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.identifier().Name();
         var kind = context.FUNCTION() is not null ? MemberKind.ExternalFunction : MemberKind.ExternalProcedure;
         var isPtrSafe = context.PTRSAFE() is not null;
+        // `Declare Sub Foo Lib` with the string half-typed: recovery inserts a synthetic STRINGLITERAL
+        // whose text is "<missing STRINGLITERAL>". That is not a library name.
         var literals = context.STRINGLITERAL();
-        var lib = literals.Length > 0 ? literals[0].GetText() : string.Empty;
-        var alias = literals.Length > 1 ? literals[1].GetText() : null;
+        var lib = (literals.Length > 0 ? literals[0].RealText() : null) ?? string.Empty;
+        var alias = literals.Length > 1 ? literals[1].RealText() : null;
 
         var location = context.GetSourceLocation(_rootUri);
         var modifier = ParseAccessModifier(context.visibility()?.GetText());

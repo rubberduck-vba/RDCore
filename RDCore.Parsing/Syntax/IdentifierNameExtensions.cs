@@ -1,3 +1,4 @@
+using Antlr4.Runtime.Tree;
 using System.Text;
 
 namespace RDCore.Parsing.Syntax;
@@ -30,8 +31,26 @@ internal static class IdentifierNameExtensions
             }
             return builder.ToString();
         }
-        return context.GetText();
+        var text = context.GetText();
+        return IsRecoveryPlaceholder(text) ? string.Empty : text;
     }
+
+    /// <summary>
+    /// <c>true</c> when <paramref name="text"/> is an ANTLR error-recovery placeholder — the display
+    /// form <c>&lt;missing X&gt;</c> that <c>DefaultErrorStrategy</c> gives a synthetically inserted
+    /// token. Such text is never real source and must not land in the AST as a name or a value.
+    /// </summary>
+    internal static bool IsRecoveryPlaceholder(string? text)
+        => text is null || text.StartsWith("<missing ", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The terminal's source text, or <c>null</c> when it is a synthetic token ANTLR inserted during
+    /// error recovery (a negative token index, or a <c>&lt;missing X&gt;</c> body).
+    /// </summary>
+    internal static string? RealText(this ITerminalNode? node)
+        => node is { Symbol.TokenIndex: >= 0 } && !IsRecoveryPlaceholder(node.GetText())
+            ? node.GetText()
+            : null;
 
     /// <summary>The identifier text, without any type-declaration character; empty when unresolvable.</summary>
     public static string Name(this VBAParser.IdentifierContext? context)

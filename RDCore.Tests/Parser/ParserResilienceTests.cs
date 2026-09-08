@@ -4,6 +4,8 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
+using RDCore.SDK.Model.AST.Expressions;
+using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
 
@@ -189,6 +191,45 @@ public sealed class ParserResilienceTests
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         var parameter = Flatten(result.SyntaxTree!).OfType<ParameterDeclarationNode>().Single();
         Assert.AreEqual(keyword, parameter.Name);
+    }
+
+    [TestMethod]
+    // F4: ANTLR's DefaultErrorStrategy inserts synthetic "<missing X>" tokens on recovery; none of
+    // them may be stored in the AST as a name, a library, or a type.
+    [DataRow("Public Declare Sub Foo Lib", DisplayName = "Declare ... Lib <missing string>")]
+    [DataRow("Public Declare Function F Lib \"k\" Alias", DisplayName = "Alias <missing string>")]
+    [DataRow("Option Explicit\r\nDim a As, b As Long", DisplayName = "As-clause list, missing first type")]
+    [DataRow("Option Explicit\r\nDim a As New", DisplayName = "As New <missing class>")]
+    public void RecoveryPlaceholders_NeverLeakIntoTheAst(string source)
+    {
+        var result = Parse(source);
+
+        if (result.SyntaxTree is null)
+        {
+            return; // fully degraded — nothing was built, nothing leaked
+        }
+
+        var json = JsonSerializer.Serialize(result.SyntaxTree);
+        Assert.IsFalse(
+            json.Contains("<missing ", StringComparison.Ordinal),
+            $"an ANTLR recovery placeholder leaked into the AST: {json}");
+        Assert.IsFalse(
+            Flatten(result.SyntaxTree).OfType<AsTypeExpressionNode>().Any(node => node.TypeName is "New" or ""),
+            "`As New` with no class name must not yield an As-type node");
+        Assert.IsFalse(
+            Flatten(result.SyntaxTree).OfType<ExternalMemberDeclarationNode>().Any(node => node.Library.Contains('<')),
+            "a Declare with a half-typed Lib string must not keep a placeholder library name");
+    }
+
+    [TestMethod]
+    public void ValidDeclare_StillKeepsItsLibraryAndAlias()
+    {
+        var result = Parse("Public Declare PtrSafe Sub Beep Lib \"kernel32\" Alias \"BeepA\" (ByVal x As Long)");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var declare = Flatten(result.SyntaxTree!).OfType<ExternalMemberDeclarationNode>().Single();
+        StringAssert.Contains(declare.Library, "kernel32");
+        StringAssert.Contains(declare.Alias!, "BeepA");
     }
 
     [TestMethod]

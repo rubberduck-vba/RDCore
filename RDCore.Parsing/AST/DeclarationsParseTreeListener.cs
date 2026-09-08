@@ -250,8 +250,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
+        // recovery can still leave `type` a synthetic subtree: a bare "<missing …>" placeholder
+        // (`Dim a As, b As Long`), or — for `As New` with no class name — the NEW keyword alone via
+        // complexType's ctNewExpr alternative, which reads back as "New". Neither is a real type.
+        var typeText = type.GetText();
+        if (IdentifierNameExtensions.IsRecoveryPlaceholder(typeText)
+            || string.IsNullOrEmpty(typeText)
+            || string.Equals(typeText, "New", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         var location = context.GetSourceLocation(_rootUri);
-        var value = type.GetText().Split('.');
+        var value = typeText.Split('.');
 
         var qualifier = value.Length > 1 ? value[0] : null;
         var name = value.Last();
