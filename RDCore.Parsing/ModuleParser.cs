@@ -4,6 +4,7 @@ using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -28,32 +29,53 @@ public interface IModuleParser
     ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content);
 }
 
-internal partial class ModuleParser() : IModuleParser
+/// <param name="wireErrorDetail">
+/// How a build-machine source path in a caught exception's text is anonymized before it can reach the
+/// wire. Supplied from configuration in the parse server; the default suits tests.
+/// </param>
+internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = SourcePathScrubMode.RepoRelative) : IModuleParser
 {
     public ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content)
     {
         var errorListener = new ErrorListener(uri);
-        var directiveListener = new PrecompilerDirectiveListener(uri);
-        var precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [directiveListener]);
+        var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
 
-        var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
         try
         {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                // an empty module is valid VBA, not a parse failure.
+                return ModuleParseResult.Success(EmptyModule(uri, moduleType));
+            }
+
+            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri)]);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
+
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
             var listener = ParseWithFallback(sanitized, errorListener, () => new DeclarationsParseTreeListener(uri, node));
-
             var ast = listener.BuildModuleNode();
-            return ast.Children.Length > 0 
-                ? ModuleParseResult.Success(ast) with { SyntaxErrors = errorListener.Errors, PrecompilerTrivia = precompilerTrivia }
-                : ModuleParseResult.Failed(node.SourceLocation, errorListener.Errors.FirstOrDefault()?.Verbose ?? string.Empty);
-            ;
+
+            // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
+            // any syntax error was recorded, not by the child count (a valid module can declare nothing).
+            return ModuleParseResult.Success(ast) with
+            {
+                SyntaxErrors = errorListener.Errors,
+                PrecompilerTrivia = precompilerTrivia,
+            };
         }
         catch (Exception exception)
         {
-            var verbose = $"Parsing failed: {exception}";
-            return ModuleParseResult.Failed(new(uri, SourceRange.Empty), verbose);
+            // the declaration pass must never throw: an exception escaping both parse attempts degrades
+            // to a failed result that still carries whatever the LL pass located, plus the precompiler
+            // trivia. Build-machine paths in the exception text are anonymized before they can leave.
+            return errorListener.Errors.IsEmpty
+                ? ModuleParseResult.Failed(new(uri, SourceRange.Empty), exception, wireErrorDetail) with { PrecompilerTrivia = precompilerTrivia }
+                : new ModuleParseResult { SyntaxErrors = errorListener.Errors, PrecompilerTrivia = precompilerTrivia };
         }
     }
+
+    private static ModuleNode EmptyModule(Uri uri, ModuleType moduleType)
+        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), [], moduleType);
 
     private static ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners)
     {
@@ -76,20 +98,23 @@ internal partial class ModuleParser() : IModuleParser
         try
         {
             parser.compilationUnit();
+            // SyntaxNodes unwinds the listener's builder stack, so it can throw too — keep it inside
+            // the guard.
+            return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
         }
         catch (Exception)
         {
             // the conditional-compilation pass is best-effort: default error recovery can fire
             // unbalanced enter/exit events into a stateful listener. A failure here forfeits the
             // precompiler trivia for this module, not the module.
+            return [];
         }
-        return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
     }
 
     /// <summary>
     /// Two-stage parse: SLL with a bail-on-first-error strategy (fast, and it never runs default error
     /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
-    /// on a <em>fresh</em> listener if SLL bailed.
+    /// on a <em>fresh</em> listener if SLL failed.
     /// </summary>
     private static TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory)
         where TListener : IParseTreeListener
@@ -98,8 +123,12 @@ internal partial class ModuleParser() : IModuleParser
         {
             return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory());
         }
-        catch (Exception exception) when (exception is ParseCanceledException or RecognitionException)
+        catch (Exception)
         {
+            // any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException,
+            // but also a listener exception the bail strategy triggered on a half-matched rule. SLL
+            // carries no error listener, so nothing located is lost. LL runs default recovery + the
+            // error listener on a fresh listener and produces the located errors.
             return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory());
         }
     }

@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.Parsing.Handlers;
 using RDCore.SDK.Client;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -94,6 +95,11 @@ public class RDCoreParserApp(
     {
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
+
+        // the wire-error scrub mode is an outer-container option; register the resolved value (boxed —
+        // it is an enum) so the parser and the handler, both built by the OmniSharp-internal
+        // container, can take it.
+        services.AddSingleton(typeof(SourcePathScrubMode), options.Value.Server.WireErrorDetail);
         services.AddSingleton<IModuleParser, ModuleParser>();
 
         // handlers resolve ILogger<T> from the OmniSharp-internal container, which otherwise has no
