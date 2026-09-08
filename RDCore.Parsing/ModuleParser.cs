@@ -56,6 +56,7 @@ internal partial class ModuleParser(
 
         try
         {
+            content = NormalizeSource(content);
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
@@ -110,6 +111,33 @@ internal partial class ModuleParser(
 
     private static ModuleNode EmptyModule(Uri uri, ModuleType moduleType)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), [], moduleType);
+
+    /// <summary>
+    /// ANTLR's input stream and the precompiler-line regexes (<see cref="RegexOptions.Multiline"/>)
+    /// recognize only <c>\n</c> as a line boundary, and a leading byte-order mark would land in
+    /// column 0 of the first token. Fold CR, CRLF, U+2028 and U+2029 to <c>\n</c> and drop one leading
+    /// BOM so line numbers, columns, and <c>#</c>-directive detection are right no matter how the
+    /// client saved the file.
+    /// </summary>
+    private static string NormalizeSource(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+        {
+            return string.Empty;
+        }
+
+        // strip one leading byte-order mark (U+FEFF); ANTLR would otherwise place it at column 0.
+        if (content[0] == '\uFEFF')
+        {
+            content = content[1..];
+        }
+
+        return content
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Replace('\u2028', '\n')
+            .Replace('\u2029', '\n');
+    }
 
     private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners)
     {
