@@ -21,12 +21,12 @@ public sealed class RDCoreRequestHandlerTests
         protected override Task<string> HandleAsync(ProbeRequest request, CancellationToken token) => body();
     }
 
-    private static Task<string> Invoke(Func<Task<string>> body)
+    private static Task<string> InvokeAsync(Func<Task<string>> body)
         => new StubHandler(body).Handle(new ProbeRequest("x"), CancellationToken.None);
 
     [TestMethod]
     public async Task Handle_ReturnsTheResult_WhenHandleAsyncSucceeds()
-        => Assert.AreEqual("ok", await Invoke(() => Task.FromResult("ok")));
+        => Assert.AreEqual("ok", await InvokeAsync(() => Task.FromResult("ok")));
 
     [TestMethod]
     public async Task Handle_WrapsAnUnexpectedException_AsAScrubbedRpcError()
@@ -36,7 +36,7 @@ public sealed class RDCoreRequestHandlerTests
             "   at RDCore.Parsing.ModuleParser.Parse() in C:\\Users\\somebody\\src\\RDCore\\RDCore.Parsing\\ModuleParser.cs:line 51";
 
         var error = await Assert.ThrowsExactlyAsync<RpcErrorException>(
-            () => Invoke(() => throw new InvalidOperationException(trace)));
+            () => InvokeAsync(() => throw new InvalidOperationException(trace)));
 
         Assert.AreEqual(-32603, error.Code);
         StringAssert.Contains(error.Message, "RDCore.Parsing/ModuleParser.cs:line 51");
@@ -47,7 +47,7 @@ public sealed class RDCoreRequestHandlerTests
     [TestMethod]
     public async Task Handle_LetsCancellationPropagate()
         => await Assert.ThrowsExactlyAsync<OperationCanceledException>(
-            () => Invoke(() => throw new OperationCanceledException()));
+            () => InvokeAsync(() => throw new OperationCanceledException()));
 
     [TestMethod]
     public async Task Handle_LetsAProtocolErrorPropagateUnchanged()
@@ -55,7 +55,7 @@ public sealed class RDCoreRequestHandlerTests
         var protocolError = new InvalidParametersException("42");
 
         var caught = await Assert.ThrowsExactlyAsync<InvalidParametersException>(
-            () => Invoke(() => throw protocolError));
+            () => InvokeAsync(() => throw protocolError));
 
         Assert.AreSame(protocolError, caught);
     }
