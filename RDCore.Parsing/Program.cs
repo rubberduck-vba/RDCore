@@ -83,10 +83,6 @@ public class RDCoreParserApp(
     ILogger<RDCoreParserApp> logger)
 : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
-    // the configured server options, snapshotted here so `options` itself isn't captured into this
-    // type's state (it is already passed to the base). Bridged into the handler container below.
-    private readonly IOptions<SdkServerOptions> _serverOptions = Options.Create(options.Value.Server);
-
     public override CoreServerComponent PlatformComponent => CoreServerComponent.ParsingServer;
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
@@ -99,11 +95,9 @@ public class RDCoreParserApp(
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
 
-        // OmniSharp builds the handlers from this container, and its own `AddOptions` gives them a
-        // fresh, unconfigured IOptions<SdkServerOptions>. Bridge the configured instance the outer
-        // host bound — a closed-type registration wins over the open-generic one — so the parser and
-        // the handler read the real Configuration:Server settings.
-        services.AddSingleton(_serverOptions);
+        // ModuleParser reads Configuration:Server:WireErrorDetail from IOptions<SdkServerOptions>; the
+        // base registers the configured instance into this OmniSharp-internal container (its own
+        // AddOptions would otherwise supply an unconfigured default).
         services.AddSingleton<IModuleParser, ModuleParser>();
 
         // handlers resolve ILogger<T> from the OmniSharp-internal container, which otherwise has no

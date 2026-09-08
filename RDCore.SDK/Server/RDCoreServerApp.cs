@@ -14,6 +14,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
 using RDCore.SDK.Server.Handlers.Platform;
+using RDCore.SDK.Server.Logging;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using System.IO;
@@ -203,9 +204,9 @@ public abstract class RDCoreServerApp(
         GC.SuppressFinalize(this);
     }
 
-    private void ConfigureServer(LanguageServerOptions options)
+    private void ConfigureServer(LanguageServerOptions serverOptions)
     {
-        options
+        serverOptions
             .WithInput(PipeReader.Create(_namedPipe))
             .WithOutput(PipeWriter.Create(_namedPipe))
             // basic server app information:
@@ -218,15 +219,25 @@ public abstract class RDCoreServerApp(
             .ConfigureCoreSdkHandlers();
 
         // everything else the app wants to do:
-        ConfigureHandlers(new RDCoreLanguageServerHandlersConfigurationBuilder(options));
+        ConfigureHandlers(new RDCoreLanguageServerHandlersConfigurationBuilder(serverOptions));
 
-        options.WithServices(services =>
+        serverOptions.WithServices(services =>
         {
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
             services.AddSingleton(new PlatformComponentContext(PlatformComponent));
+
+            // bridge the configured server options into the OmniSharp-internal container: its own
+            // AddOptions() would otherwise hand handlers (and the scrubbing logger below) a default,
+            // unconfigured SdkServerOptions. a closed-type registration wins over the open generic.
+            services.AddSingleton<IOptions<SdkServerOptions>>(Options.Create(options.Value.Server));
+
             services.AddLogging(builder =>
             {
-                builder.AddLanguageProtocolLogging();
+                // NOT AddLanguageProtocolLogging(): OmniSharp's protocol logger appends a caught
+                // exception's full ToString() to the window/logMessage it forwards, leaking the build
+                // machine's absolute source paths on a PDB build. Forward the same records with every
+                // message scrubbed, at the operator's WireErrorDetail.
+                builder.Services.AddSingleton<ILoggerProvider, ScrubbingLanguageServerLoggerProvider>();
             });
 
             // app-specific service registrations:

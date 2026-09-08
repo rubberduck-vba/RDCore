@@ -15,7 +15,7 @@ namespace RDCore.Tests.Parser;
 /// <summary>
 /// The parse server builds its handlers from the OmniSharp-internal container, whose own
 /// <c>AddOptions</c> would hand them an unconfigured <see cref="SdkServerOptions"/>.
-/// <c>RDCoreParserApp.ConfigureServices</c> bridges the configured instance; this pins that the
+/// <c>RDCoreServerApp.ConfigureServer</c> bridges the configured instance; this pins that the
 /// handler and the parser resolve from a container shaped that way, and that the wire-error scrub is
 /// wired to the configured mode.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class ParseServerWiringTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<IFile>());
-        // the bridge RDCoreParserApp.ConfigureServices performs: a configured IOptions<SdkServerOptions>.
+        // the bridge RDCoreServerApp.ConfigureServer performs: a configured IOptions<SdkServerOptions>.
         services.AddSingleton<IOptions<SdkServerOptions>>(
             Options.Create(new SdkServerOptions { WireErrorDetail = scrub }));
         services.AddSingleton<IModuleParser, ModuleParser>();
