@@ -1,11 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;
 
 namespace RDCore.Parsing.Handlers;
@@ -15,7 +16,7 @@ public class ParseFullDocumentHandler(
     IFile fileService,
     IModuleParser moduleParser,
     ILogger<ParseFullDocumentHandler> logger,
-    SourcePathScrubMode wireErrorDetail)
+    IOptions<SdkServerOptions> serverOptions)
     : RDCoreRequestHandler<ParseDocumentParams, PlatformJsonEnvelope>
 {
     protected override async Task<PlatformJsonEnvelope> HandleAsync(ParseDocumentParams request, CancellationToken token)
@@ -45,8 +46,8 @@ public class ParseFullDocumentHandler(
             // a parser or serialization failure on one module degrades to a failed result carrying the
             // detail, rather than a bare JSON-RPC "-32603 Internal error" the caller can't act on.
             logger.LogError(exception, "❌ {method} failed for {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
-            return PlatformJsonEnvelope.Of(
-                ModuleParseResult.Failed(new SourceLocation(uri, SourceRange.Empty), exception, wireErrorDetail));
+            return PlatformJsonEnvelope.Of(ModuleParseResult.Failed(
+                new SourceLocation(uri, SourceRange.Empty), exception.ToString(), serverOptions.Value.WireErrorDetail));
         }
     }
 }

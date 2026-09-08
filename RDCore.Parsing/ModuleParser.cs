@@ -4,6 +4,7 @@ using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
 using RDCore.SDK.ConsoleIO;
@@ -12,6 +13,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
@@ -31,24 +33,26 @@ public interface IModuleParser
     ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content);
 }
 
-/// <param name="wireErrorDetail">
-/// How a build-machine source path in a caught exception's text is anonymized before it can reach the
-/// wire. Supplied from configuration in the parse server; the default suits tests.
+/// <param name="serverOptions">
+/// Supplies <see cref="SdkServerOptions.WireErrorDetail"/> — how a source path in a caught
+/// exception's text is anonymized before it can reach the wire. Optional; the default suits tests.
 /// </param>
 /// <param name="logger">
 /// Records exceptions the resilience guards swallow, so a genuine listener bug is still visible in the
 /// parse-server log even though the module degrades gracefully. Defaults to a no-op for tests.
 /// </param>
 internal partial class ModuleParser(
-    SourcePathScrubMode wireErrorDetail = SourcePathScrubMode.RepoRelative,
+    IOptions<SdkServerOptions>? serverOptions = null,
     ILogger<ModuleParser>? logger = null) : IModuleParser
 {
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
+    private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
     public ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content)
     {
         var errorListener = new ErrorListener(uri);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
+        DeclarationsParseTreeListener? declarations = null;
 
         try
         {
@@ -62,7 +66,7 @@ internal partial class ModuleParser(
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
 
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
-            var listener = ParseWithFallback(sanitized, errorListener, () => new DeclarationsParseTreeListener(uri, node));
+            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node));
             var ast = listener.BuildModuleNode();
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
@@ -75,15 +79,32 @@ internal partial class ModuleParser(
         }
         catch (Exception exception)
         {
-            // the declaration pass must never throw: an exception escaping both parse attempts degrades
-            // to a failed result that still carries whatever the LL pass located, plus the precompiler
-            // trivia. Build-machine paths in the exception text are anonymized before they can leave.
-            // an exception here is past LL recovery on a fresh listener, so it is much more likely a
-            // listener bug than malformed input — log it even though the module degrades.
+            // the declaration pass must never throw: an exception past both parse attempts on a fresh
+            // listener is much more likely a listener bug than malformed input, so it is logged even
+            // though the module degrades. The result still carries the located errors, the precompiler
+            // trivia, AND whatever the listener had already built (salvaged below) — a module with
+            // three good members and one half-typed line still contributes those three symbols.
             _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
-            return errorListener.Errors.IsEmpty
-                ? ModuleParseResult.Failed(new(uri, SourceRange.Empty), exception, wireErrorDetail) with { PrecompilerTrivia = precompilerTrivia }
-                : new ModuleParseResult { SyntaxErrors = errorListener.Errors, PrecompilerTrivia = precompilerTrivia };
+
+            ModuleNode? salvaged = null;
+            try
+            {
+                salvaged = declarations?.BuildModuleNode();
+            }
+            catch (Exception salvageFailure)
+            {
+                _logger.LogDebug(salvageFailure, "The partial tree could not be salvaged for {uri}.", uri);
+            }
+
+            return new ModuleParseResult
+            {
+                SyntaxTree = salvaged,
+                PrecompilerTrivia = precompilerTrivia,
+                SyntaxErrors = errorListener.Errors.IsEmpty
+                    ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, SourceRange.Empty),
+                        SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
+                    : errorListener.Errors,
+            };
         }
     }
 
@@ -111,14 +132,14 @@ internal partial class ModuleParser(
         try
         {
             parser.compilationUnit();
-            // SyntaxNodes unwinds the listener's builder stack, so it can throw too — keep it inside
-            // the guard.
+            // collect inside the guard too: a left-recursive ccExpression desyncs the stateful
+            // listener, and the binary-operator node constructor then throws on too few children.
             return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
         }
         catch (Exception exception)
         {
-            // the conditional-compilation pass is best-effort: default error recovery can fire
-            // unbalanced enter/exit events into a stateful listener. A failure here forfeits the
+            // the conditional-compilation pass is best-effort: a listener desync (see above) or
+            // default error recovery firing unbalanced enter/exit events forfeits the
             // precompiler trivia for this module, not the module.
             _logger.LogDebug(exception, "Precompiler-trivia pass failed; trivia forfeited for this module.");
             return [];

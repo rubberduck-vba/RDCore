@@ -230,14 +230,15 @@ public record class SdkServerOptions
     /// </remarks>
     public bool Verbose { get; set; }
     /// <summary>
-    /// How build-machine source-file paths in error / stack-trace detail are rewritten before that
-    /// text is packaged into a DTO and sent to another process. Defaults to
+    /// How a source-file path in error / stack-trace detail is rewritten before that text is
+    /// packaged into a DTO and sent to another process. Defaults to
     /// <see cref="SourcePathScrubMode.RepoRelative"/>.
     /// </summary>
     /// <remarks>
-    /// The dev platform is published <c>Debug</c> with PDBs, so a caught exception's text carries the
-    /// build machine's absolute paths and user name. This does not affect the unredacted copy written
-    /// to the process log file.
+    /// A build that ships PDBs (the dev platform is <c>Debug</c>; a <c>Release</c> publish still
+    /// emits portable PDBs with absolute document paths) puts the build machine's directory layout
+    /// and user name into a caught exception's text. This is a defensive net; it does not affect the
+    /// unredacted copy written to the process log file.
     /// </remarks>
     public SourcePathScrubMode WireErrorDetail { get; set; } = SourcePathScrubMode.RepoRelative;
     /// <summary>
