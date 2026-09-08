@@ -241,6 +241,28 @@ End Sub
     }
 
     [TestMethod]
+    // C8: the declaration pass captured leaf literals only and dropped the unary minus, so
+    // `Const N = -1` came out as +1.
+    [DataRow("Public Const N As Long = -1", -1L)]
+    [DataRow("Public Const N = -32768", -32768L)]
+    [DataRow("Public Const N As Integer = -5", -5L)]
+    [DataRow("Public Const N = - -7", 7L)]
+    public void NegativeConstant_KeepsItsSign(string source, long expected)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, source);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var literal = Descendants(result.SyntaxTree!).OfType<LiteralExpressionNode>().Single();
+        long actual = literal.StaticValue switch
+        {
+            VBIntegerValue v => v.Value,
+            VBLongValue v => v.Value,
+            _ => throw new AssertFailedException($"unexpected value type {literal.StaticValue.GetType().Name}"),
+        };
+        Assert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

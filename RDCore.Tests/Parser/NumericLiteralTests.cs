@@ -96,4 +96,44 @@ public sealed class NumericLiteralTests
         Assert.IsFalse(overflow);
         Assert.IsInstanceOfType<VBDoubleValue>(value);
     }
+
+    [TestMethod]
+    // `Const N = -1` — VBA has no negative-literal token, so the resolver's positive value is negated
+    // by the caller. Negate keeps the type and flips the sign for every numeric intrinsic Resolve
+    // produces.
+    [DataRow("1", typeof(VBIntegerValue), -1)]
+    [DataRow("32768", typeof(VBLongValue), -32768)]
+    [DataRow("1!", typeof(VBSingleValue), -1)]
+    [DataRow("1#", typeof(VBDoubleValue), -1)]
+    [DataRow("1^", typeof(VBLongLongValue), -1)]
+    [DataRow("&HFF", typeof(VBIntegerValue), -255)]
+    [DataRow("1@", typeof(VBCurrencyValue), null)]
+    [DataRow("2147483648", typeof(VBDoubleValue), null)]
+    public void Negate_FlipsTheSignAndKeepsTheType(string token, Type expectedType, int? expectedValue)
+    {
+        var (resolved, overflow) = NumericLiteral.Resolve(token);
+        Assert.IsFalse(overflow);
+
+        var negated = NumericLiteral.Negate(resolved);
+
+        Assert.IsNotNull(negated);
+        Assert.AreEqual(expectedType, negated!.GetType());
+        if (expectedValue is int expected)
+        {
+            decimal? magnitude = negated switch
+            {
+                VBIntegerValue i => i.Value,
+                VBLongValue l => l.Value,
+                VBLongLongValue ll => ll.Value,
+                VBSingleValue s => (decimal)s.Value,
+                VBDoubleValue d => (decimal)d.Value,
+                _ => null,
+            };
+            Assert.AreEqual((decimal)expected, magnitude);
+        }
+    }
+
+    [TestMethod]
+    public void Negate_ReturnsNull_ForANonNumericValue()
+        => Assert.IsNull(NumericLiteral.Negate(VBUnknownValue.DefaultValue));
 }

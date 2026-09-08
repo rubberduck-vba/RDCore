@@ -233,6 +233,20 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
+    // C8: a parameter name carrying a type-declaration character keeps the name, not the hint.
+    [DataRow("count%", "count")]
+    [DataRow("name$", "name")]
+    [DataRow("amount@", "amount")]
+    public void TypedParameterName_DropsTheHintChar(string declared, string expectedName)
+    {
+        var result = Parse($"Public Sub Foo(ByVal {declared})\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var parameter = Flatten(result.SyntaxTree!).OfType<ParameterDeclarationNode>().Single();
+        Assert.AreEqual(expectedName, parameter.Name);
+    }
+
+    [TestMethod]
     public void ValidLineNumberLabel_StillContributesALineNumberNode()
     {
         var result = Parse("Sub S()\r\n100: X = 1\r\nEnd Sub");

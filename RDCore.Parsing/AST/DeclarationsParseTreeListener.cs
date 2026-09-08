@@ -335,6 +335,22 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
     }
+    public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+
+        // VBA has no negative-literal token; `Const N = -1` is MINUS applied to the literal 1. The
+        // declaration pass captures leaf literals only, so fold the sign into the value this operator
+        // wraps — which the walk has just added as the current builder's last child.
+        if (CurrentBuilder.LastChild is LiteralExpressionNode literal
+            && NumericLiteral.Negate(literal.StaticValue) is { } negated)
+        {
+            CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
+        }
+    }
     public override void ExitLiteralExpression([NotNull] VBAParser.LiteralExpressionContext context)
     {
         if (!IsDeclarationPassExpression)

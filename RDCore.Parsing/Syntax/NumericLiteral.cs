@@ -46,6 +46,23 @@ internal static class NumericLiteral
         return hint is '!' or '#' or '@' || IsFloat(digits) ? Real(digits, hint) : Integer(digits, hint);
     }
 
+    /// <summary>
+    /// Negates a resolved numeric literal for a <c>-literal</c> in a constant or precompiler
+    /// expression (VBA has no negative literal token — the sign is a unary operator). Returns
+    /// <c>null</c> for any value that is not one of the numeric intrinsics <see cref="Resolve"/>
+    /// produces, in which case the caller leaves the tree untouched.
+    /// </summary>
+    public static VBTypedValue? Negate(VBTypedValue value) => value switch
+    {
+        VBIntegerValue v => new VBIntegerValue(unchecked((short)-v.Value)),
+        VBLongValue v => new VBLongValue(unchecked(-v.Value)),
+        VBLongLongValue v => new VBLongLongValue(unchecked(-v.Value)),
+        VBSingleValue v => new VBSingleValue(-v.Value),
+        VBDoubleValue v => new VBDoubleValue(-v.Value),
+        VBCurrencyValue v => new VBCurrencyValue(-v.Value.Value),
+        _ => null,
+    };
+
     private static (VBTypedValue, bool) Unresolved => (VBUnknownValue.DefaultValue, true);
 
     private static (string digits, char hint) SplitTypeHint(string text)
