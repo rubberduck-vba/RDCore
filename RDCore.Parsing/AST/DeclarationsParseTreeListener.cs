@@ -243,6 +243,14 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public override void ExitAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
     {
+        // a `ReDim x(1) As Long` in a procedure body carries an asTypeClause too, but that type
+        // belongs to the ReDim statement, not to the enclosing member. The declaration pass does not
+        // model body statements — without this guard the type node lands on the member.
+        if (context.Parent is VBAParser.RedimVariableDeclarationContext)
+        {
+            return;
+        }
+
         // `As` with no type token (half-typed / recovery): the LL error listener already records the
         // located "missing type" syntax error — just don't build a broken expression node.
         if (context.type() is not { } type)

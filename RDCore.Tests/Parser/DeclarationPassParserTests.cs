@@ -263,6 +263,28 @@ End Sub
     }
 
     [TestMethod]
+    public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
+    {
+        // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body
+        // attached its type node to the enclosing member. A real local `Dim` still keeps its own.
+        const string content = """
+            Public Sub Grow()
+                Dim total As Long
+                ReDim buffer(1 To 10) As Long
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.IsEmpty(member.Children.OfType<AsTypeExpressionNode>());
+
+        var local = member.Children.OfType<VariableDeclarationNode>().Single(variable => variable.Name == "total");
+        Assert.ContainsSingle(local.Children.OfType<AsTypeExpressionNode>());
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """
