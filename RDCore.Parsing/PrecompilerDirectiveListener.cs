@@ -215,6 +215,15 @@ internal class PrecompilerDirectiveListener(Uri sourceUri) : VBAConditionalCompi
         }
     }
 
+    // MS-VBAL 3.3.2: a FLOATLITERAL's decimal separator is '.', its exponent letter is [DEde] (D is
+    // the legacy double-precision marker double.Parse does not accept), and it may carry an !#@
+    // type-declaration suffix. Normalize before parsing.
+    private static double ParseCcFloatLiteral(string text)
+    {
+        var digits = text.Length > 0 && "!#@".IndexOf(text[^1]) >= 0 ? text[..^1] : text;
+        return double.Parse(digits.Replace('D', 'E').Replace('d', 'e'), NumberStyles.Float, CultureInfo.InvariantCulture);
+    }
+
     private void ResolveCcLiteral(VBAConditionalCompilationParser.LiteralContext context)
     {
         var location = context.GetSourceLocation(_rootUri);
@@ -242,8 +251,7 @@ internal class PrecompilerDirectiveListener(Uri sourceUri) : VBAConditionalCompi
         }
         else if (context.FLOATLITERAL() is ITerminalNode floatNode)
         {
-            // MS-VBAL 3.3.2: the literal's decimal separator is '.', independent of the host locale.
-            var rawValue = double.Parse(floatNode.Symbol.Text, CultureInfo.InvariantCulture);
+            var rawValue = ParseCcFloatLiteral(floatNode.Symbol.Text);
             VBTypedValue value = (rawValue <= Single.MaxValue && rawValue >= Single.MinValue)
                 ? new VBSingleValue(new ConstantBindingHandle(new VBRuntimeValue<Single>(Convert.ToSingle(rawValue))))
                 : new VBDoubleValue(new ConstantBindingHandle(new VBRuntimeValue<double>(rawValue)));

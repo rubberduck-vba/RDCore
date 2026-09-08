@@ -2,6 +2,8 @@
 using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
 using RDCore.SDK.ConsoleIO;
@@ -33,8 +35,16 @@ public interface IModuleParser
 /// How a build-machine source path in a caught exception's text is anonymized before it can reach the
 /// wire. Supplied from configuration in the parse server; the default suits tests.
 /// </param>
-internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = SourcePathScrubMode.RepoRelative) : IModuleParser
+/// <param name="logger">
+/// Records exceptions the resilience guards swallow, so a genuine listener bug is still visible in the
+/// parse-server log even though the module degrades gracefully. Defaults to a no-op for tests.
+/// </param>
+internal partial class ModuleParser(
+    SourcePathScrubMode wireErrorDetail = SourcePathScrubMode.RepoRelative,
+    ILogger<ModuleParser>? logger = null) : IModuleParser
 {
+    private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
+
     public ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content)
     {
         var errorListener = new ErrorListener(uri);
@@ -68,6 +78,9 @@ internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = Source
             // the declaration pass must never throw: an exception escaping both parse attempts degrades
             // to a failed result that still carries whatever the LL pass located, plus the precompiler
             // trivia. Build-machine paths in the exception text are anonymized before they can leave.
+            // an exception here is past LL recovery on a fresh listener, so it is much more likely a
+            // listener bug than malformed input — log it even though the module degrades.
+            _logger.LogWarning(exception, "❌ Parse of {uri} degraded after an unhandled exception in the declaration pass.", uri);
             return errorListener.Errors.IsEmpty
                 ? ModuleParseResult.Failed(new(uri, SourceRange.Empty), exception, wireErrorDetail) with { PrecompilerTrivia = precompilerTrivia }
                 : new ModuleParseResult { SyntaxErrors = errorListener.Errors, PrecompilerTrivia = precompilerTrivia };
@@ -77,7 +90,7 @@ internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = Source
     private static ModuleNode EmptyModule(Uri uri, ModuleType moduleType)
         => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), [], moduleType);
 
-    private static ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners)
+    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners)
     {
         // ignore everything that is NOT a precompiler node,
         // because grammar matches everything as a ccBlock otherwise.
@@ -102,11 +115,12 @@ internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = Source
             // the guard.
             return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // the conditional-compilation pass is best-effort: default error recovery can fire
             // unbalanced enter/exit events into a stateful listener. A failure here forfeits the
             // precompiler trivia for this module, not the module.
+            _logger.LogDebug(exception, "Precompiler-trivia pass failed; trivia forfeited for this module.");
             return [];
         }
     }
@@ -116,19 +130,25 @@ internal partial class ModuleParser(SourcePathScrubMode wireErrorDetail = Source
     /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
     /// on a <em>fresh</em> listener if SLL failed.
     /// </summary>
-    private static TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory)
+    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory)
         where TListener : IParseTreeListener
     {
         try
         {
             return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory());
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // any SLL failure falls through to LL: a plain ParseCanceledException/RecognitionException,
             // but also a listener exception the bail strategy triggered on a half-matched rule. SLL
             // carries no error listener, so nothing located is lost. LL runs default recovery + the
             // error listener on a fresh listener and produces the located errors.
+            if (exception is not (ParseCanceledException or RecognitionException))
+            {
+                // an expected bail is routine (SLL trips on valid constructs like `foo!bar`); anything
+                // else from the SLL pass is worth a trace even though LL will retry.
+                _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
+            }
             return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory());
         }
     }

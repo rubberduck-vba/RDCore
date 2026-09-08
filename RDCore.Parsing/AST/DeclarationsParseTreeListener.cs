@@ -314,6 +314,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             ? value
             : double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
 
+    // MS-VBAL 3.3.2: a FLOATLITERAL's exponent letter is [DEde] (D is the legacy double-precision
+    // marker). double.Parse only understands E/e, so normalize first. Safe on a FLOATLITERAL — its
+    // only letters are the exponent marker.
+    private static double ParseFloatLiteralValue(string digits)
+        => double.Parse(digits.Replace('D', 'E').Replace('d', 'e'), NumberStyles.Float, CultureInfo.InvariantCulture);
+
     /// <summary>
     /// MS-VBAL 3.3.2: an explicit type-declaration character wins; otherwise an unsuffixed
     /// floating-point literal is <c>Double</c> and an unsuffixed integer literal takes the smallest
@@ -366,7 +372,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             if (context.FLOATLITERAL() is { } floatNumeric)
             {
                 var (digits, hint) = SplitTypeHint(floatNumeric.Symbol.Text);
-                return ResolveNumericLiteral(hint, double.Parse(digits, CultureInfo.InvariantCulture), isFloat: true);
+                return ResolveNumericLiteral(hint, ParseFloatLiteralValue(digits), isFloat: true);
             }
             if (context.HEXLITERAL() is { } hexNumeric)
             {

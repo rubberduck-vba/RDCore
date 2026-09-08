@@ -84,11 +84,14 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
-    public void ListenerException_StillYieldsLocatedErrorsAndTrivia()
+    public void FailedParse_StillCarriesPrecompilerTrivia()
     {
-        // a #Const so there is precompiler trivia to preserve, then a construct that stresses recovery.
+        // a #Const so there is precompiler trivia to preserve, then a construct that fails the
+        // declaration pass — the trivia must survive the failure path.
         const string source = """
-            #Const DEBUG = 1
+            #Const RDDEBUG = 1
+            #If RDDEBUG Then
+            #End If
             Public Property Get
             """;
 
@@ -97,6 +100,7 @@ public sealed class ParserResilienceTests
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotEmpty(result.SyntaxErrors);
         Assert.IsTrue(result.SyntaxErrors.All(error => error.Location.Uri == Uri));
+        Assert.IsNotEmpty(result.PrecompilerTrivia);
     }
 
     [TestMethod]

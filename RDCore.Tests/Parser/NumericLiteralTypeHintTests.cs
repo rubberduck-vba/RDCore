@@ -23,7 +23,21 @@ public sealed class NumericLiteralTypeHintTests
         Public Const UnsuffixedDouble = 3000000000
         Public Const UnsuffixedHuge = 99999999999999999999
         Public Const UnsuffixedFloat = 2.5
+        Public Const DExponentLower = 1.5d3
+        Public Const DExponentUpper = 15D2
+        Public Const EExponent = 1.5e3
         """;
+
+    private static LiteralExpressionNode LiteralOf(string constName)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, _module);
+        Assert.IsNotNull(result.SyntaxTree);
+
+        var constant = Descendants(result.SyntaxTree!)
+            .OfType<ConstantDeclarationNode>()
+            .Single(node => node.Name == constName);
+        return Descendants(constant).OfType<LiteralExpressionNode>().Single();
+    }
 
     private static Dictionary<string, Type> LiteralTypesByConstName()
     {
@@ -62,6 +76,22 @@ public sealed class NumericLiteralTypeHintTests
     // MS-VBAL §3.3.2 note: an unsuffixed integer past Long range widens to Double, never LongLong.
     [DataRow("UnsuffixedHuge", typeof(VBDoubleValue))]
     [DataRow("UnsuffixedFloat", typeof(VBDoubleValue))]
+    // MS-VBAL §3.3.2: a FLOATLITERAL exponent letter is [DEde]; D is the legacy double marker.
+    [DataRow("DExponentLower", typeof(VBDoubleValue))]
+    [DataRow("DExponentUpper", typeof(VBDoubleValue))]
+    [DataRow("EExponent", typeof(VBDoubleValue))]
     public void ResolvesLiteralStaticType(string constName, Type expected)
         => Assert.AreEqual(expected, LiteralTypesByConstName()[constName]);
+
+    [TestMethod]
+    // the D exponent must resolve to the same value as the equivalent E exponent, not be swallowed.
+    [DataRow("DExponentLower", 1500.0)]
+    [DataRow("DExponentUpper", 1500.0)]
+    [DataRow("EExponent", 1500.0)]
+    public void ResolvesDAndEExponentToTheSameValue(string constName, double expected)
+    {
+        var literal = LiteralOf(constName);
+        Assert.IsInstanceOfType<VBDoubleValue>(literal.StaticValue);
+        Assert.AreEqual(expected, ((VBDoubleValue)literal.StaticValue).Value);
+    }
 }
