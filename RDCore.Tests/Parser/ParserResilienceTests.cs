@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 
@@ -81,6 +82,78 @@ public sealed class ParserResilienceTests
 
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         Assert.IsNotNull(result.SyntaxTree);
+    }
+
+    [TestMethod]
+    public void HalfTypedMember_StillContributesTheGoodDeclarations()
+    {
+        // A1/A2: a member header with no name yet used to throw in the builder and, via the catch,
+        // empty the whole module. The three good members must survive.
+        const string source = """
+            Option Explicit
+            Public Const A = 1
+            Public Sub Foo()
+            End Sub
+            Public Function Bar() As Long
+            End Function
+            Public Sub
+            """;
+
+        var result = Parse(source);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.SyntaxTree);
+        var members = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Select(m => m.Name).ToArray();
+        CollectionAssert.Contains(members, "Foo");
+        CollectionAssert.Contains(members, "Bar");
+        Assert.ContainsSingle(result.SyntaxTree.Children.OfType<ConstantDeclarationNode>().Where(c => c.Name == "A"));
+    }
+
+    [TestMethod]
+    // A3: names that are grammar keywords or bracketed foreign names used to null-deref
+    // IDENTIFIER().Symbol and fail the whole module.
+    [DataRow("Dim Name As String", "Name")]
+    [DataRow("Private Text As String", "Text")]
+    [DataRow("Public Const Version As String = \"1\"", "Version")]
+    // brackets are escape syntax, not part of the name.
+    [DataRow("Dim [My Var] As Long", "My Var")]
+    public void KeywordOrBracketedName_ParsesWithThatName(string source, string expectedName)
+    {
+        var result = Parse("Option Explicit\r\n" + source);
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var declared = result.SyntaxTree!.Children
+            .Where(node => node is VariableDeclarationNode or ConstantDeclarationNode)
+            .Select(node => node is VariableDeclarationNode v ? v.Name : ((ConstantDeclarationNode)node).Name)
+            .ToArray();
+        CollectionAssert.Contains(declared, expectedName);
+    }
+
+    [TestMethod]
+    // B2: a value assertion — the modifier must bind, not fall through to Implicit, for every casing.
+    [DataRow("Public Sub S()\r\nEnd Sub", AccessModifier.Public)]
+    [DataRow("public Sub S()\r\nEnd Sub", AccessModifier.Public)]
+    [DataRow("PRIVATE Sub S()\r\nEnd Sub", AccessModifier.Private)]
+    [DataRow("Friend Function F()\r\nEnd Function", AccessModifier.Friend)]
+    [DataRow("Sub S()\r\nEnd Sub", AccessModifier.Implicit)]
+    public void Visibility_BindsToTheModifier(string source, AccessModifier expected)
+    {
+        var member = Parse(source).SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual(expected, member.AccessModifier);
+    }
+
+    [TestMethod]
+    public void DeepNesting_DoesNotCrashTheProcess()
+    {
+        // A5: pathological nesting recurses through the expression rule to an uncatchable stack
+        // overflow. EnterEveryRule's stack guard converts it to a catchable, located failure.
+        var source = "Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000);
+
+        ModuleParseResult result = null!;
+        var thrown = Record(() => result = Parse(source));
+
+        Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
+        Assert.IsFalse(result.IsSuccess);
     }
 
     [TestMethod]

@@ -8,11 +8,11 @@ using RDCore.SDK.Model.AST.Expressions;
 namespace RDCore.Parsing.AST;
 
 internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBuilder(rootUri, nodeId)
-{ 
+{
     public SyntaxNode BuildAttributeDirective(VBAParser.AttributeStmtContext context)
     {
         // the name may be member-qualified (`Attribute Foo.VB_Description = …`).
-        var identifiers = context.attributeName().GetText().Split('.');
+        var identifiers = (context.attributeName()?.GetText() ?? string.Empty).Split('.');
         var name = identifiers.Length == 1 ? identifiers[0] : identifiers.Last();
         var qualifier = identifiers.Length == 2 ? identifiers[0] : null;
 
@@ -31,8 +31,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildExternalDeclaration(VBAParser.DeclareStmtContext context)
     {
-        var name = context.identifier().untypedIdentifier()?.GetText()
-            ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.identifier().Name();
         var kind = context.FUNCTION() is not null ? MemberKind.ExternalFunction : MemberKind.ExternalProcedure;
         var isPtrSafe = context.PTRSAFE() is not null;
         var literals = context.STRINGLITERAL();
@@ -55,21 +54,20 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildEventDeclaration(VBAParser.EventStmtContext context)
     {
-        var name = context.identifier().untypedIdentifier()?.GetText()
-                ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.identifier().Name();
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
-            NodeId, 
-            context.GetSourceLocation(_rootUri), 
-            [.. _children], 
-            name, 
-            MemberKind.Event, 
+            NodeId,
+            context.GetSourceLocation(_rootUri),
+            [.. _children],
+            name,
+            MemberKind.Event,
             modifier);
     }
     public SyntaxNode BuildUserDefinedTypeDeclaration(VBAParser.UdtDeclarationContext context)
     {
-        var name = context.untypedIdentifier().GetText();
+        var name = context.untypedIdentifier().Name();
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
@@ -82,8 +80,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildUserDefinedTypeMember(VBAParser.UdtMemberContext context)
     {
-        var name = context.reservedNameMemberDeclaration()?.unrestrictedIdentifier().GetText()
-            ?? context.untypedNameMemberDeclaration().untypedIdentifier().GetText();
+        var name = context.Name();
 
         return new MemberDeclarationNode(
             NodeId,
@@ -96,8 +93,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildEnumDeclaration(VBAParser.EnumerationStmtContext context)
     {
-        var name = context.identifier().untypedIdentifier()?.GetText()
-            ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.identifier().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
         
@@ -111,9 +107,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildParameterDeclaration(VBAParser.ArgContext context, bool isPropertyWriterMember = false, bool isLast = false)
     {
-        var name = context.unrestrictedIdentifier().identifier().untypedIdentifier()?.GetText()
-            ?? context.unrestrictedIdentifier().identifier().typedIdentifier().GetText();
-        
+        var name = context.unrestrictedIdentifier().Name();
+
         var kind = context.BYVAL() is not null ? ParameterKind.ExplicitByVal
             : context.BYREF() is not null ? ParameterKind.ExplicitByRef
                 : isPropertyWriterMember && isLast
@@ -131,8 +126,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildPropertyGetDeclaration(VBAParser.PropertyGetStmtContext context)
     {
-        var name = context.functionName().identifier().untypedIdentifier()?.GetText()
-            ?? context.functionName().identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.functionName().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
@@ -146,8 +140,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildPropertyLetDeclaration(VBAParser.PropertyLetStmtContext context)
     {
-        var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
-            ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.subroutineName().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
@@ -161,8 +154,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildPropertySetDeclaration(VBAParser.PropertySetStmtContext context)
     {
-        var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
-            ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.subroutineName().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
@@ -176,8 +168,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildProcedureDeclaration(VBAParser.SubStmtContext context)
     {
-        var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
-            ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.subroutineName().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
@@ -191,8 +182,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildFunctionDeclaration(VBAParser.FunctionStmtContext context)
     {
-        var name = context.functionName().identifier().untypedIdentifier()?.GetText()
-            ?? context.functionName().identifier().typedIdentifier().untypedIdentifier().GetText();
+        var name = context.functionName().Name();
 
         var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
@@ -207,11 +197,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildVariableDeclaration(VBAParser.VariableSubStmtContext context, AccessModifier modifier)
     {
-        var typeHint = context.identifier().typedIdentifier()?.typeHint().GetText();
-
-        var name = typeHint is null
-            ? context.identifier().untypedIdentifier()!.identifierValue().IDENTIFIER().Symbol.Text
-            : context.identifier().typedIdentifier()!.untypedIdentifier().identifierValue().IDENTIFIER().Symbol.Text;
+        // the name can be an IDENTIFIER, a keyword (`Dim Name As String`) or a bracketed foreign
+        // name — take the text the way the member builders do, not IDENTIFIER().Symbol.
+        var typeHint = context.identifier().TypeHint();
+        var name = context.identifier().Name();
 
         var isWithEvents = context.WITHEVENTS() is not null;
         
@@ -227,11 +216,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildConstDeclaration(VBAParser.ConstSubStmtContext context, ConstKind kind, AccessModifier modifier)
     {
-        var typeHint = context.identifier().typedIdentifier()?.typeHint().GetText();
-
-        var name = typeHint is null
-            ? context.identifier().untypedIdentifier()!.identifierValue().IDENTIFIER().Symbol.Text
-            : context.identifier().typedIdentifier()!.untypedIdentifier().identifierValue().IDENTIFIER().Symbol.Text;
+        var typeHint = context.identifier().TypeHint();
+        var name = context.identifier().Name();
 
         return new ConstantDeclarationNode(
             NodeId,
@@ -247,11 +233,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         => new ConditionalExpressionNode(NodeId, context.GetSourceLocation(_rootUri), [.. _children]);
 
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
-        => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName().GetText(), [.. _children]);
+        => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 
     public SyntaxNode BuildEnumConstDeclaration(VBAParser.EnumerationStmt_ConstantContext context)
     {
-        var name = context.identifier().GetText();
+        var name = context.identifier().Name();
 
         var location = context.GetSourceLocation(_rootUri);
         // an enum constant inherits the enclosing Enum's visibility; recovery can leave Parent not

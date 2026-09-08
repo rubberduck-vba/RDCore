@@ -66,8 +66,9 @@ public record class ImplementsDirectiveNode(SyntaxNodeId Identity, SourceLocatio
     : DirectiveNode(Identity, Location, NameExpression is null ? [] : [NameExpression])
 {
     /// <summary>
-    /// The name expression resolving the implemented interface — the directive's single child.
+    /// The name expression resolving the implemented interface, or <c>null</c> for a half-typed
+    /// <c>Implements</c> with no name yet.
     /// </summary>
     [JsonIgnore]
-    public SyntaxNode NameExpression => Children.Single();
+    public SyntaxNode? NameExpression => Children.Length == 1 ? Children[0] : null;
 }

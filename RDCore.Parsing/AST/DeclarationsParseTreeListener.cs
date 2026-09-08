@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 
 namespace RDCore.Parsing.AST;
@@ -32,6 +33,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private SyntaxNodeId GetCurrentNodeId() => CurrentBuilder.NodeId.Add(CurrentBuilder.ChildCount);
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => [BuildModuleNode()];
+
+    public override void EnterEveryRule([NotNull] ParserRuleContext context)
+        // pathological nesting (hundreds of unbalanced parens / nested calls) recurses through the
+        // expression rule until the stack overflows — an uncatchable crash that would take the parse
+        // server down. This converts it to a catchable exception the boundary net turns into a
+        // located failure.
+        => RuntimeHelpers.EnsureSufficientExecutionStack();
 
     public ModuleNode BuildModuleNode()
     {
