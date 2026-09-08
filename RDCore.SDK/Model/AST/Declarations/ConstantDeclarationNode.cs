@@ -27,11 +27,12 @@ public record class PrecompilerConstantDeclarationNode(SyntaxNodeId Identity, So
     : SyntaxNode(Identity, Location, Children);
 
 /// <summary>
-/// An AST node representing a reference to a precompiler constant declaration.
+/// An AST node representing a reference to a precompiler constant declaration. It is an
+/// <see cref="ExpressionNode"/> so it can be an operand of a precompiler operator expression.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The source location of this module; the <c>SourceRange</c> is invalid.</param>
 /// <param name="Name">The name of the referenced precompiler constant.</param>
 public record class PrecompilerNameExpressionNode(SyntaxNodeId Identity, SourceLocation Location, string Name)
-    : SyntaxNode(Identity, Location, []);
+    : ExpressionNode(Identity, Location, []);
 

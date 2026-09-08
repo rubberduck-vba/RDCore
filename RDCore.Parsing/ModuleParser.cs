@@ -124,23 +124,25 @@ internal partial class ModuleParser(
 
         parser.Interpreter.PredictionMode = PredictionMode.Ll;
         parser.AddErrorListener(errorListener);
-        foreach (var listener in listeners)
-        {
-            parser.AddParseListener(listener);
-        }
 
         try
         {
-            parser.compilationUnit();
-            // collect inside the guard too: a left-recursive ccExpression desyncs the stateful
-            // listener, and the binary-operator node constructor then throws on too few children.
+            // parse to a tree, THEN walk it. AddParseListener fires Exit before Enter<Op> on a
+            // left-recursive ccExpression (`#If VBA7 And Win64`), which desyncs the builder-stack
+            // listener and makes the binary-operator node constructor throw — losing every directive
+            // in the module. A tree walk fires Enter before any child of the recursive alternative.
+            var tree = parser.compilationUnit();
+            foreach (var listener in listeners)
+            {
+                ParseTreeWalker.Default.Walk(listener, tree);
+            }
             return [.. listeners.SelectMany(provider => provider.SyntaxNodes)];
         }
         catch (Exception exception)
         {
-            // the conditional-compilation pass is best-effort: a listener desync (see above) or
-            // default error recovery firing unbalanced enter/exit events forfeits the
-            // precompiler trivia for this module, not the module.
+            // still best-effort: default error recovery can fire unbalanced enter/exit events into a
+            // stateful listener. A failure here forfeits the precompiler trivia for this module, not
+            // the module.
             _logger.LogDebug(exception, "Precompiler-trivia pass failed; trivia forfeited for this module.");
             return [];
         }

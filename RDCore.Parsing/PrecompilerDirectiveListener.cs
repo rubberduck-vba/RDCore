@@ -185,7 +185,8 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
     public override void EnterLogicalNotOp([NotNull] VBAConditionalCompilationParser.LogicalNotOpContext context)
         => OnEnterParent();
     public override void ExitLogicalNotOp([NotNull] VBAConditionalCompilationParser.LogicalNotOpContext context)
-        => OnExitParent(provider => new VBBinaryOperatorExpressionNode(Tokens.LogicalNotOp, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), [.. provider.GetChildren]));
+        // `Not` is unary — one operand.
+        => OnExitParent(provider => new VBUnaryOperatorExpressionNode(Tokens.LogicalNotOp, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), [.. provider.GetChildren]));
 
     public override void EnterLogicalXorOp([NotNull] VBAConditionalCompilationParser.LogicalXorOpContext context)
         => OnEnterParent();

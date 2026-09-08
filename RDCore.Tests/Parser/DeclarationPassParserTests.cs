@@ -28,6 +28,20 @@ public class DeclarationPassParserTests
     }
 
     [TestMethod]
+    // review D1: an operator anywhere in a #If / #Const used to desync the CC listener and forfeit
+    // EVERY directive in the module. Walking the parse tree (rather than AddParseListener) fixes it.
+    [DataRow("#If VBA7 And Win64 Then\r\nPublic X As Long\r\n#End If", DisplayName = "#If A And B")]
+    [DataRow("#If DEBUG = 1 Then\r\nPublic X As Long\r\n#End If", DisplayName = "#If A = B")]
+    [DataRow("#If Not DEBUG Then\r\nPublic X As Long\r\n#End If", DisplayName = "#If Not A")]
+    [DataRow("#Const A = 1\r\n#Const B = A + 1\r\n#If B Then\r\nPublic X As Long\r\n#End If", DisplayName = "#Const B = A + 1")]
+    public void OperatorInConditional_PreservesPrecompilerTrivia(string content)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+
+        Assert.IsNotEmpty(result.PrecompilerTrivia);
+    }
+
+    [TestMethod]
     public void SplitStatementConditional_ReportsLocatedSyntaxErrors()
     {
         // legal VBA, but a #If that splits a statement (here the function header) cannot be parsed by

@@ -20,12 +20,21 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
     /// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>
     /// <param name="Left">The left-hand side (LHS) operand of this <em>binary operator expression</em></param>
     /// <param name="Right">The right-hand side (RHS) operand of this <em>binary operator expression</em></param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="children"/> is not exactly two <see cref="ExpressionNode"/> operands — the
+    /// grammar guarantees a binary operator has two, so this signals a parse-listener desync.
+    /// </exception>
     public VBBinaryOperatorExpressionNode(string token, SyntaxNodeId identity, SourceLocation location, ImmutableArray<SyntaxNode> children)
         : base(identity, location, children)
     {
+        if (children is not [ExpressionNode left, ExpressionNode right])
+        {
+            throw new ArgumentException(
+                $"a binary operator expression requires two operand children; got {children.Length}.", nameof(children));
+        }
         Token = token;
-        Left = (ExpressionNode)children[0];
-        Right = (ExpressionNode)children[1];
+        Left = left;
+        Right = right;
     }
 
     public string Token { get; }
