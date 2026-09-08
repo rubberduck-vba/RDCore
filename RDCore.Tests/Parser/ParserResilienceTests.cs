@@ -1,7 +1,9 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 
 namespace RDCore.Tests.Parser;
 
@@ -140,6 +142,75 @@ public sealed class ParserResilienceTests
     {
         var member = Parse(source).SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         Assert.AreEqual(expected, member.AccessModifier);
+    }
+
+    [TestMethod]
+    // A4: Option Base and line-number labels ran an unguarded int.Parse. The grammar's numberLiteral
+    // admits hex/oct/float tokens and a type-hint suffix, and a value can overflow Int32 — none of
+    // which is a line number or Option Base 1, and none of which may throw.
+    [DataRow("Option Base 1&", DisplayName = "Option Base, type-hint suffix")]
+    [DataRow("Option Base &H1", DisplayName = "Option Base, hex literal")]
+    [DataRow("Option Base 99999999999", DisplayName = "Option Base, overflows Int32")]
+    [DataRow("Sub S()\r\n99999999999 X = 1\r\nEnd Sub", DisplayName = "line number overflows Int32")]
+    [DataRow("Sub S()\r\n10& X = 1\r\nEnd Sub", DisplayName = "line number, type-hint suffix")]
+    [DataRow("Sub S()\r\n&HFF X = 1\r\nEnd Sub", DisplayName = "hex token as a line label")]
+    [DataRow("Sub S()\r\n1.5 X = 1\r\nEnd Sub", DisplayName = "float token as a line label")]
+    [DataRow("Sub S()\r\n-5 X = 1\r\nEnd Sub", DisplayName = "signed line label")]
+    public void OptionBaseAndLineLabels_NeverThrow(string source)
+    {
+        ModuleParseResult result = null!;
+        var thrown = Record(() => result = Parse(source));
+
+        Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}: {thrown?.Message}");
+        Assert.IsTrue(
+            result.SyntaxErrors.All(error => error.Location.Uri == Uri),
+            "every syntax error must be located in the parsed document");
+    }
+
+    [TestMethod]
+    // the bare, valid forms still bind.
+    [DataRow("Option Base 1", ModuleOptions.OptionBase1)]
+    [DataRow("Option Base 0", ModuleOptions.OptionBase0)]
+    public void OptionBase_BindsTheBareValue(string source, ModuleOptions expected)
+    {
+        var directive = Parse(source).SyntaxTree!.Children.OfType<ModuleOptionDirectiveNode>().Single();
+        Assert.AreEqual(expected, directive.ModuleOption);
+    }
+
+    [TestMethod]
+    // A4: a parameter is an `arg : … unrestrictedIdentifier …`, so its name can be a reserved word.
+    [DataRow("Next")]
+    [DataRow("Error")]
+    [DataRow("Name")]
+    public void KeywordNamedParameter_ParsesWithThatName(string keyword)
+    {
+        var result = Parse($"Public Sub Foo(ByVal {keyword} As Long)\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var parameter = Flatten(result.SyntaxTree!).OfType<ParameterDeclarationNode>().Single();
+        Assert.AreEqual(keyword, parameter.Name);
+    }
+
+    [TestMethod]
+    public void ValidLineNumberLabel_StillContributesALineNumberNode()
+    {
+        var result = Parse("Sub S()\r\n100: X = 1\r\nEnd Sub");
+
+        var lineNumbers = Flatten(result.SyntaxTree!).OfType<LineNumberNode>().ToArray();
+        Assert.ContainsSingle(lineNumbers);
+        Assert.AreEqual(100, lineNumbers[0].Number);
+    }
+
+    private static IEnumerable<SyntaxNode> Flatten(SyntaxNode node)
+    {
+        yield return node;
+        foreach (var child in node.Children)
+        {
+            foreach (var descendant in Flatten(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     [TestMethod]

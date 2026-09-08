@@ -90,8 +90,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitOptionBaseStmt([NotNull] VBAParser.OptionBaseStmtContext context)
     {
         var location = context.GetSourceLocation(_rootUri);
-        var value = int.Parse(context.numberLiteral()?.INTEGERLITERAL()?.GetText() ?? "0");
-        OnModuleOptionDirective(location, value == 1 ? ModuleOptions.OptionBase1 : ModuleOptions.OptionBase0);
+        // Option Base only accepts a bare 0 or 1; the grammar's numberLiteral also admits a hex/oct/
+        // float token, a type-hint suffix, and an out-of-range value — none of which is Option Base 1,
+        // and none of which may throw here. A downstream semantic pass owns rejecting them.
+        var isBase1 = int.TryParse(context.numberLiteral()?.GetText(), out var value) && value == 1;
+        OnModuleOptionDirective(location, isBase1 ? ModuleOptions.OptionBase1 : ModuleOptions.OptionBase0);
     }
     public override void ExitOptionCompareStmt([NotNull] VBAParser.OptionCompareStmtContext context)
     {
@@ -396,12 +399,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         if (context.standaloneLineNumberLabel()?.lineNumberLabel() is VBAParser.LineNumberLabelContext numContextA)
         {
             lineNumberLocation = numContextA.GetSourceLocation(_rootUri);
-            number = int.Parse(numContextA.numberLiteral().GetText());
+            number = LineNumber(numContextA);
         }
         else if (context.combinedLabels()?.lineNumberLabel() is VBAParser.LineNumberLabelContext numContextB)
         {
             lineNumberLocation = numContextB.GetSourceLocation(_rootUri);
-            number = int.Parse(numContextB.numberLiteral().GetText());
+            number = LineNumber(numContextB);
         }
         else if (context.identifierStatementLabel().legalLabelIdentifier().identifier() is VBAParser.IdentifierContext labelContextA)
         {
@@ -422,5 +425,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name));
         }
+
+        // lineNumberLabel is `MINUS? numberLiteral` in the grammar, so it can carry a sign, a type-hint
+        // suffix, or a hex/oct/float token that is not a line number at all. Only a bare non-negative
+        // decimal integer counts; anything else contributes no LineNumberNode rather than throwing.
+        static int? LineNumber(VBAParser.LineNumberLabelContext context)
+            => context.MINUS() is null && int.TryParse(context.numberLiteral()?.GetText(), out var value)
+                ? value
+                : null;
     }
 }
