@@ -240,6 +240,12 @@
   <data name="VBCompileError_TypeMismatch" xml:space="preserve">
     <value>Type incompatible</value>
   </data>
+  <data name="VBCompileError_NumericLiteralOverflow" xml:space="preserve">
+    <value>Dépassement de littéral numérique</value>
+  </data>
+  <data name="VBCompileError_NumericLiteralOverflow_Verbose" xml:space="preserve">
+    <value>La valeur du littéral numérique est hors des limites de son type.</value>
+  </data>
   <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
     <value>Utilisation invalide d'un objet</value>
   </data>

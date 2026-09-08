@@ -94,4 +94,19 @@ public sealed class NumericLiteralTypeHintTests
         Assert.IsInstanceOfType<VBDoubleValue>(literal.StaticValue);
         Assert.AreEqual(expected, ((VBDoubleValue)literal.StaticValue).Value);
     }
+
+    [TestMethod]
+    // an out-of-range literal is a located syntax error now, not a silent success (review C3).
+    // the declaration pass and the #Const pass agree — both report it (review C4).
+    [DataRow("Public Const N = 99999%", DisplayName = "declaration pass")]
+    [DataRow("#Const N = 99999%\r\n#If N Then\r\n#End If", DisplayName = "#Const pass")]
+    public void OverflowingLiteral_IsALocatedSyntaxError(string source)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, source);
+
+        Assert.IsFalse(result.IsSuccess);
+        var overflow = result.SyntaxErrors.Single(e => e.VBCompileErrorId == SDK.Model.Errors.VBCompileErrorId.NumericLiteralOverflow);
+        Assert.AreEqual(TestUri.TestModuleUri(), overflow.Location.Uri);
+        Assert.AreNotEqual(SDK.Model.Source.SourceRange.Empty, overflow.Location.Range);
+    }
 }

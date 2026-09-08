@@ -62,11 +62,11 @@ internal partial class ModuleParser(
                 return ModuleParseResult.Success(EmptyModule(uri, moduleType));
             }
 
-            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri)]);
+            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)]);
             var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
 
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
-            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node));
+            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener));
             var ast = listener.BuildModuleNode();
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
@@ -202,6 +202,11 @@ internal partial class ModuleParser(
     private static partial Regex NoPrecompilerNodePattern();
 }
 
+/// <summary>
+/// Collects both ANTLR grammar-mismatch errors and the token-semantic errors a declaration listener
+/// raises (e.g. a numeric literal that overflows its type). One collection so
+/// <see cref="ModuleParseResult.SyntaxErrors"/> carries every syntax error of either origin.
+/// </summary>
 internal class ErrorListener(Uri uri) : IAntlrErrorListener<IToken>
 {
     private readonly Uri _uri = uri;
@@ -212,5 +217,19 @@ internal class ErrorListener(Uri uri) : IAntlrErrorListener<IToken>
     {
         var location = new SourceLocation(_uri, new(line, charPositionInLine, line, charPositionInLine));
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
+    }
+
+    /// <summary>
+    /// Records a token-semantic syntax error at <paramref name="location"/>. Idempotent per
+    /// (location, id) — the two-stage parse runs a fresh listener per attempt, which would otherwise
+    /// double-report a literal both passes reach.
+    /// </summary>
+    public void Report(SourceLocation location, VBCompileErrorId id, string verbose)
+    {
+        if (_errors.Any(existing => existing.ErrorId == (int)id && existing.Location.Equals(location)))
+        {
+            return;
+        }
+        _errors.Add(VBSyntaxErrorInfo.For(id, location, verbose));
     }
 }

@@ -383,7 +383,25 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_TypeMismatch", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Numeric literal overflow.
+        /// </summary>
+        public static string VBCompileError_NumericLiteralOverflow {
+            get {
+                return ResourceManager.GetString("VBCompileError_NumericLiteralOverflow", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The numeric literal's value is outside the range of its type.
+        /// </summary>
+        public static string VBCompileError_NumericLiteralOverflow_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NumericLiteralOverflow_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to None of the static semantic applicable rules for this operation matched the data type(s) of the provided input(s): {$INPUTS}.
         /// </summary>

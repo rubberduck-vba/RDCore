@@ -10,7 +10,9 @@ The parser resolves the literal's _declared type_ from the source token: a `Lite
 
 The declared type of a numeric literal follows **MS-VBAL §3.3.2**:
 
-1. An explicit _type-declaration character_ suffix, if present, forces the type:
+1. An explicit _type-declaration character_ suffix, if present, forces the type. A value that does
+   not fit the forced type is a **syntax error** (`NumericLiteralOverflow`) — MS-VBA rejects it with
+   an unhelpful _"expected: expression"_; RD-VBA reports it at the literal's location.
 
    |Suffix|Declared type|
    |---|---|
@@ -21,10 +23,20 @@ The declared type of a numeric literal follows **MS-VBAL §3.3.2**:
    |`#`|`Double`|
    |`@`|`Currency`|
 
-2. Otherwise, an **integer literal** (no fractional part, no exponent — decimal, `&H…` hexadecimal, or
-   `&O…` octal) takes the smallest of `Integer`, `Long`, `Double` that can hold its value.
+2. Otherwise, an **unsuffixed decimal integer literal** (no fractional part, no exponent) takes the
+   smallest of `Integer`, `Long`, `Double` that can hold its value.
 
-3. Otherwise, a **floating-point literal** (fractional part or exponent) is `Double`.
+3. Otherwise, a **floating-point literal** (fractional part or exponent) is `Double`. The exponent
+   letter is `[DEde]` — `D` is the legacy double-precision marker and produces the same value as `E`.
+   A literal that overflows to infinity is a `NumericLiteralOverflow` syntax error.
+
+4. A **`&H…` hexadecimal / `&O…` octal literal** is typed by _bit width_, interpreting the radix
+   digits as a **two's-complement** value at that width — **not** by the decimal rule (2). Unsuffixed,
+   it is the narrowest of `Integer` (16-bit) or `Long` (32-bit) that the value's bit width fits:
+   `&HFFFF` is `Integer` `-1`, `&H8000` is `Integer` `-32768`, `&H10000` is `Long` `65536`,
+   `&HFFFFFFFF` is `Long` `-1`. `&HFFFFFFFF` is the largest unsuffixed radix literal; beyond 32 bits
+   is a `NumericLiteralOverflow` syntax error (use a `^` suffix for a 64-bit `LongLong`). `%` / `&` /
+   `^` set the width (16 / 32 / 64 bits); a radix literal is **never** `Double`.
 
 > [!NOTE]
 > `LongLong` is only produced by the `^` suffix — an unsuffixed integer literal that exceeds `Long`

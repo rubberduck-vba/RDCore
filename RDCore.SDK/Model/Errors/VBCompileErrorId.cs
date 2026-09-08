@@ -44,6 +44,15 @@ public enum VBCompileErrorId
      *     👉 THANK YOU for taking the time to write XML documentation for anything you add here.
     /****************************************************************************************************/
 
+    /// <summary>
+    /// A numeric literal's value falls outside the range of its type — a decimal literal that
+    /// overflows its type-declaration suffix (<c>99999%</c>), an unsuffixed integer / floating-point
+    /// literal that overflows to infinity, or an unsuffixed <c>&amp;H…</c> / <c>&amp;O…</c> literal
+    /// that exceeds 32 bits (MS-VBAL §3.3.2). MS-VBA rejects these with an unhelpful
+    /// "expected: expression"; this is the located equivalent.
+    /// </summary>
+    NumericLiteralOverflow = 42,
+
     #endregion
 
     #region [8000..9299]: RD-VBA reserved for future extensibility

@@ -1,21 +1,21 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
+using RDCore.Parsing;
 using RDCore.Parsing.Syntax;
+using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Xml.Linq;
 
 namespace RDCore.Parsing.AST;
 
@@ -23,10 +23,12 @@ namespace RDCore.Parsing.AST;
 /// A <em>listener</em> that builds the AST nodes representing all the directives and declarations in a module.
 /// </summary>
 /// <param name="moduleNode">The root AST module node.</param>
-internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNode) : VBAParserBaseListener, ISyntaxNodeProvider
+/// <param name="errors">Collects the token-semantic syntax errors this pass raises (e.g. literal overflow).</param>
+internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNode, ErrorListener errors) : VBAParserBaseListener, ISyntaxNodeProvider
 {
     private readonly Uri _rootUri = sourceUri;
     private readonly ModuleNode _root = moduleNode;
+    private readonly ErrorListener _errors = errors;
     private readonly Stack<DeclarationNodeBuilder> _builderStack = new([new(sourceUri, moduleNode.Identity)]);
     private DeclarationNodeBuilder CurrentBuilder => _builderStack.Peek();
 
@@ -301,59 +303,6 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             }
         }
     }
-    // MS-VBAL 3.3.2 numeric type-declaration characters ("type hints"): the suffix forces the type.
-    private static readonly Dictionary<char, Func<double, VBTypedValue>> _typeHintValues = new()
-    {
-        ['%'] = n => new VBIntegerValue(Convert.ToInt16(n)),
-        ['&'] = n => new VBLongValue(Convert.ToInt32(n)),
-        ['^'] = n => new VBLongLongValue(Convert.ToInt64(n)),
-        ['!'] = n => new VBSingleValue(Convert.ToSingle(n)),
-        ['#'] = n => new VBDoubleValue(n),
-        ['@'] = n => new VBCurrencyValue(Convert.ToDecimal(n)),
-    };
-
-    private static (string digits, char hint) SplitTypeHint(string text)
-        => text.Length > 0 && "%&^!#@".IndexOf(text[^1]) >= 0 ? (text[..^1], text[^1]) : (text, '\0');
-
-    // MS-VBAL 3.3.2 note: an unsuffixed integer literal past Long range widens to Double
-    // (never LongLong). Long.Parse would throw; fall through to a Double approximation.
-    private static double ParseIntegerLiteralValue(string digits)
-        => long.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
-
-    // MS-VBAL 3.3.2: a FLOATLITERAL's exponent letter is [DEde] (D is the legacy double-precision
-    // marker). double.Parse only understands E/e, so normalize first. Safe on a FLOATLITERAL — its
-    // only letters are the exponent marker.
-    private static double ParseFloatLiteralValue(string digits)
-        => double.Parse(digits.Replace('D', 'E').Replace('d', 'e'), NumberStyles.Float, CultureInfo.InvariantCulture);
-
-    /// <summary>
-    /// MS-VBAL 3.3.2: an explicit type-declaration character wins; otherwise an unsuffixed
-    /// floating-point literal is <c>Double</c> and an unsuffixed integer literal takes the smallest
-    /// of <c>Integer</c>, <c>Long</c>, <c>Double</c> that holds it.
-    /// </summary>
-    private static VBTypedValue ResolveNumericLiteral(char hint, double rawValue, bool isFloat)
-    {
-        if (hint != '\0')
-        {
-            return _typeHintValues[hint](rawValue);
-        }
-        if (isFloat)
-        {
-            return new VBDoubleValue(rawValue);
-        }
-        if (rawValue is >= Int16.MinValue and <= Int16.MaxValue)
-        {
-            return new VBIntegerValue(Convert.ToInt16(rawValue));
-        }
-        if (rawValue is >= Int32.MinValue and <= Int32.MaxValue)
-        {
-            return new VBLongValue(Convert.ToInt32(rawValue));
-        }
-        return new VBDoubleValue(rawValue);
-    }
-
     public override void ExitNumberLiteral([NotNull] VBAParser.NumberLiteralContext context)
     {
         if (!IsDeclarationPassExpression)
@@ -362,43 +311,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         var location = context.GetSourceLocation(_rootUri);
-        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, ResolveNumberLiteral(context)));
-    }
+        var token = (context.INTEGERLITERAL() ?? context.FLOATLITERAL() ?? context.HEXLITERAL() ?? context.OCTLITERAL())?.GetText()
+            ?? string.Empty;
 
-    // MS-VBAL 3.3.2. A literal whose value does not fit its forced or inferred type (`99999%`,
-    // `&H` past Int64) is a syntax error a later pass will formalize; here it degrades to an unknown
-    // value so the rest of the module still parses.
-    private static VBTypedValue ResolveNumberLiteral(VBAParser.NumberLiteralContext context)
-    {
-        try
+        var (value, overflow) = NumericLiteral.Resolve(token);
+        if (overflow)
         {
-            if (context.INTEGERLITERAL() is { } intNumeric)
-            {
-                var (digits, hint) = SplitTypeHint(intNumeric.Symbol.Text);
-                return ResolveNumericLiteral(hint, ParseIntegerLiteralValue(digits), isFloat: false);
-            }
-            if (context.FLOATLITERAL() is { } floatNumeric)
-            {
-                var (digits, hint) = SplitTypeHint(floatNumeric.Symbol.Text);
-                return ResolveNumericLiteral(hint, ParseFloatLiteralValue(digits), isFloat: true);
-            }
-            if (context.HEXLITERAL() is { } hexNumeric)
-            {
-                var (digits, hint) = SplitTypeHint(hexNumeric.Symbol.Text);
-                return ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 16), isFloat: false);
-            }
-            if (context.OCTLITERAL() is { } octNumeric)
-            {
-                var (digits, hint) = SplitTypeHint(octNumeric.Symbol.Text);
-                return ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 8), isFloat: false);
-            }
+            _errors.Report(location, VBCompileErrorId.NumericLiteralOverflow, Exceptions.VBCompileError_NumericLiteralOverflow_Verbose);
         }
-        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
-        {
-            // out of range / malformed digits — leave the literal unresolved.
-        }
-
-        return VBUnknownValue.DefaultValue;
+        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
     }
     public override void ExitLiteralExpression([NotNull] VBAParser.LiteralExpressionContext context)
     {
