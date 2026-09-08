@@ -170,12 +170,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitVariableSubStmt([NotNull] VBAParser.VariableSubStmtContext context)
     {
-        var parent = (VBAParser.VariableStmtContext)context.Parent.Parent;
-        var modifier = AccessModifier.Implicit;
-        if (parent.visibility()?.GetText() is string visibility)
-        {
-            modifier = Enum.Parse<AccessModifier>(visibility, ignoreCase: true);
-        }
+        // recovery can leave Parent.Parent not pointing at the VariableStmt that carries the visibility.
+        var parent = context.Parent?.Parent as VBAParser.VariableStmtContext;
+        var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
         OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier));
     }
 
@@ -183,12 +180,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
     {
-        var parent = (VBAParser.ConstStmtContext)context.Parent;
-        var modifier = AccessModifier.Implicit;
-        if (parent.visibility()?.GetText() is string visibility)
-        {
-            modifier = Enum.Parse<AccessModifier>(visibility, ignoreCase: true);
-        }
+        var parent = context.Parent as VBAParser.ConstStmtContext;
+        var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));
     }
 
@@ -237,15 +230,22 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public override void ExitAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
     {
+        // `As` with no type token (half-typed / recovery): the LL error listener already records the
+        // located "missing type" syntax error — just don't build a broken expression node.
+        if (context.type() is not { } type)
+        {
+            return;
+        }
+
         var location = context.GetSourceLocation(_rootUri);
-        var value = context.type().GetText().Split('.');
+        var value = type.GetText().Split('.');
 
         var qualifier = value.Length > 1 ? value[0] : null;
         var name = value.Last();
 
-        OnExpression(new AsTypeExpressionNode(GetCurrentNodeId(), location, name, qualifier, 
-            AsAutoObject: context.NEW() is not null, 
-            IsArrayDef: context.type().LPAREN() is not null));
+        OnExpression(new AsTypeExpressionNode(GetCurrentNodeId(), location, name, qualifier,
+            AsAutoObject: context.NEW() is not null,
+            IsArrayDef: type.LPAREN() is not null));
     }
 
     public override void ExitSimpleNameExpr([NotNull] VBAParser.SimpleNameExprContext context)
@@ -307,6 +307,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private static (string digits, char hint) SplitTypeHint(string text)
         => text.Length > 0 && "%&^!#@".IndexOf(text[^1]) >= 0 ? (text[..^1], text[^1]) : (text, '\0');
 
+    // MS-VBAL 3.3.2 note: an unsuffixed integer literal past Long range widens to Double
+    // (never LongLong). Long.Parse would throw; fall through to a Double approximation.
+    private static double ParseIntegerLiteralValue(string digits)
+        => long.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : double.Parse(digits, NumberStyles.Float, CultureInfo.InvariantCulture);
+
     /// <summary>
     /// MS-VBAL 3.3.2: an explicit type-declaration character wins; otherwise an unsuffixed
     /// floating-point literal is <c>Double</c> and an unsuffixed integer literal takes the smallest
@@ -341,29 +348,43 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         var location = context.GetSourceLocation(_rootUri);
-        VBTypedValue value = VBUnknownValue.DefaultValue;
-        if (context.INTEGERLITERAL() is ITerminalNode intNumeric)
+        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, ResolveNumberLiteral(context)));
+    }
+
+    // MS-VBAL 3.3.2. A literal whose value does not fit its forced or inferred type (`99999%`,
+    // `&H` past Int64) is a syntax error a later pass will formalize; here it degrades to an unknown
+    // value so the rest of the module still parses.
+    private static VBTypedValue ResolveNumberLiteral(VBAParser.NumberLiteralContext context)
+    {
+        try
         {
-            var (digits, hint) = SplitTypeHint(intNumeric.Symbol.Text);
-            value = ResolveNumericLiteral(hint, Int64.Parse(digits), isFloat: false);
+            if (context.INTEGERLITERAL() is { } intNumeric)
+            {
+                var (digits, hint) = SplitTypeHint(intNumeric.Symbol.Text);
+                return ResolveNumericLiteral(hint, ParseIntegerLiteralValue(digits), isFloat: false);
+            }
+            if (context.FLOATLITERAL() is { } floatNumeric)
+            {
+                var (digits, hint) = SplitTypeHint(floatNumeric.Symbol.Text);
+                return ResolveNumericLiteral(hint, double.Parse(digits, CultureInfo.InvariantCulture), isFloat: true);
+            }
+            if (context.HEXLITERAL() is { } hexNumeric)
+            {
+                var (digits, hint) = SplitTypeHint(hexNumeric.Symbol.Text);
+                return ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 16), isFloat: false);
+            }
+            if (context.OCTLITERAL() is { } octNumeric)
+            {
+                var (digits, hint) = SplitTypeHint(octNumeric.Symbol.Text);
+                return ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 8), isFloat: false);
+            }
         }
-        else if (context.FLOATLITERAL() is ITerminalNode floatNumeric)
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
-            var (digits, hint) = SplitTypeHint(floatNumeric.Symbol.Text);
-            value = ResolveNumericLiteral(hint, Double.Parse(digits, CultureInfo.InvariantCulture), isFloat: true);
-        }
-        else if (context.HEXLITERAL() is ITerminalNode hexNumeric)
-        {
-            var (digits, hint) = SplitTypeHint(hexNumeric.Symbol.Text);
-            value = ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 16), isFloat: false);
-        }
-        else if (context.OCTLITERAL() is ITerminalNode octNumeric)
-        {
-            var (digits, hint) = SplitTypeHint(octNumeric.Symbol.Text);
-            value = ResolveNumericLiteral(hint, Convert.ToInt64(digits[2..], fromBase: 8), isFloat: false);
+            // out of range / malformed digits — leave the literal unresolved.
         }
 
-        OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
+        return VBUnknownValue.DefaultValue;
     }
     public override void ExitLiteralExpression([NotNull] VBAParser.LiteralExpressionContext context)
     {

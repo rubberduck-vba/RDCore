@@ -22,27 +22,25 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
         return new AttributeDirectiveNode(NodeId, context.GetSourceLocation(_rootUri), name, value, qualifier);
     }
-    public SyntaxNode BuildImplementsDirective(VBAParser.ImplementsStmtContext context) =>
-        new ImplementsDirectiveNode(
-            NodeId,
-            context.GetSourceLocation(_rootUri),
-            (ExpressionNode)_children[0]);
+    public SyntaxNode BuildImplementsDirective(VBAParser.ImplementsStmtContext context)
+    {
+        // `Implements` with no name (half-typed / recovery) leaves no collected child expression.
+        var nameExpression = _children.Count > 0 ? _children[0] as ExpressionNode : null;
+        return new ImplementsDirectiveNode(NodeId, context.GetSourceLocation(_rootUri), nameExpression);
+    }
 
     public SyntaxNode BuildExternalDeclaration(VBAParser.DeclareStmtContext context)
     {
         var name = context.identifier().untypedIdentifier()?.GetText()
             ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
-        var visibility = context.visibility()?.GetText();
         var kind = context.FUNCTION() is not null ? MemberKind.ExternalFunction : MemberKind.ExternalProcedure;
         var isPtrSafe = context.PTRSAFE() is not null;
         var literals = context.STRINGLITERAL();
-        var lib = literals[0].GetText();
+        var lib = literals.Length > 0 ? literals[0].GetText() : string.Empty;
         var alias = literals.Length > 1 ? literals[1].GetText() : null;
 
         var location = context.GetSourceLocation(_rootUri);
-        var modifier = string.IsNullOrWhiteSpace(visibility)
-            ? AccessModifier.Implicit
-            : Enum.Parse<AccessModifier>(visibility, ignoreCase: true);
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new ExternalMemberDeclarationNode(
             NodeId, 
@@ -59,8 +57,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     {
         var name = context.identifier().untypedIdentifier()?.GetText()
                 ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId, 
@@ -73,8 +70,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     public SyntaxNode BuildUserDefinedTypeDeclaration(VBAParser.UdtDeclarationContext context)
     {
         var name = context.untypedIdentifier().GetText();
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -103,8 +99,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.identifier().untypedIdentifier()?.GetText()
             ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
         
         return new MemberDeclarationNode(
             NodeId,
@@ -139,8 +134,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.functionName().identifier().untypedIdentifier()?.GetText()
             ?? context.functionName().identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -155,8 +149,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
             ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -171,8 +164,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
             ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -187,8 +179,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.subroutineName().identifier().untypedIdentifier()?.GetText()
             ?? context.subroutineName().identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -203,8 +194,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.functionName().identifier().untypedIdentifier()?.GetText()
             ?? context.functionName().identifier().typedIdentifier().untypedIdentifier().GetText();
 
-        var modifier = context.visibility()?.GetText() is string value
-            ? Enum.Parse<AccessModifier>(value) : AccessModifier.Implicit;
+        var modifier = ParseAccessModifier(context.visibility()?.GetText());
 
         return new MemberDeclarationNode(
             NodeId,
@@ -264,12 +254,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.identifier().GetText();
 
         var location = context.GetSourceLocation(_rootUri);
-        var parent = (VBAParser.EnumerationStmtContext)context.Parent;
-        var modifier = AccessModifier.Implicit;
-        if (parent.visibility()?.GetText() is string visibility)
-        {
-            modifier = Enum.Parse<AccessModifier>(visibility, ignoreCase: true);
-        }
+        // an enum constant inherits the enclosing Enum's visibility; recovery can leave Parent not
+        // pointing at an EnumerationStmt.
+        var parent = context.Parent as VBAParser.EnumerationStmtContext;
+        var modifier = ParseAccessModifier(parent?.visibility()?.GetText());
 
         return new ConstantDeclarationNode(
             NodeId,

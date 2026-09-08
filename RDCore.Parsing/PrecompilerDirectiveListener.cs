@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace RDCore.Parsing;
 
@@ -203,6 +204,19 @@ internal class PrecompilerDirectiveListener(Uri sourceUri) : VBAConditionalCompi
 
     public override void ExitLiteral([NotNull] VBAConditionalCompilationParser.LiteralContext context)
     {
+        try
+        {
+            ResolveCcLiteral(context);
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+        {
+            // a #Const literal value that does not fit its type degrades to no expression rather than
+            // forfeiting the whole module's precompiler trivia.
+        }
+    }
+
+    private void ResolveCcLiteral(VBAConditionalCompilationParser.LiteralContext context)
+    {
         var location = context.GetSourceLocation(_rootUri);
         if (context.FALSE() is not null)
         {
@@ -228,7 +242,8 @@ internal class PrecompilerDirectiveListener(Uri sourceUri) : VBAConditionalCompi
         }
         else if (context.FLOATLITERAL() is ITerminalNode floatNode)
         {
-            var rawValue = Double.Parse(floatNode.Symbol.Text);
+            // MS-VBAL 3.3.2: the literal's decimal separator is '.', independent of the host locale.
+            var rawValue = double.Parse(floatNode.Symbol.Text, CultureInfo.InvariantCulture);
             VBTypedValue value = (rawValue <= Single.MaxValue && rawValue >= Single.MinValue)
                 ? new VBSingleValue(new ConstantBindingHandle(new VBRuntimeValue<Single>(Convert.ToSingle(rawValue))))
                 : new VBDoubleValue(new ConstantBindingHandle(new VBRuntimeValue<double>(rawValue)));

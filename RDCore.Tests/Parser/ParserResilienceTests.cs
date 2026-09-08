@@ -67,6 +67,23 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
+    // valid VBA the declaration pass used to reject — casing, culture, empty forms.
+    [DataRow("public Sub Foo()\r\nEnd Sub", DisplayName = "lowercase visibility keyword")]
+    [DataRow("PRIVATE Function F() As Long\r\nEnd Function", DisplayName = "uppercase visibility keyword")]
+    [DataRow("fRiEnD Property Get P()\r\nEnd Property", DisplayName = "mixed-case visibility keyword")]
+    [DataRow("' just a comment", DisplayName = "comment only")]
+    [DataRow("\r\n", DisplayName = "blank")]
+    [DataRow("#Const RDDEBUG = 1.5\r\n#If RDDEBUG Then\r\nPublic X As Long\r\n#End If", DisplayName = "#Const float literal")]
+    [DataRow("Public Const Big = 3000000000", DisplayName = "unsuffixed integer past Long")]
+    public void ParsesValidVbaClean(string source)
+    {
+        var result = Parse(source);
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        Assert.IsNotNull(result.SyntaxTree);
+    }
+
+    [TestMethod]
     public void ListenerException_StillYieldsLocatedErrorsAndTrivia()
     {
         // a #Const so there is precompiler trivia to preserve, then a construct that stresses recovery.

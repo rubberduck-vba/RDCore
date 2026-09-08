@@ -21,6 +21,7 @@ public sealed class NumericLiteralTypeHintTests
         Public Const UnsuffixedSmall = 42
         Public Const UnsuffixedLong = 40000
         Public Const UnsuffixedDouble = 3000000000
+        Public Const UnsuffixedHuge = 99999999999999999999
         Public Const UnsuffixedFloat = 2.5
         """;
 
@@ -58,6 +59,8 @@ public sealed class NumericLiteralTypeHintTests
     [DataRow("UnsuffixedSmall", typeof(VBIntegerValue))]
     [DataRow("UnsuffixedLong", typeof(VBLongValue))]
     [DataRow("UnsuffixedDouble", typeof(VBDoubleValue))]
+    // MS-VBAL §3.3.2 note: an unsuffixed integer past Long range widens to Double, never LongLong.
+    [DataRow("UnsuffixedHuge", typeof(VBDoubleValue))]
     [DataRow("UnsuffixedFloat", typeof(VBDoubleValue))]
     public void ResolvesLiteralStaticType(string constName, Type expected)
         => Assert.AreEqual(expected, LiteralTypesByConstName()[constName]);
