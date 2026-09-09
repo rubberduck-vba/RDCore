@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -91,7 +93,18 @@ internal sealed class CoreLanguageServerApp(
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
-        // TODO configure Client <=> LangServer handlers here
+        builder.WithHandler<DocumentDiagnosticHandler>();
+    }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        // the pull handler is built by the OmniSharp container; DocumentDiagnosticsService's
+        // collaborators live in the external (host) container, so bridge the service across.
+        services.AddSingleton<IDocumentDiagnosticsService>(omni => new DocumentDiagnosticsService(
+            ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),
+            ExternalServices.GetRequiredService<IParsingClientService>(),
+            ExternalServices.GetRequiredService<IPlatformOrchestrationService>(),
+            omni.GetRequiredService<ILogger<DocumentDiagnosticsService>>()));
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
