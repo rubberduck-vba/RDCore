@@ -22,6 +22,11 @@ internal interface IParsingClientService
     Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, ModuleType moduleType, CancellationToken token);
 
     /// <summary>
+    /// Parses one workspace document, deriving the module type from the document's file extension.
+    /// </summary>
+    Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token);
+
+    /// <summary>
     /// Parses every currently-loaded workspace source document. Failures are logged, not thrown.
     /// </summary>
     Task ParseWorkspaceAsync(CancellationToken token);
@@ -44,6 +49,9 @@ internal sealed class ParsingClientService(
 
     public bool TryGetCached(Uri documentUri, out ModuleParseResult result)
         => _cache.TryGetValue(documentUri, out result!);
+
+    public Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token)
+        => ParseDocumentAsync(documentUri, ModuleTypeOf(documentUri), token);
 
     public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, ModuleType moduleType, CancellationToken token)
     {
@@ -117,6 +125,10 @@ internal sealed class ParsingClientService(
 
     private static ModuleType ModuleTypeOf(WorkspaceDocument document)
         => _classModuleExtensions.Contains(document.Extension) ? ModuleType.ClassModule : ModuleType.StdModule;
+
+    private static ModuleType ModuleTypeOf(Uri documentUri)
+        => _classModuleExtensions.Contains(Path.GetExtension(documentUri.LocalPath))
+            ? ModuleType.ClassModule : ModuleType.StdModule;
 
     private void LogIfEnabled(LogLevel level, string message)
     {
