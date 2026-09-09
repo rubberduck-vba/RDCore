@@ -275,11 +275,30 @@ public sealed class ParserResilienceTests
         // overflow. EnterEveryRule's stack guard converts it to a catchable, located failure.
         var source = "Public Const X = " + new string('(', 2000) + "1" + new string(')', 2000);
 
-        ModuleParseResult result = null!;
-        var thrown = Record(() => result = Parse(source));
+        // parse on a deliberately small stack: whether 2000 frames exhausts the default stack is
+        // platform-dependent (it does on Windows, not on the Linux CI). 256 KB makes the guard fire
+        // everywhere, so the invariant under test — no uncatchable crash — is what's asserted.
+        ModuleParseResult? result = null;
+        Exception? thrown = null;
+        var worker = new Thread(
+            () =>
+            {
+                try
+                {
+                    result = Parse(source);
+                }
+                catch (Exception exception)
+                {
+                    thrown = exception;
+                }
+            },
+            maxStackSize: 256 * 1024);
+        worker.Start();
+        worker.Join();
 
         Assert.IsNull(thrown, $"parsing threw {thrown?.GetType().Name}");
-        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result);
+        Assert.IsFalse(result!.IsSuccess);
     }
 
     [TestMethod]
