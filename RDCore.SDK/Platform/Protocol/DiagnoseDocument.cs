@@ -1,8 +1,8 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.Diagnostics;
 
 namespace RDCore.SDK.Platform.Protocol;
 
@@ -15,11 +15,12 @@ namespace RDCore.SDK.Platform.Protocol;
 /// parsed <see cref="ModuleParseResult"/> down rather than have each provider re-read and re-parse.
 /// The parse result's AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it
 /// (see <see cref="PlatformJson"/>), so the payload rides a <see cref="System.Text.Json"/> string in
-/// <see cref="Json"/> and the response rides a <see cref="PlatformJsonEnvelope"/>. Only extensions
-/// whose manifest advertises the <see cref="DiagnoseDocument"/> capability receive this request.
+/// <see cref="Json"/>. The response is a plain <see cref="DiagnoseDocumentResponse"/> — an LSP
+/// <see cref="Diagnostic"/> is the transport serializer's own model. Only extensions whose manifest
+/// advertises the <see cref="DiagnoseDocument"/> capability receive this request.
 /// </remarks>
 [Method(RDCorePlatformProtocol.DiagnoseDocument, Direction.ClientToServer)]
-public record class DiagnoseDocumentRequest : IRequest, IRequest<PlatformJsonEnvelope>
+public record class DiagnoseDocumentRequest : IRequest, IRequest<DiagnoseDocumentResponse>
 {
     /// <summary>
     /// The <see cref="System.Text.Json"/> representation of a <see cref="DiagnoseDocumentPayload"/>.
@@ -43,8 +44,19 @@ public record class DiagnoseDocumentRequest : IRequest, IRequest<PlatformJsonEnv
 public record class DiagnoseDocumentPayload(Uri DocumentUri, int SourceVersion, ModuleParseResult ParseResult);
 
 /// <summary>
-/// The <see cref="System.Text.Json"/> payload carried in the response <see cref="PlatformJsonEnvelope"/>.
+/// Response to <c>rdcore/diagnostics/document</c>: the diagnostics a provider found, already projected
+/// to LSP <see cref="Diagnostic"/>s (code, <c>codeDescription</c> help URL, and structured
+/// <c>data</c>), plus the source version echoed back for the language server's staleness gate.
 /// </summary>
-/// <param name="Diagnostics">The diagnostics the provider found.</param>
-/// <param name="SourceVersion">The <see cref="DiagnoseDocumentPayload.SourceVersion"/> echoed back unchanged.</param>
-public record class DiagnoseDocumentResult(PlatformDiagnostic[] Diagnostics, int SourceVersion);
+public record class DiagnoseDocumentResponse
+{
+    /// <summary>
+    /// The diagnostics the provider found, in source order.
+    /// </summary>
+    public Container<Diagnostic> Diagnostics { get; init; } = new();
+
+    /// <summary>
+    /// The <see cref="DiagnoseDocumentPayload.SourceVersion"/> echoed back unchanged.
+    /// </summary>
+    public int SourceVersion { get; init; }
+}

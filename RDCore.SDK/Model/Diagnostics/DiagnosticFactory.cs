@@ -5,7 +5,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
 
-namespace RDCore.SDK.Semantics.Diagnostics;
+namespace RDCore.SDK.Model.Diagnostics;
 
 /// <summary>
 /// Encapsulates additional metadata specifically for error diagnostics.
@@ -60,8 +60,10 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
     public Diagnostic FromVBRuntimeError(VBRuntimeErrorInfo info) => CreateDiagnostic(info);
     public Diagnostic FromVBApplicationError(VBApplicationErrorInfo info) => CreateDiagnostic(info);
 
+    // the LSP client opens this URL when the reader follows a diagnostic's "learn more" — it is the
+    // per-code page docfx publishes from docs/diagnostics/<code>.md, hence the .html extension.
     private static Uri CreateCodeDescriptionUri(string code) =>
-        new($"{RDCoreUrl.RDCoreDiagnosticCodeDescriptionBaseWebUrl}/{code.ToLowerInvariant()}");
+        new($"{RDCoreUrl.RDCoreDiagnosticCodeDescriptionBaseWebUrl}/{code.ToLowerInvariant()}.html");
 
     private static CodeDescription CreateCodeDescription(string code) =>
         new() { Href = CreateCodeDescriptionUri(code) };

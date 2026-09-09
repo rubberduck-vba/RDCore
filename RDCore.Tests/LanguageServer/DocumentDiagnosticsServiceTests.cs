@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
@@ -9,11 +10,9 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
-using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
-using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -39,26 +38,32 @@ public sealed class DocumentDiagnosticsServiceTests
         => _documents.GetAllDocuments().Returns([first], [then]);
 
     private void ParseYields()
-        => _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+        => _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<ModuleType>(), Arg.Any<CancellationToken>())
             .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub"));
 
-    private static PlatformDiagnostic Diag(int line, int code = 1, string source = "RDCore.Diagnostics", string message = "Syntax error")
-        => new(code, source, DiagnosticSeverity.Error,
-            new SourceLocation(TestUri.TestModuleUri(), new SourceRange(line, 0, line, 4)), message, null);
+    private static Diagnostic Diag(int line, string code = "VBC01027", string source = "RDCore", string message = "Syntax error")
+        => new()
+        {
+            Code = new DiagnosticCode(code),
+            Source = source,
+            Message = message,
+            Severity = DiagnosticSeverity.Error,
+            Range = new Range(new Position(line, 0), new Position(line, 4)),
+        };
 
-    private IRDCoreClientApp Provider(string title, int sourceVersion, params PlatformDiagnostic[] diagnostics)
+    private IRDCoreClientApp Provider(string title, int sourceVersion, params Diagnostic[] diagnostics)
     {
         var app = Substitute.For<IRDCoreClientApp>();
         app.ExtensionInfo.Returns(new ExtensionInfo(
             $"{title}.exe", title, new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         app.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        app.SendRequestAsync<DiagnoseDocumentRequest, PlatformJsonEnvelope>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
-            .Returns(PlatformJsonEnvelope.Of(new DiagnoseDocumentResult(diagnostics, sourceVersion)));
+        app.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new DiagnoseDocumentResponse { Diagnostics = diagnostics, SourceVersion = sourceVersion });
         return app;
     }
 
-    private IRDCoreClientApp NonProvider()
+    private static IRDCoreClientApp NonProvider()
     {
         var app = Substitute.For<IRDCoreClientApp>();
         app.ExtensionInfo.Returns(new ExtensionInfo(
@@ -82,7 +87,7 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual("v1", result.ResultId);
         Assert.IsFalse(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
-        await _parsing.DidNotReceive().ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
+        await _parsing.DidNotReceive().ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<ModuleType>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -123,7 +128,7 @@ public sealed class DocumentDiagnosticsServiceTests
         var shared = Diag(1);
         ProvidersAre(
             Provider("RDCore.Diagnostics", 1, shared, Diag(2)),
-            Provider("Other.Analyzer", 1, shared with { }));
+            Provider("Other.Analyzer", 1, Diag(1)));
 
         var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
@@ -158,7 +163,7 @@ public sealed class DocumentDiagnosticsServiceTests
             "boom.exe", "Boom", new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         failing.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        failing.SendRequestAsync<DiagnoseDocumentRequest, PlatformJsonEnvelope>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
+        failing.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         ProvidersAre(failing, Provider("RDCore.Diagnostics", 1, Diag(1)));

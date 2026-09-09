@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.Diagnostics.Handlers;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -34,6 +35,11 @@ internal class CoreDiagnosticsApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DiagnoseDocumentHandler>();
+    }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        services.AddSingleton<ICoreDiagnosticsFactory, DiagnosticFactory>();
     }
 
     protected override void Dispose(bool disposing)

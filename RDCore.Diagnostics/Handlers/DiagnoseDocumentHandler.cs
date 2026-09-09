@@ -7,26 +7,26 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Diagnostics.Handlers;
 
 [Method(RDCorePlatformProtocol.DiagnoseDocument)]
-internal sealed class DiagnoseDocumentHandler(ILogger<DiagnoseDocumentHandler> logger)
-    : RDCoreRequestHandler<DiagnoseDocumentRequest, PlatformJsonEnvelope>
+internal sealed class DiagnoseDocumentHandler(ICoreDiagnosticsFactory diagnostics, ILogger<DiagnoseDocumentHandler> logger)
+    : RDCoreRequestHandler<DiagnoseDocumentRequest, DiagnoseDocumentResponse>
 {
-    private const string ProviderName = "RDCore.Diagnostics";
-
-    protected override Task<PlatformJsonEnvelope> HandleAsync(DiagnoseDocumentRequest request, CancellationToken token)
+    protected override Task<DiagnoseDocumentResponse> HandleAsync(DiagnoseDocumentRequest request, CancellationToken token)
     {
         var payload = PlatformJson.Deserialize<DiagnoseDocumentPayload>(request.Json);
 
-        // the sole diagnostic today: the parser's located syntax errors, re-emitted as platform
-        // diagnostics. the semantic analyzers (RuntimeSemanticsAnalyzer, RDCoreDiagnosticId) are a later pass.
-        var diagnostics = payload.ParseResult.SyntaxErrors
-            .Select(error => new PlatformDiagnostic(
-                error.ErrorId, ProviderName, DiagnosticSeverity.Error,
-                error.Location, error.Description, error.Verbose))
+        // syntax errors are the diagnostics this extension projects at this stage; the compile-time,
+        // runtime, and analyzer passes feed the same ICoreDiagnosticsFactory as they come online.
+        var diagnosticList = payload.ParseResult.SyntaxErrors
+            .Select(diagnostics.FromVBSyntaxError)
             .ToArray();
 
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
-            RDCorePlatformProtocol.DiagnoseDocument, payload.DocumentUri, diagnostics.Length);
+            RDCorePlatformProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Length);
 
-        return Task.FromResult(PlatformJsonEnvelope.Of(new DiagnoseDocumentResult(diagnostics, payload.SourceVersion)));
+        return Task.FromResult(new DiagnoseDocumentResponse
+        {
+            Diagnostics = diagnosticList,
+            SourceVersion = payload.SourceVersion,
+        });
     }
 }

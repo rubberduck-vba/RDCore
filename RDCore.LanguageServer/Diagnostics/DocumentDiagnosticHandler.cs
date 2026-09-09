@@ -1,17 +1,16 @@
-using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Model.Diagnostics;
-using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
-using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
-using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.LanguageServer.Diagnostics;
 
-// LSP 3.17 textDocument/diagnostic (pull). The client asks, this handler delegates the fan-out and
-// staleness gate to IDocumentDiagnosticsService and maps the aggregated platform diagnostics to LSP.
+/// <summary>
+/// Serves the <strong>LSP 3.17</strong> <c>textDocument/diagnostic</c> pull request. The client asks;
+/// the handler delegates the provider fan-out and the version staleness gate to
+/// <see cref="IDocumentDiagnosticsService"/> and returns the aggregated diagnostics — already LSP
+/// <see cref="Diagnostic"/>s, projected by the provider — as a related full or unchanged report.
+/// </summary>
 internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diagnostics) : DocumentDiagnosticHandlerBase
 {
     public override async Task<RelatedDocumentDiagnosticReport> Handle(DocumentDiagnosticParams request, CancellationToken cancellationToken)
@@ -26,7 +25,7 @@ internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diag
         return new RelatedFullDocumentDiagnosticReport
         {
             ResultId = result.ResultId,
-            Items = new Container<LspDiagnostic>(result.Diagnostics.Select(ToLspDiagnostic)),
+            Items = new Container<Diagnostic>(result.Diagnostics),
         };
     }
 
@@ -39,21 +38,4 @@ internal sealed class DocumentDiagnosticHandler(IDocumentDiagnosticsService diag
             InterFileDependencies = false,
             WorkspaceDiagnostics = false,
         };
-
-    private static LspDiagnostic ToLspDiagnostic(PlatformDiagnostic diagnostic)
-    {
-        var range = diagnostic.Location.Range;
-        return new LspDiagnostic
-        {
-            Range = new LspRange(
-                new Position(range.Start.Line, range.Start.Character),
-                new Position(range.End.Line, range.End.Character)),
-            Severity = (LspDiagnosticSeverity)diagnostic.Severity,
-            Code = diagnostic.Code,
-            Source = diagnostic.Source,
-            Message = diagnostic.Message,
-            // the faulted-token detail rides Data so a client can surface it without a second request.
-            Data = diagnostic.Verbose is null ? null : JToken.FromObject(diagnostic.Verbose),
-        };
-    }
 }

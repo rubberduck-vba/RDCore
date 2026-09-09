@@ -1,15 +1,17 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
-using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.Platform;
 
 /// <summary>
-/// <see cref="DiagnoseDocumentPayload"/> carries a polymorphic <c>ModuleParseResult</c> across the
-/// language-server → provider-extension boundary, so it rides a <see cref="PlatformJson"/> string
-/// rather than the JSON-RPC transport's own serializer.
+/// <see cref="DiagnoseDocumentPayload"/> carries a polymorphic <c>ModuleParseResult</c> to a provider
+/// extension, so it rides a <see cref="PlatformJson"/> string; the
+/// <see cref="DiagnoseDocumentResponse"/> comes back as plain LSP <see cref="Diagnostic"/>s the
+/// transport's own (Newtonsoft) serializer round-trips.
 /// </summary>
 [TestClass]
 public sealed class DiagnoseDocumentSerializationTests
@@ -27,35 +29,6 @@ public sealed class DiagnoseDocumentSerializationTests
         """;
 
     private const string CleanModule = "Option Explicit\r\n\r\nPublic Sub DoNothing()\r\nEnd Sub\r\n";
-
-    [TestMethod]
-    public void PlatformDiagnostic_RoundTripsThroughPlatformJson()
-    {
-        var original = new PlatformDiagnostic(
-            Code: 1027,
-            Source: "RDCore.Diagnostics",
-            Severity: DiagnosticSeverity.Error,
-            Location: new SourceLocation(TestUri.TestModuleUri(), new SourceRange(3, 4, 3, 18)),
-            Message: "Syntax error",
-            Verbose: "unexpected token 'GetPtr'");
-
-        var result = PlatformJson.Deserialize<PlatformDiagnostic>(PlatformJson.Serialize(original));
-
-        Assert.AreEqual(original, result);
-    }
-
-    [TestMethod]
-    public void PlatformDiagnostic_KeepsANullVerbose()
-    {
-        var original = new PlatformDiagnostic(
-            101, "RDCore.Diagnostics", DiagnosticSeverity.Warning,
-            new SourceLocation(TestUri.TestModuleUri(), SourceRange.Empty), "Implicit declaration", Verbose: null);
-
-        var result = PlatformJson.Deserialize<PlatformDiagnostic>(PlatformJson.Serialize(original));
-
-        Assert.IsNull(result.Verbose);
-        Assert.AreEqual(original, result);
-    }
 
     [TestMethod]
     public void DiagnoseDocumentPayload_RoundTripsWithItsAstAndSyntaxErrors()
@@ -98,21 +71,41 @@ public sealed class DiagnoseDocumentSerializationTests
     }
 
     [TestMethod]
-    public void DiagnoseDocumentResult_RoundTripsThroughPlatformJson()
+    public void DiagnoseDocumentResponse_RoundTripsThroughTheLspSerializer()
     {
-        var original = new DiagnoseDocumentResult(
-            [
-                new PlatformDiagnostic(1027, "RDCore.Diagnostics", DiagnosticSeverity.Error,
-                    new SourceLocation(TestUri.TestModuleUri(), new SourceRange(1, 0, 1, 5)), "Syntax error", "detail"),
-                new PlatformDiagnostic(1027, "RDCore.Diagnostics", DiagnosticSeverity.Error,
-                    new SourceLocation(TestUri.TestModuleUri(), new SourceRange(3, 0, 3, 5)), "Syntax error", null),
-            ],
-            SourceVersion: 4);
+        var original = new DiagnoseDocumentResponse
+        {
+            SourceVersion = 4,
+            Diagnostics = new Container<Diagnostic>(
+                new Diagnostic
+                {
+                    Code = new DiagnosticCode("VBC01027"),
+                    CodeDescription = new CodeDescription { Href = new Uri("https://rubberduck-vba.github.io/RDCore/diagnostics/vbc01027.html") },
+                    Severity = DiagnosticSeverity.Error,
+                    Source = "RDCore",
+                    Message = "Syntax error",
+                    Range = new Range(new Position(3, 0), new Position(3, 5)),
+                },
+                new Diagnostic
+                {
+                    Code = new DiagnosticCode("VBC01027"),
+                    Severity = DiagnosticSeverity.Error,
+                    Source = "RDCore",
+                    Message = "Syntax error",
+                    Range = new Range(new Position(1, 0), new Position(1, 5)),
+                }),
+        };
 
-        var result = PlatformJson.Deserialize<DiagnoseDocumentResult>(PlatformJson.Serialize(original));
+        var json = LspSerializer.Instance.SerializeObject(original);
+        var result = LspSerializer.Instance.DeserializeObject<DiagnoseDocumentResponse>(json);
 
         Assert.AreEqual(4, result.SourceVersion);
-        Assert.AreEqual(2, result.Diagnostics.Length);
-        CollectionAssert.AreEqual(original.Diagnostics, result.Diagnostics);
+        Assert.AreEqual(2, result.Diagnostics.Count());
+
+        var first = result.Diagnostics.First();
+        Assert.AreEqual("VBC01027", first.Code!.Value.String);
+        Assert.AreEqual("https://rubberduck-vba.github.io/RDCore/diagnostics/vbc01027.html", first.CodeDescription!.Href.ToString());
+        Assert.AreEqual(DiagnosticSeverity.Error, first.Severity);
+        Assert.AreEqual(new Range(new Position(3, 0), new Position(3, 5)), first.Range);
     }
 }
