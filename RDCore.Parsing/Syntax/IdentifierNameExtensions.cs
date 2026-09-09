@@ -1,20 +1,14 @@
-using Antlr4.Runtime.Tree;
+﻿using Antlr4.Runtime.Tree;
 using System.Text;
 
 namespace RDCore.Parsing.Syntax;
 
-/// <summary>
-/// Null-tolerant identifier-name extraction from the VBA grammar's identifier rules
-/// (<c>identifier → (typed|untyped)Identifier → identifierValue → IDENTIFIER | keyword | foreignName</c>).
-/// The name behind an identifier can be a plain <c>IDENTIFIER</c>, a keyword (<c>Dim Name As String</c>),
-/// or a bracketed foreign name (<c>Dim [My Var]</c> — the brackets are escape syntax, not part of the
-/// name). Under LL error recovery any intermediate rule context can be <c>null</c>, so every accessor
-/// short-circuits to <see cref="string.Empty"/> rather than throwing on a half-typed declaration.
-/// </summary>
-/// <remarks>Shape inspired by Rubberduck's <c>Identifier.GetName</c> (GPLv3, same lineage).</remarks>
+// null-tolerant identifier-name extraction from the grammar's identifier rules
+// (identifier → (typed|untyped)Identifier → identifierValue → IDENTIFIER | keyword | foreignName).
+// every accessor returns "" instead of throwing where LL recovery leaves an intermediate context
+// null on a half-typed declaration. shape follows Rubberduck's Identifier.GetName (GPLv3).
 internal static class IdentifierNameExtensions
 {
-    /// <summary>The identifier value, brackets stripped and type-hint excluded; empty when unresolvable.</summary>
     public static string Name(this VBAParser.IdentifierValueContext? context)
     {
         if (context is null)
@@ -23,7 +17,7 @@ internal static class IdentifierNameExtensions
         }
         if (context.foreignName() is { } foreign)
         {
-            // '[' foreignIdentifier* ']' — join the inner text, dropping the brackets.
+            // '[' foreignIdentifier* ']' — the brackets are escape syntax, not part of the name.
             var builder = new StringBuilder();
             foreach (var part in foreign.foreignIdentifier())
             {
@@ -35,56 +29,43 @@ internal static class IdentifierNameExtensions
         return IsRecoveryPlaceholder(text) ? string.Empty : text;
     }
 
-    /// <summary>
-    /// <c>true</c> when <paramref name="text"/> is an ANTLR error-recovery placeholder — the display
-    /// form <c>&lt;missing X&gt;</c> that <c>DefaultErrorStrategy</c> gives a synthetically inserted
-    /// token. Such text is never real source and must not land in the AST as a name or a value.
-    /// </summary>
+    // ANTLR's DefaultErrorStrategy gives a synthetically inserted token the display text "<missing X>".
     internal static bool IsRecoveryPlaceholder(string? text)
         => text is null || text.StartsWith("<missing ", StringComparison.Ordinal);
 
-    /// <summary>
-    /// The terminal's source text, or <c>null</c> when it is a synthetic token ANTLR inserted during
-    /// error recovery (a negative token index, or a <c>&lt;missing X&gt;</c> body).
-    /// </summary>
+    // null for a synthetic token ANTLR inserted during recovery (negative index, or a "<missing X>" body).
     internal static string? RealText(this ITerminalNode? node)
         => node is { Symbol.TokenIndex: >= 0 } && !IsRecoveryPlaceholder(node.GetText())
             ? node.GetText()
             : null;
 
-    /// <summary>The identifier text, without any type-declaration character; empty when unresolvable.</summary>
     public static string Name(this VBAParser.IdentifierContext? context)
         => (context?.untypedIdentifier() ?? context?.typedIdentifier()?.untypedIdentifier())?.identifierValue().Name()
            ?? string.Empty;
 
-    /// <summary>The identifier text; empty when unresolvable.</summary>
     public static string Name(this VBAParser.UntypedIdentifierContext? context)
         => context?.identifierValue().Name() ?? string.Empty;
 
-    /// <summary>
-    /// The name behind an <c>unrestrictedIdentifier</c> — an <c>identifier</c> or a reserved-word
-    /// form; falls back to the raw text for the reserved-word form.
-    /// </summary>
+    // unrestrictedIdentifier is `identifier | statementKeyword | markerKeyword`; the keyword forms
+    // have no identifier() child, so fall back to the raw text.
     public static string Name(this VBAParser.UnrestrictedIdentifierContext? context)
         => context is null
             ? string.Empty
             : context.identifier().Name() is { Length: > 0 } name ? name : context.GetText();
 
-    /// <summary>The subroutine name (<c>Sub</c> / <c>Property Let</c> / <c>Property Set</c>); empty when unresolvable.</summary>
     public static string Name(this VBAParser.SubroutineNameContext? context)
         => context?.identifier().Name() ?? string.Empty;
 
-    /// <summary>The function name (<c>Function</c> / <c>Property Get</c>); empty when unresolvable.</summary>
     public static string Name(this VBAParser.FunctionNameContext? context)
         => context?.identifier().Name() ?? string.Empty;
 
-    /// <summary>The name of a user-defined-type field (either the reserved-word or untyped form); empty when unresolvable.</summary>
+    // a UDT field name is either the reserved-word form or the untyped form.
     public static string Name(this VBAParser.UdtMemberContext? context)
         => context?.reservedNameMemberDeclaration()?.unrestrictedIdentifier().Name() is { Length: > 0 } reserved
             ? reserved
             : context?.untypedNameMemberDeclaration()?.untypedIdentifier().Name() ?? string.Empty;
 
-    /// <summary>The type-declaration character on a typed identifier (<c>%</c>, <c>&amp;</c>, …), or <c>null</c>.</summary>
+    // the type-declaration character (%, &, …) on a typed identifier, or null.
     public static string? TypeHint(this VBAParser.IdentifierContext? context)
         => context?.typedIdentifier()?.typeHint()?.GetText();
 }

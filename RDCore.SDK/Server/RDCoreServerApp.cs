@@ -226,17 +226,14 @@ public abstract class RDCoreServerApp(
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
             services.AddSingleton(new PlatformComponentContext(PlatformComponent));
 
-            // bridge the configured server options into the OmniSharp-internal container: its own
-            // AddOptions() would otherwise hand handlers (and the scrubbing logger below) a default,
-            // unconfigured SdkServerOptions. a closed-type registration wins over the open generic.
+            // OmniSharp's own AddOptions() hands handlers an unconfigured SdkServerOptions; bridge the
+            // configured instance so a closed-type registration wins over the open generic.
             services.AddSingleton<IOptions<SdkServerOptions>>(Options.Create(options.Value.Server));
 
             services.AddLogging(builder =>
             {
-                // NOT AddLanguageProtocolLogging(): OmniSharp's protocol logger appends a caught
-                // exception's full ToString() to the window/logMessage it forwards, leaking the build
-                // machine's absolute source paths on a PDB build. Forward the same records with every
-                // message scrubbed, at the operator's WireErrorDetail.
+                // not AddLanguageProtocolLogging(): OmniSharp's protocol logger forwards a caught
+                // exception's raw ToString() over window/logMessage. Forward the same records scrubbed.
                 builder.Services.AddSingleton<ILoggerProvider, ScrubbingLanguageServerLoggerProvider>();
             });
 

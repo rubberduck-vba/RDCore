@@ -36,11 +36,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => [BuildModuleNode()];
 
+    // pathological nesting recurses through the expression rule to an uncatchable stack overflow;
+    // this turns it into a catchable exception the boundary net degrades to a located failure.
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
-        // pathological nesting (hundreds of unbalanced parens / nested calls) recurses through the
-        // expression rule until the stack overflows — an uncatchable crash that would take the parse
-        // server down. This converts it to a catchable exception the boundary net turns into a
-        // located failure.
         => RuntimeHelpers.EnsureSufficientExecutionStack();
 
     public ModuleNode BuildModuleNode()
@@ -90,9 +88,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitOptionBaseStmt([NotNull] VBAParser.OptionBaseStmtContext context)
     {
         var location = context.GetSourceLocation(_rootUri);
-        // Option Base only accepts a bare 0 or 1; the grammar's numberLiteral also admits a hex/oct/
-        // float token, a type-hint suffix, and an out-of-range value — none of which is Option Base 1,
-        // and none of which may throw here. A downstream semantic pass owns rejecting them.
+        // Option Base only accepts a bare 0 or 1; anything else the grammar's numberLiteral admits
+        // (hex/oct/float, a suffix, an out-of-range value) is not base 1 and must not throw here.
         var isBase1 = int.TryParse(context.numberLiteral()?.GetText(), out var value) && value == 1;
         OnModuleOptionDirective(location, isBase1 ? ModuleOptions.OptionBase1 : ModuleOptions.OptionBase0);
     }
@@ -243,24 +240,22 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public override void ExitAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
     {
-        // a `ReDim x(1) As Long` in a procedure body carries an asTypeClause too, but that type
-        // belongs to the ReDim statement, not to the enclosing member. The declaration pass does not
-        // model body statements — without this guard the type node lands on the member.
+        // a body-level `ReDim x(1) As Long` carries an asTypeClause too; that type belongs to the
+        // ReDim statement, not the enclosing member, and this pass does not model body statements.
         if (context.Parent is VBAParser.RedimVariableDeclarationContext)
         {
             return;
         }
 
-        // `As` with no type token (half-typed / recovery): the LL error listener already records the
-        // located "missing type" syntax error — just don't build a broken expression node.
+        // `As` with no type token (half-typed / recovery): the LL error listener already located the
+        // "missing type" error — just don't build a broken node.
         if (context.type() is not { } type)
         {
             return;
         }
 
-        // recovery can still leave `type` a synthetic subtree: a bare "<missing …>" placeholder
-        // (`Dim a As, b As Long`), or — for `As New` with no class name — the NEW keyword alone via
-        // complexType's ctNewExpr alternative, which reads back as "New". Neither is a real type.
+        // recovery can still leave `type` synthetic: a "<missing …>" placeholder (`Dim a As, b As
+        // Long`), or the bare NEW keyword for `As New` with no class name (via complexType's ctNewExpr).
         var typeText = type.GetText();
         if (IdentifierNameExtensions.IsRecoveryPlaceholder(typeText)
             || string.IsNullOrEmpty(typeText)
@@ -350,9 +345,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
-        // VBA has no negative-literal token; `Const N = -1` is MINUS applied to the literal 1. The
-        // declaration pass captures leaf literals only, so fold the sign into the value this operator
-        // wraps — which the walk has just added as the current builder's last child.
+        // VBA has no negative-literal token; `Const N = -1` is MINUS over the literal 1. This pass
+        // captures leaf literals only, so fold the sign into the last one it added.
         if (CurrentBuilder.LastChild is LiteralExpressionNode literal
             && NumericLiteral.Negate(literal.StaticValue) is { } negated)
         {
@@ -461,9 +455,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name));
         }
 
-        // lineNumberLabel is `MINUS? numberLiteral` in the grammar, so it can carry a sign, a type-hint
-        // suffix, or a hex/oct/float token that is not a line number at all. Only a bare non-negative
-        // decimal integer counts; anything else contributes no LineNumberNode rather than throwing.
+        // lineNumberLabel is `MINUS? numberLiteral`, so it can carry a sign or a non-decimal token;
+        // only a bare non-negative integer is a line number, anything else contributes no node.
         static int? LineNumber(VBAParser.LineNumberLabelContext context)
             => context.MINUS() is null && int.TryParse(context.numberLiteral()?.GetText(), out var value)
                 ? value

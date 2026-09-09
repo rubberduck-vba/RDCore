@@ -95,9 +95,8 @@ public class RDCoreParserApp(
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
 
-        // ModuleParser reads Configuration:Server:WireErrorDetail from IOptions<SdkServerOptions>; the
-        // base registers the configured instance into this OmniSharp-internal container (its own
-        // AddOptions would otherwise supply an unconfigured default).
+        // ModuleParser takes IOptions<SdkServerOptions>; the base registers the configured instance
+        // into this container (OmniSharp's own AddOptions would supply an unconfigured default).
         services.AddSingleton<IModuleParser, ModuleParser>();
 
         // handlers resolve ILogger<T> from the OmniSharp-internal container, which otherwise has no

@@ -71,8 +71,7 @@ public sealed class NumericLiteralTests
     }
 
     [TestMethod]
-    // MS-VBAL §3.3.2: a value that does not fit its (forced or inferred) type is an overflow —
-    // MS-VBA rejects these with a cryptic "expected: expression".
+    // MS-VBAL §3.3.2: a value that does not fit its forced or inferred type is an overflow.
     [DataRow("32768%", DisplayName = "Integer suffix overflow")]
     [DataRow("2147483648&", DisplayName = "Long suffix overflow")]
     [DataRow("99999999999999999999^", DisplayName = "LongLong suffix overflow")]
@@ -98,9 +97,8 @@ public sealed class NumericLiteralTests
     }
 
     [TestMethod]
-    // `Const N = -1` — VBA has no negative-literal token, so the resolver's positive value is negated
-    // by the caller. Negate keeps the type and flips the sign for every numeric intrinsic Resolve
-    // produces.
+    // `Const N = -1` — VBA has no negative-literal token; the caller negates the resolved value.
+    // Negate keeps the MS-VBAL type and flips the sign for every numeric intrinsic Resolve produces.
     [DataRow("1", typeof(VBIntegerValue), -1)]
     [DataRow("32768", typeof(VBLongValue), -32768)]
     [DataRow("1!", typeof(VBSingleValue), -1)]

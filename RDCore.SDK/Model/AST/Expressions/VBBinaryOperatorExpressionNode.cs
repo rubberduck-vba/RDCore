@@ -6,8 +6,7 @@ using System.Text.Json.Serialization;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// An <em>infix</em> <c>VBOperatorExpression</c> (bound) with a <see cref="Left"/> and a
-/// <see cref="Right"/> operand — convenience views onto <c>Children[0]</c> and <c>Children[1]</c>.
+/// An <em>infix</em> <c>VBOperatorExpression</c> (bound) that accepts a <em>left</em> and a <em>right</em> operand on either of its sides.
 /// </summary>
 /// <remarks>
 /// Unless specified otherwise in a derived node type, <strong>MS-VBAL 5.6.9 Operator Expressions</strong> defines the static and run-time semantics of this node.
@@ -35,24 +34,24 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
 
     public string Token { get; }
 
-    /// <summary>The left operand — <c>Children[0]</c>.</summary>
+    /// <summary>
+    /// The left-hand side operand — <c>Children[0]</c>.
+    /// </summary>
     [JsonIgnore]
     public ExpressionNode Left => (ExpressionNode)Children[0];
 
-    /// <summary>The right operand — <c>Children[1]</c>.</summary>
+    /// <summary>
+    /// The right-hand side operand — <c>Children[1]</c>.
+    /// </summary>
     [JsonIgnore]
     public ExpressionNode Right => (ExpressionNode)Children[1];
 
-    /// <summary>
-    /// Replaces the compiler-generated record printer. <see cref="Left"/> and <see cref="Right"/> are
-    /// the same nodes the base already prints under <c>Children</c>; letting the record print all
-    /// three expands a nested operator tree (<c>a + b + c + …</c>) exponentially. Only the operator
-    /// token is added on top of the base members.
-    /// </summary>
+    // Left and Right are views onto Children, which the base printer already emits; printing all
+    // three recurses exponentially on a nested operator tree. Add only the operator token.
     protected override bool PrintMembers(StringBuilder builder)
     {
         base.PrintMembers(builder);
-        builder.Append(", ").Append(nameof(Token)).Append(" = ").Append(Token);
+        builder.Append(", Token = ").Append(Token);
         return true;
     }
 }

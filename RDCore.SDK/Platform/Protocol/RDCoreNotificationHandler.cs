@@ -34,12 +34,8 @@ public abstract class RDCoreNotificationHandler<TNotification> : IJsonRpcHandler
 public abstract class RDCoreRequestHandler<TRequest, TResponse> : IJsonRpcHandler, IJsonRpcRequestHandler<TRequest, TResponse>
     where TRequest : IRequest, IRequest<TResponse>
 {
-    /// <summary>
-    /// Invokes <see cref="HandleAsync"/> and guarantees that whatever it throws reaches the client as
-    /// a well-formed JSON-RPC error whose message carries no build-machine source path. OmniSharp's
-    /// request invoker would otherwise put an unexpected exception's <see cref="Exception.ToString"/>
-    /// — a PDB build's absolute paths and all — straight into the <c>-32603</c> response.
-    /// </summary>
+    // whatever HandleAsync throws must reach the client as a JSON-RPC error carrying no build-machine
+    // path — OmniSharp's invoker would otherwise drop the raw exception.ToString() into the response.
     public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
     {
         try
@@ -48,12 +44,12 @@ public abstract class RDCoreRequestHandler<TRequest, TResponse> : IJsonRpcHandle
         }
         catch (OperationCanceledException)
         {
-            // cancellation is a normal control-flow signal, not a fault to sanitize.
+            // cancellation is control flow, not a fault
             throw;
         }
         catch (Exception exception) when (exception is RequestException or RpcErrorException)
         {
-            // already a protocol error: it carries its own code and a message the thrower vetted.
+            // already a protocol error, with its own code and a vetted message
             throw;
         }
         catch (Exception exception)
@@ -63,7 +59,7 @@ public abstract class RDCoreRequestHandler<TRequest, TResponse> : IJsonRpcHandle
         }
     }
 
-    // JSON-RPC 2.0 "Internal error".
+    // JSON-RPC 2.0 "Internal error"
     private const int InternalErrorCode = -32603;
 
     protected abstract Task<TResponse> HandleAsync(TRequest request, CancellationToken token);

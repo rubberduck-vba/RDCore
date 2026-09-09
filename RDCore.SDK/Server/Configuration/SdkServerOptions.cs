@@ -235,10 +235,9 @@ public record class SdkServerOptions
     /// <see cref="SourcePathScrubMode.RepoRelative"/>.
     /// </summary>
     /// <remarks>
-    /// A build that ships PDBs (the dev platform is <c>Debug</c>; a <c>Release</c> publish still
-    /// emits portable PDBs with absolute document paths) puts the build machine's directory layout
-    /// and user name into a caught exception's text. This is a defensive net; it does not affect the
-    /// unredacted copy written to the process log file.
+    /// A PDB build (the dev platform is <c>Debug</c>; a <c>Release</c> publish still emits portable
+    /// PDBs) puts the build machine's directory layout and user name into a caught exception's text.
+    /// A defensive net — it does not affect the unredacted copy written to the process log.
     /// </remarks>
     public SourcePathScrubMode WireErrorDetail { get; set; } = SourcePathScrubMode.RepoRelative;
     /// <summary>

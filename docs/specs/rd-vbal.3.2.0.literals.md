@@ -11,8 +11,7 @@ The parser resolves the literal's _declared type_ from the source token: a `Lite
 The declared type of a numeric literal follows **MS-VBAL §3.3.2**:
 
 1. An explicit _type-declaration character_ suffix, if present, forces the type. A value that does
-   not fit the forced type is a **syntax error** (`NumericLiteralOverflow`) — MS-VBA rejects it with
-   an unhelpful _"expected: expression"_; RD-VBA reports it at the literal's location.
+   not fit the forced type is a **syntax error** (`NumericLiteralOverflow`), located at the literal.
 
    |Suffix|Declared type|
    |---|---|

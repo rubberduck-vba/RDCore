@@ -6,19 +6,18 @@ namespace RDCore.Parsing.Syntax;
 
 /// <summary>
 /// Resolves a numeric literal token to its statically-typed <see cref="VBTypedValue"/> per
-/// <c>[MS-VBAL] §3.3.2</c> / <c>RD-VBAL §3.2.0.1</c>. Shared by the declaration pass and the
+/// <strong>MS-VBAL §3.3.2</strong> / RD-VBAL §3.2.0.1. Shared by the declaration pass and the
 /// conditional-compilation pass so the two cannot drift.
 /// <list type="bullet">
 /// <item>A type-declaration character (<c>% &amp; ^ ! # @</c>) forces the type; a value that does not
 /// fit is an overflow.</item>
-/// <item>An unsuffixed decimal integer takes the smallest of <c>Integer</c>, <c>Long</c>, <c>Double</c>
-/// that holds it (never <c>LongLong</c>).</item>
-/// <item>An unsuffixed decimal floating-point literal (fraction or exponent — the exponent letter is
-/// <c>[DEde]</c>) is <c>Double</c>.</item>
-/// <item>An <c>&amp;H…</c> / <c>&amp;O…</c> literal is typed by <em>bit width</em>, two's-complement:
-/// narrowest of <c>Integer</c> (16-bit) / <c>Long</c> (32-bit) unsuffixed; <c>%</c>/<c>&amp;</c>/<c>^</c>
-/// set the width. Unsuffixed beyond 32 bits is an overflow (MS-VBA's cryptic "expected: expression").
-/// A radix literal is never <c>Double</c>.</item>
+/// <item>An unsuffixed decimal integer takes the smallest of <c>Integer</c> / <c>Long</c> /
+/// <c>Double</c> that holds it — never <c>LongLong</c>.</item>
+/// <item>An unsuffixed decimal float (fraction or exponent, exponent letter <c>[DEde]</c>) is
+/// <c>Double</c>.</item>
+/// <item>An <c>&amp;H…</c> / <c>&amp;O…</c> radix literal is typed by bit width, two's-complement:
+/// narrowest of <c>Integer</c> (16-bit) / <c>Long</c> (32-bit) unsuffixed, or the width its
+/// <c>% &amp; ^</c> suffix sets; beyond 32 bits unsuffixed is an overflow. Never <c>Double</c>.</item>
 /// </list>
 /// </summary>
 internal static class NumericLiteral
@@ -47,10 +46,9 @@ internal static class NumericLiteral
     }
 
     /// <summary>
-    /// Negates a resolved numeric literal for a <c>-literal</c> in a constant or precompiler
-    /// expression (VBA has no negative literal token — the sign is a unary operator). Returns
-    /// <c>null</c> for any value that is not one of the numeric intrinsics <see cref="Resolve"/>
-    /// produces, in which case the caller leaves the tree untouched.
+    /// Negates a resolved numeric literal (VBA has no negative-literal token — the sign is a unary
+    /// operator). Returns <c>null</c> for a value that is not one of the numeric intrinsics
+    /// <see cref="Resolve"/> produces.
     /// </summary>
     public static VBTypedValue? Negate(VBTypedValue value) => value switch
     {

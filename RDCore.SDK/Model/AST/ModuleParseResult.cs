@@ -12,11 +12,9 @@ public record class ModuleParseResult
     public static ModuleParseResult Success(ModuleNode node) => new() { SyntaxTree = node };
 
     /// <summary>
-    /// A failed parse carrying one synthesized syntax error. <paramref name="verbose"/> is run
-    /// through <see cref="SourcePathAnonymizer"/> first (per <paramref name="scrub"/>), so this
-    /// funnel cannot leak a build-machine source path onto the wire regardless of the call site.
-    /// A caller with an exception passes <c>exception.ToString()</c> and is expected to have logged
-    /// the unredacted exception already.
+    /// A failed parse carrying one synthesized syntax error. <paramref name="verbose"/> is scrubbed
+    /// through <see cref="SourcePathAnonymizer"/> per <paramref name="scrub"/>, so this funnel cannot
+    /// leak a build-machine source path onto the wire regardless of the call site.
     /// </summary>
     public static ModuleParseResult Failed(SourceLocation location, string verbose,
         SourcePathScrubMode scrub = SourcePathScrubMode.RepoRelative) => new()
