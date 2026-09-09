@@ -16,10 +16,15 @@ Diagnostic codes are grouped into four families by the layer that raises them:
 |Rubberduck Core diagnostics|`RDC`|the `RDCore.Diagnostics` analyzers|[§2.6.4](#264-rubberduck-core-diagnostics)|
 
 The numeric portion is a five-digit zero-padded code (`VBC00001`, `VBR00009`, `RDC01001`). Each code
-is documented on its own page at
-`https://rubberduck-vba.github.io/RDCore/diagnostics/<code>.html` on this documentation site, and
-every emitted diagnostic points there through the LSP `codeDescription` field — the client opens that
-URL when the reader follows a diagnostic's "learn more".
+is documented on its own page under [Diagnostics](../diagnostics/index.html)
+(`https://rubberduck-vba.github.io/RDCore/diagnostics/<code>.html`), and every emitted diagnostic
+points there through the LSP `codeDescription` field — the client opens that URL when the reader
+follows a diagnostic's "learn more".
+
+A code's page is published **the moment the platform can emit that code** — the documentation grows
+at the same rate as the diagnostics. A published code is **not renumbered and not retired** so that
+older builds' diagnostic links keep resolving; the page's prose may evolve as the ideal set of codes
+is narrowed down.
 
 ## Pipeline
 
@@ -80,6 +85,15 @@ the grammar cannot place. It is the inaugural diagnostic the platform emits.
 MS-VBAL does not distinguish a compile-time error raised in CST semantics from one raised in AST
 semantics; RDCore splits them by numeric range only. A `#If` that splits a statement is unparseable
 by the grammar and reports located `VBC` diagnostics a client can anchor a squiggle on.
+
+The parser deliberately narrows its output over time: `VBC00001` is the general fallback, and
+recurring shapes are promoted to a dedicated code in the `VBC00042`–`VBC00999` range. Published so
+far:
+
+|Code|Condition|
+|---|---|
+|[`VBC00001`](../diagnostics/vbc00001.html)|a token the grammar cannot place|
+|[`VBC00042`](../diagnostics/vbc00042.html)|a numeric literal outside the range of its type|
 
 ---
 ## 2.6.2 Semantic Compilation Errors
