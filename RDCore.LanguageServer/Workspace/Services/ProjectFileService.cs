@@ -80,10 +80,13 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
 
     public void AddSourceFile(RDCoreModule module)
     {
-        if (Project.ProjectInfo.Modules.Any(e => e.DefaultName == module.DefaultName))
+        // uniqueness is on the module's Attribute VB_Name (case-insensitive, like every VBA
+        // identifier) — two files cannot share one — not on the file name.
+        var moduleName = ResolveModuleName(module);
+        if (Project.ProjectInfo.Modules.Any(e => string.Equals(ResolveModuleName(e), moduleName, StringComparison.OrdinalIgnoreCase)))
         {
-            logger.LogWarning("⚠️ Source file names must be unique in a project, regardless of folder location.");
-            throw new InvalidOperationException($"Project already contains a source file named '{module.DefaultName}'.");
+            logger.LogWarning("⚠️ Module names must be unique in a project, regardless of folder location.");
+            throw new InvalidOperationException($"Project already contains a module named '{moduleName}'.");
         }
 
         _projectFile = Project.WithModule(module);
@@ -94,6 +97,26 @@ internal class ProjectFileService(ILogger<ProjectFileService> logger,
         logger.LogInformation("✅ AddSourceFile completed. A new source file was successfully added to the project.");
     }
 
+    // the module name is its Attribute VB_Name; there is no parser here, so the raw source is scanned
+    // for it, and the file name is the fallback when the source is unreadable or declares none.
+    private string ResolveModuleName(RDCoreModule module)
+    {
+        var path = ioPath.Combine(Project.Uri, module.RelativeUri);
+        string? source = null;
+        try
+        {
+            if (ioFile.Exists(path))
+            {
+                source = ioFile.ReadAllText(path);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogTrace(exception, "Could not read '{path}' to resolve its module name; falling back to the file name.", path);
+        }
+
+        return ModuleName.Resolve(source, module.RelativeUri);
+    }
 
     public void AddDocument(WorkspaceDocument document)
     {

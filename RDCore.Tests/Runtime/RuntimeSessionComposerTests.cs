@@ -1,4 +1,5 @@
-﻿using RDCore.CLI.Host.Symbols;
+﻿using System.IO.Abstractions.TestingHelpers;
+using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -21,7 +22,7 @@ public sealed class RuntimeSessionComposerTests
         return RuntimeSessionComposer.Compose(
             environment,
             new ConfigurationSymbolProvider(environment, project, defines),
-            new ProjectSymbolProvider(WorkspaceRoot, project));
+            new ProjectSymbolProvider(WorkspaceRoot, project, new MockFileSystem()));
     }
 
     [TestMethod]
@@ -66,5 +67,27 @@ public sealed class RuntimeSessionComposerTests
 
         Assert.IsTrue(session.Symbols.TryResolve("MyModule", GlobalScope, out var module));
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(module);
+    }
+
+    [TestMethod]
+    public void ProjectModuleSymbol_ResolvesUnderItsVBNameNotItsFileName()
+    {
+        // an absolute root the MockFileSystem accepts on both Windows and the Linux CI runner.
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-composer-vbname");
+        var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false);
+        var project = new RDCoreProject
+        {
+            Modules = [new RDCoreModule { RelativeUri = "src/File1.bas" }],
+        };
+        var fs = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(root, "src", "File1.bas")] = new("Attribute VB_Name = \"RealName\"\r\n"),
+        });
+
+        var session = RuntimeSessionComposer.Compose(
+            environment, new ProjectSymbolProvider(new Uri(root), project, fs));
+
+        Assert.IsTrue(session.Symbols.TryResolve("RealName", GlobalScope, out _), "should resolve under the VB_Name");
+        Assert.IsFalse(session.Symbols.TryResolve("File1", GlobalScope, out _), "should not resolve under the file name");
     }
 }

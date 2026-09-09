@@ -34,6 +34,11 @@ public sealed class WorkspaceSymbolPipelineTests
         + "Public Property Get Widget() As Object\r\n"
         + "End Property\r\n";
 
+    // the file name (oldName.bas) and the VB_Name (Utilities) deliberately disagree.
+    private const string Utilities = "Attribute VB_Name = \"Utilities\"\r\n"
+        + "Public Sub Reset()\r\n"
+        + "End Sub\r\n";
+
     private static MockFileSystem FileSystem()
     {
         var project = new ProjectFile(Root, new RDCoreProject
@@ -42,6 +47,7 @@ public sealed class WorkspaceSymbolPipelineTests
             [
                 new RDCoreModule { RelativeUri = "src/Mod1.bas" },
                 new RDCoreModule { RelativeUri = "src/Class1.cls" },
+                new RDCoreModule { RelativeUri = "src/legacy/oldName.bas" },
             ],
         });
 
@@ -50,6 +56,7 @@ public sealed class WorkspaceSymbolPipelineTests
             [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)),
             [Path.Combine(Root, "src", "Mod1.bas")] = new(Mod1),
             [Path.Combine(Root, "src", "Class1.cls")] = new(Class1),
+            [Path.Combine(Root, "src", "legacy", "oldName.bas")] = new(Utilities),
         });
     }
 
@@ -61,6 +68,7 @@ public sealed class WorkspaceSymbolPipelineTests
 
         var sessionProvider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            fs,
             NullLogger<EnvironmentSessionProvider>.Instance);
         sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
 
@@ -71,13 +79,17 @@ public sealed class WorkspaceSymbolPipelineTests
         var results = new Dictionary<string, DefineSymbolsResult>();
         foreach (var module in project.ProjectInfo.Modules)
         {
-            var name = module.DefaultName;
             var path = Path.Combine(Root, module.RelativeUri);
             var moduleType = path.EndsWith(".cls") ? ModuleType.ClassModule : ModuleType.StdModule;
             var workspaceRoot = new Uri(project.Uri);
-            var moduleUri = new UriBuilder(workspaceRoot) { Fragment = name }.Uri;
 
             var parseResult = parser.Parse(new Uri(path), moduleType, fs.File.ReadAllText(path));
+
+            // the language server names a module by its parsed VB_Name; the environment host resolved
+            // the same name when it composed the module symbol above.
+            var name = parseResult.SyntaxTree?.GetDeclaredName() ?? module.DefaultName;
+            var moduleUri = new UriBuilder(workspaceRoot) { Fragment = name }.Uri;
+
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, resolver).ProvideSymbols();
             var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
 
@@ -98,5 +110,11 @@ public sealed class WorkspaceSymbolPipelineTests
         Assert.AreEqual(3, results["Class1"].Defined,
             $"skipped=[{string.Join(",", results["Class1"].Skipped)}]");
         Assert.AreEqual(0, results["Class1"].Skipped.Count);
+
+        // the third module is keyed on its VB_Name (Utilities), not its file name (oldName), on both
+        // sides of the pipeline; its Sub lands against the module symbol the host composed.
+        Assert.IsFalse(results.ContainsKey("oldName"));
+        Assert.AreEqual(1, results["Utilities"].Defined);
+        Assert.AreEqual(0, results["Utilities"].Skipped.Count);
     }
 }

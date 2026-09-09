@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -72,7 +73,12 @@ internal sealed class SymbolSyncService(
     private async Task<int> DefineModuleSymbolsAsync(WorkspaceDocument document, ModuleParseResult parseResult, CancellationToken token)
     {
         var workspaceRoot = new Uri(document.WorkspaceRoot);
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = document.Name }.Uri;
+
+        // the module's programmatic name is its Attribute VB_Name; the file name is only a fallback.
+        // the environment host resolves the same name (source scan) when it composes the module
+        // symbol, so the members defined here parent onto it.
+        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
 
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, resolver).ProvideSymbols();
         var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
@@ -82,14 +88,14 @@ internal sealed class SymbolSyncService(
             {
                 WorkspaceRoot = workspaceRoot,
                 ModuleUri = moduleUri,
-                ModuleName = document.Name,
+                ModuleName = moduleName,
                 Symbols = descriptors,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("📤 {module}: {defined} defined, {skipped} skipped, {unresolved} unresolved type(s).",
-                document.Name, result.Defined, result.Skipped.Count, result.UnresolvedTypeNames.Count);
+                moduleName, result.Defined, result.Skipped.Count, result.UnresolvedTypeNames.Count);
         }
 
         return result.Defined;

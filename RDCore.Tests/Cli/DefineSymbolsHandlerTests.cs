@@ -1,3 +1,4 @@
+using System.IO.Abstractions.TestingHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
@@ -18,6 +19,7 @@ public sealed class DefineSymbolsHandlerTests
     {
         var provider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
             NullLogger<EnvironmentSessionProvider>.Instance);
 
         if (compose)

@@ -164,7 +164,7 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
     public string Extension => RelativeUri[^RelativeUri.LastIndexOf('.')..];
 
     [JsonIgnore]
-    public string DefaultName => Path.GetFileNameWithoutExtension(RelativeUri.Split(Path.PathSeparator).Last());
+    public string DefaultName => ModuleName.FromFileName(RelativeUri);
 
     public override int GetHashCode() => RelativeUri.GetHashCode();
 

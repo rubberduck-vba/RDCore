@@ -3,6 +3,7 @@ using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
+using System.IO.Abstractions;
 
 namespace RDCore.CLI.Host;
 
@@ -44,6 +45,7 @@ public interface IEnvironmentSessionProvider
 /// <inheritdoc cref="IEnvironmentSessionProvider"/>
 public sealed class EnvironmentSessionProvider(
     IRuntimeEnvironmentProfile environment,
+    IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger) : IEnvironmentSessionProvider
 {
     private IRuntimeSession? _session;
@@ -59,7 +61,7 @@ public sealed class EnvironmentSessionProvider(
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
 
         _session = RuntimeSessionComposer.Compose(environment, configuration, modules);
 
