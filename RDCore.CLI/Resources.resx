@@ -217,4 +217,19 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Command_Available" xml:space="preserve">
     <value>Available commands:</value>
   </data>
+  <data name="NewWorkspace_Summary" xml:space="preserve">
+    <value>Scaffolds a .rdproj workspace at the given path.</value>
+  </data>
+  <data name="NewWorkspace_Title" xml:space="preserve">
+    <value>New Workspace</value>
+  </data>
+  <data name="NewWorkspace_Created" xml:space="preserve">
+    <value>Workspace '{0}' created at {1}</value>
+  </data>
+  <data name="NewWorkspace_AlreadyExists" xml:space="preserve">
+    <value>A .rdproj already exists here; pass --force to overwrite.</value>
+  </data>
+  <data name="NewWorkspace_InvalidPath" xml:space="preserve">
+    <value>The path points to an existing file, not a directory.</value>
+  </data>
 </root>

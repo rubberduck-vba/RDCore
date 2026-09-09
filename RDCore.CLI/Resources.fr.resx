@@ -215,4 +215,19 @@
   <data name="Command_Available" xml:space="preserve">
     <value>Commandes disponibles :</value>
   </data>
+  <data name="NewWorkspace_Summary" xml:space="preserve">
+    <value>Génère un espace de travail .rdproj au chemin indiqué.</value>
+  </data>
+  <data name="NewWorkspace_Title" xml:space="preserve">
+    <value>Nouvel espace de travail</value>
+  </data>
+  <data name="NewWorkspace_Created" xml:space="preserve">
+    <value>Espace de travail « {0} » créé dans {1}</value>
+  </data>
+  <data name="NewWorkspace_AlreadyExists" xml:space="preserve">
+    <value>Un fichier .rdproj existe déjà ici; utilisez --force pour l'écraser.</value>
+  </data>
+  <data name="NewWorkspace_InvalidPath" xml:space="preserve">
+    <value>Le chemin correspond à un fichier existant, pas à un dossier.</value>
+  </data>
 </root>

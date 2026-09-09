@@ -285,5 +285,50 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Warn_ThemingDisabled_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Scaffolds a .rdproj workspace at the given path..
+        /// </summary>
+        public static string NewWorkspace_Summary {
+            get {
+                return ResourceManager.GetString("NewWorkspace_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to New Workspace.
+        /// </summary>
+        public static string NewWorkspace_Title {
+            get {
+                return ResourceManager.GetString("NewWorkspace_Title", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Workspace '{0}' created at {1}.
+        /// </summary>
+        public static string NewWorkspace_Created {
+            get {
+                return ResourceManager.GetString("NewWorkspace_Created", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A .rdproj already exists here; pass --force to overwrite..
+        /// </summary>
+        public static string NewWorkspace_AlreadyExists {
+            get {
+                return ResourceManager.GetString("NewWorkspace_AlreadyExists", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The path points to an existing file, not a directory..
+        /// </summary>
+        public static string NewWorkspace_InvalidPath {
+            get {
+                return ResourceManager.GetString("NewWorkspace_InvalidPath", resourceCulture);
+            }
+        }
     }
 }

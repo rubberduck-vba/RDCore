@@ -1,4 +1,4 @@
-using System.IO.Abstractions.TestingHelpers;
+﻿using System.IO.Abstractions.TestingHelpers;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Workspace;

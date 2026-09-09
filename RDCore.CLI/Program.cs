@@ -200,6 +200,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             // native verbs first: NativeCliCommandProvider is enumerated before the extension one, so
             // a native verb wins a name collision.
             .AddSingleton<ICliCommand, DescribeExtensionCommand>()
+            .AddSingleton<ICliCommand, NewWorkspaceCommand>()
             .AddSingleton<ICliCommandProvider, NativeCliCommandProvider>()
             .AddSingleton<ICliCommandProvider, ExtensionCliCommandProvider>()
             .AddSingleton<ICliCommandDispatcher, CliCommandDispatcher>();
