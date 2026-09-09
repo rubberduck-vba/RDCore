@@ -156,4 +156,4 @@ Because the type system includes and leverages meta-types such as `VBTypeDescVal
 -->
 
 ---
-> ⏮️ [**RD-VBAL §2.0** Computational Environment](rd-vbal.2.0.computational-environment.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
+> ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

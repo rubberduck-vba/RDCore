@@ -182,5 +182,5 @@ A `VBVariantValue` is always allocated in the _heap memory_, in the same memory 
 > The act of "unwrapping" a `VBVariantValue` value consists of looking up its allocated internal struct, retrieving its `ValuePtr`, then looking up that value in the appropriate memory space; this yields a scoped `VBTypedValue` that may or may not be an immediately usable _intrinsic data type_ - it may be also be another `VBVariantValue` requiring a new _unwrapping frame_.
 
 ---
-> ⏮️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html) | ⏮️ [**RD-VBAL §3.0** Syntax Tree](rd-vbal.3.0.syntax-tree.html)
+> ⏮️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.html) | ⏭️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.html)
 

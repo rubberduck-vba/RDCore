@@ -84,7 +84,7 @@ The correctly-scoped allocation of all symbols upon their definition should then
 - If multiple symbols match a specified name within the _global_ scope, then the name is disambiguated using the _reference priority order_ of the _referenced library_ a matching symbol is defined in. This priotity is determined by the order in which project references appear in the `.rdproj` file of a _workspace folder_.
 
 > [!NOTE]
-> The **VBA** standard library always has the _lowest priority_ (i.e. always appears first), meaning any other project reference that defines any identically-named class type or public/global member is always going to _shadow_ the `VBA` library definitions; this _shadowing_ should be detected in the _semantic layer_ and reported through _semantic flags_ so **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics.
+> The **VBA** standard library always has the _lowest priority_ (i.e. always appears first), meaning any other project reference that defines any identically-named class type or public/global member is always going to _shadow_ the `VBA` library definitions; this _shadowing_ should be detected in the _semantic layer_ and reported through _semantic flags_ so **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics (see [**§2.6** Diagnostics](rd-vbal.2.6.diagnostics.html)).
 
 
 ---

@@ -15,6 +15,7 @@
   - 2.3. [Application Host](rd-vbal.2.3.application-host.html)
   - 2.4. [Static Types](rd-vbal.2.4.static-types.html)
   - 2.5. [Runtime Values](rd-vbal.2.5.runtime-values.html)
+  - 2.6. [Diagnostics](rd-vbal.2.6.diagnostics.html)
 - 3. [Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.html)
   - 3.1. [Attributes and Directives](rd-vbal.3.1.attributes-directives.html)
   - 3.2. [Literal Expressions](rd-vbal.3.2.0.literals.html)
@@ -52,5 +53,6 @@ The publisher of the **RDCore** platform project and of _this present documentat
 |---|---|---|
 |2026-06-25|1.0|Initial public version|
 |2026-09-06|1.1|§2.3.1.2 session services (`IRuntimeSession` root; `IVirtualHeap` removed); §2.5.2.1.2 array values are a flat column-major store; §3.2.0.1 numeric literal types (type-declaration characters); §5.0.2.1 results are computed in the effective type; §5.0.2.2 let-coercion provider/strategy dispatch and the MS-VBAL-divergence principle; §2.5.2.1.3 UDT values are addressable IDs|
+|2026-09-09|1.2|§2.6 Diagnostics — pull-model provider pipeline (`textDocument/diagnostic`; the `DiagnoseDocument` provider capability; result identity and the version staleness gate)|
 | | | |
 
