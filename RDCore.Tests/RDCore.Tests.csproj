@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RDCore.CLI\RDCore.CLI.csproj" />
+    <ProjectReference Include="..\RDCore.Diagnostics\RDCore.Diagnostics.csproj" />
     <ProjectReference Include="..\RDCore.LanguageServer\RDCore.LanguageServer.csproj" />
     <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
     <ProjectReference Include="..\RDCore.Runtime\RDCore.Runtime.csproj" />

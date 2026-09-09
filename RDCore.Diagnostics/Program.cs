@@ -8,6 +8,10 @@ using System.Runtime.CompilerServices;
 // extension will contribute a diagnose verb once the extension command path is built out.
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
+// marks this extension a diagnostics provider: the language server fans textDocument/diagnostic
+// pulls out to it over rdcore/diagnostics/document.
+[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]
+
 namespace RDCore.Diagnostics;
 
 public class Program
