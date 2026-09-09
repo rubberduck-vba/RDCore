@@ -5,6 +5,25 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 namespace RDCore.SDK.Server.Logging;
 
 /// <summary>
+/// A no-op scope for an <see cref="ILogger"/> that keeps no scope state.
+/// </summary>
+/// <remarks>
+/// <see cref="ILogger.BeginScope{TState}"/> must never return <c>null</c>: OmniSharp's
+/// <c>TimeLoggerExtensions</c> wraps request routing (including <c>initialize</c>) in
+/// <c>logger.BeginScope(…)</c> and disposes the result with no null check, so a <c>null</c> scope
+/// throws a <see cref="NullReferenceException"/> out of the <c>initialize</c> route — the server
+/// then never fires <c>OnStarted</c> and the client hangs mid-handshake.
+/// </remarks>
+internal sealed class NullLogScope : IDisposable
+{
+    internal static readonly NullLogScope Instance = new();
+
+    public void Dispose()
+    {
+    }
+}
+
+/// <summary>
 /// Shared shaping for the two paths that forward <see cref="ILogger"/> records to an LSP client —
 /// the inner-container <see cref="ScrubbingLanguageServerLoggerProvider"/> and the outer-host
 /// <see cref="ClientTraceLoggerProvider"/> — so the message layout and level mapping cannot drift.
