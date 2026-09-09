@@ -34,8 +34,10 @@ internal sealed class CoreLanguageServerApp(
     IHealthCheckService<CoreLanguageServerApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
     IWorkspaceService workspace,
+    IWorkspaceDocumentService workspaceDocuments,
     IParsingClientService parsing,
     ISymbolSyncService symbolSync,
+    IDocumentDiagnosticsService diagnostics,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -98,13 +100,9 @@ internal sealed class CoreLanguageServerApp(
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        // the pull handler is built by the OmniSharp container; DocumentDiagnosticsService's
-        // collaborators live in the external (host) container, so bridge the service across.
-        services.AddSingleton<IDocumentDiagnosticsService>(omni => new DocumentDiagnosticsService(
-            ExternalServices.GetRequiredService<IWorkspaceDocumentService>(),
-            ExternalServices.GetRequiredService<IParsingClientService>(),
-            ExternalServices.GetRequiredService<IPlatformOrchestrationService>(),
-            omni.GetRequiredService<ILogger<DocumentDiagnosticsService>>()));
+        // the pull handler is built by the OmniSharp container; the diagnostics service lives in the
+        // external (host) container, so bridge the same singleton across.
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
@@ -248,6 +246,36 @@ internal sealed class CoreLanguageServerApp(
     {
         await parsing.ParseWorkspaceAsync(token);
         await symbolSync.SyncWorkspaceAsync(token);
+        await RunDiagnosticsBringUpAsync(token);
+    }
+
+    /// <summary>
+    /// Pulls diagnostics for every loaded document once, exercising the provider fan-out without an
+    /// editor. Not a push — nothing is sent to the client; it is the seam the future push hangs off.
+    /// </summary>
+    private async Task RunDiagnosticsBringUpAsync(CancellationToken token)
+    {
+        try
+        {
+            var total = 0;
+            foreach (var document in workspaceDocuments.GetAllDocuments())
+            {
+                token.ThrowIfCancellationRequested();
+                var uri = document.Id.Uri.ToUri();
+                var result = await diagnostics.GetAsync(uri, previousResultId: null, token);
+                total += result.Diagnostics.Count;
+                LogIfEnabled(LogLevel.Information, $"🔎 {uri}: {result.Diagnostics.Count} diagnostic(s)");
+            }
+            LogIfEnabled(LogLevel.Information, $"✅ Diagnostics bring-up completed ({total} across the workspace)");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            LogIfEnabled(LogLevel.Information, "Diagnostics bring-up was cancelled; language server is shutting down.");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Error, $"❌ Diagnostics bring-up failed.\n{exception}");
+        }
     }
 
     /// <summary>

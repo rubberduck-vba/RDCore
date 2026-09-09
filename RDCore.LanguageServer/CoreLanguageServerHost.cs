@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Symbols;
@@ -42,6 +43,7 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
             .AddSingleton<IWorkspaceDocumentService, WorkspaceDocumentService>()
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IParsingClientService, ParsingClientService>()
+            .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             // intrinsic-only type resolution until project/library symbols can be composed (Slice 4).
             .AddSingleton<RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver, IntrinsicSymbolResolver>()
             .AddSingleton<ISymbolSyncService, SymbolSyncService>();
