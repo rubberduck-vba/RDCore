@@ -221,6 +221,7 @@ public abstract class AppHost<TApp>() : IDisposable
             .AddSingleton<IChildConnectionFactory, ChildConnectionFactory>()
             .AddSingleton<IFileSystem, FileSystem>()
             .AddSingleton<IProjectFileLoader, ProjectFileLoader>()
+            .AddSingleton<IProjectFileWriter, ProjectFileWriter>()
             .AddSingleton<IPlatformEnvironment, PlatformEnvironment>()
             .AddSingleton<IPlatformCompositionService, PlatformCompositionService>()
             .AddSingleton<IExtensionsProvider, ExtensionsClient>()
