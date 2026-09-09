@@ -10,6 +10,7 @@ using RDCore.SDK.Platform;
 using System.IO;
 using System.IO.Abstractions;
 using RDCore.SDK.Server;
+using RDCore.SDK.Server.Logging;
 using RDCore.SDK.Server.Services;
 
 namespace RDCore.LanguageServer;
@@ -51,6 +52,12 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
         builder.AddFile(
             Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.LanguageServer.log"),
             ResolveTraceLevel(configuration));
+
+        // forward the same narration to the connected client ($/logTrace + window/logMessage,
+        // scrubbed); the file sink above keeps the unredacted copy.
+        builder.Services.AddSingleton<ILoggerProvider>(sp =>
+            new ClientTraceLoggerProvider(() => sp.GetRequiredService<CoreLanguageServerApp>()));
+
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 }

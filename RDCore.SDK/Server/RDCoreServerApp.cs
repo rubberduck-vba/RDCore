@@ -88,7 +88,7 @@ public abstract class RDCoreServerApp(
     /// <see cref="InitializeTrace.Verbose"/>; a warning or worse always rides <c>window/logMessage</c>
     /// so it surfaces even with trace off. A no-op until the server is connected.
     /// </summary>
-    internal void SendClientTrace(LogLevel level, string message, string? verbose)
+    internal virtual void SendClientTrace(LogLevel level, string message, string? verbose)
     {
         if (Server is not { } server)
         {
