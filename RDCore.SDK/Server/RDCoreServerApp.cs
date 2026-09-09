@@ -3,12 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Client;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Client;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Handlers;
@@ -76,6 +78,48 @@ public abstract class RDCoreServerApp(
         token.ThrowIfCancellationRequested();
         Server!.SendNotification(notification);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Forwards one outer-host log record to the connected LSP client, scrubbed through
+    /// <see cref="SourcePathAnonymizer"/>: narration (<paramref name="level"/> below
+    /// <see cref="LogLevel.Warning"/>) rides <c>$/logTrace</c> when the client has asked for trace
+    /// (<c>$/setTrace</c>), and <paramref name="verbose"/> is included only at
+    /// <see cref="InitializeTrace.Verbose"/>; a warning or worse always rides <c>window/logMessage</c>
+    /// so it surfaces even with trace off. A no-op until the server is connected.
+    /// </summary>
+    internal void SendClientTrace(LogLevel level, string message, string? verbose)
+    {
+        if (Server is not { } server)
+        {
+            return;
+        }
+
+        var trace = ServerStateProvider.State is RunningServerState running ? running.Trace : InitializeTrace.Off;
+        var route = LspProtocolLog.Route(level, trace);
+        if (!route.LogMessage && !route.LogTrace)
+        {
+            return;
+        }
+
+        var scrub = options.Value.Server.WireErrorDetail;
+        var scrubbedMessage = SourcePathAnonymizer.Scrub(message, scrub);
+
+        if (route.LogMessage && LspProtocolLog.TryGetMessageType(level, out var messageType))
+        {
+            server.Window.Log(new LogMessageParams { Type = messageType, Message = scrubbedMessage });
+        }
+
+        if (route.LogTrace)
+        {
+            server.LogTrace(new LogTraceParams
+            {
+                Message = scrubbedMessage,
+                Verbose = route.IncludeVerbose && !string.IsNullOrEmpty(verbose)
+                    ? SourcePathAnonymizer.Scrub(verbose, scrub)
+                    : null!,
+            });
+        }
     }
 
     private NamedPipeServerStream _namedPipe = default!;
