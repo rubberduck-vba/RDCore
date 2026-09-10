@@ -21,6 +21,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(CommentTriviaNode), "CommentTrivia")]
 [JsonDerivedType(typeof(PrecompilerTriviaNode), "PrecompilerTrivia")]
 
+[JsonDerivedType(typeof(ArrayBoundsNode), "ArrayBounds")]
 [JsonDerivedType(typeof(AttributeDirectiveNode), "AttributeDirective")]
 [JsonDerivedType(typeof(CallStatementNode), "CallStatement")]
 [JsonDerivedType(typeof(CaseExpressionStatementNode), "CaseExpression")]

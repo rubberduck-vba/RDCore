@@ -180,10 +180,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitVariableSubStmt([NotNull] VBAParser.VariableSubStmtContext context)
     {
-        // recovery can leave Parent.Parent not pointing at the VariableStmt that carries the visibility.
+        // recovery can leave Parent.Parent not pointing at the VariableStmt that carries the
+        // visibility / Static token (`variableStmt : (DIM | STATIC | visibility) ...`).
         var parent = context.Parent?.Parent as VBAParser.VariableStmtContext;
         var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
-        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier));
+        var isStatic = parent?.STATIC() is not null;
+        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic));
     }
 
     public override void EnterConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
@@ -257,6 +259,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // recovery can still leave `type` synthetic: a "<missing …>" placeholder (`Dim a As, b As
         // Long`), or the bare NEW keyword for `As New` with no class name (via complexType's ctNewExpr).
         var typeText = type.GetText();
+
+        // `type` is `(baseType | complexType) ( '(' ')' )?` — keep the trailing array-of `()`
+        // (`As Long()`) off the name; IsArrayDef carries it.
+        if (type.LPAREN() is not null && typeText.IndexOf('(') is var paren and >= 0)
+        {
+            typeText = typeText[..paren].TrimEnd();
+        }
         if (IdentifierNameExtensions.IsRecoveryPlaceholder(typeText)
             || string.IsNullOrEmpty(typeText)
             || string.Equals(typeText, "New", StringComparison.OrdinalIgnoreCase))

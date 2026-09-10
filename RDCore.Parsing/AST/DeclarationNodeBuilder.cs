@@ -197,7 +197,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             modifier);
     }
 
-    public SyntaxNode BuildVariableDeclaration(VBAParser.VariableSubStmtContext context, AccessModifier modifier)
+    public SyntaxNode BuildVariableDeclaration(VBAParser.VariableSubStmtContext context, AccessModifier modifier, bool isStatic)
     {
         // the name can be an IDENTIFIER, a keyword (`Dim Name As String`) or a bracketed foreign
         // name — take the text the way the member builders do, not IDENTIFIER().Symbol.
@@ -205,15 +205,45 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var name = context.identifier().Name();
 
         var isWithEvents = context.WITHEVENTS() is not null;
-        
+
+        // the declarations pass does not collect a procedure body's expressions, so the array-dim
+        // bounds are read straight from the parse tree (as `BuildAttributeDirective` reads its value).
+        var children = _children.ToList();
+        if (context.arrayDim() is { } arrayDim)
+        {
+            children.Add(BuildArrayBounds(arrayDim, children.Count));
+        }
+
         return new VariableDeclarationNode(
             NodeId,
-            context.GetSourceLocation(_rootUri), 
+            context.GetSourceLocation(_rootUri),
             name,
-            [.. _children], 
+            [.. children],
             modifier,
             typeHint,
-            isWithEvents);
+            isWithEvents,
+            isStatic);
+    }
+
+    // MS-VBAL 5.2.3.1.3 Array Dim: `( [ boundsList ] )`. No boundsList -> dynamic array; each
+    // dimSpec is `[ constantExpression To ] constantExpression`. Bounds are kept as verbatim text —
+    // they may reference `Const`s and an omitted lower bound follows `Option Base`, both resolved
+    // by a later semantic pass.
+    private ArrayBoundsNode BuildArrayBounds(VBAParser.ArrayDimContext context, int childIndex)
+    {
+        var location = context.GetSourceLocation(_rootUri);
+        var identity = NodeId.Add(childIndex);
+
+        if (context.boundsList() is not { } boundsList)
+        {
+            return new ArrayBoundsNode(identity, location, []);
+        }
+
+        var bounds = boundsList.dimSpec().Select(spec => new ArrayDimensionBound(
+            spec.lowerBound()?.constantExpression()?.GetText()?.Trim(),
+            spec.upperBound()?.constantExpression()?.GetText()?.Trim() ?? string.Empty));
+
+        return new ArrayBoundsNode(identity, location, [.. bounds]);
     }
 
     public SyntaxNode BuildConstDeclaration(VBAParser.ConstSubStmtContext context, ConstKind kind, AccessModifier modifier)

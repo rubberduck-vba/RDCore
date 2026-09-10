@@ -285,6 +285,64 @@ End Sub
     }
 
     [TestMethod]
+    // MS-VBAL 5.4.3.1: a local declared `Static` (or in a `Static` procedure) keeps its value across calls.
+    public void LocalDeclaration_CapturesStaticToken()
+    {
+        const string content = """
+            Public Sub Tally()
+                Static Count As Long
+                Dim Delta As Long
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var locals = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<VariableDeclarationNode>().ToArray();
+
+        Assert.IsTrue(locals.Single(v => v.Name == "Count").IsStatic);
+        Assert.IsFalse(locals.Single(v => v.Name == "Delta").IsStatic);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.3.1.3 Array Dim: `( [ boundsList ] )`, each dimSpec `[ <lower> To ] <upper>`.
+    public void LocalArrayDeclaration_CapturesBoundsPerDimension()
+    {
+        const string content = """
+            Public Sub Fill()
+                Dim Grid(1 To 3, 0 To 4) As Long
+                Dim Row(10) As Long
+                Dim Buffer() As Byte
+                Dim Scalar As Long
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var locals = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<VariableDeclarationNode>()
+            .ToDictionary(v => v.Name, v => v.Children.OfType<ArrayBoundsNode>().SingleOrDefault());
+
+        var grid = locals["Grid"]!;
+        Assert.IsFalse(grid.IsResizable);
+        Assert.AreEqual(2, grid.Rank);
+        Assert.AreEqual(new ArrayDimensionBound("1", "3"), grid.Bounds[0]);
+        Assert.AreEqual(new ArrayDimensionBound("0", "4"), grid.Bounds[1]);
+
+        var row = locals["Row"]!;
+        Assert.IsFalse(row.IsResizable);
+        Assert.AreEqual(new ArrayDimensionBound(null, "10"), row.Bounds.Single());
+
+        var buffer = locals["Buffer"]!;
+        Assert.IsTrue(buffer.IsResizable);
+        Assert.AreEqual(0, buffer.Rank);
+
+        Assert.IsNull(locals["Scalar"]);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """
