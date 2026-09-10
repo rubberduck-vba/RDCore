@@ -197,6 +197,26 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));
     }
 
+    // one node per `ReDim` target. a body-only statement — a module-level `ReDim` is illegal, and
+    // the push/pop stays balanced because `_isInsideProcedure` cannot flip inside one target.
+    public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
+    {
+        if (_isInsideProcedure)
+        {
+            OnEnterParent();
+        }
+    }
+    public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
+    {
+        if (!_isInsideProcedure)
+        {
+            return;
+        }
+        // recovery can leave Parent.Parent not pointing at the redimStmt that carries `Preserve`.
+        var isPreserve = (context.Parent?.Parent as VBAParser.RedimStmtContext)?.PRESERVE() is not null;
+        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve));
+    }
+
     private bool _isPropertyWriterMember = false;
     private void OnEnterProcedure(bool isPropertyWriter = false)
     {
@@ -242,12 +262,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public override void ExitAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
     {
-        // a body-level `ReDim x(1) As Long` carries an asTypeClause too; that type belongs to the
-        // ReDim statement, not the enclosing member, and this pass does not model body statements.
-        if (context.Parent is VBAParser.RedimVariableDeclarationContext)
-        {
-            return;
-        }
+        // a body-level `ReDim x(1) As Long` carries an asTypeClause; `EnterRedimVariableDeclaration`
+        // has pushed a builder for it, so this node now lands on that RedimDeclarationNode (not the
+        // enclosing member) — no special-casing needed here.
 
         // `As` with no type token (half-typed / recovery): the LL error listener already located the
         // "missing type" error — just don't build a broken node.

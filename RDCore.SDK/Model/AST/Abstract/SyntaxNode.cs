@@ -50,6 +50,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(OnErrorGoToStatementNode), "OnErrorGoToStatement")]
 [JsonDerivedType(typeof(OnErrorResumeStatementNode), "OnErrorResumeStatement")]
 [JsonDerivedType(typeof(ParameterDeclarationNode), "Parameter")]
+[JsonDerivedType(typeof(RedimDeclarationNode), "Redim")]
 [JsonDerivedType(typeof(ResumeNextStatementNode), "ResumeNextStatement")]
 [JsonDerivedType(typeof(ResumeStatementNode), "ResumeStatement")]
 [JsonDerivedType(typeof(ReturnStatementNode), "ReturnStatement")]

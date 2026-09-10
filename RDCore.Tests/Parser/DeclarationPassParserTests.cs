@@ -220,6 +220,33 @@ End Sub
     }
 
     [TestMethod]
+    // the AST crosses the process boundary as an STJ string; the array-bounds / ReDim nodes carry
+    // data beyond child identities (bounds text, Preserve, qualifier) that must survive the round-trip.
+    public void SyntaxTree_RoundTrips_ArrayAndRedimNodes()
+    {
+        const string content = """
+            Public Sub Grow()
+                Dim Grid(1 To 3) As Long
+                ReDim Preserve Grid(1 To 10)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var json = JsonSerializer.Serialize(result.SyntaxTree!);
+        var member = JsonSerializer.Deserialize<ModuleNode>(json)!.Children.OfType<MemberDeclarationNode>().Single();
+
+        var dimBounds = member.Children.OfType<VariableDeclarationNode>().Single().Children.OfType<ArrayBoundsNode>().Single();
+        Assert.AreEqual(new ArrayDimensionBound("1", "3"), dimBounds.Bounds.Single());
+
+        var redim = member.Children.OfType<RedimDeclarationNode>().Single();
+        Assert.AreEqual("Grid", redim.Name);
+        Assert.IsTrue(redim.IsPreserve);
+        Assert.AreEqual(new ArrayDimensionBound("1", "10"), redim.Children.OfType<ArrayBoundsNode>().Single().Bounds.Single());
+    }
+
+    [TestMethod]
     public void DeclareOrEvent_DoesNotPoisonLaterModuleDeclarationCapture()
     {
         // regression: a Declare/Event has an argList but no body, and ExitArgList used to set
@@ -340,6 +367,107 @@ End Sub
         Assert.AreEqual(0, buffer.Rank);
 
         Assert.IsNull(locals["Scalar"]);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.4.3.3 ReDim: `ReDim [Preserve] name(<bounds>) [As type]`, one target per comma.
+    public void Redim_EmitsRedimDeclarationNode_WithBoundsAndPreserve()
+    {
+        const string content = """
+            Public Sub Grow(ByVal n As Long)
+                ReDim Preserve Grid(1 To 10, 0 To n)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().Single();
+
+        Assert.AreEqual("Grid", redim.Name);
+        Assert.IsNull(redim.QualifierName);
+        Assert.IsTrue(redim.IsPreserve);
+
+        var bounds = redim.Children.OfType<ArrayBoundsNode>().Single();
+        Assert.AreEqual(2, bounds.Rank);
+        Assert.AreEqual(new ArrayDimensionBound("1", "10"), bounds.Bounds[0]);
+        Assert.AreEqual(new ArrayDimensionBound("0", "n"), bounds.Bounds[1]);
+    }
+
+    [TestMethod]
+    public void Redim_UpperBoundOnly_HasNullLowerBound()
+    {
+        const string content = """
+            Public Sub Grow()
+                ReDim Buffer(10)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().Single();
+
+        Assert.IsFalse(redim.IsPreserve);
+        Assert.AreEqual(new ArrayDimensionBound(null, "10"), redim.Children.OfType<ArrayBoundsNode>().Single().Bounds.Single());
+    }
+
+    [TestMethod]
+    public void Redim_AsClause_LandsOnTheRedimNode_NotTheMember()
+    {
+        const string content = """
+            Public Sub Grow()
+                ReDim Buffer(1 To 4) As Long
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.IsEmpty(member.Children.OfType<AsTypeExpressionNode>());
+
+        var redim = member.Children.OfType<RedimDeclarationNode>().Single();
+        Assert.AreEqual("Long", redim.Children.OfType<AsTypeExpressionNode>().Single().TypeName);
+    }
+
+    [TestMethod]
+    public void Redim_MemberAccessTarget_CapturesQualifier()
+    {
+        const string content = """
+            Public Sub Grow()
+                ReDim Me.Buffer(3)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.ClassModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().Single();
+
+        Assert.AreEqual("Buffer", redim.Name);
+        Assert.AreEqual("Me", redim.QualifierName);
+    }
+
+    [TestMethod]
+    public void Redim_MultipleTargets_EmitOneNodeEach()
+    {
+        const string content = """
+            Public Sub Grow()
+                ReDim a(1), b(2 To 4)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redims = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().ToArray();
+
+        CollectionAssert.AreEquivalent(new[] { "a", "b" }, redims.Select(r => r.Name).ToArray());
     }
 
     [TestMethod]

@@ -246,6 +246,82 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new ArrayBoundsNode(identity, location, [.. bounds]);
     }
 
+    public SyntaxNode BuildRedimDeclaration(VBAParser.RedimVariableDeclarationContext context, bool isPreserve)
+    {
+        var (name, qualifier, typeHint) = RedimTarget(context.expression());
+
+        // ExitAsTypeClause has already put the optional `As` clause node in _children.
+        var children = _children.ToList();
+        children.Add(BuildRedimBounds(context, children.Count));
+
+        return new RedimDeclarationNode(
+            NodeId,
+            context.GetSourceLocation(_rootUri),
+            name,
+            qualifier,
+            [.. children],
+            isPreserve,
+            typeHint);
+    }
+
+    // the ReDim target is an index expression `lExpression '(' argumentList ')'`; take the callee's
+    // name, plus a qualifier for a member access and the type-declaration character for a simple name.
+    private static (string Name, string? Qualifier, string? TypeHint) RedimTarget(VBAParser.ExpressionContext? expression)
+        => Indexed(expression).Callee switch
+        {
+            VBAParser.SimpleNameExprContext simple
+                => (simple.identifier().Name(), null, simple.identifier().TypeHint()),
+            VBAParser.MemberAccessExprContext member
+                => (member.unrestrictedIdentifier().Name(), member.lExpression()?.GetText(), null),
+            VBAParser.WithMemberAccessExprContext withMember
+                => (withMember.unrestrictedIdentifier().Name(), ".", null),
+            { } other => (other.GetText(), null, null),
+            _ => (expression?.GetText() ?? string.Empty, null, null),
+        };
+
+    // `ReDim x(1 To 10, n)` — one bound per argument: `lower To upper`, or a bare upper. These are
+    // ordinary run-time expressions kept verbatim; the declaration pass does not evaluate them.
+    private ArrayBoundsNode BuildRedimBounds(VBAParser.RedimVariableDeclarationContext context, int childIndex)
+    {
+        var identity = NodeId.Add(childIndex);
+        var location = context.GetSourceLocation(_rootUri);
+
+        var arguments = Indexed(context.expression()).Arguments?.argument();
+        if (arguments is null || arguments.Length == 0)
+        {
+            return new ArrayBoundsNode(identity, location, []);
+        }
+
+        var bounds = new List<ArrayDimensionBound>();
+        foreach (var argument in arguments)
+        {
+            if (argument.positionalArgument()?.argumentExpression() is not { } expression)
+            {
+                continue;
+            }
+
+            if (expression.lowerBoundArgumentExpression() is { } lower && expression.upperBoundArgumentExpression() is { } upper)
+            {
+                bounds.Add(new ArrayDimensionBound(lower.GetText().Trim(), upper.GetText().Trim()));
+            }
+            else if (expression.expression() is { } bound)
+            {
+                bounds.Add(new ArrayDimensionBound(null, bound.GetText().Trim()));
+            }
+        }
+
+        return new ArrayBoundsNode(identity, location, [.. bounds]);
+    }
+
+    // the callee `lExpression` and argument list of an `x(...)` index expression, or (null, null).
+    private static (VBAParser.LExpressionContext? Callee, VBAParser.ArgumentListContext? Arguments) Indexed(VBAParser.ExpressionContext? expression)
+        => (expression as VBAParser.LExprContext)?.lExpression() switch
+        {
+            VBAParser.IndexExprContext index => (index.lExpression(), index.argumentList()),
+            VBAParser.WhitespaceIndexExprContext index => (index.lExpression(), index.argumentList()),
+            _ => (null, null),
+        };
+
     public SyntaxNode BuildConstDeclaration(VBAParser.ConstSubStmtContext context, ConstKind kind, AccessModifier modifier)
     {
         var typeHint = context.identifier().TypeHint();
