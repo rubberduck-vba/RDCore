@@ -26,25 +26,28 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// Resolves <paramref name="name"/> as seen from the scope the symbol at <paramref name="handle"/>
     /// belongs to. <paramref name="scope"/> is not consulted — the lookup order is the tree's.
     /// </summary>
-    public Symbol? Resolve(string name, ScopeKind scope, Uri handle)
+    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle)
     {
         foreach (var lexicalScope in scopeTree.ScopeFor(handle).SelfAndAncestors())
         {
-            var matches = lexicalScope.DeclaredAs(name).Take(2).ToArray();
+            var matches = lexicalScope.DeclaredAs(name).ToArray();
             if (matches.Length == 1)
             {
-                return matches[0];
+                return SymbolResolutionResult.Resolved(matches[0]);
             }
 
             if (matches.Length > 1)
             {
-                // ambiguous in this scope (MS-VBAL "ambiguous name"). A coded VBCompileErrorInfo
-                // needs a richer result than Symbol?, so for now the name stays unbound.
-                return null;
+                // a collision inside one module or procedure is a duplicate declaration; one at the
+                // project or global tier — members promoted from different modules or references —
+                // is an ambiguous name the reference must qualify (VBC09303 vs VBC09301).
+                return lexicalScope.Kind is LexicalScopeKind.Project or LexicalScopeKind.Global
+                    ? SymbolResolutionResult.Ambiguous(matches)
+                    : SymbolResolutionResult.Duplicate(matches);
             }
         }
 
-        return null;
+        return SymbolResolutionResult.Unbound;
     }
 
     /// <inheritdoc/>

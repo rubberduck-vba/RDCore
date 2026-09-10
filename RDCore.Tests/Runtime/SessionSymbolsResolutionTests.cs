@@ -181,6 +181,6 @@ public sealed class SessionSymbolsResolutionTests
         var api = Procedure(module.Uri, "Run", AccessModifier.Public);
         var symbols = Compose(module, api);
 
-        Assert.AreSame(api, symbols.Resolver.Resolve("Run", ScopeKind.Unallocated, module.Uri));
+        Assert.AreSame(api, symbols.Resolver.Resolve("Run", ScopeKind.Unallocated, module.Uri).Symbol);
     }
 }

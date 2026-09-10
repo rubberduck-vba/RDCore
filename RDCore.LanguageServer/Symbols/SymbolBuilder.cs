@@ -223,7 +223,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
 
     // Binds a reserved/declared type name through the resolver; an unresolved name stays Unknown.
     private VBType ResolveTypeName(string typeName, Uri handle)
-        => resolver.Resolve(typeName, ScopeKind.Global, handle) switch
+        => resolver.Resolve(typeName, ScopeKind.Global, handle).Symbol switch
         {
             BoundTypedSymbol bound => bound.ResolvedType,
             UnboundTypedSymbol unbound => unbound.ResolvedType,

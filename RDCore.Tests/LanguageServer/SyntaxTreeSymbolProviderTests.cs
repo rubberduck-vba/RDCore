@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -60,7 +61,8 @@ public sealed class SyntaxTreeSymbolProviderTests
     {
         var resolver = Substitute.For<ISymbolResolver>();
         resolver.Resolve("Long", ScopeKind.Global, Arg.Any<Uri>())
-            .Returns(new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", ScopeKind.Global, VBLongType.TypeInfo));
+            .Returns(SymbolResolutionResult.Resolved(
+                new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", ScopeKind.Global, VBLongType.TypeInfo)));
 
         var symbol = Single<VBFunctionMemberSymbol>(Provide("Function Bar() As Long\r\nEnd Function", resolver));
 

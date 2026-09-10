@@ -15,7 +15,7 @@ public sealed class IntrinsicSymbolResolverTests
     [TestMethod]
     public void Resolve_ReservedTypeName_BindsIntrinsicType()
     {
-        var symbol = _sut.Resolve("Long", ScopeKind.Global, Handle);
+        var symbol = _sut.Resolve("Long", ScopeKind.Global, Handle).Symbol;
 
         Assert.IsInstanceOfType<UnboundTypedSymbol>(symbol);
         Assert.IsInstanceOfType<VBLongType>(((StaticSymbol)symbol!).ResolvedType);
@@ -23,15 +23,15 @@ public sealed class IntrinsicSymbolResolverTests
 
     [TestMethod]
     public void Resolve_IsCaseInsensitive()
-        => Assert.IsInstanceOfType<VBStringType>(((StaticSymbol)_sut.Resolve("STRING", ScopeKind.Global, Handle)!).ResolvedType);
+        => Assert.IsInstanceOfType<VBStringType>(((StaticSymbol)_sut.Resolve("STRING", ScopeKind.Global, Handle).Symbol!).ResolvedType);
 
     [TestMethod]
     public void Resolve_TypeDeclarationCharacter_BindsIntrinsicType()
-        => Assert.IsInstanceOfType<VBIntegerType>(((StaticSymbol)_sut.Resolve("%", ScopeKind.Global, Handle)!).ResolvedType);
+        => Assert.IsInstanceOfType<VBIntegerType>(((StaticSymbol)_sut.Resolve("%", ScopeKind.Global, Handle).Symbol!).ResolvedType);
 
     [TestMethod]
-    public void Resolve_NonIntrinsicName_ReturnsNull()
-        => Assert.IsNull(_sut.Resolve("CWidget", ScopeKind.Global, Handle));
+    public void Resolve_NonIntrinsicName_IsUnbound()
+        => Assert.IsTrue(_sut.Resolve("CWidget", ScopeKind.Global, Handle).IsUnbound);
 
     [TestMethod]
     public void GetValue_Throws()

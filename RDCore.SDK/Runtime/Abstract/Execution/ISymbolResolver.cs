@@ -13,13 +13,18 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 public interface ISymbolResolver
 {
     /// <summary>
-    /// Resolves the specified <em>identifier name</em> in the specified scope.
+    /// Resolves the specified <em>identifier name</em> as seen from the scope the symbol at
+    /// <paramref name="handle"/> belongs to.
     /// </summary>
     /// <param name="name">The name of the <see cref="Symbol"/> to resolve.</param>
-    /// <param name="scope">The memory scope to inspect.</param>
-    /// <param name="handle">The <see cref="Uri"/> of the current scope (procedure) symbol.</param>
-    /// <returns><c>null</c> if no symbol could be resolved from the specified <em>handle</em> in the specified <em>scope</em> with the specified <em>name</em>.</returns>
-    Symbol? Resolve(string name, ScopeKind scope, Uri handle);
+    /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>
+    /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
+    /// <returns>
+    /// A <see cref="SymbolResolutionResult"/> — the bound <see cref="Symbol"/>, an unbound result, or
+    /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
+    /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// </returns>
+    SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle);
 
     /// <summary>
     /// Gets the <see cref="IBindingHandle"/> currently associated with the specified <see cref="Symbol"/>.

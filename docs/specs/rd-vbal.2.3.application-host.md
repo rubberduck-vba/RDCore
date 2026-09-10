@@ -50,9 +50,17 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 
 |Member|Description|
 |---|---|
-|`Resolve`|Resolves a specified _identifier name_ to a defined `Symbol`, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to|
+|`Resolve`|Resolves a specified _identifier name_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
+
+`Resolve` returns a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
+declared nowhere visible), or one of two compile-time errors with the colliding declarations
+attached: **VBC09303** _Duplicate declaration_ when the name is declared more than once within one
+module or procedure, and **VBC09301** _Ambiguous name_ when it resolves in more than one enclosing
+scope — members promoted from different modules or references — and the reference must qualify it.
+The resolver reports the error _kind_; the caller, which knows where the reference is, builds the
+located diagnostic.
 
 The compile-time implementation is
 [ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html): it walks
@@ -97,7 +105,7 @@ The correctly-scoped allocation of all symbols upon their definition should then
 3. If a name refers to a symbol defined in the _workspace heap_, then the resolved symbol is workspace-scoped;
 4. If a name refers to a symbol defined in the _global heap_, then the resolved symbol is globally-scoped.
 
-- If multiple symbols match a specified name before reaching the _global_ scope, then the name is ambiguous and an appropriate [compile-time error](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) should be issued, in this case **VBC009303** _Duplicate declaration_.
+- If multiple symbols match a specified name within one _module_ or _procedure_ scope, that is a **VBC09303** _Duplicate declaration_; if they match across the _project_ or _global_ scope — members promoted from different modules or references — that is a **VBC09301** _Ambiguous name_ (the reference must qualify the name). An appropriate [compile-time error](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) should be issued in either case.
 - If multiple symbols match a specified name within the _global_ scope, then the name is disambiguated using the _reference priority order_ of the _referenced library_ a matching symbol is defined in. This priotity is determined by the order in which project references appear in the `.rdproj` file of a _workspace folder_.
 
 > [!NOTE]
