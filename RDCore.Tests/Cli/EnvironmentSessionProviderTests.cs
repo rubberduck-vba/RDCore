@@ -100,7 +100,7 @@ public sealed class EnvironmentSessionProviderTests
     }
 
     [TestMethod]
-    public void Compose_ExposesProjectReferences_InTheOrderTheProjectDeclaresThem()
+    public void Compose_ExposesReferences_InTheOrderTheProjectDeclaresThem()
     {
         var project = new RDCoreProject
         {

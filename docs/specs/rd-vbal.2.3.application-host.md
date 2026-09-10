@@ -37,7 +37,7 @@ the workspace's `References` (see below), and three services:
 |`ISessionObjects`|Object lifetime: `CreateObject`, `AddRef` / `RemoveRef`, and `TryRemoveObject` for an instance whose reference count has reached zero.|
 
 `IRuntimeSession.References` is the workspace's project and library references as an ordered
-`IReadOnlyList<ProjectReference>` — the runtime-facing view of the `.rdproj`
+`IReadOnlyList<ReferencePriorityInfo>` — the runtime-facing view of the `.rdproj`
 [RDCoreReference](rd-vbal.2.2.rdproj-structure.html#2232-rdcorereference) list, carrying only each
 reference's source-visible `Name` and its `Priority` (the list rank). It is the reference-priority
 order defined later in this section, preserved exactly as the language server provides it; a

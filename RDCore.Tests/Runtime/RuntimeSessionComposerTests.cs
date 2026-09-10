@@ -38,7 +38,7 @@ public sealed class RuntimeSessionComposerTests
     {
         var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false);
         // deliberately not in ascending-priority order: the composer must not re-sort.
-        ProjectReference[] references = [new("Excel", 1), new("VBA", 0)];
+        ReferencePriorityInfo[] references = [new("Excel", 1), new("VBA", 0)];
 
         var session = RuntimeSessionComposer.Compose(environment, references, []);
 

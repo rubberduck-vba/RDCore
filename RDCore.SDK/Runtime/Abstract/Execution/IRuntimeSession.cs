@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Model;
-using RDCore.SDK.Model.Symbols;
+﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -45,7 +44,7 @@ public interface IRuntimeSession
     /// exactly as the language server provides it; empty when the session was composed without a
     /// project (e.g. a bare REPL).
     /// </summary>
-    IReadOnlyList<ProjectReference> References { get; }
+    IReadOnlyList<ReferencePriorityInfo> References { get; }
 }
 
 /// <summary>

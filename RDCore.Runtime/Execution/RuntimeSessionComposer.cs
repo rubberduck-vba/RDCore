@@ -11,11 +11,11 @@ namespace RDCore.Runtime.Execution;
 /// </summary>
 public static class RuntimeSessionComposer
 {
-    /// <inheritdoc cref="Compose(IRuntimeEnvironmentProfile, IReadOnlyList{ProjectReference}, IEnumerable{ISymbolProvider})"/>
+    /// <inheritdoc cref="Compose(IRuntimeEnvironmentProfile, IReadOnlyList{ReferencePriorityInfo}, IEnumerable{ISymbolProvider})"/>
     public static IRuntimeSession Compose(IRuntimeEnvironmentProfile environment, params ISymbolProvider[] providers)
         => Compose(environment, [], providers);
 
-    /// <inheritdoc cref="Compose(IRuntimeEnvironmentProfile, IReadOnlyList{ProjectReference}, IEnumerable{ISymbolProvider})"/>
+    /// <inheritdoc cref="Compose(IRuntimeEnvironmentProfile, IReadOnlyList{ReferencePriorityInfo}, IEnumerable{ISymbolProvider})"/>
     public static IRuntimeSession Compose(IRuntimeEnvironmentProfile environment, IEnumerable<ISymbolProvider> providers)
         => Compose(environment, [], providers);
 
@@ -27,7 +27,7 @@ public static class RuntimeSessionComposer
     /// </summary>
     public static IRuntimeSession Compose(
         IRuntimeEnvironmentProfile environment,
-        IReadOnlyList<ProjectReference> references,
+        IReadOnlyList<ReferencePriorityInfo> references,
         IEnumerable<ISymbolProvider> providers)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86);

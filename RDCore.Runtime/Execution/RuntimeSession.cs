@@ -14,13 +14,13 @@ internal sealed class RuntimeSession(
     ISessionMemoryAllocator memory,
     ISessionSymbols symbols,
     ISessionObjects objects,
-    IReadOnlyList<ProjectReference> references) : IRuntimeSession
+    IReadOnlyList<ReferencePriorityInfo> references) : IRuntimeSession
 {
     public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
     public ISessionSymbols Symbols { get; init; } = symbols;
     public ISessionObjects Objects { get; init; } = objects;
-    public IReadOnlyList<ProjectReference> References { get; init; } = references;
+    public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
 }
 
 internal sealed class SessionObjects : ISessionObjects

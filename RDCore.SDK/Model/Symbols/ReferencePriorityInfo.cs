@@ -19,4 +19,4 @@
 /// </remarks>
 /// <param name="Name">The identifier a workspace uses to qualify this reference's members (<c>VBA</c>, <c>Excel</c>, …).</param>
 /// <param name="Priority">The reference's position in the workspace's ordered reference list; <c>0</c> appears first and is the lowest precedence.</param>
-public sealed record class ProjectReference(string Name, int Priority);
+public sealed record class ReferencePriorityInfo(string Name, int Priority);
