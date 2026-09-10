@@ -23,13 +23,13 @@ public interface IRuntimeSemantics<TContext, TFlags>
     /// <remarks>
     /// ⚠️ <strong>Does not throw</strong> any run-time errors; instead it packages the error metadata in the result.
     /// </remarks>
-    /// <param name="runtime">The execution context and memory space to operate with.</param>
+    /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
     /// <param name="node">The bound node to be evaluated.</param>
     /// <param name="inputs">The inputs of the bound node.</param>
     RuntimeSemanticsEvaluationResult Evaluate(
-        IVBExecutionContext runtime, 
-        TContext context, 
+        ISymbolResolver resolver,
+        TContext context,
         SyntaxNode node, 
         params VBTypedValue[] inputs);
 

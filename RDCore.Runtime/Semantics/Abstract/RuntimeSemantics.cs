@@ -44,14 +44,14 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// <remarks>
     /// ⚠️ <strong>Does not throw</strong> any run-time errors; instead it packages the error metadata in the result.
     /// </remarks>
-    /// <param name="runtime">The execution context and memory space to operate with.</param>
+    /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
     /// <param name="node">The bound node to be evaluated.</param>
     /// <param name="inputs">The inputs of the bound node.</param>
     public abstract RuntimeSemanticsEvaluationResult Evaluate(
-        IVBExecutionContext runtime, 
-        TContext context, 
-        SyntaxNode node, 
+        ISymbolResolver resolver,
+        TContext context,
+        SyntaxNode node,
         params VBTypedValue[] inputs);
 
     /// <summary>
@@ -65,8 +65,8 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// <param name="node">The <em>bound node</em> to be evaluated.</param>
     /// <param name="effectiveType">The <em>effective type</em> of the operation.</param>
     /// <param name="inputs">The inputs of the expression.</param>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, TContext context, SyntaxNode node, VBType effectiveType, params VBTypedValue[] inputs) 
-        => Evaluate((IVBExecutionContext)resolver, context, node, inputs);
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, TContext context, SyntaxNode node, VBType effectiveType, params VBTypedValue[] inputs)
+        => Evaluate(resolver, context, node, inputs);
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.

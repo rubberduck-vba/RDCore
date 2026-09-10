@@ -16,16 +16,16 @@ public abstract record class StatementRuntimeSemantics<TContext, TFlags> : Runti
         TContext context,
         SyntaxNode node,
         VBType effectiveType,
-        params VBTypedValue[] inputs) => EvaluateSemanticResult((IVBExecutionContext)resolver, (StatementNode)node, inputs);
+        params VBTypedValue[] inputs) => EvaluateSemanticResult(resolver, (StatementNode)node, inputs);
 
     /// <summary>
     /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs 
     /// and returning a <em>semantic result</em> without implicating any side-effecting run-time calls.
     /// </summary>
-    /// <param name="runtime">The execution context and memory space to operate with.</param>
+    /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="statement">The statement to be evaluated.</param>
     /// <param name="inputs">The inputs of the statement.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> encapsulating the result this statement (including any runtime error diagnostics).</returns>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(IVBExecutionContext runtime, StatementNode statement, VBTypedValue[] inputs) 
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, StatementNode statement, VBTypedValue[] inputs)
         => RuntimeSemanticsEvaluationResult.InternalError(); // TODO
 }

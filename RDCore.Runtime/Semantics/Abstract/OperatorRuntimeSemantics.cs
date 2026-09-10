@@ -156,19 +156,19 @@ where TFlags : struct, Enum
     /// <summary>
     /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified operands.
     /// </summary>
-    /// <param name="runtime">The execution context and memory space to operate with.</param>
+    /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
     /// <param name="node">The <em>expression node</em> to be evaluated.</param>
     /// <param name="inputs">The inputs of the expression.</param>
     public sealed override RuntimeSemanticsEvaluationResult Evaluate(
-        IVBExecutionContext runtime, 
-        TContext context, 
-        SyntaxNode node, 
+        ISymbolResolver resolver,
+        TContext context,
+        SyntaxNode node,
         params VBTypedValue[] inputs)
     {
         var expression = (VBOperatorExpression)node;
         var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo);
-        return Evaluate((ISymbolResolver)runtime, context, expression, frame);
+        return Evaluate(resolver, context, expression, frame);
     }
 
     /// <summary>

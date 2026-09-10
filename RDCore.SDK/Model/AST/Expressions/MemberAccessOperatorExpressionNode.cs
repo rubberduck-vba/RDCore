@@ -14,7 +14,7 @@ public record class MemberAccessOperatorExpressionNode(
 {
     /*
     public static VBTypedValue EvaluateBinaryMemberAccess(
-        VBExecutionContext context,
+        IRuntimeSession session,
         VBBinaryOperatorExpression expression,
         VBTypedValue lhs,
         VBTypedValue rhs)
@@ -80,7 +80,7 @@ public record class MemberAccessOperatorExpressionNode(
     }
 
     public static VBTypedValue EvaluateBinaryDictionaryAccess(
-        VBExecutionContext context,
+        IRuntimeSession session,
         VBBinaryOperatorExpression expression,
         VBTypedValue lhs,
         VBStringValue rhs)

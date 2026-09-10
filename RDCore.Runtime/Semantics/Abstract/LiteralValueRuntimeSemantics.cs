@@ -11,7 +11,7 @@ public abstract record class LiteralValueRuntimeSemantics<TContext, TFlags> : Ru
     where TContext : SemanticContext<TFlags>, new()
     where TFlags : struct, Enum
 {
-    public override RuntimeSemanticsEvaluationResult Evaluate(IVBExecutionContext runtime, TContext context, SyntaxNode node, params VBTypedValue[] inputs)
+    public override RuntimeSemanticsEvaluationResult Evaluate(ISymbolResolver resolver, TContext context, SyntaxNode node, params VBTypedValue[] inputs)
         => EvaluateSemanticResult((LiteralExpressionNode)node);
 
     /// <summary>

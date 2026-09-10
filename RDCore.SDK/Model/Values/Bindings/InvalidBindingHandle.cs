@@ -1,6 +1,5 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
-using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -18,9 +17,9 @@ public record class InvalidBindingHandle : IBindingHandle
 
     public IRuntimeValue Value => throw new NotSupportedException("The binding is not valid.");
 
-    public IRuntimeValue GetValue(IVBExecutionContext context) => throw new NotSupportedException();
+    public IRuntimeValue GetValue() => throw new NotSupportedException();
 
-    public IRuntimeValue Invoke(IVBExecutionContext context, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeValue[] args) => throw new NotSupportedException();
 
-    public void SetValue(IVBExecutionContext context, IRuntimeValue value) => throw new NotSupportedException();
+    public void SetValue(IRuntimeValue value) => throw new NotSupportedException();
 }

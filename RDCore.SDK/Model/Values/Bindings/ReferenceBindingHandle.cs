@@ -1,6 +1,5 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
-using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -19,10 +18,10 @@ public record class ReferenceBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
-    public IRuntimeValue GetValue(IVBExecutionContext context) => _value;
+    public IRuntimeValue GetValue() => _value;
 
-    public void SetValue(IVBExecutionContext context, IRuntimeValue value) => _value = value is VBRuntimeReference reference
+    public void SetValue(IRuntimeValue value) => _value = value is VBRuntimeReference reference
         ? reference : throw new ArgumentException($"Expected {nameof(VBRuntimeReference)} value", nameof(value));
 
-    public IRuntimeValue Invoke(IVBExecutionContext context, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeValue[] args) => throw new NotSupportedException();
 }

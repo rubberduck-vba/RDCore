@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Meta;
-using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -53,7 +52,7 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.GetValue"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException"></exception>
-    IRuntimeValue GetValue(IVBExecutionContext context);
+    IRuntimeValue GetValue();
     /// <summary>
     /// Sets the value associated to this handle.
     /// </summary>
@@ -61,7 +60,7 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.SetValue"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException"></exception>
-    void SetValue(IVBExecutionContext context, IRuntimeValue value);
+    void SetValue(IRuntimeValue value);
     /// <summary>
     /// Invokes the callable entity associated to this handle.
     /// </summary>
@@ -69,15 +68,14 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.SetValue"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException"></exception>
-    IRuntimeValue Invoke(IVBExecutionContext context, IRuntimeValue[] args);
+    IRuntimeValue Invoke(IRuntimeValue[] args);
 
     /// <summary>
-    /// The bound runtime value, read without an execution context.
+    /// The bound runtime value.
     /// </summary>
     /// <remarks>
-    /// 👉 A context-free read for the common literal/value cases. Handles that resolve a value lazily
-    /// or via a reference still expose <see cref="GetValue(IVBExecutionContext)"/>; this interface is
-    /// wider than it needs to be and is expected to be narrowed later.
+    /// 👉 A direct read for the common literal/value cases. Handles that resolve a value lazily
+    /// or via a reference still expose <see cref="GetValue()"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException">The binding has no readable value.</exception>
     IRuntimeValue Value { get; }
