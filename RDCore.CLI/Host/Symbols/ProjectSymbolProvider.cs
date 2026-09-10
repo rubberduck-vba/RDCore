@@ -15,10 +15,11 @@ namespace RDCore.CLI.Host.Symbols;
 /// <c>LibrarySymbolProvider</c>'s responsibility; member symbols come from the language server's
 /// <c>SyntaxTreeSymbolProvider</c> over <c>rdcore/host/symbols/define</c>.
 /// <para>
-/// A module's name is its <c>Attribute VB_Name</c>, so each module's source is read to resolve it;
-/// the file name is the fallback when the source is unreadable or declares no such attribute. The
-/// language server resolves the same name from the parsed AST, so the members it defines parent onto
-/// the module symbol composed here.
+/// A module's name is its <c>Attribute VB_Name</c> and its kind is its <c>VERSION</c> header
+/// (<see cref="ModuleName"/> / <see cref="ModuleHeader"/>) — both are read from the source, once per
+/// module, not inferred from the file extension. The file name is the name fallback when the source
+/// is unreadable or declares no attribute. The language server resolves the same name and kind from
+/// the parsed module, so the members it defines parent onto the module symbol composed here.
 /// </para>
 /// </remarks>
 public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem) : ISymbolProvider
@@ -27,11 +28,12 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
     {
         foreach (var module in project.Modules)
         {
-            var name = ModuleName.Resolve(ReadSourceOrNull(module.RelativeUri), module.RelativeUri);
-            var isClass = module.Super is not null
-                || string.Equals(Path.GetExtension(module.RelativeUri), ".cls", StringComparison.OrdinalIgnoreCase);
+            var source = ReadSourceOrNull(module.RelativeUri);
+            var name = ModuleName.Resolve(source, module.RelativeUri);
 
-            yield return isClass
+            // kind is the source's business: a VERSION header makes it a class/designer module.
+            // .doccls modules carry no VBE header and are out of scope for now.
+            yield return ModuleHeader.IsClassModule(source) ?? false
                 ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, name);
         }
