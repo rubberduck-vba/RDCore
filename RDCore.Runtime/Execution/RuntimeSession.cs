@@ -84,10 +84,12 @@ internal sealed class SessionSymbols : ISessionSymbols
     private readonly HashSet<Symbol> _localSymbols = [];
 
     private ScopeTree? _scopeTree;
+    private ISymbolResolver? _resolver;
 
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
-        _scopeTree = null; // resolution rebuilds the scope tree on next use
+        _scopeTree = null;  // resolution rebuilds the tree, and the resolver over it, on next use
+        _resolver = null;
 
         var table = scope switch
         {
@@ -99,25 +101,14 @@ internal sealed class SessionSymbols : ISessionSymbols
         return table.Add(symbol);
     }
 
+    public ISymbolResolver Resolver => _resolver ??= new ScopeTreeSymbolResolver(EnsureScopeTree());
+
     public bool TryResolve(string name, Symbol scope, out Symbol? symbol)
     {
-        foreach (var lexicalScope in EnsureScopeTree().ScopeFor(scope.Uri).SelfAndAncestors())
-        {
-            var matches = lexicalScope.DeclaredAs(name).Take(2).ToArray();
-            if (matches.Length == 0)
-            {
-                continue;
-            }
-
-            // a name declared more than once in one scope is an MS-VBAL "ambiguous name"
-            // (RD-VBAL VBC09303); reporting that as a compile error needs a result channel this
-            // interface does not have yet, so for now an ambiguous name reads as unresolved.
-            symbol = matches.Length == 1 ? matches[0] : null;
-            return symbol is not null;
-        }
-
-        symbol = null;
-        return false;
+        // ISessionSymbols.TryResolve keys the scope on the symbol's uri only; a same-scope duplicate
+        // (an MS-VBAL "ambiguous name") comes back null — no compile-error channel here yet.
+        symbol = Resolver.Resolve(name, ScopeKind.Unallocated, scope.Uri);
+        return symbol is not null;
     }
 
     private ScopeTree EnsureScopeTree()

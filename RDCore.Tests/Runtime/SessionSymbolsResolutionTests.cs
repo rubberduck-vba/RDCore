@@ -173,4 +173,14 @@ public sealed class SessionSymbolsResolutionTests
         Assert.IsFalse(symbols.TryResolve("Nope", GlobalScope, out var resolved));
         Assert.IsNull(resolved);
     }
+
+    [TestMethod]
+    public void TheSessionResolver_BindsANameFromAScope()
+    {
+        var module = Module("Mod1");
+        var api = Procedure(module.Uri, "Run", AccessModifier.Public);
+        var symbols = Compose(module, api);
+
+        Assert.AreSame(api, symbols.Resolver.Resolve("Run", ScopeKind.Unallocated, module.Uri));
+    }
 }

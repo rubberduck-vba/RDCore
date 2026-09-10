@@ -63,6 +63,12 @@ public interface ISessionSymbols
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/>.
     /// </summary>
     bool TryResolve(string name, Symbol scope, out Symbol? symbol);
+
+    /// <summary>
+    /// The compile-time read face over this table — resolves a name visible from a scope by walking
+    /// the scope tree the currently-defined symbols form. Tracks later <see cref="TryDefine"/> calls.
+    /// </summary>
+    ISymbolResolver Resolver { get; }
 }
 
 /// <summary>
