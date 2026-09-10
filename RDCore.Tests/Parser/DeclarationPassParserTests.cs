@@ -471,6 +471,26 @@ End Sub
     }
 
     [TestMethod]
+    // the declarations pass flattens block nesting, so a ReDim inside If/For/With still parents to
+    // the procedure member — the symbol pass reads `member.Children` and must find it there.
+    public void Redim_NestedInABlock_ParentsToTheProcedureMember()
+    {
+        const string content = """
+            Public Sub Grow(ByVal Flag As Boolean)
+                If Flag Then
+                    ReDim Nested(5)
+                End If
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual("Nested", member.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

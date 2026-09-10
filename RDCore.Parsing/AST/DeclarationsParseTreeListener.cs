@@ -197,21 +197,17 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));
     }
 
-    // one node per `ReDim` target. a body-only statement — a module-level `ReDim` is illegal, and
-    // the push/pop stays balanced because `_isInsideProcedure` cannot flip inside one target.
+    // one node per `ReDim` target, built wherever the statement parses — no position guard, like
+    // every other declaration listener: the AST has to round-trip, and a `ReDim` outside a
+    // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
+    // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
+    // statement between members, so the context is only reached inside a procedure body — nested
+    // arbitrarily deep in blocks, which this pass flattens onto the member. The symbol pass reads a
+    // procedure member's children, so a node parked anywhere else yields no symbol.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
-    {
-        if (_isInsideProcedure)
-        {
-            OnEnterParent();
-        }
-    }
+        => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
     {
-        if (!_isInsideProcedure)
-        {
-            return;
-        }
         // recovery can leave Parent.Parent not pointing at the redimStmt that carries `Preserve`.
         var isPreserve = (context.Parent?.Parent as VBAParser.RedimStmtContext)?.PRESERVE() is not null;
         OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve));
