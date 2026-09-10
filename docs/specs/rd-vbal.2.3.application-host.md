@@ -66,8 +66,12 @@ The compile-time implementation is
 [ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html): it walks
 the [ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html) described below and binds names only —
 its `GetValue` / `TryRead` throw, since it holds no run-time bindings. The session exposes one over
-its own symbols as `ISessionSymbols.Resolver`, rebuilt as symbols are defined; a design-time host
-composes its own over an AST-derived tree.
+its own symbols as `ISessionSymbols.Resolver`, rebuilt as symbols are defined. A design-time host
+composes its own the same way: a first pass extracts every parsed module's declarations with an
+intrinsic-only resolver, then a
+[CompositeSymbolResolver](../api/RDCore.SDK.Model.Symbols.CompositeSymbolResolver.html) layers a
+`ScopeTreeSymbolResolver` over the lot in front of the intrinsic one — so a module's `As SomeType`
+binds to a sibling module's `Type` or `Enum`, not only to a reserved data-type name.
 
 `ISymbolProvider` exposes a single `ProvideSymbols` method that yields the `Symbol`s its source
 defines; the composition root then defines each one into the semantic layer (static context) or the
