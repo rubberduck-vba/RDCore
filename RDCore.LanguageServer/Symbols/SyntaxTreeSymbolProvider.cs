@@ -109,7 +109,8 @@ internal sealed class SyntaxTreeSymbolProvider(
                     MemberKind.Function => builder.BuildFunction(member),
                     MemberKind.PropertyGet => builder.BuildPropertyGet(member),
                     MemberKind.PropertyLet => builder.BuildPropertyLet(member),
-                    _ => builder.BuildPropertySet(member),
+                    MemberKind.PropertySet => builder.BuildPropertySet(member),
+                    _ => throw new NotSupportedException($"{nameof(FromMember)} reached its procedure branch with a non-procedure {nameof(MemberKind)} '{member.MemberKind}'."),
                 };
                 yield return procedure;
                 // procedure-local Dim/Static/Const symbols parent to the procedure symbol.
