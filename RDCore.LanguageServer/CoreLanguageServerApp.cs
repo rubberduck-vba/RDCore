@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -32,8 +34,10 @@ internal sealed class CoreLanguageServerApp(
     IHealthCheckService<CoreLanguageServerApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
     IWorkspaceService workspace,
+    IWorkspaceDocumentService workspaceDocuments,
     IParsingClientService parsing,
     ISymbolSyncService symbolSync,
+    IDocumentDiagnosticsService diagnostics,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -91,7 +95,14 @@ internal sealed class CoreLanguageServerApp(
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
-        // TODO configure Client <=> LangServer handlers here
+        builder.WithHandler<DocumentDiagnosticHandler>();
+    }
+
+    protected override void ConfigureServices(IServiceCollection services)
+    {
+        // the pull handler is built by the OmniSharp container; the diagnostics service lives in the
+        // external (host) container, so bridge the same singleton across.
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
@@ -235,6 +246,36 @@ internal sealed class CoreLanguageServerApp(
     {
         await parsing.ParseWorkspaceAsync(token);
         await symbolSync.SyncWorkspaceAsync(token);
+        await RunDiagnosticsBringUpAsync(token);
+    }
+
+    /// <summary>
+    /// Pulls diagnostics for every loaded document once, exercising the provider fan-out without an
+    /// editor. Not a push — nothing is sent to the client; it is the seam the future push hangs off.
+    /// </summary>
+    private async Task RunDiagnosticsBringUpAsync(CancellationToken token)
+    {
+        try
+        {
+            var total = 0;
+            foreach (var document in workspaceDocuments.GetAllDocuments())
+            {
+                token.ThrowIfCancellationRequested();
+                var uri = document.Id.Uri.ToUri();
+                var result = await diagnostics.GetAsync(uri, previousResultId: null, token);
+                total += result.Diagnostics.Count;
+                LogIfEnabled(LogLevel.Information, $"🔎 {uri}: {result.Diagnostics.Count} diagnostic(s)");
+            }
+            LogIfEnabled(LogLevel.Information, $"✅ Diagnostics bring-up completed ({total} across the workspace)");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            LogIfEnabled(LogLevel.Information, "Diagnostics bring-up was cancelled; language server is shutting down.");
+        }
+        catch (Exception exception)
+        {
+            LogIfEnabled(LogLevel.Error, $"❌ Diagnostics bring-up failed.\n{exception}");
+        }
     }
 
     /// <summary>

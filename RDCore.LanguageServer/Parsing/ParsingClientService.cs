@@ -115,7 +115,10 @@ internal sealed class ParsingClientService(
         }
     }
 
-    private static ModuleType ModuleTypeOf(WorkspaceDocument document)
+    // review #170: the file extension is a stopgap. Module type is really an attribute concern
+    // (VB_Name etc.) — the AST root node should not vary by module type; resolving this belongs in
+    // semantic space, with the extension only ever driving the workspace-tree icon.
+    internal static ModuleType ModuleTypeOf(WorkspaceDocument document)
         => _classModuleExtensions.Contains(document.Extension) ? ModuleType.ClassModule : ModuleType.StdModule;
 
     private void LogIfEnabled(LogLevel level, string message)

@@ -1,4 +1,4 @@
-﻿using RDCore.Diagnostics.Model;
+﻿using RDCore.SDK.Model.Diagnostics;
 
 namespace RDCore.SDK.Model.Errors.Abstract;
 

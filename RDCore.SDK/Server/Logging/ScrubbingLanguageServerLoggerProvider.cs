@@ -37,7 +37,8 @@ public sealed class ScrubbingLanguageServerLoggerProvider(ILanguageServerFacade 
 internal sealed class ScrubbingLanguageServerLogger(ILanguageServerFacade responseRouter, string categoryName, SourcePathScrubMode scrubMode) : ILogger
 {
     /// <inheritdoc/>
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    // never null — see NullLogScope: OmniSharp's request-timing logger disposes this without a null check.
+    public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullLogScope.Instance;
 
     /// <inheritdoc/>
     public bool IsEnabled(LogLevel logLevel) => true;

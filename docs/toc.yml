@@ -4,5 +4,7 @@
   href: getting-started.md
 - name: RD-VBAL
   href: specs/rd-vbal.md
+- name: Diagnostics
+  href: diagnostics/index.md
 - name: SDK
   href: api/

@@ -17,7 +17,13 @@ public static class RDCoreUrl
     /// </summary>
     public const string RDCoreWebApiBaseUrl = $"{RDCoreBaseWebUrl}/api";
     /// <summary>
-    /// The base URL for diagnostics documentation.
+    /// The base URL for the published RD-VBAL documentation site (GitHub Pages).
     /// </summary>
-    public const string RDCoreDiagnosticCodeDescriptionBaseWebUrl = $"{RDCoreBaseWebUrl}/rdcore/diagnostics";
+    public const string RDCoreDocsBaseWebUrl = "https://rubberduck-vba.github.io/RDCore";
+    /// <summary>
+    /// The base URL for the per-code diagnostics documentation pages — one page per <c>VBC</c> /
+    /// <c>VBR</c> / <c>VBA</c> / <c>RDC</c> code, pointed to by every emitted diagnostic's
+    /// <c>codeDescription</c>.
+    /// </summary>
+    public const string RDCoreDiagnosticCodeDescriptionBaseWebUrl = $"{RDCoreDocsBaseWebUrl}/diagnostics";
 }

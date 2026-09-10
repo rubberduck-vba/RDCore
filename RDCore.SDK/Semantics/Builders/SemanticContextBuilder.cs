@@ -2,9 +2,9 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
-using RDCore.SDK.Semantics.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using System.Collections.Concurrent;
 

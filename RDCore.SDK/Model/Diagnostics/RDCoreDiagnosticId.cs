@@ -1,5 +1,10 @@
-﻿namespace RDCore.Diagnostics.Model;
+﻿namespace RDCore.SDK.Model.Diagnostics;
 
+/// <summary>
+/// The identifiers of the <em>Rubberduck Core diagnostics</em> — the <c>RDC00000</c> family issued by
+/// the <c>RDCore.Diagnostics</c> analyzers, distinct from the language core's <c>VBC</c>/<c>VBR</c>/<c>VBA</c>
+/// error diagnostics. The numeric value is the code (see <see cref="Errors.Abstract.VBErrorExtensions"/>).
+/// </summary>
 public enum RDCoreDiagnosticId
 {
     // TODO sort and categorize, then carve in stone.
