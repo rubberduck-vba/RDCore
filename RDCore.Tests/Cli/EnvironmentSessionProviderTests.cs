@@ -118,8 +118,6 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreEqual(0, session.References[0].Priority);
         Assert.AreEqual("Excel", session.References[1].Name);
         Assert.AreEqual(1, session.References[1].Priority);
-        Assert.AreEqual(1, session.References[1].MajorVersion);
-        Assert.AreEqual(9, session.References[1].MinorVersion);
     }
 
     [TestMethod]

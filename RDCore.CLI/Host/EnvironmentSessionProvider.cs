@@ -76,12 +76,7 @@ public sealed class EnvironmentSessionProvider(
         return _session;
     }
 
-    // the .rdproj declares references in priority order (RD-VBAL §2.3.1.2); the array index is the rank.
+    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank.
     private static IReadOnlyList<ProjectReference> MapReferences(RDCoreReference[] references)
-        => [.. references.Select((reference, rank) => new ProjectReference(reference.Name, rank)
-        {
-            Guid = reference.Guid,
-            MajorVersion = reference.Major,
-            MinorVersion = reference.Minor,
-        })];
+        => [.. references.Select((reference, rank) => new ProjectReference(reference.Name, rank))];
 }

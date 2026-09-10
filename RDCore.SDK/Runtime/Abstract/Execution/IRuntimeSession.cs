@@ -38,11 +38,12 @@ public interface IRuntimeSession
     ISessionObjects Objects { get; }
 
     /// <summary>
-    /// The workspace's project and library references, in priority order
-    /// (<strong>RD-VBAL §2.3.1.2</strong>) — index <c>0</c> is the lowest priority (the <c>VBA</c>
-    /// standard library), each later entry shadowing the earlier ones on a global-scope name
-    /// collision. Preserved exactly as the language server provides it. Empty when the session was
-    /// composed without a project (e.g. a bare REPL).
+    /// The workspace's references in declaration order (<strong>RD-VBAL §2.3.1.2</strong>): index
+    /// <c>0</c> appears first and is the lowest precedence (the <c>VBA</c> standard library), so a
+    /// later entry shadows it on a global-scope name collision. This is the precedence order only —
+    /// a reference's members are resolved through <c>ISymbolResolver</c>, not from here. Preserved
+    /// exactly as the language server provides it; empty when the session was composed without a
+    /// project (e.g. a bare REPL).
     /// </summary>
     IReadOnlyList<ProjectReference> References { get; }
 }

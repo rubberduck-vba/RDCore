@@ -38,11 +38,13 @@ the workspace's `References` (see below), and three services:
 
 `IRuntimeSession.References` is the workspace's project and library references as an ordered
 `IReadOnlyList<ProjectReference>` — the runtime-facing view of the `.rdproj`
-[RDCoreReference](rd-vbal.2.2.rdproj-structure.html#2232-rdcorereference) list, carrying each
-reference's source-visible `Name`, its `Priority` (the list rank), and its optional COM identity. The
-order is the reference-priority order defined later in this section, preserved exactly as the
-language server provides it. Name resolution across referenced projects and libraries consults this
-list; the resolution algorithm itself is a separate concern.
+[RDCoreReference](rd-vbal.2.2.rdproj-structure.html#2232-rdcorereference) list, carrying only each
+reference's source-visible `Name` and its `Priority` (the list rank). It is the reference-priority
+order defined later in this section, preserved exactly as the language server provides it; a
+referenced library's own members are contributed by an `ISymbolProvider` and resolved through
+`ISymbolResolver`, not from this list. Name resolution across referenced projects and libraries
+consults the ordering to disambiguate a global-scope name; the resolution algorithm itself is a
+separate concern.
 
 The read face used by the static and runtime semantic layers is `ISymbolResolver`:
 
