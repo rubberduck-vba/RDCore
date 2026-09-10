@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
@@ -14,8 +15,16 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol.</param>
-public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier) 
-    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.UserDefinedType, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier) { }
+public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
+    : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.UserDefinedType, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier)
+{
+    /// <summary>
+    /// This type's fields, in declaration order — the same <see cref="VBUserDefinedTypeFieldSymbol"/>s
+    /// also yielded parented to this symbol's <see cref="Symbol.Uri"/>. Carried here so a resolver can
+    /// hand back a fully-formed <c>VBUserDefinedType</c> without a second lookup.
+    /// </summary>
+    public ImmutableArray<VBTypeMemberSymbol> Members { get; init; } = [];
+}
 
 /// <summary>
 /// An unbound <c>VBUserDefinedType</c> declaration.
