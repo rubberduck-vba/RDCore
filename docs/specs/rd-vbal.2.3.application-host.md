@@ -99,17 +99,21 @@ The correctly-scoped allocation of all symbols upon their definition should then
 The mechanism behind that ordered lookup is a
 [ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html): a
 [ScopeTreeBuilder](../api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) folds the composed symbols
-into a tree of [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html)s — one global scope
-at the root, one per module, one per procedure body — placing each symbol structurally from its
-`ParentUri` and concrete type. Resolving a name from a scope walks `SelfAndAncestors()` outward:
-the first scope that declares the name binds it; a name declared more than once in a single scope is
-the ambiguous case above.
+into a tree of [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html)s, one per
+[LexicalScopeKind](../api/RDCore.SDK.Model.Symbols.LexicalScopeKind.html) — the global scope at the
+root, the project scope beneath it, one scope per module, and one per procedure body. Each symbol is
+placed structurally from its `ParentUri`, concrete type, and access modifier: a standard module's
+non-`Private` members (an explicit `Public` / `Global` / `Friend`, or an implicit procedure-like
+member — **MS-VBAL §5.2.3**) are also declared in the project scope, so a sibling module resolves
+them without qualification. Resolving a name from a scope walks `SelfAndAncestors()` outward: the
+first scope that declares the name binds it; a name declared more than once in a single scope is the
+ambiguous case above.
 
 > [!NOTE]
-> The tree does not yet model a **project scope** between global and module — a module's `Public`
-> members are not surfaced to sibling modules, and referenced projects and libraries are not ordered
-> by `.rdproj` reference priority. Those, and reporting an ambiguous name as a coded compile-time
-> error rather than an unresolved lookup, arrive with the `ISymbolResolver` static-semantics pass.
+> Still to come with the `ISymbolResolver` static-semantics pass: ordering referenced projects and
+> libraries by their `.rdproj` reference priority within the global scope (the ordering is already
+> carried on `IRuntimeSession.References`; nothing consults it yet), and reporting an ambiguous name
+> as a coded compile-time error rather than an unresolved lookup.
 
 
 ---
