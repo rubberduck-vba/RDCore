@@ -16,8 +16,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="IsStatic"><c>true</c> if the symbol declaration includes an explicit <c>Static</c> token.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
-public record class VBLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, bool IsStatic = false, VBType? ResolvedType = default) 
-    : BoundTypedSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Variable, Range, SelectionRange, ResolvedType ?? VBUnknownType.TypeInfo) 
+/// <param name="DeclaredBy">How the local first entered scope — an explicit <c>Dim</c>/<c>Static</c> (the default), or an implicit <c>ReDim</c>.</param>
+public record class VBLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SourceRange Range, SourceRange SelectionRange, bool IsStatic = false, VBType? ResolvedType = default, LocalDeclarationKind DeclaredBy = LocalDeclarationKind.Dim)
+    : BoundTypedSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Variable, Range, SelectionRange, ResolvedType ?? VBUnknownType.TypeInfo)
 {
     /// <summary>
     /// <c>true</c> if the declaration has an explicit <c>Static</c> token.
@@ -26,6 +27,13 @@ public record class VBLocalVariableSymbol(Uri WorkspaceRoot, Uri ParentUri, stri
     /// Use <em>semantic flags</em> instead to determine if a variable is semantically <c>Static</c>.
     /// </remarks>
     public bool IsStatic { get; init; } = IsStatic;
+
+    /// <summary>
+    /// How this local first entered its procedure scope. <see cref="LocalDeclarationKind.ReDim"/>
+    /// marks an <em>implicit</em> declaration a later analysis pass reports on.
+    /// </summary>
+    public LocalDeclarationKind DeclaredBy { get; init; } = DeclaredBy;
+
     /// <summary>
     /// Creates and returns a copy of this symbol with the <c>IsStatic</c> flag set to <c>true</c> unless specified otherwise.
     /// </summary>

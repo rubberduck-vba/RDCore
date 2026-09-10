@@ -15,8 +15,8 @@ namespace RDCore.LanguageServer.Symbols;
 /// <remarks>
 /// The containing module symbol is the project symbol provider's responsibility; library reference
 /// symbols are the library symbol provider's. Procedure-local <c>Dim</c>/<c>Static</c>/<c>Const</c>
-/// declarations are yielded as children of their procedure symbol; symbols a <c>ReDim</c> introduces
-/// under <c>Option Explicit</c> are not discovered yet (the parser doesn't emit that node).
+/// declarations — and the dynamic-array local an unresolved <c>ReDim</c> target implicitly declares —
+/// are yielded as children of their procedure symbol.
 /// </remarks>
 internal sealed class SyntaxTreeSymbolProvider(
     Uri workspaceRoot, Uri moduleUri, ModuleParseResult parseResult, ISymbolResolver resolver) : ISymbolProvider
@@ -68,6 +68,23 @@ internal sealed class SyntaxTreeSymbolProvider(
         // a standard module's members are module-scoped; a class module's are instance-scoped.
         var memberScope = module.ModuleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
         var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver);
+
+        // module-level names are order-independent, so collect them before walking the members — a
+        // ReDim in one procedure may re-dimension a field declared further down the module.
+        var moduleScopeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var child in module.Children)
+        {
+            switch (child)
+            {
+                case VariableDeclarationNode field:
+                    moduleScopeNames.Add(field.Name);
+                    break;
+                case ConstantDeclarationNode { ConstKind: ConstKind.ModuleMember } constant:
+                    moduleScopeNames.Add(constant.Name);
+                    break;
+            }
+        }
+
         foreach (var child in module.Children)
         {
             switch (child)
@@ -77,7 +94,7 @@ internal sealed class SyntaxTreeSymbolProvider(
                     break;
 
                 case MemberDeclarationNode member:
-                    foreach (var symbol in FromMember(builder, member))
+                    foreach (var symbol in FromMember(builder, member, moduleScopeNames))
                     {
                         yield return symbol;
                     }
@@ -94,7 +111,7 @@ internal sealed class SyntaxTreeSymbolProvider(
         }
     }
 
-    private static IEnumerable<Symbol> FromMember(SymbolBuilder builder, MemberDeclarationNode member)
+    private static IEnumerable<Symbol> FromMember(SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames)
     {
         switch (member.MemberKind)
         {
@@ -113,8 +130,17 @@ internal sealed class SyntaxTreeSymbolProvider(
                     _ => throw new NotSupportedException($"{nameof(FromMember)} reached its procedure branch with a non-procedure {nameof(MemberKind)} '{member.MemberKind}'."),
                 };
                 yield return procedure;
-                // procedure-local Dim/Static/Const symbols parent to the procedure symbol.
-                foreach (var local in builder.BuildLocals(member, procedure.Uri))
+
+                // names already visible from outside the body: this module's fields/consts, plus the
+                // procedure's own parameters. a ReDim of one of these is a re-dimension, not a new local.
+                var outerScopeNames = new HashSet<string>(moduleScopeNames, StringComparer.OrdinalIgnoreCase);
+                foreach (var parameter in member.Children.OfType<ParameterDeclarationNode>())
+                {
+                    outerScopeNames.Add(parameter.Name);
+                }
+
+                // procedure-local Dim/Static/Const + ReDim-introduced symbols parent to the procedure symbol.
+                foreach (var local in builder.BuildLocals(member, procedure.Uri, outerScopeNames))
                 {
                     yield return local;
                 }

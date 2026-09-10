@@ -401,4 +401,122 @@ public sealed class SyntaxTreeSymbolProviderTests
 
         Assert.AreEqual("Total", Single<VBLocalVariableSymbol>(symbols).Name);
     }
+
+    // --- ReDim symbol discovery (MS-VBAL 5.4.3.3) ---
+
+    [TestMethod]
+    public void Redim_UndeclaredUnqualifiedName_IntroducesResizableArrayLocal()
+    {
+        var symbols = Provide("""
+            Public Sub Foo()
+                ReDim Buffer(1 To 10) As Long
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        var procedure = Single<VBProcedureMemberSymbol>(symbols);
+        var local = Single<VBLocalVariableSymbol>(symbols);
+
+        Assert.AreEqual("Buffer", local.Name);
+        Assert.AreEqual(ScopeKind.Local, local.ScopeKind);
+        Assert.AreEqual(procedure.Uri, local.ParentUri);
+        Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
+
+        var array = Assert.IsInstanceOfType<VBResizableArrayType>(local.ResolvedType);
+        Assert.AreEqual(VBTypeNames.VBLong, array.ItemType.Name);
+    }
+
+    [TestMethod]
+    public void Redim_ByteElement_IntroducesResizableByteArrayLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo()
+                ReDim Buffer(4) As Byte
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.IsInstanceOfType<VBResizableByteArrayType>(local.ResolvedType);
+        Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
+    }
+
+    [TestMethod]
+    public void Redim_ExistingLocal_IsNotReintroduced()
+    {
+        var locals = Provide("""
+            Public Sub Foo()
+                Dim Buffer() As Long
+                ReDim Buffer(10)
+            End Sub
+            """, new IntrinsicSymbolResolver()).OfType<VBLocalVariableSymbol>().ToArray();
+
+        var buffer = Assert.ContainsSingle(locals);
+        Assert.AreEqual("Buffer", buffer.Name);
+        Assert.AreEqual(LocalDeclarationKind.Dim, buffer.DeclaredBy);
+    }
+
+    [TestMethod]
+    // VBA hoists declarations, so a later Dim still owns a name a ReDim mentions earlier.
+    public void Redim_BeforeDim_IsNotReintroduced()
+    {
+        var locals = Provide("""
+            Public Sub Foo()
+                ReDim Buffer(10)
+                Dim Buffer() As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()).OfType<VBLocalVariableSymbol>().ToArray();
+
+        var buffer = Assert.ContainsSingle(locals);
+        Assert.AreEqual(LocalDeclarationKind.Dim, buffer.DeclaredBy);
+    }
+
+    [TestMethod]
+    public void Redim_ModuleField_IntroducesNoLocal()
+    {
+        var symbols = Provide("""
+            Private SharedBuffer() As Long
+
+            Public Sub Foo()
+                ReDim SharedBuffer(10)
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>());
+        Assert.ContainsSingle(symbols.OfType<VBModuleFieldVariableMemberSymbol>());
+    }
+
+    [TestMethod]
+    public void Redim_Parameter_IntroducesNoLocal()
+    {
+        var symbols = Provide("""
+            Public Sub Foo(Buffer() As Long)
+                ReDim Buffer(10)
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>());
+    }
+
+    [TestMethod]
+    public void Redim_QualifiedTarget_IntroducesNoLocal()
+    {
+        var symbols = Provide("""
+            Public Sub Foo()
+                ReDim Me.Buffer(10)
+            End Sub
+            """, new IntrinsicSymbolResolver(), ModuleType.ClassModule);
+
+        Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>());
+    }
+
+    [TestMethod]
+    public void Redim_MultipleUndeclaredTargets_IntroduceOneLocalEach()
+    {
+        var locals = Provide("""
+            Public Sub Foo()
+                ReDim a(1), b(2 To 4)
+            End Sub
+            """, new IntrinsicSymbolResolver()).OfType<VBLocalVariableSymbol>().ToArray();
+
+        CollectionAssert.AreEquivalent(new[] { "a", "b" }, locals.Select(l => l.Name).ToArray());
+        Assert.IsTrue(locals.All(l => l.DeclaredBy == LocalDeclarationKind.ReDim));
+    }
 }

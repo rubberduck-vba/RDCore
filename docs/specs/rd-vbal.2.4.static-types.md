@@ -84,6 +84,8 @@ The _declaration pass_ binds the _declared type_ of an array symbol from the _ar
 
 Each _bound_ is kept verbatim as declared; evaluating it to a `Long`, and resolving an omitted _lower bound_ against `Option Base`, are the concern of the semantic pass that materializes the [array value](rd-vbal.2.5.runtime-values.html#25212-array-values).
 
+A `ReDim` statement (MS-VBAL §5.4.3.3) is a _re-dimension_ of an existing array when its target name resolves — to a local, a parameter, or a module field. An **unqualified** target that resolves to nothing is an _implicit declaration_: the declaration pass introduces a procedure-local `VBResizableArrayType` symbol for it, marked as `ReDim`-introduced. This stays legal under `Option Explicit`; a later analysis pass raises a _semantic flag_ at the site, and under a future `Option Strict` / `@OptionStrict` that flag becomes an error diagnostic. `ReDim` bounds are ordinary run-time expressions, not constant expressions, and are likewise kept verbatim by the declaration pass.
+
 
 ---
 ## 2.4.2 Non-intrinsic Types

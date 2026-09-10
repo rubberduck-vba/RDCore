@@ -230,23 +230,49 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             _ => VBUnknownType.TypeInfo,
         };
 
-    // Procedure-local Dim/Static/Const declarations. Locals parent to the procedure symbol
-    // (MS-VBAL 5.4.3.1-2), mirroring how enum members / UDT fields parent to their declaration.
-    public IEnumerable<Symbol> BuildLocals(MemberDeclarationNode member, Uri procedureUri)
+    // Procedure-local Dim/Static/Const declarations, plus symbols a ReDim introduces. Locals parent
+    // to the procedure symbol (MS-VBAL 5.4.3.1-3), mirroring how enum members / UDT fields parent to
+    // their declaration. <paramref name="outerScopeNames"/> are the names already visible from
+    // outside the body — the procedure's parameters and this module's fields/consts — against which
+    // a ReDim target is a re-dimension rather than an implicit declaration.
+    public IEnumerable<Symbol> BuildLocals(MemberDeclarationNode member, Uri procedureUri, IReadOnlySet<string> outerScopeNames)
     {
+        var results = new List<Symbol>();
+        var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // pass 1 — explicit declarations. order-independent: VBA hoists them, so a name declared
+        // anywhere in the body is in scope for the whole procedure.
         foreach (var child in member.Children)
         {
             switch (child)
             {
                 case VariableDeclarationNode local:
-                    yield return BuildLocalVariable(local, procedureUri);
+                    results.Add(BuildLocalVariable(local, procedureUri));
+                    declared.Add(local.Name);
                     break;
 
                 case ConstantDeclarationNode { ConstKind: ConstKind.Local } local:
-                    yield return BuildLocalConstant(local, procedureUri);
+                    results.Add(BuildLocalConstant(local, procedureUri));
+                    declared.Add(local.Name);
                     break;
             }
         }
+
+        // pass 2 — ReDim. an unqualified target that resolves to nothing implicitly declares a
+        // dynamic-array local (MS-VBAL 5.4.3.3; legal under Option Explicit). NOTE cross-module
+        // globals aren't visible here, so a ReDim of one is introduced until the resolver reconciles
+        // it — the LocalDeclarationKind.ReDim marker is that pass's hook.
+        foreach (var redim in member.Children.OfType<RedimDeclarationNode>())
+        {
+            if (redim.QualifierName is not null || outerScopeNames.Contains(redim.Name) || !declared.Add(redim.Name))
+            {
+                continue;
+            }
+
+            results.Add(BuildRedimLocal(redim, procedureUri));
+        }
+
+        return results;
     }
 
     public Symbol BuildLocalVariable(VariableDeclarationNode node, Uri procedureUri)
@@ -265,6 +291,16 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, procedureUri);
         return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type);
+    }
+
+    // A ReDim always targets a dynamic array (MS-VBAL 5.4.3.3); the new dimensions stay unresolved.
+    public Symbol BuildRedimLocal(RedimDeclarationNode node, Uri procedureUri)
+    {
+        var range = RangeOf(node);
+        var elementType = ArrayElementType(AsTypeOf(node), node.TypeHint, procedureUri);
+        return new VBLocalVariableSymbol(
+            workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
+            ResolvedType: ResizableArrayType(elementType), DeclaredBy: LocalDeclarationKind.ReDim);
     }
 
     // The element type for an array declaration also reads the name behind a trailing `()` on the
@@ -287,13 +323,15 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
 
         if (bounds is not null || asType is { IsArrayDef: true })
         {
-            return elementType is VBByteType
-                ? VBResizableByteArrayType.TypeInfo
-                : new VBResizableArrayType(elementType);
+            return ResizableArrayType(elementType);
         }
 
         return elementType;
     }
+
+    // RD-VBAL 2.4.1.3: a dynamic Byte() array binds the specialized VBResizableByteArrayType.
+    private static VBType ResizableArrayType(VBType elementType)
+        => elementType is VBByteType ? VBResizableByteArrayType.TypeInfo : new VBResizableArrayType(elementType);
 
     private static SourceRange RangeOf(SyntaxNode node) => node.SourceLocation.Range;
 }
