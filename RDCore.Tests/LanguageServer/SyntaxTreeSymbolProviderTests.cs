@@ -265,6 +265,8 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.HasCount(2, fields);
         CollectionAssert.AreEquivalent(new[] { "X", "Y" }, fields.Select(f => f.Name).ToArray());
         Assert.AreEqual(type.Uri, fields[0].ParentUri);
+        // the fields also ride on the type symbol, so a resolver can return a whole VBUserDefinedType
+        CollectionAssert.AreEquivalent(fields, type.Members.ToArray());
     }
 
     [TestMethod]

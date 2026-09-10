@@ -221,10 +221,13 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         return ResolveTypeName(typeName, handle);
     }
 
-    // Binds a reserved/declared type name through the resolver; an unresolved name stays Unknown.
+    // Binds a reserved/declared type name through the resolver; an unresolved name stays Unknown. A
+    // resolved user-defined type or enum is a symbol carrying no VBType of its own, so build one.
     private VBType ResolveTypeName(string typeName, Uri handle)
         => resolver.Resolve(typeName, ScopeKind.Global, handle).Symbol switch
         {
+            VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
+            VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),
             BoundTypedSymbol bound => bound.ResolvedType,
             UnboundTypedSymbol unbound => unbound.ResolvedType,
             _ => VBUnknownType.TypeInfo,

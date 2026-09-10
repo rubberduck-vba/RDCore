@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -149,12 +150,17 @@ internal sealed class SyntaxTreeSymbolProvider(
                 yield return builder.BuildEvent(member);
                 break;
             case MemberKind.UserDefinedType:
-                var userDefinedType = builder.BuildUserDefinedType(member);
-                yield return userDefinedType;
-                foreach (var udtField in member.Children.OfType<MemberDeclarationNode>()
-                    .Where(field => field.MemberKind == MemberKind.UserDefinedTypeField))
+                var userDefinedType = (VBUserDefinedTypeMemberSymbol)builder.BuildUserDefinedType(member);
+                var udtFields = member.Children.OfType<MemberDeclarationNode>()
+                    .Where(field => field.MemberKind == MemberKind.UserDefinedTypeField)
+                    .Select(field => builder.BuildUserDefinedTypeField(field, userDefinedType.Uri))
+                    .ToArray();
+                // the fields ride on the type symbol (so a resolver returns a whole VBUserDefinedType)
+                // and are also yielded on their own, parented to it.
+                yield return userDefinedType with { Members = [.. udtFields.Cast<VBTypeMemberSymbol>()] };
+                foreach (var udtField in udtFields)
                 {
-                    yield return builder.BuildUserDefinedTypeField(udtField, userDefinedType.Uri);
+                    yield return udtField;
                 }
                 break;
             case MemberKind.Enum:

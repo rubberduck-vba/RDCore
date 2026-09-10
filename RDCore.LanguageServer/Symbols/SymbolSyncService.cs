@@ -44,18 +44,39 @@ internal sealed class SymbolSyncService(
                 return;
             }
 
-            var totalDefined = 0;
+            // collect every parsed module first: the resolver is composed over the whole workspace, so
+            // one module's `As SomeType` can bind to a sibling module's Type / Enum declaration.
+            Uri? workspaceRoot = null;
+            var modules = new List<(Uri Uri, string Name, ModuleParseResult Parse)>();
             foreach (var document in documents.GetAllDocuments())
             {
                 token.ThrowIfCancellationRequested();
 
-                var uri = document.Id.Uri.ToUri();
-                if (!parsing.TryGetCached(uri, out var parseResult) || parseResult.SyntaxTree is null)
+                if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
                 {
                     continue;
                 }
 
-                totalDefined += await DefineModuleSymbolsAsync(document, parseResult, token);
+                workspaceRoot ??= new Uri(document.WorkspaceRoot);
+                // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
+                var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+                modules.Add((new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, parseResult));
+            }
+
+            if (workspaceRoot is null)
+            {
+                LogIfEnabled(LogLevel.Information, "Symbol sync found no parsed workspace modules.");
+                return;
+            }
+
+            var workspaceResolver = WorkspaceSymbolResolver.Compose(
+                workspaceRoot, modules.Select(module => (module.Uri, module.Parse)), resolver);
+
+            var totalDefined = 0;
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Parse, workspaceResolver, token);
             }
 
             LogIfEnabled(LogLevel.Information, $"✅ Workspace symbols defined in the environment host ({totalDefined} total)");
@@ -70,17 +91,11 @@ internal sealed class SymbolSyncService(
         }
     }
 
-    private async Task<int> DefineModuleSymbolsAsync(WorkspaceDocument document, ModuleParseResult parseResult, CancellationToken token)
+    private async Task<int> DefineModuleSymbolsAsync(
+        Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleParseResult parseResult,
+        ISymbolResolver workspaceResolver, CancellationToken token)
     {
-        var workspaceRoot = new Uri(document.WorkspaceRoot);
-
-        // the module's programmatic name is its Attribute VB_Name; the file name is only a fallback.
-        // the environment host resolves the same name (source scan) when it composes the module
-        // symbol, so the members defined here parent onto it.
-        var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
-
-        var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, resolver).ProvideSymbols();
+        var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, workspaceResolver).ProvideSymbols();
         var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
 
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
