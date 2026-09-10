@@ -50,9 +50,16 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 
 |Member|Description|
 |---|---|
-|`Resolve`|Resolves a specified _identifier name_ to a defined `Symbol` by inspecting a specified _allocation scope_|
+|`Resolve`|Resolves a specified _identifier name_ to a defined `Symbol`, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
+
+The compile-time implementation is
+[ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html): it walks
+the [ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html) described below and binds names only —
+its `GetValue` / `TryRead` throw, since it holds no run-time bindings. The session exposes one over
+its own symbols as `ISessionSymbols.Resolver`, rebuilt as symbols are defined; a design-time host
+composes its own over an AST-derived tree.
 
 `ISymbolProvider` exposes a single `ProvideSymbols` method that yields the `Symbol`s its source
 defines; the composition root then defines each one into the semantic layer (static context) or the
