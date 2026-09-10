@@ -1,0 +1,73 @@
+using RDCore.SDK.Model.Symbols.Abstract;
+
+namespace RDCore.SDK.Model.Symbols;
+
+/// <summary>
+/// One lexical scope of a composed workspace — a compile-time region a name lookup starts from and
+/// then walks outward, through the <see cref="Parent"/> chain, until the name binds or the global
+/// scope is reached (<strong>MS-VBAL §5.2</strong> Name Binding, <strong>RD-VBAL §2.3.1.2</strong>).
+/// </summary>
+/// <remarks>
+/// A lexical scope is not a <see cref="ScopeKind"/> — that says which allocation heap a symbol lives
+/// in — nor a run-time call-stack frame, which holds one activation's values. The tree has three
+/// tiers today: the global scope, one scope per module, and one per procedure / property / function /
+/// event body. A project scope between global and module (surfacing a module's <c>Public</c> members
+/// to sibling modules, and ordering referenced libraries by their <c>.rdproj</c> priority) is not
+/// modelled yet.
+/// </remarks>
+public sealed class LexicalScope
+{
+    private readonly ILookup<string, Symbol> _declarations;
+
+    /// <summary>
+    /// Creates a scope belonging to the symbol at <paramref name="uri"/> that directly declares
+    /// <paramref name="declarations"/>.
+    /// </summary>
+    /// <param name="uri">
+    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to — a module, a procedure, or
+    /// the well-known <see cref="StaticSymbol.GlobalUri"/> for the global scope.
+    /// </param>
+    /// <param name="kind">The <see cref="ScopeKind"/> of the symbol this scope belongs to.</param>
+    /// <param name="parent">The enclosing scope, or <c>null</c> for the global scope.</param>
+    /// <param name="declarations">
+    /// The symbols declared <em>directly</em> in this scope. A name declared more than once here
+    /// (a field and a procedure that collide, two <c>Dim</c>s of one name) keeps every declaration —
+    /// reporting the <em>ambiguous name</em> is the caller's concern.
+    /// </param>
+    public LexicalScope(Uri uri, ScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations)
+    {
+        Uri = uri;
+        Kind = kind;
+        Parent = parent;
+        _declarations = declarations.ToLookup(symbol => symbol.Name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The <see cref="Symbol.Uri"/> of the symbol this scope belongs to.</summary>
+    public Uri Uri { get; }
+
+    /// <summary>The <see cref="ScopeKind"/> of the symbol this scope belongs to.</summary>
+    public ScopeKind Kind { get; }
+
+    /// <summary>The enclosing scope, or <c>null</c> for the global scope.</summary>
+    public LexicalScope? Parent { get; }
+
+    /// <summary>
+    /// The symbols this scope declares directly under <paramref name="name"/>, matched
+    /// case-insensitively (<strong>MS-VBAL §3.3.5</strong> — identifiers are not case-sensitive).
+    /// Empty when the name is not declared here; more than one element means the name is ambiguous
+    /// within this scope.
+    /// </summary>
+    public IEnumerable<Symbol> DeclaredAs(string name) => _declarations[name];
+
+    /// <summary>
+    /// This scope, then each enclosing scope out to the global scope — the order a name lookup
+    /// visits them (<strong>RD-VBAL §2.3.1.2</strong>).
+    /// </summary>
+    public IEnumerable<LexicalScope> SelfAndAncestors()
+    {
+        for (var scope = this; scope is not null; scope = scope.Parent)
+        {
+            yield return scope;
+        }
+    }
+}
