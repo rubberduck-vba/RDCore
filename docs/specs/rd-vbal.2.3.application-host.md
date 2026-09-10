@@ -96,6 +96,21 @@ The correctly-scoped allocation of all symbols upon their definition should then
 > [!NOTE]
 > The **VBA** standard library always has the _lowest priority_ (i.e. always appears first), meaning any other project reference that defines any identically-named class type or public/global member is always going to _shadow_ the `VBA` library definitions; this _shadowing_ should be detected in the _semantic layer_ and reported through _semantic flags_ so **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics (see [**§2.6** Diagnostics](rd-vbal.2.6.diagnostics.html)).
 
+The mechanism behind that ordered lookup is a
+[ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html): a
+[ScopeTreeBuilder](../api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) folds the composed symbols
+into a tree of [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html)s — one global scope
+at the root, one per module, one per procedure body — placing each symbol structurally from its
+`ParentUri` and concrete type. Resolving a name from a scope walks `SelfAndAncestors()` outward:
+the first scope that declares the name binds it; a name declared more than once in a single scope is
+the ambiguous case above.
+
+> [!NOTE]
+> The tree does not yet model a **project scope** between global and module — a module's `Public`
+> members are not surfaced to sibling modules, and referenced projects and libraries are not ordered
+> by `.rdproj` reference priority. Those, and reporting an ambiguous name as a coded compile-time
+> error rather than an unresolved lookup, arrive with the `ISymbolResolver` static-semantics pass.
+
 
 ---
 ## 2.3.2 Mode / State
