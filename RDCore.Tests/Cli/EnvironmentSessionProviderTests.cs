@@ -98,4 +98,37 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreNotSame(first, second);
         Assert.AreSame(second, sut.Session);
     }
+
+    [TestMethod]
+    public void Compose_ExposesProjectReferences_InTheOrderTheProjectDeclaresThem()
+    {
+        var project = new RDCoreProject
+        {
+            References =
+            [
+                RDCoreReference.VBStandardLibrary,
+                new RDCoreReference { Name = "Excel", Major = 1, Minor = 9 },
+            ],
+        };
+
+        var session = NewProvider().Compose(project, WorkspaceRoot);
+
+        Assert.HasCount(2, session.References);
+        Assert.AreEqual("VBA", session.References[0].Name);
+        Assert.AreEqual(0, session.References[0].Priority);
+        Assert.AreEqual("Excel", session.References[1].Name);
+        Assert.AreEqual(1, session.References[1].Priority);
+        Assert.AreEqual(1, session.References[1].MajorVersion);
+        Assert.AreEqual(9, session.References[1].MinorVersion);
+    }
+
+    [TestMethod]
+    public void Compose_DefaultProject_ExposesTheVBStandardLibraryReference()
+    {
+        var session = NewProvider().Compose(new RDCoreProject(), WorkspaceRoot);
+
+        Assert.HasCount(1, session.References);
+        Assert.AreEqual("VBA", session.References[0].Name);
+        Assert.AreEqual(0, session.References[0].Priority);
+    }
 }

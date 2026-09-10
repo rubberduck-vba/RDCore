@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
@@ -63,15 +64,24 @@ public sealed class EnvironmentSessionProvider(
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
 
-        _session = RuntimeSessionComposer.Compose(environment, configuration, modules);
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, modules]);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "🧠 Runtime session composed: {modules} module(s), {constants} precompiler constant(s) (built-ins included).",
-                project.Modules.Length, configuration.ProvideSymbols().Count());
+                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included).",
+                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count());
         }
 
         return _session;
     }
+
+    // the .rdproj declares references in priority order (RD-VBAL §2.3.1.2); the array index is the rank.
+    private static IReadOnlyList<ProjectReference> MapReferences(RDCoreReference[] references)
+        => [.. references.Select((reference, rank) => new ProjectReference(reference.Name, rank)
+        {
+            Guid = reference.Guid,
+            MajorVersion = reference.Major,
+            MinorVersion = reference.Minor,
+        })];
 }
