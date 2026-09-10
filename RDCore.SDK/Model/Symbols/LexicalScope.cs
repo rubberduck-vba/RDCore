@@ -9,11 +9,11 @@ namespace RDCore.SDK.Model.Symbols;
 /// </summary>
 /// <remarks>
 /// A lexical scope is not a <see cref="ScopeKind"/> — that says which allocation heap a symbol lives
-/// in — nor a run-time call-stack frame, which holds one activation's values. The tree has three
-/// tiers today: the global scope, one scope per module, and one per procedure / property / function /
-/// event body. A project scope between global and module (surfacing a module's <c>Public</c> members
-/// to sibling modules, and ordering referenced libraries by their <c>.rdproj</c> priority) is not
-/// modelled yet.
+/// in — nor a run-time call-stack frame, which holds one activation's values. The tree has four
+/// tiers: the global scope, the project scope (a standard module's non-<c>Private</c> members,
+/// visible to every sibling module), one scope per module, and one per procedure / property /
+/// function / event body. Ordering referenced libraries by their <c>.rdproj</c> priority within the
+/// global scope is not modelled yet.
 /// </remarks>
 public sealed class LexicalScope
 {
@@ -24,17 +24,18 @@ public sealed class LexicalScope
     /// <paramref name="declarations"/>.
     /// </summary>
     /// <param name="uri">
-    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to — a module, a procedure, or
-    /// the well-known <see cref="StaticSymbol.GlobalUri"/> for the global scope.
+    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to — a module, a procedure, the
+    /// workspace root for the project scope, or the well-known <see cref="StaticSymbol.GlobalUri"/>
+    /// for the global scope.
     /// </param>
-    /// <param name="kind">The <see cref="ScopeKind"/> of the symbol this scope belongs to.</param>
+    /// <param name="kind">Which tier of the resolution tree this scope is.</param>
     /// <param name="parent">The enclosing scope, or <c>null</c> for the global scope.</param>
     /// <param name="declarations">
     /// The symbols declared <em>directly</em> in this scope. A name declared more than once here
     /// (a field and a procedure that collide, two <c>Dim</c>s of one name) keeps every declaration —
     /// reporting the <em>ambiguous name</em> is the caller's concern.
     /// </param>
-    public LexicalScope(Uri uri, ScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations)
+    public LexicalScope(Uri uri, LexicalScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations)
     {
         Uri = uri;
         Kind = kind;
@@ -45,8 +46,8 @@ public sealed class LexicalScope
     /// <summary>The <see cref="Symbol.Uri"/> of the symbol this scope belongs to.</summary>
     public Uri Uri { get; }
 
-    /// <summary>The <see cref="ScopeKind"/> of the symbol this scope belongs to.</summary>
-    public ScopeKind Kind { get; }
+    /// <summary>Which tier of the resolution tree this scope is.</summary>
+    public LexicalScopeKind Kind { get; }
 
     /// <summary>The enclosing scope, or <c>null</c> for the global scope.</summary>
     public LexicalScope? Parent { get; }

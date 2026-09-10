@@ -1,3 +1,4 @@
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using System.Collections.Immutable;
@@ -6,18 +7,21 @@ namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
 /// Builds a <see cref="ScopeTree"/> from a flat set of composed symbols. Placement is structural —
-/// a symbol's concrete type and its <see cref="Symbol.ParentUri"/> decide its scope:
+/// a symbol's concrete type, its <see cref="Symbol.ParentUri"/>, and its access modifier decide its
+/// scope:
 /// <list type="bullet">
 /// <item>module symbols, project-level precompiler constants, global <see cref="StaticSymbol"/>s, and
 ///   anything the tree cannot otherwise place → the <see cref="ScopeTree.Global"/> scope;</item>
-/// <item>a module's members — fields, constants, procedures, properties, enums, user-defined types,
-///   events, <c>Declare</c>s → that module's scope;</item>
+/// <item>a standard module's non-<c>Private</c> members → the project scope, where sibling modules
+///   see them;</item>
+/// <item>every module's members — fields, constants, procedures, properties, enums, user-defined
+///   types, events, <c>Declare</c>s → that module's own scope;</item>
 /// <item>a procedure's parameters and its procedure-local <c>Dim</c> / <c>Static</c> / <c>Const</c>
 ///   (and the dynamic array a bare <c>ReDim</c> introduces) → that procedure's scope.</item>
 /// </list>
 /// Enum members and user-defined-type fields are reached through member access, not lexical scoping,
-/// so they are not placed in the tree. Unqualified enum-member visibility, a project scope for
-/// cross-module <c>Public</c> members, and <c>Private</c> accessibility filtering are later work.
+/// so they are not placed in the tree. Unqualified enum-member visibility, and ordering referenced
+/// libraries by their <c>.rdproj</c> priority within the global scope, are later work.
 /// </summary>
 public static class ScopeTreeBuilder
 {
@@ -33,12 +37,17 @@ public static class ScopeTreeBuilder
         // pass 1 — index the symbols that define a scope, by their own uri (Uri equality ignores the
         // fragment, and the scope path lives entirely in the fragment, so key on AbsoluteUri).
         var modules = new Dictionary<string, Symbol>(StringComparer.Ordinal);
+        var standardModuleUris = new HashSet<string>(StringComparer.Ordinal);
         var procedures = new Dictionary<string, Symbol>(StringComparer.Ordinal);
         foreach (var symbol in all)
         {
             if (symbol is VBModuleSymbol)
             {
                 modules[symbol.Uri.AbsoluteUri] = symbol;
+                if (symbol is VBStandardModuleSymbol)
+                {
+                    standardModuleUris.Add(symbol.Uri.AbsoluteUri);
+                }
             }
             else if (DefinesProcedureScope(symbol))
             {
@@ -82,17 +91,32 @@ public static class ScopeTreeBuilder
             procedureDeclarations[uri].AddRange(ParametersOf(symbol));
         }
 
-        // pass 3 — materialize global -> modules -> procedures, wiring each parent scope.
-        var global = new LexicalScope(StaticSymbol.GlobalUri, ScopeKind.Global, parent: null, globalDeclarations);
+        // pass 3 — materialize global -> project -> modules -> procedures, wiring each parent scope.
+        var global = new LexicalScope(StaticSymbol.GlobalUri, LexicalScopeKind.Global, parent: null, globalDeclarations);
         var scopeByUri = new Dictionary<string, LexicalScope>(StringComparer.Ordinal)
         {
             [StaticSymbol.GlobalUri.AbsoluteUri] = global,
         };
 
+        // the project scope surfaces a standard module's non-Private members to its siblings. it is
+        // keyed on the workspace root the modules share, and skipped when the set has no modules.
+        var moduleParent = global;
+        if (modules.Count > 0)
+        {
+            var workspaceRoot = modules.Values.First().WorkspaceRoot;
+            var projectDeclarations = standardModuleUris
+                .SelectMany(uri => moduleDeclarations[uri])
+                .Where(IsProjectVisible)
+                .ToList();
+            var project = new LexicalScope(workspaceRoot, LexicalScopeKind.Project, global, projectDeclarations);
+            scopeByUri[workspaceRoot.AbsoluteUri] = project;
+            moduleParent = project;
+        }
+
         var moduleScopes = new Dictionary<string, LexicalScope>(StringComparer.Ordinal);
         foreach (var (uri, symbol) in modules)
         {
-            var scope = new LexicalScope(symbol.Uri, symbol.ScopeKind, global, moduleDeclarations[uri]);
+            var scope = new LexicalScope(symbol.Uri, LexicalScopeKind.Module, moduleParent, moduleDeclarations[uri]);
             moduleScopes[uri] = scope;
             scopeByUri[uri] = scope;
             MapDeclarationsToScope(scopeByUri, moduleDeclarations[uri], scope);
@@ -100,8 +124,8 @@ public static class ScopeTreeBuilder
 
         foreach (var (uri, symbol) in procedures)
         {
-            var parent = moduleScopes.GetValueOrDefault(symbol.ParentUri.AbsoluteUri, global);
-            var scope = new LexicalScope(symbol.Uri, ScopeKind.Local, parent, procedureDeclarations[uri]);
+            var parent = moduleScopes.GetValueOrDefault(symbol.ParentUri.AbsoluteUri, moduleParent);
+            var scope = new LexicalScope(symbol.Uri, LexicalScopeKind.Procedure, parent, procedureDeclarations[uri]);
             scopeByUri[uri] = scope; // a procedure resolves from its own scope, not its module's
             MapDeclarationsToScope(scopeByUri, procedureDeclarations[uri], scope);
         }
@@ -133,6 +157,24 @@ public static class ScopeTreeBuilder
         VBEventMemberSymbol => true,
         _ => false,
     };
+
+    // MS-VBAL §5.2.3 project-level visibility: an explicit Public / Global / Friend member is visible
+    // to sibling modules; a Private one is not; an implicit modifier makes a procedure-like member
+    // Public but a module variable or constant Private.
+    private static bool IsProjectVisible(Symbol symbol)
+    {
+        if (symbol is not AccessibleTypedSymbol accessible)
+        {
+            return false;
+        }
+
+        return accessible.AccessModifier switch
+        {
+            AccessModifier.Private => false,
+            AccessModifier.Public or AccessModifier.Global or AccessModifier.Friend => true,
+            _ => symbol is not (VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol),
+        };
+    }
 
     private static ImmutableArray<VBParameterSymbol> ParametersOf(Symbol symbol) => symbol switch
     {

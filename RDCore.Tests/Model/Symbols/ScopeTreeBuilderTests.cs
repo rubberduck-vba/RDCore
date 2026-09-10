@@ -16,12 +16,13 @@ public sealed class ScopeTreeBuilderTests
     private static readonly SourceRange R = SourceRange.Empty;
 
     private static VBStandardModuleSymbol Module(string name) => new(Root, Root, name);
+    private static VBClassModuleSymbol ClassModule(string name) => new(Root, Root, name);
 
-    private static VBModuleFieldVariableMemberSymbol Field(Uri moduleUri, string name)
-        => new(Root, moduleUri, name, ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+    private static VBModuleFieldVariableMemberSymbol Field(Uri moduleUri, string name, AccessModifier access = AccessModifier.Implicit)
+        => new(Root, moduleUri, name, ScopeKind.Module, VBLongType.TypeInfo, R, R, access);
 
-    private static VBProcedureMemberSymbol Procedure(Uri moduleUri, string name)
-        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+    private static VBProcedureMemberSymbol Procedure(Uri moduleUri, string name, AccessModifier access = AccessModifier.Implicit)
+        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, access);
 
     private static VBParameterSymbol Parameter(Uri procedureUri, string name)
         => new(Root, procedureUri, name, R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
@@ -40,7 +41,7 @@ public sealed class ScopeTreeBuilderTests
         Assert.ContainsSingle(tree.Global.DeclaredAs("Mod1"));
         Assert.ContainsSingle(tree.Global.DeclaredAs("RDDEBUG"));
         Assert.IsNull(tree.Global.Parent);
-        Assert.AreEqual(ScopeKind.Global, tree.Global.Kind);
+        Assert.AreEqual(LexicalScopeKind.Global, tree.Global.Kind);
     }
 
     [TestMethod]
@@ -54,7 +55,7 @@ public sealed class ScopeTreeBuilderTests
 
         Assert.AreSame(field, moduleScope.DeclaredAs("Total").Single());
         Assert.IsEmpty(tree.Global.DeclaredAs("Total"));
-        Assert.AreSame(tree.Global, moduleScope.Parent);
+        Assert.AreEqual(LexicalScopeKind.Module, moduleScope.Kind);
     }
 
     [TestMethod]
@@ -71,7 +72,7 @@ public sealed class ScopeTreeBuilderTests
 
         Assert.AreSame(parameter, procedureScope.DeclaredAs("value").Single());
         Assert.AreSame(local, procedureScope.DeclaredAs("temp").Single());
-        Assert.AreEqual(ScopeKind.Local, procedureScope.Kind);
+        Assert.AreEqual(LexicalScopeKind.Procedure, procedureScope.Kind);
     }
 
     [TestMethod]
@@ -89,7 +90,7 @@ public sealed class ScopeTreeBuilderTests
     }
 
     [TestMethod]
-    public void SelfAndAncestors_WalksProcedureThenModuleThenGlobal()
+    public void SelfAndAncestors_WalksProcedure_Module_Project_Global()
     {
         var module = Module("Mod1");
         var procedure = Procedure(module.Uri, "DoWork");
@@ -98,7 +99,7 @@ public sealed class ScopeTreeBuilderTests
         var chain = tree.ScopeFor(procedure.Uri).SelfAndAncestors().ToArray();
 
         CollectionAssert.AreEqual(
-            new[] { ScopeKind.Local, ScopeKind.Module, ScopeKind.Global },
+            new[] { LexicalScopeKind.Procedure, LexicalScopeKind.Module, LexicalScopeKind.Project, LexicalScopeKind.Global },
             chain.Select(scope => scope.Kind).ToArray());
         Assert.AreSame(tree.Global, chain[^1]);
     }
@@ -148,5 +149,68 @@ public sealed class ScopeTreeBuilderTests
         Assert.IsNotNull(tree.Global);
         Assert.IsFalse(tree.TryGetScope(new Uri("file://rdcore-test#Nope"), out _));
         Assert.AreSame(tree.Global, tree.ScopeFor(new Uri("file://rdcore-test#Nope")));
+    }
+
+    [TestMethod]
+    public void TheProjectScope_SitsBetweenTheModuleAndGlobalScopes()
+    {
+        var module = Module("Mod1");
+
+        var tree = ScopeTreeBuilder.Build([module]);
+        var project = tree.ScopeFor(module.Uri).Parent;
+
+        Assert.AreEqual(LexicalScopeKind.Project, project!.Kind);
+        Assert.AreSame(tree.Global, project.Parent);
+    }
+
+    [TestMethod]
+    public void PublicStandardModuleMembers_AreVisibleInTheProjectScope()
+    {
+        var module = Module("Mod1");
+        var api = Procedure(module.Uri, "DoWork", AccessModifier.Public);
+
+        var tree = ScopeTreeBuilder.Build([module, api]);
+        var projectScope = tree.ScopeFor(module.Uri).Parent!;
+
+        Assert.AreSame(api, projectScope.DeclaredAs("DoWork").Single());
+        Assert.AreSame(api, tree.ScopeFor(module.Uri).DeclaredAs("DoWork").Single(), "still declared in its own module too");
+    }
+
+    [TestMethod]
+    public void PrivateStandardModuleMembers_StayModuleScoped()
+    {
+        var module = Module("Mod1");
+        var secret = Field(module.Uri, "State", AccessModifier.Private);
+
+        var tree = ScopeTreeBuilder.Build([module, secret]);
+
+        Assert.AreSame(secret, tree.ScopeFor(module.Uri).DeclaredAs("State").Single());
+        Assert.IsEmpty(tree.ScopeFor(module.Uri).Parent!.DeclaredAs("State"));
+    }
+
+    [TestMethod]
+    public void ImplicitModuleFields_AreNotProjectVisible_ButImplicitProceduresAre()
+    {
+        var module = Module("Mod1");
+        var field = Field(module.Uri, "Counter");           // implicit variable -> Private
+        var procedure = Procedure(module.Uri, "Reset");     // implicit procedure -> Public
+
+        var tree = ScopeTreeBuilder.Build([module, field, procedure]);
+        var projectScope = tree.ScopeFor(module.Uri).Parent!;
+
+        Assert.IsEmpty(projectScope.DeclaredAs("Counter"));
+        Assert.AreSame(procedure, projectScope.DeclaredAs("Reset").Single());
+    }
+
+    [TestMethod]
+    public void ClassModuleMembers_AreNotPlacedInTheProjectScope()
+    {
+        var @class = ClassModule("Widget");
+        var api = Procedure(@class.Uri, "Refresh", AccessModifier.Public);
+
+        var tree = ScopeTreeBuilder.Build([@class, api]);
+
+        Assert.AreSame(api, tree.ScopeFor(@class.Uri).DeclaredAs("Refresh").Single(), "still an instance member");
+        Assert.IsEmpty(tree.ScopeFor(@class.Uri).Parent!.DeclaredAs("Refresh"), "but not surfaced to sibling modules");
     }
 }

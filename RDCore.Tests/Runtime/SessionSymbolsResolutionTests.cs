@@ -33,8 +33,8 @@ public sealed class SessionSymbolsResolutionTests
 
     private static VBStandardModuleSymbol Module(string name) => new(Root, Root, name);
 
-    private static VBModuleFieldVariableMemberSymbol Field(Uri moduleUri, string name)
-        => new(Root, moduleUri, name, ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+    private static VBModuleFieldVariableMemberSymbol Field(Uri moduleUri, string name, AccessModifier access = AccessModifier.Implicit)
+        => new(Root, moduleUri, name, ScopeKind.Module, VBLongType.TypeInfo, R, R, access);
 
     private static VBProcedureMemberSymbol Procedure(Uri moduleUri, string name, params VBParameterSymbol[] parameters)
     {
@@ -42,6 +42,9 @@ public sealed class SessionSymbolsResolutionTests
             Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
         return declared with { Parameters = [.. parameters] };
     }
+
+    private static VBProcedureMemberSymbol Procedure(Uri moduleUri, string name, AccessModifier access)
+        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, access);
 
     private static VBParameterSymbol Parameter(Uri procedureUri, string name)
         => new(Root, procedureUri, name, R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
@@ -121,6 +124,45 @@ public sealed class SessionSymbolsResolutionTests
 
         Assert.IsFalse(symbols.TryResolve("Value", module, out var resolved));
         Assert.IsNull(resolved);
+    }
+
+    [TestMethod]
+    public void APublicProcedureInAnotherModule_ResolvesFromThisModule()
+    {
+        var library = Module("Library");
+        var api = Procedure(library.Uri, "Compute", AccessModifier.Public);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+        var symbols = Compose(library, api, caller, run);
+
+        Assert.IsTrue(symbols.TryResolve("Compute", run, out var resolved));
+        Assert.AreSame(api, resolved);
+    }
+
+    [TestMethod]
+    public void APrivateFieldInAnotherModule_DoesNotResolveFromThisModule()
+    {
+        var library = Module("Library");
+        var cache = Field(library.Uri, "Cache", AccessModifier.Private);
+        var caller = Module("Caller");
+        var symbols = Compose(library, cache, caller);
+
+        Assert.IsFalse(symbols.TryResolve("Cache", caller, out var resolved));
+        Assert.IsNull(resolved);
+    }
+
+    [TestMethod]
+    public void AProcedureLocal_ShadowsASiblingModulesPublicMember()
+    {
+        var library = Module("Library");
+        var api = Procedure(library.Uri, "Value", AccessModifier.Public);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+        var local = Local(run.Uri, "Value");
+        var symbols = Compose(library, api, caller, run, local);
+
+        Assert.IsTrue(symbols.TryResolve("Value", run, out var resolved));
+        Assert.AreSame(local, resolved);
     }
 
     [TestMethod]
