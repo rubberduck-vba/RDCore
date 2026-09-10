@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -13,12 +14,14 @@ internal sealed class RuntimeSession(
     IRuntimeEnvironmentProfile environment,
     ISessionMemoryAllocator memory,
     ISessionSymbols symbols,
-    ISessionObjects objects) : IRuntimeSession
+    ISessionObjects objects,
+    IReadOnlyList<ProjectReference> references) : IRuntimeSession
 {
     public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
     public ISessionSymbols Symbols { get; init; } = symbols;
     public ISessionObjects Objects { get; init; } = objects;
+    public IReadOnlyList<ProjectReference> References { get; init; } = references;
 }
 
 internal sealed class SessionObjects : ISessionObjects

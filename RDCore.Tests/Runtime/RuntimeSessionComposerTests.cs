@@ -30,6 +30,22 @@ public sealed class RuntimeSessionComposerTests
         => Assert.IsTrue(Compose(is64Bit: true, new RDCoreProject()).Environment.Is64Bit);
 
     [TestMethod]
+    public void ComposedSession_WithoutReferences_CarriesAnEmptyReferenceList()
+        => Assert.IsEmpty(Compose(is64Bit: true, new RDCoreProject()).References);
+
+    [TestMethod]
+    public void ComposedSession_PreservesReferenceOrderExactlyAsGiven()
+    {
+        var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false);
+        // deliberately not in ascending-priority order: the composer must not re-sort.
+        ProjectReference[] references = [new("Excel", 1), new("VBA", 0)];
+
+        var session = RuntimeSessionComposer.Compose(environment, references, []);
+
+        CollectionAssert.AreEqual(new[] { "Excel", "VBA" }, session.References.Select(r => r.Name).ToArray());
+    }
+
+    [TestMethod]
     public void ConfigurationSymbols_ResolveInTheSession()
     {
         var project = new RDCoreProject { PrecompilerConstants = { ["RDDEBUG"] = "1" } };
