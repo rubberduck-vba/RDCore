@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Model;
-using RDCore.SDK.Model.Symbols;
+﻿using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -77,76 +76,51 @@ internal sealed class SessionObjects : ISessionObjects
 
 internal sealed class SessionSymbols : ISessionSymbols
 {
+    // one bucket per RD-VBAL §2.3.1.2 heap: global, workspace (module), instance, and the local
+    // frame. TryDefine keeps the first symbol of a colliding uri; the scope tree walks all four.
     private readonly HashSet<Symbol> _globalSymbols = [];
     private readonly HashSet<Symbol> _workspaceSymbols = [];
-    private readonly HashSet<Symbol> _staticLocalSymbols = [];
+    private readonly HashSet<Symbol> _instanceSymbols = [];
+    private readonly HashSet<Symbol> _localSymbols = [];
 
-    private readonly Dictionary<Uri, Symbol> _idMap = [];
-    private readonly Dictionary<string, string> _nameTable = [];
+    private ScopeTree? _scopeTree;
 
     public bool TryDefine(Symbol symbol, ScopeKind scope)
     {
-        _nameTable[symbol.Name.ToLowerInvariant()] = symbol.Name;
-        _idMap[symbol.Uri] = symbol;
+        _scopeTree = null; // resolution rebuilds the scope tree on next use
 
-        var symbolTable = scope switch
+        var table = scope switch
         {
-            ScopeKind.Global => _globalSymbols,
             ScopeKind.Module => _workspaceSymbols,
-            ScopeKind.Instance => _staticLocalSymbols,
-            _ => default
+            ScopeKind.Instance => _instanceSymbols,
+            ScopeKind.Local or ScopeKind.External => _localSymbols,
+            _ => _globalSymbols,
         };
-        return symbolTable?.Add(symbol) ?? false;
-    }
-
-    private bool IsAccessibleFrom(AccessibleTypedSymbol? symbol, Symbol scope)
-    {
-        if (symbol is null)
-        {
-            return false;
-        }
-
-        if (symbol.ParentUri == scope.Uri)
-        {
-            // local scope
-            return true;
-        }
-
-        var scopingParent = _idMap[scope.ParentUri];
-        if (scopingParent.Children.Any(c => c == symbol.Uri))
-        {
-            // same module
-            return true;
-        }
-
-        var scopingProject = _idMap[scopingParent.ParentUri];
-        if (scopingProject.Children.Any(c => c == symbol.Uri))
-        {
-            // same project
-            return symbol.AccessModifier != AccessModifier.Private;
-        }
-
-        if (_globalSymbols.Contains(symbol))
-        {
-            return symbol.AccessModifier != AccessModifier.Private;
-        }
-
-        return false;
+        return table.Add(symbol);
     }
 
     public bool TryResolve(string name, Symbol scope, out Symbol? symbol)
     {
-        symbol = FindCandidates(name, _staticLocalSymbols).SingleOrDefault(s => s.ParentUri == scope.Uri)
-            ?? FindCandidates(name, _workspaceSymbols).OfType<AccessibleTypedSymbol>()
-                .SingleOrDefault(s => IsAccessibleFrom(s, scope))
-            ?? FindCandidates(name, _globalSymbols).OfType<AccessibleTypedSymbol>()
-                .FirstOrDefault(s => IsAccessibleFrom(s, scope))
-            // precompiler constants, intrinsic globals, module symbols — not AccessibleTypedSymbol
-            ?? FindCandidates(name, _globalSymbols).FirstOrDefault()
-            ?? FindCandidates(name, _workspaceSymbols).FirstOrDefault();
-        return symbol != default;
+        foreach (var lexicalScope in EnsureScopeTree().ScopeFor(scope.Uri).SelfAndAncestors())
+        {
+            var matches = lexicalScope.DeclaredAs(name).Take(2).ToArray();
+            if (matches.Length == 0)
+            {
+                continue;
+            }
+
+            // a name declared more than once in one scope is an MS-VBAL "ambiguous name"
+            // (RD-VBAL VBC09303); reporting that as a compile error needs a result channel this
+            // interface does not have yet, so for now an ambiguous name reads as unresolved.
+            symbol = matches.Length == 1 ? matches[0] : null;
+            return symbol is not null;
+        }
+
+        symbol = null;
+        return false;
     }
 
-    private static Symbol[] FindCandidates(string name, HashSet<Symbol> symbolTable) 
-        => [.. symbolTable.Where(s => s.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase))];
+    private ScopeTree EnsureScopeTree()
+        => _scopeTree ??= ScopeTreeBuilder.Build(
+            [.. _globalSymbols, .. _workspaceSymbols, .. _instanceSymbols, .. _localSymbols]);
 }
