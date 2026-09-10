@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -18,9 +19,9 @@ public record class ConstantBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue;
 
-    public IRuntimeValue GetValue() => _value;
+    public IRuntimeValue GetValue(ISymbolResolver resolver) => _value;
 
-    public void SetValue(IRuntimeValue value) => throw new NotSupportedException();
+    public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => throw new NotSupportedException();
 
-    public IRuntimeValue Invoke(IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 }
