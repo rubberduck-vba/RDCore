@@ -76,6 +76,14 @@ Notes:
 - If the _item type_ of a _resizable array value_ is `VBByteType`, the data type of the array is `VBResizableByteArrayType`. This array type has specific _let-coercion_ semantics attached, allowing implicit conversion to and from `VBStringType`.
 - The _type_ itself does not encode any dimensions; but the associated _value_ type does. See [VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html) and its derived types.
 
+The _declaration pass_ binds the _declared type_ of an array symbol from the _array-dim clause_ alone (MS-VBAL §5.2.3.1.3), before any bound is evaluated:
+
+- a clause carrying one or more _bounds_ (`Dim g(1 To 3, 0 To 4) As Long`) binds a `VBFixedSizeArrayType`;
+- an empty `()` clause (`Dim b() As Long`), or a trailing `()` on the `As` clause (`Dim b As Long()`), binds a `VBResizableArrayType` — or `VBResizableByteArrayType` when the _item type_ is `Byte`;
+- an omitted _item type_ defaults to `Variant` (MS-VBAL §5.2.3.1), applied by a later normalization pass.
+
+Each _bound_ is kept verbatim as declared; evaluating it to a `Long`, and resolving an omitted _lower bound_ against `Option Base`, are the concern of the semantic pass that materializes the [array value](rd-vbal.2.5.runtime-values.html#25212-array-values).
+
 
 ---
 ## 2.4.2 Non-intrinsic Types

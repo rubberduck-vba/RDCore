@@ -4,6 +4,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -271,5 +272,133 @@ public sealed class SyntaxTreeSymbolProviderTests
 
         Assert.AreNotEqual(SourceRange.Empty, symbol.Range);
         Assert.AreEqual(symbol.Range, symbol.SelectionRange);
+    }
+
+    // --- procedure-local declarations (MS-VBAL 5.4.3.1-2) ---
+
+    [TestMethod]
+    public void LocalVariable_YieldsLocalSymbol_ParentedToProcedure()
+    {
+        var symbols = Provide("""
+            Public Sub Foo()
+                Dim Total As Long
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        var procedure = Single<VBProcedureMemberSymbol>(symbols);
+        var local = Single<VBLocalVariableSymbol>(symbols);
+
+        Assert.AreEqual("Total", local.Name);
+        Assert.AreEqual(ScopeKind.Local, local.ScopeKind);
+        Assert.AreEqual(procedure.Uri, local.ParentUri);
+        Assert.IsFalse(local.IsStatic);
+        Assert.AreEqual(VBTypeNames.VBLong, local.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void LocalStatic_SetsIsStatic()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo()
+                Static Counter As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.IsTrue(local.IsStatic);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.3.1: a bounds list declares a fixed-size array; element type resolves, bounds don't.
+    public void LocalFixedSizeArray_YieldsFixedSizeArrayType()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo()
+                Dim Grid(1 To 3, 0 To 4) As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        var array = Assert.IsInstanceOfType<VBFixedSizeArrayType>(local.ResolvedType);
+        Assert.AreEqual(VBTypeNames.VBLong, array.ItemType.Name);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.3.1: an empty `()` clause, or a trailing `()` on the As-clause, declares a dynamic array.
+    [DataRow("Dim Buffer() As Long")]
+    [DataRow("Dim Buffer As Long()")]
+    public void LocalDynamicArray_YieldsResizableArrayType(string declaration)
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide($"""
+            Public Sub Foo()
+                {declaration}
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        var array = Assert.IsInstanceOfType<VBResizableArrayType>(local.ResolvedType);
+        Assert.AreEqual(VBTypeNames.VBLong, array.ItemType.Name);
+    }
+
+    [TestMethod]
+    // RD-VBAL 2.4.1.3: a resizable Byte() array binds the specialized VBResizableByteArrayType.
+    public void LocalDynamicByteArray_YieldsResizableByteArrayType()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo()
+                Dim Buffer() As Byte
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.IsInstanceOfType<VBResizableByteArrayType>(local.ResolvedType);
+    }
+
+    [TestMethod]
+    public void LocalConstant_YieldsLocalConstantSymbol_ParentedToProcedure()
+    {
+        var symbols = Provide("""
+            Public Sub Foo()
+                Const Factor As Long = 2
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        var procedure = Single<VBProcedureMemberSymbol>(symbols);
+        var constant = Single<VBLocalConstantSymbol>(symbols);
+
+        Assert.AreEqual("Factor", constant.Name);
+        Assert.AreEqual(ScopeKind.Local, constant.ScopeKind);
+        Assert.AreEqual(procedure.Uri, constant.ParentUri);
+        Assert.AreEqual(VBTypeNames.VBLong, constant.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void LocalDeclaration_InConditionalBranches_MergesIntoOneSymbolWithDefinitions()
+    {
+        const string source = """
+            Public Sub Foo()
+            #If DEBUG Then
+                Dim Temp As Long
+            #Else
+                Dim Temp As Double
+            #End If
+            End Sub
+            """;
+
+        var locals = Provide(source).OfType<VBLocalVariableSymbol>().ToArray();
+
+        var temp = Assert.ContainsSingle(locals);
+        Assert.AreEqual("Temp", temp.Name);
+        Assert.HasCount(2, temp.Definitions);
+    }
+
+    [TestMethod]
+    public void AssignmentStatement_CreatesNoSymbol()
+    {
+        var symbols = Provide("""
+            Public Sub Foo()
+                Dim Total As Long
+                Total = 42
+                Undeclared = 1
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        Assert.AreEqual("Total", Single<VBLocalVariableSymbol>(symbols).Name);
     }
 }

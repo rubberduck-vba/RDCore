@@ -14,8 +14,9 @@ namespace RDCore.LanguageServer.Symbols;
 /// </summary>
 /// <remarks>
 /// The containing module symbol is the project symbol provider's responsibility; library reference
-/// symbols are the library symbol provider's. Statement-body locals and user-defined-type fields are
-/// not yielded yet (the parser doesn't emit those nodes).
+/// symbols are the library symbol provider's. Procedure-local <c>Dim</c>/<c>Static</c>/<c>Const</c>
+/// declarations are yielded as children of their procedure symbol; symbols a <c>ReDim</c> introduces
+/// under <c>Option Explicit</c> are not discovered yet (the parser doesn't emit that node).
 /// </remarks>
 internal sealed class SyntaxTreeSymbolProvider(
     Uri workspaceRoot, Uri moduleUri, ModuleParseResult parseResult, ISymbolResolver resolver) : ISymbolProvider
@@ -98,19 +99,24 @@ internal sealed class SyntaxTreeSymbolProvider(
         switch (member.MemberKind)
         {
             case MemberKind.Procedure:
-                yield return builder.BuildProcedure(member);
-                break;
             case MemberKind.Function:
-                yield return builder.BuildFunction(member);
-                break;
             case MemberKind.PropertyGet:
-                yield return builder.BuildPropertyGet(member);
-                break;
             case MemberKind.PropertyLet:
-                yield return builder.BuildPropertyLet(member);
-                break;
             case MemberKind.PropertySet:
-                yield return builder.BuildPropertySet(member);
+                var procedure = member.MemberKind switch
+                {
+                    MemberKind.Procedure => builder.BuildProcedure(member),
+                    MemberKind.Function => builder.BuildFunction(member),
+                    MemberKind.PropertyGet => builder.BuildPropertyGet(member),
+                    MemberKind.PropertyLet => builder.BuildPropertyLet(member),
+                    _ => builder.BuildPropertySet(member),
+                };
+                yield return procedure;
+                // procedure-local Dim/Static/Const symbols parent to the procedure symbol.
+                foreach (var local in builder.BuildLocals(member, procedure.Uri))
+                {
+                    yield return local;
+                }
                 break;
             case MemberKind.Event:
                 yield return builder.BuildEvent(member);

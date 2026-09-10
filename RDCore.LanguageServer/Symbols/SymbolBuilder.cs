@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -217,12 +218,81 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             return VBUnknownType.TypeInfo;
         }
 
-        return resolver.Resolve(typeName, ScopeKind.Global, handle) switch
+        return ResolveTypeName(typeName, handle);
+    }
+
+    // Binds a reserved/declared type name through the resolver; an unresolved name stays Unknown.
+    private VBType ResolveTypeName(string typeName, Uri handle)
+        => resolver.Resolve(typeName, ScopeKind.Global, handle) switch
         {
             BoundTypedSymbol bound => bound.ResolvedType,
             UnboundTypedSymbol unbound => unbound.ResolvedType,
             _ => VBUnknownType.TypeInfo,
         };
+
+    // Procedure-local Dim/Static/Const declarations. Locals parent to the procedure symbol
+    // (MS-VBAL 5.4.3.1-2), mirroring how enum members / UDT fields parent to their declaration.
+    public IEnumerable<Symbol> BuildLocals(MemberDeclarationNode member, Uri procedureUri)
+    {
+        foreach (var child in member.Children)
+        {
+            switch (child)
+            {
+                case VariableDeclarationNode local:
+                    yield return BuildLocalVariable(local, procedureUri);
+                    break;
+
+                case ConstantDeclarationNode { ConstKind: ConstKind.Local } local:
+                    yield return BuildLocalConstant(local, procedureUri);
+                    break;
+            }
+        }
+    }
+
+    public Symbol BuildLocalVariable(VariableDeclarationNode node, Uri procedureUri)
+    {
+        var range = RangeOf(node);
+        var asType = AsTypeOf(node);
+        var elementType = ArrayElementType(asType, node.TypeHint, procedureUri);
+        var type = VariableType(elementType, asType, node.Children.OfType<ArrayBoundsNode>().FirstOrDefault());
+        return new VBLocalVariableSymbol(
+            workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
+            IsStatic: node.IsStatic, ResolvedType: type);
+    }
+
+    public Symbol BuildLocalConstant(ConstantDeclarationNode node, Uri procedureUri)
+    {
+        var range = RangeOf(node);
+        var type = DeclaredType(AsTypeOf(node), node.TypeHint, procedureUri);
+        return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type);
+    }
+
+    // The element type for an array declaration also reads the name behind a trailing `()` on the
+    // As-clause (`Dim x As Long()`), which DeclaredType leaves unresolved for the scalar case.
+    private VBType ArrayElementType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
+        => asType is { IsArrayDef: true, QualifierName: null }
+            ? ResolveTypeName(asType.TypeName, handle)
+            : DeclaredType(asType, typeHint, handle);
+
+    // MS-VBAL 5.2.3.1 / RD-VBAL 2.5.2.1.2: an array-dim clause with bounds declares a fixed-size
+    // array; an empty `()` clause, or a trailing `()` on the As-clause, declares a dynamic array —
+    // a dynamic `Byte()` array binds the specialized VBResizableByteArrayType (RD-VBAL 2.4.1.3).
+    // Bound evaluation and the Variant default for an omitted type are a later semantic pass's concern.
+    private static VBType VariableType(VBType elementType, AsTypeExpressionNode? asType, ArrayBoundsNode? bounds)
+    {
+        if (bounds is { IsResizable: false })
+        {
+            return new VBFixedSizeArrayType(elementType);
+        }
+
+        if (bounds is not null || asType is { IsArrayDef: true })
+        {
+            return elementType is VBByteType
+                ? VBResizableByteArrayType.TypeInfo
+                : new VBResizableArrayType(elementType);
+        }
+
+        return elementType;
     }
 
     private static SourceRange RangeOf(SyntaxNode node) => node.SourceLocation.Range;
