@@ -1,4 +1,4 @@
-using RDCore.LanguageServer.Symbols;
+﻿using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;

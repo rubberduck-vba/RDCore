@@ -1,4 +1,4 @@
-using NSubstitute;
+﻿using NSubstitute;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
