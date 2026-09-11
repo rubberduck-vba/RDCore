@@ -29,9 +29,10 @@ internal static class WorkspaceSymbolResolver
             // it here so the scope tree has a module tier to hang the members off (and so a
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
+            var directives = new ModuleDirectives(Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false);
             symbols.Add(moduleType == ModuleType.ClassModule
-                ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
-                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName));
+                ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives }
+                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives });
 
             symbols.AddRange(new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols());
         }

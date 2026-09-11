@@ -2,6 +2,7 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -74,5 +75,29 @@ public sealed class WorkspaceSymbolResolverTests
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void AModuleDeclaringOptionExplicit_CarriesItOnTheSynthesizedModuleSymbol()
+    {
+        var target = Module("Strict", "Option Explicit\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBModuleSymbol>(
+            resolver.Resolve("Strict", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsTrue(module.Directives.Explicit);
+    }
+
+    [TestMethod]
+    public void AModuleWithoutOptionExplicit_DoesNotCarryIt()
+    {
+        var target = Module("Loose", "Public Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBModuleSymbol>(
+            resolver.Resolve("Loose", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsFalse(module.Directives.Explicit);
     }
 }
