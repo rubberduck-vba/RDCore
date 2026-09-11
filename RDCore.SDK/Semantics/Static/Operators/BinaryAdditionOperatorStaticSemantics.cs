@@ -2,7 +2,6 @@
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -15,17 +14,17 @@ public sealed record class BinaryAdditionOperatorStaticSemantics() : BinaryArith
     /// <summary>
     /// Determines a static <see cref="VBType"/> from specified operands.
     /// </summary>
-    /// <param name="resolver">The static context containing the available static memory space.</param>
+    /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <em>expression node</em> being evaluated.</param>
     /// <param name="lhs">The declared type of the <em>left-hand side</em> (LHS) operand involved in the evaluation.</param>
     /// <param name="rhs">The declared type of the <em>right-hand side</em> (RHS) operand involved in the evaluation.</param>
     /// <returns>
     /// A <see cref="StaticSemanticsEvaluationResult"/> encapsulating the resulting <see cref="VBType"/> if successful, or <see cref="VBCompileErrorInfo"/> error metadata otherwise.
     /// </returns>
-    protected override StaticSemanticsEvaluationResult DetermineOperatorStaticType(ISymbolResolver resolver, ExpressionNode expression, VBType lhs, VBType rhs) 
+    protected override StaticSemanticsEvaluationResult DetermineOperatorStaticType(StaticEvaluationContext context, ExpressionNode expression, VBType lhs, VBType rhs) 
         => lhs switch
         {
             VBStringType when rhs is VBStringType => StaticSemanticsEvaluationResult.Success(VBStringType.TypeInfo),
-            _ => base.DetermineOperatorStaticType(resolver, expression, lhs, rhs)
+            _ => base.DetermineOperatorStaticType(context, expression, lhs, rhs)
         };
 }

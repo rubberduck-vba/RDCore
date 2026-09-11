@@ -35,11 +35,16 @@ public sealed class LexicalScope
     /// (a field and a procedure that collide, two <c>Dim</c>s of one name) keeps every declaration —
     /// reporting the <em>ambiguous name</em> is the caller's concern.
     /// </param>
-    public LexicalScope(Uri uri, LexicalScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations)
+    /// <param name="directives">
+    /// The declaring module's <see cref="ModuleDirectives"/> — <c>null</c> for every tier except the
+    /// module scope itself, which carries its <see cref="VBModuleSymbol.Directives"/>.
+    /// </param>
+    public LexicalScope(Uri uri, LexicalScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations, ModuleDirectives? directives = null)
     {
         Uri = uri;
         Kind = kind;
         Parent = parent;
+        Directives = directives;
         _declarations = declarations.ToLookup(symbol => symbol.Name, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -51,6 +56,16 @@ public sealed class LexicalScope
 
     /// <summary>The enclosing scope, or <c>null</c> for the global scope.</summary>
     public LexicalScope? Parent { get; }
+
+    /// <summary>The declaring module's directives, for the module scope itself; <c>null</c> elsewhere.</summary>
+    public ModuleDirectives? Directives { get; }
+
+    /// <summary>
+    /// The <see cref="ModuleDirectives"/> of the module enclosing this scope — itself, if this
+    /// <em>is</em> the module scope, otherwise the nearest ancestor that carries them. <c>null</c>
+    /// when no enclosing module scope exists (the global or project scope, reached directly).
+    /// </summary>
+    public ModuleDirectives? EnclosingModuleDirectives() => SelfAndAncestors().Select(scope => scope.Directives).FirstOrDefault(directives => directives is not null);
 
     /// <summary>
     /// The symbols this scope declares directly under <paramref name="name"/>, matched

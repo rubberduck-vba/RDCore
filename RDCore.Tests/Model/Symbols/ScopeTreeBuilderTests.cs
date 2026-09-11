@@ -213,4 +213,33 @@ public sealed class ScopeTreeBuilderTests
         Assert.AreSame(api, tree.ScopeFor(@class.Uri).DeclaredAs("Refresh").Single(), "still an instance member");
         Assert.IsEmpty(tree.ScopeFor(@class.Uri).Parent!.DeclaredAs("Refresh"), "but not surfaced to sibling modules");
     }
+
+    [TestMethod]
+    public void TheModuleScope_CarriesTheModuleSymbolsDirectives()
+    {
+        var module = Module("Mod1") with { Directives = new ModuleDirectives(Explicit: true) };
+
+        var tree = ScopeTreeBuilder.Build([module]);
+
+        Assert.AreEqual(new ModuleDirectives(Explicit: true), tree.ScopeFor(module.Uri).Directives);
+    }
+
+    [TestMethod]
+    public void EnclosingModuleDirectives_WalksUpFromAProcedureScope_ToItsModule()
+    {
+        var module = Module("Mod1") with { Directives = new ModuleDirectives(Explicit: true) };
+        var procedure = Procedure(module.Uri, "DoWork");
+
+        var tree = ScopeTreeBuilder.Build([module, procedure]);
+
+        Assert.AreEqual(new ModuleDirectives(Explicit: true), tree.ScopeFor(procedure.Uri).EnclosingModuleDirectives());
+    }
+
+    [TestMethod]
+    public void EnclosingModuleDirectives_IsNull_OutsideAnyModuleScope()
+    {
+        var tree = ScopeTreeBuilder.Build([]);
+
+        Assert.IsNull(tree.Global.EnclosingModuleDirectives());
+    }
 }

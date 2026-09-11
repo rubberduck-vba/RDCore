@@ -116,7 +116,8 @@ public static class ScopeTreeBuilder
         var moduleScopes = new Dictionary<string, LexicalScope>(StringComparer.Ordinal);
         foreach (var (uri, symbol) in modules)
         {
-            var scope = new LexicalScope(symbol.Uri, LexicalScopeKind.Module, moduleParent, moduleDeclarations[uri]);
+            var directives = symbol is VBModuleSymbol module ? module.Directives : ModuleDirectives.None;
+            var scope = new LexicalScope(symbol.Uri, LexicalScopeKind.Module, moduleParent, moduleDeclarations[uri], directives);
             moduleScopes[uri] = scope;
             scopeByUri[uri] = scope;
             MapDeclarationsToScope(scopeByUri, moduleDeclarations[uri], scope);

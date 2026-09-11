@@ -2,7 +2,6 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static;
@@ -15,7 +14,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
     private static readonly Lazy<LetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static IStaticSemantics Instance => _instance.Value;
 
-    public override StaticSemanticsEvaluationResult DetermineDeclaredType(ISymbolResolver resolver, ExpressionNode expression, params VBType[] operandDeclaredTypes)
+    public override StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         var destinationType = operandDeclaredTypes[(int)InputIndex.CoercionDestinationType];
         return !IsLetCoercionInvalid(operandDeclaredTypes[(int)InputIndex.CoercionSourceValue], destinationType) 

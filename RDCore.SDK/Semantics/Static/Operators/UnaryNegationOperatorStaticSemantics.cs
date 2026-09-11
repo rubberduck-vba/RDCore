@@ -1,7 +1,6 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Operators;
@@ -17,10 +16,10 @@ public sealed record class UnaryNegationOperatorStaticSemantics : UnaryArithmeti
     /// </summary>
     /// <param name="expression">The <em>expression node</em> being evaluated.</param>
     /// <param name="operand">The declared type of the operand.</param>
-    protected override StaticSemanticsEvaluationResult DetermineOperatorStaticType(ISymbolResolver resolver, ExpressionNode expression, VBType operand) 
+    protected override StaticSemanticsEvaluationResult DetermineOperatorStaticType(StaticEvaluationContext context, ExpressionNode expression, VBType operand) 
         => operand switch
         {
             VBByteType => StaticSemanticsEvaluationResult.Success(VBIntegerType.TypeInfo),
-            _ => base.DetermineOperatorStaticType(resolver, expression, operand)
+            _ => base.DetermineOperatorStaticType(context, expression, operand)
         };
 }
