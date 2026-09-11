@@ -91,7 +91,7 @@ public sealed class VBInferableTypeExtensionsTests
     {
         var inferable = Deferred()
             .WithCandidateType(VBLongType.TypeInfo)
-            .WithCandidateType(new VBStdModuleType("SomeModule", false));
+            .WithCandidateType(new VBStdModuleType("SomeModule"));
 
         Assert.IsNull(inferable.Resolve());
     }
