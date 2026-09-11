@@ -37,4 +37,20 @@ public sealed class ModuleNodeExtensionsTests
 
         Assert.AreEqual("a\"b", module.GetDeclaredName());
     }
+
+    [TestMethod]
+    public void HasOptionExplicit_True_WhenModuleDeclaresIt()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nOption Explicit\r\nPublic X As Long\r\n");
+
+        Assert.IsTrue(module.HasOptionExplicit());
+    }
+
+    [TestMethod]
+    public void HasOptionExplicit_False_WhenModuleDoesNotDeclareIt()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nPublic X As Long\r\n");
+
+        Assert.IsFalse(module.HasOptionExplicit());
+    }
 }

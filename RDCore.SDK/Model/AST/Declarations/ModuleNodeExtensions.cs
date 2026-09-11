@@ -31,6 +31,22 @@ public static class ModuleNodeExtensions
         return null;
     }
 
+    /// <summary>
+    /// Whether the module declares <c>Option Explicit</c> (<strong>MS-VBAL §5.2.1.3</strong>).
+    /// </summary>
+    public static bool HasOptionExplicit(this ModuleNode module)
+    {
+        foreach (var child in module.Children)
+        {
+            if (child is ModuleOptionDirectiveNode { ModuleOption: ModuleOptions.OptionExplicit })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // AttributeDirectiveNode.Value is the raw parse-tree text; a VB_Name value is a string literal.
     private static string? Unquote(string value)
     {
