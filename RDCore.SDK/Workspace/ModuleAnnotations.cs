@@ -14,6 +14,17 @@ namespace RDCore.SDK.Workspace;
 /// <c>endOfStatement</c>, reachable from nearly every rule). A real, <em>supported</em> grammar-level
 /// <c>Option Strict</c> token is future work; for now the annotation is a comment as far as MS-VBA (or
 /// any real VBA host) is concerned — a workspace stays import/export-compatible with the VBIDE.
+/// <para>
+/// 📌 A static class hard-coding one annotation's name does not scale — the annotation vocabulary is
+/// open-ended by design (an extension's shape is "annotation-semantics provider + analyzers + …", e.g.
+/// the planned <c>RDCore.UnitTesting</c> extension owning <c>@TestMethod</c>, or the planned
+/// <c>RDCore.DimensionalAnalysis</c> extension owning <c>@Unit</c>), and nothing here should force an
+/// extension to modify the SDK to claim an annotation name. <c>Option Strict</c> is core-owned, not
+/// extension-owned, so this type is fine as the one-off it is <em>today</em> — but once a real
+/// annotation-semantics-provider mechanism exists, this should very likely become one of its
+/// consumers instead of staying a bespoke regex. Noted, not a blocker:
+/// <c>C:\Dev\Claude\rdcore-annotation-semantic-provider-ticket.md</c>.
+/// </para>
 /// </remarks>
 public static partial class ModuleAnnotations
 {
