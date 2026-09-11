@@ -26,7 +26,7 @@ public readonly record struct StaticSemanticsEvaluationResult(
     /// <remarks>
     /// 👉 This value represents a <strong>specified, consistent</strong> state where the <strong>program module is invalid</strong> due to a specific <em>compilation error</em>.
     /// </remarks>
-    public bool IsError => Result is not null && ErrorInfo is not null;
+    public bool IsError => ErrorInfo is not null;
 
     /// <summary>
     /// Creates a new (successful) <see cref="StaticSemanticsEvaluationResult"/> with the specified evaluation result.
