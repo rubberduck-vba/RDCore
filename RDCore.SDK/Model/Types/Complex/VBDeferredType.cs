@@ -104,5 +104,5 @@ public abstract record class VBDeferredType : VBType, IVBDeferrableType
 
     public ImmutableHashSet<VBType> CandidateTypes { get; init; } = [];
 
-    public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = [.. CandidateTypes, vbType] };
+    public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = CandidateTypes.MergeCandidate(vbType) };
 }

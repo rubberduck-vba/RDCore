@@ -11,7 +11,7 @@ public record class VBDeferredTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri,
     : UnboundTypedSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Module, Kind, VBUnknownType.TypeInfo), IVBDeferrableTypeMember
 {
     public ImmutableHashSet<VBType> CandidateTypes { get; init; } = [];
-    public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = [.. CandidateTypes, vbType] };
+    public IVBInferableType WithCandidateType(VBType vbType) => this with { CandidateTypes = CandidateTypes.MergeCandidate(vbType) };
 
     public VBType? DeferredVBType { get; init; }
     public VBDeferredTypeMemberSymbol WithDeferredVBType(VBType vbType) => this with { DeferredVBType = vbType, CandidateTypes = [vbType] };
