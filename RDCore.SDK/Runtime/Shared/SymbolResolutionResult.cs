@@ -1,4 +1,4 @@
-using RDCore.SDK.Model.Errors;
+﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 

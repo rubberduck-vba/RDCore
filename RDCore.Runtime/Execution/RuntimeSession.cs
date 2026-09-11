@@ -105,8 +105,6 @@ internal sealed class SessionSymbols : ISessionSymbols
 
     public bool TryResolve(string name, Symbol scope, out Symbol? symbol)
     {
-        // the bool contract collapses "unbound" and "ambiguous / duplicate" — a caller that needs the
-        // distinction reads Resolver.Resolve(...) directly for the SymbolResolutionResult.
         symbol = Resolver.Resolve(name, ScopeKind.Unallocated, scope.Uri).Symbol;
         return symbol is not null;
     }

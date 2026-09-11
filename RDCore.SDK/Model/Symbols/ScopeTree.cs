@@ -1,4 +1,4 @@
-using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.SDK.Model.Symbols.Abstract;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Symbols;

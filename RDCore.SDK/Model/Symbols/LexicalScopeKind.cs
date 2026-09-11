@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Model.Symbols;
+﻿namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
 /// The tier of a <see cref="LexicalScope"/> in the resolution tree. Distinct from

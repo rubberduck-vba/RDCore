@@ -1,4 +1,4 @@
-using RDCore.SDK.Model;
+﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using System.Collections.Immutable;
