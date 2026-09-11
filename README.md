@@ -17,7 +17,7 @@ This repository contains different projects **under active development** produci
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
-👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end.
+👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end, resolved across modules by a real MS-VBAL-ordered symbol resolver.
 
 ### In this document
 - [Project status](#projectstatus)
@@ -56,7 +56,9 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Area | |
 |---|---|
 | Static type system, runtime type model | ✅ |
+| Symbol resolution — lexical scope tree, shadowing, ambiguity (RD-VBAL §2.3.1.2) | ✅ |
 | Static semantics — operators, let-coercions | ✅ |
+| Static semantics — symbol-backed expressions (simple names) | 🚧 member access + tree evaluator next |
 | Hosts, transport, connection lifecycle, platform-root | ✅ |
 | Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
 
@@ -75,7 +77,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 |---|---|
 | LSP lifecycle | ✅ |
 | Platform orchestration (bring-up, health, teardown) | ✅ core children + discovered extensions |
-| Workspace load → parse round-trip → symbol extraction → define | ✅ intrinsic types only |
+| Workspace load → parse round-trip → symbol extraction → define | ✅ resolved across modules (UDT/Enum, project scope) |
 | LSP document + workspace features | 👉 up for grabs — spec'd |
 
 **RDCore.CLI** → `rdc.exe` — LSP client + environment host · 🚧

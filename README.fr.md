@@ -16,7 +16,7 @@ Ce référentiel contient différents projets **en phase de développement actif
 
 Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en protégeant son avenir : **l'implémentation du _runtime_ de RDCore demeurera open-source**.
 
-👉 Nous construisons ici une solide fondation pour le _coeur de langage_. Le [site de documentation](https://rubberduck-vba.github.io/RDCore/index.fr.html) demeure la référence principale, mais la plateforme commence à produire de vrais livrables : `rdc.exe` mène un _workspace_ du chargement à l'analyse jusqu'à la définition des symboles, de bout en bout.
+👉 Nous construisons ici une solide fondation pour le _coeur de langage_. Le [site de documentation](https://rubberduck-vba.github.io/RDCore/index.fr.html) demeure la référence principale, mais la plateforme commence à produire de vrais livrables : `rdc.exe` mène un _workspace_ du chargement à l'analyse jusqu'à la définition des symboles, de bout en bout, résolus à travers les modules par un véritable _symbol resolver_ ordonné selon MS-VBAL.
 
 ### Dans ce document
 - [Statut du projet](#projectstatus)
@@ -55,7 +55,9 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Domaine | |
 |---|---|
 | Système de types statiques, modèle de types _runtime_ | ✅ |
+| Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
+| Sémantiques statiques — expressions liées à un symbole (_simple names_) | 🚧 _member access_ + _tree evaluator_ à venir |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 
@@ -74,7 +76,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 |---|---|
 | Cycle de vie LSP | ✅ |
 | Orchestration de la plateforme (démarrage, santé, arrêt) | ✅ enfants _core_ + extensions découvertes |
-| Chargement du _workspace_ → aller-retour d'analyse → extraction de symboles → définition | ✅ types intrinsèques seulement |
+| Chargement du _workspace_ → aller-retour d'analyse → extraction de symboles → définition | ✅ résolus à travers les modules (UDT/Enum, _project scope_) |
 | Fonctionnalités LSP _document_ et _workspace_ | 👉 à saisir — spécifié |
 
 **RDCore.CLI** → `rdc.exe` — client LSP + hôte d'environnement · 🚧

@@ -128,11 +128,19 @@ them without qualification. Resolving a name from a scope walks `SelfAndAncestor
 first scope that declares the name binds it; a name declared more than once in a single scope is the
 ambiguous case above.
 
+A module's `LexicalScope` also carries its [ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)
+— today, whether it declares `Option Explicit` — reachable from any scope nested under it via
+`EnclosingModuleDirectives()`. The static-semantics layer consumes this to decide whether an
+_unresolved_ simple name (below) is a deferred `VBUnknownType` or a **VBC09302** _Variable not
+defined_ compile-time error; see **§5.0.1.1** for how a `SimpleNameExpression`'s declared type is
+determined from a `Resolve` outcome.
+
 > [!NOTE]
-> Still to come with the `ISymbolResolver` static-semantics pass: ordering referenced projects and
-> libraries by their `.rdproj` reference priority within the global scope (the ordering is already
-> carried on `IRuntimeSession.References`; nothing consults it yet), and reporting an ambiguous name
-> as a coded compile-time error rather than an unresolved lookup.
+> Still to come: ordering referenced projects and libraries by their `.rdproj` reference priority
+> within the global scope (the ordering is already carried on `IRuntimeSession.References`; nothing
+> consults it yet). Reporting an ambiguous or duplicate name as a coded compile-time error is done —
+> `SimpleNameExpressionStaticSemantics` (**§5.0.1.1**) is the first static-semantics rule to consume
+> `Resolve`'s error outcomes.
 
 
 ---

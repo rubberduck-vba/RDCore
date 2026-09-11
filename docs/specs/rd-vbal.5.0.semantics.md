@@ -21,6 +21,29 @@ Static semantics always yield a [StaticSemanticsEvaluationResult](../api/RDCore.
 
 > 👉 In most error cases, the compile-time error metadata returned is for a [TypeMismatch](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) error.
 
+Every rule is evaluated against a [StaticEvaluationContext](../api/RDCore.SDK.Semantics.Static.Abstract.StaticEvaluationContext.html) — the [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html) and the [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) an expression is lexically found in (see §2.3.1.2 for how a scope is resolved). Module-level facts a rule needs — today, whether the enclosing module declares `Option Explicit` — are not parameters of this context; they live on [ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html), reachable from any scope via `LexicalScope.EnclosingModuleDirectives()`. This keeps the context's shape stable as the directive surface MS-VBAL and RD-VBA both define (`Option Compare`, `Attribute` declarations, …) grows over time.
+
+### 5.0.1.1 Simple Name Expressions
+> [!NOTE]
+> This section describes the implementation of **MS-VBAL §5.6.10 Simple Name Expressions**.
+
+The declared type of a _simple name expression_ is the declared type of the entity its identifier
+resolves to, per the ordered lookup of §2.3.1.2: a `Symbol` that determines its own declared type
+([ITypedSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.ITypedSymbol.html), unifying bound and unbound
+typed symbols) yields that type directly — a bare procedure reference yields its return type (or
+`VBVoidType` for a `Sub`, already the type its own symbol carries).
+
+Three outcomes fork on the resolver's result:
+- **Ambiguous** (`Duplicate`/`Ambiguous`, see §2.3.1.2) → an `Error` carrying
+  [AmbiguousName](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) or
+  [DuplicateDeclaration](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html).
+- **Unresolved, under `Option Explicit`** → an `Error` carrying
+  [VariableNotDefined](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html).
+- **Unresolved, otherwise** → `Success(VBUnknownType)`. MS-VBA permits an implicit `Variant`
+  declaration here; RD-VBA defers the actual guess to a later type-inference pass
+  ([IVBInferableType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredType.html)) rather than deciding
+  it in this rule.
+
 
 ---
 ## 5.0.2 Runtime Semantics
