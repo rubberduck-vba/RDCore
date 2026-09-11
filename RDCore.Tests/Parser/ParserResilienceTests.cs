@@ -20,7 +20,7 @@ public sealed class ParserResilienceTests
     private static readonly Uri Uri = TestUri.TestModuleUri();
 
     private static ModuleParseResult Parse(string source)
-        => new ModuleParser().Parse(Uri, ModuleType.StdModule, source);
+        => new ModuleParser().Parse(Uri, source);
 
     [TestMethod]
     // the whole point: none of these — valid, half-typed, or garbage — may throw.

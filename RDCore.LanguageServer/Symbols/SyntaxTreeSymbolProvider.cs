@@ -20,7 +20,7 @@ namespace RDCore.LanguageServer.Symbols;
 /// are yielded as children of their procedure symbol.
 /// </remarks>
 internal sealed class SyntaxTreeSymbolProvider(
-    Uri workspaceRoot, Uri moduleUri, ModuleParseResult parseResult, ISymbolResolver resolver) : ISymbolProvider
+    Uri workspaceRoot, Uri moduleUri, ModuleType moduleType, ModuleParseResult parseResult, ISymbolResolver resolver) : ISymbolProvider
 {
     public IEnumerable<Symbol> ProvideSymbols()
     {
@@ -67,7 +67,7 @@ internal sealed class SyntaxTreeSymbolProvider(
         }
 
         // a standard module's members are module-scoped; a class module's are instance-scoped.
-        var memberScope = module.ModuleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
+        var memberScope = moduleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
         var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver);
 
         // module-level names are order-independent, so collect them before walking the members — a

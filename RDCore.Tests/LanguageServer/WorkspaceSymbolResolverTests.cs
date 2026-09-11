@@ -20,17 +20,18 @@ public sealed class WorkspaceSymbolResolverTests
 
     private static Uri ModuleUri(string name) => new UriBuilder(WorkspaceRoot) { Fragment = name }.Uri;
 
-    private static (Uri Uri, ModuleParseResult Parse) Module(string name, string body)
-        => (ModuleUri(name), new ModuleParser().Parse(
-            new Uri($"file:///c:/ws/{name}.bas"), ModuleType.StdModule, $"Attribute VB_Name = \"{name}\"\r\n{body}"));
+    private static (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Module(string name, string body)
+        => (ModuleUri(name), ModuleType.StdModule, new ModuleParser().Parse(
+            new Uri($"file:///c:/ws/{name}.bas"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
 
-    private static List<Symbol> Resolve(string moduleName, string moduleBody, params (Uri Uri, ModuleParseResult Parse)[] siblings)
+    private static List<Symbol> Resolve(
+        string moduleName, string moduleBody, params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] siblings)
     {
         var target = Module(moduleName, moduleBody);
         var resolver = WorkspaceSymbolResolver.Compose(
             WorkspaceRoot, [.. siblings, target], new IntrinsicSymbolResolver());
 
-        return [.. new SyntaxTreeSymbolProvider(WorkspaceRoot, target.Uri, target.Parse, resolver).ProvideSymbols()];
+        return [.. new SyntaxTreeSymbolProvider(WorkspaceRoot, target.Uri, target.ModuleType, target.Parse, resolver).ProvideSymbols()];
     }
 
     [TestMethod]

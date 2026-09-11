@@ -67,7 +67,7 @@ public sealed class SyntaxNodeSerializationTests
         var pcElse = new PrecompilerElseBlockStatementNode(Id(2, 1), loc, []);
         var trivia = new PrecompilerTriviaNode(Id(2), loc, [pcName, pcElse], "#If RDDEBUG Then");
 
-        SyntaxNode module = new ModuleNode(Id(), loc, [typedDecl, elseBlock, trivia], ModuleType.StdModule);
+        SyntaxNode module = new ModuleNode(Id(), loc, [typedDecl, elseBlock, trivia]);
 
         var json = JsonSerializer.Serialize(module, Options);
         var rehydrated = JsonSerializer.Deserialize<SyntaxNode>(json, Options);
@@ -107,7 +107,7 @@ public sealed class SyntaxNodeSerializationTests
             #End If
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var treeJson = JsonSerializer.Serialize(result.SyntaxTree, Options);

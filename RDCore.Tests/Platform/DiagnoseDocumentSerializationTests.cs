@@ -34,7 +34,7 @@ public sealed class DiagnoseDocumentSerializationTests
     public void DiagnoseDocumentPayload_RoundTripsWithItsAstAndSyntaxErrors()
     {
         var uri = TestUri.TestModuleUri();
-        var parseResult = new ModuleParser().Parse(uri, ModuleType.StdModule, SplitConditionalModule);
+        var parseResult = new ModuleParser().Parse(uri, SplitConditionalModule);
         Assert.IsFalse(parseResult.IsSuccess, "the fixture must produce syntax errors");
         Assert.IsNotEmpty(parseResult.SyntaxErrors);
 
@@ -59,7 +59,7 @@ public sealed class DiagnoseDocumentSerializationTests
     public void DiagnoseDocumentPayload_RoundTripsACleanParse()
     {
         var uri = TestUri.TestModuleUri();
-        var parseResult = new ModuleParser().Parse(uri, ModuleType.StdModule, CleanModule);
+        var parseResult = new ModuleParser().Parse(uri, CleanModule);
         Assert.IsTrue(parseResult.IsSuccess);
 
         var once = PlatformJson.Deserialize<DiagnoseDocumentPayload>(

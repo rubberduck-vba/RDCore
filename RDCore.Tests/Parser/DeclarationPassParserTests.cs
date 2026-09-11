@@ -20,7 +20,7 @@ public class DeclarationPassParserTests
         var content = "invalid content";
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
 
         // assert
         Assert.IsFalse(result.IsSuccess);
@@ -36,7 +36,7 @@ public class DeclarationPassParserTests
     [DataRow("#Const A = 1\r\n#Const B = A + 1\r\n#If B Then\r\nPublic X As Long\r\n#End If", DisplayName = "#Const B = A + 1")]
     public void OperatorInConditional_PreservesPrecompilerTrivia(string content)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
 
         Assert.IsNotEmpty(result.PrecompilerTrivia);
     }
@@ -58,7 +58,7 @@ public class DeclarationPassParserTests
             """;
         var uri = TestUri.TestModuleUri();
 
-        var result = new ModuleParser().Parse(uri, ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(uri, content);
 
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotEmpty(result.SyntaxErrors);
@@ -84,7 +84,7 @@ public class DeclarationPassParserTests
         var uri = TestUri.TestModuleUri();
         var sut = new ModuleParser();
 
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
 
         Assert.IsNotNull(result.SyntaxTree);
         Assert.HasCount(1, result.SyntaxTree.Children.OfType<ModuleOptionDirectiveNode>());
@@ -134,7 +134,7 @@ End Sub
         var sut = new ModuleParser();
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
 
         // assert
         Assert.IsNotNull(result.SyntaxTree);
@@ -150,7 +150,7 @@ End Sub
         var sut = new ModuleParser();
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
         var localVariables = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>()
             .SelectMany(member => member.Children.OfType<VariableDeclarationNode>())
             .ToArray();
@@ -168,7 +168,7 @@ End Sub
         var sut = new ModuleParser();
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
         var localConstants = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>()
             .SelectMany(member => member.Children.OfType<ConstantDeclarationNode>())
             .ToArray();
@@ -186,7 +186,7 @@ End Sub
         var sut = new ModuleParser();
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
         var lineLabels = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>()
             .SelectMany(member => member.Children.OfType<LineLabelNode>())
             .ToArray();
@@ -203,7 +203,7 @@ End Sub
         var sut = new ModuleParser();
 
         // act
-        var result = sut.Parse(uri, ModuleType.StdModule, content);
+        var result = sut.Parse(uri, content);
         if (result.IsSuccess)
         {
             var ast = result.SyntaxTree!;
@@ -231,7 +231,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var json = JsonSerializer.Serialize(result.SyntaxTree!);
@@ -258,7 +258,7 @@ End Sub
             Public Const Answer As Long = 42
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var literal = Descendants(result.SyntaxTree!).OfType<LiteralExpressionNode>().SingleOrDefault();
@@ -276,7 +276,7 @@ End Sub
     [DataRow("Public Const N = - -7", 7L)]
     public void NegativeConstant_KeepsItsSign(string source, long expected)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, source);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var literal = Descendants(result.SyntaxTree!).OfType<LiteralExpressionNode>().Single();
@@ -301,7 +301,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
@@ -322,7 +322,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var locals = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -345,7 +345,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var locals = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -379,7 +379,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -404,7 +404,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -423,7 +423,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
@@ -442,7 +442,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.ClassModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -461,7 +461,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var redims = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
@@ -483,7 +483,7 @@ End Sub
             End Sub
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
@@ -500,7 +500,7 @@ End Sub
             End Type
             """;
 
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, content);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var udt = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>()

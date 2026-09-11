@@ -30,7 +30,7 @@ internal interface ISyntaxNodeProvider : IParseTreeListener
 /// </summary>
 public interface IModuleParser
 {
-    ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content);
+    ModuleParseResult Parse(Uri uri, string content);
 }
 
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
@@ -42,7 +42,7 @@ internal partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
-    public ModuleParseResult Parse(Uri uri, ModuleType moduleType, string content)
+    public ModuleParseResult Parse(Uri uri, string content)
     {
         var errorListener = new ErrorListener(uri);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
@@ -54,11 +54,11 @@ internal partial class ModuleParser(
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
-                return ModuleParseResult.Success(EmptyModule(uri, moduleType));
+                return ModuleParseResult.Success(EmptyModule(uri));
             }
 
             precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)]);
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia, moduleType);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia);
 
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener));
@@ -101,8 +101,8 @@ internal partial class ModuleParser(
         }
     }
 
-    private static ModuleNode EmptyModule(Uri uri, ModuleType moduleType)
-        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), [], moduleType);
+    private static ModuleNode EmptyModule(Uri uri)
+        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), []);
 
     // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
     // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line

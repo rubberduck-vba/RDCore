@@ -15,23 +15,25 @@ namespace RDCore.LanguageServer.Symbols;
 /// </summary>
 internal static class WorkspaceSymbolResolver
 {
-    // modules are passed as pairs, not a dictionary: Uri equality ignores the fragment, but a module
-    // uri differs from its siblings only in the fragment (workspace#ModuleName).
+    // modules are passed as tuples, not a dictionary: Uri equality ignores the fragment, but a module
+    // uri differs from its siblings only in the fragment (workspace#ModuleName). ModuleType travels
+    // alongside the parse result — the parser is never told a module's kind and does not derive it
+    // (RDCore.SDK.Workspace.ModuleHeader.IsClassModule reads it off the raw source instead).
     public static ISymbolResolver Compose(
-        Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleParseResult Parse)> modules, ISymbolResolver fallback)
+        Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules, ISymbolResolver fallback)
     {
         var symbols = new List<Symbol>();
-        foreach (var (moduleUri, parseResult) in modules)
+        foreach (var (moduleUri, moduleType, parseResult) in modules)
         {
             // the module symbol itself is the project symbol provider's job at run time; synthesize
             // it here so the scope tree has a module tier to hang the members off (and so a
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
-            symbols.Add(parseResult.SyntaxTree?.ModuleType == ModuleType.ClassModule
+            symbols.Add(moduleType == ModuleType.ClassModule
                 ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName));
 
-            symbols.AddRange(new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, fallback).ProvideSymbols());
+            symbols.AddRange(new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols());
         }
 
         return new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols)), fallback);
