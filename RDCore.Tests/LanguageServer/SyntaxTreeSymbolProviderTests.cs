@@ -21,9 +21,9 @@ public sealed class SyntaxTreeSymbolProviderTests
 
     private static List<Symbol> Provide(string source, ISymbolResolver? resolver = null, ModuleType moduleType = ModuleType.StdModule)
     {
-        var parseResult = new ModuleParser().Parse(TestUri.TestModuleUri(), moduleType, source);
+        var parseResult = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
         var provider = new SyntaxTreeSymbolProvider(
-            WorkspaceRoot, ModuleUri, parseResult, resolver ?? Substitute.For<ISymbolResolver>());
+            WorkspaceRoot, ModuleUri, moduleType, parseResult, resolver ?? Substitute.For<ISymbolResolver>());
         return [.. provider.ProvideSymbols()];
     }
 

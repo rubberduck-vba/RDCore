@@ -15,8 +15,8 @@ public sealed class SymbolDescriptorProjectorTests
 
     private static SymbolDescriptor[] Project(string source)
     {
-        var parseResult = new ModuleParser().Parse(new Uri("file:///c:/ws/src/Mod1.bas"), ModuleType.StdModule, source);
-        var symbols = new SyntaxTreeSymbolProvider(WorkspaceRoot, ModuleUri, parseResult, new IntrinsicSymbolResolver()).ProvideSymbols();
+        var parseResult = new ModuleParser().Parse(new Uri("file:///c:/ws/src/Mod1.bas"), source);
+        var symbols = new SyntaxTreeSymbolProvider(WorkspaceRoot, ModuleUri, ModuleType.StdModule, parseResult, new IntrinsicSymbolResolver()).ProvideSymbols();
         return [.. SymbolDescriptorProjector.Project(symbols, ModuleUri)];
     }
 

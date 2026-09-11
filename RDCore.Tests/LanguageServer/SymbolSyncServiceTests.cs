@@ -20,7 +20,7 @@ public sealed class SymbolSyncServiceTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-sync-ws");
 
     private static ModuleParseResult Parse(string source)
-        => new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Mod1.bas")), ModuleType.StdModule, source);
+        => new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Mod1.bas")), source);
 
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) Build(
         ModuleParseResult? cached, bool providesCapability = true, DefineSymbolsResult? response = null)

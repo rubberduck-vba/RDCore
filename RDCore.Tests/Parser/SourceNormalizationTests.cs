@@ -18,7 +18,7 @@ public sealed class SourceNormalizationTests
     private static readonly Uri Uri = TestUri.TestModuleUri();
 
     private static ModuleParseResult Parse(string source)
-        => new ModuleParser().Parse(Uri, ModuleType.StdModule, source);
+        => new ModuleParser().Parse(Uri, source);
 
     [TestMethod]
     [DataRow("\r", DisplayName = "CR only")]

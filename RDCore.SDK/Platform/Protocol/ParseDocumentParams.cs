@@ -2,7 +2,6 @@
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -23,10 +22,6 @@ public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelop
     /// The <c>Uri</c> of the document to parse.
     /// </summary>
     public Uri? DocumentUri { get; init; } = default;
-    /// <summary>
-    /// The type of module (for the root AST node).
-    /// </summary>
-    public ModuleType ModuleType { get; init; } = ModuleType.StdModule;
     /// <summary>
     /// The fragment of source code to parse.
     /// </summary>

@@ -38,7 +38,7 @@ public sealed class DiagnoseDocumentHandlerTests
     private static DiagnoseDocumentRequest RequestFor(string source, out ModuleParseResult parseResult, int version = 1)
     {
         var uri = TestUri.TestModuleUri();
-        parseResult = new ModuleParser().Parse(uri, ModuleType.StdModule, source);
+        parseResult = new ModuleParser().Parse(uri, source);
         return new DiagnoseDocumentRequest
         {
             Json = PlatformJson.Serialize(new DiagnoseDocumentPayload(uri, version, parseResult)),

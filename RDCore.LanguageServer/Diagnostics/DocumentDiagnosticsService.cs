@@ -59,7 +59,7 @@ internal sealed class DocumentDiagnosticsService(
             return DocumentDiagnosticsResult.Fresh(version, []);
         }
 
-        var parseResult = await parsing.ParseDocumentAsync(documentUri, ParsingClientService.ModuleTypeOf(document), token);
+        var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult));
 
         var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));

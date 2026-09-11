@@ -59,10 +59,10 @@ public sealed class EvilTestCase2ResolverTests
     private static (ISymbolResolver Resolver, Uri ModuleUri, Uri ProcUri) Compose()
     {
         var moduleUri = new UriBuilder(WorkspaceRoot) { Fragment = "MyModule" }.Uri;
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/MyModule.bas"), ModuleType.StdModule, MyModuleSource);
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/MyModule.bas"), MyModuleSource);
 
         var resolver = WorkspaceSymbolResolver.Compose(
-            WorkspaceRoot, [(moduleUri, parse)], new IntrinsicSymbolResolver());
+            WorkspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
 
         var procUri = new UriBuilder(WorkspaceRoot) { Fragment = "MyModule.MyProc1" }.Uri;
         return (resolver, moduleUri, procUri);

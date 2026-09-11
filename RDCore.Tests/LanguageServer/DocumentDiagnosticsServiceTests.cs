@@ -10,7 +10,6 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
-using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -38,8 +37,8 @@ public sealed class DocumentDiagnosticsServiceTests
         => _documents.GetAllDocuments().Returns([first], [then]);
 
     private void ParseYields()
-        => _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<ModuleType>(), Arg.Any<CancellationToken>())
-            .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub"));
+        => _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Sub Foo()\r\nEnd Sub"));
 
     private static Diagnostic Diag(int line, string code = "VBC01027", string source = "RDCore", string message = "Syntax error")
         => new()
@@ -87,7 +86,7 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual("v1", result.ResultId);
         Assert.IsFalse(result.Unchanged);
         Assert.IsEmpty(result.Diagnostics);
-        await _parsing.DidNotReceive().ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<ModuleType>(), Arg.Any<CancellationToken>());
+        await _parsing.DidNotReceive().ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

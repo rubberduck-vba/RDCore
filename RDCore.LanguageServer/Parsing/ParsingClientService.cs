@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Parsing;
 
@@ -19,7 +20,7 @@ internal interface IParsingClientService
     /// <summary>
     /// Parses one workspace document, waiting for the parsing server to be ready first, and caches the result.
     /// </summary>
-    Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, ModuleType moduleType, CancellationToken token);
+    Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token);
 
     /// <summary>
     /// Parses every currently-loaded workspace source document. Failures are logged, not thrown.
@@ -37,20 +38,17 @@ internal sealed class ParsingClientService(
     IWorkspaceDocumentService documents,
     ILogger<ParsingClientService> logger) : IParsingClientService
 {
-    private static readonly HashSet<string> _classModuleExtensions =
-        new(StringComparer.OrdinalIgnoreCase) { ".cls", ".frm", ".doccls" };
-
     private readonly ConcurrentDictionary<Uri, ModuleParseResult> _cache = new();
 
     public bool TryGetCached(Uri documentUri, out ModuleParseResult result)
         => _cache.TryGetValue(documentUri, out result!);
 
-    public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, ModuleType moduleType, CancellationToken token)
+    public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token)
     {
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
         var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            new ParseDocumentParams { DocumentUri = documentUri, ModuleType = moduleType }, token);
+            new ParseDocumentParams { DocumentUri = documentUri }, token);
 
         // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
@@ -88,7 +86,7 @@ internal sealed class ParsingClientService(
                 var uri = document.Id.Uri.ToUri();
                 try
                 {
-                    await ParseDocumentAsync(uri, ModuleTypeOf(document), token);
+                    await ParseDocumentAsync(uri, token);
                     parsed++;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -115,11 +113,12 @@ internal sealed class ParsingClientService(
         }
     }
 
-    // review #170: the file extension is a stopgap. Module type is really an attribute concern
-    // (VB_Name etc.) — the AST root node should not vary by module type; resolving this belongs in
-    // semantic space, with the extension only ever driving the workspace-tree icon.
+    // review #170: fixed. The file extension was a stopgap; module kind is a fact of the source
+    // (the VERSION header), not the file name — RD-VBA determines it the same way regardless of
+    // extension (see ModuleHeader). No longer sent to the parser: it never derived the kind from
+    // this hint, only echoed it onto the AST root, which was itself the wrong layer to carry it.
     internal static ModuleType ModuleTypeOf(WorkspaceDocument document)
-        => _classModuleExtensions.Contains(document.Extension) ? ModuleType.ClassModule : ModuleType.StdModule;
+        => ModuleHeader.IsClassModule(document.Text) == true ? ModuleType.ClassModule : ModuleType.StdModule;
 
     private void LogIfEnabled(LogLevel level, string message)
     {

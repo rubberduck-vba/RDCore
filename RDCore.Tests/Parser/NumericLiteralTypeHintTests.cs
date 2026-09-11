@@ -30,7 +30,7 @@ public sealed class NumericLiteralTypeHintTests
 
     private static LiteralExpressionNode LiteralOf(string constName)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, _module);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), _module);
         Assert.IsNotNull(result.SyntaxTree);
 
         var constant = Descendants(result.SyntaxTree!)
@@ -41,7 +41,7 @@ public sealed class NumericLiteralTypeHintTests
 
     private static Dictionary<string, Type> LiteralTypesByConstName()
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, _module);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), _module);
         Assert.IsNotNull(result.SyntaxTree);
 
         return Descendants(result.SyntaxTree!)
@@ -102,7 +102,7 @@ public sealed class NumericLiteralTypeHintTests
     [DataRow("#Const N = 99999%\r\n#If N Then\r\n#End If", DisplayName = "#Const pass")]
     public void OverflowingLiteral_IsALocatedSyntaxError(string source)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, source);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
 
         Assert.IsFalse(result.IsSuccess);
         var overflow = result.SyntaxErrors.Single(e => e.VBCompileErrorId == SDK.Model.Errors.VBCompileErrorId.NumericLiteralOverflow);

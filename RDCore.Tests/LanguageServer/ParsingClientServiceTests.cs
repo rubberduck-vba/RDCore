@@ -19,7 +19,7 @@ public sealed class ParsingClientServiceTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
 
     private static PlatformJsonEnvelope SampleEnvelope
-        => PlatformJsonEnvelope.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule, "Public Sub Foo()\r\nEnd Sub"));
+        => PlatformJsonEnvelope.Of(new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Sub Foo()\r\nEnd Sub"));
 
     private static (ParsingClientService Sut, IRDCoreClientApp Parser, IWorkspaceDocumentService Documents) Build()
     {
@@ -41,11 +41,11 @@ public sealed class ParsingClientServiceTests
         var (sut, parser, _) = Build();
         var uri = new Uri("file:///c:/ws/src/Mod1.bas");
 
-        var result = await sut.ParseDocumentAsync(uri, ModuleType.StdModule, CancellationToken.None);
+        var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
 
         await parser.Received(1).WaitForReadyAsync(Arg.Any<CancellationToken>());
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == uri && p.ModuleType == ModuleType.StdModule),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == uri),
             Arg.Any<CancellationToken>());
 
         Assert.IsTrue(result.IsSuccess);
@@ -54,7 +54,7 @@ public sealed class ParsingClientServiceTests
     }
 
     [TestMethod]
-    public async Task ParseWorkspaceAsync_ParsesEachDocument_WithModuleTypeFromExtension()
+    public async Task ParseWorkspaceAsync_ParsesEachDocument()
     {
         var (sut, parser, documents) = Build();
         var module = new WorkspaceDocument("src/Mod1.bas", Root, "x");
@@ -64,11 +64,24 @@ public sealed class ParsingClientServiceTests
         await sut.ParseWorkspaceAsync(CancellationToken.None);
 
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == module.Id.Uri.ToUri() && p.ModuleType == ModuleType.StdModule),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == module.Id.Uri.ToUri()),
             Arg.Any<CancellationToken>());
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == klass.Id.Uri.ToUri() && p.ModuleType == ModuleType.ClassModule),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == klass.Id.Uri.ToUri()),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public void ModuleTypeOf_ReadsTheVersionHeader_NotTheExtension()
+    {
+        // the header, not the .cls/.bas extension, is the signal (RDCore.SDK.Workspace.ModuleHeader).
+        var classWithoutClsExtension = new WorkspaceDocument(
+            "src/Weird.txt", Root, "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Weird\"\r\n");
+        var standardWithClsExtension = new WorkspaceDocument(
+            "src/NotReally.cls", Root, "Attribute VB_Name = \"NotReally\"\r\n");
+
+        Assert.AreEqual(ModuleType.ClassModule, ParsingClientService.ModuleTypeOf(classWithoutClsExtension));
+        Assert.AreEqual(ModuleType.StdModule, ParsingClientService.ModuleTypeOf(standardWithClsExtension));
     }
 
     [TestMethod]
@@ -89,7 +102,7 @@ public sealed class ParsingClientServiceTests
         parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs((PlatformJsonEnvelope)null!);
         var uri = new Uri("file:///c:/ws/src/Mod1.bas");
 
-        var result = await sut.ParseDocumentAsync(uri, ModuleType.StdModule, CancellationToken.None);
+        var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
 
         Assert.IsFalse(result.IsSuccess);
         Assert.IsTrue(sut.TryGetCached(uri, out var cached));
@@ -111,7 +124,7 @@ public sealed class ParsingClientServiceTests
     [TestMethod]
     public void PlatformJsonEnvelope_RoundTripsAPolymorphicParseResult()
     {
-        var original = new ModuleParser().Parse(TestUri.TestModuleUri(), ModuleType.StdModule,
+        var original = new ModuleParser().Parse(TestUri.TestModuleUri(),
             "Public Function Add(ByVal a As Long) As Long\r\nEnd Function");
 
         var result = PlatformJsonEnvelope.Of(original).Unwrap<ModuleParseResult>();

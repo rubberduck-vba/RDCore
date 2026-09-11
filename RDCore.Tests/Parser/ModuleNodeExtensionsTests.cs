@@ -6,9 +6,9 @@ namespace RDCore.Tests.Parser;
 [TestClass]
 public sealed class ModuleNodeExtensionsTests
 {
-    private static ModuleNode Parse(string source, ModuleType moduleType = ModuleType.StdModule)
+    private static ModuleNode Parse(string source)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), moduleType, source);
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
         Assert.IsNotNull(result.SyntaxTree, "expected a parsed module");
         return result.SyntaxTree;
     }

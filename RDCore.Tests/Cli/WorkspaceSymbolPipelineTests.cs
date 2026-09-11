@@ -27,8 +27,14 @@ public sealed class WorkspaceSymbolPipelineTests
         + "Public Function Add(ByVal a As Long, ByVal b As Long) As Long\r\n"
         + "End Function\r\n";
 
-    // Event is a declarations-section-only construct, so it must precede the Property block.
-    private const string Class1 = "Attribute VB_Name = \"Class1\"\r\n"
+    // Event is a declarations-section-only construct, so it must precede the Property block. The
+    // VERSION header is what makes this a class module now that module kind comes from the source,
+    // not the .cls extension (RDCore.SDK.Workspace.ModuleHeader).
+    private const string Class1 = "VERSION 1.0 CLASS\r\n"
+        + "BEGIN\r\n"
+        + "  MultiUse = -1  'True\r\n"
+        + "END\r\n"
+        + "Attribute VB_Name = \"Class1\"\r\n"
         + "Private mWidget As Object\r\n"
         + "Public Event Changed(ByVal NewValue As Long)\r\n"
         + "Public Property Get Widget() As Object\r\n"
@@ -80,17 +86,19 @@ public sealed class WorkspaceSymbolPipelineTests
         foreach (var module in project.ProjectInfo.Modules)
         {
             var path = Path.Combine(Root, module.RelativeUri);
-            var moduleType = path.EndsWith(".cls") ? ModuleType.ClassModule : ModuleType.StdModule;
+            var source = fs.File.ReadAllText(path);
+            // module kind is a fact of the source (the VERSION header), not the file extension.
+            var moduleType = ModuleHeader.IsClassModule(source) == true ? ModuleType.ClassModule : ModuleType.StdModule;
             var workspaceRoot = new Uri(project.Uri);
 
-            var parseResult = parser.Parse(new Uri(path), moduleType, fs.File.ReadAllText(path));
+            var parseResult = parser.Parse(new Uri(path), source);
 
             // the language server names a module by its parsed VB_Name; the environment host resolved
             // the same name when it composed the module symbol above.
             var name = parseResult.SyntaxTree?.GetDeclaredName() ?? module.DefaultName;
             var moduleUri = new UriBuilder(workspaceRoot) { Fragment = name }.Uri;
 
-            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, parseResult, resolver).ProvideSymbols();
+            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, resolver).ProvideSymbols();
             var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
 
             results[name] = await handler.Handle(new DefineSymbolsParams
