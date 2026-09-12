@@ -27,9 +27,12 @@ public abstract class LetCoercionRuntimeSemanticsTests
     protected static ILetCoercionRuntimeSemanticsProvider FakeProvider() => Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
 
     // resolver is never dereferenced by EvaluateLetCoercion; expression is only used on error paths
-    // (for expression.Location + the substituted formatter), so a throwaway node is enough.
+    // (for expression.Location + the substituted formatter) and, for a strategy that recurses through
+    // the provider (e.g. Error's Long sub-coercion), as that recursive frame's own NodeId — which must
+    // be a real SyntaxNodeId, not default: the provider's recursion guard hashes LetCoercionStackFrame,
+    // and a default SyntaxNodeId's uninitialized ImmutableArray field throws on GetHashCode().
     protected static readonly VBOperatorExpression ThrowawayExpression = new VBBinaryOperatorExpressionNode(
-        "+", default, TestLocations.TestLocation,
+        "+", NodeId, TestLocations.TestLocation,
         [
             new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBIntegerValue((short)0)),
             new LiteralExpressionNode(default, TestLocations.TestLocationRHS, new VBIntegerValue((short)0)),
@@ -69,6 +72,7 @@ public abstract class LetCoercionRuntimeSemanticsTests
         VBDecimalValue v => v.Value,
         VBStringValue v => v.Value,
         VBDateValue v => v.SerialValue,
+        VBErrorValue v => v.Value,
         _ => value.RuntimeValue.BoxedValue,
     };
 }

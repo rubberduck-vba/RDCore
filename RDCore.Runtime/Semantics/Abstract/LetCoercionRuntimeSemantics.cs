@@ -132,4 +132,11 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     protected VBRuntimeErrorInfo OnLetCoercionInvalidUseOfNull(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidUseOfNull, expression.Location,
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose, expression, [frame]));
+
+    /// <summary>
+    /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
+    /// </summary>
+    protected VBRuntimeErrorInfo OnLetCoercionInvalidProcedureCallOrArgument(ExpressionNode expression, LetCoercionStackFrame frame) =>
+        VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, expression.Location,
+            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose, expression, [frame]));
 }

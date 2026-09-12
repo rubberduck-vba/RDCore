@@ -171,6 +171,9 @@
   <data name="LetCoercionRuntimeErrorExceptionObjectVariableNotSet" xml:space="preserve">
     <value>La valeur source 'Nothing' ne peut être forcée (let-coerced) à une référence d'objet. Cette erreur indique souvent l'absence du mot-clé 'Set' requis pour une assignation de référence.</value>
   </data>
+  <data name="LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
+    <value>La valeur source est à l'extérieur de la plage de codes d'erreur standards (0 et 65535, inclusivement) représentable par le type de destination de cette coercion.</value>
+  </data>
   <data name="VBExponentOp_InvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>Le résultat d'un exposant négatif ne peut être représenté avec une base à 0.</value>
   </data>

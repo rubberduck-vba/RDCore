@@ -29,6 +29,9 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
             VBErrorValue when frame.DestinationTypeDesc.GetTargetType() is not VBVariantType and not VBFixedSizeArrayType =>
                 LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), frame),
 
+            // MS-VBAL 5.5.1.2.9: "between 0 and 65535, inclusive" — an Error data value representing
+            // the standard error code; otherwise runtime error 5 (Invalid procedure call or argument),
+            // not a type mismatch.
             VBNumericTypedValue or VBBooleanValue or VBDateValue or VBStringValue or VBArrayValue or VBUserDefinedTypeValue =>
                 LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, new(
                     NodeId: expression.Identity,
@@ -36,10 +39,10 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
                     SourceValue: frame.SourceValue,
                     DestinationTypeDesc: new VBTypeDescValue(VBDoubleType.TypeInfo)
                 )).Result is VBDoubleValue coerced
-                    && (double)coerced.RuntimeValue.BoxedValue > VBErrorType.MinimumStdErrorValue 
-                    && (double)coerced.RuntimeValue.BoxedValue < VBErrorType.MaximumStdErrorValue
+                    && (double)coerced.RuntimeValue.BoxedValue >= VBErrorType.MinimumStdErrorValue
+                    && (double)coerced.RuntimeValue.BoxedValue <= VBErrorType.MaximumStdErrorValue
                         ? LetCoercionResult.Success(new VBErrorValue((int)(double)coerced.RuntimeValue.BoxedValue))
-                        : LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), frame),
+                        : LetCoercionResult.Error(OnLetCoercionInvalidProcedureCallOrArgument(expression, frame), frame),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };
