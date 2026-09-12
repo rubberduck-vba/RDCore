@@ -19,29 +19,29 @@ public sealed class BinaryIntegerDivisionOperatorEffectiveTypeTests : OperatorAr
     [TestMethod]
     public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
     {
-        VBType b = VBByteType.TypeInfo, boo = VBBooleanType.TypeInfo, i = VBIntegerType.TypeInfo,
-            l = VBLongType.TypeInfo, ll = VBLongLongType.TypeInfo, s = VBSingleType.TypeInfo,
-            d = VBDoubleType.TypeInfo, cur = VBCurrencyType.TypeInfo, dec = VBDecimalType.TypeInfo,
-            dt = VBDateType.TypeInfo, str = VBStringType.TypeInfo, e = VBEmptyType.TypeInfo;
+        VBType vbByte = VBByteType.TypeInfo, vbBoolean = VBBooleanType.TypeInfo, vbInteger = VBIntegerType.TypeInfo,
+            vbLong = VBLongType.TypeInfo, vbLongLong = VBLongLongType.TypeInfo, vbSingle = VBSingleType.TypeInfo,
+            vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo, vbDecimal = VBDecimalType.TypeInfo,
+            vbDate = VBDateType.TypeInfo, vbString = VBStringType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo;
 
         (VBType lhs, VBType rhs, VBType expected)[] grid =
         [
             // this pair alone used to fail: the effective-type override read its own left operand's
             // type in place of the right operand's, so this row could never match and always fell
             // through to the base table's (wrong, for '\'/'Mod') Byte-stays-Byte rule instead.
-            (b, e, i), (e, b, i),
+            (vbByte, vbEmpty, vbInteger), (vbEmpty, vbByte, vbInteger),
 
-            (boo, s, i), (boo, d, i), (boo, str, i), (boo, cur, i), (boo, dt, i), (boo, dec, i),
+            (vbBoolean, vbSingle, vbInteger), (vbBoolean, vbDouble, vbInteger), (vbBoolean, vbString, vbInteger), (vbBoolean, vbCurrency, vbInteger), (vbBoolean, vbDate, vbInteger), (vbBoolean, vbDecimal, vbInteger),
 
             // row 3 (Boolean/Integer, Single/Double/…) is asymmetric in MS-VBAL — there is no
             // mirrored "RHS is Boolean/Integer" row, so Integer \ Single lands here (Integer), while
             // Single \ Integer falls through to the general rule below (Long).
-            (i, s, i),
+            (vbInteger, vbSingle, vbInteger),
 
-            (s, i, l), (str, l, l), (dt, cur, l),
-            (l, str, l), (cur, dt, l),
+            (vbSingle, vbInteger, vbLong), (vbString, vbLong, vbLong), (vbDate, vbCurrency, vbLong),
+            (vbLong, vbString, vbLong), (vbCurrency, vbDate, vbLong),
 
-            (ll, i, ll), (i, ll, ll), (ll, str, ll), (str, ll, ll), (ll, e, ll), (e, ll, ll),
+            (vbLongLong, vbInteger, vbLongLong), (vbInteger, vbLongLong, vbLongLong), (vbLongLong, vbString, vbLongLong), (vbString, vbLongLong, vbLongLong), (vbLongLong, vbEmpty, vbLongLong), (vbEmpty, vbLongLong, vbLongLong),
         ];
 
         var failures = new List<string>();

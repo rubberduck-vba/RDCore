@@ -1,5 +1,4 @@
-﻿using RDCore.Runtime.Semantics.Operators.Logical;
-using RDCore.SDK.Model.Types;
+using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
 
@@ -22,62 +21,62 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_Long()
-        => AssertResult<VBLongValue>(Evaluate(And(), VBLongType.TypeInfo, new VBLongValue(12), new VBLongValue(10)), 8);
+        => AssertResult<VBLongValue>(Evaluate(And(), new VBLongValue(12), new VBLongValue(10)), 8);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_Integer_StaysInteger()
-        => AssertResult<VBIntegerValue>(Evaluate(And(), VBIntegerType.TypeInfo, new VBIntegerValue(12), new VBIntegerValue(10)), (short)8);
+        => AssertResult<VBIntegerValue>(Evaluate(And(), new VBIntegerValue(12), new VBIntegerValue(10)), (short)8);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_LongLong()
-        => AssertResult<VBLongLongValue>(Evaluate(And(), VBLongLongType.TypeInfo, new VBLongLongValue(12), new VBLongLongValue(10)), 8L);
+        => AssertResult<VBLongLongValue>(Evaluate(And(), new VBLongLongValue(12), new VBLongLongValue(10)), 8L);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_Boolean()
-        => AssertResult<VBBooleanValue>(Evaluate(And(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(false)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(And(), new VBBooleanValue(true), new VBBooleanValue(false)), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
     public void Or_Long()
-        => AssertResult<VBLongValue>(Evaluate(Or(), VBLongType.TypeInfo, new VBLongValue(12), new VBLongValue(10)), 14);
+        => AssertResult<VBLongValue>(Evaluate(Or(), new VBLongValue(12), new VBLongValue(10)), 14);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
     public void Or_Boolean()
-        => AssertResult<VBBooleanValue>(Evaluate(Or(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(false)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Or(), new VBBooleanValue(true), new VBBooleanValue(false)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_Long()
-        => AssertResult<VBLongValue>(Evaluate(Xor(), VBLongType.TypeInfo, new VBLongValue(12), new VBLongValue(10)), 6);
+        => AssertResult<VBLongValue>(Evaluate(Xor(), new VBLongValue(12), new VBLongValue(10)), 6);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_Boolean_SameOperands_IsFalse()
-        => AssertResult<VBBooleanValue>(Evaluate(Xor(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(true)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Xor(), new VBBooleanValue(true), new VBBooleanValue(true)), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
     public void Eqv_Long()
-        => AssertResult<VBLongValue>(Evaluate(Eqv(), VBLongType.TypeInfo, new VBLongValue(12), new VBLongValue(10)), -7);
+        => AssertResult<VBLongValue>(Evaluate(Eqv(), new VBLongValue(12), new VBLongValue(10)), -7);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
     public void Eqv_Boolean_SameOperands_IsTrue()
-        => AssertResult<VBBooleanValue>(Evaluate(Eqv(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(true)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eqv(), new VBBooleanValue(true), new VBBooleanValue(true)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_Long()
-        => AssertResult<VBLongValue>(Evaluate(Imp(), VBLongType.TypeInfo, new VBLongValue(12), new VBLongValue(10)), -5);
+        => AssertResult<VBLongValue>(Evaluate(Imp(), new VBLongValue(12), new VBLongValue(10)), -5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_Boolean_TrueImpliesFalse_IsFalse()
-        => AssertResult<VBBooleanValue>(Evaluate(Imp(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(false)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Imp(), new VBBooleanValue(true), new VBBooleanValue(false)), false);
 
     // Null-propagation matrix (MS-VBAL §5.6.9.8.2-.6): each operator's own table, not a generic
     // three-valued-logic rule — And/Xor/Eqv/Imp genuinely differ in which side "absorbs".
@@ -85,74 +84,74 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_ZeroAndNull_IsZero()
-        => AssertResult<VBLongValue>(Evaluate(And(), VBLongType.TypeInfo, new VBLongValue(0), VBNullValue.Null), 0);
+        => AssertResult<VBLongValue>(Evaluate(And(), new VBLongValue(0), VBNullValue.Null), 0);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_NonZeroAndNull_IsNull()
-        => AssertIsNull(Evaluate(And(), VBLongType.TypeInfo, new VBLongValue(12), VBNullValue.Null));
+        => AssertIsNull(Evaluate(And(), new VBLongValue(12), VBNullValue.Null));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_NullAndZero_IsZero()
-        => AssertResult<VBLongValue>(Evaluate(And(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(0)), 0);
+        => AssertResult<VBLongValue>(Evaluate(And(), VBNullValue.Null, new VBLongValue(0)), 0);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_NullAndNonZero_IsNull()
-        => AssertIsNull(Evaluate(And(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(12)));
+        => AssertIsNull(Evaluate(And(), VBNullValue.Null, new VBLongValue(12)));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
     public void Or_IntegralAndNull_ReturnsLeftOperandVerbatim()
         // not "only when all bits are set" — MS-VBAL specifies the left operand unconditionally.
-        => AssertResult<VBLongValue>(Evaluate(Or(), VBLongType.TypeInfo, new VBLongValue(5), VBNullValue.Null), 5);
+        => AssertResult<VBLongValue>(Evaluate(Or(), new VBLongValue(5), VBNullValue.Null), 5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
     public void Or_NullAndIntegral_ReturnsRightOperandVerbatim()
-        => AssertResult<VBLongValue>(Evaluate(Or(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(5)), 5);
+        => AssertResult<VBLongValue>(Evaluate(Or(), VBNullValue.Null, new VBLongValue(5)), 5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_IntegralAndNull_IsNull()
-        => AssertIsNull(Evaluate(Xor(), VBLongType.TypeInfo, new VBLongValue(5), VBNullValue.Null));
+        => AssertIsNull(Evaluate(Xor(), new VBLongValue(5), VBNullValue.Null));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_NullAndIntegral_IsNull()
-        => AssertIsNull(Evaluate(Xor(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(5)));
+        => AssertIsNull(Evaluate(Xor(), VBNullValue.Null, new VBLongValue(5)));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
     public void Eqv_IntegralAndNull_IsNull()
-        => AssertIsNull(Evaluate(Eqv(), VBLongType.TypeInfo, new VBLongValue(5), VBNullValue.Null));
+        => AssertIsNull(Evaluate(Eqv(), new VBLongValue(5), VBNullValue.Null));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
     public void Eqv_NullAndIntegral_IsNull()
-        => AssertIsNull(Evaluate(Eqv(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(5)));
+        => AssertIsNull(Evaluate(Eqv(), VBNullValue.Null, new VBLongValue(5)));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_NegativeOneAndNull_IsNull()
-        => AssertIsNull(Evaluate(Imp(), VBLongType.TypeInfo, new VBLongValue(-1), VBNullValue.Null));
+        => AssertIsNull(Evaluate(Imp(), new VBLongValue(-1), VBNullValue.Null));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_OtherThanNegativeOneAndNull_IsBitwiseImpOfLeftAndZero()
         // MS-VBAL: "Integral value other than -1, Null -> Bitwise Imp of left operand and 0".
-        => AssertResult<VBIntegerValue>(Evaluate(Imp(), VBLongType.TypeInfo, new VBLongValue(5), VBNullValue.Null), (short)~5);
+        => AssertResult<VBIntegerValue>(Evaluate(Imp(), new VBLongValue(5), VBNullValue.Null), (short)~5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_NullAndNonZero_ReturnsRightOperandVerbatim()
-        => AssertResult<VBLongValue>(Evaluate(Imp(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(5)), 5);
+        => AssertResult<VBLongValue>(Evaluate(Imp(), VBNullValue.Null, new VBLongValue(5)), 5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_NullAndZero_IsNull()
-        => AssertIsNull(Evaluate(Imp(), VBLongType.TypeInfo, VBNullValue.Null, new VBLongValue(0)));
+        => AssertIsNull(Evaluate(Imp(), VBNullValue.Null, new VBLongValue(0)));
 
     private static void AssertIsNull(RuntimeSemanticsEvaluationResult result)
     {
