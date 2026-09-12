@@ -15,9 +15,7 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <remarks>
 /// <see cref="Owner"/> and <see cref="Member"/> are views over <see cref="SyntaxNode.Children"/>, not
 /// separately stored — <c>Children</c> is the single source of truth a <c>with</c> expression can't
-/// desync them from. Not yet represented: <em>dictionary access</em> (<c>!</c>) — MS-VBAL's
-/// <c>dictionary-access-expression</c> is a distinct <c>l-expression</c> alternative, not a flag on
-/// this one; it needs its own node once a parser builds one.
+/// desync them from.
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>

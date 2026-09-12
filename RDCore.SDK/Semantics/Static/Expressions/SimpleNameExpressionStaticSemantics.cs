@@ -45,9 +45,9 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             return StaticSemanticsEvaluationResult.Success(result.Symbol is ITypedSymbol typed ? typed.ResolvedType : VBUnknownType.TypeInfo);
         }
 
-        // unbound: MS-VBAL 5.6.10 leaves this to Option Explicit (RD-VBAL §5.2.1.3). Explicit turns
-        // it into a compile error now; otherwise it's deferred to a later type-inference pass
-        // (IVBInferableType) that hasn't been built yet — VBUnknownType is the honest answer today.
+        // unbound: MS-VBAL 5.6.10 leaves this to Option Explicit (RD-VBAL §5.2.1.3). Under Explicit
+        // it's a compile error; otherwise it's IVBInferableType's job to narrow the type from use —
+        // this rule only ever answers VBUnknownType.
         return context.Scope.EnclosingModuleDirectives()?.Explicit == true
             ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.VariableNotDefined, expression.Location, simpleName.IdentifierName))
             : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);

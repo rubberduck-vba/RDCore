@@ -4,7 +4,6 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Expressions;
@@ -14,15 +13,6 @@ namespace RDCore.SDK.Semantics.Static.Expressions;
 /// <c>owner.member</c> is the declared type of the member <see cref="MemberAccessExpressionNode.Member"/>
 /// names on <see cref="MemberAccessExpressionNode.Owner"/>'s declared type.
 /// </summary>
-/// <remarks>
-/// Two cases are out of scope here, not forgotten: <em>dictionary access</em> (<c>!</c>) — a distinct
-/// <c>l-expression</c> alternative in MS-VBAL, not representable by
-/// <see cref="MemberAccessExpressionNode"/> until a parser builds its own node for it — and a
-/// <em>module/project/library</em>-qualified reference (<c>Module.Member</c>), which needs "declared
-/// directly in this container, no outward walk"; <see cref="ISymbolResolver"/> cannot express that —
-/// its lexical walk starts at the qualifier's own scope but keeps going outward on a miss. Both are
-/// follow-up work once their prerequisites land.
-/// </remarks>
 public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<MemberAccessExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -51,8 +41,8 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="MemberAccessExpressionNode"/>.</exception>
     /// <exception cref="NotSupportedException">
     /// <paramref name="expression"/> is a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
-    /// is <c>null</c>) — resolving one needs the enclosing <c>With</c> block's target type, which
-    /// nothing tracks yet (see <c>rdcore-with-relative-member-access-ticket.md</c>).
+    /// is <c>null</c>): resolving one requires the enclosing <c>With</c> block's target type, which
+    /// <paramref name="context"/> does not carry.
     /// </exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
@@ -64,7 +54,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         if (memberAccess.Owner is null)
         {
             throw new NotSupportedException(
-                "With-relative member access (an implicit owner) needs the enclosing With block's target type, which nothing tracks yet.");
+                "With-relative member access (an implicit owner) requires the enclosing With block's target type, which StaticEvaluationContext does not carry.");
         }
 
         var owner = operandDeclaredTypes[(int)InputIndex.MemberAccessOwner];
@@ -77,7 +67,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
 
         if (owner is not IVBMemberOwnerType ownerType)
         {
-            // not yet a case this rule decides (e.g. a plain value type) — deferred, not an error.
+            // a plain value type has no members to look up; deferred, not an error.
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
@@ -88,8 +78,8 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
             return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
         }
 
-        // a class may gain members this rule cannot see yet (Implements, late-bound additions); a
-        // UDT or Enum is a closed set of fields the parser already saw in full.
+        // a class can have members this rule doesn't see (Implements, late-bound additions); a UDT
+        // or Enum is a closed set of fields the parser already saw in full.
         return owner is VBClassType
             ? StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));
