@@ -30,6 +30,20 @@ public sealed class IntrinsicValueConstructorTests
         => Assert.AreEqual(1234L, new VBLongPtrValue(1234L).Value);
 
     [TestMethod]
+    public void VBErrorValue_ManagedCtor_RoundTrips()
+        // Value is real data (the error code), not a sentinel — it must round-trip through the
+        // binding handle like any other numeric intrinsic value, not sit on a bare record property.
+        => Assert.AreEqual(5, new VBErrorValue(5).Value);
+
+    [TestMethod]
+    public void VBErrorValue_BindingHandleCtor_UsesTheGivenHandle()
+    {
+        var handle = new ValueBindingHandle(new VBRuntimeValue<int>(9));
+        Assert.AreSame(handle, new VBErrorValue(handle).Handle);
+        Assert.AreEqual(9, new VBErrorValue(handle).Value);
+    }
+
+    [TestMethod]
     public void BindingHandleCtor_UsesTheGivenHandle()
     {
         var handle = new ValueBindingHandle(new VBRuntimeValue<byte>(9));
@@ -49,7 +63,6 @@ public sealed class IntrinsicValueConstructorTests
         Assert.AreSame(handle, new VBNullValue(handle).Handle);
         Assert.AreSame(handle, new VBUnknownValue(handle).Handle);
         Assert.AreSame(handle, new VBMissingValue(handle).Handle);
-        Assert.AreSame(handle, new VBErrorValue(handle).Handle);
     }
 
     [TestMethod]
