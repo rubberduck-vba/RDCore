@@ -5,6 +5,7 @@ using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -14,22 +15,37 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// Base for the arithmetic operator runtime-semantics characterization matrix. Mirrors the
-/// static-semantics harness: drive an operator over an (effective type, lhs, rhs) grid — with the
-/// operands already at the effective type, as the evaluation pipeline hands them to
-/// <c>EvaluateExpressionResult</c> — and assert the result's type + managed value, or the error id.
+/// Base for the arithmetic operator runtime-semantics characterization matrix: drives the operator
+/// through its public <c>Evaluate</c> entry point (effective-type determination, operand validation
+/// and let-coercion, then evaluation), the same path the interpreter uses.
 /// </summary>
 public abstract class OperatorArithmeticRuntimeSemanticsTests
 {
     protected static readonly SyntaxNodeId NodeId = new(TestUri.TestModuleUri().AbsolutePath, [42]);
 
     protected static IVerboseMessageBuilder Formatter() => Substitute.For<IVerboseMessageBuilder>();
-    protected static ILetCoercionRuntimeSemanticsProvider FakeProvider() => Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
+
+    /// <summary>
+    /// A let-coercion provider stand-in for tests that don't exercise coercion itself: every operand
+    /// passes through unchanged, except a <see cref="VBDateValue"/> source, which converts to its
+    /// double serial value — the one conversion the arithmetic operators' own dispatch requires even
+    /// when the operator's effective type is nominally <see cref="VBDateType"/>.
+    /// </summary>
+    protected static ILetCoercionRuntimeSemanticsProvider FakeProvider()
+    {
+        var provider = Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
+        provider.EvaluateLetCoercionSemantics(default!, default!, default)
+            .ReturnsForAnyArgs(call =>
+            {
+                var source = call.ArgAt<LetCoercionStackFrame>(2).SourceValue;
+                return LetCoercionResult.Success(source is VBDateValue date ? new VBDoubleValue(date.SerialValue) : source);
+            });
+        return provider;
+    }
 
     private static readonly VBBinaryOperatorExpressionNode ThrowawayBinary = new(
         "+", default, TestLocations.TestLocation,
@@ -42,34 +58,20 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
         "-", default, TestLocations.TestLocation,
         [new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBIntegerValue((short)0))]);
 
-    private static readonly MethodInfo BinaryEval = typeof(BinaryArithmeticOperatorRuntimeSemantics).GetMethod(
-        "EvaluateExpressionResult",
-        BindingFlags.Instance | BindingFlags.NonPublic,
-        binder: null,
-        [typeof(ISymbolResolver), typeof(BinaryArithmeticOperatorSemanticContext), typeof(VBOperatorExpression), typeof(OperatorEvaluationFrame)],
-        modifiers: null)!;
-
-    private static readonly MethodInfo UnaryEval = typeof(UnaryArithmeticOperatorRuntimeSemantics).GetMethod(
-        "EvaluateExpressionResult",
-        BindingFlags.Instance | BindingFlags.NonPublic,
-        binder: null,
-        [typeof(ISymbolResolver), typeof(UnaryArithmeticOperatorSemanticContext), typeof(VBOperatorExpression), typeof(OperatorEvaluationFrame)],
-        modifiers: null)!;
+    protected static RuntimeSemanticsEvaluationResult Evaluate(
+        BinaryArithmeticOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
+        => op.Evaluate(null!, new BinaryArithmeticOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
-        BinaryArithmeticOperatorRuntimeSemantics op, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
-    {
-        var frame = new OperatorEvaluationFrame(NodeId, [lhs, rhs], effectiveType);
-        return (RuntimeSemanticsEvaluationResult)BinaryEval.Invoke(
-            op, [null, new BinaryArithmeticOperatorSemanticContext(), ThrowawayBinary, frame])!;
-    }
+        UnaryArithmeticOperatorRuntimeSemantics op, VBTypedValue operand)
+        => op.Evaluate(null!, new UnaryArithmeticOperatorSemanticContext(), ThrowawayUnary, operand);
 
-    protected static RuntimeSemanticsEvaluationResult Evaluate(
-        UnaryArithmeticOperatorRuntimeSemantics op, VBType effectiveType, VBTypedValue operand)
+    /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
+    protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(
+        BinaryArithmeticOperatorRuntimeSemantics op, VBType lhsType, VBType rhsType)
     {
-        var frame = new OperatorEvaluationFrame(NodeId, [operand], effectiveType);
-        return (RuntimeSemanticsEvaluationResult)UnaryEval.Invoke(
-            op, [null, new UnaryArithmeticOperatorSemanticContext(), ThrowawayUnary, frame])!;
+        var frame = new OperatorEvaluationFrame(NodeId, [lhsType.DefaultValue, rhsType.DefaultValue], VBUnknownType.TypeInfo);
+        return op.DetermineOperatorEffectiveType(null!, new BinaryArithmeticOperatorSemanticContext(), ThrowawayBinary, frame);
     }
 
     protected static void AssertResult<TValue>(RuntimeSemanticsEvaluationResult result, object expectedManaged)

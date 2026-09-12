@@ -203,6 +203,10 @@ where TFlags : struct, Enum
 
         if (effectiveTypeResult.Result is VBType effectiveType) // this should be a given
         {
+            // the determined effective type must be in the frame before operand validation and
+            // evaluation run, since both key their own dispatch off frame.EffectiveType.
+            frame = frame with { EffectiveType = effectiveType };
+
             // 2. Validate the operands (let-coercion and overflow checks).
             var validOperands = Enumerable.Range(0, frame.Operands.Length)
                 .Select(index => ValidateOperand(resolver, expression, frame, (InputIndex)index))
@@ -300,14 +304,18 @@ where TFlags : struct, Enum
         var operand = frame[operandIndex];
         Debug.Assert(operand is not VBNullValue);
 
-        return frame.EffectiveType.Equals(operand.TypeInfo)
-            // if the type of the operand is the effective type, the result is the unchanged operand (no coercion occurs).
+        // a Date effective type is computed in Double (MS-VBAL 5.6.9.3 et al.): the operand is
+        // let-coerced to Double even when its own declared type already is Date.
+        var destinationType = frame.EffectiveType is VBDateType ? VBDoubleType.TypeInfo : frame.EffectiveType;
+
+        return destinationType.Equals(operand.TypeInfo)
+            // if the type of the operand is the destination type, the result is the unchanged operand (no coercion occurs).
             ? LetCoercionResult.Success(operand)
             : LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new() {
                 NodeId = expression.Identity,
                 OperandIndex = operandIndex,
                 SourceValue = operand,
-                DestinationTypeDesc = new VBTypeDescValue(frame.EffectiveType),
+                DestinationTypeDesc = new VBTypeDescValue(destinationType),
             });
     }
 }

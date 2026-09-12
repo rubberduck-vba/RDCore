@@ -138,11 +138,11 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBEmptyType when rhsType is VBCurrencyType => VBCurrencyType.TypeInfo,
 
             // date values are let-coerced to VBDoubleValue
-            VBDateType when rhsType is IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBDateType or VBEmptyType => VBDateType.TypeInfo,
-            IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBDateType or VBEmptyType when rhsType is VBDateType => VBDateType.TypeInfo,
+            VBDateType when rhsType is IIntegralNumericType or IFloatingPointNumericType or VBCurrencyType or VBStringType or VBDateType or VBEmptyType => VBDateType.TypeInfo,
+            IIntegralNumericType or IFloatingPointNumericType or VBCurrencyType or VBStringType or VBDateType or VBEmptyType when rhsType is VBDateType => VBDateType.TypeInfo,
 
-            VBDecimalType when rhsType is INumericType or VBCurrencyType or VBStringType or VBEmptyType => VBCurrencyType.TypeInfo,
-            INumericType or VBStringType or VBEmptyType when rhsType is VBCurrencyType => VBCurrencyType.TypeInfo,
+            VBDecimalType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType => VBDecimalType.TypeInfo,
+            INumericType or VBStringType or VBDateType or VBEmptyType when rhsType is VBDecimalType => VBDecimalType.TypeInfo,
 
             VBNullType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType => VBNullType.TypeInfo,
             INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType when rhsType is VBNullType => VBNullType.TypeInfo,

@@ -1,6 +1,5 @@
-﻿using RDCore.Runtime.Semantics.Operators.Arithmetic;
+using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -21,47 +20,65 @@ public sealed class UnaryArithmeticOperatorRuntimeTests : OperatorArithmeticRunt
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_Integer()
         => AssertResult<VBIntegerValue>(
-            Evaluate(Neg(), VBIntegerType.TypeInfo, new VBIntegerValue(5)), (short)-5);
+            Evaluate(Neg(), new VBIntegerValue(5)), (short)-5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_Long()
         => AssertResult<VBLongValue>(
-            Evaluate(Neg(), VBLongType.TypeInfo, new VBLongValue(5)), -5);
+            Evaluate(Neg(), new VBLongValue(5)), -5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_Double()
         => AssertResult<VBDoubleValue>(
-            Evaluate(Neg(), VBDoubleType.TypeInfo, new VBDoubleValue(2.5)), -2.5d);
+            Evaluate(Neg(), new VBDoubleValue(2.5)), -2.5d);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_Currency()
         => AssertResult<VBCurrencyValue>(
-            Evaluate(Neg(), VBCurrencyType.TypeInfo, new VBCurrencyValue(1.5m)), -1.5m);
+            Evaluate(Neg(), new VBCurrencyValue(1.5m)), -1.5m);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_IntegerMinValue_Overflows()
         => AssertError(
-            Evaluate(Neg(), VBIntegerType.TypeInfo, new VBIntegerValue(short.MinValue)), VBRuntimeErrorId.Overflow);
+            Evaluate(Neg(), new VBIntegerValue(short.MinValue)), VBRuntimeErrorId.Overflow);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
     public void Negation_DateEffectiveType_ProducesDate()
         => AssertResult<VBDateValue>(
-            Evaluate(Neg(), VBDateType.TypeInfo, new VBDoubleValue(3)), -3d);
+            Evaluate(Neg(), new VBDateValue(3)), -3d);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
+    public void Negation_Null_IsNull()
+    {
+        var result = Evaluate(Neg(), VBNullValue.Null);
+        Assert.IsNull(result.ErrorInfo);
+        Assert.IsInstanceOfType<VBNullValue>(result.Result);
+    }
 
     [TestMethod]
     [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
     public void Plus_Long_IsIdentity()
         => AssertResult<VBLongValue>(
-            Evaluate(Plus(), VBLongType.TypeInfo, new VBLongValue(5)), 5);
+            Evaluate(Plus(), new VBLongValue(5)), 5);
 
     [TestMethod]
     [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
     public void Plus_Double_IsIdentity()
         => AssertResult<VBDoubleValue>(
-            Evaluate(Plus(), VBDoubleType.TypeInfo, new VBDoubleValue(-2.5)), -2.5d);
+            Evaluate(Plus(), new VBDoubleValue(-2.5)), -2.5d);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
+    public void Plus_Null_IsNull()
+    {
+        var result = Evaluate(Plus(), VBNullValue.Null);
+        Assert.IsNull(result.ErrorInfo);
+        Assert.IsInstanceOfType<VBNullValue>(result.Result);
+    }
 }

@@ -30,7 +30,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         VBBinaryOperatorExpressionNode expression, 
         OperatorEvaluationFrame frame) 
     {
-        var rhs = frame[InputIndex.BinaryLeftOperand].TypeInfo;
+        var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
         return frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
             VBByteType when rhs is VBEmptyType 
