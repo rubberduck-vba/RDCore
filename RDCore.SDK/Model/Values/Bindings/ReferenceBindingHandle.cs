@@ -19,9 +19,10 @@ public record class ReferenceBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
-    // TODO now that a resolver is in hand, GetValue should follow the reference through
-    // resolver.TryRead(_value.Value, …) rather than returning the reference itself.
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => _value;
+    // follows the reference through the resolver's runtime memory map; a reference that doesn't (yet)
+    // resolve to anything bound falls back to yielding itself, e.g. Nothing or a dangling address.
+    public IRuntimeValue GetValue(ISymbolResolver resolver)
+        => resolver.TryRead(_value.Value, out var bound) ? bound.GetValue(resolver) : _value;
 
     public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => _value = value is VBRuntimeReference reference
         ? reference : throw new ArgumentException($"Expected {nameof(VBRuntimeReference)} value", nameof(value));

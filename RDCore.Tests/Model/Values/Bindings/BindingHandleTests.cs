@@ -74,10 +74,27 @@ public sealed class BindingHandleTests
     }
 
     [TestMethod]
-    public void ReferenceBindingHandle_GetValue_YieldsTheReferenceItself()
-        // acknowledged gap (see the TODO on ReferenceBindingHandle.GetValue): this should eventually
-        // follow the reference through the resolver instead of returning the reference itself, once a
-        // resolver read API for it exists. Pinning today's actual behavior, not the eventual one.
+    public void ReferenceBindingHandle_GetValue_FollowsTheReferenceThroughTheResolver()
+    {
+        var address = new MemoryAddress(42);
+        var target = Substitute.For<IBindingHandle>();
+        target.GetValue(Arg.Any<ISymbolResolver>()).Returns(new VBRuntimeValue<int>(9));
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.TryRead(address, out Arg.Any<IBindingHandle?>()).Returns(call =>
+        {
+            call[1] = target;
+            return true;
+        });
+
+        var result = new ReferenceBindingHandle(new VBRuntimeReference(address)).GetValue(resolver);
+
+        Assert.AreEqual(9, ((VBRuntimeValue<int>)result).StoredValue);
+    }
+
+    [TestMethod]
+    public void ReferenceBindingHandle_GetValue_UnresolvableAddress_FallsBackToTheReferenceItself()
+        // a dangling/not-yet-bound reference (e.g. Nothing, or an address the resolver doesn't know
+        // about) yields itself rather than throwing.
         => Assert.AreEqual(new VBRuntimeReference(new MemoryAddress(42)),
             new ReferenceBindingHandle(new VBRuntimeReference(new MemoryAddress(42))).GetValue(Resolver));
 
