@@ -1,4 +1,4 @@
-﻿using RDCore.Runtime.Semantics.Operators.Logical;
+using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 
@@ -21,27 +21,27 @@ public sealed class BinaryLogicalOperatorEffectiveTypeTests : OperatorLogicalRun
     [TestMethod]
     public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
     {
-        VBType b = VBByteType.TypeInfo, boo = VBBooleanType.TypeInfo, i = VBIntegerType.TypeInfo,
-            l = VBLongType.TypeInfo, ll = VBLongLongType.TypeInfo, s = VBSingleType.TypeInfo,
-            d = VBDoubleType.TypeInfo, cur = VBCurrencyType.TypeInfo, dec = VBDecimalType.TypeInfo,
-            dt = VBDateType.TypeInfo, str = VBStringType.TypeInfo, e = VBEmptyType.TypeInfo,
-            n = VBNullType.TypeInfo;
+        VBType vbByte = VBByteType.TypeInfo, vbBoolean = VBBooleanType.TypeInfo, vbInteger = VBIntegerType.TypeInfo,
+            vbLong = VBLongType.TypeInfo, vbLongLong = VBLongLongType.TypeInfo, vbSingle = VBSingleType.TypeInfo,
+            vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo, vbDecimal = VBDecimalType.TypeInfo,
+            vbDate = VBDateType.TypeInfo, vbString = VBStringType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo,
+            vbNull = VBNullType.TypeInfo;
 
         (VBType lhs, VBType rhs, VBType expected)[] grid =
         [
-            (b, b, b),
-            (b, n, b), (n, b, b),
-            (boo, boo, boo),
-            (boo, n, boo), (n, boo, boo),
-            (b, i, i), (i, i, i), (boo, i, i), (i, boo, i), (boo, b, i), (b, boo, i),
-            (i, e, i), (e, e, i), (n, i, i), (i, n, i), (e, n, i),
-            (i, l, l), (l, i, l), (l, l, l),
-            (s, s, l), (d, d, l), (d, i, l), (s, i, l), (i, s, l),
-            (cur, cur, l), (dec, i, l), (i, dec, l),
-            (dt, l, l), (dt, i, l), (str, i, l), (i, str, l),
-            (s, n, l), (n, d, l),
-            (i, ll, ll), (ll, i, ll), (ll, d, ll), (ll, dt, ll), (ll, n, ll), (n, ll, ll),
-            (n, n, n),
+            (vbByte, vbByte, vbByte),
+            (vbByte, vbNull, vbByte), (vbNull, vbByte, vbByte),
+            (vbBoolean, vbBoolean, vbBoolean),
+            (vbBoolean, vbNull, vbBoolean), (vbNull, vbBoolean, vbBoolean),
+            (vbByte, vbInteger, vbInteger), (vbInteger, vbInteger, vbInteger), (vbBoolean, vbInteger, vbInteger), (vbInteger, vbBoolean, vbInteger), (vbBoolean, vbByte, vbInteger), (vbByte, vbBoolean, vbInteger),
+            (vbInteger, vbEmpty, vbInteger), (vbEmpty, vbEmpty, vbInteger), (vbNull, vbInteger, vbInteger), (vbInteger, vbNull, vbInteger), (vbEmpty, vbNull, vbInteger),
+            (vbInteger, vbLong, vbLong), (vbLong, vbInteger, vbLong), (vbLong, vbLong, vbLong),
+            (vbSingle, vbSingle, vbLong), (vbDouble, vbDouble, vbLong), (vbDouble, vbInteger, vbLong), (vbSingle, vbInteger, vbLong), (vbInteger, vbSingle, vbLong),
+            (vbCurrency, vbCurrency, vbLong), (vbDecimal, vbInteger, vbLong), (vbInteger, vbDecimal, vbLong),
+            (vbDate, vbLong, vbLong), (vbDate, vbInteger, vbLong), (vbString, vbInteger, vbLong), (vbInteger, vbString, vbLong),
+            (vbSingle, vbNull, vbLong), (vbNull, vbDouble, vbLong),
+            (vbInteger, vbLongLong, vbLongLong), (vbLongLong, vbInteger, vbLongLong), (vbLongLong, vbDouble, vbLongLong), (vbLongLong, vbDate, vbLongLong), (vbLongLong, vbNull, vbLongLong), (vbNull, vbLongLong, vbLongLong),
+            (vbNull, vbNull, vbNull),
         ];
 
         var failures = new List<string>();
