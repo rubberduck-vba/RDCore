@@ -184,7 +184,7 @@
     <value>This let-coercion operation is deterministically recursive. See evaluation stack details for more information.</value>
   </data>
   <data name="VBRuntimeInternalError_LetCoercionStackCorruption" xml:space="preserve">
-    <value>The internal let-coercion stack has reached an unexpected desynchronized state. Stack: {$FRAMES}, HashSet: {$HASH}.</value>
+    <value>The internal let-coercion stack has reached an unexpected desynchronized state. Depth: {$DEPTH}.</value>
   </data>
   <data name="VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose" xml:space="preserve">
     <value>The evaluation of this expression unexpectedly yields a semantically invalid, unrepresentable result.</value>

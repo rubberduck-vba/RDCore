@@ -18,6 +18,11 @@ public abstract class StackManager<TFrame>
     public int Depth => _frameStack.Count;
 
     /// <summary>
+    /// Gets the frames currently on the managed stack, top-most first.
+    /// </summary>
+    public IReadOnlyCollection<TFrame> Frames => _frameStack;
+
+    /// <summary>
     /// Clears the managed stack.
     /// </summary>
     public void Clear()

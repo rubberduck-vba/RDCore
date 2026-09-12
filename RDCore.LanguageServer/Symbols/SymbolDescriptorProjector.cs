@@ -86,7 +86,7 @@ internal static class SymbolDescriptorProjector
         VBConstantMemberSymbol => SymbolDescriptorKind.ModuleConstant,
         VBUserDefinedTypeFieldSymbol => SymbolDescriptorKind.UserDefinedTypeField,
         VBModuleFieldVariableMemberSymbol => SymbolDescriptorKind.ModuleField,
-        _ => SymbolDescriptorKind.ModuleField,
+        _ => throw new NotSupportedException($"'{symbol.GetType().Name}' has no mapped {nameof(SymbolDescriptorKind)}."),
     };
 
     private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol)

@@ -86,51 +86,7 @@ public class LetCoercionRuntimeSemanticsProvider(
         return false;
     }
 
-    private readonly HashSet<LetCoercionStackFrame> _frameHash = [];
-    private readonly Stack<LetCoercionStackFrame> _frameStack = [];
-
-    private void ClearCoercionStack()
-    {
-        _frameStack.Clear();
-        _frameHash.Clear();
-    }
-
-    private bool TryPushCoercionFrame(LetCoercionStackFrame frame)
-    {
-        if (_frameHash.Contains(frame))
-        {
-            return false;
-        }
-
-        _frameHash.Add(frame);
-        _frameStack.Push(frame);
-        Debug.Assert(_frameHash.Count == _frameStack.Count);
-
-        return true;
-    }
-
-    private bool TryPopCoercionFrame([MaybeNullWhen(false)][NotNullWhen(true)] out LetCoercionStackFrame? frame)
-    {
-        frame = null;
-        if (_frameHash.Count == 0)
-        {
-            return false;
-        }
-
-        if (_frameStack.TryPop(out LetCoercionStackFrame stackFrame))
-        {
-            Debug.Assert(_frameHash.Contains(stackFrame));
-            _frameHash.Remove(stackFrame);
-
-            frame = stackFrame;
-            Debug.Assert(_frameHash.Count == _frameStack.Count);
-
-            return true;
-        }
-
-        return false;
-    }
-
+    private readonly LetCoercionStackManager _stack = new();
 
     private VBRuntimeErrorInfo OnLetCoercionTypeMismatch(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
@@ -143,8 +99,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     private VBRuntimeErrorInfo OnLetCoercionStackCorruptionInternalError(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location,
             _formatterService.Format(Exceptions.VBRuntimeInternalError_LetCoercionStackCorruption
-                .Replace("${FRAMES}", _frameStack.Count.ToString())
-                .Replace("${HASH}", _frameHash.Count.ToString()), expression, [frame]));
+                .Replace("{$DEPTH}", _stack.Depth.ToString()), expression, [frame]));
 
     private VBRuntimeErrorInfo OnRecursiveLetCoercionError(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace, expression.Location,
@@ -221,14 +176,18 @@ public class LetCoercionRuntimeSemanticsProvider(
         if (!TryGetStrategy(frame.DestinationTypeDesc.Target, out var strategy))
         {
             // in-and-out: no need to push the coercion frame for this
-            return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), [.. _frameStack]);
+            return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), [.. _stack.Frames]);
         }
 
-        if (TryPushCoercionFrame(frame))
+        if (_stack.TryPush(frame))
         {
             var result = strategy.EvaluateLetCoercion(resolver, expression, frame);
-            if (!TryPopCoercionFrame(out _))
+            if (!_stack.TryPop(out _) && result.ErrorInfo?.ErrorId != (int)VBRuntimeErrorId.OutOfStackSpace)
             {
+                // a nested call detecting recursion clears the whole (shared) stack, including this
+                // frame — that's an expected consequence of the recursion guard, not corruption, and
+                // is already reported as its own OutOfStackSpace result; propagate it below instead of
+                // reporting a second, misleading error here. Any other empty-pop is genuinely unexpected.
                 Debug.Fail("💥Coercion stack pop failed; internal invariant violation.");
                 return LetCoercionResult.Error(OnLetCoercionStackCorruptionInternalError(expression, frame));
             }
@@ -240,7 +199,7 @@ public class LetCoercionRuntimeSemanticsProvider(
         else
         {
             // this let-coercion operation is provably recursive, no need to dig any deeper.
-            ClearCoercionStack();
+            _stack.Clear();
             return LetCoercionResult.Error(OnRecursiveLetCoercionError(expression, frame));
         }
     }
