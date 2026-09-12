@@ -34,14 +34,15 @@ public record class LetCoercionStaticSemantics : StaticSemantics
     {
         VBType when destination is VBFixedSizeArrayType => true,
         INumericType or VBBooleanType or VBDateType when destination is VBResizableByteArrayType => true,
-        VBType when destination is not VBResizableByteArrayType => true,
-        VBType when AnyTypeExceptNonByteResizableArrayOr(source, VBFixedSizeArrayType.TypeInfo, VBVariantType.TypeInfo) && IsNonByteResizableArray(destination) => true,
+        VBType when AnyTypeExceptNonByteResizableArrayOr(source, typeof(VBFixedSizeArrayType), typeof(VBVariantType)) && IsNonByteResizableArray(destination) => true,
         VBType and not VBUserDefinedType and not VBVariantType when destination is VBUserDefinedType => true,
         VBType and not VBVariantType when destination is VBObjectType or VBClassType => true,
         VBClassType type when type.DefaultMember is null || IsLetCoercionInvalid(type.DefaultMember.ResolvedType, destination) => true,
         VBFixedSizeArrayType or VBResizableArrayType and not VBResizableByteArrayType
-            when destination is VBVariantType || destination is VBResizableArrayType dstArray && source is VBArrayType srcArray && dstArray.ItemType != srcArray.ItemType => true,
-        VBUserDefinedType srcUdt when destination is not VBVariantType && destination is VBUserDefinedType dstUdt && !srcUdt.Equals(dstUdt) => true,
+            when destination is not VBVariantType && (destination is not VBArrayType
+                || destination is VBResizableArrayType dstArray && source is VBArrayType srcArray && dstArray.ItemType != srcArray.ItemType) => true,
+        VBUserDefinedType srcUdt when destination is not VBVariantType
+            && (destination is not VBUserDefinedType || destination is VBUserDefinedType dstUdt && !srcUdt.Equals(dstUdt)) => true,
         VBUserDefinedType and not VBExternalUserDefinedType when destination is VBVariantType => true,
         VBArrayType srcArray when srcArray.ItemType is VBUserDefinedType and not VBExternalUserDefinedType && destination is VBVariantType => true,
         VBArrayType srcArray when srcArray.ItemType is VBFixedStringType && destination is VBVariantType => true,
@@ -64,11 +65,18 @@ public record class LetCoercionStaticSemantics : StaticSemantics
     /// Helper function to twist the rules exactly in the same manner they're specified.
     /// </summary>
     /// <param name="source">The let-coercion <em>source</em> data type.</param>
-    /// <param name="exceptTypes">The types to exclude from the rule match.</param>
+    /// <param name="exceptTypeKinds">The kinds of type to exclude from the rule match.</param>
     /// <returns>
-    /// <c>true</c> if the <c>source</c> type does not contain any of the <c>exceptTypes</c>.
+    /// <c>true</c> if the <c>source</c> type is not a kind of any of the <c>exceptTypeKinds</c>.
     /// </returns>
-    private static bool AnyTypeExceptNonByteResizableArrayOr(VBType source, params VBType[] exceptTypes) => !IsNonByteResizableArray(source) && !exceptTypes.Contains(source);
+    /// <remarks>
+    /// 👉 Matches by <em>kind</em> (<see cref="Type.IsInstanceOfType(object?)"/>), not by value equality:
+    /// a parameterized type like <see cref="VBFixedSizeArrayType"/> has infinitely many instances (one
+    /// per element type), so comparing against a single representative instance would only ever exclude
+    /// that one specific element type.
+    /// </remarks>
+    private static bool AnyTypeExceptNonByteResizableArrayOr(VBType source, params Type[] exceptTypeKinds)
+        => !IsNonByteResizableArray(source) && !exceptTypeKinds.Any(kind => kind.IsInstanceOfType(source));
     /// <summary>
     /// Helper function to twist the rules exactly in the same manner they're specified.
     /// </summary>
