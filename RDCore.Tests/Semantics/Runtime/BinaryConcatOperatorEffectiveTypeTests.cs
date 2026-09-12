@@ -15,7 +15,10 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// every array subtype's own <c>.TypeInfo.DefaultValue.TypeInfo</c> — this harness's only way to
 /// synthesize an operand from a bare <c>VBType</c> — actually resolves back to the generic
 /// <c>VBResizableArrayType</c>, never the specific <c>VBResizableByteArrayType</c>. Pre-existing,
-/// unrelated to concatenation; flagged as a follow-up rather than fixed here.
+/// unrelated to concatenation; flagged as a follow-up rather than fixed here. Separately (and not
+/// blocked by the same issue, since it constructs a real value instead of going through
+/// <c>DefaultValue</c>), <c>BinaryConcatOperatorRuntimeTests</c> has an <c>[Ignore]</c>d evaluation-level
+/// test for the same row, pending Byte()-array-to-string let-coercion (MS-VBAL §5.5.1.2.6).
 /// </remarks>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.2.1 Operator Evaluation")]

@@ -66,4 +66,10 @@ public sealed class BinaryConcatOperatorRuntimeTests : OperatorConcatRuntimeSema
     public void BooleanOperand_IsTypeMismatch()
         // see BinaryConcatOperatorEffectiveTypeTests.BooleanOperand_IsTypeMismatch for the spec citation.
         => AssertError(Evaluate(Concat(), new VBBooleanValue(true), new VBStringValue("x")), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    [Ignore("Byte() array-to-string let-coercion (MS-VBAL 5.5.1.2.6) isn't implemented yet: VBStringLetCoercionRuntimeSemantics has no case for a Byte()-array source.")]
+    public void ByteArrayAndByteArray_UninitializedArrays_ConcatenateToEmptyString()
+        // MS-VBAL 5.5.1.2.6: "If the byte array is uninitialized, the result is a 0-length string."
+        => AssertResult<VBStringValue>(Evaluate(Concat(), VBResizableByteArrayValue.Empty, VBResizableByteArrayValue.Empty), "");
 }
