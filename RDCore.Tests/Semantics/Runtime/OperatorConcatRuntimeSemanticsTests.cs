@@ -55,19 +55,6 @@ public abstract class OperatorConcatRuntimeSemanticsTests : OperatorArithmeticRu
     protected static ILetCoercionRuntimeSemanticsProvider StringCoercionProvider()
     {
         var fmt = Substitute.For<IVerboseMessageBuilder>();
-        var handle = new ProviderHandle();
-        var provider = new LetCoercionRuntimeSemanticsProvider([new VBStringLetCoercionRuntimeSemantics(fmt, handle)], fmt);
-        handle.Inner = provider;
-        return provider;
-    }
-
-    /// <summary>Breaks the provider ⇄ strategy construction cycle (strategies take the provider itself for recursive coercions).</summary>
-    private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
-    {
-        public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
-            => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
-            => Inner.Analyze(resolver, builder, expression, frame);
+        return new LetCoercionRuntimeSemanticsProvider([new VBStringLetCoercionRuntimeSemantics(fmt)], fmt);
     }
 }

@@ -59,7 +59,7 @@ public abstract class OperatorLetCoerceRuntimeSemanticsTests : OperatorArithmeti
         ILetCoercionRuntimeSemantics[] strategies =
         [
             new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle),
-            new VBStringLetCoercionRuntimeSemantics(fmt, handle),
+            new VBStringLetCoercionRuntimeSemantics(fmt),
             new VBDateLetCoercionRuntimeSemantics(handle, fmt),
             new VBBooleanLetCoercionRuntimeSemantics(handle, fmt),
         ];

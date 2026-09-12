@@ -25,8 +25,18 @@ public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMember
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
 
-    public virtual bool Equals(VBUserDefinedType? other) => other is VBUserDefinedType udt && udt.Symbol.Uri == Symbol.Uri;
-    public override int GetHashCode() => Symbol.Uri.GetHashCode();
+    /// <remarks>
+    /// Compares by the declaring symbol's <c>Uri</c> instead of the compiler-generated deep
+    /// structural comparison: <see cref="Members"/> can reference field symbols whose own
+    /// <c>ResolvedType</c> loops back to this very UDT, which the default record equality has no way
+    /// to guard against. Compares <c>Uri.AbsoluteUri</c> as an ordinal string rather than using
+    /// <see cref="Uri"/>'s own <c>Equals</c>/<c>GetHashCode</c>: those deliberately ignore
+    /// <c>Uri.Fragment</c>, and a symbol's discriminating name/location is encoded entirely in the
+    /// fragment here — two distinct UDTs sharing a workspace root would otherwise compare equal.
+    /// </remarks>
+    public virtual bool Equals(VBUserDefinedType? other)
+        => other is VBUserDefinedType udt && string.Equals(udt.Symbol.Uri.AbsoluteUri, Symbol.Uri.AbsoluteUri, StringComparison.Ordinal);
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Symbol.Uri.AbsoluteUri);
 }
 
 /// <summary>
