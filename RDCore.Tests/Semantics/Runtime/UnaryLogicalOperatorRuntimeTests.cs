@@ -1,5 +1,4 @@
-﻿using RDCore.Runtime.Semantics.Operators.Logical;
-using RDCore.SDK.Model.Types;
+using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -17,33 +16,33 @@ public sealed class UnaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSem
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_Long_Zero_IsMinusOne()
-        => AssertResult<VBLongValue>(Evaluate(Not(), VBLongType.TypeInfo, new VBLongValue(0)), -1);
+        => AssertResult<VBLongValue>(Evaluate(Not(), new VBLongValue(0)), -1);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_Long_TwelveIsMinusThirteen()
-        => AssertResult<VBLongValue>(Evaluate(Not(), VBLongType.TypeInfo, new VBLongValue(12)), -13);
+        => AssertResult<VBLongValue>(Evaluate(Not(), new VBLongValue(12)), -13);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_Integer_StaysInteger()
-        => AssertResult<VBIntegerValue>(Evaluate(Not(), VBIntegerType.TypeInfo, new VBIntegerValue(0)), (short)-1);
+        => AssertResult<VBIntegerValue>(Evaluate(Not(), new VBIntegerValue(0)), (short)-1);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_LongLong()
-        => AssertResult<VBLongLongValue>(Evaluate(Not(), VBLongLongType.TypeInfo, new VBLongLongValue(0)), -1L);
+        => AssertResult<VBLongLongValue>(Evaluate(Not(), new VBLongLongValue(0)), -1L);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_Byte()
-        => AssertResult<VBByteValue>(Evaluate(Not(), VBByteType.TypeInfo, new VBByteValue(0)), (byte)255);
+        => AssertResult<VBByteValue>(Evaluate(Not(), new VBByteValue(0)), (byte)255);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
     public void Not_Null_IsNull()
     {
-        var result = Evaluate(Not(), VBNullType.TypeInfo, VBNullValue.Null);
+        var result = Evaluate(Not(), VBNullValue.Null);
         Assert.IsNull(result.ErrorInfo);
         Assert.IsInstanceOfType<VBNullValue>(result.Result);
     }
