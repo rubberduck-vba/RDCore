@@ -48,6 +48,12 @@ public abstract record class Symbol
     /// A <c>Uri</c> that uniquely identifies the symbol.
     /// </summary>
     public Uri Uri { get; init; }
+
+    /// <summary>
+    /// A <see cref="SemanticId"/> that uniquely identifies this symbol, safe for use as a dictionary
+    /// key or set member (unlike <see cref="Uri"/> alone).
+    /// </summary>
+    public SemanticId SemanticId => new(Uri);
     /// <summary>
     /// The <c>Uri</c> of the parent symbol.
     /// </summary>

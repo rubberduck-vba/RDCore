@@ -46,37 +46,37 @@ public sealed class RuntimeSymbolResolverTests
     }
 
     [TestMethod]
-    public void Allocate_ThenGetValue_ReturnsTheBoundHandle()
+    public void TryAllocate_ThenGetValue_ReturnsTheBoundHandle()
     {
         var sut = Sut(out _, out _);
         var symbol = Symbol("Foo");
         var value = new VBLongValue(5);
 
-        sut.Allocate(symbol, value);
+        Assert.IsTrue(sut.TryAllocate(symbol, value, out _));
 
         Assert.AreSame(value.Handle, sut.GetValue(symbol));
     }
 
     [TestMethod]
-    public void Allocate_ThenTryRead_ReturnsTheBoundHandle()
+    public void TryAllocate_ThenTryRead_ReturnsTheBoundHandle()
     {
         var sut = Sut(out _, out _);
         var symbol = Symbol("Foo");
         var value = new VBLongValue(5);
 
-        var address = sut.Allocate(symbol, value);
+        Assert.IsTrue(sut.TryAllocate(symbol, value, out var address));
 
         Assert.IsTrue(sut.TryRead(address, out var handle));
         Assert.AreSame(value.Handle, handle);
     }
 
     [TestMethod]
-    public void Allocate_DifferentSymbols_GetDistinctAddresses()
+    public void TryAllocate_DifferentSymbols_GetDistinctAddresses()
     {
         var sut = Sut(out _, out _);
 
-        var first = sut.Allocate(Symbol("Foo"), new VBLongValue(1));
-        var second = sut.Allocate(Symbol("Bar"), new VBByteValue(2));
+        Assert.IsTrue(sut.TryAllocate(Symbol("Foo"), new VBLongValue(1), out var first));
+        Assert.IsTrue(sut.TryAllocate(Symbol("Bar"), new VBByteValue(2), out var second));
 
         Assert.AreNotEqual(first, second);
     }
@@ -90,14 +90,14 @@ public sealed class RuntimeSymbolResolverTests
         => Assert.IsFalse(Sut(out _, out _).TryRead(new MemoryAddress(42), out _));
 
     [TestMethod]
-    public void Allocate_OutOfMemory_Throws()
+    public void TryAllocate_OutOfMemory_ReturnsFalse()
     {
         var names = Substitute.For<ISymbolResolver>();
         var memory = Substitute.For<ISessionMemoryAllocator>();
         memory.TryAllocate(Arg.Any<int>(), out Arg.Any<MemoryAddress>()).Returns(false);
         var sut = new RuntimeSymbolResolver(names, memory);
 
-        Assert.ThrowsExactly<InvalidOperationException>(() => sut.Allocate(Symbol("Foo"), new VBLongValue(5)));
+        Assert.IsFalse(sut.TryAllocate(Symbol("Foo"), new VBLongValue(5), out _));
     }
 
     [TestMethod]
@@ -106,7 +106,7 @@ public sealed class RuntimeSymbolResolverTests
         var sut = Sut(out _, out var memory);
         var symbol = Symbol("Foo");
         var value = new VBLongValue(5);
-        var address = sut.Allocate(symbol, value);
+        Assert.IsTrue(sut.TryAllocate(symbol, value, out var address));
 
         Assert.IsTrue(sut.TryDeallocate(symbol));
 

@@ -15,14 +15,14 @@ namespace RDCore.Runtime.Execution;
 /// 👉 <see cref="ISessionMemoryAllocator"/> only tracks allocation size and fragmentation — it does
 /// not itself hold values. This class is the missing link: it reserves address space through the
 /// allocator, then indexes the caller's own already-bound <see cref="VBTypedValue.Handle"/> by both
-/// the declaring <see cref="Symbol"/> and the resulting <see cref="MemoryAddress"/>, so
-/// <see cref="GetValue"/> and <see cref="TryRead"/> can find it again.
+/// the declaring symbol's <see cref="SemanticId"/> and the resulting <see cref="MemoryAddress"/>,
+/// so <see cref="GetValue"/> and <see cref="TryRead"/> can find it again.
 /// </remarks>
 /// <param name="names">The compile-time resolver <see cref="Resolve"/> delegates to.</param>
 /// <param name="memory">The session's memory allocator.</param>
 public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryAllocator memory) : ISymbolResolver
 {
-    private readonly Dictionary<string, MemoryAddress> _addressBySymbol = [];
+    private readonly Dictionary<SemanticId, MemoryAddress> _addressBySymbol = [];
     private readonly Dictionary<MemoryAddress, IBindingHandle> _handleByAddress = [];
 
     /// <inheritdoc/>
@@ -30,7 +30,7 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryA
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
-        => _addressBySymbol.TryGetValue(symbol.Uri.ToString(), out var address) && _handleByAddress.TryGetValue(address, out var handle)
+        => _addressBySymbol.TryGetValue(symbol.SemanticId, out var address) && _handleByAddress.TryGetValue(address, out var handle)
             ? handle
             : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.");
 
@@ -41,20 +41,24 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryA
     /// <summary>
     /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>,
     /// reachable afterwards through both <see cref="GetValue"/> (by symbol) and <see cref="TryRead"/>
-    /// (by the returned address).
+    /// (by <paramref name="address"/>).
     /// </summary>
-    /// <exception cref="InvalidOperationException">The session's memory space is exhausted.</exception>
-    public MemoryAddress Allocate(Symbol symbol, VBTypedValue value)
+    /// <returns>
+    /// <c>false</c> if the session's memory space is exhausted; the caller is responsible for reporting
+    /// this as a coded <c>VBRuntimeErrorId.OutOfMemory</c> runtime error once it has a source location
+    /// to attach to it.
+    /// </returns>
+    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
     {
-        if (!memory.TryAllocate(value.Size, out var address))
+        if (!memory.TryAllocate(value.Size, out address))
         {
-            throw new InvalidOperationException($"Out of memory allocating '{symbol.Uri}' ({value.Size} byte(s)).");
+            return false;
         }
 
-        _addressBySymbol[symbol.Uri.ToString()] = address;
+        _addressBySymbol[symbol.SemanticId] = address;
         _handleByAddress[address] = value.Handle;
 
-        return address;
+        return true;
     }
 
     /// <summary>
@@ -63,7 +67,7 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryA
     /// <returns><c>true</c> if a binding for <paramref name="symbol"/> existed and was released.</returns>
     public bool TryDeallocate(Symbol symbol)
     {
-        if (_addressBySymbol.Remove(symbol.Uri.ToString(), out var address))
+        if (_addressBySymbol.Remove(symbol.SemanticId, out var address))
         {
             _handleByAddress.Remove(address);
             return memory.TryDeallocate(address, out _);
