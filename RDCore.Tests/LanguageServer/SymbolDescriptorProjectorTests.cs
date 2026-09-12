@@ -2,6 +2,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 
@@ -131,6 +132,16 @@ public sealed class SymbolDescriptorProjectorTests
         var letter = descriptors.Single(d => d.Kind == SymbolDescriptorKind.PropertyLet);
         Assert.AreEqual(1, letter.Parameters.Length);
     }
+
+    [TestMethod]
+    public void UnmappedSymbolKind_ThrowsInsteadOfSilentlyDefaultingToModuleField()
+        // regression: KindOf's default arm used to silently label any symbol type it didn't
+        // recognize as ModuleField. No real declaration the parser + symbol-provider pipeline
+        // produces hits that path (every explicit arm above is reachable through real source), so a
+        // hand-built symbol of a kind this projector was never taught about is the only way to
+        // exercise it -- a class-module symbol standing in for "a module", not "a module member".
+        => Assert.ThrowsExactly<NotSupportedException>(() => SymbolDescriptorProjector.Project(
+            [new VBClassModuleSymbol(WorkspaceRoot, ModuleUri, "Whatever")], ModuleUri));
 
     [TestMethod]
     public void ConditionalCompilation_ProjectsOneDescriptorCarryingEveryBranch()
