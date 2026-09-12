@@ -62,7 +62,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(VBBinaryOperatorExpressionNode), "BinaryOpExpression")]
 [JsonDerivedType(typeof(VBDeclarationStatementNode), "DeclarationStatement")]
 [JsonDerivedType(typeof(LiteralExpressionNode), "LiteralExpression")]
-[JsonDerivedType(typeof(MemberAccessOperatorExpressionNode), "MemberAccessExpression")]
+[JsonDerivedType(typeof(MemberAccessExpressionNode), "MemberAccessExpression")]
 [JsonDerivedType(typeof(SimpleNameExpressionNode), "SimpleNameExpression")]
 [JsonDerivedType(typeof(VBUnaryOperatorExpressionNode), "UnaryOpExpression")]
 [JsonDerivedType(typeof(WhileWendStatementNode), "WhileWendStatement")]

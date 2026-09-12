@@ -42,4 +42,9 @@ public enum InputIndex
     /// The <em>destination type</em> of a <em>let-coercion</em> operation.
     /// </summary>
     CoercionDestinationType = Second,
+
+    /// <summary>
+    /// The <em>owner</em> operand of a <em>member access</em> expression.
+    /// </summary>
+    MemberAccessOwner = First,
 }

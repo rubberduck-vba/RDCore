@@ -11,7 +11,6 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
-using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Static.Expressions;
 
@@ -27,8 +26,11 @@ public sealed class MemberAccessExpressionStaticSemanticsTests
     private static SimpleNameExpressionNode NameOf(string identifier)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [42]), TestLocations.TestLocation, identifier);
 
-    private static MemberAccessOperatorExpressionNode Access(string lhsName, string memberName)
-        => new(new(TestUri.TestModuleUri().AbsolutePath, [43]), TestLocations.TestLocation, [NameOf(lhsName), NameOf(memberName)]);
+    private static MemberAccessExpressionNode Access(string ownerName, string memberName)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [43]), TestLocations.TestLocation, NameOf(ownerName), NameOf(memberName));
+
+    private static MemberAccessExpressionNode WithRelativeAccess(string memberName)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [43]), TestLocations.TestLocation, Owner: null, NameOf(memberName));
 
     private static VBUserDefinedType Udt(string name, params VBTypeMemberSymbol[] fields)
     {
@@ -151,11 +153,9 @@ public sealed class MemberAccessExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ARightHandSideThatIsNotASimpleName_Throws()
+    public void AWithRelativeAccess_OwnerIsImplicit_IsNotYetSupported()
     {
-        var malformed = new MemberAccessOperatorExpressionNode(
-            new(TestUri.TestModuleUri().AbsolutePath, [44]), TestLocations.TestLocation, [NameOf("lhs"), Access("nested", "member")]);
-
-        Assert.ThrowsExactly<ArgumentException>(() => MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, malformed, VBLongType.TypeInfo));
+        Assert.ThrowsExactly<NotSupportedException>(
+            () => MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, WithRelativeAccess("Whatever")));
     }
 }
