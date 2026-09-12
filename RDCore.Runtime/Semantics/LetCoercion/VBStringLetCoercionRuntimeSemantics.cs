@@ -12,7 +12,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Diagnostics;
 using System.Globalization;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
@@ -20,14 +19,22 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// <summary>
 /// MS-VBAL 5.5.1.2.4 Let-coercion to and from <c>VBStringType</c>
 /// </summary>
+/// <remarks>
+/// The coercion provider dispatches by <em>destination</em> type only, so this class — registered for
+/// <see cref="VBStringType"/> — only ever runs when the destination actually is String; it therefore
+/// implements the "-&gt; String" half of MS-VBAL 5.5.1.2.4's table (String, any numeric type, Boolean
+/// or Date source). The "String -&gt;" half (String as source, coercing to a numeric, Boolean or Date
+/// destination) is dispatched by those destination types instead, and lives in
+/// <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/>, <see cref="VBBooleanLetCoercionRuntimeSemantics"/>
+/// and <see cref="VBDateLetCoercionRuntimeSemantics"/> respectively, for that same reason.
+/// </remarks>
 public record class VBStringLetCoercionRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService, 
-    ILetCoercionRuntimeSemanticsProvider LetCoercionProvider) 
+    IVerboseMessageBuilder FormatterService)
     : LetCoercionRuntimeSemantics<VBStringType>(FormatterService)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ISymbolResolver resolver,
+        VBOperatorExpression expression,
         LetCoercionStackFrame frame)
     {
         var cultureInfo = CultureInfo.InvariantCulture;
@@ -40,21 +47,18 @@ public record class VBStringLetCoercionRuntimeSemantics(
             VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => CoerceToVBString(numericSourceValue, cultureInfo),
 
-            VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => CoerceToVBBoolean(resolver, expression, frame, stringSourceValue),
-
-            VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBDateType
-                => CoerceToVBDate(resolver, expression, frame, stringSourceValue, cultureInfo),
-
             VBBooleanValue booleanSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(
-                    new VBStringValue((bool)booleanSourceValue.Value 
-                        ? Tokens.True 
+                    new VBStringValue((bool)booleanSourceValue.Value
+                        ? Tokens.True
                         : Tokens.False)),
 
+            // MS-VBAL 5.5.1.2.4: "If the day value of the source date is 12/30/1899" — the date
+            // component only, regardless of the time-of-day fraction, hence comparing .Date rather
+            // than requiring the exact zero serial value.
             VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(
-                    new VBStringValue(dateSourceValue == VBDateType.Zero 
+                    new VBStringValue(dateSourceValue.Value.Date == VBDateType.Zero.Value.Date
                         ? dateSourceValue.Value.ToLongTimeString()
                         : dateSourceValue.Value.ToShortDateString())),
 
@@ -63,85 +67,13 @@ public record class VBStringLetCoercionRuntimeSemantics(
     }
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
-        ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ILetCoercionSemanticContextBuilder builder,
+        ISymbolResolver resolver,
+        VBOperatorExpression expression,
         LetCoercionStackFrame frame)
     {
         throw new NotImplementedException();
     }
-
-    private LetCoercionResult CoerceToVBDate(
-        ISymbolResolver resolver,
-        VBOperatorExpression expression,
-        LetCoercionStackFrame frame,
-        VBStringValue stringSourceValue,
-        CultureInfo cultureInfo)
-    {
-        if (DateTime.TryParse(stringSourceValue.Value, cultureInfo, out var dateValue))
-        {
-            return LetCoercionResult.Success(new VBDateValue(dateValue.ToOADate()));
-        }
-
-        if (Decimal.TryParse(stringSourceValue.Value, cultureInfo, out var decimalValue))
-        {
-            if (decimalValue >= (decimal)VBDoubleType.MinValue.Value && decimalValue <= (decimal)VBDoubleType.MaxValue.Value)
-            {
-                var doubleCoercion = LetCoerceDouble(resolver, expression, frame);
-                return doubleCoercion.IsSuccess
-                    ? CoerceToVBBoolean((VBDoubleValue)doubleCoercion.Result!, frame)
-                    : doubleCoercion;
-            }
-            else
-            {
-                return LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame));
-            }
-        }
-
-        return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame));
-    }
-
-    private LetCoercionResult CoerceToVBBoolean(
-        ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
-        LetCoercionStackFrame frame, 
-        VBStringValue value)
-    {
-        if (string.Equals(value.Value, Tokens.True, StringComparison.InvariantCultureIgnoreCase)
-            || string.Equals(value.Value, $"#TRUE#", StringComparison.InvariantCulture))
-        {
-            return LetCoercionResult.Success(VBBooleanValue.True, [frame]);
-        }
-
-        if (string.Equals(value.Value, Tokens.False, StringComparison.InvariantCultureIgnoreCase)
-            || string.Equals(value.Value, $"#FALSE#", StringComparison.InvariantCulture))
-        {
-            return LetCoercionResult.Success(VBBooleanValue.False, [frame]);
-        }
-
-        // otherwise the result is let-coerced to Double, which is let-coerced to Boolean.
-        var doubleCoercion = LetCoerceDouble(resolver, expression, frame);
-        return doubleCoercion.IsSuccess
-            ? CoerceToVBBoolean(((VBDoubleValue)doubleCoercion.Result!), frame)
-            : doubleCoercion;
-    }
-
-
-    private LetCoercionResult LetCoerceDouble(
-        ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
-        LetCoercionStackFrame currentFrame)
-    {
-        var letCoercionFrame = currentFrame with
-        {
-            SourceValue = currentFrame.SourceValue,
-            DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo)
-        };
-        return LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, letCoercionFrame);
-    }
-
-    private static LetCoercionResult CoerceToVBBoolean(VBNumericTypedValue value, LetCoercionStackFrame frame)
-        => LetCoercionResult.Success(new VBBooleanValue((double)value.RuntimeValue.BoxedValue != 0), [frame]);
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, CultureInfo cultureInfo)
     {
@@ -153,92 +85,70 @@ public record class VBStringLetCoercionRuntimeSemantics(
         {
             return LetCoercionResult.Success(new VBStringValue(VBStringValue.Zero));
         }
-        else if (double.IsPositiveInfinity(numericValue))
+        if (double.IsPositiveInfinity(numericValue))
         {
             return LetCoercionResult.Success(new VBStringValue(VBStringValue.PositiveInfinity));
         }
-        else if (double.IsNegativeInfinity(numericValue))
+        if (double.IsNegativeInfinity(numericValue))
         {
             return LetCoercionResult.Success(new VBStringValue(VBStringValue.NegativeInfinity));
         }
-        else if (double.IsNaN(numericValue))
+        if (double.IsNaN(numericValue))
         {
             return LetCoercionResult.Success(new VBStringValue(VBStringValue.NaN));
         }
 
-        var isNegative = numericValue < 0;
-        var sign = isNegative ? "-" : string.Empty;
-
+        var sign = numericValue < 0 ? "-" : string.Empty;
         var absoluteValue = Math.Abs(numericValue);
-        var stringValue = absoluteValue.ToString(cultureInfo);
-
         var dot = cultureInfo.NumberFormat.NumberDecimalSeparator;
-        var decimalIndex = stringValue.IndexOf(dot);
 
-        if (decimalIndex >= 0)
-        {
-            var integerString = stringValue[..(decimalIndex - 1)];
-            // MS-VBAL 5.5.1.2.4 Let-coercion to and from String
+        // MS-VBAL 5.5.1.2.4: scientific notation is used whenever the integer part has more than the
+        // source type's maximum significant integral digits, regardless of whether the value also has
+        // a fractional part. "F0" (fixed-point, no fractional digits) reliably yields just the integer
+        // part without .NET's default ToString() collapsing a very large/small magnitude into its own
+        // scientific notation first (which would otherwise hide the decimal separator this method used
+        // to gate on, undercounting whole-number values entirely).
+        var integerPartDigitCount = absoluteValue < 1 ? 1 : absoluteValue.ToString("F0", cultureInfo).Length;
+        var significantIntegerDigits = value is VBSingleValue
+            ? VBSingleType.SignificantIntegerDigits
+            : VBDoubleType.SignificantIntegerDigits;
 
-            // VBSingleValue uses normal notation for values up to 7 integer digits, scientific notation otherwise:
-            Debug.Assert(VBDoubleType.SignificantIntegerDigits == VBNumericTypedValue.SignificantIntegerDigits);
-            if (value is VBSingleValue && integerString.Length > VBSingleType.SignificantIntegerDigits)
-            {
-                var significantIntegerDigits = VBSingleType.SignificantIntegerDigits;
-                stringValue = ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo);
-
-            }
-            else if (integerString.Length > VBDoubleType.SignificantIntegerDigits)
-            {
-                // Double (or any other numeric type for that matter): truncate to 15 significant digits
-                var significantIntegerDigits = VBDoubleType.SignificantIntegerDigits;
-                stringValue = ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo);
-            }
-        }
-        else
-        {
-            stringValue = $"{sign}{stringValue}";
-        }
+        var stringValue = integerPartDigitCount > significantIntegerDigits
+            ? ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo)
+            : $"{sign}{absoluteValue.ToString(cultureInfo)}";
 
         return LetCoercionResult.Success(new VBStringValue(stringValue));
     }
 
     private static string ToVBScientificNotation(double value, int significantIntegerDigits, string decimalSeparator, CultureInfo cultureInfo)
     {
-        var absoluteValue = Math.Abs(value);
         var sign = value < 0 ? "-" : string.Empty;
+        var absoluteValue = Math.Abs(value);
 
-        var stringValue = absoluteValue.ToString(cultureInfo);
-        var decimalIndex = stringValue.IndexOf(decimalSeparator);
+        // .NET's own "E" format always yields exactly one digit before the decimal point (s * 10^e),
+        // regardless of the source's magnitude or whether it has a fractional part — reliably giving
+        // the significand and exponent without needing to first locate a decimal separator that may
+        // not even be present (a whole-number source) or that .NET's default ToString() may already
+        // have collapsed into its own scientific notation. 16 fractional digits comfortably covers a
+        // double's ~15-17 significant decimal digits of precision.
+        var scientific = absoluteValue.ToString("E16", CultureInfo.InvariantCulture);
+        var eIndex = scientific.IndexOf('E');
+        var exponent = int.Parse(scientific[(eIndex + 1)..], CultureInfo.InvariantCulture);
+        var s = scientific[0];
 
-        var integerString = stringValue[..(decimalIndex - 1)];
-        var decimalString = stringValue[(decimalIndex + 1)..];
-
-        // s * 10^e
-        char s;
-        int e;
-        if (absoluteValue >= 1)
+        // MS-VBAL 5.5.1.2.4: "a maximum of 15 [7 for Single] integer and significand digits are
+        // printed total with trailing zeros removed" — the leading digit `s` counts as one of them.
+        var fractionalDigits = scientific[2..eIndex].TrimEnd('0');
+        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
+        if (fractionalDigits.Length > maxFractionalDigits)
         {
-            s = integerString[0];
-            e = decimalIndex; // magnitude is just where the decimal separator is at (positive)
-        }
-        else
-        {
-            // s is the first non-zero digit
-            var nzIndex = decimalString.IndexOfAny(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
-            s = decimalString[nzIndex];
-            e = -(nzIndex + 1); // magnitude is the (negative) number of decimal positions shifted
+            fractionalDigits = fractionalDigits[..maxFractionalDigits];
         }
 
-        // combined integer+decimal parts cannot exceed a length of 15:
-        decimalString = $"{integerString[1..]}{decimalString}";
-        var fullValue = $"{integerString}{decimalSeparator}{decimalString}";
-
-        var fullValueLength = fullValue.Length;
-        decimalString = fullValueLength > significantIntegerDigits
-            ? decimalString[..significantIntegerDigits]
-            : decimalString;
-
-        return $"{sign}{s}{decimalSeparator}{decimalString}E{e}";
+        // MS-VBAL 5.5.1.2.4: the exponent is always signed ("+" or "-"), unlike a bare C# int.ToString().
+        var exponentSign = exponent < 0 ? "-" : "+";
+        return fractionalDigits.Length > 0
+            ? $"{sign}{s}{decimalSeparator}{fractionalDigits}E{exponentSign}{Math.Abs(exponent)}"
+            : $"{sign}{s}E{exponentSign}{Math.Abs(exponent)}";
     }
 }

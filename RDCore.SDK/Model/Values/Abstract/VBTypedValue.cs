@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Meta;
+using System.Text;
 using System.Text.Json.Serialization;
 namespace RDCore.SDK.Model.Values.Abstract;
 
@@ -100,4 +101,20 @@ public abstract record class VBTypedValue(VBType TypeInfo)
 
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, BoundManagedValue);
+
+    /// <summary>
+    /// Prints this <c>VBTypedValue</c>'s members for <see cref="object.ToString"/>.
+    /// </summary>
+    /// <remarks>
+    /// Prints <see cref="TypeInfo"/> by <see cref="VBType.Name"/> rather than the <c>VBType</c>
+    /// instance itself: that type's own <see cref="VBType.DefaultValue"/> is this kind of value, so
+    /// letting the compiler-generated <c>ToString</c> print the full <c>TypeInfo</c> object would
+    /// recurse between the two <c>PrintMembers</c> implementations forever.
+    /// </remarks>
+    protected virtual bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("TypeInfo = ").Append(TypeInfo.Name);
+        builder.Append(", Handle = ").Append(Handle);
+        return true;
+    }
 }
