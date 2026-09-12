@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Operators.Logical;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
 
@@ -22,6 +23,18 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
     public void And_Long()
         => AssertResult<VBLongValue>(Evaluate(And(), new VBLongValue(12), new VBLongValue(10)), 8);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.0.2.1 Operator Evaluation")]
+    public void And_OperandLetCoercionOverflows_SurfacesTheOverflowError()
+    {
+        // Double,Double resolves an effective type of Long (MS-VBAL 5.6.9.8); the base pipeline's
+        // operand-validation step must then let-coerce each Double operand to Long, and double.MaxValue
+        // genuinely overflows Long. This must surface as the coercion's own Overflow error rather than
+        // silently dropping the operand and crashing EvaluateExpressionResult with an out-of-range index.
+        var op = new BinaryAndLogicalOperatorRuntimeSemantics(RealCoercionProvider(), Formatter());
+        AssertError(Evaluate(op, new VBDoubleValue(double.MaxValue), new VBDoubleValue(1)), VBRuntimeErrorId.Overflow);
+    }
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]

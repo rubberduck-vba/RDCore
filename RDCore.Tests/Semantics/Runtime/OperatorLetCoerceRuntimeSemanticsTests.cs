@@ -1,6 +1,4 @@
-using NSubstitute;
 using RDCore.Runtime.Execution.Frames;
-using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
@@ -8,13 +6,8 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
-using RDCore.SDK.Runtime.Abstract;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Analysis;
-using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -45,36 +38,5 @@ public abstract class OperatorLetCoerceRuntimeSemanticsTests : OperatorArithmeti
         var frame = new OperatorEvaluationFrame(
             NodeId, [VBLongType.TypeInfo.DefaultValue, new VBTypeDescValue(targetType)], VBUnknownType.TypeInfo);
         return op.DetermineOperatorEffectiveType(null!, new ConversionOperationSemanticContext(), ThrowawayBinary, frame);
-    }
-
-    /// <summary>
-    /// The real Numeric, String, Date and Boolean let-coercion strategies — the operator's own job is
-    /// delegation, but delegating to a fake identity passthrough would never exercise an actual
-    /// coercion.
-    /// </summary>
-    protected static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
-    {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
-        var handle = new ProviderHandle();
-        ILetCoercionRuntimeSemantics[] strategies =
-        [
-            new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle),
-            new VBStringLetCoercionRuntimeSemantics(fmt),
-            new VBDateLetCoercionRuntimeSemantics(handle, fmt),
-            new VBBooleanLetCoercionRuntimeSemantics(handle, fmt),
-        ];
-        var provider = new LetCoercionRuntimeSemanticsProvider(strategies, fmt);
-        handle.Inner = provider;
-        return provider;
-    }
-
-    /// <summary>Breaks the provider ⇄ strategy construction cycle (strategies take the provider itself for recursive coercions).</summary>
-    private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
-    {
-        public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
-            => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
-            => Inner.Analyze(resolver, builder, expression, frame);
     }
 }
