@@ -1,10 +1,12 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
@@ -51,11 +53,29 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
                 // and the conversion is clearly a widening one in this case.
                 // This implementation skips this technically specified check, because including it would be mathematically wrong,
                 // and would also needlessly complicate the null-handling of floatCoercionError.
-                //      && !double.IsNaN(sourceValue.ManagedValue) && !double.IsInfinity(sourceValue.ManagedValue) 
+                //      && !double.IsNaN(sourceValue.ManagedValue) && !double.IsInfinity(sourceValue.ManagedValue)
                 => ValidateDestinationTypeRange(expression, frame, out var floatCoercionError)
                     ? LetCoercionResult.Success(
                         ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(((VBNumericTypedValue)frame.SourceValue).AsDouble))
                     : LetCoercionResult.Error(floatCoercionError),
+
+            // MS-VBAL 5.5.1.2.2: coercing a Boolean source is dispatched by a numeric *destination*, so it
+            // lands here rather than in VBBooleanLetCoercionRuntimeSemantics (which only ever runs for a
+            // Boolean destination). Byte is the one destination-type exception: True -> 255, not -1.
+            VBBooleanType when frame.DestinationTypeDesc.Target is VBByteType
+                => LetCoercionResult.Success(new VBByteValue((byte)((bool)((VBBooleanValue)frame.SourceValue).Value ? 255 : 0))),
+
+            VBBooleanType when frame.DestinationTypeDesc.Target is INumericType
+                => LetCoercionResult.Success(
+                    ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue((bool)((VBBooleanValue)frame.SourceValue).Value ? -1d : 0d)),
+
+            // MS-VBAL 5.5.1.2.3: a Date source coerces via its standard Double (serial value) representation.
+            // Can't reuse ValidateDestinationTypeRange here — it assumes an already-numeric SourceValue.
+            VBDateType when frame.DestinationTypeDesc.Target is INumericType
+                => VBNumericType.IsWithinRange(((VBDateValue)frame.SourceValue).SerialValue, (VBNumericType)frame.DestinationTypeDesc.Target)
+                    ? LetCoercionResult.Success(
+                        ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(((VBDateValue)frame.SourceValue).SerialValue))
+                    : LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };
