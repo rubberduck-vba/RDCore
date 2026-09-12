@@ -103,7 +103,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 
 **RDCore.Diagnostics** — core inspection extension · 🚧 analyzer skeleton; discovered from its generated manifest and brought up by the language server during platform assembly.
 
-**Tests** · 🎯 target ~70% line coverage (badge above is live) — operator semantics and platform lifecycle well covered; parser grammar and CLI thin; runtime beyond operators has nothing to cover yet.
+**Tests** · 🎯 target ~70% line coverage (badge above is live) — operator and let-coercion semantics (runtime + static) well covered; parser grammar and CLI thin; runtime statement/interpreter work still has nothing to cover.
 
 **Contributions** — individuals ✅ open ([CLA](CLA.md)) · corporate ⏳ planned
 

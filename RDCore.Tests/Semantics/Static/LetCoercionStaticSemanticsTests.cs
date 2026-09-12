@@ -187,7 +187,6 @@ public sealed class LetCoercionStaticSemanticsTests : StaticSemanticsTests
     }
 
     [TestMethod]
-    [Ignore("Blocked on a pre-existing VBUserDefinedType/VBUserDefinedTypeMemberSymbol record-equality bug (location-based symbol identity treats two distinctly-named UDTs as equal) — tracked separately, being fixed on branch fix/udt-equality-stack-overflow.")]
     public void DifferentUdt_IsInvalid()
         => AssertInvalid(Udt("Foo"), Udt("Bar"));
 

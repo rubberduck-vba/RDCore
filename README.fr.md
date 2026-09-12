@@ -102,7 +102,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 
 **RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 squelette d'analyseur; découverte depuis son _manifest_ généré et démarrée par le serveur de langage lors de l'assemblage de la plateforme.
 
-**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et cycle de vie de la plateforme bien couverts; grammaire du _parser_ et CLI minces; le _runtime_ au-delà des opérateurs n'a encore rien à couvrir.
+**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et de _let-coercions_ (_runtime_ + statiques) bien couvertes; grammaire du _parser_ et CLI minces; les _statements_ / l'interpréteur du _runtime_ n'ont encore rien à couvrir.
 
 **Contributions** — individuelles ✅ ouvertes ([CLA](CLA.fr.md)) · corporatives ⏳ à venir
 
