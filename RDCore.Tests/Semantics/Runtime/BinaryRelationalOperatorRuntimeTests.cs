@@ -1,6 +1,5 @@
-﻿using RDCore.Runtime.Semantics.Operators.Relational;
+using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -24,75 +23,75 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Long_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBLongType.TypeInfo, new VBLongValue(5), new VBLongValue(5)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBLongValue(5), new VBLongValue(5)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Long_False()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBLongType.TypeInfo, new VBLongValue(5), new VBLongValue(6)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBLongValue(5), new VBLongValue(6)), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Integer_True_NoBoxedPrimitiveCast()
         // regression: (long)(object)(short) threw InvalidCastException.
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBIntegerType.TypeInfo, new VBIntegerValue(5), new VBIntegerValue(5)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBIntegerValue(5), new VBIntegerValue(5)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.2 Binary '<>' Operator")]
     public void NotEqual_Long_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Neq(), VBLongType.TypeInfo, new VBLongValue(5), new VBLongValue(6)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Neq(), new VBLongValue(5), new VBLongValue(6)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_Long_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Lt(), VBLongType.TypeInfo, new VBLongValue(5), new VBLongValue(6)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBLongValue(5), new VBLongValue(6)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.4 Binary '>' Operator")]
     public void GreaterThan_LongLong_Exact()
         => AssertResult<VBBooleanValue>(
-            Evaluate(Gt(), VBLongLongType.TypeInfo, new VBLongLongValue(long.MaxValue), new VBLongLongValue(long.MaxValue - 1)), true);
+            Evaluate(Gt(), new VBLongLongValue(long.MaxValue), new VBLongLongValue(long.MaxValue - 1)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.5 Binary '<=' Operator")]
     public void LessThanOrEqual_Long_EqualOperands_True()
-        => AssertResult<VBBooleanValue>(Evaluate(LtEq(), VBLongType.TypeInfo, new VBLongValue(6), new VBLongValue(6)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(LtEq(), new VBLongValue(6), new VBLongValue(6)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.6 Binary '>=' Operator")]
     public void GreaterThanOrEqual_Long_False()
-        => AssertResult<VBBooleanValue>(Evaluate(GtEq(), VBLongType.TypeInfo, new VBLongValue(5), new VBLongValue(6)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(GtEq(), new VBLongValue(5), new VBLongValue(6)), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_Double_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Lt(), VBDoubleType.TypeInfo, new VBDoubleValue(1.5), new VBDoubleValue(2.5)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBDoubleValue(1.5), new VBDoubleValue(2.5)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Double_NaNOperand_IsOverflow()
-        => AssertError(Evaluate(Eq(), VBDoubleType.TypeInfo, new VBDoubleValue(double.NaN), new VBDoubleValue(1.0)), VBRuntimeErrorId.Overflow);
+        => AssertError(Evaluate(Eq(), new VBDoubleValue(double.NaN), new VBDoubleValue(1.0)), VBRuntimeErrorId.Overflow);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Currency_KeepsFractionalPrecision()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBCurrencyType.TypeInfo, new VBCurrencyValue(1.5001m), new VBCurrencyValue(1.5001m)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBCurrencyValue(1.5001m), new VBCurrencyValue(1.5001m)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_Currency_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Lt(), VBCurrencyType.TypeInfo, new VBCurrencyValue(1.5m), new VBCurrencyValue(2.0m)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBCurrencyValue(1.5m), new VBCurrencyValue(2.0m)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.6 Binary '>=' Operator")]
     public void GreaterThanOrEqual_Decimal_EqualOperands_True()
-        => AssertResult<VBBooleanValue>(Evaluate(GtEq(), VBDecimalType.TypeInfo, new VBDecimalValue(1.5m), new VBDecimalValue(1.5m)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(GtEq(), new VBDecimalValue(1.5m), new VBDecimalValue(1.5m)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_NullEffectiveType_ProducesNull()
     {
-        var result = Evaluate(Eq(), VBNullType.TypeInfo, VBNullValue.Null, new VBLongValue(5));
+        var result = Evaluate(Eq(), VBNullValue.Null, new VBLongValue(5));
         Assert.IsNull(result.ErrorInfo);
         Assert.IsInstanceOfType<VBNullValue>(result.Result);
     }
@@ -100,37 +99,37 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_String_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBStringType.TypeInfo, new VBStringValue("abc"), new VBStringValue("abc")), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBStringValue("abc"), new VBStringValue("abc")), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_String_CaseSensitive_False()
         // Binary compare (this module's default, absent Option Compare Text) is case-sensitive.
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBStringType.TypeInfo, new VBStringValue("abc"), new VBStringValue("ABC")), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBStringValue("abc"), new VBStringValue("ABC")), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_String_LexicographicallyBefore_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Lt(), VBStringType.TypeInfo, new VBStringValue("abc"), new VBStringValue("abd")), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBStringValue("abc"), new VBStringValue("abd")), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.2 Binary '<>' Operator")]
     public void NotEqual_String_DifferentValues_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Neq(), VBStringType.TypeInfo, new VBStringValue("abc"), new VBStringValue("xyz")), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Neq(), new VBStringValue("abc"), new VBStringValue("xyz")), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Boolean_SameValue_True()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(true)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBBooleanValue(true), new VBBooleanValue(true)), true);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Boolean_DifferentValues_False()
-        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(false)), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBBooleanValue(true), new VBBooleanValue(false)), false);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_Boolean_FalseIsGreaterThanTrue()
         // Boolean compares over its -1 (True) / 0 (False) representation: True < False.
-        => AssertResult<VBBooleanValue>(Evaluate(Lt(), VBBooleanType.TypeInfo, new VBBooleanValue(true), new VBBooleanValue(false)), true);
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBBooleanValue(true), new VBBooleanValue(false)), true);
 }

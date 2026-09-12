@@ -10,13 +10,14 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
-using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// Base for the logical/bitwise operator runtime-semantics characterization matrix — the result is
-/// computed in the effective integral type's own CLR representation. Mirrors the arithmetic harness.
+/// Base for the logical/bitwise operator runtime-semantics characterization matrix: drives the
+/// operator through its public <c>Evaluate</c> entry point (effective-type determination, operand
+/// validation and let-coercion, then evaluation), the same path the interpreter uses. Mirrors the
+/// arithmetic harness — the result is computed in the effective integral type's own CLR representation.
 /// </summary>
 public abstract class OperatorLogicalRuntimeSemanticsTests : OperatorArithmeticRuntimeSemanticsTests
 {
@@ -31,35 +32,13 @@ public abstract class OperatorLogicalRuntimeSemanticsTests : OperatorArithmeticR
         "Not", default, TestLocations.TestLocation,
         [new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBLongValue(0))]);
 
-    private static readonly MethodInfo BinaryEval = typeof(BinaryLogicalOperatorRuntimeSemantics).GetMethod(
-        "EvaluateExpressionResult",
-        BindingFlags.Instance | BindingFlags.NonPublic,
-        binder: null,
-        [typeof(ISymbolResolver), typeof(BinaryLogicalOperatorSemanticContext), typeof(VBOperatorExpression), typeof(OperatorEvaluationFrame)],
-        modifiers: null)!;
-
-    private static readonly MethodInfo UnaryEval = typeof(UnaryLogicalOperatorRuntimeSemantics).GetMethod(
-        "EvaluateExpressionResult",
-        BindingFlags.Instance | BindingFlags.NonPublic,
-        binder: null,
-        [typeof(ISymbolResolver), typeof(UnaryLogicalOperatorSemanticContext), typeof(VBOperatorExpression), typeof(OperatorEvaluationFrame)],
-        modifiers: null)!;
+    protected static RuntimeSemanticsEvaluationResult Evaluate(
+        BinaryLogicalOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
+        => op.Evaluate(null!, new BinaryLogicalOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
-        BinaryLogicalOperatorRuntimeSemantics op, VBType effectiveType, VBTypedValue lhs, VBTypedValue rhs)
-    {
-        var frame = new OperatorEvaluationFrame(NodeId, [lhs, rhs], effectiveType);
-        return (RuntimeSemanticsEvaluationResult)BinaryEval.Invoke(
-            op, [null, new BinaryLogicalOperatorSemanticContext(), ThrowawayBinary, frame])!;
-    }
-
-    protected static RuntimeSemanticsEvaluationResult Evaluate(
-        UnaryLogicalOperatorRuntimeSemantics op, VBType effectiveType, VBTypedValue operand)
-    {
-        var frame = new OperatorEvaluationFrame(NodeId, [operand], effectiveType);
-        return (RuntimeSemanticsEvaluationResult)UnaryEval.Invoke(
-            op, [null, new UnaryLogicalOperatorSemanticContext(), ThrowawayUnary, frame])!;
-    }
+        UnaryLogicalOperatorRuntimeSemantics op, VBTypedValue operand)
+        => op.Evaluate(null!, new UnaryLogicalOperatorSemanticContext(), ThrowawayUnary, operand);
 
     /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
     protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(
