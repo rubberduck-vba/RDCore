@@ -61,13 +61,16 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
-        ConversionOperationSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ConversionOperationSemanticContext context,
+        VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
-        => frame[InputIndex.BinaryRightOperand].GetTargetType() is VBType targetType 
-            && targetType is VBIntrinsicType or VBClassType or VBUserDefinedType 
-                ? DetermineOperatorEffectiveTypeResult.Success(targetType)
-                : DetermineOperatorEffectiveTypeResult.NotApplicable();
+    {
+        var targetType = frame[InputIndex.BinaryRightOperand].GetTargetType();
+        return targetType is VBIntrinsicType or VBClassType or VBUserDefinedType
+            ? DetermineOperatorEffectiveTypeResult.Success(targetType)
+            : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", targetType.Name)));
+    }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,

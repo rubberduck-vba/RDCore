@@ -145,7 +145,10 @@ public record class VBStringLetCoercionRuntimeSemantics(
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, CultureInfo cultureInfo)
     {
-        var numericValue = (double)value.RuntimeValue.BoxedValue;
+        // BoxedValue's CLR type tracks the source's own numeric type (int for Long, short for
+        // Integer, ...), not always double — a direct (double) unboxing cast throws for anything
+        // that isn't already a boxed double. AsDouble widens through Convert.ToDouble instead.
+        var numericValue = value.AsDouble;
         if (numericValue == 0)
         {
             return LetCoercionResult.Success(new VBStringValue(VBStringValue.Zero));
