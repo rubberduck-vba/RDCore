@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -16,44 +17,55 @@ public sealed class BinaryIntegerDivisionOperatorEffectiveTypeTests : OperatorAr
     // '\' and 'Mod' share the same effective-type determination; either vehicle exercises it.
     private static BinaryIntegerDivisionOperatorRuntimeSemantics Op() => new(FakeProvider(), Formatter());
 
-    [TestMethod]
-    public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
+    private static readonly VBType VbByte = VBByteType.TypeInfo, VbBoolean = VBBooleanType.TypeInfo,
+        VbInteger = VBIntegerType.TypeInfo, VbLong = VBLongType.TypeInfo, VbLongLong = VBLongLongType.TypeInfo,
+        VbSingle = VBSingleType.TypeInfo, VbDouble = VBDoubleType.TypeInfo, VbCurrency = VBCurrencyType.TypeInfo,
+        VbDecimal = VBDecimalType.TypeInfo, VbDate = VBDateType.TypeInfo, VbString = VBStringType.TypeInfo,
+        VbEmpty = VBEmptyType.TypeInfo;
+
+    public static IEnumerable<object[]> Grid()
     {
-        VBType vbByte = VBByteType.TypeInfo, vbBoolean = VBBooleanType.TypeInfo, vbInteger = VBIntegerType.TypeInfo,
-            vbLong = VBLongType.TypeInfo, vbLongLong = VBLongLongType.TypeInfo, vbSingle = VBSingleType.TypeInfo,
-            vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo, vbDecimal = VBDecimalType.TypeInfo,
-            vbDate = VBDateType.TypeInfo, vbString = VBStringType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo;
+        // this pair alone used to fail: the effective-type override read its own left operand's
+        // type in place of the right operand's, so this row could never match and always fell
+        // through to the base table's (wrong, for '\'/'Mod') Byte-stays-Byte rule instead.
+        yield return [VbByte, VbEmpty, VbInteger];
+        yield return [VbEmpty, VbByte, VbInteger];
 
-        (VBType lhs, VBType rhs, VBType expected)[] grid =
-        [
-            // this pair alone used to fail: the effective-type override read its own left operand's
-            // type in place of the right operand's, so this row could never match and always fell
-            // through to the base table's (wrong, for '\'/'Mod') Byte-stays-Byte rule instead.
-            (vbByte, vbEmpty, vbInteger), (vbEmpty, vbByte, vbInteger),
+        yield return [VbBoolean, VbSingle, VbInteger];
+        yield return [VbBoolean, VbDouble, VbInteger];
+        yield return [VbBoolean, VbString, VbInteger];
+        yield return [VbBoolean, VbCurrency, VbInteger];
+        yield return [VbBoolean, VbDate, VbInteger];
+        yield return [VbBoolean, VbDecimal, VbInteger];
 
-            (vbBoolean, vbSingle, vbInteger), (vbBoolean, vbDouble, vbInteger), (vbBoolean, vbString, vbInteger), (vbBoolean, vbCurrency, vbInteger), (vbBoolean, vbDate, vbInteger), (vbBoolean, vbDecimal, vbInteger),
+        // row 3 (Boolean/Integer, Single/Double/…) is asymmetric in MS-VBAL — there is no
+        // mirrored "RHS is Boolean/Integer" row, so Integer \ Single lands here (Integer), while
+        // Single \ Integer falls through to the general rule below (Long).
+        yield return [VbInteger, VbSingle, VbInteger];
 
-            // row 3 (Boolean/Integer, Single/Double/…) is asymmetric in MS-VBAL — there is no
-            // mirrored "RHS is Boolean/Integer" row, so Integer \ Single lands here (Integer), while
-            // Single \ Integer falls through to the general rule below (Long).
-            (vbInteger, vbSingle, vbInteger),
+        yield return [VbSingle, VbInteger, VbLong];
+        yield return [VbString, VbLong, VbLong];
+        yield return [VbDate, VbCurrency, VbLong];
+        yield return [VbLong, VbString, VbLong];
+        yield return [VbCurrency, VbDate, VbLong];
 
-            (vbSingle, vbInteger, vbLong), (vbString, vbLong, vbLong), (vbDate, vbCurrency, vbLong),
-            (vbLong, vbString, vbLong), (vbCurrency, vbDate, vbLong),
+        yield return [VbLongLong, VbInteger, VbLongLong];
+        yield return [VbInteger, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbString, VbLongLong];
+        yield return [VbString, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbEmpty, VbLongLong];
+        yield return [VbEmpty, VbLongLong, VbLongLong];
+    }
 
-            (vbLongLong, vbInteger, vbLongLong), (vbInteger, vbLongLong, vbLongLong), (vbLongLong, vbString, vbLongLong), (vbString, vbLongLong, vbLongLong), (vbLongLong, vbEmpty, vbLongLong), (vbEmpty, vbLongLong, vbLongLong),
-        ];
+    public static string GetTestName(MethodInfo method, object[] data)
+        => $"({((VBType)data[0]).Name}, {((VBType)data[1]).Name}):{((VBType)data[2]).Name}";
 
-        var failures = new List<string>();
-        foreach (var (lhs, rhs, expected) in grid)
-        {
-            var result = DetermineEffectiveType(Op(), lhs, rhs);
-            if (!result.IsApplicable || !Equals(result.Result, expected))
-            {
-                failures.Add($"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got {(result.IsApplicable ? result.Result!.Name : "type mismatch")}");
-            }
-        }
-
-        Assert.AreEqual(0, failures.Count, string.Join(Environment.NewLine, failures));
+    [TestMethod]
+    [DynamicData(nameof(Grid), DynamicDataDisplayName = nameof(GetTestName))]
+    public void ResolvesEffectiveValueType(VBType lhs, VBType rhs, VBType expected)
+    {
+        var result = DetermineEffectiveType(Op(), lhs, rhs);
+        Assert.IsTrue(result.IsApplicable, $"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got type mismatch");
+        Assert.AreEqual(expected, result.Result);
     }
 }

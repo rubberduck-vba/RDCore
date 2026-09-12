@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -16,57 +17,132 @@ public sealed class BinaryArithmeticOperatorEffectiveTypeTests : OperatorArithme
     // subtraction has no operator-specific override, so it exercises the shared base table verbatim.
     private static BinarySubtractionOperatorRuntimeSematics Op() => new(FakeProvider(), Formatter());
 
-    [TestMethod]
-    public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
+    private static readonly VBType VbByte = VBByteType.TypeInfo, VbBoolean = VBBooleanType.TypeInfo,
+        VbInteger = VBIntegerType.TypeInfo, VbLong = VBLongType.TypeInfo, VbLongLong = VBLongLongType.TypeInfo,
+        VbSingle = VBSingleType.TypeInfo, VbDouble = VBDoubleType.TypeInfo, VbCurrency = VBCurrencyType.TypeInfo,
+        VbDecimal = VBDecimalType.TypeInfo, VbDate = VBDateType.TypeInfo, VbString = VBStringType.TypeInfo,
+        VbEmpty = VBEmptyType.TypeInfo, VbNull = VBNullType.TypeInfo;
+
+    public static IEnumerable<object[]> Grid()
     {
-        VBType vbByte = VBByteType.TypeInfo, vbBoolean = VBBooleanType.TypeInfo, vbInteger = VBIntegerType.TypeInfo,
-            vbLong = VBLongType.TypeInfo, vbLongLong = VBLongLongType.TypeInfo, vbSingle = VBSingleType.TypeInfo,
-            vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo, vbDecimal = VBDecimalType.TypeInfo,
-            vbDate = VBDateType.TypeInfo, vbString = VBStringType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo,
-            vbNull = VBNullType.TypeInfo;
+        yield return [VbByte, VbByte, VbByte];
+        yield return [VbByte, VbEmpty, VbByte];
+        yield return [VbEmpty, VbByte, VbByte];
 
-        (VBType lhs, VBType rhs, VBType expected)[] grid =
-        [
-            (vbByte, vbByte, vbByte), (vbByte, vbEmpty, vbByte), (vbEmpty, vbByte, vbByte),
+        yield return [VbBoolean, VbBoolean, VbInteger];
+        yield return [VbBoolean, VbByte, VbInteger];
+        yield return [VbByte, VbBoolean, VbInteger];
+        yield return [VbBoolean, VbInteger, VbInteger];
+        yield return [VbInteger, VbBoolean, VbInteger];
+        yield return [VbInteger, VbInteger, VbInteger];
+        yield return [VbInteger, VbEmpty, VbInteger];
+        yield return [VbEmpty, VbInteger, VbInteger];
+        yield return [VbBoolean, VbEmpty, VbInteger];
+        yield return [VbEmpty, VbBoolean, VbInteger];
+        yield return [VbEmpty, VbEmpty, VbInteger];
 
-            (vbBoolean, vbBoolean, vbInteger), (vbBoolean, vbByte, vbInteger), (vbByte, vbBoolean, vbInteger), (vbBoolean, vbInteger, vbInteger), (vbInteger, vbBoolean, vbInteger), (vbInteger, vbInteger, vbInteger), (vbInteger, vbEmpty, vbInteger), (vbEmpty, vbInteger, vbInteger), (vbBoolean, vbEmpty, vbInteger), (vbEmpty, vbBoolean, vbInteger),
-            (vbEmpty, vbEmpty, vbInteger),
+        yield return [VbLong, VbByte, VbLong];
+        yield return [VbByte, VbLong, VbLong];
+        yield return [VbLong, VbBoolean, VbLong];
+        yield return [VbLong, VbInteger, VbLong];
+        yield return [VbInteger, VbLong, VbLong];
+        yield return [VbLong, VbLong, VbLong];
+        yield return [VbLong, VbEmpty, VbLong];
+        yield return [VbEmpty, VbLong, VbLong];
 
-            (vbLong, vbByte, vbLong), (vbByte, vbLong, vbLong), (vbLong, vbBoolean, vbLong), (vbLong, vbInteger, vbLong), (vbInteger, vbLong, vbLong), (vbLong, vbLong, vbLong), (vbLong, vbEmpty, vbLong), (vbEmpty, vbLong, vbLong),
+        yield return [VbLongLong, VbInteger, VbLongLong];
+        yield return [VbInteger, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbLong, VbLongLong];
+        yield return [VbLong, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbEmpty, VbLongLong];
+        yield return [VbEmpty, VbLongLong, VbLongLong];
 
-            (vbLongLong, vbInteger, vbLongLong), (vbInteger, vbLongLong, vbLongLong), (vbLongLong, vbLong, vbLongLong), (vbLong, vbLongLong, vbLongLong), (vbLongLong, vbLongLong, vbLongLong), (vbLongLong, vbEmpty, vbLongLong), (vbEmpty, vbLongLong, vbLongLong),
+        yield return [VbSingle, VbByte, VbSingle];
+        yield return [VbByte, VbSingle, VbSingle];
+        yield return [VbSingle, VbBoolean, VbSingle];
+        yield return [VbSingle, VbInteger, VbSingle];
+        yield return [VbInteger, VbSingle, VbSingle];
+        yield return [VbSingle, VbSingle, VbSingle];
+        yield return [VbSingle, VbEmpty, VbSingle];
+        yield return [VbEmpty, VbSingle, VbSingle];
+        yield return [VbSingle, VbLong, VbDouble];
+        yield return [VbLong, VbSingle, VbDouble];
+        yield return [VbSingle, VbLongLong, VbDouble];
+        yield return [VbLongLong, VbSingle, VbDouble];
 
-            (vbSingle, vbByte, vbSingle), (vbByte, vbSingle, vbSingle), (vbSingle, vbBoolean, vbSingle), (vbSingle, vbInteger, vbSingle), (vbInteger, vbSingle, vbSingle), (vbSingle, vbSingle, vbSingle), (vbSingle, vbEmpty, vbSingle), (vbEmpty, vbSingle, vbSingle),
-            (vbSingle, vbLong, vbDouble), (vbLong, vbSingle, vbDouble), (vbSingle, vbLongLong, vbDouble), (vbLongLong, vbSingle, vbDouble),
+        yield return [VbDouble, VbInteger, VbDouble];
+        yield return [VbInteger, VbDouble, VbDouble];
+        yield return [VbDouble, VbDouble, VbDouble];
+        yield return [VbDouble, VbString, VbDouble];
+        yield return [VbString, VbDouble, VbDouble];
+        yield return [VbDouble, VbEmpty, VbDouble];
+        yield return [VbEmpty, VbDouble, VbDouble];
+        yield return [VbString, VbInteger, VbDouble];
+        yield return [VbInteger, VbString, VbDouble];
+        yield return [VbString, VbEmpty, VbDouble];
 
-            (vbDouble, vbInteger, vbDouble), (vbInteger, vbDouble, vbDouble), (vbDouble, vbDouble, vbDouble), (vbDouble, vbString, vbDouble), (vbString, vbDouble, vbDouble), (vbDouble, vbEmpty, vbDouble), (vbEmpty, vbDouble, vbDouble), (vbString, vbInteger, vbDouble), (vbInteger, vbString, vbDouble), (vbString, vbEmpty, vbDouble),
+        yield return [VbCurrency, VbInteger, VbCurrency];
+        yield return [VbInteger, VbCurrency, VbCurrency];
+        yield return [VbCurrency, VbCurrency, VbCurrency];
+        yield return [VbCurrency, VbString, VbCurrency];
+        yield return [VbString, VbCurrency, VbCurrency];
+        yield return [VbCurrency, VbEmpty, VbCurrency];
+        yield return [VbEmpty, VbCurrency, VbCurrency];
+        yield return [VbCurrency, VbDouble, VbCurrency];
 
-            (vbCurrency, vbInteger, vbCurrency), (vbInteger, vbCurrency, vbCurrency), (vbCurrency, vbCurrency, vbCurrency), (vbCurrency, vbString, vbCurrency), (vbString, vbCurrency, vbCurrency), (vbCurrency, vbEmpty, vbCurrency), (vbEmpty, vbCurrency, vbCurrency), (vbCurrency, vbDouble, vbCurrency),
+        // MS-VBAL 5.6.9.3 explicitly lists Currency as a Date runtime-semantics partner in both
+        // directions, alongside every other numeric/string/empty combination:
+        yield return [VbDate, VbInteger, VbDate];
+        yield return [VbInteger, VbDate, VbDate];
+        yield return [VbDate, VbDate, VbDate];
+        yield return [VbDate, VbString, VbDate];
+        yield return [VbString, VbDate, VbDate];
+        yield return [VbDate, VbEmpty, VbDate];
+        yield return [VbEmpty, VbDate, VbDate];
+        yield return [VbDate, VbCurrency, VbDate];
+        yield return [VbCurrency, VbDate, VbDate];
 
-            // MS-VBAL 5.6.9.3 explicitly lists Currency as a Date runtime-semantics partner in both
-            // directions, alongside every other numeric/string/empty combination:
-            (vbDate, vbInteger, vbDate), (vbInteger, vbDate, vbDate), (vbDate, vbDate, vbDate), (vbDate, vbString, vbDate), (vbString, vbDate, vbDate), (vbDate, vbEmpty, vbDate), (vbEmpty, vbDate, vbDate),
-            (vbDate, vbCurrency, vbDate), (vbCurrency, vbDate, vbDate),
+        // Decimal only ever reaches this table via a Variant holding a CDec value, but MS-VBAL
+        // still specifies its own effective type here (not Currency's) and lists Date as a partner:
+        yield return [VbDecimal, VbInteger, VbDecimal];
+        yield return [VbInteger, VbDecimal, VbDecimal];
+        yield return [VbDecimal, VbDecimal, VbDecimal];
+        yield return [VbDecimal, VbString, VbDecimal];
+        yield return [VbString, VbDecimal, VbDecimal];
+        yield return [VbDecimal, VbEmpty, VbDecimal];
+        yield return [VbEmpty, VbDecimal, VbDecimal];
+        yield return [VbDecimal, VbCurrency, VbDecimal];
+        yield return [VbCurrency, VbDecimal, VbDecimal];
+        yield return [VbDecimal, VbDate, VbDecimal];
+        yield return [VbDate, VbDecimal, VbDecimal];
 
-            // Decimal only ever reaches this table via a Variant holding a CDec value, but MS-VBAL
-            // still specifies its own effective type here (not Currency's) and lists Date as a partner:
-            (vbDecimal, vbInteger, vbDecimal), (vbInteger, vbDecimal, vbDecimal), (vbDecimal, vbDecimal, vbDecimal), (vbDecimal, vbString, vbDecimal), (vbString, vbDecimal, vbDecimal), (vbDecimal, vbEmpty, vbDecimal), (vbEmpty, vbDecimal, vbDecimal),
-            (vbDecimal, vbCurrency, vbDecimal), (vbCurrency, vbDecimal, vbDecimal), (vbDecimal, vbDate, vbDecimal), (vbDate, vbDecimal, vbDecimal),
+        yield return [VbNull, VbInteger, VbNull];
+        yield return [VbInteger, VbNull, VbNull];
+        yield return [VbNull, VbDouble, VbNull];
+        yield return [VbDouble, VbNull, VbNull];
+        yield return [VbNull, VbCurrency, VbNull];
+        yield return [VbCurrency, VbNull, VbNull];
+        yield return [VbNull, VbDecimal, VbNull];
+        yield return [VbDecimal, VbNull, VbNull];
+        yield return [VbNull, VbDate, VbNull];
+        yield return [VbDate, VbNull, VbNull];
+        yield return [VbNull, VbString, VbNull];
+        yield return [VbString, VbNull, VbNull];
+        yield return [VbNull, VbEmpty, VbNull];
+        yield return [VbEmpty, VbNull, VbNull];
+        yield return [VbNull, VbNull, VbNull];
+    }
 
-            (vbNull, vbInteger, vbNull), (vbInteger, vbNull, vbNull), (vbNull, vbDouble, vbNull), (vbDouble, vbNull, vbNull), (vbNull, vbCurrency, vbNull), (vbCurrency, vbNull, vbNull), (vbNull, vbDecimal, vbNull), (vbDecimal, vbNull, vbNull),
-            (vbNull, vbDate, vbNull), (vbDate, vbNull, vbNull), (vbNull, vbString, vbNull), (vbString, vbNull, vbNull), (vbNull, vbEmpty, vbNull), (vbEmpty, vbNull, vbNull), (vbNull, vbNull, vbNull),
-        ];
+    public static string GetTestName(MethodInfo method, object[] data)
+        => $"({((VBType)data[0]).Name}, {((VBType)data[1]).Name}):{((VBType)data[2]).Name}";
 
-        var failures = new List<string>();
-        foreach (var (lhs, rhs, expected) in grid)
-        {
-            var result = DetermineEffectiveType(Op(), lhs, rhs);
-            if (!result.IsApplicable || !Equals(result.Result, expected))
-            {
-                failures.Add($"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got {(result.IsApplicable ? result.Result!.Name : "type mismatch")}");
-            }
-        }
-
-        Assert.AreEqual(0, failures.Count, string.Join(Environment.NewLine, failures));
+    [TestMethod]
+    [DynamicData(nameof(Grid), DynamicDataDisplayName = nameof(GetTestName))]
+    public void ResolvesEffectiveValueType(VBType lhs, VBType rhs, VBType expected)
+    {
+        var result = DetermineEffectiveType(Op(), lhs, rhs);
+        Assert.IsTrue(result.IsApplicable, $"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got type mismatch");
+        Assert.AreEqual(expected, result.Result);
     }
 }

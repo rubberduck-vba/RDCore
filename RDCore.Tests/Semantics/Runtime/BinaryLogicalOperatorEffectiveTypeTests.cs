@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -18,43 +19,67 @@ public sealed class BinaryLogicalOperatorEffectiveTypeTests : OperatorLogicalRun
 {
     private static BinaryAndLogicalOperatorRuntimeSemantics Op() => new(FakeProvider(), Formatter());
 
-    [TestMethod]
-    public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
+    private static readonly VBType VbByte = VBByteType.TypeInfo, VbBoolean = VBBooleanType.TypeInfo,
+        VbInteger = VBIntegerType.TypeInfo, VbLong = VBLongType.TypeInfo, VbLongLong = VBLongLongType.TypeInfo,
+        VbSingle = VBSingleType.TypeInfo, VbDouble = VBDoubleType.TypeInfo, VbCurrency = VBCurrencyType.TypeInfo,
+        VbDecimal = VBDecimalType.TypeInfo, VbDate = VBDateType.TypeInfo, VbString = VBStringType.TypeInfo,
+        VbEmpty = VBEmptyType.TypeInfo, VbNull = VBNullType.TypeInfo;
+
+    public static IEnumerable<object[]> Grid()
     {
-        VBType vbByte = VBByteType.TypeInfo, vbBoolean = VBBooleanType.TypeInfo, vbInteger = VBIntegerType.TypeInfo,
-            vbLong = VBLongType.TypeInfo, vbLongLong = VBLongLongType.TypeInfo, vbSingle = VBSingleType.TypeInfo,
-            vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo, vbDecimal = VBDecimalType.TypeInfo,
-            vbDate = VBDateType.TypeInfo, vbString = VBStringType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo,
-            vbNull = VBNullType.TypeInfo;
+        yield return [VbByte, VbByte, VbByte];
+        yield return [VbByte, VbNull, VbByte];
+        yield return [VbNull, VbByte, VbByte];
+        yield return [VbBoolean, VbBoolean, VbBoolean];
+        yield return [VbBoolean, VbNull, VbBoolean];
+        yield return [VbNull, VbBoolean, VbBoolean];
+        yield return [VbByte, VbInteger, VbInteger];
+        yield return [VbInteger, VbInteger, VbInteger];
+        yield return [VbBoolean, VbInteger, VbInteger];
+        yield return [VbInteger, VbBoolean, VbInteger];
+        yield return [VbBoolean, VbByte, VbInteger];
+        yield return [VbByte, VbBoolean, VbInteger];
+        yield return [VbInteger, VbEmpty, VbInteger];
+        yield return [VbEmpty, VbEmpty, VbInteger];
+        yield return [VbNull, VbInteger, VbInteger];
+        yield return [VbInteger, VbNull, VbInteger];
+        yield return [VbEmpty, VbNull, VbInteger];
+        yield return [VbInteger, VbLong, VbLong];
+        yield return [VbLong, VbInteger, VbLong];
+        yield return [VbLong, VbLong, VbLong];
+        yield return [VbSingle, VbSingle, VbLong];
+        yield return [VbDouble, VbDouble, VbLong];
+        yield return [VbDouble, VbInteger, VbLong];
+        yield return [VbSingle, VbInteger, VbLong];
+        yield return [VbInteger, VbSingle, VbLong];
+        yield return [VbCurrency, VbCurrency, VbLong];
+        yield return [VbDecimal, VbInteger, VbLong];
+        yield return [VbInteger, VbDecimal, VbLong];
+        yield return [VbDate, VbLong, VbLong];
+        yield return [VbDate, VbInteger, VbLong];
+        yield return [VbString, VbInteger, VbLong];
+        yield return [VbInteger, VbString, VbLong];
+        yield return [VbSingle, VbNull, VbLong];
+        yield return [VbNull, VbDouble, VbLong];
+        yield return [VbInteger, VbLongLong, VbLongLong];
+        yield return [VbLongLong, VbInteger, VbLongLong];
+        yield return [VbLongLong, VbDouble, VbLongLong];
+        yield return [VbLongLong, VbDate, VbLongLong];
+        yield return [VbLongLong, VbNull, VbLongLong];
+        yield return [VbNull, VbLongLong, VbLongLong];
+        yield return [VbNull, VbNull, VbNull];
+    }
 
-        (VBType lhs, VBType rhs, VBType expected)[] grid =
-        [
-            (vbByte, vbByte, vbByte),
-            (vbByte, vbNull, vbByte), (vbNull, vbByte, vbByte),
-            (vbBoolean, vbBoolean, vbBoolean),
-            (vbBoolean, vbNull, vbBoolean), (vbNull, vbBoolean, vbBoolean),
-            (vbByte, vbInteger, vbInteger), (vbInteger, vbInteger, vbInteger), (vbBoolean, vbInteger, vbInteger), (vbInteger, vbBoolean, vbInteger), (vbBoolean, vbByte, vbInteger), (vbByte, vbBoolean, vbInteger),
-            (vbInteger, vbEmpty, vbInteger), (vbEmpty, vbEmpty, vbInteger), (vbNull, vbInteger, vbInteger), (vbInteger, vbNull, vbInteger), (vbEmpty, vbNull, vbInteger),
-            (vbInteger, vbLong, vbLong), (vbLong, vbInteger, vbLong), (vbLong, vbLong, vbLong),
-            (vbSingle, vbSingle, vbLong), (vbDouble, vbDouble, vbLong), (vbDouble, vbInteger, vbLong), (vbSingle, vbInteger, vbLong), (vbInteger, vbSingle, vbLong),
-            (vbCurrency, vbCurrency, vbLong), (vbDecimal, vbInteger, vbLong), (vbInteger, vbDecimal, vbLong),
-            (vbDate, vbLong, vbLong), (vbDate, vbInteger, vbLong), (vbString, vbInteger, vbLong), (vbInteger, vbString, vbLong),
-            (vbSingle, vbNull, vbLong), (vbNull, vbDouble, vbLong),
-            (vbInteger, vbLongLong, vbLongLong), (vbLongLong, vbInteger, vbLongLong), (vbLongLong, vbDouble, vbLongLong), (vbLongLong, vbDate, vbLongLong), (vbLongLong, vbNull, vbLongLong), (vbNull, vbLongLong, vbLongLong),
-            (vbNull, vbNull, vbNull),
-        ];
+    public static string GetTestName(MethodInfo method, object[] data)
+        => $"({((VBType)data[0]).Name}, {((VBType)data[1]).Name}):{((VBType)data[2]).Name}";
 
-        var failures = new List<string>();
-        foreach (var (lhs, rhs, expected) in grid)
-        {
-            var result = DetermineEffectiveType(Op(), lhs, rhs);
-            if (!result.IsApplicable || !Equals(result.Result, expected))
-            {
-                failures.Add($"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got {(result.IsApplicable ? result.Result!.Name : "type mismatch")}");
-            }
-        }
-
-        Assert.AreEqual(0, failures.Count, string.Join(Environment.NewLine, failures));
+    [TestMethod]
+    [DynamicData(nameof(Grid), DynamicDataDisplayName = nameof(GetTestName))]
+    public void ResolvesEffectiveValueType(VBType lhs, VBType rhs, VBType expected)
+    {
+        var result = DetermineEffectiveType(Op(), lhs, rhs);
+        Assert.IsTrue(result.IsApplicable, $"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got type mismatch");
+        Assert.AreEqual(expected, result.Result);
     }
 
     [TestMethod]
