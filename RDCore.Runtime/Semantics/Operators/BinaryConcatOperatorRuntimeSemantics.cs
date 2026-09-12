@@ -1,7 +1,9 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -63,12 +65,13 @@ public record class BinaryConcatOperatorRuntimeSemantics(
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
-        ConcatOperationSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ConcatOperationSemanticContext context,
+        VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
+        var lhs = frame[InputIndex.BinaryLeftOperand].TypeInfo;
         var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
-        return frame[InputIndex.BinaryLeftOperand].TypeInfo switch
+        return lhs switch
         {
             VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
                 when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType
@@ -86,22 +89,32 @@ public record class BinaryConcatOperatorRuntimeSemantics(
                 when rhs is VBNullType
                     => DetermineOperatorEffectiveTypeResult.Success(VBNullType.TypeInfo),
 
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+            _ => DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [lhs.Name, rhs.Name]))))
         };
     }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,
-        ConcatOperationSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ConcatOperationSemanticContext context,
+        VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame) =>
         frame.EffectiveType switch
         {
             VBStringType => RuntimeSemanticsEvaluationResult.Success(
-                new VBStringValue($"{((VBStringValue)frame[InputIndex.BinaryLeftOperand]).Value}{((VBStringValue)frame[InputIndex.BinaryRightOperand]).Value}")),
+                new VBStringValue($"{StringOperand(frame[InputIndex.BinaryLeftOperand])}{StringOperand(frame[InputIndex.BinaryRightOperand])}")),
 
             VBNullType => EvaluateNullBinaryExpressionResult(),
 
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+
+    /// <summary>
+    /// The pipeline exempts <c>Null</c> operands from let-coercion regardless of the operator's
+    /// effective type (RD-VBAL 5.6.9.2), so a String-effective-type evaluation can still see a
+    /// surviving <see cref="VBNullValue"/> operand — e.g. <c>Null &amp; "x"</c>, whose value type is
+    /// String per MS-VBAL §5.6.9.4's table (only <c>Null &amp; Null</c> resolves to <c>Null</c>). Such
+    /// an operand contributes an empty string rather than being cast as a <see cref="VBStringValue"/>.
+    /// </summary>
+    private static string StringOperand(VBTypedValue operand) => operand is VBStringValue value ? value.Value! : string.Empty;
 }
