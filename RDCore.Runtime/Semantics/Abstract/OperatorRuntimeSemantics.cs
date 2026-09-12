@@ -208,11 +208,24 @@ where TFlags : struct, Enum
             frame = frame with { EffectiveType = effectiveType };
 
             // 2. Validate the operands (let-coercion and overflow checks).
-            var validOperands = Enumerable.Range(0, frame.Operands.Length)
+            var operandValidations = Enumerable.Range(0, frame.Operands.Length)
                 .Select(index => ValidateOperand(resolver, expression, frame, (InputIndex)index))
-                .Where(validation => validation.Result is not null)
-                .Select(validation => validation.Result)
-                .Cast<VBTypedValue>();
+                .ToArray();
+
+            // a genuine coercion failure (e.g. Overflow) on any operand must short-circuit evaluation
+            // here with its own error - silently dropping the operand would leave EvaluateExpressionResult
+            // indexing into an array shorter than frame.Operands, and hide the real error entirely.
+            foreach (var validation in operandValidations)
+            {
+                if (validation.Result is null)
+                {
+                    return RuntimeSemanticsEvaluationResult.Error(validation.ErrorInfo
+                        ?? OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
+                            Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose));
+                }
+            }
+
+            var validOperands = operandValidations.Select(validation => validation.Result!);
 
             // 3. Evaluate the result.
             var evaluateResult = EvaluateExpressionResult(resolver, context, expression, frame with { Operands = [.. validOperands] });

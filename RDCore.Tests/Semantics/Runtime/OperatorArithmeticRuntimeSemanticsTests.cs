@@ -13,6 +13,8 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Analysis;
+using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
@@ -45,6 +47,37 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
                 return LetCoercionResult.Success(source is VBDateValue date ? new VBDoubleValue(date.SerialValue) : source);
             });
         return provider;
+    }
+
+    /// <summary>
+    /// The real Numeric, String, Date and Boolean let-coercion strategies — for tests that need an
+    /// operand's own let-coercion to genuinely run (and potentially fail), rather than the identity
+    /// passthrough of <see cref="FakeProvider"/>.
+    /// </summary>
+    protected static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
+    {
+        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var handle = new ProviderHandle();
+        ILetCoercionRuntimeSemantics[] strategies =
+        [
+            new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle),
+            new VBStringLetCoercionRuntimeSemantics(fmt, handle),
+            new VBDateLetCoercionRuntimeSemantics(handle, fmt),
+            new VBBooleanLetCoercionRuntimeSemantics(handle, fmt),
+        ];
+        var provider = new LetCoercionRuntimeSemanticsProvider(strategies, fmt);
+        handle.Inner = provider;
+        return provider;
+    }
+
+    /// <summary>Breaks the provider ⇄ strategy construction cycle (strategies take the provider itself for recursive coercions).</summary>
+    private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
+    {
+        public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+            => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
+        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
+            => Inner.Analyze(resolver, builder, expression, frame);
     }
 
     private static readonly VBBinaryOperatorExpressionNode ThrowawayBinary = new(
