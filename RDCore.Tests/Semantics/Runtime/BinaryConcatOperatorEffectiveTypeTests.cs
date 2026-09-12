@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -27,45 +28,49 @@ public sealed class BinaryConcatOperatorEffectiveTypeTests : OperatorConcatRunti
 {
     private static BinaryConcatOperatorRuntimeSemantics Op() => new(FakeProvider(), Formatter());
 
-    [TestMethod]
-    public void ResolvesEffectiveValueType_AcrossTheOperandGrid()
+    private static readonly VBType VbLong = VBLongType.TypeInfo, VbDouble = VBDoubleType.TypeInfo,
+        VbCurrency = VBCurrencyType.TypeInfo, VbString = VBStringType.TypeInfo, VbDate = VBDateType.TypeInfo,
+        VbEmpty = VBEmptyType.TypeInfo, VbNull = VBNullType.TypeInfo;
+
+    public static IEnumerable<object[]> Grid()
     {
-        VBType vbLong = VBLongType.TypeInfo, vbDouble = VBDoubleType.TypeInfo, vbCurrency = VBCurrencyType.TypeInfo,
-            vbString = VBStringType.TypeInfo, vbDate = VBDateType.TypeInfo, vbEmpty = VBEmptyType.TypeInfo,
-            vbNull = VBNullType.TypeInfo;
+        // numeric & numeric: the table doesn't distinguish between numeric subtypes (unlike the
+        // arithmetic table), so a couple of representative pairs cover the "any numeric type" match.
+        yield return [VbLong, VbLong, VbString];
+        yield return [VbDouble, VbCurrency, VbString];
 
-        (VBType lhs, VBType rhs, VBType expected)[] grid =
-        [
-            // numeric & numeric: the table doesn't distinguish between numeric subtypes (unlike the
-            // arithmetic table), so a couple of representative pairs cover the "any numeric type" match.
-            (vbLong, vbLong, vbString), (vbDouble, vbCurrency, vbString),
+        yield return [VbLong, VbString, VbString];
+        yield return [VbString, VbLong, VbString];
+        yield return [VbString, VbString, VbString];
+        yield return [VbDate, VbString, VbString];
+        yield return [VbString, VbDate, VbString];
+        yield return [VbLong, VbDate, VbString];
+        yield return [VbDate, VbLong, VbString];
+        yield return [VbEmpty, VbLong, VbString];
+        yield return [VbLong, VbEmpty, VbString];
+        yield return [VbEmpty, VbEmpty, VbString];
 
-            (vbLong, vbString, vbString), (vbString, vbLong, vbString),
-            (vbString, vbString, vbString),
-            (vbDate, vbString, vbString), (vbString, vbDate, vbString),
-            (vbLong, vbDate, vbString), (vbDate, vbLong, vbString),
-            (vbEmpty, vbLong, vbString), (vbLong, vbEmpty, vbString), (vbEmpty, vbEmpty, vbString),
+        // a lone Null operand still resolves to String (it's exempted from let-coercion at evaluation,
+        // not from effective-type resolution — see BinaryConcatOperatorRuntimeTests for the
+        // runtime-evaluation half of this, which used to crash on this exact case):
+        yield return [VbNull, VbLong, VbString];
+        yield return [VbLong, VbNull, VbString];
+        yield return [VbNull, VbString, VbString];
+        yield return [VbString, VbNull, VbString];
 
-            // a lone Null operand still resolves to String (it's exempted from let-coercion at
-            // evaluation, not from effective-type resolution — see BinaryConcatOperatorRuntimeTests
-            // for the runtime-evaluation half of this, which used to crash on this exact case):
-            (vbNull, vbLong, vbString), (vbLong, vbNull, vbString),
-            (vbNull, vbString, vbString), (vbString, vbNull, vbString),
+        yield return [VbNull, VbNull, VbNull];
+    }
 
-            (vbNull, vbNull, vbNull),
-        ];
+    public static string GetTestName(MethodInfo method, object[] data)
+        => $"({((VBType)data[0]).Name}, {((VBType)data[1]).Name}):{((VBType)data[2]).Name}";
 
-        var failures = new List<string>();
-        foreach (var (lhs, rhs, expected) in grid)
-        {
-            var result = DetermineEffectiveType(Op(), lhs, rhs);
-            if (!result.IsApplicable || !Equals(result.Result, expected))
-            {
-                failures.Add($"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got {(result.IsApplicable ? result.Result!.Name : "type mismatch")}");
-            }
-        }
-
-        Assert.AreEqual(0, failures.Count, string.Join(Environment.NewLine, failures));
+    [TestMethod]
+    [DynamicData(nameof(Grid), DynamicDataDisplayName = nameof(GetTestName))]
+    public void ResolvesEffectiveValueType(VBType lhs, VBType rhs, VBType expected)
+    {
+        var result = DetermineEffectiveType(Op(), lhs, rhs);
+        Assert.IsTrue(result.IsApplicable, $"({lhs.Name}, {rhs.Name}) expected {expected.Name}, got type mismatch");
+        Assert.AreEqual(expected, result.Result);
     }
 
     [TestMethod]
