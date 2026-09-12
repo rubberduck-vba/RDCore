@@ -184,7 +184,7 @@
     <value>Cette opération de coercion est déterministiquement récursive et résultera systématiquement en une erreur d'exécution. Voir la pile d'évaluation pour plus de détails.</value>
   </data>
   <data name="VBRuntimeInternalError_LetCoercionStackCorruption" xml:space="preserve">
-    <value>La pile interne de let-coercion a atteint un état désynchronisé inattendu. Stack: {$FRAMES}, HashSet: {$HASH}.</value>
+    <value>La pile interne de let-coercion a atteint un état désynchronisé inattendu. Profondeur : {$DEPTH}.</value>
   </data>
   <data name="VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose" xml:space="preserve">
     <value>L'évaluation de cette expression de type renvoie un résultat sémantiquement invalide inattendu  impossible à représenter.</value>
