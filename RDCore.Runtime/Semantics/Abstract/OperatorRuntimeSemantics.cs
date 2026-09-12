@@ -249,7 +249,7 @@ where TFlags : struct, Enum
     /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="expression">The operator expression being evaluated.</param>
     /// <param name="frame">The operation evaluation frame.</param>
-    protected LetCoercionResult ValidateOperand(
+    protected virtual LetCoercionResult ValidateOperand(
         ISymbolResolver resolver,
         VBOperatorExpression expression,
         OperatorEvaluationFrame frame,

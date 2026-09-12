@@ -72,6 +72,20 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
                 Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", targetType.Name)));
     }
 
+    protected override LetCoercionResult ValidateOperand(
+        ISymbolResolver resolver,
+        VBOperatorExpression expression,
+        OperatorEvaluationFrame frame,
+        InputIndex index)
+        // This operator performs its own let-coercion inside EvaluateExpressionResult — the left
+        // operand's source value, coerced to the right operand's requested target type. The base
+        // pipeline's generic operand validation would pre-coerce the left operand toward
+        // frame.EffectiveType (the RESOLVED target type) before this operator gets to run its own
+        // logic — e.g. forcing a Date-effective-type operand to Double first, a rule meant for
+        // arithmetic operators (MS-VBAL 5.6.9.3) that doesn't apply here, corrupting the very source
+        // value this operator exists to coerce. Both operands pass through unchanged.
+        => LetCoercionResult.Success(frame[index], []);
+
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context, 
