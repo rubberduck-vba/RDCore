@@ -48,10 +48,13 @@ public abstract class OperatorLetCoerceRuntimeSemanticsTests : OperatorArithmeti
     }
 
     /// <summary>
-    /// The real Numeric and String let-coercion strategies — the operator's own job is delegation, but
-    /// delegating to a fake identity passthrough would never exercise an actual coercion. Boolean-target
-    /// (and Boolean-source) coercion is intentionally left unwired here — its own strategy class has an
-    /// unrelated unboxing-cast bug, out of scope for this operator's own coverage.
+    /// The real Numeric, String and Date let-coercion strategies — the operator's own job is
+    /// delegation, but delegating to a fake identity passthrough would never exercise an actual
+    /// coercion. Boolean-target (and Boolean-source) coercion is intentionally left unwired here — its
+    /// own strategy class has an unrelated unboxing-cast bug — and every Date-involving scenario
+    /// currently fails regardless, via the shared pipeline's operand-coercion-failure bug (see the
+    /// <c>[Ignore]</c>d tests in <c>BinaryLetCoerceOperatorRuntimeTests</c>); all out of scope for this
+    /// operator's own coverage.
     /// </summary>
     protected static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
@@ -61,6 +64,7 @@ public abstract class OperatorLetCoerceRuntimeSemanticsTests : OperatorArithmeti
         [
             new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle),
             new VBStringLetCoercionRuntimeSemantics(fmt, handle),
+            new VBDateLetCoercionRuntimeSemantics(handle, fmt),
         ];
         var provider = new LetCoercionRuntimeSemanticsProvider(strategies, fmt);
         handle.Inner = provider;
