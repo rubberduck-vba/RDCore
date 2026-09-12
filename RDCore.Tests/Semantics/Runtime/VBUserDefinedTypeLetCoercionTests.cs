@@ -23,6 +23,8 @@ public sealed class VBUserDefinedTypeLetCoercionTests : LetCoercionRuntimeSemant
 
     // Symbol identity is location-based, not name-based — a distinct module name per UDT (via
     // TestModuleUri's own module-name parameter) gives each Udt(...) call a genuinely distinct type.
+    // (RDCore.Tests.Model.Types.VBUserDefinedTypeTests covers VBUserDefinedType equality/ToString
+    // directly, including the stack-overflow regression this used to hit.)
     private static VBUserDefinedType Udt(string name)
     {
         var uri = TestUri.TestModuleUri(name);
@@ -46,12 +48,11 @@ public sealed class VBUserDefinedTypeLetCoercionTests : LetCoercionRuntimeSemant
 
     [TestMethod]
     public void UdtSourceIntoNonMatchingTarget_IsTypeMismatch()
-        // a non-UDT, non-Variant target exercises the same "not the same UDT type" branch as a
-        // different UDT would, without needing a second VBUserDefinedType instance: comparing two
-        // distinct VBUserDefinedType/VBUserDefinedTypeMemberSymbol records for equality currently
-        // stack-overflows (InsufficientExecutionStackException) — a separate, pre-existing bug in the
-        // symbol/type model, out of scope for let-coercion; flagged as a follow-up.
         => AssertError(Coerce(Sut(), new VBUserDefinedTypeValue(Udt("Foo")), VBLongType.TypeInfo), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    public void DifferentUdtSource_IsTypeMismatch()
+        => AssertError(Coerce(Sut(), new VBUserDefinedTypeValue(Udt("Foo")), Udt("Bar")), VBRuntimeErrorId.TypeMismatch);
 
     [TestMethod]
     public void NumericSource_IntoUdtTarget_IsTypeMismatch()
