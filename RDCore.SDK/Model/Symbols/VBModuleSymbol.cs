@@ -14,6 +14,8 @@ namespace RDCore.SDK.Model.Symbols;
 public abstract record class VBModuleSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind)
     : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind)
 {
-    /// <summary>The module-level directives this module was declared under.</summary>
+    /// <summary>
+    /// The module-level directives this module was declared under.
+    /// </summary>
     public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
 }

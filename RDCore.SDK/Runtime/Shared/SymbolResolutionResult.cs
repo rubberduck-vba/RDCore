@@ -28,19 +28,29 @@ public readonly record struct SymbolResolutionResult(
     VBCompileErrorId? ErrorId,
     ImmutableArray<Symbol> Candidates)
 {
-    /// <summary><c>true</c> when the name bound to exactly one symbol.</summary>
+    /// <summary>
+    /// <c>true</c> when the name bound to exactly one symbol.
+    /// </summary>
     public bool IsResolved => Symbol is not null && ErrorId is null;
 
-    /// <summary><c>true</c> when no scope declared the name — not an error in itself.</summary>
+    /// <summary>
+    /// <c>true</c> when no scope declared the name — not an error in itself.
+    /// </summary>
     public bool IsUnbound => Symbol is null && ErrorId is null;
 
-    /// <summary><c>true</c> when the lookup hit a compile-time error.</summary>
+    /// <summary>
+    /// <c>true</c> when the lookup hit a compile-time error.
+    /// </summary>
     public bool IsError => ErrorId is not null;
 
-    /// <summary>A successful resolution to <paramref name="symbol"/>.</summary>
+    /// <summary>
+    /// A successful resolution to <paramref name="symbol"/>.
+    /// </summary>
     public static SymbolResolutionResult Resolved(Symbol symbol) => new(symbol, null, []);
 
-    /// <summary>The name is declared nowhere visible from the origin scope.</summary>
+    /// <summary>
+    /// The name is declared nowhere visible from the origin scope.
+    /// </summary>
     public static readonly SymbolResolutionResult Unbound = new(null, null, []);
 
     /// <summary>

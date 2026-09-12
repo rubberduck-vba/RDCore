@@ -19,6 +19,10 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     private static readonly Lazy<SimpleNameExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static SimpleNameExpressionStaticSemantics Instance => _instance.Value;
 
+    /// <summary>
+    /// Determines the declared type of a <see cref="SimpleNameExpressionNode"/> from the entity its
+    /// identifier resolves to in <paramref name="context"/>.
+    /// </summary>
     /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <see cref="SimpleNameExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">Unused — a simple name has no operands.</param>

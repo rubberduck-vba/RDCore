@@ -48,16 +48,24 @@ public sealed class LexicalScope
         _declarations = declarations.ToLookup(symbol => symbol.Name, StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>The <see cref="Symbol.Uri"/> of the symbol this scope belongs to.</summary>
+    /// <summary>
+    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to.
+    /// </summary>
     public Uri Uri { get; }
 
-    /// <summary>Which tier of the resolution tree this scope is.</summary>
+    /// <summary>
+    /// Which tier of the resolution tree this scope is.
+    /// </summary>
     public LexicalScopeKind Kind { get; }
 
-    /// <summary>The enclosing scope, or <c>null</c> for the global scope.</summary>
+    /// <summary>
+    /// The enclosing scope, or <c>null</c> for the global scope.
+    /// </summary>
     public LexicalScope? Parent { get; }
 
-    /// <summary>The declaring module's directives, for the module scope itself; <c>null</c> elsewhere.</summary>
+    /// <summary>
+    /// The declaring module's directives, for the module scope itself; <c>null</c> elsewhere.
+    /// </summary>
     public ModuleDirectives? Directives { get; }
 
     /// <summary>

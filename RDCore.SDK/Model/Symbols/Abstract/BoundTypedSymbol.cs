@@ -40,6 +40,8 @@ public abstract record class UnboundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri
 /// </remarks>
 public interface ITypedSymbol
 {
-    /// <summary>The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</summary>
+    /// <summary>
+    /// The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.
+    /// </summary>
     VBType ResolvedType { get; }
 }

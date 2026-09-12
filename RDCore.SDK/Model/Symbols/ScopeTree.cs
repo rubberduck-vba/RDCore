@@ -21,7 +21,9 @@ public sealed class ScopeTree
         _scopeByUri = scopeByUri;
     }
 
-    /// <summary>The root scope — every lookup that is not bound sooner ends here.</summary>
+    /// <summary>
+    /// The root scope — every lookup that is not bound sooner ends here.
+    /// </summary>
     public LexicalScope Global { get; }
 
     /// <summary>

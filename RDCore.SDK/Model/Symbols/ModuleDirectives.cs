@@ -24,6 +24,8 @@ namespace RDCore.SDK.Model.Symbols;
 /// </param>
 public readonly record struct ModuleDirectives(bool Explicit = false, bool Strict = false)
 {
-    /// <summary>The directives of a module that declares none of them explicitly.</summary>
+    /// <summary>
+    /// The directives of a module that declares none of them explicitly.
+    /// </summary>
     public static readonly ModuleDirectives None = new();
 }

@@ -20,7 +20,9 @@ public enum LexicalScopeKind
     /// </summary>
     Project,
 
-    /// <summary>One module body — the members that module declares.</summary>
+    /// <summary>
+    /// One module body — the members that module declares.
+    /// </summary>
     Module,
 
     /// <summary>
