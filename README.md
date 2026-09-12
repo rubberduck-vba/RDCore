@@ -58,7 +58,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Static type system, runtime type model | ✅ |
 | Symbol resolution — lexical scope tree, shadowing, ambiguity (RD-VBAL §2.3.1.2) | ✅ |
 | Static semantics — operators, let-coercions | ✅ |
-| Static semantics — symbol-backed expressions (simple names) | 🚧 member access + tree evaluator next |
+| Static semantics — symbol-backed expressions (simple names, member access) | 🚧 tree evaluator next |
 | Hosts, transport, connection lifecycle, platform-root | ✅ |
 | Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
 
