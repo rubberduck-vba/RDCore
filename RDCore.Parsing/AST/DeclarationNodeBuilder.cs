@@ -4,6 +4,9 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace RDCore.Parsing.AST;
 
@@ -339,6 +342,40 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildConditionalExpression(VBAParser.ExpressionContext context)
         => new ConditionalExpressionNode(NodeId, context.GetSourceLocation(_rootUri), [.. _children]);
+
+    // the condition is always the first child collected in this branch's own scope (booleanExpression
+    // is visited before the branch's body); a completed ElseIf/Else branch arrives as one already-built
+    // child (its own Exit having popped its own scope), never interleaved with the body it followed.
+    public SyntaxNode? BuildIfBlock(VBAParser.IfStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            // a half-typed `If` with no condition (recovery) leaves nothing to anchor the branch on.
+            return null;
+        }
+
+        var elseIfBlocks = _children.OfType<ElseIfBlockStatementNode>().ToImmutableArray();
+        var elseBlock = _children.OfType<ElseBlockStatementNode>().SingleOrDefault();
+        var body = _children.Skip(1)
+            .Where(child => child is not ElseIfBlockStatementNode && child is not ElseBlockStatementNode)
+            .ToImmutableArray();
+
+        return new IfBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body), elseIfBlocks, elseBlock);
+    }
+
+    public SyntaxNode? BuildElseIfBlock(VBAParser.ElseIfBlockContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new ElseIfBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
+    }
+
+    public SyntaxNode BuildElseBlock(VBAParser.ElseBlockContext context)
+        => new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
 
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);

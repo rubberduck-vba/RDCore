@@ -70,7 +70,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     private bool _isInsideProcedure = false;
     private bool _isAfterArgsList = false;
-    private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList;
+    // `booleanExpression` is only ever an `If`/`ElseIf` condition (MS-VBAL §5.4.2.8) — narrow enough
+    // to opt back into expression capture inside a procedure body without the general statement-body
+    // pass this flag is waiting on (see EnterArgList's remarks).
+    private int _isCapturingConditionExpression = 0;
+    private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList || _isCapturingConditionExpression > 0;
+
+    public override void EnterBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
+        => _isCapturingConditionExpression++;
+    public override void ExitBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
+        => _isCapturingConditionExpression--;
 
     private void OnModuleOptionDirective(SourceLocation location, ModuleOptions value) 
         => CurrentBuilder.AddChild(new ModuleOptionDirectiveNode(GetCurrentNodeId(), location, value));
@@ -201,9 +210,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // every other declaration listener: the AST has to round-trip, and a `ReDim` outside a
     // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
     // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
-    // statement between members, so the context is only reached inside a procedure body — nested
-    // arbitrarily deep in blocks, which this pass flattens onto the member. The symbol pass reads a
-    // procedure member's children, so a node parked anywhere else yields no symbol.)
+    // statement between members, so the context is only reached inside a procedure body. Nested
+    // inside If/ElseIf/Else it parents to that branch's own Body — SymbolBuilder.BuildLocals walks
+    // the whole body, not just the member's immediate children, to still find it. A block shape this
+    // pass hasn't wired yet (For/Do/While/Select) still flattens the ReDim straight onto the member.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
         => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
@@ -211,6 +221,39 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // recovery can leave Parent.Parent not pointing at the redimStmt that carries `Preserve`.
         var isPreserve = (context.Parent?.Parent as VBAParser.RedimStmtContext)?.PRESERVE() is not null;
         OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve));
+    }
+
+    // `If`/`ElseIf`/`Else` (MS-VBAL §5.4.2.8) — each branch's own scope collects its condition (when
+    // it has one) followed by whatever the branch body captures today (declarations only; the general
+    // statement-body pass is still to come). A branch missing its condition (recovery) builds nothing,
+    // matching ExitAsTypeClause's "don't build a broken node" precedent.
+    public override void EnterIfStmt([NotNull] VBAParser.IfStmtContext context)
+        => OnEnterParent();
+    public override void ExitIfStmt([NotNull] VBAParser.IfStmtContext context)
+        => OnExitParentIfBuilt(builder => builder.BuildIfBlock(context));
+
+    public override void EnterElseIfBlock([NotNull] VBAParser.ElseIfBlockContext context)
+        => OnEnterParent();
+    public override void ExitElseIfBlock([NotNull] VBAParser.ElseIfBlockContext context)
+        => OnExitParentIfBuilt(builder => builder.BuildElseIfBlock(context));
+
+    public override void EnterElseBlock([NotNull] VBAParser.ElseBlockContext context)
+        => OnEnterParent();
+    public override void ExitElseBlock([NotNull] VBAParser.ElseBlockContext context)
+        => OnExitParent(builder => builder.BuildElseBlock(context));
+
+    // like OnExitParent, but the provider may decline to build a node at all (a branch whose
+    // condition recovery left incomplete) rather than always producing one.
+    private void OnExitParentIfBuilt(Func<DeclarationNodeBuilder, SyntaxNode?> provider)
+    {
+        if (_builderStack.Count <= 1)
+        {
+            return;
+        }
+        if (provider.Invoke(_builderStack.Pop()) is { } node)
+        {
+            CurrentBuilder.AddChild(node);
+        }
     }
 
     private bool _isPropertyWriterMember = false;

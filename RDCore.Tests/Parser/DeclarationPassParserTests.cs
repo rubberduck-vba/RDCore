@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Text.Json;
 
@@ -563,9 +564,10 @@ End Sub
     }
 
     [TestMethod]
-    // the declarations pass flattens block nesting, so a ReDim inside If/For/With still parents to
-    // the procedure member — the symbol pass reads `member.Children` and must find it there.
-    public void Redim_NestedInABlock_ParentsToTheProcedureMember()
+    // an If block now has its own shape (ConditionExpression + Body), so a ReDim nested in its
+    // branch parents to that branch's Body, not to the procedure member directly — SymbolBuilder is
+    // the one that walks the whole body looking for locals (LanguageServer-side test coverage).
+    public void Redim_NestedInABlock_ParentsToTheIfBranch()
     {
         const string content = """
             Public Sub Grow(ByVal Flag As Boolean)
@@ -579,7 +581,99 @@ End Sub
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        Assert.AreEqual("Nested", member.Children.OfType<RedimDeclarationNode>().Single().Name);
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+        Assert.AreEqual("Nested", ifBlock.Body.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // a statement's condition is inside a procedure body, where the declaration pass otherwise drops
+    // every expression (IsDeclarationPassExpression) until the general statement-body pass exists —
+    // `booleanExpression` is the narrow carve-out that lets If/ElseIf conditions through today.
+    public void IfStatement_WithoutElse_CapturesConditionAndBody()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal Flag As Boolean)
+                If Flag Then
+                    Dim x As Long
+                End If
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        var condition = (SimpleNameExpressionNode)ifBlock.ConditionExpression;
+        Assert.AreEqual("Flag", condition.IdentifierName);
+        Assert.HasCount(1, ifBlock.Body.Children.OfType<VariableDeclarationNode>());
+        Assert.IsEmpty(ifBlock.ElseIfBlocks);
+        Assert.IsNull(ifBlock.ElseBlock);
+    }
+
+    [TestMethod]
+    // proves the booleanExpression carve-out threads through the full operator pipeline (not just a
+    // bare name): the same operator-tree machinery is now reachable from inside a procedure body.
+    public void IfStatement_ConditionIsAnOperatorTree()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                If N > 0 And N < 10 Then
+                End If
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        var and = (VBBinaryOperatorExpressionNode)ifBlock.ConditionExpression;
+        Assert.AreEqual(Tokens.LogicalAndOp, and.Token);
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, ((VBBinaryOperatorExpressionNode)and.Left).Token);
+        Assert.AreEqual(Tokens.CompareLessThanOp, ((VBBinaryOperatorExpressionNode)and.Right).Token);
+    }
+
+    [TestMethod]
+    // one IfBlockStatementNode models the whole chain: ElseIf branches in source order, then the
+    // trailing Else — mirroring SelectCaseStatementNode's control-expression + branch-list shape.
+    public void IfStatement_WithElseIfAndElse_ChainsBranchesInSourceOrder()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                If N = 1 Then
+                    Dim a As Long
+                ElseIf N = 2 Then
+                    Dim b As Long
+                ElseIf N = 3 Then
+                    Dim c As Long
+                Else
+                    Dim d As Long
+                End If
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+
+        Assert.AreEqual("a", ifBlock.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+        Assert.HasCount(2, ifBlock.ElseIfBlocks);
+
+        var elseIf1 = ifBlock.ElseIfBlocks[0];
+        Assert.AreEqual(2L, IntValue(((VBBinaryOperatorExpressionNode)elseIf1.ConditionExpression).Right));
+        Assert.AreEqual("b", elseIf1.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+
+        var elseIf2 = ifBlock.ElseIfBlocks[1];
+        Assert.AreEqual(3L, IntValue(((VBBinaryOperatorExpressionNode)elseIf2.ConditionExpression).Right));
+        Assert.AreEqual("c", elseIf2.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+
+        Assert.IsNotNull(ifBlock.ElseBlock);
+        Assert.AreEqual("d", ifBlock.ElseBlock!.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
     }
 
     [TestMethod]
