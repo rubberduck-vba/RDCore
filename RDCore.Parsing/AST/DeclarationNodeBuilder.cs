@@ -434,14 +434,15 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             // no WHILE/UNTIL at all: a plain `Do...Loop`, infinite unless the body itself exits.
             return new DoLoopStatementNode(NodeId, context.GetSourceLocation(_rootUri), body);
         }
-        if (condition is null)
+        if (condition is null || context.block() is not { } blockContext)
         {
-            // a WHILE/UNTIL token was present but its expression didn't resolve (recovery).
+            // a WHILE/UNTIL token was present but its expression didn't resolve, or the body itself
+            // didn't recover (both are ANTLR error-recovery states) — nothing usable to anchor on.
             return null;
         }
 
         var isUntil = context.UNTIL() is not null;
-        var isBottomCondition = conditionContext.Start.TokenIndex > context.block().Start.TokenIndex;
+        var isBottomCondition = conditionContext.Start.TokenIndex > blockContext.Start.TokenIndex;
         var location = context.GetSourceLocation(_rootUri);
 
         return (isBottomCondition, isUntil) switch
