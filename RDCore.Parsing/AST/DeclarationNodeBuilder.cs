@@ -418,6 +418,34 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         };
     }
 
+    // `assignment` is the control variable's `i = 1` clause, captured as one expression (the grammar
+    // refactored `expression EQ expression` into a single `expression` for SLL — see EnterForNextStmt's
+    // remarks) — split into Control/Start off the top-level `=` node it must produce. `step` is
+    // already the resolved Step expression (or null: no Step clause, MS-VBAL's implicit default of 1
+    // is a runtime concern, not this node's).
+    public SyntaxNode? BuildForStatement(VBAParser.ForNextStmtContext context, ExpressionNode? assignment, ExpressionNode? end, ExpressionNode? step)
+    {
+        if (assignment is not VBBinaryOperatorExpressionNode { Token: Tokens.CompareEqualOp } assignmentOp || end is null)
+        {
+            // recovery: the control-variable assignment or the end-value didn't resolve.
+            return null;
+        }
+
+        var body = new StatementBlock([.. _children]);
+        return new ForStatementNode(NodeId, context.GetSourceLocation(_rootUri), assignmentOp.Left, assignmentOp.Right, end, step, body);
+    }
+
+    public SyntaxNode? BuildForEachStatement(VBAParser.ForEachStmtContext context, ExpressionNode? control, ExpressionNode? collection)
+    {
+        if (control is null || collection is null)
+        {
+            return null;
+        }
+
+        var body = new StatementBlock([.. _children]);
+        return new ForEachStatementNode(NodeId, context.GetSourceLocation(_rootUri), control, collection, body);
+    }
+
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 

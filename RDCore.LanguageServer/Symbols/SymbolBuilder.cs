@@ -285,9 +285,9 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     }
 
     // yields a node and, for the statement shapes that carry a nested body today (If/ElseIf/Else,
-    // While, the 5 Do...Loop shapes), everything reachable inside it — recursively, so a construct
-    // nested inside another's branch is still found. Grows as more statement-body node types
-    // (For/ForEach/Select/With) come online.
+    // While, the 5 Do...Loop shapes, For, For Each), everything reachable inside it — recursively, so
+    // a construct nested inside another's branch is still found. Grows as more statement-body node
+    // types (Select Case/With) come online.
     private static IEnumerable<SyntaxNode> DescendantsAndSelf(SyntaxNode node)
     {
         yield return node;
@@ -366,6 +366,20 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
 
             case DoLoopUntilStatementNode doLoopUntil:
                 foreach (var descendant in doLoopUntil.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case ForStatementNode forStatement:
+                foreach (var descendant in forStatement.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case ForEachStatementNode forEachStatement:
+                foreach (var descendant in forEachStatement.Body.Children.SelectMany(DescendantsAndSelf))
                 {
                     yield return descendant;
                 }

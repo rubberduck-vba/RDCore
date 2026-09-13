@@ -568,4 +568,19 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.AreEqual("Buffer", local.Name);
         Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
     }
+
+    [TestMethod]
+    public void Redim_NestedInAForLoop_IntroducesLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo()
+                For i = 1 To 5
+                    ReDim Buffer(5)
+                Next i
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("Buffer", local.Name);
+        Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
+    }
 }

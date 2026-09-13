@@ -847,6 +847,115 @@ End Sub
     }
 
     [TestMethod]
+    // the control-variable `i = 1` is parsed as one expression (grammar comment: "expression EQ
+    // expression refactored to expression to allow SLL") — BuildForStatement must split it back into
+    // Control/Start off the top-level `=` operator node.
+    public void ForNextStatement_CapturesControlStartEndAndStep()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                For i = 1 To N Step 2
+                    Dim x As Long
+                Next i
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var forStatement = member.Children.OfType<ForStatementNode>().Single();
+
+        Assert.AreEqual("i", ((SimpleNameExpressionNode)forStatement.ControlExpression).IdentifierName);
+        Assert.AreEqual(1L, IntValue(forStatement.StartExpression));
+        Assert.AreEqual("N", ((SimpleNameExpressionNode)forStatement.EndExpression).IdentifierName);
+        Assert.AreEqual(2L, IntValue(forStatement.StepExpression!));
+        Assert.AreEqual("x", forStatement.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // no Step clause: MS-VBAL's implicit default of 1 is a runtime concern, not the parser's — the
+    // node must leave this null rather than synthesize a fake literal with no real source location.
+    public void ForNextStatement_WithoutStep_LeavesStepExpressionNull()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                For i = 1 To N
+                Next i
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var forStatement = member.Children.OfType<ForStatementNode>().Single();
+        Assert.IsNull(forStatement.StepExpression);
+    }
+
+    [TestMethod]
+    // proves CaptureIsolatedExpression threads a full operator tree, not just a bare name/literal.
+    public void ForNextStatement_EndExpressionIsAnOperatorTree()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                For i = 1 To N * 2
+                Next i
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var forStatement = member.Children.OfType<ForStatementNode>().Single();
+        Assert.AreEqual(Tokens.MultiplicationOp, ((VBBinaryOperatorExpressionNode)forStatement.EndExpression).Token);
+    }
+
+    [TestMethod]
+    public void ForEachStatement_CapturesControlAndCollection()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal Items As Variant)
+                For Each Item In Items
+                    Dim x As Long
+                Next Item
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var forEach = member.Children.OfType<ForEachStatementNode>().Single();
+
+        Assert.AreEqual("Item", ((SimpleNameExpressionNode)forEach.ControlExpression).IdentifierName);
+        Assert.AreEqual("Items", ((SimpleNameExpressionNode)forEach.CollectionExpression).IdentifierName);
+        Assert.AreEqual("x", forEach.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // regression guard, same shape as If/While/Do: a declaration nested in a For body must still
+    // parent to that loop's own Body, not flatten onto the enclosing procedure member.
+    public void ForNextStatement_NestedDeclaration_ParentsToTheLoopBody()
+    {
+        const string content = """
+            Public Sub Grow()
+                For i = 1 To 5
+                    ReDim Nested(5)
+                Next i
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var forStatement = member.Children.OfType<ForStatementNode>().Single();
+        Assert.AreEqual("Nested", forStatement.Body.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

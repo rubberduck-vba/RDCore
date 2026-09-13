@@ -226,9 +226,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
     // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
     // statement between members, so the context is only reached inside a procedure body. Nested
-    // inside If/ElseIf/Else/While/Do it parents to that branch's own Body — SymbolBuilder.BuildLocals
-    // walks the whole body, not just the member's immediate children, to still find it. A block shape
-    // this pass hasn't wired yet (For/ForEach/Select) still flattens the ReDim straight onto the member.)
+    // inside If/ElseIf/Else/While/Do/For/ForEach it parents to that branch's own Body —
+    // SymbolBuilder.BuildLocals walks the whole body, not just the member's immediate children, to
+    // still find it. A block shape this pass hasn't wired yet (Select Case) still flattens the ReDim
+    // straight onto the member.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
         => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
@@ -281,6 +282,33 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitDoLoopStmt([NotNull] VBAParser.DoLoopStmtContext context)
         => OnExitParentIfBuilt(builder => builder.BuildDoLoopStatement(context, CaptureIsolatedExpression(context.expression())));
+
+    // `For...Next` (MS-VBAL 5.4.2.9). The control-variable assignment `i = 1` is parsed as ONE
+    // `expression` — the grammar's own comment explains why ("expression EQ expression refactored to
+    // expression to allow SLL") — so it arrives as a top-level `=` VBBinaryOperatorExpressionNode that
+    // BuildForStatement splits into Control (Left) / Start (Right). The body uses `unterminatedBlock`,
+    // not `block`, and can be entirely absent (an empty-bodied loop) — a live capture window bounded
+    // by its Enter isn't reliable there, so CaptureIsolatedExpression handles all four expressions.
+    public override void EnterForNextStmt([NotNull] VBAParser.ForNextStmtContext context)
+        => OnEnterParent();
+    public override void ExitForNextStmt([NotNull] VBAParser.ForNextStmtContext context)
+    {
+        var assignment = CaptureIsolatedExpression(context.expression(0));
+        var end = CaptureIsolatedExpression(context.expression(1));
+        var step = CaptureIsolatedExpression(context.stepStmt()?.expression());
+        OnExitParentIfBuilt(builder => builder.BuildForStatement(context, assignment, end, step));
+    }
+
+    // `For Each...Next` (MS-VBAL 5.4.2.9). Same body/capture shape as For; no assignment to split —
+    // the control variable and the collection are two independent expressions.
+    public override void EnterForEachStmt([NotNull] VBAParser.ForEachStmtContext context)
+        => OnEnterParent();
+    public override void ExitForEachStmt([NotNull] VBAParser.ForEachStmtContext context)
+    {
+        var control = CaptureIsolatedExpression(context.expression(0));
+        var collection = CaptureIsolatedExpression(context.expression(1));
+        OnExitParentIfBuilt(builder => builder.BuildForEachStatement(context, control, collection));
+    }
 
     // Re-walks an already-parsed, self-contained expression subtree in isolation, with capture
     // enabled just for that walk, into its own fresh scope. Safe because this only ever runs from an
