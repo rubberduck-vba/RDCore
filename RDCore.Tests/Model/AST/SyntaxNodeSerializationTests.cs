@@ -138,6 +138,11 @@ public sealed class SyntaxNodeSerializationTests
         yield return ["Member access (owner + with-relative)", (SyntaxNode)new MemberAccessExpressionNode(Id(10), loc, Name(Id(10, 0), "Foo"), Name(Id(10, 1), "Bar"))];
 
         yield return ["Dictionary access (with-relative, no owner)", (SyntaxNode)new DictionaryAccessExpressionNode(Id(11), loc, null, Name(Id(11, 0), "Bar"))];
+
+        yield return ["Assignment (Set, target is a member access)", (SyntaxNode)new AssignmentStatementNode(
+            Id(12), loc, Tokens.Set, true,
+            new MemberAccessExpressionNode(Id(12, 0), loc, Name(Id(12, 0, 0), "Foo"), Name(Id(12, 0, 1), "Bar")),
+            Name(Id(12, 1), "Value"))];
     }
 
     public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];
