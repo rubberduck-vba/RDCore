@@ -207,6 +207,26 @@ public class SessionMemoryTests
     }
 
     [TestMethod]
+    // adversarial review, PRs #208-224, item 5's exact repro: free 8 bytes, TryAllocate(0) used to
+    // succeed at that address (FreeListManager's `freeList[i].Size >= size` is trivially true for
+    // size 0), splitting a "fragment" identical in address AND size to the original block (size - 0 ==
+    // size) - so the free list re-offered the SAME address to the next real allocation while the
+    // 0-byte one was still logically live. Author's resolution: there is no such thing as a 0-byte
+    // allocation, reject it before the free list is ever consulted.
+    public void TryAllocate_ZeroSize_ReturnsFalse_AndDoesNotConsumeAFreeBlock()
+    {
+        var sut = new SessionMemory(new(), PointerSize.x86);
+        Assert.IsTrue(sut.TryAllocate(8, out var address));
+        Assert.IsTrue(sut.TryDeallocate(address, out _));
+
+        Assert.IsFalse(sut.TryAllocate(0, out _));
+
+        // the freed 8-byte block must still be intact and reusable.
+        Assert.IsTrue(sut.TryAllocate(8, out var reused));
+        Assert.AreEqual(address, reused);
+    }
+
+    [TestMethod]
     public void TryDeallocate_EmptyMemorySpace_ReturnsFalse()
     {
         var sut = new SessionMemory(new(), PointerSize.x86);

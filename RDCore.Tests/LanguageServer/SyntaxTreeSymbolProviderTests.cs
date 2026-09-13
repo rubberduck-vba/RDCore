@@ -614,4 +614,69 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.AreEqual("Buffer", local.Name);
         Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
     }
+
+    // adversarial review PRs #208-224, item 2: InlineIfStatementNode moved its statements into
+    // ThenBody/ElseBody, off the Children spine DescendantsAndSelf walks by default - every local
+    // declared inside a single-line If used to silently disappear from the symbol table on otherwise
+    // valid, error-free code. One case per declaration kind, matching the review's own repro table.
+    [TestMethod]
+    public void Dim_NestedInASingleLineIfThen_IntroducesLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo(ByVal Flag As Boolean)
+                If Flag Then Dim ALocal As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("ALocal", local.Name);
+    }
+
+    [TestMethod]
+    public void Redim_NestedInASingleLineIfThen_IntroducesLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo(ByVal Flag As Boolean)
+                If Flag Then ReDim AnArray(10)
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("AnArray", local.Name);
+        Assert.AreEqual(LocalDeclarationKind.ReDim, local.DeclaredBy);
+    }
+
+    [TestMethod]
+    public void Const_NestedInASingleLineIfThen_IntroducesLocal()
+    {
+        var constant = Single<VBLocalConstantSymbol>(Provide("""
+            Public Sub Foo(ByVal Flag As Boolean)
+                If Flag Then Const AConst As Long = 1
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("AConst", constant.Name);
+    }
+
+    [TestMethod]
+    public void Dim_NestedInASingleLineIfElse_IntroducesLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo(ByVal Flag As Boolean)
+                If Flag Then y = 1 Else Dim BLocal As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("BLocal", local.Name);
+    }
+
+    [TestMethod]
+    public void Dim_NestedInASingleLineIfThen_AfterAColonSeparatedStatement_IntroducesLocal()
+    {
+        var local = Single<VBLocalVariableSymbol>(Provide("""
+            Public Sub Foo(ByVal Flag As Boolean)
+                If Flag Then y = 1 : Dim CLocal As Long
+            End Sub
+            """, new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual("CLocal", local.Name);
+    }
 }
