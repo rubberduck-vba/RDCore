@@ -685,6 +685,189 @@ End Sub
     }
 
     [TestMethod]
+    public void GoToStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("GoTo Label1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var goTo = member.Children.OfType<GoToStatementNode>().Single();
+
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)goTo.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void GoSubStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("GoSub Label1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var goSub = member.Children.OfType<GoSubStatementNode>().Single();
+
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)goSub.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void ReturnStatement_Parses()
+    {
+        var result = ParseInProcedure("Return");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<ReturnStatementNode>());
+    }
+
+    [TestMethod]
+    public void OnErrorGoToStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("On Error GoTo Handler");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onError = member.Children.OfType<OnErrorGoToStatementNode>().Single();
+
+        Assert.AreEqual("Handler", ((SimpleNameExpressionNode)onError.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void OnErrorGoToZero_IsStillAGoToNotAResumeNode()
+    {
+        var result = ParseInProcedure("On Error GoTo 0");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onError = member.Children.OfType<OnErrorGoToStatementNode>().Single();
+
+        Assert.AreEqual(0L, IntValue(onError.LabelExpression));
+    }
+
+    [TestMethod]
+    public void OnErrorResumeNextStatement_Parses()
+    {
+        var result = ParseInProcedure("On Error Resume Next");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<OnErrorResumeStatementNode>());
+    }
+
+    [TestMethod]
+    public void ResumeStatement_Bare_HasNullLabelExpression()
+    {
+        var result = ParseInProcedure("Resume");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var resume = member.Children.OfType<ResumeStatementNode>().Single();
+
+        Assert.IsNull(resume.LabelExpression);
+    }
+
+    [TestMethod]
+    public void ResumeStatement_WithLabel_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("Resume Handler");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var resume = member.Children.OfType<ResumeStatementNode>().Single();
+
+        Assert.AreEqual("Handler", ((SimpleNameExpressionNode)resume.LabelExpression!).IdentifierName);
+    }
+
+    [TestMethod]
+    // `Resume Next` is its own dedicated node, not ResumeStatementNode with a "Next" label.
+    public void ResumeNextStatement_IsItsOwnNodeNotAResumeWithLabel()
+    {
+        var result = ParseInProcedure("Resume Next");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<ResumeNextStatementNode>());
+        Assert.IsEmpty(member.Children.OfType<ResumeStatementNode>());
+    }
+
+    [TestMethod]
+    public void ErrorStatement_CapturesNumberExpression()
+    {
+        var result = ParseInProcedure("Error 5");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var error = member.Children.OfType<ErrorStatementNode>().Single();
+
+        Assert.AreEqual(5L, IntValue(error.NumberExpression));
+    }
+
+    [TestMethod]
+    public void SingleLineIf_WithThenOnly_CapturesConditionAndThenBody()
+    {
+        var result = ParseInProcedure("If x Then y = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)ifStmt.ConditionExpression).IdentifierName);
+        var assignment = (AssignmentStatementNode)ifStmt.ThenBody.Children.Single();
+        Assert.AreEqual("y", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
+        Assert.IsNull(ifStmt.ElseBody);
+    }
+
+    [TestMethod]
+    public void SingleLineIf_WithElse_CapturesBothBodies()
+    {
+        var result = ParseInProcedure("If x Then y = 1 Else y = 2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.HasCount(1, ifStmt.ThenBody.Children);
+        Assert.IsNotNull(ifStmt.ElseBody);
+        Assert.HasCount(1, ifStmt.ElseBody!.Children);
+    }
+
+    [TestMethod]
+    public void SingleLineIf_MultipleColonSeparatedStatements_AreAllCaptured()
+    {
+        var result = ParseInProcedure("If x Then y = 1 : z = 2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.HasCount(2, ifStmt.ThenBody.Children);
+    }
+
+    [TestMethod]
+    // MS-VBAL: a bare line-number target in a single-line If's Then/Else branch has the effect of a
+    // GoTo statement targeting that line - synthesized directly rather than modeled as its own shape.
+    public void SingleLineIf_BareLineNumberTarget_SynthesizesGoToStatement()
+    {
+        var result = ParseInProcedure("If x Then 100");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        var goTo = (GoToStatementNode)ifStmt.ThenBody.Children.Single();
+        Assert.AreEqual(100L, IntValue(goTo.LabelExpression));
+    }
+
+    [TestMethod]
+    public void SingleLineIf_BareLineNumberTargetInElseBranch_SynthesizesGoToStatement()
+    {
+        var result = ParseInProcedure("If x Then y = 1 Else 200");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        var goTo = (GoToStatementNode)ifStmt.ElseBody!.Children.Single();
+        Assert.AreEqual(200L, IntValue(goTo.LabelExpression));
+    }
+
+    [TestMethod]
+    public void SingleLineIf_EmptyThen_HasEmptyThenBodyAndRequiresElse()
+    {
+        var result = ParseInProcedure("If x Then : Else y = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.IsEmpty(ifStmt.ThenBody.Children);
+        Assert.IsNotNull(ifStmt.ElseBody);
+        Assert.HasCount(1, ifStmt.ElseBody!.Children);
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body

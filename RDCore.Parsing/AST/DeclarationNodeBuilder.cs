@@ -377,6 +377,30 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     public SyntaxNode BuildElseBlock(VBAParser.ElseBlockContext context)
         => new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
 
+    // single-line If's Else branch (MS-VBAL §5.4.2.9) reuses ElseBlockStatementNode — same shape
+    // (just a StatementBlock, no condition of its own) as the block If's Else. `labelGoTo` (a bare
+    // line-number target's synthesized equivalent) always precedes any real statements, per grammar.
+    public SyntaxNode BuildInlineElseBlock(VBABaseParserRuleContext context, GoToStatementNode? labelGoTo)
+    {
+        var body = labelGoTo is null ? (IEnumerable<SyntaxNode>)_children : [labelGoTo, .. _children];
+        return new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. body]));
+    }
+
+    public SyntaxNode? BuildInlineIfStatement(VBABaseParserRuleContext context, GoToStatementNode? labelGoTo)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            // a half-typed single-line `If` with no condition (recovery) leaves nothing to anchor on.
+            return null;
+        }
+
+        var elseBlock = _children.OfType<ElseBlockStatementNode>().SingleOrDefault();
+        var rest = _children.Skip(1).Where(child => child is not ElseBlockStatementNode);
+        var thenBody = labelGoTo is null ? rest : new SyntaxNode[] { labelGoTo }.Concat(rest);
+
+        return new InlineIfStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock([.. thenBody]), elseBlock?.Body);
+    }
+
     public SyntaxNode? BuildWhileWendStatement(VBAParser.WhileWendStmtContext context)
     {
         if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
