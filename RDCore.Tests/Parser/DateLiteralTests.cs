@@ -7,7 +7,7 @@ using System.Globalization;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// Jen review #167-205 (pre-existing, "still open" backlog item), escalated: the declaration pass's own
+/// Adversarial review #167-205 (pre-existing, "still open" backlog item), escalated: the declaration pass's own
 /// date-literal parsing used <see cref="DateTime.TryParse(string, out DateTime)"/> with no
 /// <see cref="CultureInfo"/> argument, so it read the AMBIENT thread culture — disagreeing with
 /// <c>PrecompilerDirectiveListener</c>'s sibling handler for the exact same <c>#...#</c> token syntax,
