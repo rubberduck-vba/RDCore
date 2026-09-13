@@ -47,6 +47,19 @@ public abstract record class VBArrayValue : VBTypedValue
         Handle = handle;
     }
 
+    // C# records synthesize `with` from a memberwise copy constructor, which would share this array's
+    // _cells by reference with whatever copy it just built — since _cells is a field, not a primary
+    // constructor parameter, `with` never re-runs CreateCells. VBA deep-copies an array on assignment
+    // (MS-VBAL), so every `with`-derived copy (including TryAllocateIn's) needs its own independent
+    // cells; this explicit copy constructor is what C# calls instead of the default one to make that
+    // happen for the whole hierarchy, not just TryAllocateIn's one call site.
+    protected VBArrayValue(VBArrayValue original) : base(original)
+    {
+        ItemType = original.ItemType;
+        Dimensions = original.Dimensions;
+        _cells = [.. original._cells];
+    }
+
     /// <summary>
     /// The declared <see cref="VBType"/> of the elements in this array.
     /// </summary>

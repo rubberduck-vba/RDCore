@@ -157,7 +157,12 @@ public sealed class VBArrayValueTests
     }
 
     [TestMethod]
-    public void TryAllocateIn_KeepsTheSameCells()
+    // renamed from TryAllocateIn_KeepsTheSameCells: this asserts CONTENT is preserved at allocation
+    // time, which stays true whether the cells array is shared or deep-copied. See
+    // TryAllocateIn_GivesTheAllocatedCopyIndependentCells for the aliasing regression this session's
+    // adversarial review found - "keeps the same cells" used to (accidentally, coincidentally) also
+    // describe the bug: the two values literally shared one array object.
+    public void TryAllocateIn_PreservesElementValuesSetBeforeAllocation()
     {
         var array = Fixed([(1, 3)], VBLongType.TypeInfo);
         array.TrySetElement(Handle(42), 2);
@@ -166,6 +171,25 @@ public sealed class VBArrayValueTests
         array.TryAllocateIn(storage, out var allocated);
 
         Assert.AreEqual(42, ((VBLongValue)allocated![2]!).Value);
+    }
+
+    [TestMethod]
+    // adversarial review, PRs #208-224, item 5: TryAllocateIn's `with`-copy shared the SAME _cells
+    // array by reference with the original - VBA deep-copies an array on assignment (MS-VBAL), so two
+    // allocations of "the same" array value aliased in a way VBA arrays do not have. Author's call:
+    // "we must stick to the expected behavior" - a write through either value's own element accessor
+    // must not be visible through the other's.
+    public void TryAllocateIn_GivesTheAllocatedCopyIndependentCells()
+    {
+        var array = Fixed([(1, 3)], VBLongType.TypeInfo);
+        var storage = new SessionStorage(new SessionMemory(new(), PointerSize.x86));
+        array.TryAllocateIn(storage, out var allocated);
+
+        array.TrySetElement(Handle(1), 2);
+        allocated!.TrySetElement(Handle(2), 2);
+
+        Assert.AreEqual(1, ((VBLongValue)array[2]!).Value);
+        Assert.AreEqual(2, ((VBLongValue)allocated[2]!).Value);
     }
 
     [TestMethod]
