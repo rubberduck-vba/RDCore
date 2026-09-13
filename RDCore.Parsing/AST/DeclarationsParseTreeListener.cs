@@ -451,8 +451,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // SimpleNameExpressionNode rather than routed through CaptureIsolatedExpression.
     public override void ExitRaiseEventStmt([NotNull] VBAParser.RaiseEventStmtContext context)
     {
+        if (context.identifier() is not { } identifier)
+        {
+            // a bare `RaiseEvent` with no name (recovery) — the grammar's own event name is mandatory.
+            return;
+        }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), context.identifier().GetSourceLocation(_rootUri), context.identifier().Name());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         var arguments = context.eventArgumentList()?.eventArgument().Select(argument => CaptureIsolatedExpression(argument.expression())) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -853,9 +858,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var owner = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // recovery left the owner unbuilt or the member name absent (a lone trailing `.`) — leave
+            // whatever legitimately parsed content is there rather than pop-and-discard it.
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -865,8 +876,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
+        if (context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // a lone `.` with no member name (recovery).
+            return;
+        }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -876,9 +892,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var owner = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -888,8 +908,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
+        if (context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // a lone `!` with no member name (recovery).
+            return;
+        }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 

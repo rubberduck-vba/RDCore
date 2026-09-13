@@ -46,6 +46,14 @@ public sealed class ParserResilienceTests
     [DataRow("???", DisplayName = "garbage")]
     [DataRow("End Sub", DisplayName = "stray End Sub")]
     [DataRow("Attribute VB_Name", DisplayName = "half-typed attribute")]
+    // adversarial review, PRs #208-224, item 4: five unguarded null-dereferences, all the same shape -
+    // a grammar child recovery left absent, dereferenced without a check.
+    [DataRow("Sub S()\r\nRaiseEvent\r\nEnd Sub", DisplayName = "bare RaiseEvent, no event name")]
+    [DataRow("Sub S()\r\nFoo.\r\nEnd Sub", DisplayName = "member access, lone trailing dot")]
+    [DataRow("Sub S()\r\nWith Foo\r\nx = .\r\nEnd With\r\nEnd Sub", DisplayName = "with-relative member access, lone dot")]
+    [DataRow("Sub S()\r\nFoo!\r\nEnd Sub", DisplayName = "dictionary access, lone trailing bang")]
+    [DataRow("Sub S()\r\nWith Foo\r\nx = !\r\nEnd With\r\nEnd Sub", DisplayName = "with-relative dictionary access, lone bang")]
+    [DataRow("Sub S()\r\nDo While x", DisplayName = "Do whose body never recovers")]
     public void NeverThrows_AndAnyErrorIsLocated(string source)
     {
         ModuleParseResult result = null!;
