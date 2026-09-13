@@ -68,7 +68,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Analyse document complet — directives, déclarations, membres d'UDT | ✅ |
 | Grammaire d'expressions et d'opérateurs — arithmétique, logique, relationnelle, concaténation, incluant les conditions `#If` | ✅ |
 | Analyse des littéraux — numériques et chaînes | ✅ |
-| Nœuds d'AST de _statements_ | 🎯 débloque l'interpréteur |
+| Nœuds d'AST de _statements_ | 🚧 la plupart des formes sont faites; `New`/`TypeOf...Is`, `Mid`/`LSet`/`RSet`, `On...GoTo`/`On...GoSub` calculés restent |
 | Analyse de fragment ancré | 🎯 |
 
 **RDCore.LanguageServer** — orchestrateur + serveur LSP · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)
