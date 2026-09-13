@@ -555,6 +555,70 @@ End Sub
     }
 
     [TestMethod]
+    // `Call Foo(1, 2)` carries its arguments inside the callee's own IndexExpressionNode - the
+    // statement's own Arguments stays empty.
+    public void CallStatement_Explicit_CarriesArgumentsOnTheCallee()
+    {
+        var result = ParseInProcedure("Call Foo(1, 2)");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        Assert.IsTrue(call.IsExplicitCall);
+        Assert.IsEmpty(call.Arguments);
+        var index = (IndexExpressionNode)call.Callee;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)index.Callee).IdentifierName);
+        Assert.HasCount(2, index.Arguments);
+        Assert.AreEqual(1L, IntValue(index.Arguments[0]));
+        Assert.AreEqual(2L, IntValue(index.Arguments[1]));
+    }
+
+    [TestMethod]
+    // the bare, unparenthesized form (`Foo 1, 2`) has no `Call` keyword and no lExpression-embedded
+    // argument list - its arguments are the statement's own, separate CallStatementNode.Arguments.
+    public void CallStatement_Bare_CarriesItsOwnArguments()
+    {
+        var result = ParseInProcedure("Foo 1, 2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        Assert.IsFalse(call.IsExplicitCall);
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)call.Callee).IdentifierName);
+        Assert.HasCount(2, call.Arguments);
+        Assert.AreEqual(1L, IntValue(call.Arguments[0]));
+        Assert.AreEqual(2L, IntValue(call.Arguments[1]));
+    }
+
+    [TestMethod]
+    public void CallStatement_BareWithNoArguments_HasEmptyArgumentsAndCallee()
+    {
+        var result = ParseInProcedure("Foo");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        Assert.IsFalse(call.IsExplicitCall);
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)call.Callee).IdentifierName);
+        Assert.IsEmpty(call.Arguments);
+    }
+
+    [TestMethod]
+    // a bare call's callee can itself be a member access (`Debug.Assert(x)`'s shape, minus parens).
+    public void CallStatement_Bare_CalleeCanBeAMemberAccess()
+    {
+        var result = ParseInProcedure("Foo.Bar 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        var callee = (MemberAccessExpressionNode)call.Callee;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)callee.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", callee.Member.IdentifierName);
+        Assert.AreEqual(1L, IntValue(call.Arguments.Single()));
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body

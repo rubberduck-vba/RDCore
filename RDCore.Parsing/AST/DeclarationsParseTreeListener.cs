@@ -432,6 +432,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         OnKeywordStatement(token, context);
     }
 
+    // `Call`/bare-call (MS-VBAL §5.4.4). `Call Foo(1, 2)` carries its arguments inside the callee's
+    // own lExpression tree (an IndexExpressionNode) — the statement's own Arguments stays empty. Only
+    // the bare form (`Foo 1, 2`, no `Call`, no parens) has a separate statement-level argument list;
+    // `Call` grants no such shape (it always requires the parenthesized form).
+    public override void ExitCallStmt([NotNull] VBAParser.CallStmtContext context)
+    {
+        if (CaptureIsolatedExpression(context.lExpression()) is not { } callee)
+        {
+            return;
+        }
+        var arguments = CaptureIsolated(context.argumentList()).Cast<ExpressionNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new CallStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), callee, arguments, context.CALL() is not null));
+    }
+
     public override void ExitSeekStmt([NotNull] VBAParser.SeekStmtContext context)
         => OnKeywordStatement(Tokens.Seek, context, CaptureFileNumber(context.fileNumber()), CaptureIsolatedExpression(context.position()?.expression()));
 
@@ -491,25 +505,30 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : [start];
     }
 
-    // Re-walks an already-parsed, self-contained expression subtree in isolation, with capture
-    // enabled just for that walk, into its own fresh scope. Safe because this only ever runs from an
-    // Exit handler — the parser has already fully matched (and moved past) this subtree by then, so
-    // the walk touches a finished, static tree, never the live parse. Existing Exit* operator handlers
+    // Re-walks an already-parsed, self-contained subtree in isolation, with capture enabled just for
+    // that walk, into its own fresh scope. Safe because this only ever runs from an Exit handler — the
+    // parser has already fully matched (and moved past) this subtree by then, so the walk touches a
+    // finished, static tree, never the live parse. Existing Exit* operator/lExpression handlers
     // (PopLastChildren-based) don't care whether a matching Enter fired first, so they combine
-    // correctly under ParseTreeWalker's ordering exactly as they do under AddParseListener's.
-    private ExpressionNode? CaptureIsolatedExpression(VBAParser.ExpressionContext? context)
+    // correctly under ParseTreeWalker's ordering exactly as they do under AddParseListener's. Not tied
+    // to `expression` specifically — an `lExpression` or `argumentList` subtree walks exactly the same
+    // way, so this accepts any rule context (`CallStatementNode`'s callee/arguments need both).
+    private ImmutableArray<SyntaxNode> CaptureIsolated(VBABaseParserRuleContext? context)
     {
         if (context is null)
         {
-            return null;
+            return [];
         }
 
         OnEnterParent();
         _isCapturingConditionExpression++;
         ParseTreeWalker.Default.Walk(this, context);
         _isCapturingConditionExpression--;
-        return _builderStack.Pop().GetChildren.LastOrDefault() as ExpressionNode;
+        return [.. _builderStack.Pop().GetChildren];
     }
+
+    private ExpressionNode? CaptureIsolatedExpression(VBABaseParserRuleContext? context)
+        => CaptureIsolated(context).LastOrDefault() as ExpressionNode;
 
     // like OnExitParent, but the provider may decline to build a node at all (a branch whose
     // condition recovery left incomplete) rather than always producing one.

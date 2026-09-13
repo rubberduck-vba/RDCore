@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Abstract;
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace RDCore.SDK.Model.AST.Statements;
 
@@ -39,6 +40,7 @@ public record class CaseElseClauseStatementNode(SyntaxNodeId Identity, SourceLoc
 /// A <c>Case</c> range clause — one of the comma-separated conditions on a <c>Case</c> line
 /// (MS-VBAL 5.4.2.10), each independently a single value, a comparison, or a <c>To</c> range.
 /// </summary>
+[JsonConverter(typeof(SyntaxNodeSubtypeJsonConverter<CaseRangeClauseNode>))]
 public abstract record class CaseRangeClauseNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Inputs)
     : StatementNode(Identity, SourceLocation, Inputs);
 

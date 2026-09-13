@@ -79,6 +79,31 @@ public sealed class SyntaxNodeSerializationTests
     }
 
     [TestMethod]
+    // regression: a property/element declared as a narrower abstract SyntaxNode subtype
+    // (ExpressionNode, StatementNode, CaseRangeClauseNode) — rather than SyntaxNode itself — threw
+    // "Deserialization of interface or abstract types is not supported" on read, because
+    // [JsonPolymorphic]/[JsonDerivedType] is declared once on SyntaxNode and System.Text.Json does not
+    // apply an ancestor's polymorphism attributes to a narrower type that carries none of its own.
+    // Every If/While/Do/For/Select Case/With/Call/Index node built this session has this shape, so
+    // this pins the SyntaxNodeSubtypeJsonConverter<T> bridge that fixes it, independent of whichever
+    // node type happens to first exercise it via a real parsed fixture.
+    public void NarrowerAbstractSubtypeProperty_RoundTripsThroughJson()
+    {
+        var loc = TestLocations.TestLocation;
+        static SyntaxNodeId Id(params int[] lineage) => new("file:///test.bas", [.. lineage]);
+
+        var condition = new SimpleNameExpressionNode(Id(0, 0), loc, "Flag");
+        SyntaxNode ifBlock = new IfBlockStatementNode(Id(0), loc, condition, new StatementBlock([]), [], null);
+
+        var json = JsonSerializer.Serialize(ifBlock, Options);
+        var rehydrated = JsonSerializer.Deserialize<SyntaxNode>(json, Options);
+
+        Assert.IsInstanceOfType<IfBlockStatementNode>(rehydrated);
+        Assert.IsInstanceOfType<SimpleNameExpressionNode>(((IfBlockStatementNode)rehydrated!).ConditionExpression);
+        Assert.AreEqual("Flag", ((SimpleNameExpressionNode)((IfBlockStatementNode)rehydrated).ConditionExpression).IdentifierName);
+    }
+
+    [TestMethod]
     public void LiteralValue_RoundTripsAsTypeAndScalar()
     {
         // VBTypedValueJsonConverter: a literal is (type, scalar), not the runtime graph
