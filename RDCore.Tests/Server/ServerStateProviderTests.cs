@@ -44,7 +44,10 @@ public class ServerStateProviderTests
     [TestMethod]
     [DataRow(null, null)]
     [DataRow(ServerStateValue.Starting, null)]
-    [DataRow(ServerStateValue.Initializing, ServerStateValue.Running)]
+    // this class's TestConfiguration sets Server:Verbose=true, so a completed initialization
+    // lands in RunningVerbose, not the plain Running the tautological assertion this replaces
+    // never actually checked.
+    [DataRow(ServerStateValue.Initializing, ServerStateValue.RunningVerbose)]
     [DataRow(ServerStateValue.Running, null)]
     [DataRow(ServerStateValue.RunningTraceless, null)]
     [DataRow(ServerStateValue.RunningVerbose, null)]
@@ -66,16 +69,54 @@ public class ServerStateProviderTests
     => TestServerStateTransition(sut => sut.OnShutdown(), initialState, expectedState);
 
     [TestMethod]
-    //[DataRow(null, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.Starting, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.Initializing, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.Running, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.RunningTraceless, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.RunningVerbose, ServerStateValue.Exiting)]
-    //[DataRow(ServerStateValue.ShuttingDown, ServerStateValue.Exiting)]
+    [DataRow(null, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Starting, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Initializing, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.Running, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.RunningTraceless, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.RunningVerbose, ServerStateValue.Exiting)]
+    [DataRow(ServerStateValue.ShuttingDown, ServerStateValue.Exiting)]
     [DataRow(ServerStateValue.Exiting, ServerStateValue.Exiting)]
     public void OnExit(ServerStateValue? initialState, ServerStateValue? expectedState)
     => TestServerStateTransition(sut => sut.OnExit(), initialState, expectedState);
+
+    [TestMethod]
+    public void OnExit_WithoutShutdown_ExitsWithCodeOne()
+    {
+        var sut = new ServerStateProvider(TestConfiguration);
+        sut.OnInitialize();
+        sut.OnInitialized();
+
+        sut.OnExit();
+
+        Assert.AreEqual(1, sut.State.ExitCode);
+    }
+
+    [TestMethod]
+    public void OnExit_AfterShutdown_ExitsWithCodeZero()
+    {
+        var sut = new ServerStateProvider(TestConfiguration);
+        sut.OnInitialize();
+        sut.OnInitialized();
+        sut.OnShutdown();
+
+        sut.OnExit();
+
+        Assert.AreEqual(0, sut.State.ExitCode);
+    }
+
+    [TestMethod]
+    public void OnExit_BeforeInitialize_StillExitsWithCodeOne()
+        // regression: a bare Exit before Initialize is a legitimate way to terminate the server (LSP
+        // does not treat it as a protocol violation), but it must not be conflated with a clean
+        // shutdown - only a preceding Shutdown request earns exit code 0.
+    {
+        var sut = new ServerStateProvider(TestConfiguration);
+
+        sut.OnExit();
+
+        Assert.AreEqual(1, sut.State.ExitCode);
+    }
 
     [TestMethod]
     [DataRow(ServerStateValue.Starting, ServerStateValue.Exiting)]
@@ -176,7 +217,7 @@ public class ServerStateProviderTests
             act.Invoke(sut);
 
             var result = sut.State;
-            Assert.IsTrue(expectedState.GetType().IsAssignableTo(result.Value.GetType()));
+            Assert.AreEqual(expectedState.Value, result.Value);
         }
         else
         {
