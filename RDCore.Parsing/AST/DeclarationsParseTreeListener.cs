@@ -74,11 +74,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // to opt back into expression capture inside a procedure body without the general statement-body
     // pass this flag is waiting on (see EnterArgList's remarks).
     private int _isCapturingConditionExpression = 0;
-    // `While`/`Do`'s condition (top form) is a bare `expression` with no wrapper rule like
-    // `booleanExpression` to hook — capture stays enabled from the construct's own Enter until the
-    // very next `block` starts, which can only ever be that construct's own body (a condition can't
-    // itself contain a block-bearing construct). EnterBlock only ever decrements what one of these
-    // constructs incremented; a procedure body's own `block` never touches this counter.
+    // `While`/`Do` (top form)/`With`'s own expression is a bare `expression` with no wrapper rule
+    // like `booleanExpression` to hook — capture stays enabled from the construct's own Enter until
+    // the very next `block` starts, which can only ever be that construct's own body (the expression
+    // can't itself contain a block-bearing construct). EnterBlock only ever decrements what one of
+    // these constructs incremented; a procedure body's own `block` never touches this counter.
     private int _isCapturingLoopHeaderExpression = 0;
     private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList
         || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0;
@@ -272,6 +272,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         _isCapturingLoopHeaderExpression = 0;
     }
 
+    // `With...End With` (MS-VBAL 5.4.2.19) — same shape and same capture trick as While: a bare
+    // expression always precedes the body's block, with no ambiguity to resolve at Exit.
+    public override void EnterWithStmt([NotNull] VBAParser.WithStmtContext context)
+    {
+        OnEnterParent();
+        _isCapturingLoopHeaderExpression++;
+    }
+    public override void ExitWithStmt([NotNull] VBAParser.WithStmtContext context)
+    {
+        OnExitParentIfBuilt(builder => builder.BuildWithStatement(context));
+        _isCapturingLoopHeaderExpression = 0;
+    }
+
     // `Do...Loop` (MS-VBAL 5.4.2.5-7): one grammar rule, three unlabeled alternatives (no condition;
     // condition before the body; condition after it) dispatched here into 5 node types. Which
     // alternative matched isn't knowable at Enter (nothing has been parsed yet), and the trailing form
@@ -399,6 +412,25 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     public override void ExitResetStmt([NotNull] VBAParser.ResetStmtContext context)
         => OnKeywordStatement(Tokens.Reset, context);
+
+    // End/Stop/Exit (MS-VBAL 5.4.2.4, 5.4.2.11, 5.4.2.12) are all keyword-only, zero-argument
+    // statements — same KeywordStatementNode shape as Reset, no dedicated node type needed.
+    public override void ExitEndStmt([NotNull] VBAParser.EndStmtContext context)
+        => OnKeywordStatement(Tokens.End, context);
+
+    public override void ExitStopStmt([NotNull] VBAParser.StopStmtContext context)
+        => OnKeywordStatement(Tokens.Stop, context);
+
+    public override void ExitExitStmt([NotNull] VBAParser.ExitStmtContext context)
+    {
+        var token = context.EXIT_DO() is not null ? Tokens.ExitDo
+            : context.EXIT_FOR() is not null ? Tokens.ExitFor
+            : context.EXIT_FUNCTION() is not null ? Tokens.ExitFunction
+            : context.EXIT_PROPERTY() is not null ? Tokens.ExitProperty
+            : context.EXIT_SUB() is not null ? Tokens.ExitSub
+            : context.GetText();
+        OnKeywordStatement(token, context);
+    }
 
     public override void ExitSeekStmt([NotNull] VBAParser.SeekStmtContext context)
         => OnKeywordStatement(Tokens.Seek, context, CaptureFileNumber(context.fileNumber()), CaptureIsolatedExpression(context.position()?.expression()));

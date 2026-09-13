@@ -1304,6 +1304,92 @@ End Sub
     }
 
     [TestMethod]
+    public void EndStatement_BuildsKeywordStatementWithNoInputs()
+    {
+        var result = ParseInProcedure("End");
+        Assert.IsEmpty(KeywordStatement(result, Tokens.End).Inputs);
+    }
+
+    [TestMethod]
+    public void StopStatement_BuildsKeywordStatementWithNoInputs()
+    {
+        var result = ParseInProcedure("Stop");
+        Assert.IsEmpty(KeywordStatement(result, Tokens.Stop).Inputs);
+    }
+
+    [TestMethod]
+    // the parser doesn't validate that an Exit form matches its enclosing construct (that's a
+    // downstream compile-error concern) - all 5 parse the same way regardless of context.
+    [DataRow("Exit Do", Tokens.ExitDo)]
+    [DataRow("Exit For", Tokens.ExitFor)]
+    [DataRow("Exit Function", Tokens.ExitFunction)]
+    [DataRow("Exit Property", Tokens.ExitProperty)]
+    [DataRow("Exit Sub", Tokens.ExitSub)]
+    public void ExitStatement_MapsToItsToken(string source, string expectedToken)
+    {
+        var result = ParseInProcedure(source);
+        Assert.IsEmpty(KeywordStatement(result, expectedToken).Inputs);
+    }
+
+    [TestMethod]
+    public void WithStatement_CapturesExpressionAndBody()
+    {
+        const string content = """
+            Public Sub DoWork()
+                With Target
+                    Dim x As Long
+                End With
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var withStatement = member.Children.OfType<WithStatementNode>().Single();
+
+        Assert.AreEqual("Target", ((SimpleNameExpressionNode)withStatement.WithExpression).IdentifierName);
+        Assert.AreEqual("x", withStatement.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // With's expression has no wrapper rule, same as While - proves the reused
+    // _isCapturingLoopHeaderExpression window threads a full operator tree, not just a bare name.
+    // (An operator expression isn't a realistic With target, but the parser doesn't police that -
+    // this is purely about proving the capture mechanism, matching the If/While/Do precedent.)
+    public void WithStatement_ExpressionIsAnOperatorTree()
+    {
+        var result = ParseInProcedure("""
+            With A + B
+            End With
+            """);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var withStatement = member.Children.OfType<WithStatementNode>().Single();
+        Assert.AreEqual(Tokens.AdditionOp, ((VBBinaryOperatorExpressionNode)withStatement.WithExpression).Token);
+    }
+
+    [TestMethod]
+    // regression guard, same shape as every other block construct wired in this session.
+    public void WithStatement_NestedDeclaration_ParentsToTheBody()
+    {
+        const string content = """
+            Public Sub Grow()
+                With Target
+                    ReDim Nested(5)
+                End With
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var withStatement = member.Children.OfType<WithStatementNode>().Single();
+        Assert.AreEqual("Nested", withStatement.Body.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

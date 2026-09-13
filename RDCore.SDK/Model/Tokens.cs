@@ -243,6 +243,11 @@ public static class Tokens
     public const string EndType = $"{End} {Type}";
     public const string EndWith = $"{End} {With}";
     public const string EndIf = $"{End} {If}";
+    public const string ExitDo = $"{Exit} {Do}";
+    public const string ExitFor = $"{Exit} {For}";
+    public const string ExitFunction = $"{Exit} {Function}";
+    public const string ExitProperty = $"{Exit} {Property}";
+    public const string ExitSub = $"{Exit} {Sub}";
     public const string ForEach = $"{For} {Each}";
     public const string LineInput = $"{Line} {Input}";
     public const string PropertyGet = $"{Property} {Get}";

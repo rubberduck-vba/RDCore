@@ -71,6 +71,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(SimpleNameExpressionNode), "SimpleNameExpression")]
 [JsonDerivedType(typeof(VBUnaryOperatorExpressionNode), "UnaryOpExpression")]
 [JsonDerivedType(typeof(WhileWendStatementNode), "WhileWendStatement")]
+[JsonDerivedType(typeof(WithStatementNode), "WithStatement")]
 
 [JsonDerivedType(typeof(ConditionalExpressionNode), "ConditionalExpression")]
 [JsonDerivedType(typeof(PrecompilerConstantDeclarationNode), "PrecompilerConstant")]

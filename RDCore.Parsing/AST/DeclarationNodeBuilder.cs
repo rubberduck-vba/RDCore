@@ -388,6 +388,17 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new WhileWendStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
     }
 
+    public SyntaxNode? BuildWithStatement(VBAParser.WithStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode withExpression)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new WithStatementNode(NodeId, context.GetSourceLocation(_rootUri), withExpression, new StatementBlock(body));
+    }
+
     // the condition, if any, was captured separately (CaptureIsolatedExpression) rather than through
     // this builder's own scope — everything already sitting in _children is body content only.
     public SyntaxNode? BuildDoLoopStatement(VBAParser.DoLoopStmtContext context, ExpressionNode? condition)

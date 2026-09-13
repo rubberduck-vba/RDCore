@@ -401,6 +401,13 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                     }
                 }
                 break;
+
+            case WithStatementNode withStatement:
+                foreach (var descendant in withStatement.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
         }
     }
 
