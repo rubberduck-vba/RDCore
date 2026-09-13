@@ -384,6 +384,177 @@ End Sub
     }
 
     [TestMethod]
+    public void MemberAccessExpression_BuildsOwnerAndMember()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo.Bar");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var access = Descendants(result.SyntaxTree!).OfType<MemberAccessExpressionNode>().Single();
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)access.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", access.Member.IdentifierName);
+    }
+
+    [TestMethod]
+    // proves the left-recursive PopLastChildren technique chains correctly: the owner of the outer
+    // access (`.Baz`) is itself a MemberAccessExpressionNode (`Foo.Bar`), not a bare name.
+    public void MemberAccessExpression_ChainsMultipleLevels()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo.Bar.Baz");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var outer = Descendants(result.SyntaxTree!).OfType<MemberAccessExpressionNode>().Single(a => a.Member.IdentifierName == "Baz");
+        var inner = (MemberAccessExpressionNode)outer.Owner!;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)inner.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", inner.Member.IdentifierName);
+    }
+
+    [TestMethod]
+    // the parser doesn't police that a leading-dot member access is only legal inside a With block
+    // (that's a downstream compile-error concern) - it parses fine standalone too.
+    public void WithMemberAccessExpression_BuildsWithNullOwner()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = .Bar");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var access = Descendants(result.SyntaxTree!).OfType<MemberAccessExpressionNode>().Single();
+        Assert.IsNull(access.Owner);
+        Assert.AreEqual("Bar", access.Member.IdentifierName);
+    }
+
+    [TestMethod]
+    public void DictionaryAccessExpression_BuildsOwnerAndMember()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo!Bar");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var access = Descendants(result.SyntaxTree!).OfType<DictionaryAccessExpressionNode>().Single();
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)access.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", access.Member.IdentifierName);
+    }
+
+    [TestMethod]
+    public void WithDictionaryAccessExpression_BuildsWithNullOwner()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = !Bar");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var access = Descendants(result.SyntaxTree!).OfType<DictionaryAccessExpressionNode>().Single();
+        Assert.IsNull(access.Owner);
+        Assert.AreEqual("Bar", access.Member.IdentifierName);
+    }
+
+    [TestMethod]
+    public void InstanceExpression_BuildsMeReference()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Me");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        Assert.HasCount(1, Descendants(result.SyntaxTree!).OfType<InstanceExpressionNode>());
+    }
+
+    [TestMethod]
+    public void IndexExpression_BuildsCalleeAndPositionalArguments()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo(1, 2)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var index = Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single();
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)index.Callee).IdentifierName);
+        Assert.HasCount(2, index.Arguments);
+        Assert.AreEqual(1L, IntValue(index.Arguments[0]));
+        Assert.AreEqual(2L, IntValue(index.Arguments[1]));
+    }
+
+    [TestMethod]
+    // the callee of an index expression can itself be built by a different lExpression alternative.
+    public void IndexExpression_CalleeCanBeAMemberAccess()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo.Bar(1)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var index = Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single();
+        var callee = (MemberAccessExpressionNode)index.Callee;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)callee.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", callee.Member.IdentifierName);
+        Assert.AreEqual(1L, IntValue(index.Arguments.Single()));
+    }
+
+    [TestMethod]
+    // a skipped argument position (`Foo(1, , 3)`) must not collapse the array - MissingArgumentNode
+    // preserves the position for later parameter binding.
+    public void IndexExpression_WithMissingArgument_PreservesPosition()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo(1, , 3)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var index = Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single();
+        Assert.HasCount(3, index.Arguments);
+        Assert.AreEqual(1L, IntValue(index.Arguments[0]));
+        Assert.IsInstanceOfType<MissingArgumentNode>(index.Arguments[1]);
+        Assert.AreEqual(3L, IntValue(index.Arguments[2]));
+    }
+
+    [TestMethod]
+    public void IndexExpression_WithNamedArgument_CapturesNameAndValue()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo(Bar:=5)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var index = Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single();
+        var named = (NamedArgumentNode)index.Arguments.Single();
+        Assert.AreEqual("Bar", named.Name);
+        Assert.AreEqual(5L, IntValue(named.Value));
+    }
+
+    [TestMethod]
+    public void IndexExpression_WithAddressOfArgument_CapturesTarget()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Foo(AddressOf Bar)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var index = Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single();
+        var addressOf = (AddressOfExpressionNode)index.Arguments.Single();
+        Assert.AreEqual("Bar", ((SimpleNameExpressionNode)addressOf.Target).IdentifierName);
+    }
+
+    [TestMethod]
+    // proves the whole family cooperates with CaptureIsolatedExpression - a body-level condition
+    // expression (not module-scope, where capture is unconditional) can build a full lExpression.
+    public void IfStatement_ConditionCanBeAnIndexExpressionOnAMemberAccess()
+    {
+        const string content = """
+            Public Sub DoWork()
+                If Foo.Bar(1) Then
+                End If
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
+        var index = (IndexExpressionNode)ifBlock.ConditionExpression;
+        var callee = (MemberAccessExpressionNode)index.Callee;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)callee.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", callee.Member.IdentifierName);
+        Assert.AreEqual(1L, IntValue(index.Arguments.Single()));
+    }
+
+    [TestMethod]
+    // proves the same cooperation for a KeywordStatement's argument capture, retroactively unlocked
+    // by this same family (Erase's targets were bare names only until now).
+    public void EraseStatement_TargetCanBeAMemberAccess()
+    {
+        var result = ParseInProcedure("Erase Foo.Bar");
+        var statement = KeywordStatement(result, Tokens.Erase);
+
+        var access = (MemberAccessExpressionNode)statement.Inputs.Single();
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)access.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", access.Member.IdentifierName);
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body
