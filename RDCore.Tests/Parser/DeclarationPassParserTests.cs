@@ -619,6 +619,72 @@ End Sub
     }
 
     [TestMethod]
+    // Let and Set (MS-VBAL §5.4.3.8/9) share one node shape - the bare form omits the optional `Let`.
+    public void LetStatement_Bare_IsImplicitLet()
+    {
+        var result = ParseInProcedure("x = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.ImplicitLet, assignment.Kind);
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
+        Assert.AreEqual(1L, IntValue(assignment.Value));
+    }
+
+    [TestMethod]
+    public void LetStatement_Explicit_IsExplicitLet()
+    {
+        var result = ParseInProcedure("Let x = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.ExplicitLet, assignment.Kind);
+    }
+
+    [TestMethod]
+    public void SetStatement_IsSetKind()
+    {
+        var result = ParseInProcedure("Set x = Foo");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.Set, assignment.Kind);
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)assignment.Value).IdentifierName);
+    }
+
+    [TestMethod]
+    // the lExpression target can be any of its own family - a member access here, not just a bare name.
+    public void LetStatement_TargetCanBeAMemberAccess()
+    {
+        var result = ParseInProcedure("Foo.Bar = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        var target = (MemberAccessExpressionNode)assignment.Target;
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)target.Owner!).IdentifierName);
+        Assert.AreEqual("Bar", target.Member.IdentifierName);
+        Assert.AreEqual(1L, IntValue(assignment.Value));
+    }
+
+    [TestMethod]
+    public void SetStatement_TargetCanBeAnIndexExpression()
+    {
+        var result = ParseInProcedure("Set arr(1) = Foo");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        var target = (IndexExpressionNode)assignment.Target;
+        Assert.AreEqual("arr", ((SimpleNameExpressionNode)target.Callee).IdentifierName);
+        Assert.AreEqual(1L, IntValue(target.Arguments.Single()));
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body

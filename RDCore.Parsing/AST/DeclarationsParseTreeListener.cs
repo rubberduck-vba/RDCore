@@ -432,6 +432,23 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         OnKeywordStatement(token, context);
     }
 
+    // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
+    // expression`, and only their static/runtime coercion semantics differ, not their syntax.
+    public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
+        => BuildAssignmentStatement(context, context.LET() is not null ? AssignmentKind.ExplicitLet : AssignmentKind.ImplicitLet, context.lExpression(), context.expression());
+
+    public override void ExitSetStmt([NotNull] VBAParser.SetStmtContext context)
+        => BuildAssignmentStatement(context, AssignmentKind.Set, context.lExpression(), context.expression());
+
+    private void BuildAssignmentStatement(VBABaseParserRuleContext context, AssignmentKind kind, VBAParser.LExpressionContext? targetContext, VBAParser.ExpressionContext? valueContext)
+    {
+        if (CaptureIsolatedExpression(targetContext) is not { } target || CaptureIsolatedExpression(valueContext) is not { } value)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(new AssignmentStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), kind, target, value));
+    }
+
     // `Call`/bare-call (MS-VBAL §5.4.4). `Call Foo(1, 2)` carries its arguments inside the callee's
     // own lExpression tree (an IndexExpressionNode) — the statement's own Arguments stays empty. Only
     // the bare form (`Foo 1, 2`, no `Call`, no parens) has a separate statement-level argument list;

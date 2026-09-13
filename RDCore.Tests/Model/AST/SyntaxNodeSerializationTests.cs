@@ -157,6 +157,10 @@ public sealed class SyntaxNodeSerializationTests
             new LiteralExpressionNode(Id(14, 0), loc, new VBStringValue("file.txt")),
             VBFileMode.Append, VBFileAccessMode.ReadWrite, VBFileLockMode.Shared,
             IntLiteral(Id(14, 1), 1), IntLiteral(Id(14, 2), 128))];
+        yield return ["Assignment (Set, target is a member access)", (SyntaxNode)new AssignmentStatementNode(
+            Id(12), loc, AssignmentKind.Set,
+            new MemberAccessExpressionNode(Id(12, 0), loc, Name(Id(12, 0, 0), "Foo"), Name(Id(12, 0, 1), "Bar")),
+            Name(Id(12, 1), "Value"))];
     }
 
     public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];
