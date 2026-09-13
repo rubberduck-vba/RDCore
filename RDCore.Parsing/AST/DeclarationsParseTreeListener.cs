@@ -74,12 +74,27 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // to opt back into expression capture inside a procedure body without the general statement-body
     // pass this flag is waiting on (see EnterArgList's remarks).
     private int _isCapturingConditionExpression = 0;
-    private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList || _isCapturingConditionExpression > 0;
+    // `While`/`Do`'s condition (top form) is a bare `expression` with no wrapper rule like
+    // `booleanExpression` to hook — capture stays enabled from the construct's own Enter until the
+    // very next `block` starts, which can only ever be that construct's own body (a condition can't
+    // itself contain a block-bearing construct). EnterBlock only ever decrements what one of these
+    // constructs incremented; a procedure body's own `block` never touches this counter.
+    private int _isCapturingLoopHeaderExpression = 0;
+    private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList
+        || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0;
 
     public override void EnterBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
         => _isCapturingConditionExpression++;
     public override void ExitBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
         => _isCapturingConditionExpression--;
+
+    public override void EnterBlock([NotNull] VBAParser.BlockContext context)
+    {
+        if (_isCapturingLoopHeaderExpression > 0)
+        {
+            _isCapturingLoopHeaderExpression--;
+        }
+    }
 
     private void OnModuleOptionDirective(SourceLocation location, ModuleOptions value) 
         => CurrentBuilder.AddChild(new ModuleOptionDirectiveNode(GetCurrentNodeId(), location, value));
@@ -211,9 +226,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
     // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
     // statement between members, so the context is only reached inside a procedure body. Nested
-    // inside If/ElseIf/Else it parents to that branch's own Body — SymbolBuilder.BuildLocals walks
-    // the whole body, not just the member's immediate children, to still find it. A block shape this
-    // pass hasn't wired yet (For/Do/While/Select) still flattens the ReDim straight onto the member.)
+    // inside If/ElseIf/Else/While it parents to that branch's own Body — SymbolBuilder.BuildLocals
+    // walks the whole body, not just the member's immediate children, to still find it. A block shape
+    // this pass hasn't wired yet (For/Do/Select) still flattens the ReDim straight onto the member.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
         => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
@@ -241,6 +256,21 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitElseBlock([NotNull] VBAParser.ElseBlockContext context)
         => OnExitParent(builder => builder.BuildElseBlock(context));
+
+    // `While...Wend` (MS-VBAL 5.4.2.18). The condition has no wrapper rule, so
+    // _isCapturingLoopHeaderExpression (cleared by the loop's own EnterBlock) opts it into capture.
+    public override void EnterWhileWendStmt([NotNull] VBAParser.WhileWendStmtContext context)
+    {
+        OnEnterParent();
+        _isCapturingLoopHeaderExpression++;
+    }
+    public override void ExitWhileWendStmt([NotNull] VBAParser.WhileWendStmtContext context)
+    {
+        OnExitParentIfBuilt(builder => builder.BuildWhileWendStatement(context));
+        // recovery can reach Exit without the body's Block ever starting (and so never consuming the
+        // increment above) — clear defensively rather than let a stale "capturing" state leak forward.
+        _isCapturingLoopHeaderExpression = 0;
+    }
 
     // like OnExitParent, but the provider may decline to build a node at all (a branch whose
     // condition recovery left incomplete) rather than always producing one.

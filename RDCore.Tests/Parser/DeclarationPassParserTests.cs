@@ -677,6 +677,51 @@ End Sub
     }
 
     [TestMethod]
+    // While's condition is a bare `expression` with no wrapper rule like If's booleanExpression —
+    // _isCapturingLoopHeaderExpression (cleared by the loop's own EnterBlock) is what unblocks it.
+    public void WhileWendStatement_CapturesConditionAndBody()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                While N > 0
+                    Dim x As Long
+                Wend
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var whileWend = member.Children.OfType<WhileWendStatementNode>().Single();
+
+        var condition = (VBBinaryOperatorExpressionNode)whileWend.ConditionExpression;
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, condition.Token);
+        Assert.AreEqual("x", whileWend.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // regression guard: giving While its own real scope (like If) means a declaration nested in its
+    // body must still parent to that scope's Body, not flatten onto the enclosing procedure member.
+    public void WhileWendStatement_NestedDeclaration_ParentsToTheLoopBody()
+    {
+        const string content = """
+            Public Sub Grow(ByVal Flag As Boolean)
+                While Flag
+                    ReDim Nested(5)
+                Wend
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var whileWend = member.Children.OfType<WhileWendStatementNode>().Single();
+        Assert.AreEqual("Nested", whileWend.Body.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

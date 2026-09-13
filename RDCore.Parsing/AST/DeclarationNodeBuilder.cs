@@ -377,6 +377,17 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     public SyntaxNode BuildElseBlock(VBAParser.ElseBlockContext context)
         => new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
 
+    public SyntaxNode? BuildWhileWendStatement(VBAParser.WhileWendStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new WhileWendStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
+    }
+
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 
