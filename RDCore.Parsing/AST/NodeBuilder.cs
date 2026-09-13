@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using System.Collections.Immutable;
 
 namespace RDCore.Parsing.AST;
 
@@ -22,6 +23,21 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
     public int ChildCount => _children.Count;
     public SyntaxNode? LastChild => _children.Count == 0 ? null : _children.Last();
     public IEnumerable<SyntaxNode> GetChildren => _children.AsEnumerable();
+
+    // for a left-recursive grammar rule (the `expression`/`lExpression` family), AddParseListener
+    // fires Exit *before* Enter on an operator alternative — the opposite of a normal rule — so an
+    // Enter/Exit push/pop pair can't scope an operator's operands (see ModuleParser's ParseOnce
+    // remarks). An operator's own operands are, at Exit time, always exactly the last `count` nodes
+    // already added to whatever builder is currently active — nothing else can have interleaved
+    // since expression subtrees resolve depth-first. Popping them back out (in original order) and
+    // pushing the combined operator node in their place sidesteps the ordering bug entirely.
+    public ImmutableArray<SyntaxNode> PopLastChildren(int count)
+    {
+        var start = _children.Count - count;
+        var popped = _children.GetRange(start, count);
+        _children.RemoveRange(start, count);
+        return [.. popped];
+    }
     public void UpdateLastChild(SyntaxNode node)
     {
         if (node.GetType() != _children.Last().GetType())

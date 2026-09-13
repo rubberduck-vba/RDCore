@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
@@ -290,6 +291,97 @@ End Sub
     }
 
     [TestMethod]
+    // the declaration pass used to capture leaf literals only: `Const N = 1 + 2` produced two flat
+    // sibling literals with no node recording that they were meant to be added together.
+    public void BinaryOperator_BuildsAnOperatorTree()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = 1 + 2");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var op = Descendants(result.SyntaxTree!).OfType<VBBinaryOperatorExpressionNode>().Single();
+        Assert.AreEqual(Tokens.AdditionOp, op.Token);
+        Assert.AreEqual(1L, IntValue(op.Left));
+        Assert.AreEqual(2L, IntValue(op.Right));
+    }
+
+    [TestMethod]
+    public void BinaryOperators_RespectPrecedence()
+    {
+        // `*` binds tighter than `+`: the tree must nest 2*3 under the right operand of 1+(2*3),
+        // not flatten into three siblings or associate as (1+2)*3.
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = 1 + 2 * 3");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var add = Descendants(result.SyntaxTree!).OfType<VBBinaryOperatorExpressionNode>().Single(n => n.Token == Tokens.AdditionOp);
+        Assert.AreEqual(1L, IntValue(add.Left));
+        var mult = add.Right as VBBinaryOperatorExpressionNode;
+        Assert.IsNotNull(mult);
+        Assert.AreEqual(Tokens.MultiplicationOp, mult.Token);
+        Assert.AreEqual(2L, IntValue(mult.Left));
+        Assert.AreEqual(3L, IntValue(mult.Right));
+    }
+
+    [TestMethod]
+    [DataRow("Public Const N = 2 ^ 3", "^")]
+    [DataRow("Public Const N = 6 \\ 4", "\\")]
+    [DataRow("Public Const N = 7 Mod 2", "Mod")]
+    [DataRow("Public Const N = 1 - 2", "-")]
+    [DataRow("Public Const N = 1 = 2", "=")]
+    [DataRow("Public Const N = 1 <> 2", "<>")]
+    [DataRow("Public Const N = 1 < 2", "<")]
+    [DataRow("Public Const N = 1 > 2", ">")]
+    [DataRow("Public Const N = 1 <= 2", "<=")]
+    [DataRow("Public Const N = 1 >= 2", ">=")]
+    [DataRow("Public Const N = True And False", "And")]
+    [DataRow("Public Const N = True Or False", "Or")]
+    [DataRow("Public Const N = True Xor False", "Xor")]
+    [DataRow("Public Const N = True Eqv False", "Eqv")]
+    [DataRow("Public Const N = True Imp False", "Imp")]
+    public void BinaryOperator_MapsToItsToken(string source, string expectedToken)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var op = Descendants(result.SyntaxTree!).OfType<VBBinaryOperatorExpressionNode>().Single();
+        Assert.AreEqual(expectedToken, op.Token);
+    }
+
+    [TestMethod]
+    public void ConcatOperator_MapsToItsToken()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = \"a\" & \"b\"");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var op = Descendants(result.SyntaxTree!).OfType<VBBinaryOperatorExpressionNode>().Single();
+        Assert.AreEqual(Tokens.ConcatOp, op.Token);
+    }
+
+    [TestMethod]
+    public void LogicalNot_BuildsAUnaryOperatorNode()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Not True");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var op = Descendants(result.SyntaxTree!).OfType<VBUnaryOperatorExpressionNode>().Single();
+        Assert.AreEqual(Tokens.LogicalNotOp, op.Token);
+    }
+
+    [TestMethod]
+    // regression: the unary-minus fold logic mistakenly swept a sibling AsTypeExpressionNode into
+    // its own operand set, losing both the type node and the sign (see NegativeConstant_KeepsItsSign
+    // for the sign; this pins the type node survives alongside it).
+    public void NegativeConstant_WithAsClause_KeepsBothTheTypeAndTheSign()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N As Long = -1");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var constNode = result.SyntaxTree!.Children.OfType<ConstantDeclarationNode>().Single();
+        Assert.HasCount(1, constNode.Children.OfType<AsTypeExpressionNode>());
+        var literal = constNode.Children.OfType<LiteralExpressionNode>().Single();
+        Assert.AreEqual(-1L, IntValue(literal));
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body
@@ -514,6 +606,15 @@ End Sub
         Assert.AreEqual("Y", fields[1].Name);
         Assert.HasCount(1, fields[0].Children.OfType<AsTypeExpressionNode>());
     }
+
+    // a numeric literal resolves to the smallest intrinsic type that fits (MS-VBAL 3.3.2); test
+    // sources here are small enough to land as Integer, but keep this tolerant of Long too.
+    private static long IntValue(SyntaxNode node) => ((LiteralExpressionNode)node).StaticValue switch
+    {
+        VBIntegerValue v => v.Value,
+        VBLongValue v => v.Value,
+        var other => throw new AssertFailedException($"unexpected value type {other.GetType().Name}"),
+    };
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node)
     {

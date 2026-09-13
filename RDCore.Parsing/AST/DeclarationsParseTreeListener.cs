@@ -360,6 +360,17 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
     }
+    // Operator alternatives of `expression` (a left-recursive rule) get their Exit called *before*
+    // Enter by AddParseListener — the opposite of every ordinary rule (see ParseOnce's remarks on
+    // PrecompilerDirectiveListener's own workaround). No Enter override can scope these operands, so
+    // none of the handlers below use one: each operator's operands are, at Exit time, always exactly
+    // the last N nodes already added to whatever builder is currently active (nothing else can have
+    // interleaved, since expression subtrees resolve depth-first) — PopLastChildren reclaims them.
+    private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context)
+        => new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1));
+    private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
+        => new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
+
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
     {
         if (!IsDeclarationPassExpression)
@@ -367,13 +378,143 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
-        // VBA has no negative-literal token; `Const N = -1` is MINUS over the literal 1. This pass
-        // captures leaf literals only, so fold the sign into the last one it added.
-        if (CurrentBuilder.LastChild is LiteralExpressionNode literal
-            && NumericLiteral.Negate(literal.StaticValue) is { } negated)
+        // VBA has no negative-literal token; `Const N = -1` is MINUS over the literal 1 — fold the
+        // sign into a bare literal operand instead of wrapping it in an operator node.
+        if (CurrentBuilder.LastChild is LiteralExpressionNode literal && NumericLiteral.Negate(literal.StaticValue) is { } negated)
         {
             CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
+            return;
         }
+        CurrentBuilder.AddChild(BuildUnary(Tokens.NegationOp, context));
+    }
+
+    public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.PowerOp, context));
+    }
+
+    public override void ExitMultOp([NotNull] VBAParser.MultOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var token = context.DIV() is not null ? Tokens.DivisionOp : Tokens.MultiplicationOp;
+        CurrentBuilder.AddChild(BuildBinary(token, context));
+    }
+
+    public override void ExitIntDivOp([NotNull] VBAParser.IntDivOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.IntegerDivisionOp, context));
+    }
+
+    public override void ExitModOp([NotNull] VBAParser.ModOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.ModuloOp, context));
+    }
+
+    public override void ExitAddOp([NotNull] VBAParser.AddOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var token = context.MINUS() is not null ? Tokens.SubtractionOp : Tokens.AdditionOp;
+        CurrentBuilder.AddChild(BuildBinary(token, context));
+    }
+
+    public override void ExitConcatOp([NotNull] VBAParser.ConcatOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.ConcatOp, context));
+    }
+
+    public override void ExitRelationalOp([NotNull] VBAParser.RelationalOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var token = context.EQ() is not null ? Tokens.CompareEqualOp
+            : context.NEQ() is not null ? Tokens.CompareNotEqualOp
+            : context.GT() is not null ? Tokens.CompareGreaterThanOp
+            : context.GEQ() is not null ? Tokens.CompareGreaterThanOrEqualOp
+            : context.LT() is not null ? Tokens.CompareLessThanOp
+            : context.LEQ() is not null ? Tokens.CompareLessThanOrEqualOp
+            : context.IS() is not null ? Tokens.CompareIsOp
+            : context.LIKE() is not null ? Tokens.CompareLikeOp
+            : context.GetText();
+        CurrentBuilder.AddChild(BuildBinary(token, context));
+    }
+
+    public override void ExitLogicalNotOp([NotNull] VBAParser.LogicalNotOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        // `Not` is unary — one operand.
+        CurrentBuilder.AddChild(BuildUnary(Tokens.LogicalNotOp, context));
+    }
+
+    public override void ExitLogicalAndOp([NotNull] VBAParser.LogicalAndOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalAndOp, context));
+    }
+
+    public override void ExitLogicalOrOp([NotNull] VBAParser.LogicalOrOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalOrOp, context));
+    }
+
+    public override void ExitLogicalXorOp([NotNull] VBAParser.LogicalXorOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalXOrOp, context));
+    }
+
+    public override void ExitLogicalEqvOp([NotNull] VBAParser.LogicalEqvOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalEqvOp, context));
+    }
+
+    public override void ExitLogicalImpOp([NotNull] VBAParser.LogicalImpOpContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalImpOp, context));
     }
     public override void ExitLiteralExpression([NotNull] VBAParser.LiteralExpressionContext context)
     {
