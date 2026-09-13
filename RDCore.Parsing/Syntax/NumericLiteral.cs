@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using System.Globalization;
 
 namespace RDCore.Parsing.Syntax;
@@ -23,6 +24,14 @@ namespace RDCore.Parsing.Syntax;
 internal static class NumericLiteral
 {
     private const string TypeHintChars = "%&^!#@";
+
+    // VBRuntimeCurrencyValue stores a ScaleFactor(10,000x)-scaled Int64 — a value outside this range
+    // throws OverflowException in Convert.ToInt64 instead of degrading gracefully like every other
+    // overflow case in this file. Computed from the scaled-storage bounds, not hardcoded, so it can't
+    // drift from VBRuntimeCurrencyValue's own scale factor.
+    private static readonly decimal CurrencyMin = (decimal)long.MinValue / VBRuntimeCurrencyValue.ScaleFactor;
+    private static readonly decimal CurrencyMax = (decimal)long.MaxValue / VBRuntimeCurrencyValue.ScaleFactor;
+    private static bool FitsInCurrency(decimal value) => value >= CurrencyMin && value <= CurrencyMax;
 
     /// <summary>
     /// The resolved value, and <c>true</c> when the literal is out of range for its type — the caller
@@ -82,7 +91,7 @@ internal static class NumericLiteral
         return hint switch
         {
             '!' => float.IsFinite((float)value) ? (new VBSingleValue((float)value), false) : Unresolved,
-            '@' => decimal.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var money)
+            '@' => decimal.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var money) && FitsInCurrency(money)
                 ? (new VBCurrencyValue(money), false)
                 : Unresolved,
             '#' or '\0' => double.IsFinite(value) ? (new VBDoubleValue(value), false) : Unresolved,
@@ -121,7 +130,7 @@ internal static class NumericLiteral
         '%' => magnitude <= (ulong)short.MaxValue ? (new VBIntegerValue((short)magnitude), false) : Unresolved,
         '&' => magnitude <= int.MaxValue ? (new VBLongValue((int)magnitude), false) : Unresolved,
         '^' => magnitude <= long.MaxValue ? (new VBLongLongValue((long)magnitude), false) : Unresolved,
-        '@' => magnitude <= 922_337_203_685_477_580UL ? (new VBCurrencyValue(magnitude), false) : Unresolved,
+        '@' => magnitude <= (ulong)CurrencyMax ? (new VBCurrencyValue(magnitude), false) : Unresolved,
         _ => SmallestFit(magnitude),
     };
 
