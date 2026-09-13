@@ -29,12 +29,12 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 # RDCore
 [RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
-- 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI), doté d'un _mode commande_ (`rdc.exe <verbe>`, p. ex. `describe-ext`);
-- 🎯 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
-- 🎯 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
-- 🎯 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
-- 👉 **RDCore.Runtime.dll**: une librairie renfermant l'implémentation de toute la sémantique et mécanismes du run-time de RD-VBA, _incluant une implémentation de la librairie VBA standard_;
-- 🧩 **RDCore.SDK.dll**: une librairie exposant les abstractions de la plateforme RDCore et encapsulant les implémentations de base du _coeur de langage_ RD-VBA.
+- 🚧 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI), doté d'un _mode commande_ (`rdc.exe <verbe>`, p. ex. `describe-ext`);
+- 🚧 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
+- 🚧 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
+- 🚧 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
+- 🚧 **RDCore.Runtime.dll**: une librairie renfermant l'implémentation de toute la sémantique et mécanismes du run-time de RD-VBA, _incluant une implémentation de la librairie VBA standard_;
+- ✅ **RDCore.SDK.dll**: une librairie exposant les abstractions de la plateforme RDCore et encapsulant les implémentations de base du _coeur de langage_ RD-VBA.
 
 
 ### ✨ Ce que RDCore rend envisageable

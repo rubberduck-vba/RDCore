@@ -20,7 +20,7 @@
   - 3.1. [Attributes and Directives](rd-vbal.3.1.attributes-directives.html)
   - 3.2. [Literal Expressions](rd-vbal.3.2.0.literals.html)
   - 3.3. [Operators](rd-vbal.3.3.0.operators.html)
-  - 3.4. [Statements]🚧
+  - 3.4. [Statements](rd-vbal.3.4.0.statements.html)
   - 3.5. [Instructions]🚧
 - 4. [Program Structure](rd-vbal.4.0.program-structure.html)
 - 5. [Semantics](rd-vbal.5.0.semantics.html)
@@ -54,5 +54,6 @@ The publisher of the **RDCore** platform project and of _this present documentat
 |2026-06-25|1.0|Initial public version|
 |2026-09-06|1.1|§2.3.1.2 session services (`IRuntimeSession` root; `IVirtualHeap` removed); §2.5.2.1.2 array values are a flat column-major store; §3.2.0.1 numeric literal types (type-declaration characters); §5.0.2.1 results are computed in the effective type; §5.0.2.2 let-coercion provider/strategy dispatch and the MS-VBAL-divergence principle; §2.5.2.1.3 UDT values are addressable IDs|
 |2026-09-09|1.2|§2.6 Diagnostics — the `VBC`/`VBR`/`VBA`/`RDC` code families, help-URL convention, and the LSP-pull provider pipeline (`textDocument/diagnostic`; the `DiagnoseDocument` provider capability; result identity and the version staleness gate)|
+|2026-09-13|1.3|§3.4 Statements — block/simple/file statement node families, each cross-referenced to its MS-VBAL section|
 | | | |
 

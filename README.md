@@ -31,12 +31,12 @@ This arrangement protects both the legacy and current contributors while enablin
 [RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ is an actively evolving _Language Server_ (LSP) platform that is currently a **work in progress**. Ultimately, the RDCore deliverables are:
 
-- 🎯 **rdc.exe**: a configurable and extensible RD-VBA _environment host_ and LSP client CLI application, with a _command mode_ (`rdc.exe <verb>`, e.g. `describe-ext`);
-- 🎯 **RDCore.LanguageServer.exe**: the platform's "orchestrator" LSP server application;
-- 🎯 **RDCore.ParseServer.exe**: the platform's parser is a satellite LSP server application owned and coordinated by the main language server;
-- 🎯 **RDCore.Diagnostics.exe**: a core platform extension asynchronously issuing _diagnostics_ to the main language server;
-- 👉 **RDCore.Runtime.dll**: a library containing an implementation for all the RD-VBA runtime semantics and mechanics, _including an implementation of the VBA Standard Library_;
-- 🧩 **RDCore.SDK.dll**: a library exposing the RDCore abstractions and encapsulating the base RD-VBA _language core_ implementation.
+- 🚧 **rdc.exe**: a configurable and extensible RD-VBA _environment host_ and LSP client CLI application, with a _command mode_ (`rdc.exe <verb>`, e.g. `describe-ext`);
+- 🚧 **RDCore.LanguageServer.exe**: the platform's "orchestrator" LSP server application;
+- 🚧 **RDCore.ParseServer.exe**: the platform's parser is a satellite LSP server application owned and coordinated by the main language server;
+- 🚧 **RDCore.Diagnostics.exe**: a core platform extension asynchronously issuing _diagnostics_ to the main language server;
+- 🚧 **RDCore.Runtime.dll**: a library containing an implementation for all the RD-VBA runtime semantics and mechanics, _including an implementation of the VBA Standard Library_;
+- ✅ **RDCore.SDK.dll**: a library exposing the RDCore abstractions and encapsulating the base RD-VBA _language core_ implementation.
 
 
 ## ✨ What RDCore could make possible
