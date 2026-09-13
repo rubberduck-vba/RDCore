@@ -42,9 +42,12 @@ internal record class SessionMemorySegment : ISessionMemoryAllocator
 
     public bool TryAllocate(int size, out MemoryAddress address)
     {
-        if (_currentAddress.Value + size > _nextSegmentAddress.Value)
+        if (size < 0 || _currentAddress.Value + size > _nextSegmentAddress.Value)
         {
-            // segment is full
+            // a negative size (an unchecked overflow upstream, e.g. VBArrayValue.Size's unchecked
+            // multiply) would otherwise rewind the bump pointer backward over live allocations, and
+            // the later `new byte[size]` a byte-backed allocation performs would throw out of a
+            // Try*-named method that must never throw. Or: segment is full.
             address = default;
             return false;
         }

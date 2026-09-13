@@ -91,8 +91,12 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
     {
         if (_freeLists.TryGetFreeListBlock(size, out var block, out var segment))
         {
-            // free memory fast path
+            // free memory fast path — the block must be re-registered with its segment's own map, or
+            // a later TryDeallocate on this exact address finds nothing to remove (segment.TryDeallocate
+            // checks _memoryMap) and silently no-ops: the block never returns to the free list a second
+            // time, so it survives exactly one reuse cycle before leaking permanently.
             address = block.Value.Address;
+            segment.Allocate(block.Value);
             return true;
         }
         else if (!TryGetAvailableSegment(size, out segment))

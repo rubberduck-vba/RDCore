@@ -58,6 +58,30 @@ public class SessionStorageTests
     }
 
     [TestMethod]
+    // adversarial review, PRs #208-224, "worth knowing, second tier": SessionMemory.TryAllocate's
+    // free-list fast path returned a reused address without re-registering the block in the segment's
+    // own map, so a second TryDeallocate on that address found nothing to remove (segment.TryDeallocate
+    // checks its _memoryMap) and silently no-op'd - the block never went back on the free list a second
+    // time, surviving exactly one reuse cycle before leaking permanently. Three full alloc/dealloc
+    // cycles at the same address is the minimum that actually exercises the second reuse.
+    public void TryDeallocate_SurvivesMultipleReuseCyclesAtTheSameAddress()
+    {
+        var sut = new SessionStorage(new SessionMemory(new(), PointerSize.x86));
+
+        Assert.IsTrue(sut.TryAllocate(4, Handle(1), out var first));
+        Assert.IsTrue(sut.TryDeallocate(first));
+        Assert.IsTrue(sut.TryAllocate(4, Handle(2), out var second));
+        Assert.AreEqual(first, second);
+
+        Assert.IsTrue(sut.TryDeallocate(second));
+        Assert.IsTrue(sut.TryAllocate(4, Handle(3), out var third));
+        Assert.AreEqual(first, third);
+
+        Assert.IsTrue(sut.TryDeallocate(third));
+        Assert.IsFalse(sut.TryRead(third, out _));
+    }
+
+    [TestMethod]
     public void TryDeallocate_UnknownAddress_ReturnsFalse()
     {
         var sut = new SessionStorage(new SessionMemory(new(), PointerSize.x86));
