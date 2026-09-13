@@ -5,6 +5,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -12,9 +13,8 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
-/// Characterization matrix for <see cref="RuntimeSymbolResolver"/> — the missing link between a
-/// session's compile-time name resolution, its memory allocator (which only accounts for size and
-/// fragmentation, not values), and the actual <c>IBindingHandle</c> a symbol or address resolves to.
+/// Characterization matrix for <see cref="RuntimeSymbolResolver"/> — maps a symbol to the address an
+/// <see cref="ISessionStorage"/> reserved for it, delegating the actual value binding to that storage.
 /// </summary>
 [TestClass]
 [TestCategory("RDCore.Runtime.Execution.RuntimeSymbolResolver")]
@@ -26,11 +26,11 @@ public sealed class RuntimeSymbolResolverTests
         return new VBUserDefinedTypeMemberSymbol(uri, uri, name, ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
     }
 
-    private static RuntimeSymbolResolver Sut(out ISymbolResolver names, out SessionMemory memory)
+    private static RuntimeSymbolResolver Sut(out ISymbolResolver names, out ISessionStorage storage)
     {
         names = Substitute.For<ISymbolResolver>();
-        memory = new SessionMemory(new FreeListManager(), PointerSize.x86);
-        return new RuntimeSymbolResolver(names, memory);
+        storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        return new RuntimeSymbolResolver(names, storage);
     }
 
     [TestMethod]
@@ -93,9 +93,9 @@ public sealed class RuntimeSymbolResolverTests
     public void TryAllocate_OutOfMemory_ReturnsFalse()
     {
         var names = Substitute.For<ISymbolResolver>();
-        var memory = Substitute.For<ISessionMemoryAllocator>();
-        memory.TryAllocate(Arg.Any<int>(), out Arg.Any<MemoryAddress>()).Returns(false);
-        var sut = new RuntimeSymbolResolver(names, memory);
+        var storage = Substitute.For<ISessionStorage>();
+        storage.TryAllocate(Arg.Any<int>(), Arg.Any<IBindingHandle>(), out Arg.Any<MemoryAddress>()).Returns(false);
+        var sut = new RuntimeSymbolResolver(names, storage);
 
         Assert.IsFalse(sut.TryAllocate(Symbol("Foo"), new VBLongValue(5), out _));
     }
@@ -103,7 +103,7 @@ public sealed class RuntimeSymbolResolverTests
     [TestMethod]
     public void TryDeallocate_RemovesBothBindings_AndFreesTheUnderlyingMemory()
     {
-        var sut = Sut(out _, out var memory);
+        var sut = Sut(out _, out var storage);
         var symbol = Symbol("Foo");
         var value = new VBLongValue(5);
         Assert.IsTrue(sut.TryAllocate(symbol, value, out var address));
@@ -112,8 +112,8 @@ public sealed class RuntimeSymbolResolverTests
 
         Assert.ThrowsExactly<KeyNotFoundException>(() => sut.GetValue(symbol));
         Assert.IsFalse(sut.TryRead(address, out _));
-        // the address is genuinely free again in the underlying allocator, not just unlinked here.
-        Assert.IsTrue(memory.TryAllocate(value.Size, out var reused));
+        // the address is genuinely free again in the underlying storage, not just unlinked here.
+        Assert.IsTrue(storage.TryAllocate(value.Size, value.Handle, out var reused));
         Assert.AreEqual(address, reused);
     }
 

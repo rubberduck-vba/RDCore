@@ -9,34 +9,31 @@ namespace RDCore.Runtime.Execution;
 
 /// <summary>
 /// The runtime <see cref="ISymbolResolver"/>: layers real, live value bindings over an inner
-/// (compile-time) resolver's name resolution, backed by a session's <see cref="ISessionMemoryAllocator"/>.
+/// (compile-time) resolver's name resolution, backed by a session's <see cref="ISessionStorage"/>.
 /// </summary>
 /// <remarks>
-/// 👉 <see cref="ISessionMemoryAllocator"/> only tracks allocation size and fragmentation — it does
-/// not itself hold values. This class is the missing link: it reserves address space through the
-/// allocator, then indexes the caller's own already-bound <see cref="VBTypedValue.Handle"/> by both
-/// the declaring symbol's <see cref="SemanticId"/> and the resulting <see cref="MemoryAddress"/>,
-/// so <see cref="GetValue"/> and <see cref="TryRead"/> can find it again.
+/// 👉 This class owns only the declaration-site mapping from a symbol to the address reserved for
+/// it — the address's actual <c>IBindingHandle</c> is <see cref="ISessionStorage"/>'s concern, not
+/// this resolver's. <see cref="GetValue"/> and <see cref="TryRead"/> both resolve through it.
 /// </remarks>
 /// <param name="names">The compile-time resolver <see cref="Resolve"/> delegates to.</param>
-/// <param name="memory">The session's memory allocator.</param>
-public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryAllocator memory) : ISymbolResolver
+/// <param name="storage">The session's value storage.</param>
+public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage storage) : ISymbolResolver
 {
     private readonly Dictionary<SemanticId, MemoryAddress> _addressBySymbol = [];
-    private readonly Dictionary<MemoryAddress, IBindingHandle> _handleByAddress = [];
 
     /// <inheritdoc/>
     public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle) => names.Resolve(name, scope, handle);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
-        => _addressBySymbol.TryGetValue(symbol.SemanticId, out var address) && _handleByAddress.TryGetValue(address, out var handle)
+        => _addressBySymbol.TryGetValue(symbol.SemanticId, out var address) && storage.TryRead(address, out var handle)
             ? handle
             : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.");
 
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-        => _handleByAddress.TryGetValue(address, out value);
+        => storage.TryRead(address, out value);
 
     /// <summary>
     /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>,
@@ -50,29 +47,20 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionMemoryA
     /// </returns>
     public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
     {
-        if (!memory.TryAllocate(value.Size, out address))
+        if (!storage.TryAllocate(value.Size, value.Handle, out address))
         {
             return false;
         }
 
         _addressBySymbol[symbol.SemanticId] = address;
-        _handleByAddress[address] = value.Handle;
 
         return true;
     }
 
     /// <summary>
-    /// Frees the storage bound to <paramref name="symbol"/> and removes both bindings.
+    /// Frees the storage bound to <paramref name="symbol"/> and removes the address mapping.
     /// </summary>
     /// <returns><c>true</c> if a binding for <paramref name="symbol"/> existed and was released.</returns>
     public bool TryDeallocate(Symbol symbol)
-    {
-        if (_addressBySymbol.Remove(symbol.SemanticId, out var address))
-        {
-            _handleByAddress.Remove(address);
-            return memory.TryDeallocate(address, out _);
-        }
-
-        return false;
-    }
+        => _addressBySymbol.Remove(symbol.SemanticId, out var address) && storage.TryDeallocate(address);
 }
