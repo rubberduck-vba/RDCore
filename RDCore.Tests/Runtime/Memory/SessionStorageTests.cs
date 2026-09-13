@@ -36,6 +36,18 @@ public class SessionStorageTests
     }
 
     [TestMethod]
+    // a value whose declared Size is 0 (Nothing, Null, Empty, an uninitialized array, a UDT with no
+    // resolvable fields) is a static/global symbol with no session storage of its own - it must never
+    // reach a real allocation. SessionStorage is a thin pass-through here; the actual rejection lives
+    // in the allocator (SessionMemory/SessionMemorySegment), asserted directly in their own tests.
+    public void TryAllocate_ZeroSize_ReturnsFalse()
+    {
+        var sut = new SessionStorage(new SessionMemory(new(), PointerSize.x86));
+
+        Assert.IsFalse(sut.TryAllocate(0, Handle(1), out _));
+    }
+
+    [TestMethod]
     public void TryRead_UnknownAddress_ReturnsFalse()
     {
         var sut = new SessionStorage(new SessionMemory(new(), PointerSize.x86));

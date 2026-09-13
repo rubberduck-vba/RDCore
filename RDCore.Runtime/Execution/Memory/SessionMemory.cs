@@ -89,6 +89,17 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
 
     public bool TryAllocate(int size, out MemoryAddress address)
     {
+        if (size <= 0)
+        {
+            // reject before ever consulting the free list: FreeListManager.TryGetFreeListBlock's own
+            // `freeList[i].Size >= size` is trivially satisfied by any free block when size is 0, and
+            // splitting a block for a 0-byte request produces a "fragment" identical in address AND
+            // size to the original (size - 0 == size) - the free list would keep re-offering that same
+            // address to every later caller while the 0-byte "allocation" is still logically live. See
+            // SessionMemorySegment.TryAllocate's own guard for the equivalent bump-pointer-path reason.
+            address = default;
+            return false;
+        }
         if (_freeLists.TryGetFreeListBlock(size, out var block, out var segment))
         {
             // free memory fast path — the block must be re-registered with its segment's own map, or

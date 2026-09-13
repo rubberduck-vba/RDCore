@@ -42,12 +42,18 @@ internal record class SessionMemorySegment : ISessionMemoryAllocator
 
     public bool TryAllocate(int size, out MemoryAddress address)
     {
-        if (size < 0 || _currentAddress.Value + size > _nextSegmentAddress.Value)
+        if (size <= 0 || _currentAddress.Value + size > _nextSegmentAddress.Value)
         {
-            // a negative size (an unchecked overflow upstream, e.g. VBArrayValue.Size's unchecked
-            // multiply) would otherwise rewind the bump pointer backward over live allocations, and
-            // the later `new byte[size]` a byte-backed allocation performs would throw out of a
-            // Try*-named method that must never throw. Or: segment is full.
+            // there is no such thing as a 0-byte allocation with a real, distinct address: advancing
+            // the bump pointer by 0 hands the same address to the next caller too, and advancing it by
+            // anything else would mean the allocation wasn't actually 0 bytes. A negative size (an
+            // unchecked overflow upstream, e.g. VBArrayValue.Size's unchecked multiply) would rewind
+            // the pointer backward over live allocations, and the later `new byte[size]` a byte-backed
+            // allocation performs would throw out of a Try*-named method that must never throw. Reject
+            // both the same way a full segment is rejected: return false, move nothing. A value whose
+            // declared size is 0 (Nothing, Null, Empty, an uninitialized array, a UDT with no
+            // resolvable fields) is a static/global symbol with no session storage of its own — it must
+            // never reach TryAllocate at all.
             address = default;
             return false;
         }

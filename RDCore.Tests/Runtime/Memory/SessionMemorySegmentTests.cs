@@ -33,4 +33,18 @@ public class SessionMemorySegmentTests
         Assert.IsTrue(sut.TryAllocate(4, out var address));
         Assert.AreEqual(0, address.Value);
     }
+
+    [TestMethod]
+    // adversarial review, PRs #208-224, item 5, author's own resolution: there is no such thing as a
+    // 0-byte allocation with a distinct address - `Advance(0)` is a no-op, so two sequential 0-size
+    // requests would otherwise collide at the same address. Rejected outright, same as a negative size.
+    public void TryAllocate_ZeroSize_ReturnsFalse_AndDoesNotMoveThePointer()
+    {
+        var sut = new SessionMemorySegment(new MemoryAddress(0), 2048, PointerSize.x86);
+
+        Assert.IsFalse(sut.TryAllocate(0, out _));
+
+        Assert.IsTrue(sut.TryAllocate(4, out var address));
+        Assert.AreEqual(0, address.Value);
+    }
 }
