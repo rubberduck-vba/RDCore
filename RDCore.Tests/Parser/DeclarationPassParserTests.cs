@@ -1625,6 +1625,133 @@ End Sub
     }
 
     [TestMethod]
+    // this grammar's outputItem never actually pairs a value with its trailing separator in one node
+    // (outputClause and charPosition each surface as their own item, confirmed empirically here, not
+    // assumed) - a value item's own Separator is always null; the separator that visually follows it
+    // is the *next* item, with a null Value.
+    public void PrintStatement_CapturesFileNumberAndItemsWithSeparators()
+    {
+        var result = ParseInProcedure("""Print #1, "a"; "b", "c" """.TrimEnd());
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<PrintStatementNode>().Single();
+
+        Assert.AreEqual(Tokens.Print, print.Token);
+        Assert.AreEqual(1L, IntValue(print.FileNumber!));
+        Assert.HasCount(5, print.Items);
+
+        Assert.AreEqual("a", ((VBStringValue)((LiteralExpressionNode)print.Items[0].Value!).StaticValue).Value);
+        Assert.AreEqual(";", print.Items[1].Separator);
+        Assert.IsNull(print.Items[1].Value);
+        Assert.AreEqual("b", ((VBStringValue)((LiteralExpressionNode)print.Items[2].Value!).StaticValue).Value);
+        Assert.AreEqual(",", print.Items[3].Separator);
+        Assert.IsNull(print.Items[3].Value);
+        Assert.AreEqual("c", ((VBStringValue)((LiteralExpressionNode)print.Items[4].Value!).StaticValue).Value);
+        Assert.IsNull(print.Items[4].Separator);
+    }
+
+    [TestMethod]
+    // a bare separator (nothing printed before it) must still show up as its own item, with a null
+    // Value - dropping it would silently shift every later item's column position.
+    public void PrintStatement_BareSeparatorItem_HasNullValue()
+    {
+        var result = ParseInProcedure("""Print #1, , "x" """.TrimEnd());
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<PrintStatementNode>().Single();
+
+        Assert.HasCount(2, print.Items);
+        Assert.IsNull(print.Items[0].Value);
+        Assert.AreEqual(",", print.Items[0].Separator);
+        Assert.AreEqual("x", ((VBStringValue)((LiteralExpressionNode)print.Items[1].Value!).StaticValue).Value);
+    }
+
+    [TestMethod]
+    public void PrintStatement_WithSpcAndTabClauses()
+    {
+        var result = ParseInProcedure("Print #1, Spc(3); Tab(10); Tab");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<PrintStatementNode>().Single();
+
+        Assert.HasCount(5, print.Items);
+        Assert.AreEqual(3L, IntValue(((PrintSpcClauseNode)print.Items[0].Value!).Count));
+        Assert.AreEqual(";", print.Items[1].Separator);
+        Assert.AreEqual(10L, IntValue(((PrintTabClauseNode)print.Items[2].Value!).Column!));
+        Assert.AreEqual(";", print.Items[3].Separator);
+        Assert.IsNull(((PrintTabClauseNode)print.Items[4].Value!).Column);
+    }
+
+    [TestMethod]
+    public void WriteStatement_CapturesFileNumberAndItems()
+    {
+        var result = ParseInProcedure("""Write #1, "a", "b" """.TrimEnd());
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var write = member.Children.OfType<PrintStatementNode>().Single();
+
+        Assert.AreEqual(Tokens.Write, write.Token);
+        Assert.AreEqual(1L, IntValue(write.FileNumber!));
+        Assert.HasCount(3, write.Items);
+        Assert.AreEqual(",", write.Items[1].Separator);
+    }
+
+    [TestMethod]
+    // the object-relative bare form (invoking the enclosing form/report's own Print member) has no
+    // file number at all.
+    public void UnqualifiedObjectPrintStatement_HasNoFileNumber()
+    {
+        var result = ParseInProcedure("""Print "x" """.TrimEnd());
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<PrintStatementNode>().Single();
+
+        Assert.IsNull(print.FileNumber);
+        Assert.AreEqual("x", ((VBStringValue)((LiteralExpressionNode)print.Items.Single().Value!).StaticValue).Value);
+    }
+
+    [TestMethod]
+    // Debug.Print "x" reaches mainBlockStmt through callStmt's bare form - the owner.Print shape is
+    // captured as the callee of a CallStatementNode, same as any other bare call.
+    public void ObjectPrintExpression_DebugPrint_CapturesOwnerAndItems()
+    {
+        var result = ParseInProcedure("""Debug.Print "x", "y" """.TrimEnd());
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        var objectPrint = (ObjectPrintExpressionNode)call.Callee;
+        Assert.AreEqual("Debug", ((SimpleNameExpressionNode)objectPrint.Owner).IdentifierName);
+        Assert.HasCount(3, objectPrint.Items);
+        Assert.AreEqual("x", ((VBStringValue)((LiteralExpressionNode)objectPrint.Items[0].Value!).StaticValue).Value);
+        Assert.AreEqual(",", objectPrint.Items[1].Separator);
+        Assert.AreEqual("y", ((VBStringValue)((LiteralExpressionNode)objectPrint.Items[2].Value!).StaticValue).Value);
+    }
+
+    [TestMethod]
+    public void OpenStatement_CapturesAllClauses()
+    {
+        var result = ParseInProcedure("""Open "file.txt" For Append Access Read Write Shared As #1 Len = 128""");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var open = member.Children.OfType<OpenStatementNode>().Single();
+
+        Assert.AreEqual("file.txt", ((VBStringValue)((LiteralExpressionNode)open.PathName).StaticValue).Value);
+        Assert.AreEqual(VBFileMode.Append, open.Mode);
+        Assert.AreEqual(VBFileAccessMode.ReadWrite, open.Access);
+        Assert.AreEqual(VBFileLockMode.Shared, open.Lock);
+        Assert.AreEqual(1L, IntValue(open.FileNumber));
+        Assert.AreEqual(128L, IntValue(open.RecordLength!));
+    }
+
+    [TestMethod]
+    public void OpenStatement_WithOnlyRequiredClauses_LeavesOptionalClausesNull()
+    {
+        var result = ParseInProcedure("""Open "file.txt" As #1""");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var open = member.Children.OfType<OpenStatementNode>().Single();
+
+        Assert.IsNull(open.Mode);
+        Assert.IsNull(open.Access);
+        Assert.IsNull(open.Lock);
+        Assert.IsNull(open.RecordLength);
+        Assert.AreEqual(1L, IntValue(open.FileNumber));
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

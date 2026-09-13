@@ -138,6 +138,25 @@ public sealed class SyntaxNodeSerializationTests
         yield return ["Member access (owner + with-relative)", (SyntaxNode)new MemberAccessExpressionNode(Id(10), loc, Name(Id(10, 0), "Foo"), Name(Id(10, 1), "Bar"))];
 
         yield return ["Dictionary access (with-relative, no owner)", (SyntaxNode)new DictionaryAccessExpressionNode(Id(11), loc, null, Name(Id(11, 0), "Bar"))];
+
+        yield return ["Print (file number, value/separator/Spc/Tab items)", (SyntaxNode)new PrintStatementNode(
+            Id(12), loc, Tokens.Print, IntLiteral(Id(12, 0), 1),
+            [
+                new PrintOutputItemNode(Id(12, 1), loc, IntLiteral(Id(12, 1, 0), 1), null),
+                new PrintOutputItemNode(Id(12, 2), loc, null, ";"),
+                new PrintOutputItemNode(Id(12, 3), loc, new PrintSpcClauseNode(Id(12, 3, 0), loc, IntLiteral(Id(12, 3, 0, 0), 3)), null),
+                new PrintOutputItemNode(Id(12, 4), loc, null, ","),
+                new PrintOutputItemNode(Id(12, 5), loc, new PrintTabClauseNode(Id(12, 5, 0), loc, IntLiteral(Id(12, 5, 0, 0), 10)), null),
+            ])];
+
+        yield return ["Object print expression (Debug.Print-shaped)", (SyntaxNode)new ObjectPrintExpressionNode(
+            Id(13), loc, Name(Id(13, 0), "Debug"), [new PrintOutputItemNode(Id(13, 1), loc, IntLiteral(Id(13, 1, 0), 1), null)])];
+
+        yield return ["Open (all optional clauses populated)", (SyntaxNode)new OpenStatementNode(
+            Id(14), loc,
+            new LiteralExpressionNode(Id(14, 0), loc, new VBStringValue("file.txt")),
+            VBFileMode.Append, VBFileAccessMode.ReadWrite, VBFileLockMode.Shared,
+            IntLiteral(Id(14, 1), 1), IntLiteral(Id(14, 2), 128))];
     }
 
     public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];

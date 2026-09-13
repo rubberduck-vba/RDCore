@@ -470,6 +470,67 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitInputStmt([NotNull] VBAParser.InputStmtContext context)
         => OnKeywordStatement(Tokens.Input, context, [CaptureMarkedFileNumber(context.markedFileNumber()), .. CaptureInputList(context.inputList())]);
 
+    // `Print`/`Write` (MS-VBAL §5.4.5.8-9) and the object-relative bare form don't fit
+    // KeywordStatementNode's plain expression-list shape (an output list has Spc/Tab clauses and
+    // ;/, separators with real formatting semantics — deliberately not resolved here, only captured).
+    // These are leaf statements like every other KeywordStatement, so nothing lands in CurrentBuilder
+    // ambiently — CaptureIsolated re-walks the file number and the whole output list explicitly.
+    public override void ExitPrintStmt([NotNull] VBAParser.PrintStmtContext context)
+        => BuildPrintStatement(context, Tokens.Print, context.markedFileNumber()?.expression(), context.outputList());
+
+    public override void ExitWriteStmt([NotNull] VBAParser.WriteStmtContext context)
+        => BuildPrintStatement(context, Tokens.Write, context.markedFileNumber()?.expression(), context.outputList());
+
+    public override void ExitUnqualifiedObjectPrintStmt([NotNull] VBAParser.UnqualifiedObjectPrintStmtContext context)
+        => BuildPrintStatement(context, Tokens.Print, null, context.outputList());
+
+    private void BuildPrintStatement(VBABaseParserRuleContext context, string token, VBAParser.ExpressionContext? fileNumberExpression, VBAParser.OutputListContext? outputList)
+    {
+        var fileNumber = CaptureIsolatedExpression(fileNumberExpression);
+        var items = CaptureIsolated(outputList).Cast<PrintOutputItemNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new PrintStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), token, fileNumber, items));
+    }
+
+    // `Open` (MS-VBAL §5.4.5.1) needs its own shape — Mode/Access/Lock are keyword choices, not
+    // expressions, so it can't ride KeywordStatementNode like the rest of the file statements.
+    public override void ExitOpenStmt([NotNull] VBAParser.OpenStmtContext context)
+    {
+        if (CaptureIsolatedExpression(context.pathName()?.expression()) is not { } pathName
+            || CaptureFileNumber(context.fileNumber()) is not { } fileNumber)
+        {
+            // both required; recovery left one of them unresolved — don't build a broken node.
+            return;
+        }
+
+        var mode = context.modeClause()?.fileMode() switch
+        {
+            null => (VBFileMode?)null,
+            { } m when m.APPEND() is not null => VBFileMode.Append,
+            { } m when m.BINARY() is not null => VBFileMode.Binary,
+            { } m when m.INPUT() is not null => VBFileMode.Input,
+            { } m when m.OUTPUT() is not null => VBFileMode.Output,
+            _ => VBFileMode.Random,
+        };
+        var access = context.accessClause()?.access() switch
+        {
+            null => (VBFileAccessMode?)null,
+            { } a when a.READ() is not null => VBFileAccessMode.Read,
+            { } a when a.WRITE() is not null => VBFileAccessMode.Write,
+            _ => VBFileAccessMode.ReadWrite,
+        };
+        var @lock = context.@lock() switch
+        {
+            null => (VBFileLockMode?)null,
+            { } l when l.SHARED() is not null => VBFileLockMode.Shared,
+            { } l when l.LOCK_READ() is not null => VBFileLockMode.Read,
+            { } l when l.LOCK_WRITE() is not null => VBFileLockMode.Write,
+            _ => VBFileLockMode.ReadWrite,
+        };
+        var recordLength = CaptureIsolatedExpression(context.lenClause()?.recLength()?.expression());
+
+        CurrentBuilder.AddChild(new OpenStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), pathName, mode, access, @lock, fileNumber, recordLength));
+    }
+
     private void OnKeywordStatement(string token, VBABaseParserRuleContext context, params ExpressionNode?[] inputs)
     {
         var resolvedInputs = inputs.Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
@@ -757,6 +818,61 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         var target = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
         CurrentBuilder.AddChild(new AddressOfExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), target));
+    }
+
+    // `objectPrintExpr` (MS-VBAL §5.6, e.g. `Debug.Print "x"`) is part of the lExpression family —
+    // same left-recursive PopLastChildren discipline as ExitIndexExpr, since it recurses on the owner.
+    // Its own outputList is captured live here (not via CaptureIsolated) because this only ever fires
+    // from within an already-active capture region (whatever triggered it, e.g. CallStatementNode's
+    // own isolated re-walk of its callee).
+    public override void ExitObjectPrintExpr([NotNull] VBAParser.ObjectPrintExprContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var itemCount = context.outputList()?.outputItem().Length ?? 0;
+        var popped = CurrentBuilder.PopLastChildren(1 + itemCount);
+        var owner = (ExpressionNode)popped[0];
+        var items = popped.Skip(1).Cast<PrintOutputItemNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new ObjectPrintExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), owner, items));
+    }
+
+    // `Spc`/`Tab` (MS-VBAL §5.4.5.8.1) — neither rule recurses on itself, so either could take an
+    // Enter/scope-push, but PopLastChildren works without one and stays consistent with the rest of
+    // this family.
+    public override void ExitSpcClause([NotNull] VBAParser.SpcClauseContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var count = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        CurrentBuilder.AddChild(new PrintSpcClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), count));
+    }
+
+    public override void ExitTabClause([NotNull] VBAParser.TabClauseContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var column = context.tabNumberClause() is null ? null : (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        CurrentBuilder.AddChild(new PrintTabClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), column));
+    }
+
+    // an outputItem is (value?)(separator?), never both absent (the grammar's 3 alternatives always
+    // supply at least one) — whichever of outputClause's 3 forms fired (Spc/Tab/plain expression)
+    // already contributed exactly one node, same invariant as an index expression's arguments.
+    public override void ExitOutputItem([NotNull] VBAParser.OutputItemContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var value = context.outputClause() is null ? null : (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        var separator = context.charPosition() is { } position ? (position.SEMICOLON() is not null ? ";" : ",") : null;
+        CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), value, separator));
     }
 
     public override void ExitLiteralIdentifier([NotNull] VBAParser.LiteralIdentifierContext context)
