@@ -15,6 +15,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Parsing.AST;
@@ -1419,7 +1420,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var location = context.GetSourceLocation(_rootUri);
         if (context.DATELITERAL() is ITerminalNode dateLiteral)
         {
-            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), out var rawValue))
+            // MS-VBAL 3.3.3: date literals are locale-independent (English month names, spec-defined
+            // month/day disambiguation) - the ambient thread culture must not affect parsing. Mirrors
+            // PrecompilerDirectiveListener's ExitLiteralExpr, which already got this fix; this pass
+            // never did, so the same literal disagreed between the two passes depending on the host's
+            // culture (e.g. "#1-Jan-2020#" fails to parse entirely under a non-English locale whose
+            // month abbreviations differ, instead of the invariant English ones MS-VBAL mandates).
+            if (DateTime.TryParse(dateLiteral.Symbol.Text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rawValue))
             {
                 OnExpression(new LiteralExpressionNode(
                     GetCurrentNodeId(), 
