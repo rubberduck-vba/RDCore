@@ -62,16 +62,17 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Hosts, transport, connection lifecycle, platform-root | ✅ |
 | Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
 
-**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧
+**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧 · [RD-VBAL §3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.3.0.syntax-tree.html)
 
 | Area | |
 |---|---|
 | Full-document parse — directives, declarations, UDT members | ✅ |
+| Expression & operator grammar — arithmetic, logical, relational, concatenation, incl. `#If` conditions | ✅ |
+| Literal parsing — numeric and string literals | ✅ |
 | AST statement nodes | 🎯 unblocks the interpreter |
 | Anchored-fragment parse | 🎯 |
-| `#If` expressions (full operator grammar) · float-literal conformance (MS-VBAL §3.3.2) | ✅ |
 
-**RDCore.LanguageServer** — orchestrator + LSP server · 🚧
+**RDCore.LanguageServer** — orchestrator + LSP server · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)
 
 | Area | |
 |---|---|
@@ -80,7 +81,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Workspace load → parse round-trip → symbol extraction → define | ✅ resolved across modules (UDT/Enum, project scope) |
 | LSP document + workspace features | 👉 up for grabs — spec'd |
 
-**RDCore.CLI** → `rdc.exe` — LSP client + environment host · 🚧
+**RDCore.CLI** → `rdc.exe` — LSP client + environment host · 🚧 · [RD-VBAL §2.3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.3.application-host.html)
 
 | Area | |
 |---|---|
@@ -101,7 +102,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Standard library (`IStd*`) | 🎯 |
 | Interpreter · IR lowering | 🎯 planned |
 
-**RDCore.Diagnostics** — core inspection extension · 🚧 analyzer skeleton; discovered from its generated manifest and brought up by the language server during platform assembly.
+**RDCore.Diagnostics** — core inspection extension · 🚧 · [RD-VBAL §2.6](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.6.diagnostics.html) — analyzer skeleton; discovered from its generated manifest and brought up by the language server during platform assembly.
 
 **Tests** · 🎯 target ~70% line coverage (badge above is live) — operator and let-coercion semantics (runtime + static) well covered; parser grammar and CLI thin; runtime statement/interpreter work still has nothing to cover.
 
