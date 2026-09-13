@@ -80,7 +80,7 @@ public sealed class NumericLiteralTests
     [DataRow("1E40!", DisplayName = "Single suffix overflows to infinity")]
     [DataRow("&H100000000", DisplayName = "hex literal exceeds 32 bits without a ^ suffix")]
     [DataRow("&O777777777777", DisplayName = "octal literal exceeds 32 bits without a ^ suffix")]
-    // Jen review #167-205: Currency `@`-literal overflow threw System.OverflowException straight out of
+    // Adversarial review #167-205: Currency `@`-literal overflow threw System.OverflowException straight out of
     // VBRuntimeCurrencyValue's Convert.ToInt64(scaledValue * 10000) - unlike every other overflow case
     // here, nothing validated the value fit Currency's range before constructing it. ModuleParser's outer
     // catch kept it from being a raw crash, but leaked the exception's own message as the "syntax error"
