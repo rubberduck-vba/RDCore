@@ -142,6 +142,7 @@ public static class Tokens
     public const string Mod = "Mod";
     public const string Month = "Month";
     public const string MsgBox = "MsgBox";
+    public const string Name = "Name";
     public const string New = "New";
     public const string Next = "Next";
     public const string Not = "Not";
@@ -169,6 +170,7 @@ public static class Tokens
     public const string Read = "Read";
     public const string ReDim = "ReDim";
     public const string Rem = "Rem";
+    public const string Reset = "Reset";
     public const string Resume = "Resume";
     public const string Return = "Return";
     public const string RSet = "RSet";
@@ -242,6 +244,7 @@ public static class Tokens
     public const string EndWith = $"{End} {With}";
     public const string EndIf = $"{End} {If}";
     public const string ForEach = $"{For} {Each}";
+    public const string LineInput = $"{Line} {Input}";
     public const string PropertyGet = $"{Property} {Get}";
     public const string PropertyLet = $"{Property} {Let}";
     public const string PropertySet = $"{Property} {Set}";

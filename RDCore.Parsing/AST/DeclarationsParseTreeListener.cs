@@ -371,6 +371,94 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.LIKE() is not null ? Tokens.CompareLikeOp
             : context.GetText();
 
+    // Fixed-keyword statements with a positional argument list (MS-VBAL §5.4.5 File Statements, plus
+    // Erase/Name/RaiseEvent) — none of these have a body, so unlike every other construct in this
+    // listener there's no scope to push: the node is built directly and added to whatever's currently
+    // the active builder (OnExpression), exactly like a leaf expression would be. A capture that comes
+    // back null (an optional argument genuinely absent, or a deep recovery failure) is simply omitted
+    // from Inputs rather than aborting the whole statement — these arguments don't gate one another.
+    public override void ExitEraseStmt([NotNull] VBAParser.EraseStmtContext context)
+        => OnKeywordStatement(Tokens.Erase, context, [.. context.expression().Select(CaptureIsolatedExpression)]);
+
+    public override void ExitNameStmt([NotNull] VBAParser.NameStmtContext context)
+        => OnKeywordStatement(Tokens.Name, context, CaptureIsolatedExpression(context.expression(0)), CaptureIsolatedExpression(context.expression(1)));
+
+    // the event name is a bare identifier, not an expression — synthesized directly as a
+    // SimpleNameExpressionNode rather than routed through CaptureIsolatedExpression.
+    public override void ExitRaiseEventStmt([NotNull] VBAParser.RaiseEventStmtContext context)
+    {
+        var id = GetCurrentNodeId();
+        var eventName = new SimpleNameExpressionNode(id.Add(0), context.identifier().GetSourceLocation(_rootUri), context.identifier().Name());
+        var arguments = context.eventArgumentList()?.eventArgument().Select(argument => CaptureIsolatedExpression(argument.expression())) ?? [];
+        var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
+    }
+
+    public override void ExitCloseStmt([NotNull] VBAParser.CloseStmtContext context)
+        => OnKeywordStatement(Tokens.Close, context, CaptureFileNumbers(context.fileNumberList()));
+
+    public override void ExitResetStmt([NotNull] VBAParser.ResetStmtContext context)
+        => OnKeywordStatement(Tokens.Reset, context);
+
+    public override void ExitSeekStmt([NotNull] VBAParser.SeekStmtContext context)
+        => OnKeywordStatement(Tokens.Seek, context, CaptureFileNumber(context.fileNumber()), CaptureIsolatedExpression(context.position()?.expression()));
+
+    public override void ExitLockStmt([NotNull] VBAParser.LockStmtContext context)
+        => OnKeywordStatement(Tokens.Lock, context, [CaptureFileNumber(context.fileNumber()), .. CaptureRecordRange(context.recordRange())]);
+
+    public override void ExitUnlockStmt([NotNull] VBAParser.UnlockStmtContext context)
+        => OnKeywordStatement(Tokens.Unlock, context, [CaptureFileNumber(context.fileNumber()), .. CaptureRecordRange(context.recordRange())]);
+
+    public override void ExitGetStmt([NotNull] VBAParser.GetStmtContext context)
+        => OnKeywordStatement(Tokens.Get, context, CaptureFileNumber(context.fileNumber()), CaptureIsolatedExpression(context.recordNumber()?.expression()), CaptureIsolatedExpression(context.variable()?.expression()));
+
+    public override void ExitPutStmt([NotNull] VBAParser.PutStmtContext context)
+        => OnKeywordStatement(Tokens.Put, context, CaptureFileNumber(context.fileNumber()), CaptureIsolatedExpression(context.recordNumber()?.expression()), CaptureIsolatedExpression(context.data()?.expression()));
+
+    public override void ExitLineInputStmt([NotNull] VBAParser.LineInputStmtContext context)
+        => OnKeywordStatement(Tokens.LineInput, context, CaptureMarkedFileNumber(context.markedFileNumber()), CaptureIsolatedExpression(context.variableName()?.expression()));
+
+    public override void ExitWidthStmt([NotNull] VBAParser.WidthStmtContext context)
+        => OnKeywordStatement(Tokens.Width, context, CaptureMarkedFileNumber(context.markedFileNumber()), CaptureIsolatedExpression(context.lineWidth()?.expression()));
+
+    public override void ExitInputStmt([NotNull] VBAParser.InputStmtContext context)
+        => OnKeywordStatement(Tokens.Input, context, [CaptureMarkedFileNumber(context.markedFileNumber()), .. CaptureInputList(context.inputList())]);
+
+    private void OnKeywordStatement(string token, VBABaseParserRuleContext context, params ExpressionNode?[] inputs)
+    {
+        var resolvedInputs = inputs.Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new KeywordStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), token, resolvedInputs));
+    }
+
+    // `fileNumber` is `#expression | expression` (MS-VBAL 5.4.5.1.1) — the `#` mark is pure syntax,
+    // never modeled separately; either shape resolves to the same underlying expression.
+    private ExpressionNode? CaptureFileNumber(VBAParser.FileNumberContext? context)
+        => CaptureIsolatedExpression(context?.markedFileNumber()?.expression() ?? context?.unmarkedFileNumber()?.expression());
+
+    private ExpressionNode? CaptureMarkedFileNumber(VBAParser.MarkedFileNumberContext? context)
+        => CaptureIsolatedExpression(context?.expression());
+
+    private ExpressionNode?[] CaptureFileNumbers(VBAParser.FileNumberListContext? context)
+        => context is null ? [] : [.. context.fileNumber().Select(CaptureFileNumber)];
+
+    private ExpressionNode?[] CaptureInputList(VBAParser.InputListContext? context)
+        => context is null ? [] : [.. context.inputVariable().Select(v => CaptureIsolatedExpression(v.expression()))];
+
+    // `recordRange` (MS-VBAL Lock/Unlock statements) is either just a start record, or `start To end` —
+    // 1 or 2 expressions, never 0 (the whole recordRange is optional at the call site instead).
+    private ExpressionNode?[] CaptureRecordRange(VBAParser.RecordRangeContext? context)
+    {
+        if (context is null)
+        {
+            return [];
+        }
+
+        var start = CaptureIsolatedExpression(context.startRecordNumber()?.expression());
+        return context.endRecordNumber() is { } endContext
+            ? [start, CaptureIsolatedExpression(endContext.expression())]
+            : [start];
+    }
+
     // Re-walks an already-parsed, self-contained expression subtree in isolation, with capture
     // enabled just for that walk, into its own fresh scope. Safe because this only ever runs from an
     // Exit handler — the parser has already fully matched (and moved past) this subtree by then, so

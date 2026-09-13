@@ -1,5 +1,6 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
@@ -1117,6 +1118,189 @@ End Sub
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
         Assert.AreEqual("Nested", selectCase.CaseExpressionBlocks[0].Block.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    public void EraseStatement_CapturesTargetExpressions()
+    {
+        var result = ParseInProcedure("Erase a, b");
+        var statement = KeywordStatement(result, Tokens.Erase);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual("a", ((SimpleNameExpressionNode)statement.Inputs[0]).IdentifierName);
+        Assert.AreEqual("b", ((SimpleNameExpressionNode)statement.Inputs[1]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void NameStatement_CapturesOldAndNewPath()
+    {
+        var result = ParseInProcedure("""Name "a.txt" As "b.txt" """.TrimEnd());
+        var statement = KeywordStatement(result, Tokens.Name);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual("a.txt", ((VBStringValue)((LiteralExpressionNode)statement.Inputs[0]).StaticValue).Value);
+        Assert.AreEqual("b.txt", ((VBStringValue)((LiteralExpressionNode)statement.Inputs[1]).StaticValue).Value);
+    }
+
+    [TestMethod]
+    // the event name is a bare identifier (not an expression) - synthesized as the first Input.
+    public void RaiseEventStatement_CapturesEventNameAndArguments()
+    {
+        var result = ParseInProcedure("RaiseEvent Changed(1, 2)");
+        var statement = KeywordStatement(result, Tokens.RaiseEvent);
+
+        Assert.HasCount(3, statement.Inputs);
+        Assert.AreEqual("Changed", ((SimpleNameExpressionNode)statement.Inputs[0]).IdentifierName);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[1]));
+        Assert.AreEqual(2L, IntValue(statement.Inputs[2]));
+    }
+
+    [TestMethod]
+    public void RaiseEventStatement_WithNoArguments_CapturesJustTheEventName()
+    {
+        var result = ParseInProcedure("RaiseEvent Changed");
+        var statement = KeywordStatement(result, Tokens.RaiseEvent);
+
+        Assert.HasCount(1, statement.Inputs);
+        Assert.AreEqual("Changed", ((SimpleNameExpressionNode)statement.Inputs[0]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void CloseStatement_WithFileNumbers_CapturesThem()
+    {
+        var result = ParseInProcedure("Close #1, #2");
+        var statement = KeywordStatement(result, Tokens.Close);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[0]));
+        Assert.AreEqual(2L, IntValue(statement.Inputs[1]));
+    }
+
+    [TestMethod]
+    public void CloseStatement_WithNoFileNumbers_HasNoInputs()
+    {
+        var result = ParseInProcedure("Close");
+        Assert.IsEmpty(KeywordStatement(result, Tokens.Close).Inputs);
+    }
+
+    [TestMethod]
+    public void ResetStatement_HasNoInputs()
+    {
+        var result = ParseInProcedure("Reset");
+        Assert.IsEmpty(KeywordStatement(result, Tokens.Reset).Inputs);
+    }
+
+    [TestMethod]
+    public void SeekStatement_CapturesFileNumberAndPosition()
+    {
+        var result = ParseInProcedure("Seek #1, 5");
+        var statement = KeywordStatement(result, Tokens.Seek);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[0]));
+        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
+    }
+
+    [TestMethod]
+    public void LockStatement_WithJustAStartRecord_CapturesOneRecordNumber()
+    {
+        var result = ParseInProcedure("Lock #1, 5");
+        var statement = KeywordStatement(result, Tokens.Lock);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
+    }
+
+    [TestMethod]
+    public void LockStatement_WithARecordRange_CapturesBothBounds()
+    {
+        var result = ParseInProcedure("Lock #1, 5 To 10");
+        var statement = KeywordStatement(result, Tokens.Lock);
+
+        Assert.HasCount(3, statement.Inputs);
+        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
+        Assert.AreEqual(10L, IntValue(statement.Inputs[2]));
+    }
+
+    [TestMethod]
+    public void UnlockStatement_CapturesFileNumberAndRecordRange()
+    {
+        var result = ParseInProcedure("Unlock #1, 5 To 10");
+        var statement = KeywordStatement(result, Tokens.Unlock);
+        Assert.HasCount(3, statement.Inputs);
+    }
+
+    [TestMethod]
+    public void GetStatement_CapturesFileNumberRecordNumberAndVariable()
+    {
+        var result = ParseInProcedure("Get #1, 5, x");
+        var statement = KeywordStatement(result, Tokens.Get);
+
+        Assert.HasCount(3, statement.Inputs);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[0]));
+        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)statement.Inputs[2]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void PutStatement_CapturesFileNumberRecordNumberAndData()
+    {
+        var result = ParseInProcedure("Put #1, 5, x");
+        var statement = KeywordStatement(result, Tokens.Put);
+
+        Assert.HasCount(3, statement.Inputs);
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)statement.Inputs[2]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void LineInputStatement_CapturesFileNumberAndVariable()
+    {
+        var result = ParseInProcedure("Line Input #1, x");
+        var statement = KeywordStatement(result, Tokens.LineInput);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[0]));
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)statement.Inputs[1]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void WidthStatement_CapturesFileNumberAndWidth()
+    {
+        var result = ParseInProcedure("Width #1, 80");
+        var statement = KeywordStatement(result, Tokens.Width);
+
+        Assert.HasCount(2, statement.Inputs);
+        Assert.AreEqual(80L, IntValue(statement.Inputs[1]));
+    }
+
+    [TestMethod]
+    public void InputStatement_CapturesFileNumberAndVariables()
+    {
+        var result = ParseInProcedure("Input #1, a, b");
+        var statement = KeywordStatement(result, Tokens.Input);
+
+        Assert.HasCount(3, statement.Inputs);
+        Assert.AreEqual(1L, IntValue(statement.Inputs[0]));
+        Assert.AreEqual("a", ((SimpleNameExpressionNode)statement.Inputs[1]).IdentifierName);
+        Assert.AreEqual("b", ((SimpleNameExpressionNode)statement.Inputs[2]).IdentifierName);
+    }
+
+    private static ModuleParseResult ParseInProcedure(string statement)
+    {
+        var content = $"""
+            Public Sub DoWork()
+                {statement}
+            End Sub
+            """;
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+        return result;
+    }
+
+    private static KeywordStatementNode KeywordStatement(ModuleParseResult result, string token)
+    {
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        return member.Children.OfType<KeywordStatementNode>().Single(k => k.Token == token);
     }
 
     [TestMethod]
