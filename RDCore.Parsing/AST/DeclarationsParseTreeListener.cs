@@ -226,10 +226,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
     // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
     // statement between members, so the context is only reached inside a procedure body. Nested
-    // inside If/ElseIf/Else/While/Do/For/ForEach it parents to that branch's own Body —
+    // inside If/ElseIf/Else/While/Do/For/ForEach/Select Case it parents to that branch's own Body —
     // SymbolBuilder.BuildLocals walks the whole body, not just the member's immediate children, to
-    // still find it. A block shape this pass hasn't wired yet (Select Case) still flattens the ReDim
-    // straight onto the member.)
+    // still find it.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
         => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
@@ -309,6 +308,68 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var collection = CaptureIsolatedExpression(context.expression(1));
         OnExitParentIfBuilt(builder => builder.BuildForEachStatement(context, control, collection));
     }
+
+    // `Select Case` (MS-VBAL 5.4.2.10). Every expression here — the control expression, and each
+    // Case line's range clause(s) — uses CaptureIsolatedExpression uniformly: a Case line can carry
+    // several comma-separated range clauses with no single reliable boundary rule between them, so
+    // the live-window trick doesn't fit any better here than it did for Do/For.
+    public override void EnterSelectCaseStmt([NotNull] VBAParser.SelectCaseStmtContext context)
+        => OnEnterParent();
+    public override void ExitSelectCaseStmt([NotNull] VBAParser.SelectCaseStmtContext context)
+        => OnExitParentIfBuilt(builder => builder.BuildSelectCaseStatement(context, CaptureIsolatedExpression(context.selectExpression()?.expression())));
+
+    public override void EnterCaseClause([NotNull] VBAParser.CaseClauseContext context)
+        => OnEnterParent();
+    public override void ExitCaseClause([NotNull] VBAParser.CaseClauseContext context)
+    {
+        var rangeClauses = context.rangeClause()
+            .Select(CaptureRangeClause)
+            .Where(clause => clause is not null)
+            .Select(clause => clause!)
+            .ToImmutableArray();
+        OnExitParentIfBuilt(builder => builder.BuildCaseExpression(context, rangeClauses));
+    }
+
+    public override void EnterCaseElseClause([NotNull] VBAParser.CaseElseClauseContext context)
+        => OnEnterParent();
+    public override void ExitCaseElseClause([NotNull] VBAParser.CaseElseClauseContext context)
+        => OnExitParent(builder => builder.BuildCaseElseClause(context));
+
+    // A `rangeClause` is one of three independent shapes (MS-VBAL 5.4.2.10): a `To` range, a
+    // comparison, or a plain value. `_children`-position-based IDs don't apply here (these clauses are
+    // never added to a builder's children — they're returned, since a Case line can have several), so
+    // each clause gets its own id nested under the case clause's own current slot.
+    private CaseRangeClauseNode? CaptureRangeClause(VBAParser.RangeClauseContext context, int index)
+    {
+        var id = GetCurrentNodeId().Add(index);
+        var location = context.GetSourceLocation(_rootUri);
+
+        if (context.selectStartValue() is { } startValue && context.selectEndValue() is { } endValue)
+        {
+            var start = CaptureIsolatedExpression(startValue.expression());
+            var end = CaptureIsolatedExpression(endValue.expression());
+            return start is null || end is null ? null : new CaseToRangeClauseNode(id, location, start, end);
+        }
+        if (context.comparisonOperator() is { } comparison)
+        {
+            var value = CaptureIsolatedExpression(context.expression());
+            return value is null ? null : new CaseComparisonRangeClauseNode(id, location, ToComparisonToken(comparison), value);
+        }
+
+        var plainValue = CaptureIsolatedExpression(context.expression());
+        return plainValue is null ? null : new CaseValueRangeClauseNode(id, location, plainValue);
+    }
+
+    private static string ToComparisonToken(VBAParser.ComparisonOperatorContext context)
+        => context.EQ() is not null ? Tokens.CompareEqualOp
+            : context.NEQ() is not null ? Tokens.CompareNotEqualOp
+            : context.GT() is not null ? Tokens.CompareGreaterThanOp
+            : context.GEQ() is not null ? Tokens.CompareGreaterThanOrEqualOp
+            : context.LT() is not null ? Tokens.CompareLessThanOp
+            : context.LEQ() is not null ? Tokens.CompareLessThanOrEqualOp
+            : context.IS() is not null ? Tokens.CompareIsOp
+            : context.LIKE() is not null ? Tokens.CompareLikeOp
+            : context.GetText();
 
     // Re-walks an already-parsed, self-contained expression subtree in isolation, with capture
     // enabled just for that walk, into its own fresh scope. Safe because this only ever runs from an

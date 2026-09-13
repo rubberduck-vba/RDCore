@@ -446,6 +446,26 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new ForEachStatementNode(NodeId, context.GetSourceLocation(_rootUri), control, collection, body);
     }
 
+    // _children here is purely Case/Case Else blocks, added directly as they're each fully built by
+    // their own Exit handler — never body statements (a selectCaseStmt has no statements of its own).
+    public SyntaxNode? BuildSelectCaseStatement(VBAParser.SelectCaseStmtContext context, ExpressionNode? controlExpression)
+    {
+        if (controlExpression is null)
+        {
+            return null;
+        }
+
+        var caseExpressionBlocks = _children.OfType<CaseExpressionStatementNode>().ToImmutableArray();
+        var caseElseBlock = _children.OfType<CaseElseClauseStatementNode>().SingleOrDefault();
+        return new SelectCaseStatementNode(NodeId, context.GetSourceLocation(_rootUri), controlExpression, caseExpressionBlocks, caseElseBlock);
+    }
+
+    public SyntaxNode BuildCaseExpression(VBAParser.CaseClauseContext context, ImmutableArray<CaseRangeClauseNode> rangeClauses)
+        => new CaseExpressionStatementNode(NodeId, context.GetSourceLocation(_rootUri), rangeClauses, new StatementBlock([.. _children]));
+
+    public SyntaxNode BuildCaseElseClause(VBAParser.CaseElseClauseContext context)
+        => new CaseElseClauseStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
+
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 

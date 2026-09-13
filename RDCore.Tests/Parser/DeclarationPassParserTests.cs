@@ -956,6 +956,170 @@ End Sub
     }
 
     [TestMethod]
+    public void SelectCase_ValueRangeClause_BuildsCaseValueRangeClauseNode()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N
+                Case 5
+                    Dim x As Long
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+
+        Assert.AreEqual("N", ((SimpleNameExpressionNode)selectCase.ControlExpression).IdentifierName);
+        Assert.HasCount(1, selectCase.CaseExpressionBlocks);
+        var clause = (CaseValueRangeClauseNode)selectCase.CaseExpressionBlocks[0].RangeClauses.Single();
+        Assert.AreEqual(5L, IntValue(clause.Value));
+        Assert.AreEqual("x", selectCase.CaseExpressionBlocks[0].Block.Children.OfType<VariableDeclarationNode>().Single().Name);
+        Assert.IsNull(selectCase.CaseElseBlock);
+    }
+
+    [TestMethod]
+    public void SelectCase_ComparisonRangeClause_BuildsCaseComparisonRangeClauseNode()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N
+                Case Is > 5
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+        var clause = (CaseComparisonRangeClauseNode)selectCase.CaseExpressionBlocks[0].RangeClauses.Single();
+
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, clause.ComparisonOperator);
+        Assert.AreEqual(5L, IntValue(clause.Value));
+    }
+
+    [TestMethod]
+    public void SelectCase_ToRangeClause_BuildsCaseToRangeClauseNode()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N
+                Case 1 To 10
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+        var clause = (CaseToRangeClauseNode)selectCase.CaseExpressionBlocks[0].RangeClauses.Single();
+
+        Assert.AreEqual(1L, IntValue(clause.Start));
+        Assert.AreEqual(10L, IntValue(clause.End));
+    }
+
+    [TestMethod]
+    // a single Case line can carry several comma-separated range clauses, each independently one of
+    // the three shapes — proves CaptureRangeClause's per-clause id allocation doesn't collide.
+    public void SelectCase_MultipleRangeClausesOnOneLine_AreCapturedInOrder()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N
+                Case 1, 3, 5 To 10, Is > 100
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+        var clauses = selectCase.CaseExpressionBlocks[0].RangeClauses;
+
+        Assert.HasCount(4, clauses);
+        Assert.AreEqual(1L, IntValue(((CaseValueRangeClauseNode)clauses[0]).Value));
+        Assert.AreEqual(3L, IntValue(((CaseValueRangeClauseNode)clauses[1]).Value));
+        var range = (CaseToRangeClauseNode)clauses[2];
+        Assert.AreEqual(5L, IntValue(range.Start));
+        Assert.AreEqual(10L, IntValue(range.End));
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, ((CaseComparisonRangeClauseNode)clauses[3]).ComparisonOperator);
+    }
+
+    [TestMethod]
+    public void SelectCase_WithCaseElse_BuildsCaseElseBlock()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N
+                Case 1
+                    Dim a As Long
+                Case Else
+                    Dim b As Long
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+
+        Assert.IsNotNull(selectCase.CaseElseBlock);
+        Assert.AreEqual("b", selectCase.CaseElseBlock!.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    // proves CaptureIsolatedExpression threads a full operator tree for the control expression too.
+    public void SelectCase_ControlExpressionIsAnOperatorTree()
+    {
+        const string content = """
+            Public Sub Classify(ByVal N As Long)
+                Select Case N + 1
+                Case 1
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+        Assert.AreEqual(Tokens.AdditionOp, ((VBBinaryOperatorExpressionNode)selectCase.ControlExpression).Token);
+    }
+
+    [TestMethod]
+    // regression guard, same shape as every other construct wired in this PR.
+    public void SelectCase_NestedDeclaration_ParentsToTheCaseBody()
+    {
+        const string content = """
+            Public Sub Grow(ByVal N As Long)
+                Select Case N
+                Case 1
+                    ReDim Nested(5)
+                End Select
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var selectCase = member.Children.OfType<SelectCaseStatementNode>().Single();
+        Assert.AreEqual("Nested", selectCase.CaseExpressionBlocks[0].Block.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """
