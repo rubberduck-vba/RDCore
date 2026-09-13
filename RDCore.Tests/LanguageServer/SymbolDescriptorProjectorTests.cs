@@ -134,14 +134,29 @@ public sealed class SymbolDescriptorProjectorTests
     }
 
     [TestMethod]
-    public void UnmappedSymbolKind_ThrowsInsteadOfSilentlyDefaultingToModuleField()
-        // regression: KindOf's default arm used to silently label any symbol type it didn't
-        // recognize as ModuleField. No real declaration the parser + symbol-provider pipeline
-        // produces hits that path (every explicit arm above is reachable through real source), so a
+    public void UnmappedSymbolKind_IsSkippedRatherThanThrowingOrDefaultingToModuleField()
+        // regression, escalated: KindOf's default arm first silently mislabeled any unrecognized
+        // symbol type as ModuleField, then (post-#204) was made to throw instead. Adversarial review
+        // PRs #208-224 (item 7) found the throw crashes projection for the WHOLE module over one
+        // stray top-level symbol - e.g. a local wrongly parented to the module by a Uri collision.
+        // Neither extreme is right: skip just that one symbol, project everything else normally. A
         // hand-built symbol of a kind this projector was never taught about is the only way to
         // exercise it -- a class-module symbol standing in for "a module", not "a module member".
-        => Assert.ThrowsExactly<NotSupportedException>(() => SymbolDescriptorProjector.Project(
+        => Assert.IsEmpty(SymbolDescriptorProjector.Project(
             [new VBClassModuleSymbol(WorkspaceRoot, ModuleUri, "Whatever")], ModuleUri));
+
+    [TestMethod]
+    public void UnmappedSymbolKind_DoesNotPreventSiblingSymbolsFromProjecting()
+    {
+        var parseResult = new ModuleParser().Parse(new Uri("file:///c:/ws/src/Mod1.bas"), "Public Sub DoWork()\r\nEnd Sub");
+        var real = new SyntaxTreeSymbolProvider(WorkspaceRoot, ModuleUri, ModuleType.StdModule, parseResult, new IntrinsicSymbolResolver()).ProvideSymbols();
+        var stray = new VBClassModuleSymbol(WorkspaceRoot, ModuleUri, "Whatever");
+
+        var descriptor = SymbolDescriptorProjector.Project([.. real, stray], ModuleUri).Single();
+
+        Assert.AreEqual("DoWork", descriptor.Name);
+        Assert.AreEqual(SymbolDescriptorKind.Procedure, descriptor.Kind);
+    }
 
     [TestMethod]
     public void ProcedureWithALocalVariable_DoesNotThrow_AndTheLocalIsNotProjectedAsAMember()
