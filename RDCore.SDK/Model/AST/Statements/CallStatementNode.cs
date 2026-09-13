@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Statements;
 
 /// <summary>
-/// An executable statement node that represents a procedure or function call (MS-VBAL §5.4.4 Call
+/// An executable statement node that represents a procedure or function call (MS-VBAL §5.4.2.1 Call
 /// Statement) — either the explicit <c>Call &lt;lExpression&gt;</c> form or an implicit bare-call
 /// statement.
 /// </summary>

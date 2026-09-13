@@ -148,10 +148,10 @@ Because the type system includes and leverages meta-types such as `VBTypeDescVal
 ---
 ## In this section
 - [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)
-- [**RD-VBAL §3.2** Literals](rd-vbal.3.2.literals.md)
+- [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.md)
 - [**RD-VBAL §3.3** Operators](rd-vbal.3.3.0.operators.md)
-<!-- TODO
 - [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.md)
+<!-- TODO
 - [**RD-VBAL §3.5** Instructions](rd-vbal.3.5.0.instructions.md) 
 -->
 
