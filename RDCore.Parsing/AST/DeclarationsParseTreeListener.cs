@@ -525,9 +525,21 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => CurrentBuilder.AddChild(new ReturnStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
 
     // `On Error GoTo <label>` and `On Error Resume Next` (MS-VBAL §5.4.4.1) are the same grammar
-    // rule's two alternatives — `GOTO()` is non-null only for the former.
+    // rule's two alternatives — `GOTO()` is non-null only for the former. A source missing `Next`
+    // (e.g. bare `On Error Resume`) makes ANTLR invoke this Exit callback TWICE: once with the real
+    // InputMismatchException on `context.exception` (harmless - the first guard below returns), then
+    // again after recovery, with `exception` cleared and a synthesized `<missing NEXT>` token standing
+    // in for the one the source never had. That second call is the trap: `RESUME()`/`NEXT()` are both
+    // non-null, so a plain null-check doesn't catch it — only `Symbol.TokenIndex` does, since a
+    // synthesized token is never actually lexed from the input (real tokens are always >= 0). Without
+    // both guards, that shape fabricated a full OnErrorResumeStatementNode the source never said,
+    // alongside the real syntax error — confirmed via `On Local Error Resume` (no `Next`).
     public override void ExitOnErrorStmt([NotNull] VBAParser.OnErrorStmtContext context)
     {
+        if (context.exception is not null)
+        {
+            return;
+        }
         if (context.GOTO() is not null)
         {
             if (CaptureIsolatedExpression(context.expression()) is not { } label)
@@ -535,6 +547,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
                 return;
             }
             CurrentBuilder.AddChild(new OnErrorGoToStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
+            return;
+        }
+        if (context.RESUME() is null || context.NEXT() is not { Symbol.TokenIndex: >= 0 })
+        {
             return;
         }
         CurrentBuilder.AddChild(new OnErrorResumeStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
