@@ -620,15 +620,14 @@ End Sub
 
     [TestMethod]
     // Let and Set (MS-VBAL §5.4.3.8/9) share one node shape - the bare form omits the optional `Let`.
-    public void LetStatement_Bare_HasLetTokenAndIsNotExplicit()
+    public void LetStatement_Bare_IsImplicitLet()
     {
         var result = ParseInProcedure("x = 1");
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
 
-        Assert.AreEqual(Tokens.Let, assignment.Token);
-        Assert.IsFalse(assignment.IsExplicitLet);
+        Assert.AreEqual(AssignmentKind.ImplicitLet, assignment.Kind);
         Assert.AreEqual("x", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
         Assert.AreEqual(1L, IntValue(assignment.Value));
     }
@@ -641,21 +640,18 @@ End Sub
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
 
-        Assert.AreEqual(Tokens.Let, assignment.Token);
-        Assert.IsTrue(assignment.IsExplicitLet);
+        Assert.AreEqual(AssignmentKind.ExplicitLet, assignment.Kind);
     }
 
     [TestMethod]
-    // Set's keyword is never optional (MS-VBAL §5.4.3.9), so IsExplicitLet is vacuously true.
-    public void SetStatement_HasSetTokenAndIsExplicitLet()
+    public void SetStatement_IsSetKind()
     {
         var result = ParseInProcedure("Set x = Foo");
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
 
-        Assert.AreEqual(Tokens.Set, assignment.Token);
-        Assert.IsTrue(assignment.IsExplicitLet);
+        Assert.AreEqual(AssignmentKind.Set, assignment.Kind);
         Assert.AreEqual("x", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
         Assert.AreEqual("Foo", ((SimpleNameExpressionNode)assignment.Value).IdentifierName);
     }

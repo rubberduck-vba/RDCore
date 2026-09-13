@@ -435,18 +435,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
     // expression`, and only their static/runtime coercion semantics differ, not their syntax.
     public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
-        => BuildAssignmentStatement(context, Tokens.Let, context.LET() is not null, context.lExpression(), context.expression());
+        => BuildAssignmentStatement(context, context.LET() is not null ? AssignmentKind.ExplicitLet : AssignmentKind.ImplicitLet, context.lExpression(), context.expression());
 
     public override void ExitSetStmt([NotNull] VBAParser.SetStmtContext context)
-        => BuildAssignmentStatement(context, Tokens.Set, true, context.lExpression(), context.expression());
+        => BuildAssignmentStatement(context, AssignmentKind.Set, context.lExpression(), context.expression());
 
-    private void BuildAssignmentStatement(VBABaseParserRuleContext context, string token, bool isExplicitLet, VBAParser.LExpressionContext? targetContext, VBAParser.ExpressionContext? valueContext)
+    private void BuildAssignmentStatement(VBABaseParserRuleContext context, AssignmentKind kind, VBAParser.LExpressionContext? targetContext, VBAParser.ExpressionContext? valueContext)
     {
         if (CaptureIsolatedExpression(targetContext) is not { } target || CaptureIsolatedExpression(valueContext) is not { } value)
         {
             return;
         }
-        CurrentBuilder.AddChild(new AssignmentStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), token, isExplicitLet, target, value));
+        CurrentBuilder.AddChild(new AssignmentStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), kind, target, value));
     }
 
     // `Call`/bare-call (MS-VBAL §5.4.4). `Call Foo(1, 2)` carries its arguments inside the callee's

@@ -140,7 +140,7 @@ public sealed class SyntaxNodeSerializationTests
         yield return ["Dictionary access (with-relative, no owner)", (SyntaxNode)new DictionaryAccessExpressionNode(Id(11), loc, null, Name(Id(11, 0), "Bar"))];
 
         yield return ["Assignment (Set, target is a member access)", (SyntaxNode)new AssignmentStatementNode(
-            Id(12), loc, Tokens.Set, true,
+            Id(12), loc, AssignmentKind.Set,
             new MemberAccessExpressionNode(Id(12, 0), loc, Name(Id(12, 0, 0), "Foo"), Name(Id(12, 0, 1), "Bar")),
             Name(Id(12, 1), "Value"))];
     }
