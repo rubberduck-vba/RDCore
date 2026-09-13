@@ -53,7 +53,9 @@ public interface IRuntimeSession
 public interface ISessionSymbols
 {
     /// <summary>
-    /// Defines <paramref name="symbol"/> in the given <paramref name="scope"/>.
+    /// Defines <paramref name="symbol"/> in the given <paramref name="scope"/>. A program-lifetime
+    /// declaration — a standard module's or the global scope's field or variable — is allocated
+    /// storage immediately, reachable afterwards through <see cref="Resolver"/>'s <c>GetValue</c>.
     /// </summary>
     /// <returns><c>true</c> if the symbol was added; <c>false</c> if it was already defined in that scope.</returns>
     bool TryDefine(Symbol symbol, ScopeKind scope);
@@ -64,8 +66,9 @@ public interface ISessionSymbols
     bool TryResolve(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
-    /// The compile-time read face over this table — resolves a name visible from a scope by walking
-    /// the scope tree the currently-defined symbols form. Tracks later <see cref="TryDefine"/> calls.
+    /// The read face over this table — resolves a name visible from a scope by walking the scope tree
+    /// the currently-defined symbols form (tracks later <see cref="TryDefine"/> calls), and reads the
+    /// live run-time binding a defined symbol was allocated, if any.
     /// </summary>
     ISymbolResolver Resolver { get; }
 }
