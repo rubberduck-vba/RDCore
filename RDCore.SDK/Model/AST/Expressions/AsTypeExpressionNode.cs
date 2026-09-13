@@ -4,7 +4,7 @@ using RDCore.SDK.Model.AST.Abstract;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// A <c>BoundExpression</c> with static semantics that resolve the <c>VBType</c> of a <c>VBTypedDeclarationExpression</c>.
+/// An <c>ExpressionNode</c> with static semantics that resolve the <c>VBType</c> of a <c>VBTypedDeclarationExpression</c>.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
@@ -16,7 +16,7 @@ public record class AsTypeExpressionNode(SyntaxNodeId Identity, SourceLocation L
     : ExpressionNode(Identity, Location, []);
 
 /// <summary>
-/// A <c>BoundExpression</c> representing any <em>declaration expression</em> that evaluates to a <c>TypedSymbol</c>.
+/// An <c>ExpressionNode</c> representing any <em>declaration expression</em> that evaluates to a <c>TypedSymbol</c>.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
@@ -37,7 +37,3 @@ public record class VBTypedDeclarationExpressionNode(SyntaxNodeId Identity, Sour
 /// <param name="IsStatic"><c>true</c> if the declaration list includes the <c>Static</c> keyword.</param>
 public record class VBDeclarationStatementNode(SyntaxNodeId Identity, SourceLocation Location, VBTypedDeclarationExpressionNode[] Declarations, AccessModifier? Modifier = AccessModifier.Implicit, bool IsWithEvents = false, bool IsStatic = false)
     : StatementNode(Identity, Location, [.. Declarations.Cast<ExpressionNode>()]);
-
-
-//public record class VBAssignationStatement(Uri SemanticId, SourceLocation Location, SimpleNameExpression TargetExpression, BoundExpression ValueExpression)
-//    : StatementNode(SemanticId, Location);

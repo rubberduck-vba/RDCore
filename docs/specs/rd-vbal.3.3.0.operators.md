@@ -19,13 +19,15 @@ An _operator_ consists of a _bound expression node_ that yields a deterministic 
 - All _binary operators_ are _infix_, with a _left_ and a _right_ operand and the operator token between them;
 - _ternary operators_ are **undefined in RD-VBA** and should never be introduced in the _language core_.
 
-All operators ultimately inherit `BoundNode`, which represents any type of AST node:
+All operators ultimately inherit `SyntaxNode`, which represents any type of AST node:
 
-- [BoundNode](../api/RDCore.SDK.Model.AST.Abstract.BoundNode.html)
-  - [BoundExpression](../api/RDCore.SDK.Model.AST.Abstract.BoundExpression.html)
-    - [VBOperatorExpression](../api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression-2.html)
+- [SyntaxNode](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html)
+  - [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
+    - [VBOperatorExpression](../api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression.html)
+      - [VBUnaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBUnaryOperatorExpressionNode.html)
+      - [VBBinaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBBinaryOperatorExpressionNode.html)
 
-Each layer of this inheritance hierarchy refines its members with more specialized signatures in _templated methods_, usually sealing overrides to leave only one or two methods to implement at the leaves. For example a `BoundExpression` has a general-purpose _inputs_ array of values, but an _operator expression_ exposes them as _indexed operands_, and a _unary operator_ only sees one while a _binary operator_ gets `Left` and `Right` operands.  
+Each layer of this inheritance hierarchy refines its members with more specialized signatures in _templated methods_, usually sealing overrides to leave only one or two methods to implement at the leaves. For example an `ExpressionNode` has a general-purpose _inputs_ array of values, but an _operator expression_ exposes them as _indexed operands_ (`Children[n]`), and a _unary operator_ exposes only `Operand` while a _binary operator_ exposes `Left` and `Right`.  
 
 > [!TIP]
 > This is also the case for all _semantics_, both _static_ and _runtime_.

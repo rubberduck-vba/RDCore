@@ -22,7 +22,7 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     where TFlags : struct, Enum
 {
     /// <summary>
-    /// Analyzes the specified <c>BoundNode</c> in the specified execution context, using the specified inputs.
+    /// Analyzes the specified <c>SyntaxNode</c> in the specified execution context, using the specified inputs.
     /// </summary>
     /// <param name="resolver">A read-only interface over the current execution context..</param>
     /// <param name="builder">A <em>semantic flags builder</em> specifically for the operation defined by the <c>node</c> under scrutiny.</param>
@@ -39,7 +39,7 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
         params VBTypedValue[] inputs);
 
     /// <summary>
-    /// Evaluates the specified <c>BoundNode</c> in the specified execution context, using the specified inputs.
+    /// Evaluates the specified <c>SyntaxNode</c> in the specified execution context, using the specified inputs.
     /// </summary>
     /// <remarks>
     /// ⚠️ <strong>Does not throw</strong> any run-time errors; instead it packages the error metadata in the result.

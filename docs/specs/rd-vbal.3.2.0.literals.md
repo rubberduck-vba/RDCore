@@ -1,6 +1,6 @@
 # 3.2.0 Literal Expressions
 
-[VBLiteralExpression](../api/RDCore.SDK.Model.AST.Expressions.VBLiteralExpression.html) (**MS-VBAL §5.6.5**) represents a value that is statically resolved to a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).
+[LiteralExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.LiteralExpressionNode.html) (**MS-VBAL §5.6.5**) represents a value that is statically resolved to a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).
 
 The parser resolves the literal's _declared type_ from the source token: a `LiteralExpressionNode` already carries a fully-typed [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html), including the effect of any _type-declaration character_.
 
@@ -49,6 +49,7 @@ The declared type of a numeric literal follows **MS-VBAL §3.3.2**:
 The _environment host_ defines a number of [_static symbols_](../api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html) that are globally defined, on top of the global [IStdConstantsModule](../api/IStdConstantsModule.html): 
 
 |Type|Value|Literal (token)|
+|---|---|---|
 |[VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)|[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|`True`,`False`|
 |[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|[VBStringValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html)|`VBEmptyString`|
 |[VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html)|[VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)|`Null`|

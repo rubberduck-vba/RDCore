@@ -62,7 +62,7 @@ e.g. `Case Is > 5`), or an inclusive range
 |`RaiseEvent`|`KeywordStatementNode` (`Token`: `RaiseEvent`)|§5.4.2.20|
 |`Stop`|`KeywordStatementNode` (`Token`: `Stop`)|§5.4.2.11|
 |`End`|`KeywordStatementNode` (`Token`: `End`)|— (not a MS-VBAL-numbered statement)|
-|`Exit Do`/`Exit For`/`Exit Sub`/`Exit Function`/`Exit Property`|`KeywordStatementNode` (`Token`: `ExitDo`/`ExitFor`/`ExitSub`/`ExitFunction`/`ExitProperty`)|§5.4.2.7/.5/.17/.18/.19|
+|`Exit Do`/`Exit For`/`Exit Sub`/`Exit Function`/`Exit Property`|`KeywordStatementNode` (`Token`: `"Exit Do"`/`"Exit For"`/`"Exit Sub"`/`"Exit Function"`/`"Exit Property"`)|§5.4.2.7/.5/.17/.18/.19|
 |`GoTo`|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|§5.4.2.12|
 |`GoSub`|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|§5.4.2.14|
 |`Return`|[ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|§5.4.2.15|
@@ -100,7 +100,7 @@ MS-VBAL groups file I/O under one umbrella, §5.4.5 File Statements.
 |`Lock`, `Unlock`|`KeywordStatementNode` (`Token`: `Lock`/`Unlock`)|§5.4.5.4/.5|
 |`Line Input #`|`KeywordStatementNode` (`Token`: `LineInput`)|§5.4.5.6|
 |`Width #`|`KeywordStatementNode` (`Token`: `Width`)|§5.4.5.7|
-|`Print #`, `Debug.Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html) (`Token`: `Print`), [ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html) for the unqualified object-relative form|§5.4.5.8|
+|`Print #`, `Debug.Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html) (`Token`: `Print`) for the file-number form, [ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html) for the object-qualified form (`Owner.Print`, e.g. `Debug.Print`)|§5.4.5.8|
 |`Write #`|`PrintStatementNode` (`Token`: `Write`)|§5.4.5.9|
 |`Input #`|`KeywordStatementNode` (`Token`: `Input`)|§5.4.5.10|
 |`Put #`|`KeywordStatementNode` (`Token`: `Put`)|§5.4.5.11|

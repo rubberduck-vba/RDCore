@@ -67,9 +67,9 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Area | |
 |---|---|
 | Full-document parse — directives, declarations, UDT members | ✅ |
-| Expression & operator grammar — arithmetic, logical, relational, concatenation, incl. `#If` conditions | ✅ |
+| Expression & operator grammar — arithmetic, logical, relational, concatenation, incl. `#If` conditions | 🚧 `New`/`TypeOf...Is` parse but aren't modeled — preserved as `UnbuiltExpressionTriviaNode`, not a real node; everything else ✅ |
 | Literal parsing — numeric and string literals | ✅ |
-| AST statement nodes | 🚧 most forms landed; `New`/`TypeOf...Is`, `Mid`/`LSet`/`RSet`, computed `On...GoTo`/`On...GoSub` remain |
+| AST statement nodes | 🚧 most forms landed; `Mid`/`LSet`/`RSet`, computed `On...GoTo`/`On...GoSub` remain |
 | Anchored-fragment parse | 🎯 |
 
 **RDCore.LanguageServer** — orchestrator + LSP server · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)

@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Directives;
 
 /// <summary>
-/// A <c>BoundNode</c> representing a <c>Def&lt;Type&gt;</c> module directive.
+/// A <c>DirectiveNode</c> representing a <c>Def&lt;Type&gt;</c> module directive.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> of the directive.</param>

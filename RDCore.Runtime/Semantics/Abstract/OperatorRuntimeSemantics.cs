@@ -245,11 +245,11 @@ where TFlags : struct, Enum
     }
 
     /// <summary>
-    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>BoundExpression</c>.
+    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>VBOperatorExpression</c>.
     /// </summary>
     /// <param name="runtime">The current execution context..</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
-    /// <param name="expression">Any <c>BoundExpression</c> to be evaluated.</param>
+    /// <param name="expression">Any <c>VBOperatorExpression</c> to be evaluated.</param>
     /// <param name="frame">The <see cref="OperatorEvaluationFrame"/> holding the semantic evaluation inputs.</param>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver, 

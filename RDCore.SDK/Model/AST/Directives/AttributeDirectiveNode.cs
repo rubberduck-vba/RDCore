@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Model.AST.Directives;
 
 /// <summary>
-/// A <c>BoundNode</c> representing a <c>VB_Attribute</c> directive (module- or member-level).
+/// A <c>DirectiveNode</c> representing a <c>VB_Attribute</c> directive (module- or member-level).
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> of the directive.</param>

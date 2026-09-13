@@ -26,7 +26,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// Evaluates the let-coerced <see cref="VBTypedValue"/> for the specified <c>sourceValue</c> to the specified <c>destinationDeclaredType</c> in the context of the specified <c>expression</c>.
     /// </summary>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns>A <see cref="LetCoercionResult"/> that encapsulates the outcome of the evaluation.</returns>
     LetCoercionResult EvaluateLetCoercionSemantics(
@@ -40,7 +40,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// <typeparam name="TContext"></typeparam>
     /// <typeparam name="TFlags"></typeparam>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <remarks>
     /// 🧩 <em>Analyzers</em> (<c>RDCore.Diagnostics</c> and other <em>plug-ins</em>) may perform a more opiniated analysis of the semantic context.
     /// </remarks>
