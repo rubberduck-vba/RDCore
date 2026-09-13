@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
@@ -65,6 +66,7 @@ public sealed class ParserResilienceTests
     [DataRow("Sub S()\r\nFoo!\r\nEnd Sub", DisplayName = "dictionary access, lone trailing bang")]
     [DataRow("Sub S()\r\nWith Foo\r\nx = !\r\nEnd With\r\nEnd Sub", DisplayName = "with-relative dictionary access, lone bang")]
     [DataRow("Sub S()\r\nDo While x", DisplayName = "Do whose body never recovers")]
+    [DataRow("Sub S()\r\nOn Local Error Resume\r\nEnd Sub", DisplayName = "On Error Resume missing Next")]
     public void NeverThrows_AndAnyErrorIsLocated(string source)
     {
         ModuleParseResult result = null!;
@@ -181,6 +183,35 @@ public sealed class ParserResilienceTests
         CollectionAssert.Contains(
             result.SyntaxTree.Children.OfType<VariableDeclarationNode>().Select(v => v.Name).ToArray(), "Field1");
         Assert.ContainsSingle(result.SyntaxTree.Children.OfType<ConstantDeclarationNode>().Where(c => c.Name == "K"));
+    }
+
+    [TestMethod]
+    // adversarial review, PRs #208-224, "worth knowing": a bare `On Error Resume` (no `Next`) got a
+    // real syntax error AND a fabricated OnErrorResumeStatementNode as if "Next" had been typed - not
+    // just "never throws", the tree actively lied about what the source said. Root cause: ANTLR invokes
+    // this Exit callback a SECOND time after recovering from the missing-token InputMismatchException,
+    // with a synthesized `<missing NEXT>` token standing in for the real one - a plain null-check on
+    // NEXT() doesn't see the difference; only Symbol.TokenIndex (-1 for anything not actually lexed)
+    // does. Confirmed against the pre-fix listener via `git stash` before writing this test.
+    public void OnErrorResumeMissingNext_BuildsNothing_NotAFabricatedResumeNext()
+    {
+        var result = Parse("Sub S()\r\nOn Local Error Resume\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var alpha = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        CollectionAssert.DoesNotContain(alpha.Children.Select(c => c.GetType()).ToArray(), typeof(OnErrorResumeStatementNode));
+    }
+
+    [TestMethod]
+    [DataRow("Sub S()\r\nOn Error Resume Next\r\nEnd Sub", DisplayName = "On Error Resume Next")]
+    [DataRow("Sub S()\r\nOn Error GoTo Handler\r\nHandler:\r\nEnd Sub", DisplayName = "On Error GoTo <label>")]
+    public void OnErrorStmt_StillBuildsTheRightNode_WhenComplete(string source)
+    {
+        var result = Parse(source);
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var alpha = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.ContainsSingle(alpha.Children.Where(c => c is OnErrorResumeStatementNode or OnErrorGoToStatementNode));
     }
 
     [TestMethod]
