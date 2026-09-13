@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -78,29 +79,86 @@ public sealed class SyntaxNodeSerializationTests
         Assert.IsInstanceOfType<PrecompilerTriviaNode>(((ModuleNode)rehydrated).Children[2]);
     }
 
-    [TestMethod]
-    // regression: a property/element declared as a narrower abstract SyntaxNode subtype
-    // (ExpressionNode, StatementNode, CaseRangeClauseNode) — rather than SyntaxNode itself — threw
-    // "Deserialization of interface or abstract types is not supported" on read, because
-    // [JsonPolymorphic]/[JsonDerivedType] is declared once on SyntaxNode and System.Text.Json does not
-    // apply an ancestor's polymorphism attributes to a narrower type that carries none of its own.
-    // Every If/While/Do/For/Select Case/With/Call/Index node built this session has this shape, so
-    // this pins the SyntaxNodeSubtypeJsonConverter<T> bridge that fixes it, independent of whichever
-    // node type happens to first exercise it via a real parsed fixture.
-    public void NarrowerAbstractSubtypeProperty_RoundTripsThroughJson()
+    // one representative instance per node family that carries a property or collection element
+    // declared as a narrower abstract SyntaxNode subtype (ExpressionNode, CaseRangeClauseNode) rather
+    // than SyntaxNode itself — the exact shape that broke deserialization (see
+    // NodeFamiliesWithNarrowerAbstractProperties_RoundTripStably's own remarks). Each row is built with
+    // every abstract-typed slot actually populated (not left null/empty) so a regression in
+    // SyntaxNodeSubtypeJsonConverter<T>, or a future node reverting to the broken shape, fails loudly.
+    public static IEnumerable<object[]> NodeFamiliesWithNarrowerAbstractProperties()
     {
         var loc = TestLocations.TestLocation;
         static SyntaxNodeId Id(params int[] lineage) => new("file:///test.bas", [.. lineage]);
+        static LiteralExpressionNode IntLiteral(SyntaxNodeId id, short value) => new(id, TestLocations.TestLocation, new VBIntegerValue(value));
+        static SimpleNameExpressionNode Name(SyntaxNodeId id, string name) => new(id, TestLocations.TestLocation, name);
 
-        var condition = new SimpleNameExpressionNode(Id(0, 0), loc, "Flag");
-        SyntaxNode ifBlock = new IfBlockStatementNode(Id(0), loc, condition, new StatementBlock([]), [], null);
+        yield return ["If/ElseIf/Else", (SyntaxNode)new IfBlockStatementNode(
+            Id(0), loc, Name(Id(0, 0), "A"), new StatementBlock([]),
+            [new ElseIfBlockStatementNode(Id(0, 1), loc, Name(Id(0, 1, 0), "B"), new StatementBlock([]))],
+            new ElseBlockStatementNode(Id(0, 2), loc, new StatementBlock([])))];
 
-        var json = JsonSerializer.Serialize(ifBlock, Options);
+        yield return ["While...Wend", (SyntaxNode)new WhileWendStatementNode(Id(1), loc, Name(Id(1, 0), "Flag"), new StatementBlock([]))];
+
+        yield return ["Do Until...Loop", (SyntaxNode)new DoUntilLoopStatementNode(Id(2), loc, Name(Id(2, 0), "Flag"), new StatementBlock([]))];
+
+        yield return ["For...Next", (SyntaxNode)new ForStatementNode(
+            Id(3), loc, Name(Id(3, 0), "i"), IntLiteral(Id(3, 1), 1), IntLiteral(Id(3, 2), 10), IntLiteral(Id(3, 3), 2), new StatementBlock([]))];
+
+        yield return ["For Each...Next", (SyntaxNode)new ForEachStatementNode(Id(4), loc, Name(Id(4, 0), "Item"), Name(Id(4, 1), "Items"), new StatementBlock([]))];
+
+        yield return ["Select Case (all 3 range clause kinds + Case Else)", (SyntaxNode)new SelectCaseStatementNode(
+            Id(5), loc, Name(Id(5, 0), "N"),
+            [new CaseExpressionStatementNode(Id(5, 1), loc,
+                [
+                    new CaseValueRangeClauseNode(Id(5, 1, 0), loc, IntLiteral(Id(5, 1, 0, 0), 1)),
+                    new CaseComparisonRangeClauseNode(Id(5, 1, 1), loc, Tokens.CompareGreaterThanOp, IntLiteral(Id(5, 1, 1, 0), 5)),
+                    new CaseToRangeClauseNode(Id(5, 1, 2), loc, IntLiteral(Id(5, 1, 2, 0), 1), IntLiteral(Id(5, 1, 2, 1), 10)),
+                ],
+                new StatementBlock([]))],
+            new CaseElseClauseStatementNode(Id(5, 2), loc, new StatementBlock([])))];
+
+        yield return ["With...End With", (SyntaxNode)new WithStatementNode(Id(6), loc, Name(Id(6, 0), "Target"), new StatementBlock([]))];
+
+        yield return ["Call (explicit, callee is an IndexExpression)", (SyntaxNode)new CallStatementNode(
+            Id(7), loc,
+            new IndexExpressionNode(Id(7, 0), loc, Name(Id(7, 0, 0), "Foo"), [IntLiteral(Id(7, 0, 1), 1)]),
+            [], IsExplicitCall: true)];
+
+        yield return ["Call (bare, with its own Arguments)", (SyntaxNode)new CallStatementNode(
+            Id(8), loc, Name(Id(8, 0), "Foo"), [IntLiteral(Id(8, 1), 1)], IsExplicitCall: false)];
+
+        yield return ["Index expression (named + missing + AddressOf arguments)", (SyntaxNode)new IndexExpressionNode(
+            Id(9), loc, Name(Id(9, 0), "Foo"),
+            [
+                new NamedArgumentNode(Id(9, 1), loc, "Bar", IntLiteral(Id(9, 1, 0), 5)),
+                new MissingArgumentNode(Id(9, 2), loc),
+                new AddressOfExpressionNode(Id(9, 3), loc, Name(Id(9, 3, 0), "Callback")),
+            ])];
+
+        yield return ["Member access (owner + with-relative)", (SyntaxNode)new MemberAccessExpressionNode(Id(10), loc, Name(Id(10, 0), "Foo"), Name(Id(10, 1), "Bar"))];
+
+        yield return ["Dictionary access (with-relative, no owner)", (SyntaxNode)new DictionaryAccessExpressionNode(Id(11), loc, null, Name(Id(11, 0), "Bar"))];
+    }
+
+    public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];
+
+    [TestMethod]
+    [DynamicData(nameof(NodeFamiliesWithNarrowerAbstractProperties), DynamicDataDisplayName = nameof(GetNodeFamilyName))]
+    // regression: a property/element declared as a narrower abstract SyntaxNode subtype
+    // (ExpressionNode, CaseRangeClauseNode) — rather than SyntaxNode itself — threw "Deserialization
+    // of interface or abstract types is not supported" on read, because [JsonPolymorphic]/
+    // [JsonDerivedType] is declared once on SyntaxNode and System.Text.Json does not apply an
+    // ancestor's polymorphism attributes to a narrower type that carries none of its own. This affects
+    // essentially every statement/expression node built this session — pinned here per family (not
+    // just one example type) with the same re-serialize-and-compare-text rigor as the other round-trip
+    // tests in this file, independent of whichever node type happens to first exercise it via a real
+    // parsed fixture.
+    public void NodeFamiliesWithNarrowerAbstractProperties_RoundTripStably(string label, SyntaxNode node)
+    {
+        var json = JsonSerializer.Serialize(node, Options);
         var rehydrated = JsonSerializer.Deserialize<SyntaxNode>(json, Options);
 
-        Assert.IsInstanceOfType<IfBlockStatementNode>(rehydrated);
-        Assert.IsInstanceOfType<SimpleNameExpressionNode>(((IfBlockStatementNode)rehydrated!).ConditionExpression);
-        Assert.AreEqual("Flag", ((SimpleNameExpressionNode)((IfBlockStatementNode)rehydrated).ConditionExpression).IdentifierName);
+        Assert.AreEqual(json, JsonSerializer.Serialize(rehydrated, Options), $"{label} did not round-trip stably.");
     }
 
     [TestMethod]
