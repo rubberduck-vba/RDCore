@@ -62,7 +62,7 @@ public sealed class SyntaxNodeSerializationTests
 
         // every node type that was missing a [JsonDerivedType] registration
         var typedDecl = new VBTypedDeclarationExpressionNode(Id(0), loc, "Foo");
-        var elseBlock = new ElseBlockStatementNode(Id(1), loc, []);
+        var elseBlock = new ElseBlockStatementNode(Id(1), loc, new StatementBlock([]));
         var pcName = new PrecompilerNameExpressionNode(Id(2, 0), loc, "RDDEBUG");
         var pcElse = new PrecompilerElseBlockStatementNode(Id(2, 1), loc, []);
         var trivia = new PrecompilerTriviaNode(Id(2), loc, [pcName, pcElse], "#If RDDEBUG Then");
