@@ -685,6 +685,112 @@ End Sub
     }
 
     [TestMethod]
+    public void GoToStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("GoTo Label1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var goTo = member.Children.OfType<GoToStatementNode>().Single();
+
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)goTo.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void GoSubStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("GoSub Label1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var goSub = member.Children.OfType<GoSubStatementNode>().Single();
+
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)goSub.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void ReturnStatement_Parses()
+    {
+        var result = ParseInProcedure("Return");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<ReturnStatementNode>());
+    }
+
+    [TestMethod]
+    public void OnErrorGoToStatement_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("On Error GoTo Handler");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onError = member.Children.OfType<OnErrorGoToStatementNode>().Single();
+
+        Assert.AreEqual("Handler", ((SimpleNameExpressionNode)onError.LabelExpression).IdentifierName);
+    }
+
+    [TestMethod]
+    public void OnErrorGoToZero_IsStillAGoToNotAResumeNode()
+    {
+        var result = ParseInProcedure("On Error GoTo 0");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onError = member.Children.OfType<OnErrorGoToStatementNode>().Single();
+
+        Assert.AreEqual(0L, IntValue(onError.LabelExpression));
+    }
+
+    [TestMethod]
+    public void OnErrorResumeNextStatement_Parses()
+    {
+        var result = ParseInProcedure("On Error Resume Next");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<OnErrorResumeStatementNode>());
+    }
+
+    [TestMethod]
+    public void ResumeStatement_Bare_HasNullLabelExpression()
+    {
+        var result = ParseInProcedure("Resume");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var resume = member.Children.OfType<ResumeStatementNode>().Single();
+
+        Assert.IsNull(resume.LabelExpression);
+    }
+
+    [TestMethod]
+    public void ResumeStatement_WithLabel_CapturesLabelExpression()
+    {
+        var result = ParseInProcedure("Resume Handler");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var resume = member.Children.OfType<ResumeStatementNode>().Single();
+
+        Assert.AreEqual("Handler", ((SimpleNameExpressionNode)resume.LabelExpression!).IdentifierName);
+    }
+
+    [TestMethod]
+    // `Resume Next` is its own dedicated node, not ResumeStatementNode with a "Next" label.
+    public void ResumeNextStatement_IsItsOwnNodeNotAResumeWithLabel()
+    {
+        var result = ParseInProcedure("Resume Next");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.HasCount(1, member.Children.OfType<ResumeNextStatementNode>());
+        Assert.IsEmpty(member.Children.OfType<ResumeStatementNode>());
+    }
+
+    [TestMethod]
+    public void ErrorStatement_CapturesNumberExpression()
+    {
+        var result = ParseInProcedure("Error 5");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var error = member.Children.OfType<ErrorStatementNode>().Single();
+
+        Assert.AreEqual(5L, IntValue(error.NumberExpression));
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body

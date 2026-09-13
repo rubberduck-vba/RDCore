@@ -413,8 +413,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitResetStmt([NotNull] VBAParser.ResetStmtContext context)
         => OnKeywordStatement(Tokens.Reset, context);
 
-    // End/Stop/Exit (MS-VBAL 5.4.2.4, 5.4.2.11, 5.4.2.12) are all keyword-only, zero-argument
-    // statements — same KeywordStatementNode shape as Reset, no dedicated node type needed.
+    // End (not a MS-VBAL-numbered statement), Stop (§5.4.2.11), and Exit (§5.4.2.5/.7/.17-19) are all
+    // keyword-only, zero-argument statements — same KeywordStatementNode shape as Reset, no dedicated
+    // node type needed.
     public override void ExitEndStmt([NotNull] VBAParser.EndStmtContext context)
         => OnKeywordStatement(Tokens.End, context);
 
@@ -430,6 +431,67 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.EXIT_SUB() is not null ? Tokens.ExitSub
             : context.GetText();
         OnKeywordStatement(token, context);
+    }
+
+    // GoTo/GoSub/Return (MS-VBAL §5.4.2.12/.14/.15) — simple, unconditional branching statements.
+    public override void ExitGoToStmt([NotNull] VBAParser.GoToStmtContext context)
+    {
+        if (CaptureIsolatedExpression(context.expression()) is not { } label)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(new GoToStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
+    }
+
+    public override void ExitGoSubStmt([NotNull] VBAParser.GoSubStmtContext context)
+    {
+        if (CaptureIsolatedExpression(context.expression()) is not { } label)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(new GoSubStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
+    }
+
+    public override void ExitReturnStmt([NotNull] VBAParser.ReturnStmtContext context)
+        => CurrentBuilder.AddChild(new ReturnStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
+
+    // `On Error GoTo <label>` and `On Error Resume Next` (MS-VBAL §5.4.4.1) are the same grammar
+    // rule's two alternatives — `GOTO()` is non-null only for the former.
+    public override void ExitOnErrorStmt([NotNull] VBAParser.OnErrorStmtContext context)
+    {
+        if (context.GOTO() is not null)
+        {
+            if (CaptureIsolatedExpression(context.expression()) is not { } label)
+            {
+                return;
+            }
+            CurrentBuilder.AddChild(new OnErrorGoToStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
+            return;
+        }
+        CurrentBuilder.AddChild(new OnErrorResumeStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
+    }
+
+    // Bare `Resume`, `Resume <label>`, and `Resume Next` (MS-VBAL §5.4.4.2) are the same grammar
+    // rule's three shapes — `NEXT()` non-null picks the dedicated ResumeNextStatementNode, otherwise
+    // the (possibly absent) label expression rides on the general ResumeStatementNode.
+    public override void ExitResumeStmt([NotNull] VBAParser.ResumeStmtContext context)
+    {
+        if (context.NEXT() is not null)
+        {
+            CurrentBuilder.AddChild(new ResumeNextStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
+            return;
+        }
+        var label = CaptureIsolatedExpression(context.expression());
+        CurrentBuilder.AddChild(new ResumeStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
+    }
+
+    public override void ExitErrorStmt([NotNull] VBAParser.ErrorStmtContext context)
+    {
+        if (CaptureIsolatedExpression(context.expression()) is not { } number)
+        {
+            return;
+        }
+        CurrentBuilder.AddChild(new ErrorStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), number));
     }
 
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
@@ -449,7 +511,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new AssignmentStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), kind, target, value));
     }
 
-    // `Call`/bare-call (MS-VBAL §5.4.4). `Call Foo(1, 2)` carries its arguments inside the callee's
+    // `Call`/bare-call (MS-VBAL §5.4.2.1). `Call Foo(1, 2)` carries its arguments inside the callee's
     // own lExpression tree (an IndexExpressionNode) — the statement's own Arguments stays empty. Only
     // the bare form (`Foo 1, 2`, no `Call`, no parens) has a separate statement-level argument list;
     // `Call` grants no such shape (it always requires the parenthesized form).

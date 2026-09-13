@@ -161,6 +161,16 @@ public sealed class SyntaxNodeSerializationTests
             Id(12), loc, AssignmentKind.Set,
             new MemberAccessExpressionNode(Id(12, 0), loc, Name(Id(12, 0, 0), "Foo"), Name(Id(12, 0, 1), "Bar")),
             Name(Id(12, 1), "Value"))];
+
+        yield return ["GoTo (label expression)", (SyntaxNode)new GoToStatementNode(Id(15), loc, Name(Id(15, 0), "Handler"))];
+
+        yield return ["GoSub (label expression)", (SyntaxNode)new GoSubStatementNode(Id(16), loc, Name(Id(16, 0), "Handler"))];
+
+        yield return ["On Error GoTo (label expression)", (SyntaxNode)new OnErrorGoToStatementNode(Id(17), loc, Name(Id(17, 0), "Handler"))];
+
+        yield return ["Resume (with label expression)", (SyntaxNode)new ResumeStatementNode(Id(18), loc, Name(Id(18, 0), "Handler"))];
+
+        yield return ["Error (number expression)", (SyntaxNode)new ErrorStatementNode(Id(19), loc, IntLiteral(Id(19, 0), 5))];
     }
 
     public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];
