@@ -193,13 +193,17 @@ public sealed class ParserResilienceTests
     // with a synthesized `<missing NEXT>` token standing in for the real one - a plain null-check on
     // NEXT() doesn't see the difference; only Symbol.TokenIndex (-1 for anything not actually lexed)
     // does. Confirmed against the pre-fix listener via `git stash` before writing this test.
-    public void OnErrorResumeMissingNext_BuildsNothing_NotAFabricatedResumeNext()
+    public void OnErrorResumeMissingNext_BuildsUnbuiltTrivia_NotAFabricatedResumeNext()
     {
         var result = Parse("Sub S()\r\nOn Local Error Resume\r\nEnd Sub");
 
         Assert.IsFalse(result.IsSuccess);
         var alpha = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         CollectionAssert.DoesNotContain(alpha.Children.Select(c => c.GetType()).ToArray(), typeof(OnErrorResumeStatementNode));
+        // author correction mid-round: "build nothing" is itself the wrong fallback for a recognized-
+        // but-unbuilt construct - the source text must stay reconstructable.
+        var trivia = Assert.IsInstanceOfType<UnbuiltStatementTriviaNode>(alpha.Children.Single());
+        StringAssert.Contains(trivia.Source, "Resume");
     }
 
     [TestMethod]

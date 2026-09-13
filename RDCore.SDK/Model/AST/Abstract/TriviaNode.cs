@@ -31,3 +31,22 @@ public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation S
 /// <param name="Inputs">Whatever sub-expression(s) the grammar's own walk already built underneath it.</param>
 public sealed record class UnbuiltExpressionTriviaNode(SyntaxNodeId Identity, SourceLocation Location, string Source, ImmutableArray<SyntaxNode> Inputs)
     : ExpressionNode(Identity, Location, Inputs);
+
+/// <summary>
+/// Preserves the raw source text of a <em>required</em> statement-level construct that ANTLR's own
+/// recovery left incomplete (a mandatory sub-expression/identifier missing) — the statement-position
+/// counterpart of <see cref="UnbuiltExpressionTriviaNode"/>.
+/// </summary>
+/// <remarks>
+/// Applies only where the grammar guarantees the missing piece is <em>mandatory</em> (a bare
+/// <c>RaiseEvent</c> with no event name, a <c>GoTo</c> with no label, an <c>On Error Resume</c> missing
+/// its <c>Next</c>) — never where a piece is legitimately optional and its absence is valid, unrecovered
+/// input (e.g. an omitted optional argument). See <see cref="UnbuiltExpressionTriviaNode"/>'s remarks for
+/// why silently building nothing there would still lose reconstructable source text.
+/// </remarks>
+/// <param name="Identity">A unique identifier for this specific syntax node.</param>
+/// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the unbuilt statement.</param>
+/// <param name="Source">The exact original source text of the unbuilt statement.</param>
+/// <param name="Inputs">Whatever sub-expression(s) the grammar's own walk already built underneath it.</param>
+public sealed record class UnbuiltStatementTriviaNode(SyntaxNodeId Identity, SourceLocation SourceLocation, string Source, ImmutableArray<SyntaxNode> Inputs)
+    : StatementNode(Identity, SourceLocation, Inputs);

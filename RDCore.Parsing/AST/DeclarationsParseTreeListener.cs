@@ -461,12 +461,22 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnKeywordStatement(Tokens.Name, context, CaptureIsolatedExpression(context.expression(0)), CaptureIsolatedExpression(context.expression(1)));
 
     // the event name is a bare identifier, not an expression — synthesized directly as a
-    // SimpleNameExpressionNode rather than routed through CaptureIsolatedExpression.
+    // SimpleNameExpressionNode rather than routed through CaptureIsolatedExpression. Same double-
+    // invocation quirk as ExitOnErrorStmt: a bare `RaiseEvent` first calls Exit with
+    // context.exception set (identifier() null, harmless), then again after recovery with exception
+    // cleared and identifier() non-null but an EMPTY, zero-width rule match (Start.TokenIndex >
+    // Stop.TokenIndex) standing in for the name the source never had — GetText() reliably reports ""
+    // for that synthesized span, unlike a real (however short) identifier.
     public override void ExitRaiseEventStmt([NotNull] VBAParser.RaiseEventStmtContext context)
     {
-        if (context.identifier() is not { } identifier)
+        if (context.exception is not null)
+        {
+            return;
+        }
+        if (context.identifier() is not { } identifier || identifier.GetText().Length == 0)
         {
             // a bare `RaiseEvent` with no name (recovery) — the grammar's own event name is mandatory.
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
         }
         var id = GetCurrentNodeId();
@@ -544,6 +554,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             if (CaptureIsolatedExpression(context.expression()) is not { } label)
             {
+                CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
                 return;
             }
             CurrentBuilder.AddChild(new OnErrorGoToStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), label));
@@ -551,6 +562,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (context.RESUME() is null || context.NEXT() is not { Symbol.TokenIndex: >= 0 })
         {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
         }
         CurrentBuilder.AddChild(new OnErrorResumeStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
@@ -889,8 +901,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
         {
-            // recovery left the owner unbuilt or the member name absent (a lone trailing `.`) — leave
-            // whatever legitimately parsed content is there rather than pop-and-discard it.
+            // recovery left the owner unbuilt or the member name absent (a lone trailing `.`) — wrap
+            // whatever legitimately parsed content is there in trivia instead of pop-and-discard, or
+            // leaving it as a loose sibling silently misrepresenting the source (e.g. `x = Foo.` used
+            // to leave a bare "Foo" reading back as `x = Foo`, same erasure shape as New/TypeOf...Is).
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
             return;
         }
         CurrentBuilder.PopLastChildren(1);
@@ -907,7 +922,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (context.unrestrictedIdentifier() is not { } identifier)
         {
-            // a lone `.` with no member name (recovery).
+            // a lone `.` with no member name (recovery) - no owner to reclaim in this with-relative form.
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 0));
             return;
         }
         var id = GetCurrentNodeId();
@@ -923,6 +939,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
         {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
             return;
         }
         CurrentBuilder.PopLastChildren(1);
@@ -939,7 +956,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (context.unrestrictedIdentifier() is not { } identifier)
         {
-            // a lone `!` with no member name (recovery).
+            // a lone `!` with no member name (recovery) - no owner to reclaim in this with-relative form.
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 0));
             return;
         }
         var id = GetCurrentNodeId();
@@ -968,8 +986,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var peeked = CurrentBuilder.PeekLastChildren(1 + argumentCount);
         if (peeked.Length != 1 + argumentCount || peeked[0] is not ExpressionNode callee || peeked.Skip(1).Any(node => node is not ExpressionNode))
         {
-            // recovery left fewer/wrong-shaped children than the grammar guarantees — leave them where
-            // they are rather than pop-and-discard legitimately parsed content into a broken node.
+            // recovery left fewer/wrong-shaped children than the grammar guarantees — wrap whatever IS
+            // there in an UnbuiltExpressionTriviaNode rather than pop-and-discard legitimately parsed
+            // content into a broken node, or leave it as a loose sibling misrepresenting the source.
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1 + argumentCount));
             return;
         }
         CurrentBuilder.PopLastChildren(peeked.Length);
@@ -989,6 +1009,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode value])
         {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
             return;
         }
         CurrentBuilder.PopLastChildren(1);
@@ -1012,6 +1033,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode target])
         {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
             return;
         }
         CurrentBuilder.PopLastChildren(1);
@@ -1033,6 +1055,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var peeked = CurrentBuilder.PeekLastChildren(1 + itemCount);
         if (peeked.Length != 1 + itemCount || peeked[0] is not ExpressionNode owner || peeked.Skip(1).Any(node => node is not PrintOutputItemNode))
         {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1 + itemCount));
             return;
         }
         CurrentBuilder.PopLastChildren(peeked.Length);
@@ -1051,6 +1074,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode count])
         {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
             return;
         }
         CurrentBuilder.PopLastChildren(1);
@@ -1064,14 +1088,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         ExpressionNode? column = null;
-        if (context.tabNumberClause() is not null)
+        if (context.tabNumberClause() is { } tabNumberClause)
         {
-            if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode value])
+            // a null column is legitimately `Tab()` bare - only wrap in trivia when the number clause
+            // is present in the source but its own expression didn't build; a bare PrintTabClauseNode
+            // with column=null there would misrepresent it as the empty form instead of a broken one.
+            if (CurrentBuilder.PeekLastChildren(1) is [ExpressionNode value])
             {
-                return;
+                CurrentBuilder.PopLastChildren(1);
+                column = value;
             }
-            CurrentBuilder.PopLastChildren(1);
-            column = value;
+            else
+            {
+                column = BuildUnbuiltExpressionTrivia(tabNumberClause, 1);
+            }
         }
         CurrentBuilder.AddChild(new PrintTabClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), column));
     }
@@ -1086,14 +1116,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         ExpressionNode? value = null;
-        if (context.outputClause() is not null)
+        if (context.outputClause() is { } outputClause)
         {
-            if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode popped])
+            // a null value is legitimately a bare separator (`,`/`;`) - only wrap in trivia when the
+            // output clause is present in the source but its own expression didn't build.
+            if (CurrentBuilder.PeekLastChildren(1) is [ExpressionNode popped])
             {
-                return;
+                CurrentBuilder.PopLastChildren(1);
+                value = popped;
             }
-            CurrentBuilder.PopLastChildren(1);
-            value = popped;
+            else
+            {
+                value = BuildUnbuiltExpressionTrivia(outputClause, 1);
+            }
         }
         var separator = context.charPosition() is { } position ? (position.SEMICOLON() is not null ? ";" : ",") : null;
         CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), value, separator));
@@ -1158,22 +1193,24 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // the last N nodes already added to whatever builder is currently active (nothing else can have
     // interleaved, since expression subtrees resolve depth-first) — PopLastChildren reclaims them.
     // recovery can leave an operator with too few operands (`a = 1 +`) or a non-expression sitting
-    // where one's expected — peek the shape first so a truncated operator degrades to "no node built"
-    // (its already-parsed operand(s) stay right where they are) rather than either throwing or
-    // silently swallowing legitimate content into a malformed node.
-    private SyntaxNode? BuildUnary(string token, VBABaseParserRuleContext context)
+    // where one's expected — peek the shape first, then fall back to an UnbuiltExpressionTriviaNode
+    // (source text + whatever operand(s) WERE there) instead of leaving the operand(s) as loose
+    // siblings: `a = 1 +` used to leave a bare "1" sitting where the assignment's own capture would
+    // silently adopt it as if `a = 1` were the complete, correct statement — the same erasure/
+    // misrepresentation shape as New/TypeOf...Is, just one level up (see that fix's remarks).
+    private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context)
     {
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode])
         {
-            return null;
+            return BuildUnbuiltExpressionTrivia(context, 1);
         }
         return new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1));
     }
-    private SyntaxNode? BuildBinary(string token, VBABaseParserRuleContext context)
+    private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
     {
         if (CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
         {
-            return null;
+            return BuildUnbuiltExpressionTrivia(context, 2);
         }
         return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
     }
@@ -1197,20 +1234,34 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // stays reconstructable (nothing thrown away, unlike a bare "build nothing"), and a consumer can
     // tell at a glance this position wasn't modeled instead of silently getting the wrong meaning.
     public override void ExitNewExpr([NotNull] VBAParser.NewExprContext context)
-        => BuildUnbuiltExpressionTrivia(context);
+        => AddUnbuiltExpressionTriviaIfActive(context, 1);
 
     public override void ExitTypeofexpr([NotNull] VBAParser.TypeofexprContext context)
-        => BuildUnbuiltExpressionTrivia(context);
+        => AddUnbuiltExpressionTriviaIfActive(context, 1);
 
-    private void BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context)
+    private void AddUnbuiltExpressionTriviaIfActive(VBABaseParserRuleContext context, int maxInputs)
     {
         if (!IsDeclarationPassExpression)
         {
             return;
         }
-        var inputs = CurrentBuilder.PopLastChildren(1);
-        CurrentBuilder.AddChild(new UnbuiltExpressionTriviaNode(
-            GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs));
+        CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, maxInputs));
+    }
+
+    private UnbuiltExpressionTriviaNode BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context, int maxInputs)
+    {
+        var inputs = CurrentBuilder.PopLastChildren(maxInputs);
+        return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
+    }
+
+    // statement-position counterpart of BuildUnbuiltExpressionTrivia — same rationale (a required
+    // sub-expression/identifier missing under recovery must not silently vanish, since that's still
+    // reconstructable source text), for guards that sit at statement level instead of inside an
+    // expression tree (a bare `RaiseEvent`, an `On Error` shape recovery left incomplete).
+    private UnbuiltStatementTriviaNode BuildUnbuiltStatementTrivia(VBABaseParserRuleContext context, int maxInputs = 0)
+    {
+        var inputs = CurrentBuilder.PopLastChildren(maxInputs);
+        return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
     }
 
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)

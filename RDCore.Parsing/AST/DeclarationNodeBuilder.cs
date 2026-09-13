@@ -437,8 +437,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         if (condition is null || context.block() is not { } blockContext)
         {
             // a WHILE/UNTIL token was present but its expression didn't resolve, or the body itself
-            // didn't recover (both are ANTLR error-recovery states) — nothing usable to anchor on.
-            return null;
+            // didn't recover (both are ANTLR error-recovery states) — nothing usable to anchor a real
+            // Do/Loop node on, but the body may already hold several real statements: wrap the whole
+            // loop (source text + already-parsed body) in trivia instead of discarding them outright.
+            return new UnbuiltStatementTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.GetText(), body.Children);
         }
 
         var isUntil = context.UNTIL() is not null;
