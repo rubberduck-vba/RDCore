@@ -69,7 +69,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Full-document parse — directives, declarations, UDT members | ✅ |
 | AST statement nodes | 🎯 unblocks the interpreter |
 | Anchored-fragment parse | 🎯 |
-| `#If` expressions past a bare name · float-literal conformance | 🚧 |
+| `#If` expressions (full operator grammar) · float-literal conformance (MS-VBAL §3.3.2) | ✅ |
 
 **RDCore.LanguageServer** — orchestrator + LSP server · 🚧
 

@@ -68,7 +68,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Analyse document complet — directives, déclarations, membres d'UDT | ✅ |
 | Nœuds d'AST de _statements_ | 🎯 débloque l'interpréteur |
 | Analyse de fragment ancré | 🎯 |
-| Expressions `#If` au-delà d'un simple nom · conformité des littéraux flottants | 🚧 |
+| Expressions `#If` (grammaire d'opérateurs complète) · conformité des littéraux flottants (RD-VBAL §3.3.2) | ✅ |
 
 **RDCore.LanguageServer** — orchestrateur + serveur LSP · 🚧
 
