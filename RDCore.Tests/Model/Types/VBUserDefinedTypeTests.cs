@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Model.Types;
 
@@ -77,4 +78,25 @@ public sealed class VBUserDefinedTypeTests
         // VBUserDefinedType is not special-cased: the cycle is between VBType.DefaultValue and
         // VBTypedValue.TypeInfo, shared by every VBType/VBTypedValue pair in the platform.
         => Assert.IsNotNull(VBLongType.TypeInfo.ToString());
+
+    [TestMethod]
+    public void DefaultValue_IsAUserDefinedTypeValueOfThisType()
+    {
+        var udt = Udt("Foo");
+
+        var value = udt.DefaultValue;
+
+        Assert.IsInstanceOfType<VBUserDefinedTypeValue>(value);
+        Assert.AreSame(udt, value.TypeInfo);
+    }
+
+    [TestMethod]
+    public void DefaultValue_ToString_DoesNotStackOverflow()
+    {
+        var udt = Udt("Foo");
+
+        var text = udt.DefaultValue.ToString();
+
+        Assert.IsNotNull(text);
+    }
 }

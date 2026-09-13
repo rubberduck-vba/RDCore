@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
@@ -19,7 +20,7 @@ namespace RDCore.SDK.Model.Types;
 public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMemberSymbol> Members) : VBType(typeof(Type), Symbol.Name), 
     IVBMemberOwnerType, IEquatable<VBUserDefinedType>
 {
-    public override VBTypedValue DefaultValue => VBVoidValue.Void; // FIXME there should be a static default value defined for each UDT definition; this may not be possible to implement here.
+    public override VBTypedValue DefaultValue => new VBUserDefinedTypeValue(this);
 
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];
 

@@ -28,8 +28,9 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
 
     public MemoryAddress Value => ((VBRuntimeReference)RuntimeValue).Value;
 
-    // NOTE: this isn't accurate, there should be some padding involved.
-    public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeMemberSymbol>()
+    // A flat, unpadded sum of field sizes in declaration order — RDCore does not model native
+    // struct alignment.
+    public override int Size => ((IVBMemberOwnerType)TypeInfo).Members.OfType<VBUserDefinedTypeFieldSymbol>()
         .Sum(member => member.ResolvedType!.DefaultValue.Size);
 
     public bool Equals(IVBTypedValue<VBUserDefinedTypeValue, MemoryAddress>? other) => Value.Value.Equals(other?.Value.Value);
