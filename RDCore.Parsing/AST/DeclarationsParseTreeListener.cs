@@ -451,8 +451,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // SimpleNameExpressionNode rather than routed through CaptureIsolatedExpression.
     public override void ExitRaiseEventStmt([NotNull] VBAParser.RaiseEventStmtContext context)
     {
+        if (context.identifier() is not { } identifier)
+        {
+            // a bare `RaiseEvent` with no name (recovery) — the grammar's own event name is mandatory.
+            return;
+        }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), context.identifier().GetSourceLocation(_rootUri), context.identifier().Name());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         var arguments = context.eventArgumentList()?.eventArgument().Select(argument => CaptureIsolatedExpression(argument.expression())) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -853,9 +858,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var owner = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // recovery left the owner unbuilt or the member name absent (a lone trailing `.`) — leave
+            // whatever legitimately parsed content is there rather than pop-and-discard it.
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -865,8 +876,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
+        if (context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // a lone `.` with no member name (recovery).
+            return;
+        }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -876,9 +892,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var owner = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.LastChild is not ExpressionNode owner || context.unrestrictedIdentifier() is not { } identifier)
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -888,8 +908,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
+        if (context.unrestrictedIdentifier() is not { } identifier)
+        {
+            // a lone `!` with no member name (recovery).
+            return;
+        }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), context.unrestrictedIdentifier().GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -911,9 +936,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var argumentCount = argumentList?.argument().Length ?? 0;
-        var popped = CurrentBuilder.PopLastChildren(1 + argumentCount);
-        var callee = (ExpressionNode)popped[0];
-        var arguments = popped.Skip(1).Cast<ExpressionNode>().ToImmutableArray();
+        var peeked = CurrentBuilder.PeekLastChildren(1 + argumentCount);
+        if (peeked.Length != 1 + argumentCount || peeked[0] is not ExpressionNode callee || peeked.Skip(1).Any(node => node is not ExpressionNode))
+        {
+            // recovery left fewer/wrong-shaped children than the grammar guarantees — leave them where
+            // they are rather than pop-and-discard legitimately parsed content into a broken node.
+            return;
+        }
+        CurrentBuilder.PopLastChildren(peeked.Length);
+        var arguments = peeked.Skip(1).Cast<ExpressionNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new IndexExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), callee, arguments));
     }
 
@@ -927,7 +958,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var value = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode value])
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         CurrentBuilder.AddChild(new NamedArgumentNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name(), value));
     }
 
@@ -946,7 +981,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var target = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode target])
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         CurrentBuilder.AddChild(new AddressOfExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), target));
     }
 
@@ -962,9 +1001,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var itemCount = context.outputList()?.outputItem().Length ?? 0;
-        var popped = CurrentBuilder.PopLastChildren(1 + itemCount);
-        var owner = (ExpressionNode)popped[0];
-        var items = popped.Skip(1).Cast<PrintOutputItemNode>().ToImmutableArray();
+        var peeked = CurrentBuilder.PeekLastChildren(1 + itemCount);
+        if (peeked.Length != 1 + itemCount || peeked[0] is not ExpressionNode owner || peeked.Skip(1).Any(node => node is not PrintOutputItemNode))
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(peeked.Length);
+        var items = peeked.Skip(1).Cast<PrintOutputItemNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new ObjectPrintExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), owner, items));
     }
 
@@ -977,7 +1020,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var count = (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode count])
+        {
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
         CurrentBuilder.AddChild(new PrintSpcClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), count));
     }
 
@@ -987,7 +1034,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var column = context.tabNumberClause() is null ? null : (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        ExpressionNode? column = null;
+        if (context.tabNumberClause() is not null)
+        {
+            if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode value])
+            {
+                return;
+            }
+            CurrentBuilder.PopLastChildren(1);
+            column = value;
+        }
         CurrentBuilder.AddChild(new PrintTabClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), column));
     }
 
@@ -1000,7 +1056,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var value = context.outputClause() is null ? null : (ExpressionNode)CurrentBuilder.PopLastChildren(1)[0];
+        ExpressionNode? value = null;
+        if (context.outputClause() is not null)
+        {
+            if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode popped])
+            {
+                return;
+            }
+            CurrentBuilder.PopLastChildren(1);
+            value = popped;
+        }
         var separator = context.charPosition() is { } position ? (position.SEMICOLON() is not null ? ";" : ",") : null;
         CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), value, separator));
     }
@@ -1063,10 +1128,33 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // none of the handlers below use one: each operator's operands are, at Exit time, always exactly
     // the last N nodes already added to whatever builder is currently active (nothing else can have
     // interleaved, since expression subtrees resolve depth-first) — PopLastChildren reclaims them.
-    private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context)
-        => new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1));
-    private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
-        => new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
+    // recovery can leave an operator with too few operands (`a = 1 +`) or a non-expression sitting
+    // where one's expected — peek the shape first so a truncated operator degrades to "no node built"
+    // (its already-parsed operand(s) stay right where they are) rather than either throwing or
+    // silently swallowing legitimate content into a malformed node.
+    private SyntaxNode? BuildUnary(string token, VBABaseParserRuleContext context)
+    {
+        if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode])
+        {
+            return null;
+        }
+        return new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1));
+    }
+    private SyntaxNode? BuildBinary(string token, VBABaseParserRuleContext context)
+    {
+        if (CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
+        {
+            return null;
+        }
+        return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
+    }
+    private void AddIfBuilt(SyntaxNode? node)
+    {
+        if (node is not null)
+        {
+            CurrentBuilder.AddChild(node);
+        }
+    }
 
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
     {
@@ -1082,7 +1170,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
             return;
         }
-        CurrentBuilder.AddChild(BuildUnary(Tokens.NegationOp, context));
+        AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
     }
 
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
@@ -1091,7 +1179,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.PowerOp, context));
+        AddIfBuilt(BuildBinary(Tokens.PowerOp, context));
     }
 
     public override void ExitMultOp([NotNull] VBAParser.MultOpContext context)
@@ -1101,7 +1189,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var token = context.DIV() is not null ? Tokens.DivisionOp : Tokens.MultiplicationOp;
-        CurrentBuilder.AddChild(BuildBinary(token, context));
+        AddIfBuilt(BuildBinary(token, context));
     }
 
     public override void ExitIntDivOp([NotNull] VBAParser.IntDivOpContext context)
@@ -1110,7 +1198,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.IntegerDivisionOp, context));
+        AddIfBuilt(BuildBinary(Tokens.IntegerDivisionOp, context));
     }
 
     public override void ExitModOp([NotNull] VBAParser.ModOpContext context)
@@ -1119,7 +1207,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.ModuloOp, context));
+        AddIfBuilt(BuildBinary(Tokens.ModuloOp, context));
     }
 
     public override void ExitAddOp([NotNull] VBAParser.AddOpContext context)
@@ -1129,7 +1217,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var token = context.MINUS() is not null ? Tokens.SubtractionOp : Tokens.AdditionOp;
-        CurrentBuilder.AddChild(BuildBinary(token, context));
+        AddIfBuilt(BuildBinary(token, context));
     }
 
     public override void ExitConcatOp([NotNull] VBAParser.ConcatOpContext context)
@@ -1138,7 +1226,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.ConcatOp, context));
+        AddIfBuilt(BuildBinary(Tokens.ConcatOp, context));
     }
 
     public override void ExitRelationalOp([NotNull] VBAParser.RelationalOpContext context)
@@ -1156,7 +1244,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.IS() is not null ? Tokens.CompareIsOp
             : context.LIKE() is not null ? Tokens.CompareLikeOp
             : context.GetText();
-        CurrentBuilder.AddChild(BuildBinary(token, context));
+        AddIfBuilt(BuildBinary(token, context));
     }
 
     public override void ExitLogicalNotOp([NotNull] VBAParser.LogicalNotOpContext context)
@@ -1166,7 +1254,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         // `Not` is unary — one operand.
-        CurrentBuilder.AddChild(BuildUnary(Tokens.LogicalNotOp, context));
+        AddIfBuilt(BuildUnary(Tokens.LogicalNotOp, context));
     }
 
     public override void ExitLogicalAndOp([NotNull] VBAParser.LogicalAndOpContext context)
@@ -1175,7 +1263,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalAndOp, context));
+        AddIfBuilt(BuildBinary(Tokens.LogicalAndOp, context));
     }
 
     public override void ExitLogicalOrOp([NotNull] VBAParser.LogicalOrOpContext context)
@@ -1184,7 +1272,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalOrOp, context));
+        AddIfBuilt(BuildBinary(Tokens.LogicalOrOp, context));
     }
 
     public override void ExitLogicalXorOp([NotNull] VBAParser.LogicalXorOpContext context)
@@ -1193,7 +1281,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalXOrOp, context));
+        AddIfBuilt(BuildBinary(Tokens.LogicalXOrOp, context));
     }
 
     public override void ExitLogicalEqvOp([NotNull] VBAParser.LogicalEqvOpContext context)
@@ -1202,7 +1290,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalEqvOp, context));
+        AddIfBuilt(BuildBinary(Tokens.LogicalEqvOp, context));
     }
 
     public override void ExitLogicalImpOp([NotNull] VBAParser.LogicalImpOpContext context)
@@ -1211,7 +1299,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        CurrentBuilder.AddChild(BuildBinary(Tokens.LogicalImpOp, context));
+        AddIfBuilt(BuildBinary(Tokens.LogicalImpOp, context));
     }
     public override void ExitLiteralExpression([NotNull] VBAParser.LiteralExpressionContext context)
     {
@@ -1295,12 +1383,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             lineNumberLocation = numContextB.GetSourceLocation(_rootUri);
             number = LineNumber(numContextB);
         }
-        else if (context.identifierStatementLabel().legalLabelIdentifier().identifier() is VBAParser.IdentifierContext labelContextA)
+        else if (context.identifierStatementLabel()?.legalLabelIdentifier()?.identifier() is VBAParser.IdentifierContext labelContextA)
         {
             labelLocation = labelContextA.GetSourceLocation(_rootUri);
             name = labelContextA.GetText();
         }
-        else if (context.combinedLabels()?.identifierStatementLabel().legalLabelIdentifier().identifier() is VBAParser.IdentifierContext labelContextB)
+        else if (context.combinedLabels()?.identifierStatementLabel()?.legalLabelIdentifier()?.identifier() is VBAParser.IdentifierContext labelContextB)
         {
             labelLocation = labelContextB.GetSourceLocation(_rootUri);
             name = labelContextB.GetText();

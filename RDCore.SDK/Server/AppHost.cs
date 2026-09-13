@@ -36,6 +36,12 @@ public abstract class AppHost<TApp>() : IDisposable
     private IHost? _host;
     private Task? _hostTask;
     private TApp? _app;
+    // set when BuildAndRunAsync's own catch swallows a fault (e.g. a startup failure before the
+    // server state ever leaves Starting) - without it, RunAsync's own ExitCode is state-derived and
+    // a hard fault mid-Starting is indistinguishable from "client exited before ever initializing",
+    // both reading the benign StartingServerState.ExitCode of 0. A server that never started must
+    // never report the same exit code as a clean shutdown.
+    private Exception? _unhandledFault;
 
     private static readonly Lazy<AssemblyName> _info = new(() => Assembly.GetEntryAssembly()?.GetName()!, LazyThreadSafetyMode.PublicationOnly);
 
@@ -111,6 +117,7 @@ public abstract class AppHost<TApp>() : IDisposable
         }
         catch (Exception exception)
         {
+            _unhandledFault = exception;
             LogIfEnabled(LogLevel.Error, exception.ToString());
         }
         finally
@@ -179,7 +186,7 @@ public abstract class AppHost<TApp>() : IDisposable
             Console.WriteLine("V I V A T  ♥  C U C U M I S ™\n©Copyright 2026 9562-7303 Québec inc.");
         }
 
-        return ExitCode;
+        return _unhandledFault is null ? ExitCode : Math.Max(ExitCode, 1);
     }
 
     /// <summary>

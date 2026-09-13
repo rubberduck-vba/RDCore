@@ -78,7 +78,18 @@ internal sealed class SymbolSyncService(
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
-                totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, token);
+                try
+                {
+                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // one module's failure (a malformed module, a projection bug) must not cost every
+                    // other module its symbols for the rest of the session — this sync is one-shot,
+                    // not re-run on didOpen/didChange, so an unguarded throw here used to make it
+                    // permanent instead of degrading to "this one module didn't get defined."
+                    logger.LogError(exception, "❌ Symbol sync failed for module {module}; continuing with the remaining workspace modules.", module.Name);
+                }
             }
 
             LogIfEnabled(LogLevel.Information, $"✅ Workspace symbols defined in the environment host ({totalDefined} total)");
