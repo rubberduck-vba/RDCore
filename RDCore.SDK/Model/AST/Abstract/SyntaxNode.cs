@@ -20,6 +20,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(AnnotationTriviaNode), "AnnotationTrivia")]
 [JsonDerivedType(typeof(CommentTriviaNode), "CommentTrivia")]
 [JsonDerivedType(typeof(PrecompilerTriviaNode), "PrecompilerTrivia")]
+[JsonDerivedType(typeof(UnbuiltExpressionTriviaNode), "UnbuiltExpressionTrivia")]
 
 [JsonDerivedType(typeof(AddressOfExpressionNode), "AddressOfExpression")]
 [JsonDerivedType(typeof(ArrayBoundsNode), "ArrayBounds")]

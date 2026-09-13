@@ -1169,6 +1169,34 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
     }
 
+    // `New <class>` and `TypeOf <expr> Is <type>` (MS-VBAL §5.6.10.4, §5.6.9.4) are `expression`
+    // alternatives with no dedicated AST node yet (tracked as a remaining gap in the parser §P ticket).
+    // Without an explicit Exit override here, ANTLR's own walk still visits and builds the inner
+    // class-name/type expression via its own listener callbacks — it doesn't just sit unbuilt, it leaks
+    // straight up as if it were a bare operand, so `New Collection` reads back as a reference to the
+    // identifier "Collection", and `TypeOf x Is Foo` reads back as a plain `x Is Foo` identity
+    // comparison. Both parse cleanly (IsSuccess=true, no syntax error) with the wrong meaning — the
+    // exact silent-corruption shape this review round exists to catch. Wrap whatever the inner walk
+    // already built in an UnbuiltExpressionTriviaNode carrying the exact source text instead: the tree
+    // stays reconstructable (nothing thrown away, unlike a bare "build nothing"), and a consumer can
+    // tell at a glance this position wasn't modeled instead of silently getting the wrong meaning.
+    public override void ExitNewExpr([NotNull] VBAParser.NewExprContext context)
+        => BuildUnbuiltExpressionTrivia(context);
+
+    public override void ExitTypeofexpr([NotNull] VBAParser.TypeofexprContext context)
+        => BuildUnbuiltExpressionTrivia(context);
+
+    private void BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var inputs = CurrentBuilder.PopLastChildren(1);
+        CurrentBuilder.AddChild(new UnbuiltExpressionTriviaNode(
+            GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs));
+    }
+
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
     {
         if (!IsDeclarationPassExpression)
