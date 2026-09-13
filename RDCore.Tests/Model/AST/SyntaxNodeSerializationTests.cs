@@ -22,7 +22,11 @@ namespace RDCore.Tests.Model.AST;
 [TestClass]
 public sealed class SyntaxNodeSerializationTests
 {
-    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions Options = SyntaxNodeJson.Options;
+
+    // no resolver/modifier: every property gets written, so comparing against this independently
+    // confirms SyntaxNodeJson.Options didn't drop anything on the way to being stable.
+    private static readonly JsonSerializerOptions VerboseOptions = new() { PropertyNameCaseInsensitive = true };
 
     [TestMethod]
     public void EveryConcreteSyntaxNode_HasAPolymorphicRegistration()
@@ -197,6 +201,12 @@ public sealed class SyntaxNodeSerializationTests
         var rehydrated = JsonSerializer.Deserialize<SyntaxNode>(json, Options);
 
         Assert.AreEqual(json, JsonSerializer.Serialize(rehydrated, Options), $"{label} did not round-trip stably.");
+
+        // SyntaxNodeJson.Options omits a node's generic Children/Inputs spine wherever a more specific
+        // typed property already reconstructs it (see that type's remarks) - stable isn't the same as
+        // correct, so also verify against the verbose (nothing omitted) rendering of both sides.
+        Assert.AreEqual(JsonSerializer.Serialize(node, VerboseOptions), JsonSerializer.Serialize(rehydrated, VerboseOptions),
+            $"{label} round-tripped stably but lost or changed content.");
     }
 
     [TestMethod]

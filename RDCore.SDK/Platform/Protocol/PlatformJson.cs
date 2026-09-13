@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Abstract;
 using System.Text.Json;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -11,11 +12,15 @@ namespace RDCore.SDK.Platform.Protocol;
 /// understand the model's <c>[JsonPolymorphic]</c>/<c>[JsonDerivedType]</c> types (the AST) or its
 /// custom converters (<c>VBTypedValueJsonConverter</c>). Payloads that use those are serialized here
 /// with <see cref="System.Text.Json"/> and carried inside a <see cref="PlatformJsonEnvelope"/> whose
-/// only wire field is a string the transport passes through untouched.
+/// only wire field is a string the transport passes through untouched. Shares <see cref="SyntaxNodeJson.
+/// Options"/> rather than its own bare <see cref="JsonSerializerOptions"/> so an AST payload
+/// (<c>ModuleParseResult</c>) gets the same size-reducing resolver on the wire as it does under test —
+/// see that type's remarks for why serializing every AST node's generic <c>Children</c> spine
+/// unconditionally, alongside its typed properties, made the wire payload exponential in tree depth.
 /// </remarks>
 public static class PlatformJson
 {
-    private static readonly JsonSerializerOptions _options = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions _options = SyntaxNodeJson.Options;
 
     /// <summary>
     /// Serializes <paramref name="payload"/> to a <see cref="System.Text.Json"/> string.
