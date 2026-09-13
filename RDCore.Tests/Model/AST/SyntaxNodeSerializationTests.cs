@@ -171,6 +171,11 @@ public sealed class SyntaxNodeSerializationTests
         yield return ["Resume (with label expression)", (SyntaxNode)new ResumeStatementNode(Id(18), loc, Name(Id(18, 0), "Handler"))];
 
         yield return ["Error (number expression)", (SyntaxNode)new ErrorStatementNode(Id(19), loc, IntLiteral(Id(19, 0), 5))];
+
+        yield return ["Single-line If (Then body + label-GoTo Else body)", (SyntaxNode)new InlineIfStatementNode(
+            Id(20), loc, Name(Id(20, 0), "x"),
+            new StatementBlock([new AssignmentStatementNode(Id(20, 1), loc, AssignmentKind.ImplicitLet, Name(Id(20, 1, 0), "y"), IntLiteral(Id(20, 1, 1), 1))]),
+            new StatementBlock([new GoToStatementNode(Id(20, 2), loc, IntLiteral(Id(20, 2, 0), 100))]))];
     }
 
     public static string GetNodeFamilyName(MethodInfo method, object[] data) => (string)data[0];

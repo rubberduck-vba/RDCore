@@ -30,6 +30,7 @@ list.
 |`Do...Loop` (5 header shapes: bare, `Do While`/`Loop`, `Do Until`/`Loop`, `Do`/`Loop While`, `Do`/`Loop Until`)|[DoLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopStatementNode.html), [DoWhileLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoWhileLoopStatementNode.html), [DoUntilLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoUntilLoopStatementNode.html), [DoLoopWhileStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopWhileStatementNode.html), [DoLoopUntilStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopUntilStatementNode.html)|§5.4.2.6|
 |`Select Case...End Select`|[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html), [CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html), [CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|§5.4.2.10|
 |`With...End With`|[WithStatementNode](../api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|§5.4.2.21|
+|Single-line `If...Then...Else`|[InlineIfStatementNode](../api/RDCore.SDK.Model.AST.Statements.InlineIfStatementNode.html) — `ThenBody`/`ElseBody` may hold several colon-separated statements instead of a full `block`|§5.4.2.9|
 
 Each `Case` line's comma-separated conditions are its own small hierarchy under the abstract
 [CaseRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html): a single value
@@ -40,12 +41,11 @@ e.g. `Case Is > 5`), or an inclusive range
 ([CaseToRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseToRangeClauseNode.html), e.g.
 `Case 1 To 10`) — all three independently, per MS-VBAL §5.4.2.10.
 
-> [!WARNING]
-> **Single-line `If` (MS-VBAL §5.4.2.9) is not yet wired.** A node type exists
-> ([InlineIfStatementNode](../api/RDCore.SDK.Model.AST.Statements.InlineIfStatementNode.html)), but it
-> still carries the old undifferentiated `Children` shape (predating the header/`Body` consistency
-> above) and the parser does not construct it — `If x Then y` on one line has no statement-body AST
-> today. Not yet requested; flagged only.
+> [!TIP]
+> A bare line-number target in either branch (`If x Then 100`) is not modeled as its own shape — MS-VBAL
+> specifies it as equivalent to a `GoTo` statement targeting that line, so the parser synthesizes a real
+> [GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html) as that branch's
+> (typically only) statement instead.
 
 
 ---
@@ -63,28 +63,24 @@ e.g. `Case Is > 5`), or an inclusive range
 |`Stop`|`KeywordStatementNode` (`Token`: `Stop`)|§5.4.2.11|
 |`End`|`KeywordStatementNode` (`Token`: `End`)|— (not a MS-VBAL-numbered statement)|
 |`Exit Do`/`Exit For`/`Exit Sub`/`Exit Function`/`Exit Property`|`KeywordStatementNode` (`Token`: `ExitDo`/`ExitFor`/`ExitSub`/`ExitFunction`/`ExitProperty`)|§5.4.2.7/.5/.17/.18/.19|
+|`GoTo`|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|§5.4.2.12|
+|`GoSub`|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|§5.4.2.14|
+|`Return`|[ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|§5.4.2.15|
+|`On Error GoTo <label>`|[OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|§5.4.4.1|
+|`On Error Resume Next`|[OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html) — the same grammar rule as `On Error GoTo`, disambiguated by which keyword follows|§5.4.4.1|
+|Bare `Resume`, `Resume <label>`|[ResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html) (`LabelExpression` nullable)|§5.4.4.2|
+|`Resume Next`|[ResumeNextStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html) — its own node, not `ResumeStatementNode` with a "Next" label|§5.4.4.2|
+|`Error #`|[ErrorStatementNode](../api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html)|§5.4.4.3|
 
 `Assignment`'s `Target` is always an `lExpression` — see [RD-VBAL §3.0.2](rd-vbal.3.0.syntax-tree.html)
 for the shared expression family it draws from (member access, index, dictionary access, a bare name).
+Statement labels and line numbers themselves are captured separately
+([LineLabelNode](../api/RDCore.SDK.Model.AST.Statements.LineLabelNode.html)/
+[LineNumberNode](../api/RDCore.SDK.Model.AST.Statements.LineNumberNode.html)) — a `GoTo`/`GoSub`'s own
+target is just an expression naming or numbering one, with no static link between the two.
 
-> [!WARNING]
-> **None of `GoTo`, `GoSub`, `Return`, `On Error GoTo`/`On Error Resume Next`, `Resume`/`Resume Next`,
-> or `Error #` are wired.** All eight already have a node type —
-> [GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html),
-> [GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html),
-> [ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html),
-> [OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html),
-> [OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html),
-> [ResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html),
-> [ResumeNextStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html),
-> [ErrorStatementNode](../api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html) — but the parser
-> never constructs any of them (MS-VBAL §5.4.2.12/.14/.15/§5.4.4.1/.2/.3). Statement labels and line
-> numbers themselves *are* captured
-> ([LineLabelNode](../api/RDCore.SDK.Model.AST.Statements.LineLabelNode.html)/
-> [LineNumberNode](../api/RDCore.SDK.Model.AST.Statements.LineNumberNode.html)) — only the branching
-> statements that target them are missing. Computed `On...GoTo`/`On...GoSub` (§5.4.2.13/.16) have no
-> node type at all yet. None of this is requested work; flagged only, so the gap is visible rather than
-> silently assumed away.
+> [!NOTE]
+> Computed `On...GoTo`/`On...GoSub` (§5.4.2.13/.16) have no node type at all yet — not yet requested.
 
 > [!NOTE]
 > `Mid`/`Mid$`/`LSet`/`RSet` (§5.4.3.5/.6/.7) are assignment-shaped statements with no node type yet —

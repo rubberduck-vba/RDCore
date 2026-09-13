@@ -791,6 +791,83 @@ End Sub
     }
 
     [TestMethod]
+    public void SingleLineIf_WithThenOnly_CapturesConditionAndThenBody()
+    {
+        var result = ParseInProcedure("If x Then y = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)ifStmt.ConditionExpression).IdentifierName);
+        var assignment = (AssignmentStatementNode)ifStmt.ThenBody.Children.Single();
+        Assert.AreEqual("y", ((SimpleNameExpressionNode)assignment.Target).IdentifierName);
+        Assert.IsNull(ifStmt.ElseBody);
+    }
+
+    [TestMethod]
+    public void SingleLineIf_WithElse_CapturesBothBodies()
+    {
+        var result = ParseInProcedure("If x Then y = 1 Else y = 2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.HasCount(1, ifStmt.ThenBody.Children);
+        Assert.IsNotNull(ifStmt.ElseBody);
+        Assert.HasCount(1, ifStmt.ElseBody!.Children);
+    }
+
+    [TestMethod]
+    public void SingleLineIf_MultipleColonSeparatedStatements_AreAllCaptured()
+    {
+        var result = ParseInProcedure("If x Then y = 1 : z = 2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.HasCount(2, ifStmt.ThenBody.Children);
+    }
+
+    [TestMethod]
+    // MS-VBAL: a bare line-number target in a single-line If's Then/Else branch has the effect of a
+    // GoTo statement targeting that line - synthesized directly rather than modeled as its own shape.
+    public void SingleLineIf_BareLineNumberTarget_SynthesizesGoToStatement()
+    {
+        var result = ParseInProcedure("If x Then 100");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        var goTo = (GoToStatementNode)ifStmt.ThenBody.Children.Single();
+        Assert.AreEqual(100L, IntValue(goTo.LabelExpression));
+    }
+
+    [TestMethod]
+    public void SingleLineIf_BareLineNumberTargetInElseBranch_SynthesizesGoToStatement()
+    {
+        var result = ParseInProcedure("If x Then y = 1 Else 200");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        var goTo = (GoToStatementNode)ifStmt.ElseBody!.Children.Single();
+        Assert.AreEqual(200L, IntValue(goTo.LabelExpression));
+    }
+
+    [TestMethod]
+    public void SingleLineIf_EmptyThen_HasEmptyThenBodyAndRequiresElse()
+    {
+        var result = ParseInProcedure("If x Then : Else y = 1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        Assert.IsEmpty(ifStmt.ThenBody.Children);
+        Assert.IsNotNull(ifStmt.ElseBody);
+        Assert.HasCount(1, ifStmt.ElseBody!.Children);
+    }
+
+    [TestMethod]
     public void ReDimAsClause_DoesNotLeakItsTypeOntoTheMember()
     {
         // backlog G: ExitAsTypeClause had no parent guard, so a `ReDim x() As Long` in a body

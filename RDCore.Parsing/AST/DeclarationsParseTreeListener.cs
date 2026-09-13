@@ -257,6 +257,57 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitElseBlock([NotNull] VBAParser.ElseBlockContext context)
         => OnExitParent(builder => builder.BuildElseBlock(context));
 
+    // Single-line `If` (MS-VBAL §5.4.2.9) — same push/pop-a-scope technique as the block form above,
+    // so the condition and Then/Else bodies build the exact same way with no extra capture logic.
+    // `LabelGoTo` is read directly from `context` here (not via an Enter/Exit hook on `listOrLabel`
+    // itself) because an Enter callback fires before the rule's own children exist yet — same reason
+    // ExitStatementLabelDefinition reads its `lineNumberLabel` straight off the context below.
+    public override void EnterIfWithNonEmptyThen([NotNull] VBAParser.IfWithNonEmptyThenContext context)
+        => OnEnterParent();
+    public override void ExitIfWithNonEmptyThen([NotNull] VBAParser.IfWithNonEmptyThenContext context)
+    {
+        var labelGoTo = LabelGoTo(context.listOrLabel()?.lineNumberLabel());
+        OnExitParentIfBuilt(builder => builder.BuildInlineIfStatement(context, labelGoTo));
+    }
+
+    public override void EnterIfWithEmptyThen([NotNull] VBAParser.IfWithEmptyThenContext context)
+        => OnEnterParent();
+    public override void ExitIfWithEmptyThen([NotNull] VBAParser.IfWithEmptyThenContext context)
+        => OnExitParentIfBuilt(builder => builder.BuildInlineIfStatement(context, null));
+
+    public override void EnterSingleLineElseClause([NotNull] VBAParser.SingleLineElseClauseContext context)
+        => OnEnterParent();
+    public override void ExitSingleLineElseClause([NotNull] VBAParser.SingleLineElseClauseContext context)
+    {
+        var labelGoTo = LabelGoTo(context.listOrLabel()?.lineNumberLabel());
+        OnExitParent(builder => builder.BuildInlineElseBlock(context, labelGoTo));
+    }
+
+    // `If x Then 100` / its Else-branch equivalent: MS-VBAL specifies a bare line-number target as
+    // equivalent to a GoTo statement targeting that line — synthesized directly, since `lineNumberLabel`
+    // is a bare signed number, never reached through the normal `expression` chain.
+    private GoToStatementNode? LabelGoTo(VBAParser.LineNumberLabelContext? context)
+    {
+        if (context is null)
+        {
+            return null;
+        }
+
+        var location = context.GetSourceLocation(_rootUri);
+        var (value, overflow) = NumericLiteral.Resolve(context.numberLiteral()?.GetText() ?? string.Empty);
+        if (overflow)
+        {
+            _errors.Report(location, VBCompileErrorId.NumericLiteralOverflow, Exceptions.VBCompileError_NumericLiteralOverflow_Verbose);
+        }
+        if (context.MINUS() is not null && NumericLiteral.Negate(value) is { } negated)
+        {
+            value = negated;
+        }
+
+        var id = GetCurrentNodeId();
+        return new GoToStatementNode(id, location, new LiteralExpressionNode(id.Add(0), location, value));
+    }
+
     // `While...Wend` (MS-VBAL 5.4.2.18). The condition has no wrapper rule, so
     // _isCapturingLoopHeaderExpression (cleared by the loop's own EnterBlock) opts it into capture.
     public override void EnterWhileWendStmt([NotNull] VBAParser.WhileWendStmtContext context)
