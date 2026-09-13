@@ -27,16 +27,24 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
     // for a left-recursive grammar rule (the `expression`/`lExpression` family), AddParseListener
     // fires Exit *before* Enter on an operator alternative — the opposite of a normal rule — so an
     // Enter/Exit push/pop pair can't scope an operator's operands (see ModuleParser's ParseOnce
-    // remarks). An operator's own operands are, at Exit time, always exactly the last `count` nodes
-    // already added to whatever builder is currently active — nothing else can have interleaved
-    // since expression subtrees resolve depth-first. Popping them back out (in original order) and
-    // pushing the combined operator node in their place sidesteps the ordering bug entirely.
+    // remarks). An operator's own operands are, at Exit time, *usually* exactly the last `count`
+    // nodes already added to whatever builder is currently active — but ANTLR error recovery can
+    // leave fewer than that (a truncated `a = 1 +`, an unclosed `Foo x:=`), so both accessors below
+    // clamp to what's actually there instead of indexing past it. `PeekLastChildren` lets a caller
+    // check the *shape* it got (right count, right node types) before committing to `PopLastChildren`
+    // — recovering gracefully, rather than only avoiding a crash, needs that: popping first and
+    // discarding a malformed result would still destroy whatever legitimately parsed content was
+    // sitting there.
+    public ImmutableArray<SyntaxNode> PeekLastChildren(int count)
+    {
+        var actualCount = Math.Min(count, _children.Count);
+        return [.. _children.GetRange(_children.Count - actualCount, actualCount)];
+    }
     public ImmutableArray<SyntaxNode> PopLastChildren(int count)
     {
-        var start = _children.Count - count;
-        var popped = _children.GetRange(start, count);
-        _children.RemoveRange(start, count);
-        return [.. popped];
+        var popped = PeekLastChildren(count);
+        _children.RemoveRange(_children.Count - popped.Length, popped.Length);
+        return popped;
     }
     public void UpdateLastChild(SyntaxNode node)
     {
