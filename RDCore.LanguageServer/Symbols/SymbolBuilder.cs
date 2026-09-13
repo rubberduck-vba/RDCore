@@ -285,8 +285,9 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     }
 
     // yields a node and, for the statement shapes that carry a nested body today (If/ElseIf/Else,
-    // While), everything reachable inside it — recursively, so a construct nested inside another's
-    // branch is still found. Grows as more statement-body node types (For/Do/Select/With) come online.
+    // While, the 5 Do...Loop shapes), everything reachable inside it — recursively, so a construct
+    // nested inside another's branch is still found. Grows as more statement-body node types
+    // (For/ForEach/Select/With) come online.
     private static IEnumerable<SyntaxNode> DescendantsAndSelf(SyntaxNode node)
     {
         yield return node;
@@ -330,6 +331,41 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
 
             case WhileWendStatementNode whileWend:
                 foreach (var descendant in whileWend.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopStatementNode doLoop:
+                foreach (var descendant in doLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoWhileLoopStatementNode doWhileLoop:
+                foreach (var descendant in doWhileLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoUntilLoopStatementNode doUntilLoop:
+                foreach (var descendant in doUntilLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopWhileStatementNode doLoopWhile:
+                foreach (var descendant in doLoopWhile.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopUntilStatementNode doLoopUntil:
+                foreach (var descendant in doLoopUntil.Body.Children.SelectMany(DescendantsAndSelf))
                 {
                     yield return descendant;
                 }

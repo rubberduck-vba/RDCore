@@ -722,6 +722,131 @@ End Sub
     }
 
     [TestMethod]
+    public void DoLoop_NoCondition_BuildsPlainInfiniteLoop()
+    {
+        const string content = """
+            Public Sub DoWork()
+                Do
+                    Dim x As Long
+                Loop
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doLoop = member.Children.OfType<DoLoopStatementNode>().Single();
+        Assert.AreEqual("x", doLoop.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    public void DoLoop_TopWhile_BuildsDoWhileLoopStatement()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                Do While N > 0
+                    Dim x As Long
+                Loop
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doWhile = member.Children.OfType<DoWhileLoopStatementNode>().Single();
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, ((VBBinaryOperatorExpressionNode)doWhile.ConditionExpression).Token);
+        Assert.AreEqual("x", doWhile.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    public void DoLoop_TopUntil_BuildsDoUntilLoopStatement()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                Do Until N <= 0
+                    Dim x As Long
+                Loop
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doUntil = member.Children.OfType<DoUntilLoopStatementNode>().Single();
+        Assert.AreEqual(Tokens.CompareLessThanOrEqualOp, ((VBBinaryOperatorExpressionNode)doUntil.ConditionExpression).Token);
+    }
+
+    [TestMethod]
+    // the bottom-condition forms exercise CaptureIsolatedExpression, not the live-window trick While
+    // uses — this is the one that most needs an operator-tree condition proving the re-walk threads
+    // through the full PopLastChildren pipeline, not just a bare comparison.
+    public void DoLoop_BottomWhile_BuildsDoLoopWhileStatementWithOperatorTreeCondition()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                Do
+                    Dim x As Long
+                Loop While N > 0 And N < 10
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doLoopWhile = member.Children.OfType<DoLoopWhileStatementNode>().Single();
+
+        var and = (VBBinaryOperatorExpressionNode)doLoopWhile.ConditionExpression;
+        Assert.AreEqual(Tokens.LogicalAndOp, and.Token);
+        Assert.AreEqual(Tokens.CompareGreaterThanOp, ((VBBinaryOperatorExpressionNode)and.Left).Token);
+        Assert.AreEqual(Tokens.CompareLessThanOp, ((VBBinaryOperatorExpressionNode)and.Right).Token);
+        Assert.AreEqual("x", doLoopWhile.Body.Children.OfType<VariableDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
+    public void DoLoop_BottomUntil_BuildsDoLoopUntilStatement()
+    {
+        const string content = """
+            Public Sub DoWork(ByVal N As Long)
+                Do
+                    Dim x As Long
+                Loop Until N <= 0
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doLoopUntil = member.Children.OfType<DoLoopUntilStatementNode>().Single();
+        Assert.AreEqual(Tokens.CompareLessThanOrEqualOp, ((VBBinaryOperatorExpressionNode)doLoopUntil.ConditionExpression).Token);
+    }
+
+    [TestMethod]
+    // regression guard, same shape as If/While: giving Do its own real scope means a declaration
+    // nested in its body must still parent to that scope's Body, not flatten onto the member.
+    public void DoLoop_NestedDeclaration_ParentsToTheLoopBody()
+    {
+        const string content = """
+            Public Sub Grow(ByVal Flag As Boolean)
+                Do While Flag
+                    ReDim Nested(5)
+                Loop
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var doWhile = member.Children.OfType<DoWhileLoopStatementNode>().Single();
+        Assert.AreEqual("Nested", doWhile.Body.Children.OfType<RedimDeclarationNode>().Single().Name);
+    }
+
+    [TestMethod]
     public void UserDefinedType_EmitsMemberFieldNodes()
     {
         const string content = """

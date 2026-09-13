@@ -388,6 +388,36 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new WhileWendStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
     }
 
+    // the condition, if any, was captured separately (CaptureIsolatedExpression) rather than through
+    // this builder's own scope — everything already sitting in _children is body content only.
+    public SyntaxNode? BuildDoLoopStatement(VBAParser.DoLoopStmtContext context, ExpressionNode? condition)
+    {
+        var body = new StatementBlock([.. _children]);
+
+        if (context.expression() is not { } conditionContext)
+        {
+            // no WHILE/UNTIL at all: a plain `Do...Loop`, infinite unless the body itself exits.
+            return new DoLoopStatementNode(NodeId, context.GetSourceLocation(_rootUri), body);
+        }
+        if (condition is null)
+        {
+            // a WHILE/UNTIL token was present but its expression didn't resolve (recovery).
+            return null;
+        }
+
+        var isUntil = context.UNTIL() is not null;
+        var isBottomCondition = conditionContext.Start.TokenIndex > context.block().Start.TokenIndex;
+        var location = context.GetSourceLocation(_rootUri);
+
+        return (isBottomCondition, isUntil) switch
+        {
+            (false, false) => new DoWhileLoopStatementNode(NodeId, location, condition, body),
+            (false, true) => new DoUntilLoopStatementNode(NodeId, location, condition, body),
+            (true, false) => new DoLoopWhileStatementNode(NodeId, location, condition, body),
+            (true, true) => new DoLoopUntilStatementNode(NodeId, location, condition, body),
+        };
+    }
+
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 

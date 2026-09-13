@@ -226,9 +226,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // procedure body is a downstream compile error ("Only comments may appear after End Sub…"), not
     // a syntax error and not a reason to drop the node. (Today the grammar can't recover a stray
     // statement between members, so the context is only reached inside a procedure body. Nested
-    // inside If/ElseIf/Else/While it parents to that branch's own Body — SymbolBuilder.BuildLocals
+    // inside If/ElseIf/Else/While/Do it parents to that branch's own Body — SymbolBuilder.BuildLocals
     // walks the whole body, not just the member's immediate children, to still find it. A block shape
-    // this pass hasn't wired yet (For/Do/Select) still flattens the ReDim straight onto the member.)
+    // this pass hasn't wired yet (For/ForEach/Select) still flattens the ReDim straight onto the member.)
     public override void EnterRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
         => OnEnterParent();
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
@@ -270,6 +270,36 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // recovery can reach Exit without the body's Block ever starting (and so never consuming the
         // increment above) — clear defensively rather than let a stale "capturing" state leak forward.
         _isCapturingLoopHeaderExpression = 0;
+    }
+
+    // `Do...Loop` (MS-VBAL 5.4.2.5-7): one grammar rule, three unlabeled alternatives (no condition;
+    // condition before the body; condition after it) dispatched here into 5 node types. Which
+    // alternative matched isn't knowable at Enter (nothing has been parsed yet), and the trailing form
+    // puts its condition *after* the body's own block — so the "capture until the next EnterBlock"
+    // trick doesn't fit. Instead the condition, if any, is captured once everything is known, at Exit.
+    public override void EnterDoLoopStmt([NotNull] VBAParser.DoLoopStmtContext context)
+        => OnEnterParent();
+    public override void ExitDoLoopStmt([NotNull] VBAParser.DoLoopStmtContext context)
+        => OnExitParentIfBuilt(builder => builder.BuildDoLoopStatement(context, CaptureIsolatedExpression(context.expression())));
+
+    // Re-walks an already-parsed, self-contained expression subtree in isolation, with capture
+    // enabled just for that walk, into its own fresh scope. Safe because this only ever runs from an
+    // Exit handler — the parser has already fully matched (and moved past) this subtree by then, so
+    // the walk touches a finished, static tree, never the live parse. Existing Exit* operator handlers
+    // (PopLastChildren-based) don't care whether a matching Enter fired first, so they combine
+    // correctly under ParseTreeWalker's ordering exactly as they do under AddParseListener's.
+    private ExpressionNode? CaptureIsolatedExpression(VBAParser.ExpressionContext? context)
+    {
+        if (context is null)
+        {
+            return null;
+        }
+
+        OnEnterParent();
+        _isCapturingConditionExpression++;
+        ParseTreeWalker.Default.Walk(this, context);
+        _isCapturingConditionExpression--;
+        return _builderStack.Pop().GetChildren.LastOrDefault() as ExpressionNode;
     }
 
     // like OnExitParent, but the provider may decline to build a node at all (a branch whose
