@@ -32,7 +32,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private readonly Stack<DeclarationNodeBuilder> _builderStack = new([new(sourceUri, moduleNode.Identity)]);
     private DeclarationNodeBuilder CurrentBuilder => _builderStack.Peek();
 
-    private SyntaxNodeId GetCurrentNodeId() => CurrentBuilder.NodeId.Add(CurrentBuilder.ChildCount);
+    private SyntaxNodeId GetCurrentNodeId() => CurrentBuilder.AllocateChildId();
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => [BuildModuleNode()];
 
@@ -286,6 +286,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // `If x Then 100` / its Else-branch equivalent: MS-VBAL specifies a bare line-number target as
     // equivalent to a GoTo statement targeting that line — synthesized directly, since `lineNumberLabel`
     // is a bare signed number, never reached through the normal `expression` chain.
+    //
+    // Known, deliberately-unfixed residual (adversarial review PRs #208-224, "worth knowing"): the id
+    // this mints is allocated HERE, after any real `sameLineStatement`s that precede it in source have
+    // already consumed their own slots — but the resulting GoToStatementNode is then *prepended* to the
+    // body ahead of them (see BuildInlineIfStatement/BuildInlineElseBlock). Its id therefore sorts AFTER
+    // a statement it textually precedes. Ids stay globally unique either way (verified in
+    // SyntaxNodeIdUniquenessTests), so this is an ordering quirk, not a correctness bug — but fixing it
+    // properly needs the label's slot reserved at EnterListOrLabel time, before any sameLineStatement
+    // can claim one, and single-line If can nest inside its own Then-branch (`If a Then If b Then y`),
+    // so a single reserved-id field would get clobbered by the inner statement's own reservation before
+    // the outer one consumes it — a stack, keyed to the same Enter/Exit pair as the reservation, is the
+    // right fix and wasn't judged worth the added state for how rare "a bare line-number label followed
+    // by more colon-separated statements" is in practice.
     private GoToStatementNode? LabelGoTo(VBAParser.LineNumberLabelContext? context)
     {
         if (context is null)

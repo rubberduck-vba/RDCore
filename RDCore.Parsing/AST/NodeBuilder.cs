@@ -11,6 +11,18 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
 
     public SyntaxNodeId NodeId => nodeId;
 
+    // deliberately independent of ChildCount: a statement that captures more than one isolated
+    // expression in sequence (an assignment's target then value, Name's two paths, ...) pushes and
+    // pops a separate temporary scope per capture via CaptureIsolated, none of which ever add
+    // anything to THIS builder's own _children in between. ChildCount stays unchanged across both
+    // calls, so every id minted from it collided at the exact same lineage - confirmed empirically
+    // even for the simplest `x = y` (both SimpleNameExpressionNodes got the identical id). This
+    // counter advances on every id allocation, not just on a permanent AddChild, so no two nodes
+    // built anywhere under this scope can ever share one - including a node whose containing capture
+    // is later discarded (recovery) rather than kept.
+    private int _nextChildId;
+    public SyntaxNodeId AllocateChildId() => nodeId.Add(_nextChildId++);
+
     // parses a `visibility` token to an AccessModifier. VBA keywords are case-insensitive, so any
     // casing binds; anything unrecognized (or null, under recovery) is Implicit.
     internal static AccessModifier ParseAccessModifier(string? visibility)
@@ -20,7 +32,6 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
 
     public void AddChild(SyntaxNode node) => _children.Add(node);
 
-    public int ChildCount => _children.Count;
     public SyntaxNode? LastChild => _children.Count == 0 ? null : _children.Last();
     public IEnumerable<SyntaxNode> GetChildren => _children.AsEnumerable();
 

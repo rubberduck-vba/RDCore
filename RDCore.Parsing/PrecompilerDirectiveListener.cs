@@ -46,7 +46,7 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
 
     private PrecompilerNodeBuilder CurrentBuilder => _builderStack.Peek();
 
-    private SyntaxNodeId GetCurrentNodeId() => CurrentBuilder.NodeId.Add(CurrentBuilder.ChildCount);
+    private SyntaxNodeId GetCurrentNodeId() => CurrentBuilder.AllocateChildId();
 
     public ImmutableArray<SyntaxNode> SyntaxNodes => BuildModuleNode();
 
