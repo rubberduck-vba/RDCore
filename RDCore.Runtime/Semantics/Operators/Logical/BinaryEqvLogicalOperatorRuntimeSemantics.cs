@@ -30,15 +30,17 @@ public record class BinaryEqvLogicalOperatorRuntimeSemantics(
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
-        return lhs switch
+
+        if (AsNullOperandTableValue(lhs) is not null && rhs is VBNullValue)
         {
-            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue
-                => EvaluateNullBinaryExpressionResult(),
+            return EvaluateNullBinaryExpressionResult();
+        }
 
-            VBNullValue when rhs.TypeInfo is IIntegralNumericType 
-                => EvaluateNullBinaryExpressionResult(),
+        if (AsNullOperandTableValue(rhs) is not null && lhs is VBNullValue)
+        {
+            return EvaluateNullBinaryExpressionResult();
+        }
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError()
-        };
+        return RuntimeSemanticsEvaluationResult.InternalError();
     }
 }

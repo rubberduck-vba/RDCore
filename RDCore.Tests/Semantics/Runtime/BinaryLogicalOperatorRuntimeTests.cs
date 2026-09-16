@@ -114,6 +114,19 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     public void And_NullAndNonZero_IsNull()
         => AssertIsNull(Evaluate(And(), VBNullValue.Null, new VBLongValue(12)));
 
+    // Boolean+Null: same three-valued-logic tables as the integral case (MS-VBAL 5.6.9.8: Boolean
+    // participates via its -1/0 representation, effective type stays Boolean).
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
+    public void And_FalseAndNull_IsFalse()
+        => AssertResult<VBBooleanValue>(Evaluate(And(), new VBBooleanValue(false), VBNullValue.Null), false);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.2 Binary 'And' Operator")]
+    public void And_TrueAndNull_IsNull()
+        => AssertIsNull(Evaluate(And(), new VBBooleanValue(true), VBNullValue.Null));
+
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
     public void Or_IntegralAndNull_ReturnsLeftOperandVerbatim()
@@ -126,6 +139,11 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
         => AssertResult<VBLongValue>(Evaluate(Or(), VBNullValue.Null, new VBLongValue(5)), 5);
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.3 Binary 'Or' Operator")]
+    public void Or_TrueAndNull_ReturnsLeftOperandVerbatim()
+        => AssertResult<VBBooleanValue>(Evaluate(Or(), new VBBooleanValue(true), VBNullValue.Null), true);
+
+    [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_IntegralAndNull_IsNull()
         => AssertIsNull(Evaluate(Xor(), new VBLongValue(5), VBNullValue.Null));
@@ -134,6 +152,11 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
     public void Xor_NullAndIntegral_IsNull()
         => AssertIsNull(Evaluate(Xor(), VBNullValue.Null, new VBLongValue(5)));
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.4 Binary 'Xor' Operator")]
+    public void Xor_BooleanAndNull_IsNull()
+        => AssertIsNull(Evaluate(Xor(), new VBBooleanValue(true), VBNullValue.Null));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
@@ -146,6 +169,11 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
         => AssertIsNull(Evaluate(Eqv(), VBNullValue.Null, new VBLongValue(5)));
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.5 Binary 'Eqv' Operator")]
+    public void Eqv_BooleanAndNull_IsNull()
+        => AssertIsNull(Evaluate(Eqv(), new VBBooleanValue(true), VBNullValue.Null));
+
+    [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_NegativeOneAndNull_IsNull()
         => AssertIsNull(Evaluate(Imp(), new VBLongValue(-1), VBNullValue.Null));
@@ -153,8 +181,10 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_OtherThanNegativeOneAndNull_IsBitwiseImpOfLeftAndZero()
-        // MS-VBAL: "Integral value other than -1, Null -> Bitwise Imp of left operand and 0".
-        => AssertResult<VBIntegerValue>(Evaluate(Imp(), new VBLongValue(5), VBNullValue.Null), (short)~5);
+        // MS-VBAL: "Integral value other than -1, Null -> Bitwise Imp of left operand and 0". The
+        // result's value type is the operation's effective type (Long for a Long,Null operand pair
+        // — MS-VBAL 5.6.9.8), not hardcoded to Integer regardless of the operand's own width.
+        => AssertResult<VBLongValue>(Evaluate(Imp(), new VBLongValue(5), VBNullValue.Null), ~5);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
@@ -165,6 +195,28 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
     public void Imp_NullAndZero_IsNull()
         => AssertIsNull(Evaluate(Imp(), VBNullValue.Null, new VBLongValue(0)));
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
+    public void Imp_TrueAndNull_IsNull()
+        // True is -1 in its bitwise representation.
+        => AssertIsNull(Evaluate(Imp(), new VBBooleanValue(true), VBNullValue.Null));
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
+    public void Imp_FalseAndNull_IsBitwiseImpOfFalseAndZero_True()
+        // False is 0 (other than -1): Bitwise Imp(0, 0) sets every bit, i.e. True.
+        => AssertResult<VBBooleanValue>(Evaluate(Imp(), new VBBooleanValue(false), VBNullValue.Null), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
+    public void Imp_NullAndTrue_ReturnsRightOperandVerbatim()
+        => AssertResult<VBBooleanValue>(Evaluate(Imp(), VBNullValue.Null, new VBBooleanValue(true)), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
+    public void Imp_NullAndFalse_IsNull()
+        => AssertIsNull(Evaluate(Imp(), VBNullValue.Null, new VBBooleanValue(false)));
 
     private static void AssertIsNull(RuntimeSemanticsEvaluationResult result)
     {

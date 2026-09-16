@@ -32,17 +32,16 @@ public record class BinaryOrLogicalOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        return lhs switch
+        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
         {
-            VBNumericTypedValue lhsNumeric when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue
-                => RuntimeSemanticsEvaluationResult.Success(
-                    ((VBNumericType)frame.EffectiveType).CreateValue(lhsNumeric.AsDouble)),
+            return RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, lhsValue));
+        }
 
-            VBNullValue when rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.TypeInfo is IIntegralNumericType
-                => RuntimeSemanticsEvaluationResult.Success(
-                    ((VBNumericType)frame.EffectiveType).CreateValue(rhsNumeric.AsDouble)),
+        if (AsNullOperandTableValue(rhs) is double rhsValue && lhs is VBNullValue)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, rhsValue));
+        }
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError()
-        };
+        return RuntimeSemanticsEvaluationResult.InternalError();
     }
 }
