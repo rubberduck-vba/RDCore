@@ -53,14 +53,8 @@ public record class VBStringLetCoercionRuntimeSemantics(
                         ? Tokens.True
                         : Tokens.False)),
 
-            // MS-VBAL 5.5.1.2.4: "If the day value of the source date is 12/30/1899" — the date
-            // component only, regardless of the time-of-day fraction, hence comparing .Date rather
-            // than requiring the exact zero serial value.
             VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBStringType
-                => LetCoercionResult.Success(
-                    new VBStringValue(dateSourceValue.Value.Date == VBDateType.Zero.Value.Date
-                        ? dateSourceValue.Value.ToLongTimeString()
-                        : dateSourceValue.Value.ToShortDateString())),
+                => LetCoercionResult.Success(new VBStringValue(FormatDate(dateSourceValue.Value))),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };
@@ -74,6 +68,20 @@ public record class VBStringLetCoercionRuntimeSemantics(
     {
         throw new NotImplementedException();
     }
+
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.4: if the day value of the source date is 12/30/1899, only the date's time is
+    /// converted (Long Time format) — compares <see cref="DateTime.Date"/> rather than requiring the
+    /// exact zero serial value, since every time of day on 12/30/1899 is itself a "day value" of
+    /// 12/30/1899. Otherwise the source date's full date and time value is converted (Short Date
+    /// format); when the time-of-day is exactly midnight that full value has nothing to add, so only
+    /// the date prints — real VBA drops a trailing "12:00:00 AM" from a date-only value.
+    /// </summary>
+    private static string FormatDate(DateTime value) => value.Date == VBDateType.Zero.Value.Date
+        ? value.ToLongTimeString()
+        : value.TimeOfDay == TimeSpan.Zero
+            ? value.ToShortDateString()
+            : $"{value.ToShortDateString()} {value.ToLongTimeString()}";
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, CultureInfo cultureInfo)
     {

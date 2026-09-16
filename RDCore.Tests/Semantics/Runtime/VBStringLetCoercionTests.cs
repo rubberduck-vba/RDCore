@@ -85,8 +85,20 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
             new DateTime(1899, 12, 30, 12, 0, 0).ToLongTimeString());
 
     [TestMethod]
-    public void DateSource_NonZeroDate_IsShortDate()
+    public void DateSource_NonZeroDate_MidnightTime_IsShortDateOnly()
+        // real VBA drops a trailing "12:00:00 AM" from a date-only value.
         => AssertCoercedTo<VBStringValue>(
             Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1).ToOADate()), VBStringType.TypeInfo),
             new DateTime(2020, 1, 1).ToShortDateString());
+
+    [TestMethod]
+    public void DateSource_NonZeroDate_NonMidnightTime_IsShortDateAndLongTime()
+    {
+        // fixed 2026-09-16: a date with a real time-of-day component (e.g. 3:45:00 PM) used to lose
+        // the time entirely — CStr(#1/1/2020 3:45:00 PM#) returned only "1/1/2020".
+        var source = new DateTime(2020, 1, 1, 15, 45, 0);
+        AssertCoercedTo<VBStringValue>(
+            Coerce(Sut(), new VBDateValue(source.ToOADate()), VBStringType.TypeInfo),
+            $"{source.ToShortDateString()} {source.ToLongTimeString()}");
+    }
 }
