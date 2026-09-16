@@ -106,6 +106,11 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
                         ((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(((VBDateValue)frame.SourceValue).SerialValue))
                     : LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
 
+            // MS-VBAL 5.5.1.2.11: "The result is 0." — Empty carries no runtime value of its own, so
+            // the destination's zero is constructed directly rather than reinterpreted from the source.
+            VBEmptyType when frame.DestinationTypeDesc.Target is INumericType
+                => LetCoercionResult.Success(((VBNumericType)frame.DestinationTypeDesc.Target).CreateValue(0d)),
+
             _ => LetCoercionResult.NotApplicable(frame)
         };
 

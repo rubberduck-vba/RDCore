@@ -90,4 +90,10 @@ public sealed class VBBooleanLetCoercionTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void StringSource_Garbage_IsTypeMismatch()
         => AssertError(Coerce(Sut(), new VBStringValue("not a boolean"), VBBooleanType.TypeInfo), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    public void EmptySource_IsFalse()
+        // fixed 2026-09-16: see VBNumericLetCoercionTests.EmptySource_IsZero for why this was
+        // unreachable (MS-VBAL 5.5.1.2.11).
+        => AssertCoercedTo<VBBooleanValue>(Coerce(Sut(), VBEmptyValue.Empty, VBBooleanType.TypeInfo), false);
 }

@@ -76,4 +76,10 @@ public sealed class VBDateLetCoercionTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void StringSource_Garbage_IsTypeMismatch()
         => AssertError(Coerce(Sut(), new VBStringValue("not a date"), VBDateType.TypeInfo), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    public void EmptySource_IsTheZeroDate()
+        // fixed 2026-09-16: see VBNumericLetCoercionTests.EmptySource_IsZero for why this was
+        // unreachable (MS-VBAL 5.5.1.2.11).
+        => AssertCoercedTo<VBDateValue>(Coerce(Sut(), VBEmptyValue.Empty, VBDateType.TypeInfo), 0d);
 }

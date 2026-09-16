@@ -80,15 +80,17 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
+    // Identity must be a real SyntaxNodeId (see OperatorConcatRuntimeSemanticsTests for why): the real
+    // coercion provider's recursion guard hashes LetCoercionStackFrame, which hashes this Identity.
     private static readonly VBBinaryOperatorExpressionNode ThrowawayBinary = new(
-        "+", default, TestLocations.TestLocation,
+        "+", NodeId, TestLocations.TestLocation,
         [
             new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBIntegerValue((short)0)),
             new LiteralExpressionNode(default, TestLocations.TestLocationRHS, new VBIntegerValue((short)0)),
         ]);
 
     private static readonly VBUnaryOperatorExpressionNode ThrowawayUnary = new(
-        "-", default, TestLocations.TestLocation,
+        "-", NodeId, TestLocations.TestLocation,
         [new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBIntegerValue((short)0))]);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(

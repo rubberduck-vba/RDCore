@@ -71,4 +71,12 @@ public sealed class VBNumericLetCoercionTests : LetCoercionRuntimeSemanticsTests
     [DataRow("E5")]
     public void StringToNumeric_Unparseable_IsTypeMismatch(string source)
         => AssertError(Coerce(Sut(), new VBStringValue(source), VBDoubleType.TypeInfo), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    public void EmptySource_IsZero()
+        // fixed 2026-09-16: the provider dispatches by destination type only, so an Empty SOURCE was
+        // never reachable here even though VBEmptyTypeLetCoercionRuntimeSemantics already implemented
+        // this exact rule (MS-VBAL 5.5.1.2.11) - it's registered by destination (VBEmptyType), which
+        // never actually occurs as a coercion destination.
+        => AssertCoercedTo<VBIntegerValue>(Coerce(Sut(), VBEmptyValue.Empty, VBIntegerType.TypeInfo), (short)0);
 }

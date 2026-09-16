@@ -59,6 +59,10 @@ public record class VBDateLetCoercionRuntimeSemantics(
             VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBDateType
                 => CoerceStringToDate(resolver, expression, frame, stringSourceValue),
 
+            // MS-VBAL 5.5.1.2.11: "The result is 12/30/1899 00:00:00."
+            VBEmptyValue when frame.DestinationTypeDesc.Target is VBDateType
+                => LetCoercionResult.Success(VBDateType.TypeInfo.CreateValue(new ValueBindingHandle(VBDateType.Zero.RuntimeValue))),
+
             _ => LetCoercionResult.NotApplicable(frame)
         };
 

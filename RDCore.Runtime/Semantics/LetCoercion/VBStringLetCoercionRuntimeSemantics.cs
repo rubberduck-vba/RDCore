@@ -62,6 +62,10 @@ public record class VBStringLetCoercionRuntimeSemantics(
                         ? dateSourceValue.Value.ToLongTimeString()
                         : dateSourceValue.Value.ToShortDateString())),
 
+            // MS-VBAL 5.5.1.2.11: "The result is a 0-length string."
+            VBEmptyValue when frame.DestinationTypeDesc.Target is VBStringType
+                => LetCoercionResult.Success(VBStringValue.ZeroLengthString),
+
             _ => LetCoercionResult.NotApplicable(frame)
         };
     }

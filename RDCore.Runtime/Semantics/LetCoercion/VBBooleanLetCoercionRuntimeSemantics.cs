@@ -50,6 +50,10 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
             VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
                 => CoerceStringToBoolean(resolver, expression, frame, stringSourceValue),
 
+            // MS-VBAL 5.5.1.2.11: "The result is False."
+            VBEmptyValue when frame.DestinationTypeDesc.Target is VBBooleanType
+                => LetCoercionResult.Success(VBBooleanValue.False),
+
             _ => LetCoercionResult.NotApplicable(frame)
         };
 

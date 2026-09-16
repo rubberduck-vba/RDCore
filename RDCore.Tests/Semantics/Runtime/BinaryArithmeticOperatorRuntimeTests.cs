@@ -73,6 +73,17 @@ public sealed class BinaryArithmeticOperatorRuntimeTests : OperatorArithmeticRun
             new VBLongValue(5), VBNullValue.Null));
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
+    public void Addition_NumericAndEmpty_TreatsEmptyAsZero()
+        // fixed 2026-09-16: a Long+Empty pair resolves an effective type of Long (unlike Null, which
+        // dominates to Null), so Empty genuinely needs Let-coercion to a real value - but no strategy
+        // handled an Empty SOURCE (the correct MS-VBAL 5.5.1.2.11 logic existed, keyed the wrong way,
+        // by an Empty DESTINATION, which never occurs). Needs the real coercion provider.
+        => AssertResult<VBLongValue>(Evaluate(
+            new BinaryAdditionOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()),
+            new VBLongValue(5), VBEmptyValue.Empty), 5);
+
+    [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
     public void Subtraction_Long()
         => AssertResult<VBLongValue>(
