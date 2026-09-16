@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace RDCore.SDK.Model.Types.Abstract;
@@ -62,4 +63,21 @@ public abstract record class VBType
     /// </remarks>
     public virtual VBTypedValue CreateValue(IBindingHandle handle)
         => throw new NotSupportedException($"A value of type '{Name}' cannot be constructed from a binding handle.");
+
+    /// <summary>
+    /// Prints this <c>VBType</c>'s members for <see cref="object.ToString"/>.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately omits <see cref="DefaultValue"/>: every <c>VBTypedValue</c> carries its own
+    /// <c>TypeInfo</c> pointing back at the <c>VBType</c> that produced it, so printing
+    /// <c>DefaultValue</c> here and letting the compiler-generated <c>ToString</c> take its usual
+    /// course would recurse between the two <c>PrintMembers</c> implementations forever.
+    /// </remarks>
+    protected virtual bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("ManagedType = ").Append(ManagedType);
+        builder.Append(", Name = ").Append(Name);
+        builder.Append(", IsHidden = ").Append(IsHidden);
+        return true;
+    }
 }

@@ -203,12 +203,29 @@ where TFlags : struct, Enum
 
         if (effectiveTypeResult.Result is VBType effectiveType) // this should be a given
         {
+            // the determined effective type must be in the frame before operand validation and
+            // evaluation run, since both key their own dispatch off frame.EffectiveType.
+            frame = frame with { EffectiveType = effectiveType };
+
             // 2. Validate the operands (let-coercion and overflow checks).
-            var validOperands = Enumerable.Range(0, frame.Operands.Length)
+            var operandValidations = Enumerable.Range(0, frame.Operands.Length)
                 .Select(index => ValidateOperand(resolver, expression, frame, (InputIndex)index))
-                .Where(validation => validation.Result is not null)
-                .Select(validation => validation.Result)
-                .Cast<VBTypedValue>();
+                .ToArray();
+
+            // a genuine coercion failure (e.g. Overflow) on any operand must short-circuit evaluation
+            // here with its own error - silently dropping the operand would leave EvaluateExpressionResult
+            // indexing into an array shorter than frame.Operands, and hide the real error entirely.
+            foreach (var validation in operandValidations)
+            {
+                if (validation.Result is null)
+                {
+                    return RuntimeSemanticsEvaluationResult.Error(validation.ErrorInfo
+                        ?? OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
+                            Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose));
+                }
+            }
+
+            var validOperands = operandValidations.Select(validation => validation.Result!);
 
             // 3. Evaluate the result.
             var evaluateResult = EvaluateExpressionResult(resolver, context, expression, frame with { Operands = [.. validOperands] });
@@ -228,11 +245,11 @@ where TFlags : struct, Enum
     }
 
     /// <summary>
-    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>BoundExpression</c>.
+    /// Evaluates a resulting <c>VBTypedValue</c> for a given <c>VBOperatorExpression</c>.
     /// </summary>
     /// <param name="runtime">The current execution context..</param>
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
-    /// <param name="expression">Any <c>BoundExpression</c> to be evaluated.</param>
+    /// <param name="expression">Any <c>VBOperatorExpression</c> to be evaluated.</param>
     /// <param name="frame">The <see cref="OperatorEvaluationFrame"/> holding the semantic evaluation inputs.</param>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver, 
@@ -245,7 +262,7 @@ where TFlags : struct, Enum
     /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="expression">The operator expression being evaluated.</param>
     /// <param name="frame">The operation evaluation frame.</param>
-    protected LetCoercionResult ValidateOperand(
+    protected virtual LetCoercionResult ValidateOperand(
         ISymbolResolver resolver,
         VBOperatorExpression expression,
         OperatorEvaluationFrame frame,
@@ -255,8 +272,10 @@ where TFlags : struct, Enum
         //   MS-VBAL 5.6.9.3 Arithmetic Operators
         //   MS-VBAL 5.6.9.5 Relational Operators
         //   MS-VBAL 5.6.9.8 Logical Operators
+        // A VBTypeDescValue operand (RD-VBAL 5.6.9.9's Let-coercion operator) is metadata describing a
+        // coercion target, not a value to be converted — same exemption as VBNullValue.
         var operand = frame[index];
-        return operand is VBNullValue
+        return operand is VBNullValue or VBTypeDescValue
             ? LetCoercionResult.Success(operand, []) // NOTE: no coercion flags applicable here
             : LetCoerceNonNullOperand(resolver, expression, frame, index);
     }
@@ -269,7 +288,7 @@ where TFlags : struct, Enum
         InputIndex operandIndex)
     {
         var operand = frame[operandIndex];
-        return operand is VBNullValue
+        return operand is VBNullValue or VBTypeDescValue
             ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []))
             : LetCoercionSemanticsProvider.Analyze(resolver, builder, expression,
                 new()
@@ -300,14 +319,18 @@ where TFlags : struct, Enum
         var operand = frame[operandIndex];
         Debug.Assert(operand is not VBNullValue);
 
-        return frame.EffectiveType.Equals(operand.TypeInfo)
-            // if the type of the operand is the effective type, the result is the unchanged operand (no coercion occurs).
+        // a Date effective type is computed in Double (MS-VBAL 5.6.9.3 et al.): the operand is
+        // let-coerced to Double even when its own declared type already is Date.
+        var destinationType = frame.EffectiveType is VBDateType ? VBDoubleType.TypeInfo : frame.EffectiveType;
+
+        return destinationType.Equals(operand.TypeInfo)
+            // if the type of the operand is the destination type, the result is the unchanged operand (no coercion occurs).
             ? LetCoercionResult.Success(operand)
             : LetCoercionSemanticsProvider.EvaluateLetCoercionSemantics(resolver, expression, new() {
                 NodeId = expression.Identity,
                 OperandIndex = operandIndex,
                 SourceValue = operand,
-                DestinationTypeDesc = new VBTypeDescValue(frame.EffectiveType),
+                DestinationTypeDesc = new VBTypeDescValue(destinationType),
             });
     }
 }

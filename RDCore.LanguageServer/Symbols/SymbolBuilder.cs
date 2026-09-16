@@ -2,6 +2,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -243,9 +244,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var results = new List<Symbol>();
         var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // a declaration nested in an If/ElseIf/Else branch still parents to the procedure symbol —
+        // VBA has no block scope (MS-VBAL 5.4.3.1-3) — so locals are hunted for through the whole
+        // body, not just the member's immediate children.
+        var body = member.Children.SelectMany(DescendantsAndSelf).ToArray();
+
         // pass 1 — explicit declarations. order-independent: VBA hoists them, so a name declared
         // anywhere in the body is in scope for the whole procedure.
-        foreach (var child in member.Children)
+        foreach (var child in body)
         {
             switch (child)
             {
@@ -265,7 +271,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         // dynamic-array local (MS-VBAL 5.4.3.3; legal under Option Explicit). NOTE cross-module
         // globals aren't visible here, so a ReDim of one is introduced until the resolver reconciles
         // it — the LocalDeclarationKind.ReDim marker is that pass's hook.
-        foreach (var redim in member.Children.OfType<RedimDeclarationNode>())
+        foreach (var redim in body.OfType<RedimDeclarationNode>())
         {
             if (redim.QualifierName is not null || outerScopeNames.Contains(redim.Name) || !declared.Add(redim.Name))
             {
@@ -276,6 +282,149 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         }
 
         return results;
+    }
+
+    // yields a node and, for the statement shapes that carry a nested body today (If/ElseIf/Else,
+    // single-line If/Else, While, the 5 Do...Loop shapes, For, For Each, Select Case/Case Else, With),
+    // everything reachable inside it — recursively, so a construct nested inside another's branch is
+    // still found. Grows as more statement-body node types come online; a new body-bearing type with no
+    // case here silently drops every local declared inside it from the symbol table (found in practice
+    // for InlineIfStatementNode — see adversarial review PRs #208-224, item 2).
+    private static IEnumerable<SyntaxNode> DescendantsAndSelf(SyntaxNode node)
+    {
+        yield return node;
+
+        switch (node)
+        {
+            case IfBlockStatementNode ifBlock:
+                foreach (var descendant in ifBlock.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                foreach (var elseIfBlock in ifBlock.ElseIfBlocks)
+                {
+                    foreach (var descendant in DescendantsAndSelf(elseIfBlock))
+                    {
+                        yield return descendant;
+                    }
+                }
+                if (ifBlock.ElseBlock is { } elseBlock)
+                {
+                    foreach (var descendant in DescendantsAndSelf(elseBlock))
+                    {
+                        yield return descendant;
+                    }
+                }
+                break;
+
+            case ElseIfBlockStatementNode elseIfBlockNode:
+                foreach (var descendant in elseIfBlockNode.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case ElseBlockStatementNode elseBlockNode:
+                foreach (var descendant in elseBlockNode.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case WhileWendStatementNode whileWend:
+                foreach (var descendant in whileWend.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopStatementNode doLoop:
+                foreach (var descendant in doLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoWhileLoopStatementNode doWhileLoop:
+                foreach (var descendant in doWhileLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoUntilLoopStatementNode doUntilLoop:
+                foreach (var descendant in doUntilLoop.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopWhileStatementNode doLoopWhile:
+                foreach (var descendant in doLoopWhile.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case DoLoopUntilStatementNode doLoopUntil:
+                foreach (var descendant in doLoopUntil.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case ForStatementNode forStatement:
+                foreach (var descendant in forStatement.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case ForEachStatementNode forEachStatement:
+                foreach (var descendant in forEachStatement.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case SelectCaseStatementNode selectCase:
+                foreach (var caseBlock in selectCase.CaseExpressionBlocks)
+                {
+                    foreach (var descendant in caseBlock.Block.Children.SelectMany(DescendantsAndSelf))
+                    {
+                        yield return descendant;
+                    }
+                }
+                if (selectCase.CaseElseBlock is { } caseElse)
+                {
+                    foreach (var descendant in caseElse.Body.Children.SelectMany(DescendantsAndSelf))
+                    {
+                        yield return descendant;
+                    }
+                }
+                break;
+
+            case WithStatementNode withStatement:
+                foreach (var descendant in withStatement.Body.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                break;
+
+            case InlineIfStatementNode inlineIf:
+                foreach (var descendant in inlineIf.ThenBody.Children.SelectMany(DescendantsAndSelf))
+                {
+                    yield return descendant;
+                }
+                if (inlineIf.ElseBody is { } elseBody)
+                {
+                    foreach (var descendant in elseBody.Children.SelectMany(DescendantsAndSelf))
+                    {
+                        yield return descendant;
+                    }
+                }
+                break;
+        }
     }
 
     public Symbol BuildLocalVariable(VariableDeclarationNode node, Uri procedureUri)

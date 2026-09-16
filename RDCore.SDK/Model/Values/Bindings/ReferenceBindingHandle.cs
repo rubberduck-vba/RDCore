@@ -1,6 +1,7 @@
 ﻿using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -19,9 +20,27 @@ public record class ReferenceBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
-    // TODO now that a resolver is in hand, GetValue should follow the reference through
-    // resolver.TryRead(_value.Value, …) rather than returning the reference itself.
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => _value;
+    // follows the reference through the resolver's runtime memory map; a reference that doesn't (yet)
+    // resolve to anything bound falls back to yielding itself, e.g. Nothing or a dangling address.
+    public IRuntimeValue GetValue(ISymbolResolver resolver) => GetValue(resolver, [_value.Value]);
+
+    // a chain of references can cycle (Set a = b : Set b = a) or self-reference (Set x = x); each hop
+    // through another ReferenceBindingHandle is tracked by the address it targets next, so a repeat
+    // stops the walk instead of recursing until the stack overflows.
+    private IRuntimeValue GetValue(ISymbolResolver resolver, HashSet<MemoryAddress> visited)
+    {
+        if (!resolver.TryRead(_value.Value, out var bound))
+        {
+            return _value;
+        }
+
+        if (bound is not ReferenceBindingHandle next)
+        {
+            return bound.GetValue(resolver);
+        }
+
+        return visited.Add(next._value.Value) ? next.GetValue(resolver, visited) : _value;
+    }
 
     public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => _value = value is VBRuntimeReference reference
         ? reference : throw new ArgumentException($"Expected {nameof(VBRuntimeReference)} value", nameof(value));

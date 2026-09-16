@@ -18,14 +18,15 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBNullType>(FormatterService)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ISymbolResolver resolver,
+        VBOperatorExpression expression,
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
-            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType 
-                => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
+            // MS-VBAL 5.5.1.2.10: Null -> a resizable array or UDT is Type mismatch (13), not Overflow.
+            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType
+                => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
 
-            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType 
+            VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType
                 => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
 
             _ => LetCoercionResult.NotApplicable(frame)

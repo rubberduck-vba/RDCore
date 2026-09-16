@@ -11,8 +11,8 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="ControlExpression">A numeric expression that resolves to the loop control variable.</param>
 /// <param name="StartExpression">A numeric expression that evaluates to the initial value of the loop counter.</param>
 /// <param name="EndExpression">A numeric expression that evaluates to the final value of the loop counter.</param>
-/// <param name="StepExpression">A numeric expression that evaluates to the iteration increment of the control variable.</param>
+/// <param name="StepExpression">A numeric expression that evaluates to the iteration increment of the control variable, or <c>null</c> when the loop declares no <c>Step</c> clause (MS-VBAL's implicit default of <c>1</c> is a runtime concern, not a syntax one).</param>
 /// <param name="Body">The executable statements in the body of the loop.</param>
-public record class ForStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode ControlExpression, ExpressionNode StartExpression, ExpressionNode EndExpression, ExpressionNode StepExpression, StatementBlock Body)
-    : StatementNode(Identity, SourceLocation, [ControlExpression, StartExpression, EndExpression, StepExpression]);
+public record class ForStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode ControlExpression, ExpressionNode StartExpression, ExpressionNode EndExpression, ExpressionNode? StepExpression, StatementBlock Body)
+    : StatementNode(Identity, SourceLocation, StepExpression is null ? [ControlExpression, StartExpression, EndExpression] : [ControlExpression, StartExpression, EndExpression, StepExpression]);
 

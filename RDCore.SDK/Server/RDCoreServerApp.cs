@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -421,5 +422,10 @@ internal static class LanguageServerOptionsExtensions
         .WithHandler<ShutdownHandler>()
         .WithHandler<ExitHandler>()
         .WithHandler<SetTraceHandler>()
-        .WithHandler<PlatformInitializeHandler>();
+        .WithHandler<PlatformInitializeHandler>()
+        // OmniSharp's own IReceiver drops a bare Exit sent before Initialize instead of letting it
+        // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
+        // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
+        // registered first, so registering ours here pre-empts it.
+        .WithServices(services => services.AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

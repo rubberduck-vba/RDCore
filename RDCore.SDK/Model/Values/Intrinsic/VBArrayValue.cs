@@ -2,7 +2,11 @@
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Values.Intrinsic;
 
@@ -41,6 +45,19 @@ public abstract record class VBArrayValue : VBTypedValue
         : this(dimensions, itemType)
     {
         Handle = handle;
+    }
+
+    // C# records synthesize `with` from a memberwise copy constructor, which would share this array's
+    // _cells by reference with whatever copy it just built — since _cells is a field, not a primary
+    // constructor parameter, `with` never re-runs CreateCells. VBA deep-copies an array on assignment
+    // (MS-VBAL), so every `with`-derived copy (including TryAllocateIn's) needs its own independent
+    // cells; this explicit copy constructor is what C# calls instead of the default one to make that
+    // happen for the whole hierarchy, not just TryAllocateIn's one call site.
+    protected VBArrayValue(VBArrayValue original) : base(original)
+    {
+        ItemType = original.ItemType;
+        Dimensions = original.Dimensions;
+        _cells = [.. original._cells];
     }
 
     /// <summary>
@@ -99,6 +116,28 @@ public abstract record class VBArrayValue : VBTypedValue
         }
 
         _cells[index] = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Reserves storage sized for this array's own slot through <paramref name="storage"/>, and returns
+    /// a copy of this value bound to the resulting address. This is the array <em>variable's</em>
+    /// identity, distinct from its element cells (which remain the same managed storage): a real
+    /// address is what lets <c>ReDim</c>, <c>Erase</c>, and array-identity comparisons have something
+    /// to point at, matching how a <c>SAFEARRAY</c> variable's own slot is a pointer, never the array's
+    /// contents.
+    /// </summary>
+    /// <returns><c>false</c> if the underlying memory space is exhausted.</returns>
+    public bool TryAllocateIn(ISessionStorage storage, [NotNullWhen(true)] out VBArrayValue? allocated)
+    {
+        if (!storage.TryAllocate(Size, InvalidBindingHandle.Default, out var address))
+        {
+            allocated = null;
+            return false;
+        }
+
+        allocated = (VBArrayValue)WithRuntimeValue(new VBRuntimeReference(address));
+        storage.TryRebind(address, allocated.Handle);
         return true;
     }
 

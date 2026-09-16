@@ -5,6 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -96,13 +97,16 @@ internal sealed class CoreLanguageServerApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DocumentDiagnosticHandler>();
+        builder.WithHandler<FoldingRangeHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        // the pull handler is built by the OmniSharp container; the diagnostics service lives in the
-        // external (host) container, so bridge the same singleton across.
+        // the handlers are built by the OmniSharp container; the services they need live in the
+        // external (host) container, so bridge the same singletons across.
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
@@ -120,7 +124,7 @@ internal sealed class CoreLanguageServerApp(
             //DocumentHighlight = new(true),
             //DocumentLink = new(true),
             DocumentSymbol = new(true),
-            //FoldingRange = new(true),
+            FoldingRange = new(true),
             //Formatting = new(true),
             //Hover = new(true),
             //Implementation = new(true),

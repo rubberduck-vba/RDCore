@@ -32,18 +32,25 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
         Token = token;
     }
 
+    /// <summary>
+    /// Deserialization path: <c>Left</c>/<c>Right</c> are what the JSON actually carries now (see
+    /// <c>SyntaxNodeJson</c>) — <c>Children</c> is redundant with them and gets omitted on write, so it
+    /// can't be relied on to arrive from the wire.
+    /// </summary>
+    [JsonConstructor]
+    public VBBinaryOperatorExpressionNode(string token, SyntaxNodeId identity, SourceLocation location, ExpressionNode left, ExpressionNode right)
+        : this(token, identity, location, [left, right]) { }
+
     public string Token { get; }
 
     /// <summary>
     /// The left-hand side operand — <c>Children[0]</c>.
     /// </summary>
-    [JsonIgnore]
     public ExpressionNode Left => (ExpressionNode)Children[0];
 
     /// <summary>
     /// The right-hand side operand — <c>Children[1]</c>.
     /// </summary>
-    [JsonIgnore]
     public ExpressionNode Right => (ExpressionNode)Children[1];
 
     // Left and Right are views onto Children, which the base printer already emits; printing all

@@ -72,4 +72,57 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     public void Dispatch_UnknownDestination_IsTypeMismatch()
         => Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch,
             Coerce(new VBDoubleValue(1), VBStringType.TypeInfo).ErrorInfo!.ErrorId);
+
+    [TestMethod]
+    public void RecursiveReEntry_WithTheSameFrame_IsOutOfStackSpace()
+    {
+        // a strategy that (however it got there) calls back into the provider with the exact same
+        // frame it was given is the one scenario the recursion guard exists for. No production
+        // strategy actually does this by design, so a substitute stands in for one that does.
+        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
+        strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
+
+        var provider = new LetCoercionRuntimeSemanticsProvider([strategy], fmt);
+        strategy.EvaluateLetCoercion(default!, default!, default).ReturnsForAnyArgs(call =>
+            provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
+
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));
+        var result = provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, frame);
+
+        Assert.IsTrue(result.ErrorInfo is not null, "expected a runtime error");
+        Assert.AreEqual((int)VBRuntimeErrorId.OutOfStackSpace, result.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void AfterARecursiveReEntry_TheStackIsCleared_SoALaterUnrelatedCallStillWorks()
+        // the recursion guard clears the whole stack on detection (comment: "no need to dig any
+        // deeper") rather than leaving it in a partially-unwound state -- confirm a later, entirely
+        // unrelated coercion isn't permanently poisoned by an earlier recursive failure.
+    {
+        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
+        strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
+
+        var provider = new LetCoercionRuntimeSemanticsProvider([strategy], fmt);
+        var recursedOnce = false;
+        strategy.EvaluateLetCoercion(default!, default!, default).ReturnsForAnyArgs(call =>
+        {
+            if (recursedOnce)
+            {
+                return LetCoercionResult.Success(new VBLongValue(9));
+            }
+            recursedOnce = true;
+            return provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2));
+        });
+
+        var recursiveFrame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));
+        provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, recursiveFrame);
+
+        // the strategy no longer recurses on this second, later call -- confirms only whether the
+        // provider's own stack state was reset, not anything about the strategy's own behavior.
+        var result = provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, recursiveFrame);
+
+        Assert.IsTrue(result.IsSuccess);
+    }
 }

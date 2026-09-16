@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
@@ -46,6 +47,26 @@ public sealed class ParserResilienceTests
     [DataRow("???", DisplayName = "garbage")]
     [DataRow("End Sub", DisplayName = "stray End Sub")]
     [DataRow("Attribute VB_Name", DisplayName = "half-typed attribute")]
+    // adversarial review, PRs #208-224: NodeBuilder.PopLastChildren indexed past the end of _children
+    // whenever recovery left fewer operands than an operator/argument Exit handler expected — a
+    // truncated binary/unary operator, an incomplete argument, or an incomplete Print clause.
+    [DataRow("Sub S()\r\na = 1 +\r\nEnd Sub", DisplayName = "truncated binary operator (Add)")]
+    [DataRow("Sub S()\r\na = 1 &\r\nEnd Sub", DisplayName = "truncated binary operator (Concat)")]
+    [DataRow("Sub S()\r\na = 1 <\r\nEnd Sub", DisplayName = "truncated binary operator (Relational)")]
+    [DataRow("Sub S()\r\nFoo x:=\r\nEnd Sub", DisplayName = "named argument with no value")]
+    [DataRow("Sub S()\r\nPrint Tab(\r\nEnd Sub", DisplayName = "unclosed Print Tab clause")]
+    [DataRow("Sub S()\r\nSelect Case y\r\nCase Is >\r\nEnd Select\r\nEnd Sub", DisplayName = "comparison range clause with no value")]
+    [DataRow("Public Const K = 1 +", DisplayName = "truncated operator at module level, no procedure")]
+    [DataRow("Sub S()\r\nIf x = Null Then\r\nEnd If\r\nEnd Sub", DisplayName = "relational comparison against Null")]
+    // adversarial review, PRs #208-224, item 4: five unguarded null-dereferences, all the same shape -
+    // a grammar child recovery left absent, dereferenced without a check.
+    [DataRow("Sub S()\r\nRaiseEvent\r\nEnd Sub", DisplayName = "bare RaiseEvent, no event name")]
+    [DataRow("Sub S()\r\nFoo.\r\nEnd Sub", DisplayName = "member access, lone trailing dot")]
+    [DataRow("Sub S()\r\nWith Foo\r\nx = .\r\nEnd With\r\nEnd Sub", DisplayName = "with-relative member access, lone dot")]
+    [DataRow("Sub S()\r\nFoo!\r\nEnd Sub", DisplayName = "dictionary access, lone trailing bang")]
+    [DataRow("Sub S()\r\nWith Foo\r\nx = !\r\nEnd With\r\nEnd Sub", DisplayName = "with-relative dictionary access, lone bang")]
+    [DataRow("Sub S()\r\nDo While x", DisplayName = "Do whose body never recovers")]
+    [DataRow("Sub S()\r\nOn Local Error Resume\r\nEnd Sub", DisplayName = "On Error Resume missing Next")]
     public void NeverThrows_AndAnyErrorIsLocated(string source)
     {
         ModuleParseResult result = null!;
@@ -69,6 +90,19 @@ public sealed class ParserResilienceTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotEmpty(result.SyntaxErrors);
+    }
+
+    [TestMethod]
+    public void SyntaxError_LocatesToTheZeroBasedPhysicalLine()
+        // regression: ErrorListener.SyntaxError passed ANTLR's 1-based line straight through, landing
+        // every diagnostic one line below the token that actually caused it.
+    {
+        var result = Parse("Option Explicit\r\nPublic Sub Foo(\r\n");
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotEmpty(result.SyntaxErrors);
+        // "Public Sub Foo(" is physical line 2 (1-based) -> zero-based line 1.
+        Assert.AreEqual(1, result.SyntaxErrors[0].Location.Range.Start.Line);
     }
 
     [TestMethod]
@@ -111,6 +145,77 @@ public sealed class ParserResilienceTests
         CollectionAssert.Contains(members, "Foo");
         CollectionAssert.Contains(members, "Bar");
         Assert.ContainsSingle(result.SyntaxTree.Children.OfType<ConstantDeclarationNode>().Where(c => c.Name == "A"));
+    }
+
+    [TestMethod]
+    // adversarial review #208-224, item 1's own measured repro: a truncated operator expression mid-body
+    // (`a = 1 +`) threw inside PopLastChildren under recovery, and ModuleParser's outer catch salvaged
+    // whatever had been built *before* the throw — silently dropping every member and local that hadn't
+    // been visited yet, not just the broken statement. All the surrounding, well-formed declarations
+    // must survive a truncated statement in one unrelated procedure.
+    public void TruncatedOperator_DoesNotLoseSiblingMembersOrLocals()
+    {
+        const string source = """
+            Option Explicit
+            Public Field1 As Long
+            Public Const K = 1
+            Sub Alpha()
+                Dim local1 As Long
+                Dim local2 As Long
+                a = 1 +
+            End Sub
+            Function Beta() As Long
+                Dim local3 As Long
+            End Function
+            """;
+
+        var result = Parse(source);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.SyntaxTree);
+        var members = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        var alpha = members.SingleOrDefault(m => m.Name == "Alpha");
+        var beta = members.SingleOrDefault(m => m.Name == "Beta");
+        Assert.IsNotNull(alpha, "Sub Alpha must survive a truncated statement inside its own body");
+        Assert.IsNotNull(beta, "Function Beta, declared after the truncated statement, must survive");
+        Assert.HasCount(2, alpha!.Children.OfType<VariableDeclarationNode>(), "Alpha's own locals must survive");
+        Assert.ContainsSingle(beta!.Children.OfType<VariableDeclarationNode>());
+        CollectionAssert.Contains(
+            result.SyntaxTree.Children.OfType<VariableDeclarationNode>().Select(v => v.Name).ToArray(), "Field1");
+        Assert.ContainsSingle(result.SyntaxTree.Children.OfType<ConstantDeclarationNode>().Where(c => c.Name == "K"));
+    }
+
+    [TestMethod]
+    // adversarial review, PRs #208-224, "worth knowing": a bare `On Error Resume` (no `Next`) got a
+    // real syntax error AND a fabricated OnErrorResumeStatementNode as if "Next" had been typed - not
+    // just "never throws", the tree actively lied about what the source said. Root cause: ANTLR invokes
+    // this Exit callback a SECOND time after recovering from the missing-token InputMismatchException,
+    // with a synthesized `<missing NEXT>` token standing in for the real one - a plain null-check on
+    // NEXT() doesn't see the difference; only Symbol.TokenIndex (-1 for anything not actually lexed)
+    // does. Confirmed against the pre-fix listener via `git stash` before writing this test.
+    public void OnErrorResumeMissingNext_BuildsUnbuiltTrivia_NotAFabricatedResumeNext()
+    {
+        var result = Parse("Sub S()\r\nOn Local Error Resume\r\nEnd Sub");
+
+        Assert.IsFalse(result.IsSuccess);
+        var alpha = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        CollectionAssert.DoesNotContain(alpha.Children.Select(c => c.GetType()).ToArray(), typeof(OnErrorResumeStatementNode));
+        // author correction mid-round: "build nothing" is itself the wrong fallback for a recognized-
+        // but-unbuilt construct - the source text must stay reconstructable.
+        var trivia = Assert.IsInstanceOfType<UnbuiltStatementTriviaNode>(alpha.Children.Single());
+        StringAssert.Contains(trivia.Source, "Resume");
+    }
+
+    [TestMethod]
+    [DataRow("Sub S()\r\nOn Error Resume Next\r\nEnd Sub", DisplayName = "On Error Resume Next")]
+    [DataRow("Sub S()\r\nOn Error GoTo Handler\r\nHandler:\r\nEnd Sub", DisplayName = "On Error GoTo <label>")]
+    public void OnErrorStmt_StillBuildsTheRightNode_WhenComplete(string source)
+    {
+        var result = Parse(source);
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var alpha = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.ContainsSingle(alpha.Children.Where(c => c is OnErrorResumeStatementNode or OnErrorGoToStatementNode));
     }
 
     [TestMethod]
@@ -319,6 +424,20 @@ public sealed class ParserResilienceTests
         Assert.IsNotEmpty(result.SyntaxErrors);
         Assert.IsTrue(result.SyntaxErrors.All(error => error.Location.Uri == Uri));
         Assert.IsNotEmpty(result.PrecompilerTrivia);
+    }
+
+    [TestMethod]
+    // adversarial review #208-224, item 3: `If x = Null Then` corrupted the declaration listener and
+    // took the whole module with it — same PopLastChildren-underflow root cause as item 1, verified
+    // separately here because "never throws" alone doesn't catch a listener failure ModuleParser's
+    // outer catch already salvages into a reported (but wrongly emptied) module.
+    public void NullComparison_DoesNotLoseTheEnclosingMember()
+    {
+        var result = Parse("Public Sub Foo()\r\nIf x = Null Then\r\nEnd If\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual("Foo", member.Name);
     }
 
     [TestMethod]

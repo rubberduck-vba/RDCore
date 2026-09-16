@@ -29,12 +29,12 @@ Cet arrangement protège tant les contributeurs historiques qu'actuels, tout en 
 # RDCore
 [RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
 **RDCore**™ est une plateforme de _serveur de langage_ (LSP) dont les travaux d'implémentation sont **présentement en cours**. À la cible, les livrables de RDCore sont :
-- 🎯 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI), doté d'un _mode commande_ (`rdc.exe <verbe>`, p. ex. `describe-ext`);
-- 🎯 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
-- 🎯 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
-- 🎯 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
-- 👉 **RDCore.Runtime.dll**: une librairie renfermant l'implémentation de toute la sémantique et mécanismes du run-time de RD-VBA, _incluant une implémentation de la librairie VBA standard_;
-- 🧩 **RDCore.SDK.dll**: une librairie exposant les abstractions de la plateforme RDCore et encapsulant les implémentations de base du _coeur de langage_ RD-VBA.
+- 🚧 **rdc.exe**: un _environnement hôte_ RD-VBA configurable et extensible, client LSP (CLI), doté d'un _mode commande_ (`rdc.exe <verbe>`, p. ex. `describe-ext`);
+- 🚧 **RDCore.LanguageServer.exe**: le serveur d'orchestration LSP de la plateforme;
+- 🚧 **RDCore.ParseServer.exe**: le _parser_ de la plateforme est une application serveur LSP satellite détenue et orchestrée par le serveur de langage principal;
+- 🚧 **RDCore.Diagnostics.exe**: une extension _core_ de la plateforme qui envoie les _diagnostics_ au serveur de langage principal de façon asynchrone;
+- 🚧 **RDCore.Runtime.dll**: une librairie renfermant l'implémentation de toute la sémantique et mécanismes du run-time de RD-VBA, _incluant une implémentation de la librairie VBA standard_;
+- ✅ **RDCore.SDK.dll**: une librairie exposant les abstractions de la plateforme RDCore et encapsulant les implémentations de base du _coeur de langage_ RD-VBA.
 
 
 ### ✨ Ce que RDCore rend envisageable
@@ -61,16 +61,17 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 
-**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧
+**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧 · [RD-VBAL §3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.3.0.syntax-tree.html)
 
 | Domaine | |
 |---|---|
 | Analyse document complet — directives, déclarations, membres d'UDT | ✅ |
-| Nœuds d'AST de _statements_ | 🎯 débloque l'interpréteur |
+| Grammaire d'expressions et d'opérateurs — arithmétique, logique, relationnelle, concaténation, incluant les conditions `#If` | 🚧 `New`/`TypeOf...Is` sont analysés mais pas modélisés — préservés en `UnbuiltExpressionTriviaNode`, pas un vrai nœud; le reste ✅ |
+| Analyse des littéraux — numériques et chaînes | ✅ |
+| Nœuds d'AST de _statements_ | 🚧 la plupart des formes sont faites; `Mid`/`LSet`/`RSet`, `On...GoTo`/`On...GoSub` calculés restent |
 | Analyse de fragment ancré | 🎯 |
-| Expressions `#If` au-delà d'un simple nom · conformité des littéraux flottants | 🚧 |
 
-**RDCore.LanguageServer** — orchestrateur + serveur LSP · 🚧
+**RDCore.LanguageServer** — orchestrateur + serveur LSP · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)
 
 | Domaine | |
 |---|---|
@@ -79,7 +80,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Chargement du _workspace_ → aller-retour d'analyse → extraction de symboles → définition | ✅ résolus à travers les modules (UDT/Enum, _project scope_) |
 | Fonctionnalités LSP _document_ et _workspace_ | 👉 à saisir — spécifié |
 
-**RDCore.CLI** → `rdc.exe` — client LSP + hôte d'environnement · 🚧
+**RDCore.CLI** → `rdc.exe` — client LSP + hôte d'environnement · 🚧 · [RD-VBAL §2.3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.3.application-host.html)
 
 | Domaine | |
 |---|---|
@@ -100,9 +101,9 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Librairie standard (`IStd*`) | 🎯 |
 | Interpréteur · _IR lowering_ | 🎯 prévu |
 
-**RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 squelette d'analyseur; découverte depuis son _manifest_ généré et démarrée par le serveur de langage lors de l'assemblage de la plateforme.
+**RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 · [RD-VBAL §2.6](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.6.diagnostics.html) — squelette d'analyseur; découverte depuis son _manifest_ généré et démarrée par le serveur de langage lors de l'assemblage de la plateforme.
 
-**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et cycle de vie de la plateforme bien couverts; grammaire du _parser_ et CLI minces; le _runtime_ au-delà des opérateurs n'a encore rien à couvrir.
+**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et de _let-coercions_ (_runtime_ + statiques) bien couvertes; grammaire du _parser_ et CLI minces; les _statements_ / l'interpréteur du _runtime_ n'ont encore rien à couvrir.
 
 **Contributions** — individuelles ✅ ouvertes ([CLA](CLA.fr.md)) · corporatives ⏳ à venir
 

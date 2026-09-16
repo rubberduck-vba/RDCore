@@ -119,12 +119,22 @@ Where:
 
 
 ### 3.0.2 Node Types
-All AST nodes inherit [BoundNode](../api/RDCore.SDK.Model.AST.Abstract.BoundNode.html), an _abstract_ node that  associates a _semantic ID_ (`Uri`) with a specific _location_ in a _workspace source file_.
+All AST nodes inherit [SyntaxNode](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html), an _abstract_ node that  associates a _semantic ID_ (`Uri`) with a specific _location_ in a _workspace source file_.
 
-The node types _directly_ derived from `BoundNode` are as follows:
-- [BoundDirective](../api/RDCore.SDK.Model.AST.Abstract.BoundDirective.html)
-- [BoundExpression](../api/RDCore.SDK.Model.AST.Abstract.BoundExpression.html)
-- [BoundStatement](../api/RDCore.SDK.Model.AST.Abstract.BoundStatement.html)
+The node types _directly_ derived from `SyntaxNode` are as follows:
+- [DirectiveNode](../api/RDCore.SDK.Model.AST.Abstract.DirectiveNode.html)
+- [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
+- [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html)
+
+> [!NOTE]
+> A grammar alternative the parser recognizes but has no dedicated node type for yet (e.g. `New
+> <class>`, `TypeOf <expr> Is <type>`) is never silently dropped or folded into an unrelated node — it
+> is preserved as an [UnbuiltExpressionTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltExpressionTriviaNode.html)
+> (or its statement-position counterpart,
+> [UnbuiltStatementTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltStatementTriviaNode.html)),
+> carrying the exact original source text plus whatever sub-expression the parser's own walk already
+> built underneath it — so the tree stays a faithful, lossless representation of the source even where
+> a proper semantic node doesn't exist yet.
 
 
 ---
@@ -136,7 +146,7 @@ The node types _directly_ derived from `BoundNode` are as follows:
 - _Conditional compilation binding context_ used by expressions within _conditional compilation_ statements.
 
 The **RDCore** interpretation is reflected in its modelization as follows:
-- 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `VBSimpleNameExpression`;
+- 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `SimpleNameExpressionNode`;
 - 🎯 Evaluation returns an [_evaluation result record_](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) describing and encapsulating the result, or runtime error metadata.
 
 Because the type system includes and leverages meta-types such as `VBTypeDescValue`, the binding context is easily inferred from the managed type of a provided value.
@@ -148,10 +158,10 @@ Because the type system includes and leverages meta-types such as `VBTypeDescVal
 ---
 ## In this section
 - [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)
-- [**RD-VBAL §3.2** Literals](rd-vbal.3.2.literals.md)
+- [**RD-VBAL §3.2** Literals](rd-vbal.3.2.0.literals.md)
 - [**RD-VBAL §3.3** Operators](rd-vbal.3.3.0.operators.md)
-<!-- TODO
 - [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.md)
+<!-- TODO
 - [**RD-VBAL §3.5** Instructions](rd-vbal.3.5.0.instructions.md) 
 -->
 

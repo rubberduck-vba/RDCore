@@ -35,5 +35,8 @@ public sealed class DiagnosticFactoryTests
         Assert.AreEqual("RDCore", diagnostic.Source);
         Assert.AreEqual(Where.Range.ToLsp(), diagnostic.Range);
         Assert.IsNotNull(diagnostic.Data, "the error id and verbose detail ride Data");
+        // regression: VBCompileErrors had no entry for SyntaxError, so every grammar error (the
+        // overwhelmingly common syntax-error path) fell back to "Unspecified error".
+        Assert.AreEqual("Syntax error", diagnostic.Message);
     }
 }

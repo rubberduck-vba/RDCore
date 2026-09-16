@@ -41,7 +41,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <typeparam name="TContext">The type of <em>semantic context</em> of the <c>expression</c> the let-coercion is occurring inside of.</typeparam>
     /// <typeparam name="TFlags">The type of semantic flags associated with the semantic context of the <c>expression</c>.</typeparam>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns></returns>
     public abstract LetCoercionResult EvaluateLetCoercion(
@@ -54,7 +54,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// </summary>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <param name="result">The result of the let-coercion operation for the current stack frame.</param>
     /// <returns>The <see cref="LetCoercionAnalysisContext"/> for the context of this <em>let-coercion</em> operation.</returns>
@@ -83,7 +83,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <typeparam name="TFlags">The type of semantic flags associated with the semantic context of the <c>expression</c>.</typeparam>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns></returns>
     protected abstract ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
@@ -132,4 +132,11 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     protected VBRuntimeErrorInfo OnLetCoercionInvalidUseOfNull(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidUseOfNull, expression.Location,
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose, expression, [frame]));
+
+    /// <summary>
+    /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
+    /// </summary>
+    protected VBRuntimeErrorInfo OnLetCoercionInvalidProcedureCallOrArgument(ExpressionNode expression, LetCoercionStackFrame frame) =>
+        VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, expression.Location,
+            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose, expression, [frame]));
 }

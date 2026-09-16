@@ -4,6 +4,9 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace RDCore.Parsing.AST;
 
@@ -339,6 +342,167 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
     public SyntaxNode BuildConditionalExpression(VBAParser.ExpressionContext context)
         => new ConditionalExpressionNode(NodeId, context.GetSourceLocation(_rootUri), [.. _children]);
+
+    // the condition is always the first child collected in this branch's own scope (booleanExpression
+    // is visited before the branch's body); a completed ElseIf/Else branch arrives as one already-built
+    // child (its own Exit having popped its own scope), never interleaved with the body it followed.
+    public SyntaxNode? BuildIfBlock(VBAParser.IfStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            // a half-typed `If` with no condition (recovery) leaves nothing to anchor the branch on.
+            return null;
+        }
+
+        var elseIfBlocks = _children.OfType<ElseIfBlockStatementNode>().ToImmutableArray();
+        var elseBlock = _children.OfType<ElseBlockStatementNode>().SingleOrDefault();
+        var body = _children.Skip(1)
+            .Where(child => child is not ElseIfBlockStatementNode && child is not ElseBlockStatementNode)
+            .ToImmutableArray();
+
+        return new IfBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body), elseIfBlocks, elseBlock);
+    }
+
+    public SyntaxNode? BuildElseIfBlock(VBAParser.ElseIfBlockContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new ElseIfBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
+    }
+
+    public SyntaxNode BuildElseBlock(VBAParser.ElseBlockContext context)
+        => new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
+
+    // single-line If's Else branch (MS-VBAL §5.4.2.9) reuses ElseBlockStatementNode — same shape
+    // (just a StatementBlock, no condition of its own) as the block If's Else. `labelGoTo` (a bare
+    // line-number target's synthesized equivalent) always precedes any real statements, per grammar.
+    public SyntaxNode BuildInlineElseBlock(VBABaseParserRuleContext context, GoToStatementNode? labelGoTo)
+    {
+        var body = labelGoTo is null ? (IEnumerable<SyntaxNode>)_children : [labelGoTo, .. _children];
+        return new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. body]));
+    }
+
+    public SyntaxNode? BuildInlineIfStatement(VBABaseParserRuleContext context, GoToStatementNode? labelGoTo)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            // a half-typed single-line `If` with no condition (recovery) leaves nothing to anchor on.
+            return null;
+        }
+
+        var elseBlock = _children.OfType<ElseBlockStatementNode>().SingleOrDefault();
+        var rest = _children.Skip(1).Where(child => child is not ElseBlockStatementNode);
+        var thenBody = labelGoTo is null ? rest : new SyntaxNode[] { labelGoTo }.Concat(rest);
+
+        return new InlineIfStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock([.. thenBody]), elseBlock?.Body);
+    }
+
+    public SyntaxNode? BuildWhileWendStatement(VBAParser.WhileWendStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode condition)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new WhileWendStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
+    }
+
+    public SyntaxNode? BuildWithStatement(VBAParser.WithStmtContext context)
+    {
+        if (_children.Count == 0 || _children[0] is not ExpressionNode withExpression)
+        {
+            return null;
+        }
+
+        var body = _children.Skip(1).ToImmutableArray();
+        return new WithStatementNode(NodeId, context.GetSourceLocation(_rootUri), withExpression, new StatementBlock(body));
+    }
+
+    // the condition, if any, was captured separately (CaptureIsolatedExpression) rather than through
+    // this builder's own scope — everything already sitting in _children is body content only.
+    public SyntaxNode? BuildDoLoopStatement(VBAParser.DoLoopStmtContext context, ExpressionNode? condition)
+    {
+        var body = new StatementBlock([.. _children]);
+
+        if (context.expression() is not { } conditionContext)
+        {
+            // no WHILE/UNTIL at all: a plain `Do...Loop`, infinite unless the body itself exits.
+            return new DoLoopStatementNode(NodeId, context.GetSourceLocation(_rootUri), body);
+        }
+        if (condition is null || context.block() is not { } blockContext)
+        {
+            // a WHILE/UNTIL token was present but its expression didn't resolve, or the body itself
+            // didn't recover (both are ANTLR error-recovery states) — nothing usable to anchor a real
+            // Do/Loop node on, but the body may already hold several real statements: wrap the whole
+            // loop (source text + already-parsed body) in trivia instead of discarding them outright.
+            return new UnbuiltStatementTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.GetText(), body.Children);
+        }
+
+        var isUntil = context.UNTIL() is not null;
+        var isBottomCondition = conditionContext.Start.TokenIndex > blockContext.Start.TokenIndex;
+        var location = context.GetSourceLocation(_rootUri);
+
+        return (isBottomCondition, isUntil) switch
+        {
+            (false, false) => new DoWhileLoopStatementNode(NodeId, location, condition, body),
+            (false, true) => new DoUntilLoopStatementNode(NodeId, location, condition, body),
+            (true, false) => new DoLoopWhileStatementNode(NodeId, location, condition, body),
+            (true, true) => new DoLoopUntilStatementNode(NodeId, location, condition, body),
+        };
+    }
+
+    // `assignment` is the control variable's `i = 1` clause, captured as one expression (the grammar
+    // refactored `expression EQ expression` into a single `expression` for SLL — see EnterForNextStmt's
+    // remarks) — split into Control/Start off the top-level `=` node it must produce. `step` is
+    // already the resolved Step expression (or null: no Step clause, MS-VBAL's implicit default of 1
+    // is a runtime concern, not this node's).
+    public SyntaxNode? BuildForStatement(VBAParser.ForNextStmtContext context, ExpressionNode? assignment, ExpressionNode? end, ExpressionNode? step)
+    {
+        if (assignment is not VBBinaryOperatorExpressionNode { Token: Tokens.CompareEqualOp } assignmentOp || end is null)
+        {
+            // recovery: the control-variable assignment or the end-value didn't resolve.
+            return null;
+        }
+
+        var body = new StatementBlock([.. _children]);
+        return new ForStatementNode(NodeId, context.GetSourceLocation(_rootUri), assignmentOp.Left, assignmentOp.Right, end, step, body);
+    }
+
+    public SyntaxNode? BuildForEachStatement(VBAParser.ForEachStmtContext context, ExpressionNode? control, ExpressionNode? collection)
+    {
+        if (control is null || collection is null)
+        {
+            return null;
+        }
+
+        var body = new StatementBlock([.. _children]);
+        return new ForEachStatementNode(NodeId, context.GetSourceLocation(_rootUri), control, collection, body);
+    }
+
+    // _children here is purely Case/Case Else blocks, added directly as they're each fully built by
+    // their own Exit handler — never body statements (a selectCaseStmt has no statements of its own).
+    public SyntaxNode? BuildSelectCaseStatement(VBAParser.SelectCaseStmtContext context, ExpressionNode? controlExpression)
+    {
+        if (controlExpression is null)
+        {
+            return null;
+        }
+
+        var caseExpressionBlocks = _children.OfType<CaseExpressionStatementNode>().ToImmutableArray();
+        var caseElseBlock = _children.OfType<CaseElseClauseStatementNode>().SingleOrDefault();
+        return new SelectCaseStatementNode(NodeId, context.GetSourceLocation(_rootUri), controlExpression, caseExpressionBlocks, caseElseBlock);
+    }
+
+    public SyntaxNode BuildCaseExpression(VBAParser.CaseClauseContext context, ImmutableArray<CaseRangeClauseNode> rangeClauses)
+        => new CaseExpressionStatementNode(NodeId, context.GetSourceLocation(_rootUri), rangeClauses, new StatementBlock([.. _children]));
+
+    public SyntaxNode BuildCaseElseClause(VBAParser.CaseElseClauseContext context)
+        => new CaseElseClauseStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
 
     public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
         => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);

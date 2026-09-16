@@ -31,7 +31,7 @@ public interface ILetCoercionRuntimeSemantics
     /// </summary>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>BoundExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <param name="result">The result of the let-coercion operation for the current stack frame.</param>
     /// <remarks>

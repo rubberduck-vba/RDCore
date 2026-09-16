@@ -32,7 +32,14 @@ internal static class SymbolDescriptorProjector
         var builder = ImmutableArray.CreateBuilder<SymbolDescriptor>();
         foreach (var symbol in all.Where(s => s.ParentUri.ToString() == moduleKey))
         {
-            builder.Add(Describe(symbol, KindOf(symbol), childrenByParent[symbol.Uri.ToString()]));
+            if (KindOf(symbol) is not { } kind)
+            {
+                // a symbol with no mapped top-level kind — e.g. a procedure-local wrongly parented to
+                // the module itself, which a nameless-member Uri collision can produce — must not crash
+                // the whole module's projection over one stray symbol.
+                continue;
+            }
+            builder.Add(Describe(symbol, kind, childrenByParent[symbol.Uri.ToString()]));
         }
         return builder.ToImmutable();
     }
@@ -52,10 +59,16 @@ internal static class SymbolDescriptorProjector
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),
             Parameters = ParametersOf(symbol),
-            Members = [.. children.Select(child => Describe(child, KindOf(child), []))],
+            Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
             External = ExternalOf(symbol),
         };
     }
+
+    // only Enum constants and UDT fields are meant to nest under their owner (see this class's own
+    // remarks); a procedure's locals (VBLocalVariableSymbol/VBLocalConstantSymbol) share the same
+    // childrenByParent lookup by virtue of their ParentUri, but were never meant to project into the
+    // descriptor tree — KindOf has no arm for them, and none is wanted here.
+    private static bool IsNestableMember(Symbol symbol) => symbol is VBEnumConstMemberSymbol or VBUserDefinedTypeFieldSymbol;
 
     // carried only for a multi-branch symbol; the common single-declaration descriptor stays lean and
     // consumers read Range/SelectionRange.
@@ -69,7 +82,12 @@ internal static class SymbolDescriptorProjector
             })]
             : [];
 
-    private static SymbolDescriptorKind KindOf(Symbol symbol) => symbol switch
+    // null for a symbol kind this descriptor tree has no shape for (a procedure-local, for one) —
+    // callers must treat that as "skip this symbol", not an error: a local can legitimately reach here
+    // if it's ever wrongly parented to the module itself rather than to its owning procedure, and one
+    // stray symbol must not crash the whole module's projection (adversarial review PRs #208-224,
+    // item 7 — the top-level call site here wasn't covered by #209's guard on the child path below).
+    private static SymbolDescriptorKind? KindOf(Symbol symbol) => symbol switch
     {
         // most specific first: externals subclass Function/Procedure, and Property Let/Set subclass Procedure.
         VBExternalFunctionMemberSymbol => SymbolDescriptorKind.ExternalFunction,
@@ -86,7 +104,7 @@ internal static class SymbolDescriptorProjector
         VBConstantMemberSymbol => SymbolDescriptorKind.ModuleConstant,
         VBUserDefinedTypeFieldSymbol => SymbolDescriptorKind.UserDefinedTypeField,
         VBModuleFieldVariableMemberSymbol => SymbolDescriptorKind.ModuleField,
-        _ => SymbolDescriptorKind.ModuleField,
+        _ => null,
     };
 
     private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol)

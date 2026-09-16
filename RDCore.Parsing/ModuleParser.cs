@@ -225,7 +225,9 @@ internal class ErrorListener(Uri uri) : IAntlrErrorListener<IToken>
 
     public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
     {
-        var location = new SourceLocation(_uri, new(line, charPositionInLine, line, charPositionInLine));
+        // ANTLR's line is 1-based; SourcePosition is documented zero-based (charPositionInLine already
+        // is), matching the same -1 conversion VBABaseParserRuleContext applies to node locations.
+        var location = new SourceLocation(_uri, new(line - 1, charPositionInLine, line - 1, charPositionInLine));
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
 

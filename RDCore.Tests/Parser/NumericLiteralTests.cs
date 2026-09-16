@@ -80,12 +80,31 @@ public sealed class NumericLiteralTests
     [DataRow("1E40!", DisplayName = "Single suffix overflows to infinity")]
     [DataRow("&H100000000", DisplayName = "hex literal exceeds 32 bits without a ^ suffix")]
     [DataRow("&O777777777777", DisplayName = "octal literal exceeds 32 bits without a ^ suffix")]
+    // Adversarial review #167-205: Currency `@`-literal overflow threw System.OverflowException straight out of
+    // VBRuntimeCurrencyValue's Convert.ToInt64(scaledValue * 10000) - unlike every other overflow case
+    // here, nothing validated the value fit Currency's range before constructing it. ModuleParser's outer
+    // catch kept it from being a raw crash, but leaked the exception's own message as the "syntax error"
+    // text instead of a proper NumericLiteralOverflow. Calling Resolve directly (not through
+    // ModuleParser) means an escaping exception fails this test loudly instead of being masked.
+    [DataRow("92233720368547758.07@", DisplayName = "Currency overflow via the decimal (Real) path")]
+    [DataRow("999999999999999999@", DisplayName = "Currency overflow via the integer path - the old bound was 1000x too large (long.MaxValue/10, not /10000)")]
     public void FlagsOverflow_AndStillYieldsAnUnknownValue(string token)
     {
         var (value, overflow) = NumericLiteral.Resolve(token);
 
         Assert.IsTrue(overflow);
         Assert.IsInstanceOfType<VBUnknownValue>(value);
+    }
+
+    [TestMethod]
+    // the largest positive value VBRuntimeCurrencyValue's 10,000x-scaled Int64 storage can hold — must
+    // resolve cleanly, not overflow, right at the boundary the fix above introduces.
+    public void CurrencyLiteral_AtTheExactStorageBoundary_DoesNotOverflow()
+    {
+        var (value, overflow) = NumericLiteral.Resolve("922337203685477.5807@");
+
+        Assert.IsFalse(overflow);
+        Assert.IsInstanceOfType<VBCurrencyValue>(value);
     }
 
     [TestMethod]

@@ -31,7 +31,7 @@ public static class RuntimeSessionComposer
         IEnumerable<ISymbolProvider> providers)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86);
-        var symbols = new SessionSymbols();
+        var symbols = new SessionSymbols(new SessionStorage(memory));
         var objects = new SessionObjects();
 
         foreach (var provider in providers)

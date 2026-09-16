@@ -68,6 +68,28 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
         _ => 0,
     };
 
+    /// <summary>
+    /// The operand's value for the MS-VBAL 5.6.9.8 binary Null-operand tables, which treat Boolean
+    /// as an integral value via its -1/0 representation (RD-VBAL §5.0.2.1) — the same convention
+    /// <see cref="BooleanBits"/> already applies for the both-integral bitwise fast path.
+    /// <see langword="null"/> for any operand the tables don't classify as integral.
+    /// </summary>
+    protected static double? AsNullOperandTableValue(VBTypedValue value) => value switch
+    {
+        VBBooleanValue b => b.Value.StoredValue != 0 ? -1d : 0d,
+        VBNumericTypedValue n when n.TypeInfo is IIntegralNumericType => n.AsDouble,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Builds a MS-VBAL 5.6.9.8 Null-operand-table result in the operation's effective type — a
+    /// <see cref="VBBooleanValue"/> for a Boolean effective type (Boolean is Let-coerced to Integer
+    /// for the bitwise step, but the operator's result is Let-coerced back), the effective
+    /// <see cref="VBNumericType"/>'s own representation of <paramref name="value"/> otherwise.
+    /// </summary>
+    protected static VBTypedValue CreateNullOperandTableResult(VBType effectiveType, double value) =>
+        effectiveType is VBBooleanType ? new VBBooleanValue(value != 0) : ((VBNumericType)effectiveType).CreateValue(value);
+
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node, 
         DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult, 

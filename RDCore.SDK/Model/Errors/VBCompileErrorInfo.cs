@@ -56,6 +56,8 @@ public record class VBCompileErrorInfo : VBErrorInfo
         // 💥 "this should never happen" - but in case it does... the dictionary key exists:
         [VBCompileErrorId.UnspecifiedCompileError] = Exceptions.VBCompileError_UnspecifiedError,
 
+        [VBCompileErrorId.SyntaxError] = Exceptions.VBSyntaxError_DefaultMessage,
+
         [VBCompileErrorId.NumericLiteralOverflow] = Exceptions.VBCompileError_NumericLiteralOverflow,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,

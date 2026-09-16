@@ -234,6 +234,23 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             var result = ComparisonOp(((VBStringValue)lhs).Value!, ((VBStringValue)rhs).Value!, StringComparison.InvariantCulture);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
+        else if (frame.EffectiveType is VBBooleanType)
+        {
+            // Boolean compares over its -1/0 representation (RD-VBAL §5.0.2.1, same convention the
+            // logical operators use); not a VBNumericTypedValue, so BoxedValue is read directly.
+            var result = ComparisonOp(
+                Convert.ToInt64(lhs.RuntimeValue.BoxedValue),
+                Convert.ToInt64(rhs.RuntimeValue.BoxedValue));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
+        }
+        else if (frame.EffectiveType is VBStringType)
+        {
+            // Binary compare (case-sensitive, culture-aware) is MS-VBA's default for a module with no
+            // Option Compare Text; ComparisonOp treats StringComparison.InvariantCultureIgnoreCase as
+            // the Text-compare signal (see LikeRelationalOperatorRuntimeSemantics.ComparisonOp).
+            var result = ComparisonOp(((VBStringValue)lhs).Value!, ((VBStringValue)rhs).Value!, StringComparison.InvariantCulture);
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
+        }
         else if (frame.EffectiveType is VBCurrencyType)
         {
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(ComparisonOp(((VBCurrencyValue)lhs).Value.Value, ((VBCurrencyValue)rhs).Value.Value)));

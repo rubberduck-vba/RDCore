@@ -158,7 +158,16 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionObjectVariableNotSet", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Source value is outside the standard error code range (0 and 65535, inclusive) representable by the let-coercion destination data type..
+        /// </summary>
+        public static string LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose {
+            get {
+                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to This let-coercion operation is deterministically recursive. See evaluation stack details for more information..
         /// </summary>

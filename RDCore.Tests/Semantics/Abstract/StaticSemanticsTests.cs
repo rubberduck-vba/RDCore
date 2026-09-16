@@ -13,11 +13,22 @@ public abstract class StaticSemanticsTests
 {
     public static void AssertDeterminedDeclaredType(StaticSemantics semantics, VBType[] operandDeclaredTypes, VBType expected)
     {
+        var result = Evaluate(semantics, operandDeclaredTypes);
+        Assert.AreEqual(expected, result.Result);
+    }
+
+    public static void AssertDeterminedDeclaredTypeIsError(StaticSemantics semantics, VBType[] operandDeclaredTypes)
+    {
+        var result = Evaluate(semantics, operandDeclaredTypes);
+        Assert.IsTrue(result.IsError, "expected a static compile-time error");
+    }
+
+    private static StaticSemanticsEvaluationResult Evaluate(StaticSemantics semantics, VBType[] operandDeclaredTypes)
+    {
         var resolver = Substitute.For<ISymbolResolver>();
         var scope = new LexicalScope(StaticSymbol.GlobalUri, LexicalScopeKind.Global, parent: null, []);
         var context = new StaticEvaluationContext(resolver, scope);
         var expression = new LiteralExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [42]), TestLocations.TestLocation, VBUnknownType.TypeInfo.DefaultValue);
-        var result = semantics.DetermineDeclaredType(context, expression, operandDeclaredTypes);
-        Assert.AreEqual(expected, result.Result);
+        return semantics.DetermineDeclaredType(context, expression, operandDeclaredTypes);
     }
 }
