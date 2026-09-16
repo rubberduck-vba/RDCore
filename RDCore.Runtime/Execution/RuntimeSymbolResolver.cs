@@ -20,16 +20,13 @@ namespace RDCore.Runtime.Execution;
 /// <param name="storage">The session's value storage.</param>
 public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage storage) : ISymbolResolver
 {
-    private readonly Dictionary<SemanticId, MemoryAddress> _addressBySymbol = [];
+    private readonly SymbolAddressTable _addresses = new(storage);
 
     /// <inheritdoc/>
     public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle) => names.Resolve(name, scope, handle);
 
     /// <inheritdoc/>
-    public IBindingHandle GetValue(Symbol symbol)
-        => _addressBySymbol.TryGetValue(symbol.SemanticId, out var address) && storage.TryRead(address, out var handle)
-            ? handle
-            : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.");
+    public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);
 
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
@@ -47,27 +44,11 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     /// to attach to it.
     /// </returns>
     public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
-    {
-        if (_addressBySymbol.TryGetValue(symbol.SemanticId, out var previous))
-        {
-            storage.TryDeallocate(previous);
-        }
-
-        if (!storage.TryAllocate(value.Size, value.Handle, out address))
-        {
-            _addressBySymbol.Remove(symbol.SemanticId);
-            return false;
-        }
-
-        _addressBySymbol[symbol.SemanticId] = address;
-
-        return true;
-    }
+        => _addresses.TryAllocate(symbol, value, out address);
 
     /// <summary>
     /// Frees the storage bound to <paramref name="symbol"/> and removes the address mapping.
     /// </summary>
     /// <returns><c>true</c> if a binding for <paramref name="symbol"/> existed and was released.</returns>
-    public bool TryDeallocate(Symbol symbol)
-        => _addressBySymbol.Remove(symbol.SemanticId, out var address) && storage.TryDeallocate(address);
+    public bool TryDeallocate(Symbol symbol) => _addresses.TryDeallocate(symbol);
 }

@@ -1,6 +1,8 @@
-﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -8,40 +10,49 @@ using System.Diagnostics.CodeAnalysis;
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// Represents a single <em>call stack</em> frame that allocates locally-scoped symbols.
+/// Represents a single <em>call stack</em> frame — the activation record of one procedure call. Every
+/// locally-scoped <see cref="Symbol"/> the procedure declares (its parameters and its <c>Dim</c>
+/// locals alike, MS-VBAL drawing no distinction between the two for name-resolution purposes) is
+/// <see cref="Push"/>ed here and reserved storage through the same <see cref="ISessionStorage"/> the
+/// session's module/global symbols use — this is what makes the frame's members addressable, not just
+/// held in a private lookup, and what lets <see cref="ReleaseAll"/> free them all in one pass when the
+/// frame is popped.
 /// </summary>
-public record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs) : ICallStackFrame
+public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs, ISessionStorage Storage) : ICallStackFrame
 {
-    private readonly Stack<Symbol> _localSymbols = [];
-    private readonly Dictionary<Uri, Symbol> _localSymbolTable = [];
-    private readonly Dictionary<Symbol, VBTypedValue> _localHeap = [];
-
-    public VBTypedValue this[Symbol symbol] => _localHeap[symbol];
+    private readonly SymbolAddressTable _addresses = new(Storage);
+    private readonly HashSet<SemanticId> _declared = [];
 
     /// <summary>
-    /// Pushes a value onto this <em>stack frame</em>, allocated under <paramref name="symbol"/>.
+    /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for
+    /// <paramref name="value"/>, its initial value.
     /// </summary>
-    /// <param name="symbol">The local <see cref="Symbol"/> <paramref name="value"/> is allocated under.</param>
-    /// <param name="value">A <see cref="VBTypedValue"/> to be allocated locally in this frame.</param>
+    /// <param name="symbol">The locally-scoped <see cref="Symbol"/> being declared — a parameter or a <c>Dim</c> local.</param>
+    /// <param name="value">The symbol's initial value: the caller's argument for a parameter, the declared type's default value for a fresh <c>Dim</c>.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame — a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
     public void Push(Symbol symbol, VBTypedValue value)
     {
-        if (_localSymbols.Contains(symbol))
+        if (!_declared.Add(symbol.SemanticId))
         {
-            // something went very wrong.
-            throw new InvalidOperationException();
+            throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
         }
-        _localSymbols.Push(symbol);
 
-        _localHeap[symbol] = value;
-        _localSymbolTable[symbol.Uri] = symbol;
+        // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded
+        // VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with a source location to
+        // attach it to — matches RuntimeSymbolResolver.TryAllocate's own documented contract.
+        _ = _addresses.TryAllocate(symbol, value, out _);
     }
 
+    /// <inheritdoc/>
+    public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);
+
+    /// <inheritdoc/>
+    public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
+        => _addresses.TryRead(symbol, out value);
+
     /// <summary>
-    /// Gets the <see cref="VBTypedValue"/> associated with the specified local <c>Symbol</c>.
+    /// Frees every local this frame allocated. Called when the frame is popped off the
+    /// <see cref="ICallStack"/> that owns it — a frame is never partially torn down.
     /// </summary>
-    /// <param name="symbol">A <see cref="Symbol"/> that is allocated on this stack frame.</param>
-    /// <param name="value"></param>
-    /// <returns></returns>
-    public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value) 
-        => _localHeap.TryGetValue(symbol, out value);
+    public void ReleaseAll() => _addresses.ReleaseAll();
 }

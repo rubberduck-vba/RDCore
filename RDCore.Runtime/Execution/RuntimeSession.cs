@@ -1,4 +1,6 @@
-﻿using RDCore.SDK.Model.Source;
+﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -17,12 +19,14 @@ internal sealed class RuntimeSession(
     ISessionMemoryAllocator memory,
     ISessionSymbols symbols,
     ISessionObjects objects,
+    ICallStack callStack,
     IReadOnlyList<ReferencePriorityInfo> references) : IRuntimeSession
 {
     public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
     public ISessionSymbols Symbols { get; init; } = symbols;
     public ISessionObjects Objects { get; init; } = objects;
+    public ICallStack CallStack { get; init; } = callStack;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
 }
 
@@ -79,10 +83,15 @@ internal sealed class SessionObjects : ISessionObjects
 
 /// <param name="storage">
 /// The session's value storage — a program-lifetime declaration (a standard module's or the global
-/// scope's <see cref="SymbolKindExt.Field"/>/<see cref="SymbolKindExt.Variable"/>) is allocated
-/// storage here the moment it's <see cref="TryDefine"/>d, per <strong>RD-VBAL §2.3.1.2</strong>.
+/// scope's <see cref="SymbolKindExt.Field"/>/<see cref="SymbolKindExt.Variable"/>, and a <c>Static</c>
+/// local — RD-VBAL's <em>static locals heap</em> lives at module level too) is allocated storage here
+/// the moment it's <see cref="TryDefine"/>d, per <strong>RD-VBAL §2.3.1.2</strong>.
 /// </param>
-internal sealed class SessionSymbols(ISessionStorage storage) : ISessionSymbols
+/// <param name="callStack">
+/// The session's call stack — an ordinary (non-<c>Static</c>) local's storage is instead allocated per
+/// activation, on the current <see cref="ICallStackFrame"/>, when a procedure call pushes one.
+/// </param>
+internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack callStack) : ISessionSymbols
 {
     // one bucket per RD-VBAL §2.3.1.2 heap: global, workspace (module), instance, and the local
     // frame. TryDefine keeps the first symbol of a colliding uri; the scope tree walks all four.
@@ -93,8 +102,11 @@ internal sealed class SessionSymbols(ISessionStorage storage) : ISessionSymbols
 
     // a stable component for the session's lifetime — unlike the compile-time name lookup below, the
     // symbol->address map it owns must survive a scope-tree rebuild, not be discarded with it.
-    private RuntimeSymbolResolver? _bindingsField;
-    private RuntimeSymbolResolver Bindings => _bindingsField ??= new RuntimeSymbolResolver(new LiveScopeResolver(this), storage);
+    private RuntimeSymbolResolver? _sessionBindingsField;
+    private RuntimeSymbolResolver SessionBindings => _sessionBindingsField ??= new RuntimeSymbolResolver(new LiveScopeResolver(this), storage);
+
+    private CallStackAwareSymbolResolver? _bindingsField;
+    private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings);
 
     private ScopeTree? _scopeTree;
 
@@ -115,14 +127,17 @@ internal sealed class SessionSymbols(ISessionStorage storage) : ISessionSymbols
             return false;
         }
 
-        // instance fields need a live object to allocate into (a later, separate concern); locals
-        // live on the call stack frame, not here. A Const is a compile-time substitution, never a
-        // runtime address, regardless of scope.
-        if (scope is ScopeKind.Module or ScopeKind.Global
+        // instance fields need a live object to allocate into (a later, separate concern); an
+        // ordinary local lives on the call stack frame, allocated per activation, not here. A Const
+        // is a compile-time substitution, never a runtime address, regardless of scope. A Static
+        // local is the one ScopeKind.Local exception: it's allocated here, same as a module field, so
+        // it keeps its value between calls instead of being torn down when its frame pops.
+        var isStaticLocal = scope is ScopeKind.Local && symbol is VBLocalVariableSymbol { IsStatic: true };
+        if ((scope is ScopeKind.Module or ScopeKind.Global || isStaticLocal)
             && symbol is ITypedSymbol { ResolvedType: var type }
             && symbol.Kind is SymbolKindExt.Field or SymbolKindExt.Variable)
         {
-            _ = Bindings.TryAllocate(symbol, type.DefaultValue, out _);
+            _ = SessionBindings.TryAllocate(symbol, type.DefaultValue, out _);
         }
 
         return true;
@@ -135,6 +150,9 @@ internal sealed class SessionSymbols(ISessionStorage storage) : ISessionSymbols
         symbol = Resolver.Resolve(name, ScopeKind.Unallocated, scope.Uri).Symbol;
         return symbol is not null;
     }
+
+    public ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure)
+        => new CallStackFrame(nodeId, procedure, [], storage);
 
     private ScopeTree EnsureScopeTree()
         => _scopeTree ??= ScopeTreeBuilder.Build(

@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -37,6 +38,14 @@ public interface IRuntimeSession
     ISessionObjects Objects { get; }
 
     /// <summary>
+    /// The session's call stack — pushing and popping an <see cref="ICallStackFrame"/> per procedure
+    /// activation is what makes a procedure's locals and parameters visible through
+    /// <see cref="ISessionSymbols"/>'s <see cref="ISessionSymbols.Resolver"/> (<strong>RD-VBAL
+    /// §2.3.1.2</strong>'s local <em>stack frame</em> heap tier).
+    /// </summary>
+    ICallStack CallStack { get; }
+
+    /// <summary>
     /// The workspace's references in declaration order (<strong>RD-VBAL §2.3.1.2</strong>): index
     /// <c>0</c> appears first and is the lowest precedence (the <c>VBA</c> standard library), so a
     /// later entry shadows it on a global-scope name collision. This is the precedence order only —
@@ -71,6 +80,16 @@ public interface ISessionSymbols
     /// live run-time binding a defined symbol was allocated, if any.
     /// </summary>
     ISymbolResolver Resolver { get; }
+
+    /// <summary>
+    /// Creates a new, empty <see cref="ICallStackFrame"/> for an activation of
+    /// <paramref name="procedure"/>, wired to this session's value storage. The caller
+    /// <see cref="ICallStackFrame.Push"/>es each parameter and <c>Dim</c> local it declares, then
+    /// pushes the frame onto <see cref="IRuntimeSession.CallStack"/> to make them resolvable.
+    /// </summary>
+    /// <param name="nodeId">The <c>Identity</c> of the call-site node this activation is for.</param>
+    /// <param name="procedure">The <see cref="StaticSymbol"/> identifying the procedure being activated.</param>
+    ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure);
 }
 
 /// <summary>

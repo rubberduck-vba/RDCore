@@ -1,4 +1,5 @@
-﻿using RDCore.Runtime.Execution.Memory;
+﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Execution.Memory;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -31,7 +32,8 @@ public static class RuntimeSessionComposer
         IEnumerable<ISymbolProvider> providers)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86);
-        var symbols = new SessionSymbols(new SessionStorage(memory));
+        var callStack = new RuntimeCallStack();
+        var symbols = new SessionSymbols(new SessionStorage(memory), callStack);
         var objects = new SessionObjects();
 
         foreach (var provider in providers)
@@ -42,6 +44,6 @@ public static class RuntimeSessionComposer
             }
         }
 
-        return new RuntimeSession(environment, memory, symbols, objects, references);
+        return new RuntimeSession(environment, memory, symbols, objects, callStack, references);
     }
 }
