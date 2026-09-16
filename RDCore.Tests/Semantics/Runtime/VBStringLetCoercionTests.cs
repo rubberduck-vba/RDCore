@@ -38,6 +38,13 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(source), VBStringType.TypeInfo), expected);
 
     [TestMethod]
+    public void NumericSource_RoundsToFifteenSignificantDigits()
+        // fixed 2026-09-16: double's own default formatting prints the shortest round-trippable
+        // representation (up to 17 significant digits) instead of rounding to Double's 15, so
+        // CStr(0.1 + 0.2) used to read "0.30000000000000004".
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(0.1 + 0.2), VBStringType.TypeInfo), "0.3");
+
+    [TestMethod]
     public void NumericSource_PositiveInfinity_IsTheInfinityToken()
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(double.PositiveInfinity), VBStringType.TypeInfo), VBStringValue.PositiveInfinity);
 
@@ -51,23 +58,27 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
 
     [TestMethod]
     public void NumericSource_ExceedsSignificantIntegerDigits_UsesScientificNotationWithSignedExponent()
-    {
         // MS-VBAL 5.5.1.2.4: the exponent is always signed ("+" or "-") — a bare C# int.ToString()
-        // would have produced "E20" instead of "E+20" for a positive exponent.
-        var result = Coerce(Sut(), new VBDoubleValue(100_000_000_000_000_000_000d), VBStringType.TypeInfo);
-        Assert.IsTrue(result.IsApplicable);
-        StringAssert.Contains(((VBStringValue)result.Result!).Value, "E+");
-    }
+        // would have produced "E20" instead of "E+20" for a positive exponent. Exact string (not just
+        // a "Contains E+" substring check) so a mantissa or missing-sign mutation can't survive.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(100_000_000_000_000_000_000d), VBStringType.TypeInfo), "1E+20");
+
+    [TestMethod]
+    public void NumericSource_NegativeExceedsSignificantIntegerDigits_UsesScientificNotationWithNegativeSign()
+        // the sign branch of scientific notation had no dedicated coverage before this.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(-100_000_000_000_000_000_000d), VBStringType.TypeInfo), "-1E+20");
 
     [TestMethod]
     public void NumericSource_SingleExceedingSevenDigits_UsesScientificNotation()
-    {
         // Single's significant-digit threshold (7) is lower than Double's (15), so a value that's
         // still normal notation for a Double must go scientific when the source is a Single.
-        var result = Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo);
-        Assert.IsTrue(result.IsApplicable);
-        StringAssert.Contains(((VBStringValue)result.Result!).Value, "E+");
-    }
+        // 12345678f itself isn't exactly representable in a float's ~7 digits of precision, hence
+        // "...567" rather than "...568" — this pins the real rounded value, not the source literal.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo), "1.234567E+7");
+
+    [TestMethod]
+    public void NumericSource_NegativeSingleExceedingSevenDigits_UsesScientificNotationWithNegativeSign()
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(-12345678f), VBStringType.TypeInfo), "-1.234567E+7");
 
     [TestMethod]
     [DataRow(true, "True")]
@@ -85,8 +96,20 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
             new DateTime(1899, 12, 30, 12, 0, 0).ToLongTimeString());
 
     [TestMethod]
-    public void DateSource_NonZeroDate_IsShortDate()
+    public void DateSource_NonZeroDate_MidnightTime_IsShortDateOnly()
+        // real VBA drops a trailing "12:00:00 AM" from a date-only value.
         => AssertCoercedTo<VBStringValue>(
             Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1).ToOADate()), VBStringType.TypeInfo),
             new DateTime(2020, 1, 1).ToShortDateString());
+
+    [TestMethod]
+    public void DateSource_NonZeroDate_NonMidnightTime_IsShortDateAndLongTime()
+    {
+        // fixed 2026-09-16: a date with a real time-of-day component (e.g. 3:45:00 PM) used to lose
+        // the time entirely — CStr(#1/1/2020 3:45:00 PM#) returned only "1/1/2020".
+        var source = new DateTime(2020, 1, 1, 15, 45, 0);
+        AssertCoercedTo<VBStringValue>(
+            Coerce(Sut(), new VBDateValue(source.ToOADate()), VBStringType.TypeInfo),
+            $"{source.ToShortDateString()} {source.ToLongTimeString()}");
+    }
 }

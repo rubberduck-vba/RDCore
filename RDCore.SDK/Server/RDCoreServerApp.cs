@@ -18,6 +18,7 @@ using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
 using RDCore.SDK.Server.Handlers.Platform;
 using RDCore.SDK.Server.Logging;
+using RDCore.SDK.Server.Serialization;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using System.IO;
@@ -261,7 +262,10 @@ public abstract class RDCoreServerApp(
             .OnInitialize(HandleLanguageServerInitializeAsync)
             .OnInitialized(HandleLanguageServerInitializedAsync)
             // core SDK handlers:
-            .ConfigureCoreSdkHandlers();
+            .ConfigureCoreSdkHandlers()
+            // OmniSharp 0.19.9 cannot write a pull diagnostic report, and the throw takes the entire
+            // output channel down with it. See PullDiagnosticsLspSerializer.
+            .WithSerializer(new PullDiagnosticsLspSerializer());
 
         // everything else the app wants to do:
         ConfigureHandlers(new RDCoreLanguageServerHandlersConfigurationBuilder(serverOptions));

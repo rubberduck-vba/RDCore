@@ -132,4 +132,20 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
     public void LessThan_Boolean_FalseIsGreaterThanTrue()
         // Boolean compares over its -1 (True) / 0 (False) representation: True < False.
         => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBBooleanValue(true), new VBBooleanValue(false)), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_Error_SameStandardCode_True()
+        // MS-VBAL 5.6.9.5: two standard error codes compare by their numeric value.
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBErrorValue(5), new VBErrorValue(5)), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_Error_DifferentStandardCode_False()
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBErrorValue(5), new VBErrorValue(9)), false);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
+    public void LessThan_Error_ComparesNumericValue_True()
+        => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBErrorValue(5), new VBErrorValue(9)), true);
 }

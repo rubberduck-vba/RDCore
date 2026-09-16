@@ -132,6 +132,9 @@
   <data name="LetCoercionRuntimeErrorExceptionOverflow_Verbose" xml:space="preserve">
     <value>Source value is outside the range of the determined let-coercion destination data type and cannot be represented.</value>
   </data>
+  <data name="LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose" xml:space="preserve">
+    <value>The pattern string does not form a valid, complete like-pattern-element.</value>
+  </data>
   <data name="VBCompileError" xml:space="preserve">
     <value>Compile error:</value>
   </data>

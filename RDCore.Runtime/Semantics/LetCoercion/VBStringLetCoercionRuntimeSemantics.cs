@@ -53,14 +53,8 @@ public record class VBStringLetCoercionRuntimeSemantics(
                         ? Tokens.True
                         : Tokens.False)),
 
-            // MS-VBAL 5.5.1.2.4: "If the day value of the source date is 12/30/1899" — the date
-            // component only, regardless of the time-of-day fraction, hence comparing .Date rather
-            // than requiring the exact zero serial value.
             VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBStringType
-                => LetCoercionResult.Success(
-                    new VBStringValue(dateSourceValue.Value.Date == VBDateType.Zero.Value.Date
-                        ? dateSourceValue.Value.ToLongTimeString()
-                        : dateSourceValue.Value.ToShortDateString())),
+                => LetCoercionResult.Success(new VBStringValue(FormatDate(dateSourceValue.Value))),
 
             _ => LetCoercionResult.NotApplicable(frame)
         };
@@ -74,6 +68,20 @@ public record class VBStringLetCoercionRuntimeSemantics(
     {
         throw new NotImplementedException();
     }
+
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.4: if the day value of the source date is 12/30/1899, only the date's time is
+    /// converted (Long Time format) — compares <see cref="DateTime.Date"/> rather than requiring the
+    /// exact zero serial value, since every time of day on 12/30/1899 is itself a "day value" of
+    /// 12/30/1899. Otherwise the source date's full date and time value is converted (Short Date
+    /// format); when the time-of-day is exactly midnight that full value has nothing to add, so only
+    /// the date prints — real VBA drops a trailing "12:00:00 AM" from a date-only value.
+    /// </summary>
+    private static string FormatDate(DateTime value) => value.Date == VBDateType.Zero.Value.Date
+        ? value.ToLongTimeString()
+        : value.TimeOfDay == TimeSpan.Zero
+            ? value.ToShortDateString()
+            : $"{value.ToShortDateString()} {value.ToLongTimeString()}";
 
     private static LetCoercionResult CoerceToVBString(VBNumericTypedValue value, CultureInfo cultureInfo)
     {
@@ -115,9 +123,63 @@ public record class VBStringLetCoercionRuntimeSemantics(
 
         var stringValue = integerPartDigitCount > significantIntegerDigits
             ? ToVBScientificNotation(numericValue, significantIntegerDigits, dot, cultureInfo)
-            : $"{sign}{absoluteValue.ToString(cultureInfo)}";
+            : ToVBNormalNotation(numericValue, significantIntegerDigits, dot);
 
         return LetCoercionResult.Success(new VBStringValue(stringValue));
+    }
+
+    /// <summary>
+    /// MS-VBAL 5.5.1.2.4: "as many digits as possible of the fractional part of the number such that a
+    /// maximum of [15, or 7 for Single] integer and fractional digits are printed total with trailing
+    /// zeros removed" — <c>double</c>'s own default formatting prints its shortest round-trippable
+    /// representation instead (up to 17 significant digits), so <c>CStr(0.1 + 0.2)</c> would otherwise
+    /// read "0.30000000000000004" instead of "0.3".
+    /// </summary>
+    private static string ToVBNormalNotation(double value, int significantIntegerDigits, string decimalSeparator)
+    {
+        var sign = value < 0 ? "-" : string.Empty;
+        var absoluteValue = Math.Abs(value);
+
+        // decompose into a rounded significand + decimal exponent the same way ToVBScientificNotation
+        // does (same total-digit cap), then reassemble as fixed-point instead of "dEe" notation.
+        var scientific = absoluteValue.ToString("E16", CultureInfo.InvariantCulture);
+        var eIndex = scientific.IndexOf('E');
+        var exponent = int.Parse(scientific[(eIndex + 1)..], CultureInfo.InvariantCulture);
+        var leadingDigit = scientific[0];
+        var fractionalDigits = scientific[2..eIndex];
+        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
+        if (fractionalDigits.Length > maxFractionalDigits)
+        {
+            fractionalDigits = fractionalDigits[..maxFractionalDigits];
+        }
+        var digits = $"{leadingDigit}{fractionalDigits}".TrimEnd('0');
+        if (digits.Length == 0)
+        {
+            digits = "0";
+        }
+
+        // exponent is the power of ten of the leading digit; the decimal point falls exponent+1
+        // digits into "digits" (negative exponent: the value is entirely a fractional leading-zero run).
+        string integerPart, fractionalPart;
+        if (exponent >= 0 && digits.Length <= exponent + 1)
+        {
+            integerPart = digits.PadRight(exponent + 1, '0');
+            fractionalPart = string.Empty;
+        }
+        else if (exponent >= 0)
+        {
+            integerPart = digits[..(exponent + 1)];
+            fractionalPart = digits[(exponent + 1)..];
+        }
+        else
+        {
+            integerPart = "0";
+            fractionalPart = new string('0', -exponent - 1) + digits;
+        }
+
+        return fractionalPart.Length > 0
+            ? $"{sign}{integerPart}{decimalSeparator}{fractionalPart}"
+            : $"{sign}{integerPart}";
     }
 
     private static string ToVBScientificNotation(double value, int significantIntegerDigits, string decimalSeparator, CultureInfo cultureInfo)
