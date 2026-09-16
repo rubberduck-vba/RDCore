@@ -60,6 +60,19 @@ public sealed class BinaryArithmeticOperatorRuntimeTests : OperatorArithmeticRun
             Evaluate(Add(), new VBDateValue(2), new VBDateValue(3)), 5d);
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
+    public void Addition_NumericAndNull_IsNull()
+        // fixed 2026-09-16: a Numeric+Null pair resolves an effective type of Null (MS-VBAL 5.6.9.3),
+        // but the pipeline still tried to Let-coerce the non-null 5 operand TOWARD that Null
+        // destination - no strategy handles it, so this used to surface as an internal error instead
+        // of ever reaching the operator's own "Null effective type -> Null result" dispatch. Needs the
+        // real coercion provider: FakeProvider's identity passthrough can't expose this - there's
+        // nothing to fail to coerce.
+        => AssertIsNull(Evaluate(
+            new BinaryAdditionOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()),
+            new VBLongValue(5), VBNullValue.Null));
+
+    [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.3 Binary '-' Operator")]
     public void Subtraction_Long()
         => AssertResult<VBLongValue>(

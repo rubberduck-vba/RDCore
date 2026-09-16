@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -92,6 +93,23 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
     public void Equal_NullEffectiveType_ProducesNull()
     {
         var result = Evaluate(Eq(), VBNullValue.Null, new VBLongValue(5));
+        Assert.IsNull(result.ErrorInfo);
+        Assert.IsInstanceOfType<VBNullValue>(result.Result);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_NumericAndNull_IsNull()
+        // fixed 2026-09-16: same latent bug as the arithmetic operators' Numeric+Null case - the
+        // pipeline tried to Let-coerce the non-null 5 operand toward the Null effective type before
+        // this operator's own Null dispatch was ever reached. Needs the real coercion provider:
+        // FakeProvider's identity passthrough can't expose this.
+        => AssertIsNullResult(Evaluate(
+            new BinaryEqRelationalOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()),
+            new VBLongValue(5), VBNullValue.Null));
+
+    private static void AssertIsNullResult(RuntimeSemanticsEvaluationResult result)
+    {
         Assert.IsNull(result.ErrorInfo);
         Assert.IsInstanceOfType<VBNullValue>(result.Result);
     }

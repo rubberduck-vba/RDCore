@@ -274,8 +274,15 @@ where TFlags : struct, Enum
         //   MS-VBAL 5.6.9.8 Logical Operators
         // A VBTypeDescValue operand (RD-VBAL 5.6.9.9's Let-coercion operator) is metadata describing a
         // coercion target, not a value to be converted — same exemption as VBNullValue.
+        //
+        // A Null EFFECTIVE type (e.g. a Numeric+Null operand pair in an arithmetic or relational
+        // operator, MS-VBAL 5.6.9.3/5.6.9.5) is exempted the same way: every operator's own dispatch
+        // unconditionally returns Null for a Null effective type without ever consulting the operand
+        // values, so coercing the OTHER, non-null operand toward a "Null" destination is never
+        // meaningful — and no strategy is registered to do it, so it used to surface as an internal
+        // error before the dispatch's own Null case was ever reached.
         var operand = frame[index];
-        return operand is VBNullValue or VBTypeDescValue
+        return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
             ? LetCoercionResult.Success(operand, []) // NOTE: no coercion flags applicable here
             : LetCoerceNonNullOperand(resolver, expression, frame, index);
     }
@@ -288,7 +295,7 @@ where TFlags : struct, Enum
         InputIndex operandIndex)
     {
         var operand = frame[operandIndex];
-        return operand is VBNullValue or VBTypeDescValue
+        return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
             ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []))
             : LetCoercionSemanticsProvider.Analyze(resolver, builder, expression,
                 new()
