@@ -44,28 +44,18 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
+        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
         {
-            if (lhsNumeric.AsDouble == 0)
-            {
-                return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
-            }
-            else
-            {
-                return RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
-            }
+            return lhsValue == 0
+                ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, 0))
+                : RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
         }
 
-        if (rhs is VBNumericTypedValue rhsNumeric && lhs is VBNullValue)
+        if (AsNullOperandTableValue(rhs) is double rhsValue && lhs is VBNullValue)
         {
-            if (rhsNumeric.AsDouble == 0)
-            {
-                return RuntimeSemanticsEvaluationResult.Success(((VBNumericType)frame.EffectiveType).CreateValue(0d));
-            }
-            else
-            {
-                return RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
-            }
+            return rhsValue == 0
+                ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, 0))
+                : RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
         }
 
         return RuntimeSemanticsEvaluationResult.InternalError();
