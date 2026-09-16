@@ -30,14 +30,17 @@ public record class BinaryXorLogicalOperatorRuntimeSemantics(
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
-        return lhs switch
-        {
-            VBTypedValue when lhs.TypeInfo is IIntegralNumericType && rhs is VBNullValue 
-                => EvaluateNullBinaryExpressionResult(),
-            VBNullValue when rhs.TypeInfo is IIntegralNumericType
-                => EvaluateNullBinaryExpressionResult(),
 
-            _ => RuntimeSemanticsEvaluationResult.InternalError()
-        };
+        if (AsNullOperandTableValue(lhs) is not null && rhs is VBNullValue)
+        {
+            return EvaluateNullBinaryExpressionResult();
+        }
+
+        if (AsNullOperandTableValue(rhs) is not null && lhs is VBNullValue)
+        {
+            return EvaluateNullBinaryExpressionResult();
+        }
+
+        return RuntimeSemanticsEvaluationResult.InternalError();
     }
 }

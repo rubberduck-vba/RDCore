@@ -51,23 +51,27 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
 
     [TestMethod]
     public void NumericSource_ExceedsSignificantIntegerDigits_UsesScientificNotationWithSignedExponent()
-    {
         // MS-VBAL 5.5.1.2.4: the exponent is always signed ("+" or "-") — a bare C# int.ToString()
-        // would have produced "E20" instead of "E+20" for a positive exponent.
-        var result = Coerce(Sut(), new VBDoubleValue(100_000_000_000_000_000_000d), VBStringType.TypeInfo);
-        Assert.IsTrue(result.IsApplicable);
-        StringAssert.Contains(((VBStringValue)result.Result!).Value, "E+");
-    }
+        // would have produced "E20" instead of "E+20" for a positive exponent. Exact string (not just
+        // a "Contains E+" substring check) so a mantissa or missing-sign mutation can't survive.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(100_000_000_000_000_000_000d), VBStringType.TypeInfo), "1E+20");
+
+    [TestMethod]
+    public void NumericSource_NegativeExceedsSignificantIntegerDigits_UsesScientificNotationWithNegativeSign()
+        // the sign branch of scientific notation had no dedicated coverage before this.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(-100_000_000_000_000_000_000d), VBStringType.TypeInfo), "-1E+20");
 
     [TestMethod]
     public void NumericSource_SingleExceedingSevenDigits_UsesScientificNotation()
-    {
         // Single's significant-digit threshold (7) is lower than Double's (15), so a value that's
         // still normal notation for a Double must go scientific when the source is a Single.
-        var result = Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo);
-        Assert.IsTrue(result.IsApplicable);
-        StringAssert.Contains(((VBStringValue)result.Result!).Value, "E+");
-    }
+        // 12345678f itself isn't exactly representable in a float's ~7 digits of precision, hence
+        // "...567" rather than "...568" — this pins the real rounded value, not the source literal.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo), "1.234567E+7");
+
+    [TestMethod]
+    public void NumericSource_NegativeSingleExceedingSevenDigits_UsesScientificNotationWithNegativeSign()
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(-12345678f), VBStringType.TypeInfo), "-1.234567E+7");
 
     [TestMethod]
     [DataRow(true, "True")]

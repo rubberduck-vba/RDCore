@@ -17,8 +17,10 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// </summary>
 public abstract class OperatorRelationalRuntimeSemanticsTests : OperatorArithmeticRuntimeSemanticsTests
 {
+    // Identity must be a real SyntaxNodeId (see OperatorConcatRuntimeSemanticsTests for why): the real
+    // coercion provider's recursion guard hashes LetCoercionStackFrame, which hashes this Identity.
     private static readonly VBBinaryOperatorExpressionNode ThrowawayBinary = new(
-        "=", default, TestLocations.TestLocation,
+        "=", NodeId, TestLocations.TestLocation,
         [
             new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBLongValue(0)),
             new LiteralExpressionNode(default, TestLocations.TestLocationRHS, new VBLongValue(0)),

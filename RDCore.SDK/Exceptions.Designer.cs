@@ -194,7 +194,16 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The pattern string does not form a valid, complete like-pattern-element..
+        /// </summary>
+        public static string LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose {
+            get {
+                return ResourceManager.GetString("LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest is currently explicitly blocked by configuration..
         /// </summary>

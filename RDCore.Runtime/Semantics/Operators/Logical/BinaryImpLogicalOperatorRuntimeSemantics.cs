@@ -41,26 +41,18 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
         var rhs = frame[InputIndex.BinaryRightOperand];
 
         // the both-integral case is handled upstream by the bitwise dispatcher; here only Null-operand edges remain.
-        if (lhs is VBNumericTypedValue lhsNumeric && rhs is VBNullValue)
+        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
         {
-            return lhsNumeric.AsDouble != -1
+            return lhsValue != -1
                 ? RuntimeSemanticsEvaluationResult.Success(
-                    VBIntegerType.TypeInfo.CreateValue(
-                    EvaluateBitwiseOp((int)lhsNumeric.AsDouble, 0)))
+                    CreateNullOperandTableResult(frame.EffectiveType, EvaluateBitwiseOp((int)lhsValue, 0)))
                 : EvaluateNullBinaryExpressionResult();
         }
-        else if (lhs is VBNullValue && rhs.TypeInfo is IIntegralNumericType && rhs is VBNumericTypedValue rhsNumeric && rhsNumeric.AsDouble != 0)
+        else if (lhs is VBNullValue && AsNullOperandTableValue(rhs) is double rhsValue)
         {
-            return RuntimeSemanticsEvaluationResult.Success(
-                ((VBNumericType)frame.EffectiveType).CreateValue(rhsNumeric.AsDouble));
-        }
-        else if (lhs is VBNullValue && rhs is VBNumericTypedValue rhsMaybeZero && rhsMaybeZero.AsDouble == 0)
-        {
-            return EvaluateNullBinaryExpressionResult();
-        }
-        else if (lhs is VBNullValue && rhs is VBNullValue)
-        {
-            return EvaluateNullBinaryExpressionResult();
+            return rhsValue != 0
+                ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, rhsValue))
+                : EvaluateNullBinaryExpressionResult();
         }
 
         return RuntimeSemanticsEvaluationResult.InternalError();

@@ -132,6 +132,9 @@
   <data name="LetCoercionRuntimeErrorExceptionOverflow_Verbose" xml:space="preserve">
     <value>La valeur source est à l'extérieur de la plage permise pour les valeurs du type de destination pour cette opération de coercion numérique.</value>
   </data>
+  <data name="LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose" xml:space="preserve">
+    <value>La chaîne de motif ne forme pas un élément de motif valide et complet.</value>
+  </data>
   <data name="VBCompileError" xml:space="preserve">
     <value>Erreur de compilation :</value>
   </data>
