@@ -11,8 +11,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// The compile-time <see cref="ISymbolResolver"/>: binds an identifier by walking a
 /// <see cref="ScopeTree"/> outward from the scope a lookup originates in — the first scope that
 /// declares the name binds it (<strong>MS-VBAL §5.2</strong> name binding,
-/// <strong>RD-VBAL §2.3.1.2</strong>). A name declared more than once in a single scope is
-/// ambiguous and stays unbound.
+/// <strong>RD-VBAL §2.3.1.2</strong>). A name declared more than once in a single module or
+/// procedure scope resolves as <see cref="SymbolResolutionResult.Duplicate"/>; more than once at
+/// the project or global tier resolves as <see cref="SymbolResolutionResult.Ambiguous"/>.
 /// </summary>
 /// <remarks>
 /// A name-resolution service only — the value-binding members throw, matching the intent of a

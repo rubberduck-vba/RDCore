@@ -13,6 +13,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -72,6 +73,23 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     public void Dispatch_UnknownDestination_IsTypeMismatch()
         => Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch,
             Coerce(new VBDoubleValue(1), VBStringType.TypeInfo).ErrorInfo!.ErrorId);
+
+    [TestMethod]
+    public void Analyze_OrdinarySuccessfulCoercion_DoesNotThrow()
+    {
+        // regression: EvaluateLetCoercion's ordinary Success() call doesn't attach a
+        // LetCoercionStackFrame (nothing consumed LetCoercionResult.Frame before Analyze existed) -
+        // AnalyzeConversionOperation used to read it back off that frame-less result and crash with
+        // an IndexOutOfRangeException on every "operand already needs a real coercion" analysis.
+        var builder = Substitute.For<ILetCoercionSemanticContextBuilder>();
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBDoubleValue(2.67), new VBTypeDescValue(VBIntegerType.TypeInfo));
+
+        BuildProvider().Analyze(null!, builder, ThrowawayExpression, frame);
+
+        // confirms the flags actually got built from the coercion, not just "nothing threw".
+        builder.Received().AddLetCoercionFlags(
+            ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, InputIndex.CoercionSourceValue);
+    }
 
     [TestMethod]
     public void RecursiveReEntry_WithTheSameFrame_IsOutOfStackSpace()
