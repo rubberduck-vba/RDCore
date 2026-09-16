@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -10,8 +11,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// The compile-time <see cref="ISymbolResolver"/>: binds an identifier by walking a
 /// <see cref="ScopeTree"/> outward from the scope a lookup originates in — the first scope that
 /// declares the name binds it (<strong>MS-VBAL §5.2</strong> name binding,
-/// <strong>RD-VBAL §2.3.1.2</strong>). A name declared more than once in a single scope is
-/// ambiguous and stays unbound.
+/// <strong>RD-VBAL §2.3.1.2</strong>). A name declared more than once in a single module or
+/// procedure scope resolves as <see cref="SymbolResolutionResult.Duplicate"/>; more than once at
+/// the project or global tier resolves as <see cref="SymbolResolutionResult.Ambiguous"/>.
 /// </summary>
 /// <remarks>
 /// A name-resolution service only — the value-binding members throw, matching the intent of a
@@ -38,6 +40,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
             if (matches.Length > 1)
             {
+                if (TryResolvePropertyAccessors(matches, out var property))
+                {
+                    return SymbolResolutionResult.Resolved(property);
+                }
+
                 // a collision inside one module or procedure is a duplicate declaration; one at the
                 // project or global tier — members promoted from different modules or references —
                 // is an ambiguous name the reference must qualify (VBC09303 vs VBC09301).
@@ -48,6 +55,53 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         return SymbolResolutionResult.Unbound;
+    }
+
+    /// <summary>
+    /// A property's Get/Let/Set accessors share one declared name by design (MS-VBAL §5.3.1) and are
+    /// not a duplicate declaration. Resolves to a single representative accessor — Get when present
+    /// (the common read-context lookup), else Let, else Set — when every match is a distinct accessor
+    /// kind of the same property. A second accessor of the same kind is still a genuine duplicate.
+    /// </summary>
+    /// <remarks>
+    /// Collapsing to one representative, rather than exposing all matched accessors, is an interim
+    /// simplification: <c>Symbol.CreateUri</c> keys purely on name, so Get/Let/Set currently share one
+    /// <c>Symbol.Uri</c> and can only be told apart by concrete type — giving each accessor its own
+    /// uri suffix is separately-tracked follow-up work.
+    /// </remarks>
+    private static bool TryResolvePropertyAccessors(Symbol[] matches, [NotNullWhen(true)] out Symbol? property)
+    {
+        property = null;
+        if (matches.Any(symbol => symbol is not IVBPropertyMemberSymbol))
+        {
+            return false;
+        }
+
+        VBPropertyGetMemberSymbol? get = null;
+        VBPropertyLetMemberSymbol? let = null;
+        VBPropertySetMemberSymbol? set = null;
+        foreach (var symbol in matches)
+        {
+            switch (symbol)
+            {
+                case VBPropertyGetMemberSymbol getSymbol when get is null:
+                    get = getSymbol;
+                    break;
+                case VBPropertyLetMemberSymbol letSymbol when let is null:
+                    let = letSymbol;
+                    break;
+                case VBPropertySetMemberSymbol setSymbol when set is null:
+                    set = setSymbol;
+                    break;
+                default:
+                    // a second accessor of the same kind (or an unrecognized IVBPropertyMemberSymbol
+                    // implementation) is a genuine duplicate declaration, not a multi-accessor property.
+                    return false;
+            }
+        }
+
+        property = get as Symbol ?? let as Symbol ?? set as Symbol;
+        return property is not null;
     }
 
     /// <inheritdoc/>

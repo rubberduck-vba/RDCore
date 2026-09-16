@@ -27,6 +27,15 @@ public sealed class ScopeTreeSymbolResolverTests
     private static VBLocalVariableSymbol Local(Uri procedureUri, string name)
         => new(Root, procedureUri, name, ScopeKind.Local, R, R);
 
+    private static VBPropertyGetMemberSymbol PropertyGet(Uri moduleUri, string name)
+        => new(Root, moduleUri, ScopeKind.Module, name, R, R, AccessModifier.Implicit);
+
+    private static VBPropertyLetMemberSymbol PropertyLet(Uri moduleUri, string name)
+        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+
+    private static VBPropertySetMemberSymbol PropertySet(Uri moduleUri, string name)
+        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+
     private static ScopeTreeSymbolResolver Resolver(params Symbol[] symbols)
         => new(ScopeTreeBuilder.Build(symbols));
 
@@ -82,6 +91,62 @@ public sealed class ScopeTreeSymbolResolverTests
         Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
         Assert.IsNull(result.Symbol);
         CollectionAssert.AreEquivalent(new Symbol[] { field, procedure }, result.Candidates.ToArray());
+    }
+
+    [TestMethod]
+    public void Resolve_PropertyGetAndLet_ResolvesToTheGetAccessor()
+        // MS-VBAL §5.3.1: a property's Get/Let/Set accessors share one name by design - not a
+        // duplicate declaration. Get is the representative for a general (read-context) lookup.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value");
+        var let = PropertyLet(module.Uri, "Value");
+
+        var result = Resolver(module, get, let).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(get, result.Symbol);
+    }
+
+    [TestMethod]
+    public void Resolve_PropertyGetLetAndSet_ResolvesToTheGetAccessor()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value");
+        var let = PropertyLet(module.Uri, "Value");
+        var set = PropertySet(module.Uri, "Value");
+
+        var result = Resolver(module, get, let, set).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.AreSame(get, result.Symbol);
+    }
+
+    [TestMethod]
+    public void Resolve_PropertyLetAndSetOnly_ResolvesToTheLetAccessor()
+        // no Get in this property (write-only) - falls back to Let, then Set.
+    {
+        var module = Module("Mod1");
+        var let = PropertyLet(module.Uri, "Value");
+        var set = PropertySet(module.Uri, "Value");
+
+        var result = Resolver(module, let, set).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.AreSame(let, result.Symbol);
+    }
+
+    [TestMethod]
+    public void Resolve_TwoPropertyGetsSameModule_IsStillADuplicateDeclaration()
+        // a second accessor of the SAME kind is a genuine duplicate declaration, not a multi-accessor
+        // property - the exception is narrow, not "any collision among property symbols".
+    {
+        var module = Module("Mod1");
+        var first = PropertyGet(module.Uri, "Value");
+        var second = PropertyGet(module.Uri, "Value");
+
+        var result = Resolver(module, first, second).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
     }
 
     [TestMethod]

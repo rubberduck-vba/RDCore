@@ -125,7 +125,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             builder.AddOnError(coercionResult.ErrorInfo);
 
             // 3. add flags about the basic facts of the coercion operation:
-            AnalyzeConversionOperation(builder, expression, coercionResult);
+            AnalyzeConversionOperation(builder, expression, frame);
 
             // 4. let the applicable **sealed** strategy implementation have a say:
             context = context.Merge(strategy.Analyze(builder, resolver, expression, frame, coercionResult));
@@ -140,12 +140,15 @@ public class LetCoercionRuntimeSemanticsProvider(
     }
 
     private static void AnalyzeConversionOperation(
-        ILetCoercionSemanticContextBuilder builder, 
-        VBOperatorExpression expression, 
-        LetCoercionResult result)
+        ILetCoercionSemanticContextBuilder builder,
+        VBOperatorExpression expression,
+        LetCoercionStackFrame frame)
     {
-        builder.AddLetCoercionFlags(ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, result.Frame.OperandIndex);
-        EncodeApplicableOperandFlag(builder, expression, result.Frame);
+        // the caller's own frame is used directly rather than reading it back off the strategy's
+        // LetCoercionResult: a strategy's Success()/Error() call is not required to attach one (most
+        // don't, for the ordinary case), and LetCoercionResult.Frame throws on an empty Frames array.
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, frame.OperandIndex);
+        EncodeApplicableOperandFlag(builder, expression, frame);
     }
 
     private static void EncodeApplicableOperandFlag(
