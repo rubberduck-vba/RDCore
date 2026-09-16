@@ -38,6 +38,13 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(source), VBStringType.TypeInfo), expected);
 
     [TestMethod]
+    public void NumericSource_RoundsToFifteenSignificantDigits()
+        // fixed 2026-09-16: double's own default formatting prints the shortest round-trippable
+        // representation (up to 17 significant digits) instead of rounding to Double's 15, so
+        // CStr(0.1 + 0.2) used to read "0.30000000000000004".
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(0.1 + 0.2), VBStringType.TypeInfo), "0.3");
+
+    [TestMethod]
     public void NumericSource_PositiveInfinity_IsTheInfinityToken()
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(double.PositiveInfinity), VBStringType.TypeInfo), VBStringValue.PositiveInfinity);
 
