@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Operators.Relational;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -61,4 +62,36 @@ public sealed class LikeRelationalOperatorRuntimeTests : OperatorRelationalRunti
     [TestMethod]
     public void NegatedCharacterList_DoesNotMatchAListedCharacter()
         => AssertResult<VBBooleanValue>(Evaluate(Like(), new VBStringValue("a"), new VBStringValue("[!abc]")), false);
+
+    [TestMethod]
+    public void RegexMetacharacter_DoesNotMatchAnyCharacter()
+        // "." in the pattern is a literal character, not "any character" — a raw, unescaped
+        // translation into .NET regex would wrongly let "a.c" match "axc" too.
+        => AssertResult<VBBooleanValue>(Evaluate(Like(), new VBStringValue("axc"), new VBStringValue("a.c")), false);
+
+    [TestMethod]
+    public void RegexMetacharacter_MatchesItsLiteralSelf()
+        => AssertResult<VBBooleanValue>(Evaluate(Like(), new VBStringValue("a.c"), new VBStringValue("a.c")), true);
+
+    [TestMethod]
+    public void UnterminatedCharacterList_IsInvalidPatternStringRuntimeError()
+        // MS-VBAL 5.6.9.6: a pattern that doesn't form a valid, complete like-pattern-element raises
+        // runtime error 93 (Invalid pattern string) — never an uncaught regex exception.
+        => AssertError(Evaluate(Like(), new VBStringValue("a"), new VBStringValue("[abc")), VBRuntimeErrorId.InvalidPatternString);
+
+    [TestMethod]
+    public void EitherOperandNull_ResultIsNull()
+    {
+        var result = Evaluate(Like(), VBNullValue.Null, new VBStringValue("a*"));
+        Assert.IsNull(result.ErrorInfo);
+        Assert.IsInstanceOfType<VBNullValue>(result.Result);
+    }
+
+    [TestMethod]
+    public void NonStringOperand_LetCoercesToStringInsteadOfThrowing()
+        // MS-VBAL 5.6.9.6: both operands are Let-coerced to String regardless of their own value
+        // type — Like must not resolve an effective type off the base numeric/date table.
+        => AssertResult<VBBooleanValue>(
+            Evaluate(new LikeRelationalOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBIntegerValue(5), new VBStringValue("5")),
+            true);
 }
