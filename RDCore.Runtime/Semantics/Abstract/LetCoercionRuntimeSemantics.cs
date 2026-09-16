@@ -71,7 +71,11 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
         if (flags.HasFlag(ConversionSemanticFlags.Failed))
         {
             builder.AddOnError(result.ErrorInfo);
-            return new(expression.Identity, result, flags);
+            // an Error()/Success() call isn't required to attach its own frame for the ordinary case,
+            // but LetCoercionAnalysisContext.Merge (the caller's caller) unconditionally reads
+            // Result.Frame — guarantee at least the current frame is present rather than propagate an
+            // empty Frames array into a later IndexOutOfRangeException.
+            return new(expression.Identity, result.Frames.IsEmpty ? result with { Frames = [frame] } : result, flags);
         }
         return new(expression.Identity, LetCoercionResult.NotApplicable(frame), flags);
     }
