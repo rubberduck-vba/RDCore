@@ -58,7 +58,7 @@ public sealed class SessionSymbolsStorageAllocationTests
 
         var handle = symbols.Resolver.GetValue(field);
 
-        Assert.AreSame(VBLongType.TypeInfo.DefaultValue.Handle, handle, "should hold the type's default value until assigned");
+        Assert.AreEqual(VBLongType.TypeInfo.DefaultValue.Handle, handle, "should hold the type's default value until assigned");
     }
 
     [TestMethod]
@@ -72,7 +72,7 @@ public sealed class SessionSymbolsStorageAllocationTests
 
         var handle = symbols.Resolver.GetValue(global);
 
-        Assert.AreSame(VBLongType.TypeInfo.DefaultValue.Handle, handle);
+        Assert.AreEqual(VBLongType.TypeInfo.DefaultValue.Handle, handle);
     }
 
     [TestMethod]
@@ -103,7 +103,7 @@ public sealed class SessionSymbolsStorageAllocationTests
 
         var handle = symbols.Resolver.GetValue(local);
 
-        Assert.AreSame(VBLongType.TypeInfo.DefaultValue.Handle, handle, "should hold the type's default value until assigned");
+        Assert.AreEqual(VBLongType.TypeInfo.DefaultValue.Handle, handle, "should hold the type's default value until assigned");
     }
 
     [TestMethod]
@@ -119,7 +119,7 @@ public sealed class SessionSymbolsStorageAllocationTests
         frame.Push(local, value);
 
         Assert.IsTrue(session.CallStack.TryPush(frame));
-        Assert.AreSame(value.Handle, session.Symbols.Resolver.GetValue(local));
+        Assert.AreEqual(value.Handle, session.Symbols.Resolver.GetValue(local));
 
         Assert.IsTrue(session.CallStack.TryPop(out _));
         Assert.ThrowsExactly<KeyNotFoundException>(() => session.Symbols.Resolver.GetValue(local));
@@ -154,7 +154,7 @@ public sealed class SessionSymbolsStorageAllocationTests
         Assert.IsTrue(symbols.TryDefine(field, ScopeKind.Module));
         Assert.IsFalse(symbols.TryDefine(field, ScopeKind.Module), "an identical redefinition is a no-op, not a re-allocation");
 
-        Assert.AreSame(VBLongType.TypeInfo.DefaultValue.Handle, symbols.Resolver.GetValue(field));
+        Assert.AreEqual(VBLongType.TypeInfo.DefaultValue.Handle, symbols.Resolver.GetValue(field));
     }
 
     [TestMethod]
@@ -167,5 +167,24 @@ public sealed class SessionSymbolsStorageAllocationTests
 
         Assert.IsNotNull(symbols.Resolver.GetValue(first));
         Assert.IsNotNull(symbols.Resolver.GetValue(second));
+    }
+
+    [TestMethod]
+    public void TwoModuleFieldsSharingATypesDefaultValue_AssigningOneDoesNotCorruptTheOther()
+        // regression: VBLongType.TypeInfo.DefaultValue is a cached singleton (VBLongType.Zero) whose
+        // Handle used to be bound directly at allocation time. Since ValueBindingHandle.SetValue
+        // mutates in place, writing through ONE address holding that shared handle silently corrupted
+        // every OTHER not-yet-assigned Long variable in the whole process. TryAllocate must give each
+        // address its own independent copy of the handle.
+    {
+        var module = Module("Mod1");
+        var first = ModuleField(module.Uri, "First");
+        var second = ModuleField(module.Uri, "Second");
+        var symbols = Compose(module, first, second);
+
+        symbols.Resolver.GetValue(first).SetValue(symbols.Resolver, new VBLongValue(5).RuntimeValue);
+
+        Assert.AreEqual(5, symbols.Resolver.GetValue(first).Value.BoxedValue);
+        Assert.AreEqual(0, symbols.Resolver.GetValue(second).Value.BoxedValue, "must be unaffected by the write to the other field");
     }
 }

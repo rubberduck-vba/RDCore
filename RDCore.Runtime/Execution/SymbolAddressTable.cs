@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
@@ -43,7 +44,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
             storage.TryDeallocate(previous);
         }
 
-        if (!storage.TryAllocate(value.Size, value.Handle, out address))
+        if (!storage.TryAllocate(value.Size, FreshBinding(value.Handle), out address))
         {
             _addressBySymbol.Remove(symbol.SemanticId);
             return false;
@@ -52,6 +53,23 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
         _addressBySymbol[symbol.SemanticId] = address;
         return true;
     }
+
+    /// <summary>
+    /// A caller's <see cref="VBTypedValue.Handle"/> may be a cached, shared instance — a type's
+    /// <c>DefaultValue</c> chiefly, reused by every caller that hasn't assigned that variable yet.
+    /// Binding it here directly would let a write through THIS address mutate every other allocation
+    /// that started from the same shared instance (both <see cref="ValueBindingHandle"/> and
+    /// <see cref="ReferenceBindingHandle"/> mutate their value in place). A fresh handle of the same
+    /// kind, wrapping the same (value-type) runtime value, gives each address its own independent,
+    /// safely-mutable binding; a <see cref="ConstantBindingHandle"/> (or anything else that can never
+    /// be mutated) is safe to share as-is.
+    /// </summary>
+    private static IBindingHandle FreshBinding(IBindingHandle handle) => handle switch
+    {
+        ValueBindingHandle => new ValueBindingHandle(handle.Value),
+        ReferenceBindingHandle => new ReferenceBindingHandle((VBRuntimeReference)handle.Value),
+        _ => handle,
+    };
 
     /// <summary>
     /// Frees the storage bound to <paramref name="symbol"/> and removes the address mapping.
