@@ -56,6 +56,9 @@ e.g. `Case Is > 5`), or an inclusive range
 |`Call` / bare call|[CallStatementNode](../api/RDCore.SDK.Model.AST.Statements.CallStatementNode.html)|§5.4.2.1|
 |`Let` assignment (`[Let] lExpression = expression`)|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `ImplicitLet`/`ExplicitLet`)|§5.4.3.8|
 |`Set` assignment|`AssignmentStatementNode` (`Kind`: `Set`)|§5.4.3.9|
+|`LSet`|`AssignmentStatementNode` (`Kind`: `LSet`) — same shape as `Let`/`Set`, only the coercion semantics differ|§5.4.3.6|
+|`RSet`|`AssignmentStatementNode` (`Kind`: `RSet`)|§5.4.3.7|
+|`Mid`/`Mid$`/`MidB`/`MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html) (`IsByteMode` distinguishes `MidB`/`MidB$` from `Mid`/`Mid$` — MS-VBAL's own runtime semantics never distinguish the `$` suffix beyond that)|§5.4.3.5|
 |`ReDim` [Preserve]|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html) — modeled as a declaration, not a statement, since it declares/resizes storage|§5.4.3.3|
 |`Erase`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|§5.4.3.4|
 |`Name...As`|`KeywordStatementNode` (`Token`: `Name`)|— (not a MS-VBAL-numbered statement)|
@@ -81,10 +84,6 @@ target is just an expression naming or numbering one, with no static link betwee
 
 > [!NOTE]
 > Computed `On...GoTo`/`On...GoSub` (§5.4.2.13/.16) have no node type at all yet — not yet requested.
-
-> [!NOTE]
-> `Mid`/`Mid$`/`LSet`/`RSet` (§5.4.3.5/.6/.7) are assignment-shaped statements with no node type yet —
-> unblocked now that a real `lExpression` exists as their left-hand side, but not yet built.
 
 
 ---

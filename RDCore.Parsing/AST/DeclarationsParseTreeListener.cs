@@ -600,13 +600,44 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitSetStmt([NotNull] VBAParser.SetStmtContext context)
         => BuildAssignmentStatement(context, AssignmentKind.Set, context.lExpression(), context.expression());
 
-    private void BuildAssignmentStatement(VBABaseParserRuleContext context, AssignmentKind kind, VBAParser.LExpressionContext? targetContext, VBAParser.ExpressionContext? valueContext)
+    // LSet (§5.4.3.6) and RSet (§5.4.3.7) are also `keyword target = expression`, so they reuse the
+    // same node — their target is grammatically a plain `expression`, not `lExpression` like Let/Set
+    // (MS-VBAL calls it a `bound-variable-expression`; static semantics narrow it later), so
+    // BuildAssignmentStatement's target parameter takes the shared base context type both admit.
+    public override void ExitLsetStmt([NotNull] VBAParser.LsetStmtContext context)
+        => BuildAssignmentStatement(context, AssignmentKind.LSet, context.expression(0), context.expression(1));
+
+    public override void ExitRsetStmt([NotNull] VBAParser.RsetStmtContext context)
+        => BuildAssignmentStatement(context, AssignmentKind.RSet, context.expression(0), context.expression(1));
+
+    private void BuildAssignmentStatement(VBABaseParserRuleContext context, AssignmentKind kind, VBABaseParserRuleContext? targetContext, VBABaseParserRuleContext? valueContext)
     {
         if (CaptureIsolatedExpression(targetContext) is not { } target || CaptureIsolatedExpression(valueContext) is not { } value)
         {
             return;
         }
         CurrentBuilder.AddChild(new AssignmentStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), kind, target, value));
+    }
+
+    // Mid/MidB/Mid$/MidB$ (§5.4.3.5): `modeSpecifier(target, start[, length]) = value`. The grammar
+    // admits only one optional middle expression, so `expression()`'s length alone (2 vs. 3) tells
+    // start/length/value apart without needing the comma count too.
+    public override void ExitMidStatement([NotNull] VBAParser.MidStatementContext context)
+    {
+        var expressions = context.expression();
+        var lengthContext = expressions.Length == 3 ? expressions[1] : null;
+        if (CaptureIsolatedExpression(context.lExpression()) is not { } target
+            || CaptureIsolatedExpression(expressions[0]) is not { } start)
+        {
+            return;
+        }
+        var length = CaptureIsolatedExpression(lengthContext);
+        if (CaptureIsolatedExpression(expressions[^1]) is not { } value)
+        {
+            return;
+        }
+        var isByteMode = context.modeSpecifier().MIDB() is not null;
+        CurrentBuilder.AddChild(new MidStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), isByteMode, target, start, length, value));
     }
 
     // `Call`/bare-call (MS-VBAL §5.4.2.1). `Call Foo(1, 2)` carries its arguments inside the callee's

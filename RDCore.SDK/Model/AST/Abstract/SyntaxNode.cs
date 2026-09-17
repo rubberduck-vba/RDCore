@@ -57,6 +57,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(LineLabelNode), "LineLabel")]
 [JsonDerivedType(typeof(LineNumberNode), "LineNumber")]
 [JsonDerivedType(typeof(MemberDeclarationNode), "Member")]
+[JsonDerivedType(typeof(MidStatementNode), "MidStatement")]
 [JsonDerivedType(typeof(MissingArgumentNode), "MissingArgument")]
 [JsonDerivedType(typeof(ModuleNode), "Module")]
 [JsonDerivedType(typeof(ModuleOptionDirectiveNode), "OptionDirective")]

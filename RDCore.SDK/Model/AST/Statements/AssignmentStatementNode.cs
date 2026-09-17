@@ -14,6 +14,10 @@ public enum AssignmentKind
     ExplicitLet,
     /// <summary>A Set-assignment (<strong>MS-VBAL §5.4.3.9</strong>); its <c>Set</c> keyword is never optional.</summary>
     Set,
+    /// <summary>An <c>LSet</c> statement (<strong>MS-VBAL §5.4.3.6</strong>) — left-aligns a string value into a fixed-length string target.</summary>
+    LSet,
+    /// <summary>An <c>RSet</c> statement (<strong>MS-VBAL §5.4.3.7</strong>) — right-aligns a string value into a fixed-length string target.</summary>
+    RSet,
 }
 
 /// <summary>
