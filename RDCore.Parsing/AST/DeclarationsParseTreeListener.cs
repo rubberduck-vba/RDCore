@@ -621,7 +621,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     // Mid/MidB/Mid$/MidB$ (§5.4.3.5): `modeSpecifier(target, start[, length]) = value`. The grammar
     // admits only one optional middle expression, so `expression()`'s length alone (2 vs. 3) tells
-    // start/length/value apart without needing the comma count too.
+    // start/length/value apart without needing the comma count too. IsByteMode and IsStringInput are
+    // independent flags off the same modeSpecifier - the $ suffix doesn't change the runtime span
+    // mechanics §5.4.3.5 itself describes, but it still has to survive into the node (see
+    // MidStatementNode's own remarks: it mirrors the Mid/Mid$ function overloads' VBVariant/VBString
+    // split for static semantics).
     public override void ExitMidStatement([NotNull] VBAParser.MidStatementContext context)
     {
         var expressions = context.expression();
@@ -636,8 +640,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var isByteMode = context.modeSpecifier().MIDB() is not null;
-        CurrentBuilder.AddChild(new MidStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), isByteMode, target, start, length, value));
+        var modeSpecifier = context.modeSpecifier();
+        var isByteMode = modeSpecifier.MIDB() is not null;
+        var isStringInput = modeSpecifier.DOLLAR() is not null;
+        CurrentBuilder.AddChild(new MidStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), isByteMode, isStringInput, target, start, length, value));
     }
 
     // `Call`/bare-call (MS-VBAL §5.4.2.1). `Call Foo(1, 2)` carries its arguments inside the callee's

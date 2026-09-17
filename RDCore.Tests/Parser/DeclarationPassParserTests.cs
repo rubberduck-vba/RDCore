@@ -719,6 +719,7 @@ End Sub
         var mid = member.Children.OfType<MidStatementNode>().Single();
 
         Assert.IsFalse(mid.IsByteMode);
+        Assert.IsFalse(mid.IsStringInput);
         Assert.AreEqual("x", ((SimpleNameExpressionNode)mid.Target).IdentifierName);
         Assert.AreEqual(1L, IntValue(mid.Start));
         Assert.IsNull(mid.Length);
@@ -737,27 +738,21 @@ End Sub
     }
 
     [TestMethod]
-    public void MidBStatement_IsByteMode()
+    // IsByteMode and IsStringInput are independent flags off the same modeSpecifier - all four
+    // spellings are distinct combinations, not two shapes collapsed into one.
+    [DataRow("Mid", false, false, DisplayName = "Mid: character-indexed, Variant-coerced")]
+    [DataRow("Mid$", false, true, DisplayName = "Mid$: character-indexed, String-coerced")]
+    [DataRow("MidB", true, false, DisplayName = "MidB: byte-indexed, Variant-coerced")]
+    [DataRow("MidB$", true, true, DisplayName = "MidB$: byte-indexed, String-coerced")]
+    public void MidStatement_ModeSpecifierSpelling_SetsBothFlagsIndependently(string modeSpecifier, bool expectedIsByteMode, bool expectedIsStringInput)
     {
-        var result = ParseInProcedure("MidB(x, 1) = \"foo\"");
+        var result = ParseInProcedure($"{modeSpecifier}(x, 1) = \"foo\"");
 
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var mid = member.Children.OfType<MidStatementNode>().Single();
 
-        Assert.IsTrue(mid.IsByteMode);
-    }
-
-    [TestMethod]
-    public void MidDollarStatement_ParsesTheSameAsMid()
-        // Mid$/MidB$ only differ from Mid/MidB in their return type as a function; as a statement,
-        // MS-VBAL's own runtime semantics only ever distinguish Mid/Mid$ from MidB/MidB$.
-    {
-        var result = ParseInProcedure("Mid$(x, 1) = \"foo\"");
-
-        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        var mid = member.Children.OfType<MidStatementNode>().Single();
-
-        Assert.IsFalse(mid.IsByteMode);
+        Assert.AreEqual(expectedIsByteMode, mid.IsByteMode);
+        Assert.AreEqual(expectedIsStringInput, mid.IsStringInput);
     }
 
     [TestMethod]

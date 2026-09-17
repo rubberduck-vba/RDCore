@@ -58,7 +58,7 @@ e.g. `Case Is > 5`), or an inclusive range
 |`Set` assignment|`AssignmentStatementNode` (`Kind`: `Set`)|§5.4.3.9|
 |`LSet`|`AssignmentStatementNode` (`Kind`: `LSet`) — same shape as `Let`/`Set`, only the coercion semantics differ|§5.4.3.6|
 |`RSet`|`AssignmentStatementNode` (`Kind`: `RSet`)|§5.4.3.7|
-|`Mid`/`Mid$`/`MidB`/`MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html) (`IsByteMode` distinguishes `MidB`/`MidB$` from `Mid`/`Mid$` — MS-VBAL's own runtime semantics never distinguish the `$` suffix beyond that)|§5.4.3.5|
+|`Mid`/`Mid$`/`MidB`/`MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html) — `IsByteMode` (`MidB`/`MidB$` vs. `Mid`/`Mid$`) and `IsStringInput` (the `$` suffix) are independent flags; MS-VBAL's own replacement-span mechanics only ever split on the former, but the latter still mirrors the `Mid`/`Mid$` function overloads' `VBVariant`/`VBString` split for static semantics, so it's preserved too|§5.4.3.5|
 |`ReDim` [Preserve]|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html) — modeled as a declaration, not a statement, since it declares/resizes storage|§5.4.3.3|
 |`Erase`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|§5.4.3.4|
 |`Name...As`|`KeywordStatementNode` (`Token`: `Name`)|— (not a MS-VBAL-numbered statement)|
