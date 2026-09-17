@@ -30,6 +30,24 @@ public sealed class IntrinsicValueConstructorTests
         => Assert.AreEqual(1234L, new VBLongPtrValue(1234L).Value);
 
     [TestMethod]
+    public void VBObjectValue_ManagedCtor_RoundTrips()
+        // Value is a VBRuntimeObjectId (a live object's identity), not a MemoryAddress - an object's
+        // instance fields are addressed by their own per-instance table, so there is no single address
+        // to reference here (see IObjectInstance).
+    {
+        var objectId = new VBRuntimeObjectId();
+        Assert.AreEqual(objectId, new VBObjectValue(objectId).Value);
+    }
+
+    [TestMethod]
+    public void VBObjectValue_Nothing_IsNothing()
+        => Assert.IsTrue(VBObjectValue.Nothing.IsNothing());
+
+    [TestMethod]
+    public void VBObjectValue_WithAnObjectId_IsNotNothing()
+        => Assert.IsFalse(new VBObjectValue(new VBRuntimeObjectId()).IsNothing());
+
+    [TestMethod]
     public void VBErrorValue_ManagedCtor_RoundTrips()
         // Value is real data (the error code), not a sentinel — it must round-trip through the
         // binding handle like any other numeric intrinsic value, not sit on a bare record property.

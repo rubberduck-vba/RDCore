@@ -44,15 +44,15 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
 
         // an operand is comparable by reference identity when it is currently bound to one — true of
         // VBObjectValue/VBNothingValue always, and of a VBVariantValue currently holding an object.
-        if (lhs.RuntimeValue is not VBRuntimeReference lhsReference)
+        if (lhs.RuntimeValue is not VBRuntimeValue<VBRuntimeObjectId> lhsReference)
         {
             return OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
         }
-        if (rhs.RuntimeValue is not VBRuntimeReference rhsReference)
+        if (rhs.RuntimeValue is not VBRuntimeValue<VBRuntimeObjectId> rhsReference)
         {
             return OnObjectRequired(expression, Exceptions.VBIsOp_ObjectRequired);
         }
 
-        return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(Equals(lhsReference.Value.Value, rhsReference.Value.Value)));
+        return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(lhsReference.StoredValue.Equals(rhsReference.StoredValue)));
     }
 }

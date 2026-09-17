@@ -2,7 +2,7 @@ using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
-using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -29,5 +29,5 @@ public sealed class VBVariantTypeLetCoercionTests : LetCoercionRuntimeSemanticsT
     [TestMethod]
     public void ObjectSource_Defers()
         // an object source is Set-coercion territory, not this strategy's concern.
-        => Assert.IsFalse(Coerce(Sut(), new VBObjectValue(new MemoryAddress(1)), VBVariantType.TypeInfo).IsApplicable);
+        => Assert.IsFalse(Coerce(Sut(), new VBObjectValue(new VBRuntimeObjectId()), VBVariantType.TypeInfo).IsApplicable);
 }

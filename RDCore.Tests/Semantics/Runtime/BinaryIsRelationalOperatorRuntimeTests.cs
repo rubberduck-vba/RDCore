@@ -1,7 +1,7 @@
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -18,14 +18,14 @@ public sealed class BinaryIsRelationalOperatorRuntimeTests : OperatorRelationalR
     [TestMethod]
     public void SameReference_True()
     {
-        var reference = new VBObjectValue(new MemoryAddress(42));
+        var reference = new VBObjectValue(new VBRuntimeObjectId());
         AssertResult<VBBooleanValue>(Evaluate(Is(), reference, reference), true);
     }
 
     [TestMethod]
     public void DifferentReferences_False()
         => AssertResult<VBBooleanValue>(
-            Evaluate(Is(), new VBObjectValue(new MemoryAddress(1)), new VBObjectValue(new MemoryAddress(2))), false);
+            Evaluate(Is(), new VBObjectValue(new VBRuntimeObjectId()), new VBObjectValue(new VBRuntimeObjectId())), false);
 
     [TestMethod]
     public void NothingIsNothing_True()
@@ -33,7 +33,7 @@ public sealed class BinaryIsRelationalOperatorRuntimeTests : OperatorRelationalR
 
     [TestMethod]
     public void ObjectIsNotNothing_False()
-        => AssertResult<VBBooleanValue>(Evaluate(Is(), new VBObjectValue(new MemoryAddress(1)), VBObjectValue.Nothing), false);
+        => AssertResult<VBBooleanValue>(Evaluate(Is(), new VBObjectValue(new VBRuntimeObjectId()), VBObjectValue.Nothing), false);
 
     [TestMethod]
     public void NonObjectLeftHandSide_IsObjectRequired()
