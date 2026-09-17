@@ -136,7 +136,7 @@ block : (blockStmt endOfStatement)*;
 
 unterminatedBlock : blockStmt (endOfStatement blockStmt)*;
 
-blockStmt : 
+blockStmt :
     statementLabelDefinition whiteSpace? mainBlockStmt?
     | mainBlockStmt;
 
@@ -180,7 +180,8 @@ mainBlockStmt :
     | unqualifiedObjectPrintStmt
     | callStmt
     | nameStmt
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToStatementBoundary(re)) throw; }
 
 // 5.4.5 File Statements
 fileStmt :
@@ -395,7 +396,8 @@ functionStmt :
     block
     statementLabelDefinition? whiteSpace? END_FUNCTION
     (endOfLine attributeStmt)*
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToProcedureBoundary(re)) throw; }
 functionName : identifier;
 
 goSubStmt : GOSUB whiteSpace expression;
@@ -450,26 +452,29 @@ onGoToStmt : ON whiteSpace expression whiteSpace GOTO whiteSpace expression (whi
 
 onGoSubStmt : ON whiteSpace expression whiteSpace GOSUB whiteSpace expression (whiteSpace? COMMA whiteSpace? expression)*;
 
-propertyGetStmt : 
-    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_GET whiteSpace functionName (whiteSpace? argList)? (whiteSpace asTypeClause)? endOfStatement 
-    block 
+propertyGetStmt :
+    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_GET whiteSpace functionName (whiteSpace? argList)? (whiteSpace asTypeClause)? endOfStatement
+    block
     statementLabelDefinition? whiteSpace? END_PROPERTY
     (endOfLine attributeStmt)*
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToProcedureBoundary(re)) throw; }
 
-propertySetStmt : 
-    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_SET whiteSpace subroutineName (whiteSpace? argList)? endOfStatement 
-    block 
+propertySetStmt :
+    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_SET whiteSpace subroutineName (whiteSpace? argList)? endOfStatement
+    block
     statementLabelDefinition? whiteSpace? END_PROPERTY
     (endOfLine attributeStmt)*
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToProcedureBoundary(re)) throw; }
 
-propertyLetStmt : 
-    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_LET whiteSpace subroutineName (whiteSpace? argList)? endOfStatement 
-    block 
+propertyLetStmt :
+    (visibility whiteSpace)? (STATIC whiteSpace)? PROPERTY_LET whiteSpace subroutineName (whiteSpace? argList)? endOfStatement
+    block
     statementLabelDefinition? whiteSpace? END_PROPERTY
     (endOfLine attributeStmt)*
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToProcedureBoundary(re)) throw; }
 
 // 5.4.2.20 RaiseEvent Statement
 raiseEventStmt : RAISEEVENT whiteSpace identifier (whiteSpace? LPAREN whiteSpace? eventArgumentList? whiteSpace? RPAREN)?;
@@ -533,12 +538,13 @@ selectEndValue : expression;
 
 setStmt : SET whiteSpace lExpression whiteSpace? EQ whiteSpace? expression;
 
-subStmt : 
+subStmt :
     (visibility whiteSpace)? (STATIC whiteSpace)? SUB whiteSpace? subroutineName (whiteSpace? argList)? endOfStatement
-    block 
+    block
     statementLabelDefinition? whiteSpace? END_SUB
     (endOfLine attributeStmt)*
-;
+    ;
+    catch[RecognitionException re] { if (!RecoverToProcedureBoundary(re)) throw; }
 subroutineName : identifier;
 
 // 5.2.3.3 User Defined Type Declarations

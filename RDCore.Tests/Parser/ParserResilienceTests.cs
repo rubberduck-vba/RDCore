@@ -441,6 +441,41 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
+    // Found while investigating a reported HexIDE AST-truncation bug: ANTLR's adaptive prediction for
+    // mainBlockStmt's alternative-selection needs full lookahead to disambiguate (e.g. single-line vs.
+    // multi-line If, or an argument list's closing paren) - when the chosen alternative fails deep
+    // inside due to a syntax error, the failure surfaces at mainBlockStmt's own decision point instead
+    // of within the failing construct, and the resulting exception used to cascade through every
+    // enclosing rule's own too-narrow recovery attempt until it consumed the rest of the file - dropping
+    // every subsequent member, not just the malformed statement. VBAParser.g4's mainBlockStmt/subStmt/
+    // functionStmt/propertyGetStmt/propertySetStmt/propertyLetStmt catch clauses (VBABaseParser's
+    // RecoverToStatementBoundary/RecoverToProcedureBoundary) bound the damage to the failing statement
+    // or procedure instead.
+    [DataRow(
+        "Sub First()\r\n    If x = Then\r\n    End If\r\nEnd Sub\r\n\r\nSub Second()\r\n    y = 2\r\nEnd Sub\r\n",
+        DisplayName = "malformed If condition")]
+    [DataRow(
+        "Sub First()\r\n    x = Foo(1, 2\r\nEnd Sub\r\n\r\nSub Second()\r\n    y = 2\r\nEnd Sub\r\n",
+        DisplayName = "unclosed Call parens")]
+    [DataRow(
+        "Function First() As Long\r\n    If x = Then\r\n    End If\r\nEnd Function\r\n\r\nProperty Get Second() As Long\r\n    Second = 2\r\nEnd Property\r\n",
+        DisplayName = "malformed If condition inside a Function, subsequent Property survives")]
+    [DataRow(
+        "Property Let First(v)\r\n    x = Foo(1, 2\r\nEnd Property\r\n\r\nSub Second()\r\n    y = 2\r\nEnd Sub\r\n",
+        DisplayName = "unclosed Call parens inside a Property Let, subsequent Sub survives")]
+    public void SyntaxErrorInOneProcedure_DoesNotTruncateSubsequentMembers(string source)
+    {
+        var result = Parse(source);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotEmpty(result.SyntaxErrors);
+        var members = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual("First", members[0].Name);
+        Assert.AreEqual("Second", members[1].Name);
+    }
+
+    [TestMethod]
     public void EmptyModule_IsSuccessWithAnEmptyTree()
     {
         var result = Parse("");
