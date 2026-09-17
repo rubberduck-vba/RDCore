@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -100,6 +101,11 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private readonly HashSet<Symbol> _instanceSymbols = [];
     private readonly HashSet<Symbol> _localSymbols = [];
 
+    // live objects, keyed by the identity ISessionObjects.CreateObject minted for them - a separate
+    // registry from the four buckets above, since those hold declared *symbols* (one per declared
+    // field, shared by every instance of the class), while this holds each instance's own storage.
+    private readonly Dictionary<VBRuntimeObjectId, ObjectInstance> _instances = [];
+
     // a stable component for the session's lifetime — unlike the compile-time name lookup below, the
     // symbol->address map it owns must survive a scope-tree rebuild, not be discarded with it.
     private RuntimeSymbolResolver? _sessionBindingsField;
@@ -153,6 +159,41 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure)
         => new CallStackFrame(nodeId, procedure, [], storage);
+
+    public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
+    {
+        var instance = new ObjectInstance(objectId, classModule, storage);
+        var fields = _instanceSymbols.Where(field =>
+            field.ParentUri.AbsoluteUri == classModule.Uri.AbsoluteUri
+            && field.Kind is SymbolKindExt.Field or SymbolKindExt.Variable
+            && field is ITypedSymbol { ResolvedType: var _ });
+
+        foreach (var field in fields)
+        {
+            instance.Push(field, ((ITypedSymbol)field).ResolvedType.DefaultValue);
+        }
+
+        _instances[objectId] = instance;
+        return instance;
+    }
+
+    public bool TryGetInstance(VBRuntimeObjectId objectId, [NotNullWhen(true)][MaybeNullWhen(false)] out IObjectInstance? instance)
+    {
+        var found = _instances.TryGetValue(objectId, out var concrete);
+        instance = concrete;
+        return found;
+    }
+
+    public bool DestroyInstance(VBRuntimeObjectId objectId)
+    {
+        if (!_instances.Remove(objectId, out var instance))
+        {
+            return false;
+        }
+
+        instance.ReleaseAll();
+        return true;
+    }
 
     private ScopeTree EnsureScopeTree()
         => _scopeTree ??= ScopeTreeBuilder.Build(

@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -90,6 +91,32 @@ public interface ISessionSymbols
     /// <param name="nodeId">The <c>Identity</c> of the call-site node this activation is for.</param>
     /// <param name="procedure">The <see cref="StaticSymbol"/> identifying the procedure being activated.</param>
     ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure);
+
+    /// <summary>
+    /// Creates a new <see cref="IObjectInstance"/> for a freshly-created object of
+    /// <paramref name="classModule"/>, allocating storage for every instance field the class declares
+    /// (<strong>RD-VBAL §2.3.1.2</strong>'s instance heap tier) and registering it for later lookup by
+    /// <paramref name="objectId"/>. This only allocates the instance's field storage — the object's
+    /// reference-counted lifetime is tracked separately, by <see cref="IRuntimeSession.Objects"/>.
+    /// </summary>
+    /// <param name="objectId">The object's identity, minted by <see cref="ISessionObjects.CreateObject"/>.</param>
+    /// <param name="classModule">The class module being instantiated.</param>
+    IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule);
+
+    /// <summary>
+    /// Gets the <see cref="IObjectInstance"/> registered for <paramref name="objectId"/>, if any —
+    /// e.g. to resolve a member-access expression's target once <paramref name="objectId"/> is known
+    /// from evaluating the object reference it was accessed through.
+    /// </summary>
+    bool TryGetInstance(VBRuntimeObjectId objectId, [NotNullWhen(true)][MaybeNullWhen(false)] out IObjectInstance? instance);
+
+    /// <summary>
+    /// Frees every field <paramref name="objectId"/>'s instance allocated and forgets it. Called once
+    /// the object's reference count reaches zero and <see cref="ISessionObjects.TryRemoveObject"/>
+    /// succeeds.
+    /// </summary>
+    /// <returns><c>false</c> if no instance is registered for <paramref name="objectId"/>.</returns>
+    bool DestroyInstance(VBRuntimeObjectId objectId);
 }
 
 /// <summary>
