@@ -58,7 +58,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
 | Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux) | ✅ chaque règle est complète et testée isolément |
-| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🎯 rien ne parcourt encore un arbre réel de bout en bout — chaque règle ci-dessus n'est invoquée que directement, par des tests ou par d'autres règles |
+| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🚧 récursion correcte pour les chaînes de _member access_, les opérateurs et `New`; l'accès relatif à `With` et quelques types de nœuds (`Foo(1)`, `Foo!Bar`, `TypeOf...Is`) retournent encore `VBUnknownType`; rien en production ne l'appelle encore |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 

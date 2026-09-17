@@ -23,6 +23,15 @@ Static semantics always yield a [StaticSemanticsEvaluationResult](../api/RDCore.
 
 Every rule is evaluated against a [StaticEvaluationContext](../api/RDCore.SDK.Semantics.Static.Abstract.StaticEvaluationContext.html) — the [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html) and the [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) an expression is lexically found in (see §2.3.1.2 for how a scope is resolved). Module-level facts a rule needs — today, whether the enclosing module declares `Option Explicit` — are not parameters of this context; they live on [ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html), reachable from any scope via `LexicalScope.EnclosingModuleDirectives()`. This keeps the context's shape stable as the directive surface MS-VBAL and RD-VBA both define (`Option Compare`, `Attribute` declarations, …) grows over time.
 
+> [!NOTE]
+> Each subsection below documents one node kind's own rule in isolation — none of them recurse into
+> their own children to produce the `operandDeclaredTypes` they're given. [ExpressionStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.ExpressionStaticSemanticsEvaluator.html)
+> is the piece that does: given any (possibly deeply nested) expression, it dispatches by the node's
+> own type — and, for an operator node, by its token — evaluating children first and short-circuiting
+> on the first error, so `Foo.Bar.Baz` or `x + 1` resolves end to end instead of only being exercised
+> with hand-fed operand types. A node kind with no rule yet, or an operator token with no mapped rule
+> (`Mod`), defers to `VBUnknownType` rather than erroring.
+
 ### 5.0.1.1 Simple Name Expressions
 > [!NOTE]
 > This section describes the implementation of **MS-VBAL §5.6.10 Simple Name Expressions**.
