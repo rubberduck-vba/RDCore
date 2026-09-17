@@ -744,11 +744,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     }
 
     // Re-walks an already-parsed, self-contained subtree in isolation, with capture enabled just for
-    // that walk, into its own fresh scope. Safe because this only ever runs from an Exit handler — the
-    // parser has already fully matched (and moved past) this subtree by then, so the walk touches a
-    // finished, static tree, never the live parse. Existing Exit* operator/lExpression handlers
+    // that walk, into its own fresh scope. Safe because this only ever runs from an Exit handler — by
+    // then the outer walk has already fully visited (and moved past) this subtree, so this touches a
+    // finished, static tree, not one still being built. Existing Exit* operator/lExpression handlers
     // (PopLastChildren-based) don't care whether a matching Enter fired first, so they combine
-    // correctly under ParseTreeWalker's ordering exactly as they do under AddParseListener's. Not tied
+    // correctly under this nested walk's ordering exactly as they do under the outer one's. Not tied
     // to `expression` specifically — an `lExpression` or `argumentList` subtree walks exactly the same
     // way, so this accepts any rule context (`CallStatementNode`'s callee/arguments need both).
     private ImmutableArray<SyntaxNode> CaptureIsolated(VBABaseParserRuleContext? context)
@@ -880,8 +880,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     // `lExpression` (MS-VBAL §5.6.10-16) is left-recursive, same as `expression` — every alternative
     // below follows the same no-Enter-override, PopLastChildren-at-Exit discipline as the operators
-    // above, for the same reason (AddParseListener fires Exit before Enter on a left-recursive
-    // alternative). `expression`'s own `lExpr` label needs no handler of its own: whatever this
+    // above (see that block's own remarks on why it stays even though ModuleParser is walk-based now).
+    // `expression`'s own `lExpr` label needs no handler of its own: whatever this
     // listener builds here IS already the expression result, passed through transparently (same as
     // `parenthesizedExpr`) — confirmed by ExitSimpleNameExpr already working everywhere `expression`
     // is expected, with no `ExitLExpr` override anywhere.
@@ -1187,18 +1187,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, value));
     }
-    // Operator alternatives of `expression` (a left-recursive rule) get their Exit called *before*
-    // Enter by AddParseListener — the opposite of every ordinary rule (see ParseOnce's remarks on
-    // PrecompilerDirectiveListener's own workaround). No Enter override can scope these operands, so
-    // none of the handlers below use one: each operator's operands are, at Exit time, always exactly
-    // the last N nodes already added to whatever builder is currently active (nothing else can have
+    // Operator alternatives of `expression` (a left-recursive rule) have no Enter override, so none of
+    // the handlers below use one: each operator's operands are, at Exit time, always exactly the last
+    // N nodes already added to whatever builder is currently active (nothing else can have
     // interleaved, since expression subtrees resolve depth-first) — PopLastChildren reclaims them.
-    // recovery can leave an operator with too few operands (`a = 1 +`) or a non-expression sitting
-    // where one's expected — peek the shape first, then fall back to an UnbuiltExpressionTriviaNode
-    // (source text + whatever operand(s) WERE there) instead of leaving the operand(s) as loose
-    // siblings: `a = 1 +` used to leave a bare "1" sitting where the assignment's own capture would
-    // silently adopt it as if `a = 1` were the complete, correct statement — the same erasure/
-    // misrepresentation shape as New/TypeOf...Is, just one level up (see that fix's remarks).
+    // This discipline predates ModuleParser's switch to a post-parse ParseTreeWalker (a live
+    // AddParseListener fires Exit *before* Enter on a left-recursive alternative — the opposite of
+    // every ordinary rule — which no Enter-scoped push/pop could survive); it stays because it's still
+    // needed for the OTHER reason it was already built to handle: ANTLR's own error recovery can leave
+    // an operator with too few operands (`a = 1 +`) or a non-expression sitting where one's expected —
+    // peek the shape first, then fall back to an UnbuiltExpressionTriviaNode (source text + whatever
+    // operand(s) WERE there) instead of leaving the operand(s) as loose siblings: `a = 1 +` used to
+    // leave a bare "1" sitting where the assignment's own capture would silently adopt it as if
+    // `a = 1` were the complete, correct statement — the same erasure/misrepresentation shape as
+    // New/TypeOf...Is, just one level up (see that fix's remarks).
     private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context)
     {
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode])
