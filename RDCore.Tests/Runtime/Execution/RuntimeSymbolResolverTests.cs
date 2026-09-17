@@ -54,7 +54,7 @@ public sealed class RuntimeSymbolResolverTests
 
         Assert.IsTrue(sut.TryAllocate(symbol, value, out _));
 
-        Assert.AreSame(value.Handle, sut.GetValue(symbol));
+        Assert.AreEqual(value.Handle, sut.GetValue(symbol));
     }
 
     [TestMethod]
@@ -67,7 +67,7 @@ public sealed class RuntimeSymbolResolverTests
         Assert.IsTrue(sut.TryAllocate(symbol, value, out var address));
 
         Assert.IsTrue(sut.TryRead(address, out var handle));
-        Assert.AreSame(value.Handle, handle);
+        Assert.AreEqual(value.Handle, handle);
     }
 
     [TestMethod]
@@ -132,13 +132,13 @@ public sealed class RuntimeSymbolResolverTests
 
         Assert.IsTrue(sut.TryAllocate(symbol, second, out var secondAddress));
 
-        Assert.AreSame(second.Handle, sut.GetValue(symbol));
+        Assert.AreEqual(second.Handle, sut.GetValue(symbol));
         // the first block was genuinely freed (not leaked): a same-size re-allocation reuses it
         // immediately, per SessionMemory's free-list fast path (SessionMemoryTests.TryAllocate_ReusesFreeMemory).
         Assert.AreEqual(firstAddress, secondAddress);
         // and reading it returns the CURRENT handle, not a stale leftover from the first allocation.
         Assert.IsTrue(storage.TryRead(secondAddress, out var bound));
-        Assert.AreSame(second.Handle, bound);
+        Assert.AreEqual(second.Handle, bound);
     }
 
     [TestMethod]

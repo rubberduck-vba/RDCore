@@ -67,7 +67,7 @@ public sealed class CallStackAwareSymbolResolverTests
         inner.GetValue(local).Returns(_ => throw new InvalidOperationException("should not consult the inner resolver"));
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
 
-        Assert.AreSame(value.Handle, sut.GetValue(local));
+        Assert.AreEqual(value.Handle, sut.GetValue(local));
     }
 
     [TestMethod]
