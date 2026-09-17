@@ -55,6 +55,19 @@ public interface IRuntimeSession
     /// project (e.g. a bare REPL).
     /// </summary>
     IReadOnlyList<ReferencePriorityInfo> References { get; }
+
+    /// <summary>
+    /// Drops <paramref name="handle"/>'s reference to <paramref name="instance"/> and, if that was its
+    /// last remaining reference, destroys the object: frees the storage its live instance allocated
+    /// (<see cref="ISessionSymbols.DestroyInstance"/>) and forgets it (<see cref="ISessionObjects.TryRemoveObject"/>).
+    /// </summary>
+    /// <remarks>
+    /// This is the only correct way to drop a reference — calling <see cref="ISessionObjects.RemoveRef"/>
+    /// directly leaves the instance's field storage allocated forever once the count reaches zero,
+    /// since nothing else would go on to call <see cref="ISessionSymbols.DestroyInstance"/> for it.
+    /// </remarks>
+    /// <returns><c>true</c> if the object was destroyed as a result of this call.</returns>
+    bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle);
 }
 
 /// <summary>

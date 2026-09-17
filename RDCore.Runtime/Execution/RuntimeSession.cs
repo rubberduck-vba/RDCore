@@ -29,18 +29,27 @@ internal sealed class RuntimeSession(
     public ISessionObjects Objects { get; init; } = objects;
     public ICallStack CallStack { get; init; } = callStack;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
+
+    public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
+        => Objects.RemoveRef(instance, handle) == 0
+            && Objects.TryRemoveObject(instance)
+            && Symbols.DestroyInstance(instance);
 }
 
+/// <summary>
+/// Tracks each live object's roots — the <see cref="IBindingHandle"/>s currently holding a reference
+/// to it. The reference count is the roots list's own <c>Count</c>, not a separately maintained
+/// integer: a second counter can only drift from the list it's supposed to mirror (and did — see the
+/// disabled consistency check this replaced), so the list is the single source of truth.
+/// </summary>
 internal sealed class SessionObjects : ISessionObjects
 {
     private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
-    private readonly Dictionary<VBRuntimeObjectId, int> _refs = [];
 
     public VBRuntimeObjectId CreateObject()
     {
         var id = new VBRuntimeObjectId();
         _roots[id] = [];
-        _refs[id] = 0;
         return id;
     }
 
@@ -50,33 +59,24 @@ internal sealed class SessionObjects : ISessionObjects
         {
             roots.Add(handle);
         }
-        if (_refs.TryGetValue(instance, out _))
-        {
-            _refs[instance]++;
-        }        
     }
 
     public int RemoveRef(VBRuntimeObjectId instance, IBindingHandle handle)
     {
-        if (_roots.TryGetValue(instance, out var roots))
+        if (!_roots.TryGetValue(instance, out var roots))
         {
-            _ = roots.Remove(handle);
-        }
-        if (_refs.TryGetValue(instance, out _))
-        {
-            _refs[instance]--;
+            return 0;
         }
 
-        return _refs[instance];
+        roots.Remove(handle);
+        return roots.Count;
     }
 
     public bool TryRemoveObject(VBRuntimeObjectId instance)
     {
-        if (_refs.TryGetValue(instance, out var refCount) && refCount == 0
-            /*&& _roots[instance].Count == 0*/)
+        if (_roots.TryGetValue(instance, out var roots) && roots.Count == 0)
         {
-            return _refs.Remove(instance)
-                && _roots.Remove(instance);
+            return _roots.Remove(instance);
         }
         return false;
     }
