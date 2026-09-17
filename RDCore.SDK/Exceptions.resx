@@ -150,6 +150,9 @@
   <data name="VBRuntimeTypeMismatch_OperationEffectiveType_Verbose" xml:space="preserve">
     <value>No semantics defined an effective type for the specified operator data types ({$OPERANDS}).</value>
   </data>
+  <data name="VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose" xml:space="preserve">
+    <value>'{$TYPENAME}' does not reference an instantiable class and cannot be used with New.</value>
+  </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
     <value>Operator expression runtime semantics did not receive the expected number of operands for operator '{$OP}': VBTypedValue[{$LENGTH}].</value>
   </data>

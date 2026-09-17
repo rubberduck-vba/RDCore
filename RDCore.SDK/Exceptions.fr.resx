@@ -150,6 +150,9 @@
   <data name="VBRuntimeTypeMismatch_OperationEffectiveType_Verbose" xml:space="preserve">
     <value>Aucune règle sémantique ne définit pour l'opération un type effectif avec les types d'opérandes spécifiées ({$OPERANDS}).</value>
   </data>
+  <data name="VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose" xml:space="preserve">
+    <value>'{$TYPENAME}' ne fait pas référence à une classe instanciable et ne peut pas être utilisé avec New.</value>
+  </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
     <value>Un nombre inattendu d'arguments a été reçu par l'opérateur '{$OP}'; opérande(s): {$LENGTH}.</value>
   </data>

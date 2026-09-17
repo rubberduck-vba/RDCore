@@ -10,14 +10,16 @@ namespace RDCore.Tests.Parser;
 
 /// <summary>
 /// Adversarial review, PRs #208-224, "worth knowing": <c>New &lt;class&gt;</c> and
-/// <c>TypeOf &lt;expr&gt; Is &lt;type&gt;</c> have no dedicated AST node yet, but the parser wasn't just
+/// <c>TypeOf &lt;expr&gt; Is &lt;type&gt;</c> had no dedicated AST node, and the parser wasn't just
 /// leaving that position unbuilt — it was silently erasing the keyword and leaking the inner
 /// sub-expression up as if it were a plain operand, so `New Collection` read back as a bare reference to
 /// "Collection", and `TypeOf x Is Foo` read back as a plain `x Is Foo` identity comparison. Both parsed
 /// cleanly (IsSuccess=true, no syntax error) with the wrong meaning. Per author direction: "build
-/// nothing" is itself wrong here too — the AST must stay reconstructable, so an unbuilt-but-recognized
-/// construct gets an <see cref="UnbuiltExpressionTriviaNode"/> (preserving the exact source text and
-/// whatever the grammar's own walk already built underneath), not silence and not a misrepresentation.
+/// nothing" is itself wrong here too — an unbuilt-but-recognized construct must get an
+/// <see cref="UnbuiltExpressionTriviaNode"/> (preserving the exact source text and whatever the
+/// grammar's own walk already built underneath), not silence and not a misrepresentation. <c>New</c>
+/// is now modeled as a real <see cref="NewExpressionNode"/> (MS-VBAL §5.6.8); <c>TypeOf...Is</c>
+/// remains unmodeled, still wrapped in trivia.
 /// </summary>
 [TestClass]
 public sealed class UnbuiltExpressionTests
@@ -28,17 +30,16 @@ public sealed class UnbuiltExpressionTests
         => new ModuleParser().Parse(Uri, source);
 
     [TestMethod]
-    public void NewExpression_BuildsUnbuiltTrivia_NotABareIdentifierReference()
+    public void NewExpression_BuildsARealNewExpressionNode()
     {
         var result = Parse("Sub S()\r\nSet x = New Collection\r\nEnd Sub");
 
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
-        var trivia = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(assignment.Value);
-        Assert.AreEqual("New Collection", trivia.Source);
-        var inner = Assert.IsInstanceOfType<SimpleNameExpressionNode>(trivia.Inputs.Single());
-        Assert.AreEqual("Collection", inner.IdentifierName);
+        var newExpression = Assert.IsInstanceOfType<NewExpressionNode>(assignment.Value);
+        var typeExpression = Assert.IsInstanceOfType<SimpleNameExpressionNode>(newExpression.TypeExpression);
+        Assert.AreEqual("Collection", typeExpression.IdentifierName);
     }
 
     [TestMethod]

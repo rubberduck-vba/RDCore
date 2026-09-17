@@ -573,6 +573,15 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBRuntimeTypeMismatch_OperationEffectiveType_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{$TYPENAME}&apos; does not reference an instantiable class and cannot be used with New..
+        /// </summary>
+        public static string VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose {
+            get {
+                return ResourceManager.GetString("VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Syntax error (grammar):.
