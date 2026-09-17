@@ -57,7 +57,8 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Système de types statiques, modèle de types _runtime_ | ✅ |
 | Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
-| Sémantiques statiques — expressions liées à un symbole (_simple names_, _member access_) | 🚧 _tree evaluator_ à venir |
+| Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux) | ✅ chaque règle est complète et testée isolément |
+| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🎯 rien ne parcourt encore un arbre réel de bout en bout — chaque règle ci-dessus n'est invoquée que directement, par des tests ou par d'autres règles |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 
