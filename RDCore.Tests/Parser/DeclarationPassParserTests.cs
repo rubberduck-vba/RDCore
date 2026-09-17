@@ -778,6 +778,45 @@ End Sub
     }
 
     [TestMethod]
+    public void OnGoToStatement_CapturesSelectorAndLabels()
+    {
+        var result = ParseInProcedure("On x GoTo Label1, Label2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onGoTo = member.Children.OfType<OnGoToStatementNode>().Single();
+
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)onGoTo.Selector).IdentifierName);
+        Assert.HasCount(2, onGoTo.Labels);
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)onGoTo.Labels[0]).IdentifierName);
+        Assert.AreEqual("Label2", ((SimpleNameExpressionNode)onGoTo.Labels[1]).IdentifierName);
+    }
+
+    [TestMethod]
+    public void OnGoToStatement_SingleLabel()
+    {
+        var result = ParseInProcedure("On x GoTo Label1");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onGoTo = member.Children.OfType<OnGoToStatementNode>().Single();
+
+        Assert.HasCount(1, onGoTo.Labels);
+    }
+
+    [TestMethod]
+    public void OnGoSubStatement_CapturesSelectorAndLabels()
+    {
+        var result = ParseInProcedure("On x GoSub Label1, Label2");
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var onGoSub = member.Children.OfType<OnGoSubStatementNode>().Single();
+
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)onGoSub.Selector).IdentifierName);
+        Assert.HasCount(2, onGoSub.Labels);
+        Assert.AreEqual("Label1", ((SimpleNameExpressionNode)onGoSub.Labels[0]).IdentifierName);
+        Assert.AreEqual("Label2", ((SimpleNameExpressionNode)onGoSub.Labels[1]).IdentifierName);
+    }
+
+    [TestMethod]
     public void ReturnStatement_Parses()
     {
         var result = ParseInProcedure("Return");

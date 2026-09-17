@@ -68,6 +68,8 @@ e.g. `Case Is > 5`), or an inclusive range
 |`Exit Do`/`Exit For`/`Exit Sub`/`Exit Function`/`Exit Property`|`KeywordStatementNode` (`Token`: `"Exit Do"`/`"Exit For"`/`"Exit Sub"`/`"Exit Function"`/`"Exit Property"`)|§5.4.2.7/.5/.17/.18/.19|
 |`GoTo`|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|§5.4.2.12|
 |`GoSub`|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|§5.4.2.14|
+|`On expression GoTo label, ...`|[OnGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html)|§5.4.2.13|
+|`On expression GoSub label, ...`|[OnGoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)|§5.4.2.16|
 |`Return`|[ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|§5.4.2.15|
 |`On Error GoTo <label>`|[OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|§5.4.4.1|
 |`On Error Resume Next`|[OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html) — the same grammar rule as `On Error GoTo`, disambiguated by which keyword follows|§5.4.4.1|
@@ -81,9 +83,9 @@ Statement labels and line numbers themselves are captured separately
 ([LineLabelNode](../api/RDCore.SDK.Model.AST.Statements.LineLabelNode.html)/
 [LineNumberNode](../api/RDCore.SDK.Model.AST.Statements.LineNumberNode.html)) — a `GoTo`/`GoSub`'s own
 target is just an expression naming or numbering one, with no static link between the two.
-
-> [!NOTE]
-> Computed `On...GoTo`/`On...GoSub` (§5.4.2.13/.16) have no node type at all yet — not yet requested.
+`OnGoToStatementNode`/`OnGoSubStatementNode` follow the same convention for their whole `Labels` list,
+mirroring `GoTo`/`GoSub`'s own separate-node precedent (distinct branch mechanisms) rather than one
+shared node with a `Kind`, unlike `Let`/`Set`/`LSet`/`RSet`.
 
 
 ---

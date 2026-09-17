@@ -65,6 +65,8 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(ObjectPrintExpressionNode), "ObjectPrintExpression")]
 [JsonDerivedType(typeof(OnErrorGoToStatementNode), "OnErrorGoToStatement")]
 [JsonDerivedType(typeof(OnErrorResumeStatementNode), "OnErrorResumeStatement")]
+[JsonDerivedType(typeof(OnGoToStatementNode), "OnGoToStatement")]
+[JsonDerivedType(typeof(OnGoSubStatementNode), "OnGoSubStatement")]
 [JsonDerivedType(typeof(OpenStatementNode), "OpenStatement")]
 [JsonDerivedType(typeof(ParameterDeclarationNode), "Parameter")]
 [JsonDerivedType(typeof(PrintOutputItemNode), "PrintOutputItem")]

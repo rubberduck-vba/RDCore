@@ -535,6 +535,31 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitReturnStmt([NotNull] VBAParser.ReturnStmtContext context)
         => CurrentBuilder.AddChild(new ReturnStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri)));
 
+    // On...GoTo/On...GoSub (§5.4.2.13/.16): `On expression GoTo|GoSub label (, label)*`. expression(0)
+    // is the selector; every remaining expression() is a label, same "just an expression naming or
+    // numbering one" convention as GoTo/GoSub's own single-label form above.
+    public override void ExitOnGoToStmt([NotNull] VBAParser.OnGoToStmtContext context)
+    {
+        var expressions = context.expression();
+        if (CaptureIsolatedExpression(expressions.FirstOrDefault()) is not { } selector)
+        {
+            return;
+        }
+        var labels = expressions.Skip(1).Select(CaptureIsolatedExpression).OfType<ExpressionNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new OnGoToStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), selector, labels));
+    }
+
+    public override void ExitOnGoSubStmt([NotNull] VBAParser.OnGoSubStmtContext context)
+    {
+        var expressions = context.expression();
+        if (CaptureIsolatedExpression(expressions.FirstOrDefault()) is not { } selector)
+        {
+            return;
+        }
+        var labels = expressions.Skip(1).Select(CaptureIsolatedExpression).OfType<ExpressionNode>().ToImmutableArray();
+        CurrentBuilder.AddChild(new OnGoSubStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), selector, labels));
+    }
+
     // `On Error GoTo <label>` and `On Error Resume Next` (MS-VBAL §5.4.4.1) are the same grammar
     // rule's two alternatives — `GOTO()` is non-null only for the former. A source missing `Next`
     // (e.g. bare `On Error Resume`) makes ANTLR invoke this Exit callback TWICE: once with the real
