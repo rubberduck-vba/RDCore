@@ -1242,16 +1242,14 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         return new NewExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), typeExpression);
     }
 
-    // `TypeOf <expr> Is <type>` (MS-VBAL §5.6.9.4) is a separate `expression` alternative with no
-    // dedicated AST node yet (tracked as a remaining gap in the parser §P ticket). Without an explicit
-    // Exit override here, ANTLR's own walk still visits and builds the inner expression via its own
-    // listener callbacks — it doesn't just sit unbuilt, it leaks straight up as if it were a bare
-    // operand, so `TypeOf x Is Foo` reads back as a plain `x Is Foo` identity comparison. That parses
-    // cleanly (IsSuccess=true, no syntax error) with the wrong meaning — the exact silent-corruption
-    // shape this review round exists to catch. Wrap whatever the inner walk already built in an
-    // UnbuiltExpressionTriviaNode carrying the exact source text instead: the tree stays
-    // reconstructable (nothing thrown away, unlike a bare "build nothing"), and a consumer can tell at
-    // a glance this position wasn't modeled instead of silently getting the wrong meaning.
+    // `TypeOf <expr>` (MS-VBAL §5.6.9.4) is its own `expression` alternative purely to keep the grammar
+    // SLL — on its own it isn't a complete construct, it only ever means something as the left operand
+    // of the `Is <type>` that always follows (see ExitRelationalOp's TypeOf...Is branch, which unwraps
+    // this trivia and pairs its one input with the right-hand type expression into a real
+    // TypeOfIsExpressionNode). Wrap the inner operand in an UnbuiltExpressionTriviaNode here regardless:
+    // in the well-formed case ExitRelationalOp unwraps it immediately and it never survives into the
+    // final tree; in a recovery case where no `Is <type>` follows, this is what stops the operand from
+    // leaking straight up as a bare, wrongly-meaning value instead of a visibly-unbuilt one.
     public override void ExitTypeofexpr([NotNull] VBAParser.TypeofexprContext context)
         => AddUnbuiltExpressionTriviaIfActive(context, 1);
 
@@ -1359,6 +1357,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
+
+        // `TypeOf <expr> Is <type>` (MS-VBAL §5.6.9.4) arrives here as an ordinary IS relationalOp
+        // whose left operand is grammatically a typeofexpr (see that Exit override's own remarks) —
+        // recognized from the parse-tree shape itself, not from anything on the builder stack.
+        if (context.IS() is not null && context.expression(0) is VBAParser.TypeofexprContext)
+        {
+            AddIfBuilt(BuildTypeOfIs(context));
+            return;
+        }
+
         var token = context.EQ() is not null ? Tokens.CompareEqualOp
             : context.NEQ() is not null ? Tokens.CompareNotEqualOp
             : context.GT() is not null ? Tokens.CompareGreaterThanOp
@@ -1369,6 +1377,22 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.LIKE() is not null ? Tokens.CompareLikeOp
             : context.GetText();
         AddIfBuilt(BuildBinary(token, context));
+    }
+
+    // ExitTypeofexpr always wraps its operand in an UnbuiltExpressionTriviaNode with exactly one input
+    // (see its own remarks); unwrap that here and pair the operand with the right-hand type expression.
+    // A shape mismatch (recovery left either side incomplete) falls back to the same lossless trivia
+    // wrapping every other operator guard uses, rather than building a TypeOfIsExpressionNode missing
+    // a required operand.
+    private SyntaxNode BuildTypeOfIs(VBAParser.RelationalOpContext context)
+    {
+        if (CurrentBuilder.PeekLastChildren(2) is not [UnbuiltExpressionTriviaNode { Inputs: [ExpressionNode operand] }, ExpressionNode typeExpression])
+        {
+            return BuildUnbuiltExpressionTrivia(context, 2);
+        }
+
+        CurrentBuilder.PopLastChildren(2);
+        return new TypeOfIsExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), operand, typeExpression);
     }
 
     public override void ExitLogicalNotOp([NotNull] VBAParser.LogicalNotOpContext context)

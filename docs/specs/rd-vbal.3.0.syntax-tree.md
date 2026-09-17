@@ -127,14 +127,18 @@ The node types _directly_ derived from `SyntaxNode` are as follows:
 - [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html)
 
 > [!NOTE]
-> A grammar alternative the parser recognizes but has no dedicated node type for yet (e.g. `New
-> <class>`, `TypeOf <expr> Is <type>`) is never silently dropped or folded into an unrelated node — it
-> is preserved as an [UnbuiltExpressionTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltExpressionTriviaNode.html)
+> A grammar alternative the parser recognizes but has no dedicated node type for yet is never silently
+> dropped or folded into an unrelated node — it is preserved as an
+> [UnbuiltExpressionTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltExpressionTriviaNode.html)
 > (or its statement-position counterpart,
 > [UnbuiltStatementTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltStatementTriviaNode.html)),
 > carrying the exact original source text plus whatever sub-expression the parser's own walk already
 > built underneath it — so the tree stays a faithful, lossless representation of the source even where
-> a proper semantic node doesn't exist yet.
+> a proper semantic node doesn't exist yet. `New <class>` and `TypeOf <expr> Is <type>` both went
+> through this fallback before gaining their own
+> [NewExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html) and
+> [TypeOfIsExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.TypeOfIsExpressionNode.html); the
+> fallback itself still applies to whatever gap comes next.
 
 
 ---

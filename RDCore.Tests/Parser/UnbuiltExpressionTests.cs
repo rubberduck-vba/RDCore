@@ -18,8 +18,10 @@ namespace RDCore.Tests.Parser;
 /// nothing" is itself wrong here too — an unbuilt-but-recognized construct must get an
 /// <see cref="UnbuiltExpressionTriviaNode"/> (preserving the exact source text and whatever the
 /// grammar's own walk already built underneath), not silence and not a misrepresentation. <c>New</c>
-/// is now modeled as a real <see cref="NewExpressionNode"/> (MS-VBAL §5.6.8); <c>TypeOf...Is</c>
-/// remains unmodeled, still wrapped in trivia.
+/// is now modeled as a real <see cref="NewExpressionNode"/> (MS-VBAL §5.6.8), and <c>TypeOf...Is</c> as
+/// a real <see cref="TypeOfIsExpressionNode"/> (MS-VBAL §5.6.9.4) — the trivia wrapping remains only as
+/// the recovery-path fallback for a bare <c>TypeOf &lt;expr&gt;</c> with no <c>Is &lt;type&gt;</c>
+/// following it.
 /// </summary>
 [TestClass]
 public sealed class UnbuiltExpressionTests
@@ -43,21 +45,18 @@ public sealed class UnbuiltExpressionTests
     }
 
     [TestMethod]
-    public void TypeOfIsExpression_BuildsUnbuiltTrivia_NotAPlainIsComparison()
+    public void TypeOfIsExpression_BuildsARealTypeOfIsExpressionNode()
     {
         var result = Parse("Sub S()\r\nx = TypeOf x Is Foo\r\nEnd Sub");
 
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
-        var isOp = Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(assignment.Value);
-        Assert.AreEqual(Tokens.CompareIsOp, isOp.Token);
-        var trivia = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(isOp.Left);
-        Assert.AreEqual("TypeOf x", trivia.Source);
-        var inner = Assert.IsInstanceOfType<SimpleNameExpressionNode>(trivia.Inputs.Single());
-        Assert.AreEqual("x", inner.IdentifierName);
-        var right = Assert.IsInstanceOfType<SimpleNameExpressionNode>(isOp.Right);
-        Assert.AreEqual("Foo", right.IdentifierName);
+        var typeOfIs = Assert.IsInstanceOfType<TypeOfIsExpressionNode>(assignment.Value);
+        var operand = Assert.IsInstanceOfType<SimpleNameExpressionNode>(typeOfIs.Operand);
+        Assert.AreEqual("x", operand.IdentifierName);
+        var typeExpression = Assert.IsInstanceOfType<SimpleNameExpressionNode>(typeOfIs.TypeExpression);
+        Assert.AreEqual("Foo", typeExpression.IdentifierName);
     }
 
     [TestMethod]
@@ -68,8 +67,27 @@ public sealed class UnbuiltExpressionTests
         Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var ifBlock = member.Children.OfType<IfBlockStatementNode>().Single();
-        var isOp = Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(ifBlock.ConditionExpression);
-        Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(isOp.Left);
+        Assert.IsInstanceOfType<TypeOfIsExpressionNode>(ifBlock.ConditionExpression);
+    }
+
+    [TestMethod]
+    public void TypeOfExpressionWithoutIs_StaysUnbuiltTrivia()
+        // TypeOf <expr> is only ever meaningful paired with Is <type> (MS-VBAL §5.6.9.4), but the
+        // grammar itself doesn't enforce that pairing - typeofexpr is just another `expression`
+        // alternative, so a bare `TypeOf x` with nothing following it is syntactically legal (if
+        // semantically nonsensical). No enclosing IS relationalOp exists here to unwrap the trivia
+        // ExitTypeofexpr always wraps its operand in, so it must survive as the final result rather
+        // than leaking "x" up as if `TypeOf` had never been there.
+    {
+        var result = Parse("Sub S()\r\nx = TypeOf x\r\nEnd Sub");
+
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+        var trivia = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(assignment.Value);
+        Assert.AreEqual("TypeOf x", trivia.Source);
+        var inner = Assert.IsInstanceOfType<SimpleNameExpressionNode>(trivia.Inputs.Single());
+        Assert.AreEqual("x", inner.IdentifierName);
     }
 
     [TestMethod]
