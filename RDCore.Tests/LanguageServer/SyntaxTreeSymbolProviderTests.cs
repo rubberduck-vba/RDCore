@@ -101,6 +101,29 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
+    public void ClassModuleSub_GetsAnImplicitMeParameterAtSlotZero()
+        // MS-VBAL 5.6.11 / rdcore-me-implicit-parameter-design: Me is bound like any other parameter,
+        // so it has to actually exist as one - at slot 0, ahead of the member's own declared parameters.
+    {
+        var symbol = Single<VBProcedureMemberSymbol>(Provide(
+            "Public Sub Baz(ByVal First As Long)\r\nEnd Sub", moduleType: ModuleType.ClassModule));
+
+        Assert.HasCount(2, symbol.Parameters);
+        Assert.AreEqual("Me", symbol.Parameters[0].Name);
+        Assert.AreEqual(ParameterKind.ImplicitByRef, symbol.Parameters[0].ParameterKind);
+        Assert.AreEqual("First", symbol.Parameters[1].Name);
+    }
+
+    [TestMethod]
+    public void StandardModuleSub_HasNoImplicitMeParameter()
+        // a standard module has no live instance for Me to refer to (MS-VBAL 5.6.11).
+    {
+        var symbol = Single<VBProcedureMemberSymbol>(Provide("Public Sub Baz()\r\nEnd Sub", moduleType: ModuleType.StdModule));
+
+        Assert.IsEmpty(symbol.Parameters);
+    }
+
+    [TestMethod]
     public void ModuleField_YieldsFieldSymbol()
     {
         var symbol = Single<VBModuleFieldVariableMemberSymbol>(Provide("Private Amount As Currency"));

@@ -48,7 +48,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var symbol = new VBProcedureMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Procedure,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
-        return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
+        return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
     public Symbol BuildFunction(MemberDeclarationNode node)
@@ -60,7 +60,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         return symbol with
         {
             ResolvedType = ReturnType(node, symbol.Uri),
-            Parameters = BuildParameters(node, symbol.Uri),
+            Parameters = BuildParameters(node, symbol.Uri, includeMe: true),
         };
     }
 
@@ -72,7 +72,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         return symbol with
         {
             ResolvedType = ReturnType(node, symbol.Uri),
-            Parameters = BuildParameters(node, symbol.Uri),
+            Parameters = BuildParameters(node, symbol.Uri, includeMe: true),
         };
     }
 
@@ -82,7 +82,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var symbol = new VBPropertyLetMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
-        return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
+        return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
     public Symbol BuildPropertySet(MemberDeclarationNode node)
@@ -91,7 +91,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var symbol = new VBPropertySetMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, SymbolKindExt.Property,
             VBVoidType.TypeInfo, range, range, node.AccessModifier);
-        return symbol with { Parameters = BuildParameters(node, symbol.Uri) };
+        return symbol with { Parameters = BuildParameters(node, symbol.Uri, includeMe: true) };
     }
 
     public Symbol BuildExternal(ExternalMemberDeclarationNode node)
@@ -173,15 +173,30 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier);
     }
 
-    private ImmutableArray<VBParameterSymbol> BuildParameters(MemberDeclarationNode member, Uri memberUri)
+    // includeMe is opt-in per caller: a procedure/function/property body has a Me in scope
+    // (MS-VBAL 5.6.11), but an Event or Declare signature never does - it's never invoked with a
+    // live instance activation the way a member body is.
+    private ImmutableArray<VBParameterSymbol> BuildParameters(MemberDeclarationNode member, Uri memberUri, bool includeMe = false)
     {
         var parameters = member.Children.OfType<ParameterDeclarationNode>().ToArray();
-        if (parameters.Length == 0)
+        if (parameters.Length == 0 && !(includeMe && memberScope is ScopeKind.Instance))
         {
             return [];
         }
 
-        var builder = ImmutableArray.CreateBuilder<VBParameterSymbol>(parameters.Length);
+        var builder = ImmutableArray.CreateBuilder<VBParameterSymbol>(parameters.Length + 1);
+        if (includeMe && memberScope is ScopeKind.Instance)
+        {
+            // an implicit parameter at slot 0, bound to the current object instance
+            // (rdcore-me-implicit-parameter-design): Me then resolves exactly like any other
+            // parameter, nothing special-cased at the interpreter level. Its declared type is
+            // deliberately left as VBObjectType here - InstanceExpressionStaticSemantics resolves the
+            // enclosing class's own VBClassType independently, since this symbol is built before the
+            // module's Members list exists yet (WorkspaceSymbolResolver.Compose's second pass).
+            var range = RangeOf(member);
+            builder.Add(new VBParameterSymbol(
+                workspaceRoot, memberUri, "Me", range, range, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo));
+        }
         foreach (var parameter in parameters)
         {
             var range = RangeOf(parameter);

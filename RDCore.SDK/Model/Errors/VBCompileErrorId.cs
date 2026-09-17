@@ -179,6 +179,11 @@ public enum VBCompileErrorId
     /// This works only because the documentation includes run-time <em>collection item retrieval</em> - otherwise this error would be purely about a failed member binding.
     /// </remarks>
     MethodOrDataMemberNotFound = 9316,
+    /// <summary>
+    /// An <em>instance expression</em> (<c>Me</c>) is invalid outside a class module.<br/>
+    /// <strong>MS-VBAL 5.6.11</strong> Instance Expressions.
+    /// </summary>
+    InvalidUseOfMe = 9317,
 
 
     /***********************************************************************************************
