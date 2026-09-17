@@ -53,4 +53,29 @@ public sealed class ModuleNodeExtensionsTests
 
         Assert.IsFalse(module.HasOptionExplicit());
     }
+
+    [TestMethod]
+    public void IsCreatable_True_WhenModuleDeclaresNoVB_Creatable()
+        // VBE's own default: a class module that declares no Attribute VB_Creatable is creatable.
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nPublic X As Long\r\n");
+
+        Assert.IsTrue(module.IsCreatable());
+    }
+
+    [TestMethod]
+    public void IsCreatable_False_WhenModuleDeclaresVB_CreatableFalse()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nAttribute VB_Creatable = False\r\nPublic X As Long\r\n");
+
+        Assert.IsFalse(module.IsCreatable());
+    }
+
+    [TestMethod]
+    public void IsCreatable_True_WhenModuleDeclaresVB_CreatableTrue()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nAttribute VB_Creatable = True\r\nPublic X As Long\r\n");
+
+        Assert.IsTrue(module.IsCreatable());
+    }
 }

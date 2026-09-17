@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
@@ -67,6 +68,25 @@ public sealed class SyntaxTreeSymbolProviderTests
         var symbol = Single<VBFunctionMemberSymbol>(Provide("Function Bar() As Long\r\nEnd Function", resolver));
 
         Assert.IsInstanceOfType<VBLongType>(symbol.ResolvedType);
+    }
+
+    [TestMethod]
+    public void QualifiedFieldType_ResolvesThroughVBProjectSymbol()
+        // Dim x As Project.ClassName (MS-VBAL 5.6.4's type binding context): AsTypeExpressionNode's
+        // QualifierName flows into VBProjectSymbol.ResolveQualified, which falls through to an
+        // ordinary lookup for ClassName once Project resolves to the enclosing project itself.
+    {
+        var project = new VBProjectSymbol(WorkspaceRoot, "MyProject");
+        var classModule = (VBClassModuleSymbol)new VBClassModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Widget")
+            .With(SymbolProperties.Creatable, true);
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.Resolve("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.Resolve("Widget", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
+
+        var symbol = Single<VBModuleFieldVariableMemberSymbol>(Provide("Public X As MyProject.Widget", resolver));
+
+        Assert.IsInstanceOfType<VBClassType>(symbol.ResolvedType);
+        Assert.AreEqual("Widget", symbol.ResolvedType.Name);
     }
 
     [TestMethod]

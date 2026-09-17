@@ -215,12 +215,13 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     private static AsTypeExpressionNode? AsTypeOf(SyntaxNode node)
         => node.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
 
-    // A declared type is a name the resolver binds from the given scope. A qualified name or an array
-    // definition needs more than a name lookup, so it is left unresolved for a later semantic pass.
+    // A declared type is a name the resolver binds from the given scope, optionally qualified by a
+    // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualified). An
+    // array definition needs more than a name lookup, so it is left unresolved for a later semantic pass.
     private VBType DeclaredType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
     {
         string? typeName = null;
-        if (asType is { QualifierName: null, IsArrayDef: false })
+        if (asType is { IsArrayDef: false })
         {
             typeName = asType.TypeName;
         }
@@ -234,14 +235,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             return VBUnknownType.TypeInfo;
         }
 
-        return ResolveTypeName(typeName, handle);
+        return ResolveTypeName(typeName, handle, asType?.QualifierName);
     }
 
-    // Binds a reserved/declared type name through the resolver; an unresolved name stays Unknown. A
-    // resolved user-defined type, enum or class module is a symbol carrying no VBType of its own, so
-    // build one.
-    private VBType ResolveTypeName(string typeName, Uri handle)
-        => resolver.Resolve(typeName, ScopeKind.Global, handle).Symbol switch
+    // Binds a reserved/declared type name through the resolver, optionally qualified by a project name
+    // (MS-VBAL 5.6.4); an unresolved name stays Unknown. A resolved user-defined type, enum or class
+    // module is a symbol carrying no VBType of its own, so build one.
+    private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
+        => VBProjectSymbol.ResolveQualified(resolver, qualifier, typeName, handle).Symbol switch
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),

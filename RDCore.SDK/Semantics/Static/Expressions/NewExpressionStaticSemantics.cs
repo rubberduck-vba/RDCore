@@ -34,29 +34,40 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             throw new ArgumentException($"Expected a {nameof(NewExpressionNode)}.", nameof(expression));
         }
 
-        if (newExpression.TypeExpression is not SimpleNameExpressionNode simpleName)
+        // New Project.ClassName (MS-VBAL 5.6.4's type binding context) arrives as a MemberAccessExpressionNode
+        // — Owner is the project qualifier, Member the class name. A deeper/other shape (a qualifier
+        // that isn't itself a bare name, say) isn't modeled — defer rather than misreport.
+        var (qualifier, typeName) = newExpression.TypeExpression switch
         {
-            // a qualified type-expression (New Project.ClassName) isn't modeled yet — defer rather
-            // than misreport an instantiability error for a shape this rule doesn't understand.
+            SimpleNameExpressionNode simple => (null, simple.IdentifierName),
+            MemberAccessExpressionNode { Owner: SimpleNameExpressionNode owner, Member: { } member } => (owner.IdentifierName, member.IdentifierName),
+            _ => (null, (string?)null),
+        };
+
+        if (typeName is null)
+        {
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
-        var result = context.Resolver.Resolve(simpleName.IdentifierName, ScopeKind.Local, context.Scope.Uri);
+        var result = VBProjectSymbol.ResolveQualified(context.Resolver, qualifier, typeName, context.Scope.Uri);
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,
-                $"'{simpleName.IdentifierName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}"));
+                $"'{typeName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}"));
         }
 
         if (result.Symbol is VBClassModuleSymbol classModule)
         {
-            return StaticSemanticsEvaluationResult.Success(VBClassType.FromClassModule(classModule));
+            return classModule.GetProperty(SymbolProperties.Creatable)
+                ? StaticSemanticsEvaluationResult.Success(VBClassType.FromClassModule(classModule))
+                : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
+                    $"'{typeName}' is not creatable (Attribute VB_Creatable = False)."));
         }
 
         // resolved to something that isn't a class (TypeMismatch), or didn't resolve at all
         // (UserDefinedTypeNotDefined) - either way, MS-VBAL 5.6.8 requires an instantiable class.
         var errorId = result.IsResolved ? VBCompileErrorId.TypeMismatch : VBCompileErrorId.UserDefinedTypeNotDefined;
         return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(errorId, expression.Location,
-            $"'{simpleName.IdentifierName}' does not reference an instantiable class."));
+            $"'{typeName}' does not reference an instantiable class."));
     }
 }

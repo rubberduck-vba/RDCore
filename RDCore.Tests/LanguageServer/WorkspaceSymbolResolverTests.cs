@@ -152,4 +152,41 @@ public sealed class WorkspaceSymbolResolverTests
 
         Assert.IsFalse(module.Directives.Explicit);
     }
+
+    [TestMethod]
+    public void AClassModuleWithoutVB_Creatable_DefaultsToCreatable()
+        // VBE's own default: a class module that declares no Attribute VB_Creatable is creatable.
+    {
+        var target = ClassModule("Widget", "Public Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsTrue(module.GetProperty(SymbolProperties.Creatable));
+    }
+
+    [TestMethod]
+    public void AClassModuleDeclaringVB_CreatableFalse_IsNotCreatable()
+    {
+        var target = ClassModule("Widget", "Attribute VB_Creatable = False\r\nPublic Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsFalse(module.GetProperty(SymbolProperties.Creatable));
+    }
+
+    [TestMethod]
+    public void AProjectName_SynthesizesAResolvableVBProjectSymbol()
+    {
+        var target = Module("Globals", "Public Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver(), projectName: "MyProject");
+
+        var project = Assert.IsInstanceOfType<VBProjectSymbol>(
+            resolver.Resolve("MyProject", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.AreEqual("MyProject", project.Name);
+    }
 }

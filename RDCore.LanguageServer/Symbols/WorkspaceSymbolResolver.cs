@@ -15,14 +15,29 @@ namespace RDCore.LanguageServer.Symbols;
 /// </summary>
 internal static class WorkspaceSymbolResolver
 {
-    // modules are passed as tuples, not a dictionary: Uri equality ignores the fragment, but a module
-    // uri differs from its siblings only in the fragment (workspace#ModuleName). ModuleType travels
-    // alongside the parse result — the parser is never told a module's kind and does not derive it
-    // (RDCore.SDK.Workspace.ModuleHeader.IsClassModule reads it off the raw source instead).
+    /// <summary>
+    /// Modules are passed as tuples, not a dictionary: <c>Uri</c> equality ignores the fragment, but a
+    /// module uri differs from its siblings only in the fragment (<c>workspace#ModuleName</c>).
+    /// <c>ModuleType</c> travels alongside the parse result — the parser is never told a module's kind
+    /// and does not derive it (<c>RDCore.SDK.Workspace.ModuleHeader.IsClassModule</c> reads it off the
+    /// raw source instead).
+    /// </summary>
+    /// <param name="projectName">
+    /// The enclosing project's own name, if known — synthesizes a resolvable <see cref="VBProjectSymbol"/>
+    /// so a qualified type reference (<c>Project.ClassName</c>, <strong>MS-VBAL 5.6.4</strong>'s type
+    /// binding context) can resolve <c>Project</c> to something. <c>null</c> omits it — same as before
+    /// this parameter existed, only unqualified names resolve.
+    /// </param>
     public static ISymbolResolver Compose(
-        Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules, ISymbolResolver fallback)
+        Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
+        ISymbolResolver fallback, string? projectName = null)
     {
         var symbols = new List<Symbol>();
+        if (projectName is not null)
+        {
+            symbols.Add(new VBProjectSymbol(workspaceRoot, projectName));
+        }
+
         foreach (var (moduleUri, moduleType, parseResult) in modules)
         {
             // the module symbol itself is the project symbol provider's job at run time; synthesize
@@ -31,7 +46,8 @@ internal static class WorkspaceSymbolResolver
             var moduleName = moduleUri.Fragment.TrimStart('#');
             var directives = new ModuleDirectives(Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false);
             VBModuleSymbol module = moduleType == ModuleType.ClassModule
-                ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives }
+                ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives }
+                    .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
 
             // members can't ride on the module symbol the way a Type's fields ride on it (built from

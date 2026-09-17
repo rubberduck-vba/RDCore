@@ -47,6 +47,25 @@ public static class ModuleNodeExtensions
         return false;
     }
 
+    /// <summary>
+    /// Whether a class module is instantiable via <c>New</c>, per its <c>Attribute VB_Creatable</c>
+    /// directive. Defaults to <c>true</c> — VBE's own default for a class module that declares no
+    /// such attribute — so this is meaningful to call on any module, not just class modules.
+    /// </summary>
+    public static bool IsCreatable(this ModuleNode module)
+    {
+        foreach (var child in module.Children)
+        {
+            if (child is AttributeDirectiveNode { Binding: null } attribute
+                && string.Equals(attribute.Name, Tokens.VB_Creatable, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(attribute.Value.Trim(), "True", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        return true;
+    }
+
     // AttributeDirectiveNode.Value is the raw parse-tree text; a VB_Name value is a string literal.
     private static string? Unquote(string value)
     {

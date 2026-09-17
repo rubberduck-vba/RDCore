@@ -20,6 +20,16 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> Exposed = new(nameof(Exposed));
     /// <summary>
+    /// The value of the <c>VB_Creatable</c> attribute of a <see cref="VBClassModuleSymbol"/> — whether
+    /// <c>New</c> can instantiate it. <see cref="Symbol.GetProperty{T}"/> returns C#'s
+    /// <c>default(bool)</c> (<c>false</c>) when unset, the opposite of VBE's own default (creatable,
+    /// for a class that declares no such attribute) — a builder that constructs a
+    /// <see cref="VBClassModuleSymbol"/> MUST set this explicitly, never leave it to the read-site
+    /// default. <c>WorkspaceSymbolResolver.Compose</c> does; other builders that synthesize a bare
+    /// class module symbol without parsing its attributes (e.g. <c>ProjectSymbolProvider</c>) don't yet.
+    /// </summary>
+    public static readonly SymbolProperty<bool> Creatable = new(nameof(Creatable));
+    /// <summary>
     /// The value of the <c>VB_UserMemId</c> attribute of a <see cref="VBTypeMemberSymbol"/>
     /// </summary>
     public static readonly SymbolProperty<int> MemberId = new(nameof(MemberId));
