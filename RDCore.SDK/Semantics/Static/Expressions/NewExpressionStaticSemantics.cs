@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
 
 namespace RDCore.SDK.Semantics.Static.Expressions;
@@ -26,13 +27,6 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
     /// <param name="expression">The <see cref="NewExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">Unused — <c>TypeExpression</c> names a type, not a value.</param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="NewExpressionNode"/>.</exception>
-    /// <remarks>
-    /// 🎯 <strong>TODO</strong>: reports <see cref="VBObjectType"/> rather than the referenced class's
-    /// own <c>VBClassType</c> — that member-list-aware type isn't wired up from a
-    /// <see cref="VBClassModuleSymbol"/> anywhere yet. Fine for instantiation itself (RDCore.Runtime's
-    /// <c>NewExpressionRuntimeSemantics</c> resolves the class module symbol directly), but needed
-    /// before member access on a <c>New</c> expression's result can be type-checked.
-    /// </remarks>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not NewExpressionNode newExpression)
@@ -54,9 +48,9 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
                 $"'{simpleName.IdentifierName}' — {result.Candidates.Length} candidates: {string.Join(", ", result.Candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}"));
         }
 
-        if (result.Symbol is VBClassModuleSymbol)
+        if (result.Symbol is VBClassModuleSymbol classModule)
         {
-            return StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo);
+            return StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.Members));
         }
 
         // resolved to something that isn't a class (TypeMismatch), or didn't resolve at all

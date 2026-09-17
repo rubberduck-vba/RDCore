@@ -30,11 +30,20 @@ internal static class WorkspaceSymbolResolver
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
             var directives = new ModuleDirectives(Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false);
-            symbols.Add(moduleType == ModuleType.ClassModule
+            VBModuleSymbol module = moduleType == ModuleType.ClassModule
                 ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives }
-                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives });
+                : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
 
-            symbols.AddRange(new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols());
+            // members can't ride on the module symbol the way a Type's fields ride on it (built from
+            // one AST node's own children) - a module's members are separate top-level declarations,
+            // so they're only known once the member provider below has run.
+            var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols().ToList();
+
+            symbols.Add(module with
+            {
+                Members = [.. members.Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri).OfType<VBTypeMemberSymbol>()],
+            });
+            symbols.AddRange(members);
         }
 
         return new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols)), fallback);

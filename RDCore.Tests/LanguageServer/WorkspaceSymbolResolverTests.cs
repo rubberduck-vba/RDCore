@@ -25,6 +25,10 @@ public sealed class WorkspaceSymbolResolverTests
         => (ModuleUri(name), ModuleType.StdModule, new ModuleParser().Parse(
             new Uri($"file:///c:/ws/{name}.bas"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
 
+    private static (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) ClassModule(string name, string body)
+        => (ModuleUri(name), ModuleType.ClassModule, new ModuleParser().Parse(
+            new Uri($"file:///c:/ws/{name}.cls"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
+
     private static List<Symbol> Resolve(
         string moduleName, string moduleBody, params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] siblings)
     {
@@ -75,6 +79,54 @@ public sealed class WorkspaceSymbolResolverTests
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void AClassModulesOwnFieldsAndProcedures_AreCarriedOnItsSynthesizedModuleSymbol()
+        // a class's members can't ride on its module symbol the way a Type's fields ride on it (that
+        // falls out of one AST node's own children) - they're separate top-level declarations, only
+        // known once SyntaxTreeSymbolProvider has run. Proves Compose's second pass actually wires them
+        // up for real parsed source, not just hand-constructed symbols.
+    {
+        var target = ClassModule("Widget", "Public Total As Long\r\nPrivate Sub DoWork()\r\nEnd Sub\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.HasCount(2, module.Members);
+        Assert.IsTrue(module.Members.Any(member => member.Name == "Total"));
+        Assert.IsTrue(module.Members.Any(member => member.Name == "DoWork"));
+    }
+
+    [TestMethod]
+    public void AClassModulesMembers_ExcludeProcedureLocals()
+        // Members is the class's own API surface - a procedure's Dim locals parent to the procedure,
+        // not the module, and must not leak into it.
+    {
+        var target = ClassModule("Widget", "Private Sub DoWork()\r\n    Dim i As Long\r\nEnd Sub\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.HasCount(1, module.Members);
+        Assert.AreEqual("DoWork", module.Members[0].Name);
+    }
+
+    [TestMethod]
+    public void AStandardModulesOwnFields_AreAlsoCarriedOnItsSynthesizedModuleSymbol()
+        // Members lives on the shared VBModuleSymbol base - Compose's second pass treats every module
+        // kind uniformly, so a standard module gets the same treatment as a class module.
+    {
+        var target = Module("Globals", "Public Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBStandardModuleSymbol>(
+            resolver.Resolve("Globals", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.HasCount(1, module.Members);
+        Assert.AreEqual("Total", module.Members[0].Name);
     }
 
     [TestMethod]

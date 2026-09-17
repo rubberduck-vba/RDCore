@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -18,4 +19,14 @@ public abstract record class VBModuleSymbol(Uri WorkspaceRoot, Uri ParentUri, st
     /// The module-level directives this module was declared under.
     /// </summary>
     public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
+
+    /// <summary>
+    /// This module's direct members — fields, procedures, properties, and any module-level <c>Type</c>
+    /// or <c>Enum</c> declaration — in declaration order. Empty until a workspace-wide pass populates
+    /// it (<see cref="RDCore.SDK.Model.Types.Complex.IVBMemberOwnerType"/>'s same "carry it on the
+    /// symbol" pattern <c>VBUserDefinedTypeMemberSymbol.Members</c> uses, just a second pass here
+    /// instead of falling out of a single AST node's own children: a module's members are separate
+    /// top-level declarations, not nested inside the module's own declaration).
+    /// </summary>
+    public ImmutableArray<VBTypeMemberSymbol> Members { get; init; } = [];
 }

@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 
@@ -42,7 +43,7 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ResolvesToAClassModule_ReturnsVBObjectType()
+    public void ResolvesToAClassModule_ReturnsItsVBClassType()
     {
         var module = Module("Caller");
         var classModule = ClassModule("Collection1");
@@ -51,7 +52,26 @@ public sealed class NewExpressionStaticSemanticsTests
         var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
-        Assert.AreEqual(VBObjectType.TypeInfo, result.Result);
+        var classType = Assert.IsInstanceOfType<VBClassType>(result.Result);
+        Assert.AreEqual("Collection1", classType.Name);
+    }
+
+    [TestMethod]
+    public void ResolvesToAClassModule_CarriesItsMemberList()
+        // proves the class's Members - populated by WorkspaceSymbolResolver.Compose's second pass,
+        // not built here - flow straight through into the resulting VBClassType.
+    {
+        var module = Module("Caller");
+        var classModule = ClassModule("Collection1");
+        var field = Field(classModule.Uri, "Count", VBLongType.TypeInfo);
+        var populated = classModule with { Members = [field] };
+        var context = ContextAt(module.Uri, module, populated);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
+
+        var classType = Assert.IsInstanceOfType<VBClassType>(result.Result);
+        Assert.HasCount(1, classType.Members);
+        Assert.AreEqual("Count", classType.Members[0].Name);
     }
 
     [TestMethod]
