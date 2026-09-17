@@ -32,6 +32,20 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
     protected static IVerboseMessageBuilder Formatter() => Substitute.For<IVerboseMessageBuilder>();
 
     /// <summary>
+    /// A minimal fake session for tests exercising pure value-transformation operators that never
+    /// touch symbol resolution, object creation, or the call stack — Evaluate's signature needs a
+    /// non-null <see cref="IRuntimeSession"/>, but nothing exercised here actually calls into it
+    /// (Symbols.Resolver stays unconfigured/null, exactly as the bare resolver these tests used to
+    /// pass directly).
+    /// </summary>
+    protected static IRuntimeSession FakeSession()
+    {
+        var session = Substitute.For<IRuntimeSession>();
+        session.Symbols.Returns(Substitute.For<ISessionSymbols>());
+        return session;
+    }
+
+    /// <summary>
     /// A let-coercion provider stand-in for tests that don't exercise coercion itself: every operand
     /// passes through unchanged, except a <see cref="VBDateValue"/> source, which converts to its
     /// double serial value — the one conversion the arithmetic operators' own dispatch requires even
@@ -95,11 +109,11 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryArithmeticOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
-        => op.Evaluate(null!, new BinaryArithmeticOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
+        => op.Evaluate(FakeSession(), new BinaryArithmeticOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         UnaryArithmeticOperatorRuntimeSemantics op, VBTypedValue operand)
-        => op.Evaluate(null!, new UnaryArithmeticOperatorSemanticContext(), ThrowawayUnary, operand);
+        => op.Evaluate(FakeSession(), new UnaryArithmeticOperatorSemanticContext(), ThrowawayUnary, operand);
 
     /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
     protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(

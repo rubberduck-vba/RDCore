@@ -51,12 +51,17 @@ where TFlags : struct, Enum
     protected IVerboseMessageBuilder FormatterService { get; } = FormatterService;
 
     public sealed override ISemanticContextContributor<TContext, TFlags> Analyze(
-        ISymbolResolver resolver, 
-        ConversionOperationSemanticContext conversionContext, 
-        ISemanticFlagsAccumulator<TFlags> builder, 
-        SyntaxNode node, 
+        IRuntimeSession session,
+        ConversionOperationSemanticContext conversionContext,
+        ISemanticFlagsAccumulator<TFlags> builder,
+        SyntaxNode node,
         params VBTypedValue[] inputs)
-        => Analyze(resolver, conversionContext, builder, (VBOperatorExpression)node, inputs);
+        // NOTE: pre-existing bug found while widening this signature - this used to call itself
+        // recursively (its own argument shape didn't match the narrower 4-param Analyze(resolver,
+        // builder, expression, operands) overload below it was clearly meant to delegate to; it only
+        // compiled because both overloads' first parameter happened to be ISymbolResolver). Nothing
+        // calls this Analyze path yet (RDCore.Diagnostics isn't wired to it), so it was latent.
+        => Analyze(session.Symbols.Resolver, (ISemanticContextContributor<TContext, TFlags>)builder, (VBOperatorExpression)node, inputs);
 
     /// <summary>
     /// Analyzes the specified <c>VBOperatorExpression</c> node in the specified execution context, using the specified operands.
@@ -161,14 +166,14 @@ where TFlags : struct, Enum
     /// <param name="node">The <em>expression node</em> to be evaluated.</param>
     /// <param name="inputs">The inputs of the expression.</param>
     public sealed override RuntimeSemanticsEvaluationResult Evaluate(
-        ISymbolResolver resolver,
+        IRuntimeSession session,
         TContext context,
         SyntaxNode node,
         params VBTypedValue[] inputs)
     {
         var expression = (VBOperatorExpression)node;
         var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo);
-        return Evaluate(resolver, context, expression, frame);
+        return Evaluate(session.Symbols.Resolver, context, expression, frame);
     }
 
     /// <summary>

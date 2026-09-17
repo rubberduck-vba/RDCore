@@ -15,10 +15,10 @@ internal class TimedExecutionPipeline(IExecutionPipeline<ExecutionResultInfo> pi
     private readonly IExecutionPipeline<ExecutionResultInfo> _pipeline = pipeline;
 
     /// <inheritdoc/>
-    public TimedExecutionResultInfo Execute<TNode>(ISymbolResolver resolver, TNode expression) where TNode : ExpressionNode
+    public TimedExecutionResultInfo Execute<TNode>(IRuntimeSession session, TNode expression) where TNode : ExpressionNode
     {
         var stopwatch = Stopwatch.StartNew();
-        var result = _pipeline.Execute(resolver, expression);
+        var result = _pipeline.Execute(session, expression);
 
         stopwatch.Stop();
         return new(result.EvaluationResult, stopwatch.Elapsed);

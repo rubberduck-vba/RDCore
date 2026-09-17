@@ -12,11 +12,11 @@ public abstract record class StatementRuntimeSemantics<TContext, TFlags> : Runti
     where TFlags : struct, Enum
 {
     protected sealed override RuntimeSemanticsEvaluationResult EvaluateSemanticResult(
-        ISymbolResolver resolver,
+        IRuntimeSession session,
         TContext context,
         SyntaxNode node,
         VBType effectiveType,
-        params VBTypedValue[] inputs) => EvaluateSemanticResult(resolver, (StatementNode)node, inputs);
+        params VBTypedValue[] inputs) => EvaluateSemanticResult(session.Symbols.Resolver, (StatementNode)node, inputs);
 
     /// <summary>
     /// Evaluates the specified <c>expression</c> in the specified execution context, using the specified inputs 

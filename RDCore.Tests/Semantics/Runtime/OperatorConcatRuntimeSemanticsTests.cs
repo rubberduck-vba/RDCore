@@ -36,7 +36,7 @@ public abstract class OperatorConcatRuntimeSemanticsTests : OperatorArithmeticRu
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryConcatOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
-        => op.Evaluate(null!, new ConcatOperationSemanticContext(), ThrowawayBinary, lhs, rhs);
+        => op.Evaluate(FakeSession(), new ConcatOperationSemanticContext(), ThrowawayBinary, lhs, rhs);
 
     /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
     protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(

@@ -36,11 +36,11 @@ public abstract class OperatorLogicalRuntimeSemanticsTests : OperatorArithmeticR
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryLogicalOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
-        => op.Evaluate(null!, new BinaryLogicalOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
+        => op.Evaluate(FakeSession(), new BinaryLogicalOperatorSemanticContext(), ThrowawayBinary, lhs, rhs);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         UnaryLogicalOperatorRuntimeSemantics op, VBTypedValue operand)
-        => op.Evaluate(null!, new UnaryLogicalOperatorSemanticContext(), ThrowawayUnary, operand);
+        => op.Evaluate(FakeSession(), new UnaryLogicalOperatorSemanticContext(), ThrowawayUnary, operand);
 
     /// <summary>Runs step 1 of the operator pipeline: resolves the effective value type from operand value types.</summary>
     protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(

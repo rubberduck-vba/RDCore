@@ -10,7 +10,7 @@ namespace RDCore.Runtime.Execution;
 internal class ExecutionPipeline : IExecutionPipeline<ExecutionResultInfo>
 {
     /// <inheritdoc/>
-    public ExecutionResultInfo Execute<TNode>(ISymbolResolver resolver, TNode expression) where TNode : ExpressionNode
+    public ExecutionResultInfo Execute<TNode>(IRuntimeSession session, TNode expression) where TNode : ExpressionNode
     {
         // TODO get the appropriate runtime semantics for the specified node.
         return new ExecutionResultInfo(new(VBUnknownType.TypeInfo.DefaultValue, null));

@@ -14,9 +14,9 @@ public record class LiteralExpressionRuntimeSemantics : LiteralValueRuntimeSeman
     public static LiteralExpressionRuntimeSemantics Instance => _instance.Value;
 
     public override ISemanticFlagsAccumulator<ValueExpressionSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
-        ConversionOperationSemanticContext conversionContext, 
-        ISemanticFlagsAccumulator<ValueExpressionSemanticFlags> builder, 
-        SyntaxNode node, 
+        IRuntimeSession session,
+        ConversionOperationSemanticContext conversionContext,
+        ISemanticFlagsAccumulator<ValueExpressionSemanticFlags> builder,
+        SyntaxNode node,
         params VBTypedValue[] inputs) => builder;
 }

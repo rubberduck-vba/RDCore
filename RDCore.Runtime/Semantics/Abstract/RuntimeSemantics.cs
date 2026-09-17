@@ -32,10 +32,10 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// Returns its <c>builder</c> parameter.
     /// </returns>
     public abstract ISemanticFlagsAccumulator<TFlags> Analyze(
-        ISymbolResolver resolver, 
-        ConversionOperationSemanticContext conversionContext, 
-        ISemanticFlagsAccumulator<TFlags> builder, 
-        SyntaxNode node, 
+        IRuntimeSession session,
+        ConversionOperationSemanticContext conversionContext,
+        ISemanticFlagsAccumulator<TFlags> builder,
+        SyntaxNode node,
         params VBTypedValue[] inputs);
 
     /// <summary>
@@ -49,7 +49,7 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// <param name="node">The bound node to be evaluated.</param>
     /// <param name="inputs">The inputs of the bound node.</param>
     public abstract RuntimeSemanticsEvaluationResult Evaluate(
-        ISymbolResolver resolver,
+        IRuntimeSession session,
         TContext context,
         SyntaxNode node,
         params VBTypedValue[] inputs);
@@ -65,8 +65,8 @@ public abstract record class RuntimeSemantics<TContext, TFlags>() : IRuntimeSema
     /// <param name="node">The <em>bound node</em> to be evaluated.</param>
     /// <param name="effectiveType">The <em>effective type</em> of the operation.</param>
     /// <param name="inputs">The inputs of the expression.</param>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, TContext context, SyntaxNode node, VBType effectiveType, params VBTypedValue[] inputs)
-        => Evaluate(resolver, context, node, inputs);
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(IRuntimeSession session, TContext context, SyntaxNode node, VBType effectiveType, params VBTypedValue[] inputs)
+        => Evaluate(session, context, node, inputs);
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.

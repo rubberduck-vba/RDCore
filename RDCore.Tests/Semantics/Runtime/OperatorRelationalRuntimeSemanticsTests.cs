@@ -28,5 +28,5 @@ public abstract class OperatorRelationalRuntimeSemanticsTests : OperatorArithmet
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryRelationalOperatorRuntimeSemantics op, VBTypedValue lhs, VBTypedValue rhs)
-        => op.Evaluate(null!, new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(), ThrowawayBinary, lhs, rhs);
+        => op.Evaluate(FakeSession(), new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(), ThrowawayBinary, lhs, rhs);
 }

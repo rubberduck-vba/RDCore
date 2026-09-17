@@ -69,8 +69,8 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         => new(provider, Substitute.For<IVerboseMessageBuilder>());
 
     private static RuntimeSemanticsEvaluationResult Evaluate(
-        BinaryLetAssignmentOperatorRuntimeSemantics op, ISymbolResolver resolver, Symbol target, VBTypedValue source)
-        => op.Evaluate(resolver, new ConversionOperationSemanticContext(), ThrowawayBinary, new VBSymbolDescValue(target), source);
+        BinaryLetAssignmentOperatorRuntimeSemantics op, IRuntimeSession session, Symbol target, VBTypedValue source)
+        => op.Evaluate(session, new ConversionOperationSemanticContext(), ThrowawayBinary, new VBSymbolDescValue(target), source);
 
     [TestMethod]
     public void Evaluate_SameTypeSource_WritesTheValue_ReadableThroughTheResolver()
@@ -80,7 +80,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         var session = ComposeSession(module, field);
         var op = Sut(FakeCoercionProvider());
 
-        var result = Evaluate(op, session.Symbols.Resolver, field, new VBLongValue(5));
+        var result = Evaluate(op, session, field, new VBLongValue(5));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
         Assert.AreEqual(5, session.Symbols.Resolver.GetValue(field).Value.BoxedValue);
@@ -96,7 +96,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         var session = ComposeSession(module, field);
         var op = Sut(RealCoercionProvider());
 
-        var result = Evaluate(op, session.Symbols.Resolver, field, new VBDoubleValue(2.67));
+        var result = Evaluate(op, session, field, new VBDoubleValue(2.67));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
         var handle = session.Symbols.Resolver.GetValue(field);
@@ -112,7 +112,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         var op = Sut(RealCoercionProvider());
         var before = session.Symbols.Resolver.GetValue(field).Value.BoxedValue;
 
-        var result = Evaluate(op, session.Symbols.Resolver, field, new VBStringValue("not a number"));
+        var result = Evaluate(op, session, field, new VBStringValue("not a number"));
 
         Assert.IsNotNull(result.ErrorInfo);
         Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, result.ErrorInfo!.ErrorId);
@@ -132,7 +132,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         session.CallStack.TryPush(frame);
         var op = Sut(FakeCoercionProvider());
 
-        var result = Evaluate(op, session.Symbols.Resolver, local, new VBLongValue(42));
+        var result = Evaluate(op, session, local, new VBLongValue(42));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
         Assert.AreEqual(42, session.Symbols.Resolver.GetValue(local).Value.BoxedValue);
@@ -149,9 +149,13 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         var target = new VBConstantMemberSymbol(Root, Root, "Pi", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
         var resolver = Substitute.For<ISymbolResolver>();
         resolver.GetValue(target).Returns(new ConstantBindingHandle(VBLongType.TypeInfo.DefaultValue.RuntimeValue));
+        var symbols = Substitute.For<ISessionSymbols>();
+        symbols.Resolver.Returns(resolver);
+        var session = Substitute.For<IRuntimeSession>();
+        session.Symbols.Returns(symbols);
         var op = Sut(FakeCoercionProvider());
 
-        var result = Evaluate(op, resolver, target, new VBLongValue(1));
+        var result = Evaluate(op, session, target, new VBLongValue(1));
 
         Assert.IsNotNull(result.ErrorInfo);
         Assert.AreEqual((int)VBRuntimeErrorId.InternalError, result.ErrorInfo!.ErrorId);

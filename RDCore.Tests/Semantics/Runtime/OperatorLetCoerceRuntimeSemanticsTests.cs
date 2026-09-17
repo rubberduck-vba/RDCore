@@ -29,7 +29,7 @@ public abstract class OperatorLetCoerceRuntimeSemanticsTests : OperatorArithmeti
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryLetCoerceOperatorRuntimeSemantics op, VBTypedValue source, VBType targetType)
-        => op.Evaluate(null!, new ConversionOperationSemanticContext(), ThrowawayBinary, source, new VBTypeDescValue(targetType));
+        => op.Evaluate(FakeSession(), new ConversionOperationSemanticContext(), ThrowawayBinary, source, new VBTypeDescValue(targetType));
 
     /// <summary>Runs step 1 of the operator pipeline: resolves the effective type from the coercion target.</summary>
     protected static DetermineOperatorEffectiveTypeResult DetermineEffectiveType(
