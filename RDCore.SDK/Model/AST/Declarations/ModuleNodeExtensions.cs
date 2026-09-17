@@ -54,10 +54,9 @@ public static class ModuleNodeExtensions
     /// </summary>
     public static bool IsCreatable(this ModuleNode module)
     {
-        foreach (var child in module.Children)
+        foreach (var attribute in module.Children.OfType<AttributeDirectiveNode>())
         {
-            if (child is AttributeDirectiveNode { Binding: null } attribute
-                && string.Equals(attribute.Name, Tokens.VB_Creatable, StringComparison.OrdinalIgnoreCase))
+            if (attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Creatable, StringComparison.OrdinalIgnoreCase))
             {
                 return string.Equals(attribute.Value.Trim(), "True", StringComparison.OrdinalIgnoreCase);
             }

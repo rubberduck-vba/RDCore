@@ -62,14 +62,35 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ResolvesToAClassModule_CarriesItsMemberList()
-        // proves the class's Members - populated by WorkspaceSymbolResolver.Compose's second pass,
-        // not built here - flow straight through into the resulting VBClassType.
+    public void ResolvesToAClassModule_CarriesItsDefaultInterface()
+        // proves the class's DefaultInterfaceMembers - populated once by WorkspaceSymbolResolver.
+        // Compose's second pass, not built here - flow straight through into the resulting VBClassType.
     {
         var module = Module("Caller");
         var classModule = ClassModule("Collection1");
         var field = Field(classModule.Uri, "Count", VBLongType.TypeInfo);
-        var populated = classModule with { Members = [field] };
+        var populated = classModule with { Members = [field], DefaultInterfaceMembers = [field] };
+        var context = ContextAt(module.Uri, module, populated);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
+
+        var classType = Assert.IsInstanceOfType<VBClassType>(result.Result);
+        Assert.HasCount(1, classType.Members);
+        Assert.AreEqual("Count", classType.Members[0].Name);
+    }
+
+    [TestMethod]
+    public void DoesNotRecomputeTheDefaultInterfaceFromMembers()
+        // guards against re-introducing VBClassType.FromClassModule at resolution time: Members here
+        // holds only a field that Compose would have excluded from the default interface, yet
+        // DefaultInterfaceMembers (the precomputed value) is what must come back - proving this rule
+        // reads it directly rather than rebuilding it from Members on every New.
+    {
+        var module = Module("Caller");
+        var classModule = ClassModule("Collection1");
+        var excludedFromInterface = Field(classModule.Uri, "Internal", VBLongType.TypeInfo);
+        var precomputed = Field(classModule.Uri, "Count", VBLongType.TypeInfo);
+        var populated = classModule with { Members = [excludedFromInterface], DefaultInterfaceMembers = [precomputed] };
         var context = ContextAt(module.Uri, module, populated);
 
         var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));

@@ -57,14 +57,35 @@ public sealed class InstanceExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void CarriesTheEnclosingClasssMemberList()
-        // proves the class's Members - populated by WorkspaceSymbolResolver.Compose's second pass,
-        // not built here - flow straight through into the resulting VBClassType, same as New's own.
+    public void CarriesTheEnclosingClasssDefaultInterface()
+        // proves the class's DefaultInterfaceMembers - populated once by WorkspaceSymbolResolver.
+        // Compose's second pass, not built here - flow straight through into the resulting VBClassType,
+        // same as New's own.
     {
         var classModule = ClassModule("Widget");
         var procedure = Procedure(classModule.Uri, "DoWork", ScopeKind.Instance);
         var field = Field(classModule.Uri, "State");
-        var populated = classModule with { Members = [field] };
+        var populated = classModule with { Members = [field], DefaultInterfaceMembers = [field] };
+        var context = ContextAt(procedure.Uri, populated, procedure);
+
+        var result = InstanceExpressionStaticSemantics.Instance.DetermineDeclaredType(context, MeOf());
+
+        var classType = Assert.IsInstanceOfType<VBClassType>(result.Result);
+        Assert.HasCount(1, classType.Members);
+        Assert.AreEqual("State", classType.Members[0].Name);
+    }
+
+    [TestMethod]
+    public void DoesNotRecomputeTheDefaultInterfaceFromMembers()
+        // guards against re-introducing VBClassType.FromClassModule at resolution time: Members here
+        // holds a field that isn't part of DefaultInterfaceMembers (the precomputed value), which is
+        // what must come back - proving Me reads it directly rather than rebuilding it from Members.
+    {
+        var classModule = ClassModule("Widget");
+        var procedure = Procedure(classModule.Uri, "DoWork", ScopeKind.Instance);
+        var excludedFromInterface = Field(classModule.Uri, "Internal");
+        var precomputed = Field(classModule.Uri, "State");
+        var populated = classModule with { Members = [excludedFromInterface], DefaultInterfaceMembers = [precomputed] };
         var context = ContextAt(procedure.Uri, populated, procedure);
 
         var result = InstanceExpressionStaticSemantics.Instance.DetermineDeclaredType(context, MeOf());

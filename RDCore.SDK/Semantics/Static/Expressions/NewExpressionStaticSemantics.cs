@@ -59,7 +59,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         if (result.Symbol is VBClassModuleSymbol classModule)
         {
             return classModule.GetProperty(SymbolProperties.Creatable)
-                ? StaticSemanticsEvaluationResult.Success(VBClassType.FromClassModule(classModule))
+                ? StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.DefaultInterfaceMembers))
                 : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
                     $"'{typeName}' is not creatable (Attribute VB_Creatable = False)."));
         }

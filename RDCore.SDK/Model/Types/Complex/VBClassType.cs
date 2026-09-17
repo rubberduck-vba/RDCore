@@ -16,15 +16,22 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     : VBType(typeof(object), Symbol.Name, IsHidden), IVBMemberOwnerType
 {
     /// <summary>
-    /// Builds the class's own default interface — its <c>Public</c> (and implicitly-public) members
-    /// only, the surface visible to code outside the class. <c>Private</c>/<c>Friend</c> members are
-    /// reached, from inside the class's own code, through ordinary lexical name resolution, never
-    /// through a member-access expression typed against this class's own <c>VBClassType</c> — so they
-    /// don't belong in <see cref="Members"/> here, whether the reference is <c>Me</c> or any other
-    /// variable declared as this class.
+    /// Builds the class's own default interface — its <c>Public</c>, implicitly-public, and
+    /// <c>Friend</c> members, the surface visible to a member-access expression typed against this
+    /// class, whether the reference is <c>Me</c> or any other variable declared as this class.
+    /// <c>Friend</c> counts as visible here because RDCore only ever composes one project's modules
+    /// at a time (no referenced-project/library symbol provider exists yet) — anything resolving
+    /// against a given composition is, by construction, same-project code, and MS-VBAL's <c>Friend</c>
+    /// accessibility is visible project-wide, not just module-wide. <c>Private</c> members are reached,
+    /// from inside the class's own code, only through ordinary lexical name resolution — never through
+    /// member access — so they alone are excluded from <see cref="Members"/> here.
     /// </summary>
+    /// <remarks>
+    /// Called exactly once per class, by <c>WorkspaceSymbolResolver.Compose</c>, to populate
+    /// <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/> — not at resolution time.
+    /// </remarks>
     public static VBClassType FromClassModule(VBClassModuleSymbol classModule)
-        => new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit)]);
+        => new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)]);
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.

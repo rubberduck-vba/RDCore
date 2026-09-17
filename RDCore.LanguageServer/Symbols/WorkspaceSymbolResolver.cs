@@ -2,7 +2,9 @@
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -54,11 +56,19 @@ internal static class WorkspaceSymbolResolver
             // one AST node's own children) - a module's members are separate top-level declarations,
             // so they're only known once the member provider below has run.
             var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols().ToList();
+            ImmutableArray<VBTypeMemberSymbol> ownMembers =
+                [.. members.Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri).OfType<VBTypeMemberSymbol>()];
 
-            symbols.Add(module with
+            module = module with { Members = ownMembers };
+            if (module is VBClassModuleSymbol classModule)
             {
-                Members = [.. members.Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri).OfType<VBTypeMemberSymbol>()],
-            });
+                // the default interface is a pure function of Members, fixed the moment it's known -
+                // compute it here, once, so New/As-type/Me never rebuild it at resolution time (see
+                // VBClassType.FromClassModule's own remarks).
+                module = classModule with { DefaultInterfaceMembers = VBClassType.FromClassModule(classModule).Members };
+            }
+
+            symbols.Add(module);
             symbols.AddRange(members);
         }
 

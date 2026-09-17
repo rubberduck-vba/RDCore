@@ -10,8 +10,10 @@ namespace RDCore.Tests.Model.Types;
 
 /// <summary>
 /// Characterization matrix for <see cref="VBClassType.FromClassModule"/> — a class's own default
-/// interface is its <c>Public</c> (and implicitly-public) members only; <c>Private</c>/<c>Friend</c>
-/// members are never reached through a member-access expression typed against the class itself.
+/// interface is its <c>Public</c>, implicitly-public, and <c>Friend</c> members (RDCore only ever
+/// composes one project at a time, so <c>Friend</c> is visible to anything resolving against a given
+/// composition); only <c>Private</c> members are never reached through a member-access expression
+/// typed against the class itself.
 /// </summary>
 [TestClass]
 public sealed class VBClassTypeTests
@@ -25,7 +27,7 @@ public sealed class VBClassTypeTests
         => new(Root, moduleUri, name, R, R, VBLongType.TypeInfo, access);
 
     [TestMethod]
-    public void ExcludesPrivateAndFriendMembers()
+    public void ExcludesOnlyPrivateMembers()
     {
         var classModule = ClassModule();
         var populated = classModule with
@@ -41,9 +43,10 @@ public sealed class VBClassTypeTests
 
         var classType = VBClassType.FromClassModule(populated);
 
-        Assert.HasCount(2, classType.Members);
+        Assert.HasCount(3, classType.Members);
         Assert.IsTrue(classType.Members.Any(member => member.Name == "PublicField"));
         Assert.IsTrue(classType.Members.Any(member => member.Name == "ImplicitField"));
+        Assert.IsTrue(classType.Members.Any(member => member.Name == "FriendField"));
     }
 
     [TestMethod]
