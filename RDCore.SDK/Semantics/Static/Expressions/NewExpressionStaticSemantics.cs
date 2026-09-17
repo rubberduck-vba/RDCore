@@ -50,7 +50,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
 
         if (result.Symbol is VBClassModuleSymbol classModule)
         {
-            return StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.Members));
+            return StaticSemanticsEvaluationResult.Success(VBClassType.FromClassModule(classModule));
         }
 
         // resolved to something that isn't a class (TypeMismatch), or didn't resolve at all
