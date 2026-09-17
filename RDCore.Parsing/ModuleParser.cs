@@ -203,8 +203,14 @@ internal partial class ModuleParser(
         {
             parser.AddErrorListener(errorListener);
         }
-        parser.AddParseListener(listener);
-        parser.startRule();
+        // Pathological nesting recurses through `expression` to an uncatchable stack overflow. Walking
+        // the finished tree afterward is protected by DeclarationsParseTreeListener's own EnterEveryRule
+        // guard, but that only runs once startRule() has already returned — for input deep enough to
+        // overflow the parser's OWN recursive descent, that point is never reached at all, so a
+        // dedicated guard must run live, interleaved with the parse itself.
+        parser.AddParseListener(new StackDepthGuardListener());
+        var tree = parser.startRule();
+        ParseTreeWalker.Default.Walk(listener, tree);
         return listener;
     }
 
@@ -213,6 +219,17 @@ internal partial class ModuleParser(
 
     [GeneratedRegex(@"^(?![ \t]*#.*).*$", RegexOptions.Multiline)]
     private static partial Regex NoPrecompilerNodePattern();
+}
+
+// Registered via AddParseListener (fires live, interleaved with the parser's own recursive descent) —
+// not walked later like DeclarationsParseTreeListener. Deliberately has no AST-building side effects
+// of its own: its only job is to fail fast, during parsing itself, before pathological nesting can
+// exhaust the stack past the point of no return. See ParseOnce's remarks for why a walk-time-only
+// guard can't substitute for this.
+internal sealed class StackDepthGuardListener : VBAParserBaseListener
+{
+    public override void EnterEveryRule([NotNull] ParserRuleContext context)
+        => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
 }
 
 // collects both ANTLR grammar-mismatch errors and the token-semantic errors a declaration listener

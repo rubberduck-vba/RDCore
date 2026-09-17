@@ -35,17 +35,17 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
     public SyntaxNode? LastChild => _children.Count == 0 ? null : _children.Last();
     public IEnumerable<SyntaxNode> GetChildren => _children.AsEnumerable();
 
-    // for a left-recursive grammar rule (the `expression`/`lExpression` family), AddParseListener
-    // fires Exit *before* Enter on an operator alternative — the opposite of a normal rule — so an
-    // Enter/Exit push/pop pair can't scope an operator's operands (see ModuleParser's ParseOnce
-    // remarks). An operator's own operands are, at Exit time, *usually* exactly the last `count`
-    // nodes already added to whatever builder is currently active — but ANTLR error recovery can
-    // leave fewer than that (a truncated `a = 1 +`, an unclosed `Foo x:=`), so both accessors below
-    // clamp to what's actually there instead of indexing past it. `PeekLastChildren` lets a caller
-    // check the *shape* it got (right count, right node types) before committing to `PopLastChildren`
-    // — recovering gracefully, rather than only avoiding a crash, needs that: popping first and
-    // discarding a malformed result would still destroy whatever legitimately parsed content was
-    // sitting there.
+    // For a left-recursive grammar rule (the `expression`/`lExpression` family) an Enter/Exit push/pop
+    // pair can't scope an operator's operands under ANTLR's own `AddParseListener` (Exit fires *before*
+    // Enter on an operator alternative there — the opposite of a normal rule); `DeclarationsParseTreeListener`
+    // instead reclaims them at Exit time, and that discipline stays even now that `ModuleParser` walks a
+    // finished tree instead, because of the OTHER thing it was always needed for: ANTLR error recovery
+    // can leave fewer operands than expected (a truncated `a = 1 +`, an unclosed `Foo x:=`), so both
+    // accessors below clamp to what's actually there instead of indexing past it. `PeekLastChildren`
+    // lets a caller check the *shape* it got (right count, right node types) before committing to
+    // `PopLastChildren` — recovering gracefully, rather than only avoiding a crash, needs that: popping
+    // first and discarding a malformed result would still destroy whatever legitimately parsed content
+    // was sitting there.
     public ImmutableArray<SyntaxNode> PeekLastChildren(int count)
     {
         var actualCount = Math.Min(count, _children.Count);
