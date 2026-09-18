@@ -19,24 +19,30 @@ namespace RDCore.SDK.Platform.Protocol;
 public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelope>
 {
     /// <summary>
-    /// The <c>Uri</c> of the document to parse.
-    /// </summary>
-    public Uri? DocumentUri { get; init; } = default;
-    /// <summary>
-    /// The fragment of source code to parse.
+    /// The <c>Uri</c> identifying the document to parse.
     /// </summary>
     /// <remarks>
-    /// An <c>AnchorOffset</c> should also be specified.
+    /// This identifies the document (for error locations and module identity) but does not by itself
+    /// supply source text — the parser does not read from the filesystem. A document with no backing
+    /// file (e.g. an unsaved <c>untitled:</c> buffer) still has a <c>DocumentUri</c>; only <see cref="Fragment"/>
+    /// need be a real, saved file's content.
+    /// </remarks>
+    public Uri? DocumentUri { get; init; } = default;
+    /// <summary>
+    /// The source code to parse, verbatim, as currently held by the caller (which may differ from
+    /// what is saved to disk, or may have no on-disk counterpart at all).
+    /// </summary>
+    /// <remarks>
+    /// A full document is simply a fragment anchored at <see cref="SourcePosition.Zero"/> (<c>L0C0</c>),
+    /// the default for <see cref="AnchorOffset"/>. A non-zero anchor identifies a sub-range fragment of
+    /// a larger document.
     /// </remarks>
     public string? Fragment { get; init; } = default;
     /// <summary>
-    /// The position of the fragment in the source document.
+    /// The position of <see cref="Fragment"/> within the larger source document.
     /// </summary>
     /// <remarks>
-    /// <list type="bullet">
-    /// <item>This property is ignored if a <c>DocumentUri</c> is specified.</item>
-    /// <item>Anchor offset is <c>L0C0</c> unless specified otherwise.</item>
-    /// </list>
+    /// Anchor offset is <c>L0C0</c> (a full-document parse) unless specified otherwise.
     /// </remarks>
     public SourcePosition AnchorOffset { get; init; } = SourcePosition.Zero;
 }
