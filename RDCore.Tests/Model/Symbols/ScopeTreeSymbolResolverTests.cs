@@ -401,6 +401,60 @@ public sealed class ScopeTreeSymbolResolverTests
         => Assert.IsTrue(Resolver(Module("Mod1")).ResolveType("Nope", ScopeKind.Unallocated, Module("Mod1").Uri).IsUnbound);
 
     [TestMethod]
+    public void ResolveValue_AModuleName_BeatsAnotherModulesPublicMemberOfTheSameName()
+        // MS-VBAL 5.6.10: the project and its procedural modules (tier 3) come before another procedural
+        // module's members (tier 4).
+    {
+        var shape = Module("Shape");
+        var other = Module("Other");
+        var member = Procedure(other.Uri, "Shape", AccessModifier.Public);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+
+        var result = Resolver(shape, other, member, caller, run).ResolveValue("Shape", ScopeKind.Unallocated, run.Uri);
+
+        Assert.AreSame(shape, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_TheProject_BeatsAnotherModulesPublicMemberOfTheSameName()
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var other = Module("Other");
+        var constant = new VBConstantMemberSymbol(Root, other.Uri, "MyProject", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Public);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+
+        var result = Resolver(project, other, constant, caller, run).ResolveValue("MyProject", ScopeKind.Unallocated, run.Uri);
+
+        Assert.AreSame(project, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_AModulesOwnMember_BeatsTheModuleNamedLikeIt()
+        // the enclosing module (tier 2) precedes the project's modules (tier 3).
+    {
+        var shape = Module("Shape");
+        var constant = Const(shape.Uri, "Shape");
+        var run = Procedure(shape.Uri, "Run");
+
+        Assert.AreSame(constant, Resolver(shape, constant, run).ResolveValue("Shape", ScopeKind.Unallocated, run.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_TheProjectAndAModuleOfTheSameName_IsAnAmbiguousName()
+        // both are matches in the same tier (5.6.10: 2 or more matches remaining in the selected tier is invalid).
+    {
+        var project = new VBProjectSymbol(Root, "Shape");
+        var shape = Module("Shape");
+        var caller = Module("Caller");
+
+        var result = Resolver(project, shape, caller).ResolveValue("Shape", ScopeKind.Unallocated, caller.Uri);
+
+        Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorId);
+    }
+
+    [TestMethod]
     public void GetValue_Throws_ItBindsNamesOnly()
         => Assert.ThrowsExactly<NotSupportedException>(
             () => Resolver(Module("Mod1")).GetValue(GlobalSymbols.UnresolvedSymbol));

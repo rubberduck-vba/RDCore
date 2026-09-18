@@ -32,16 +32,38 @@ namespace RDCore.SDK.Model.Symbols;
 public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolver
 {
     /// <summary>
-    /// Resolves <paramref name="name"/> in the default binding context, walking outward from the scope
-    /// the symbol at <paramref name="handle"/> belongs to. A user-defined type is not a candidate
-    /// (<strong>MS-VBAL §5.6.10</strong>). <paramref name="scope"/> is not consulted — the lookup order
-    /// is the tree's.
+    /// Resolves <paramref name="name"/> in the default binding context, as seen from the scope the
+    /// symbol at <paramref name="handle"/> belongs to. The tiers, in order of precedence
+    /// (<strong>MS-VBAL §5.6.10</strong>): the enclosing procedure; the enclosing module; the enclosing
+    /// project itself, or a procedural module in it; an accessible member of another procedural module of
+    /// the project; then whatever else the global scope declares. A user-defined type is not a candidate
+    /// in any tier. <paramref name="scope"/> is not consulted.
     /// </summary>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
     {
-        foreach (var lexicalScope in scopeTree.ScopeFor(handle).SelfAndAncestors())
+        var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+
+        // the procedure and the enclosing module: the tree's own order, innermost first.
+        foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
             if (SelectTier(lexicalScope, lexicalScope.DeclaredAs(name).Where(IsValueDeclaration)) is { } result)
+            {
+                return result;
+            }
+        }
+
+        var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+        var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
+        (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
+        [
+            (global, IsProjectOrProceduralModule),
+            (project, IsValueDeclaration),
+            (global, symbol => IsValueDeclaration(symbol) && !IsProjectOrProceduralModule(symbol)),
+        ];
+
+        foreach (var (tier, isCandidate) in tiers)
+        {
+            if (tier is not null && SelectTier(tier, tier.DeclaredAs(name).Where(isCandidate)) is { } result)
             {
                 return result;
             }
@@ -109,6 +131,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // MS-VBAL §5.6.10 lists no user-defined type among the default binding context's candidates.
     private static bool IsValueDeclaration(Symbol symbol) => symbol is not VBUserDefinedTypeMemberSymbol;
+
+    private static bool IsProjectOrProceduralModule(Symbol symbol) => symbol is VBProjectSymbol or VBStandardModuleSymbol;
 
     private static bool IsTypeDeclaration(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
 
