@@ -222,6 +222,9 @@
   <data name="VBCompileError_LetCoercionTypeMismatch_Verbose" xml:space="preserve">
     <value>La coercion implicite (let-coercion) est statiquement invalide pour les intrants spécifiés pour cette expression.</value>
   </data>
+  <data name="VBCompileError_SetCoercionTypeMismatch_Verbose" xml:space="preserve">
+    <value>La coercion Set (set-coercion) est statiquement invalide pour les intrants spécifiés pour cette expression.</value>
+  </data>
   <data name="InvalidExtension_Message" xml:space="preserve">
     <value>L'extension '{$NAME}' n'a pas été enregistrée.</value>
   </data>

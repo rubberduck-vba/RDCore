@@ -42,8 +42,8 @@ public sealed class StatementStaticSemanticsEvaluatorTests
     private static MemberAccessExpressionNode WithRelativeMemberOf(string memberName)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [2]), TestLocations.TestLocation, null, NameOf(memberName));
 
-    private static AssignmentStatementNode AssignOf(ExpressionNode target, ExpressionNode value)
-        => new(new(TestUri.TestModuleUri().AbsolutePath, [3]), TestLocations.TestLocation, AssignmentKind.ImplicitLet, target, value);
+    private static AssignmentStatementNode AssignOf(ExpressionNode target, ExpressionNode value, AssignmentKind kind = AssignmentKind.ImplicitLet)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [3]), TestLocations.TestLocation, kind, target, value);
 
     private static WithStatementNode WithOf(ExpressionNode targetExpression, params StatementNode[] body)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [4]), TestLocations.TestLocation, targetExpression, new StatementBlock([.. body]));
@@ -186,6 +186,86 @@ public sealed class StatementStaticSemanticsEvaluatorTests
         var context = ContextAt(module.Uri, module);
 
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, Block());
+
+        CollectionAssert.AreEqual(Array.Empty<VBCompileErrorInfo>(), errors);
+    }
+
+    [TestMethod]
+    public void SetAssignment_BothSidesObjectish_Succeeds()
+        // MS-VBAL 5.5.2.1's static table only checks "is either side object-ish" - not same-class
+        // compatibility (that's a runtime concern, 5.5.2.2.1) - so two unrelated classes are fine here.
+    {
+        var module = Module("Caller");
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var gadget = ModuleField(module.Uri, "gadget", new VBClassType(ClassModule("Gadget"), []));
+        var context = ContextAt(module.Uri, module with { Members = [widget, gadget] }, widget, gadget);
+
+        var block = Block(AssignOf(NameOf("widget"), NameOf("gadget"), AssignmentKind.Set));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        CollectionAssert.AreEqual(Array.Empty<VBCompileErrorInfo>(), errors);
+    }
+
+    [TestMethod]
+    public void SetAssignment_NonObjectTarget_IsATypeMismatchError()
+    {
+        var module = Module("Caller");
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var context = ContextAt(module.Uri, module with { Members = [n, widget] }, n, widget);
+
+        var block = Block(AssignOf(NameOf("n"), NameOf("widget"), AssignmentKind.Set));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void SetAssignment_NonObjectValue_IsATypeMismatchError()
+    {
+        var module = Module("Caller");
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [widget, n] }, widget, n);
+
+        var block = Block(AssignOf(NameOf("widget"), NameOf("n"), AssignmentKind.Set));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void LetAssignment_IncompatibleSource_IsATypeMismatchError()
+        // proves Let-coercion is really being checked now (not just permissive by default): a
+        // non-Variant intrinsic source into a class destination is invalid per MS-VBAL 5.5.1.1.
+    {
+        var module = Module("Caller");
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [widget, n] }, widget, n);
+
+        var block = Block(AssignOf(NameOf("widget"), NameOf("n"), AssignmentKind.ImplicitLet));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void LSetAssignment_SkipsCoercionChecking()
+        // LSet/RSet (MS-VBAL 5.4.3.6/5.4.3.7) have their own distinct, not-yet-modeled static semantics
+        // - neither Let- nor Set-coercion applies, so even a combination that would fail either must be
+        // deferred rather than flagged.
+    {
+        var module = Module("Caller");
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var context = ContextAt(module.Uri, module with { Members = [n, widget] }, n, widget);
+
+        var block = Block(AssignOf(NameOf("n"), NameOf("widget"), AssignmentKind.LSet));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         CollectionAssert.AreEqual(Array.Empty<VBCompileErrorInfo>(), errors);
     }

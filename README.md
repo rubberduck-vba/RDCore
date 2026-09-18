@@ -57,10 +57,10 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 |---|---|
 | Static type system, runtime type model | ✅ |
 | Symbol resolution — lexical scope tree, shadowing, ambiguity (RD-VBAL §2.3.1.2) | ✅ |
-| Static semantics — operators, let-coercions | ✅ |
+| Static semantics — operators, let-coercions, Set-coercion | ✅ |
 | Static semantics — per-node rules (simple names, member access, `New`, `Me`, literals, index expressions, dictionary access, `TypeOf...Is`) | ✅ each rule complete and unit-tested in isolation |
 | Static semantics — tree evaluator (recursive dispatch across a real expression, incl. operator-token dispatch) | ✅ covers member-access/index/dictionary-access chains, operators, `New`, and `TypeOf...Is`; `With`-relative access (`.Member`, `!Member`) now resolves too, via a statement-tree walker (below) that threads the innermost enclosing `With` block's target type in; nothing in production calls either evaluator yet |
-| Static semantics — statement-tree walker (recurses `If`/`Do`/`For`/`Select Case`/`With` blocks, threading `With` target types into their bodies) | ✅ collects every compile error found across a whole statement tree rather than short-circuiting on the first, unlike the expression evaluator; nothing in production calls it yet |
+| Static semantics — statement-tree walker (recurses `If`/`Do`/`For`/`Select Case`/`With` blocks, threading `With` target types into their bodies, checking `Let`/`Set` assignment coercion validity) | ✅ collects every compile error found across a whole statement tree rather than short-circuiting on the first, unlike the expression evaluator; `LSet`/`RSet` (their own distinct, not-yet-modeled semantics) are deferred; nothing in production calls it yet |
 | Hosts, transport, connection lifecycle, platform-root | ✅ |
 | Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
 

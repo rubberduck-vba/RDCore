@@ -8,17 +8,20 @@ namespace RDCore.SDK.Semantics.Static;
 
 /// <summary>
 /// Recursively walks a real, arbitrarily-nested statement tree, evaluating every expression it
-/// contains via <see cref="ExpressionStaticSemanticsEvaluator"/> and threading the innermost
-/// enclosing <c>With</c> block's target type (<strong>MS-VBAL §5.6.15</strong>) through its body.
+/// contains via <see cref="ExpressionStaticSemanticsEvaluator"/>, threading the innermost enclosing
+/// <c>With</c> block's target type (<strong>MS-VBAL §5.6.15</strong>) through its body, and checking
+/// <c>Let</c>/<c>Set</c> assignment coercion validity between an assignment's <c>Target</c> and
+/// <c>Value</c>.
 /// </summary>
 /// <remarks>
 /// This is the statement-tree analogue of <see cref="ExpressionStaticSemanticsEvaluator"/>: nothing
 /// previously walked a <see cref="StatementBlock"/>'s nested blocks (<c>If</c>/<c>Do</c>/<c>For</c>/
 /// <c>Select Case</c>/<c>With</c>, ...) at all, so a <c>With</c> block's target type never had
 /// anywhere to flow from — <see cref="ExpressionStaticSemanticsEvaluator"/> could only ever defer a
-/// with-relative access. Unlike an expression tree, a statement tree's individual statements are
-/// largely independent of one another, so this collects every error found across the whole tree
-/// rather than short-circuiting on the first one the way the expression evaluator does.
+/// with-relative access, and an assignment's own coercion validity was never checked at all. Unlike an
+/// expression tree, a statement tree's individual statements are largely independent of one another,
+/// so this collects every error found across the whole tree rather than short-circuiting on the first
+/// one the way the expression evaluator does.
 /// </remarks>
 public static class StatementStaticSemanticsEvaluator
 {
@@ -63,6 +66,23 @@ public static class StatementStaticSemanticsEvaluator
 
             var bodyContext = targetResult.IsSuccess ? context with { EnclosingWithTargetType = targetResult.Result } : context;
             EvaluateBlock(bodyContext, withStatement.Body, errors);
+            return;
+        }
+
+        // AssignmentStatementNode needs both Target's and Value's declared types kept around (not just
+        // their error status) to run the coercion rule matching its Kind - the generic Inputs pass below
+        // only ever checks IsError, so this is handled separately rather than folded into it.
+        if (statement is AssignmentStatementNode assignment)
+        {
+            var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
+            CollectError(targetResult, errors);
+            var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
+            CollectError(valueResult, errors);
+
+            if (targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
+            {
+                CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), errors);
+            }
             return;
         }
 
@@ -146,6 +166,17 @@ public static class StatementStaticSemanticsEvaluator
                 break;
         }
     }
+
+    // LSet/RSet (MS-VBAL 5.4.3.6/5.4.3.7) have their own distinct static semantics - neither Let- nor
+    // Set-coercion - which aren't modeled yet (a real, accepted gap; see FixedString let-coercion in
+    // the runtime layer for the same kind of deliberate deferral). Falls through to null, deferred by
+    // the caller like any other unmapped case.
+    private static IStaticSemantics? ResolveCoercionRule(AssignmentKind kind) => kind switch
+    {
+        AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet => LetCoercionStaticSemantics.Instance,
+        AssignmentKind.Set => SetCoercionStaticSemantics.Instance,
+        _ => null,
+    };
 
     private static void CollectError(StaticSemanticsEvaluationResult result, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {

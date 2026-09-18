@@ -383,7 +383,16 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_LetCoercionTypeMismatch_Verbose", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Set-coercion is statically invalid for the specified inputs of this expression..
+        /// </summary>
+        public static string VBCompileError_SetCoercionTypeMismatch_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_SetCoercionTypeMismatch_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Method or data member not found.
         /// </summary>
