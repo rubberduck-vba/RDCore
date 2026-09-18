@@ -180,6 +180,12 @@
   <data name="LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>Source value is outside the standard error code range (0 and 65535, inclusive) representable by the let-coercion destination data type.</value>
   </data>
+  <data name="SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
+    <value>The source object's class does not match, and is not implemented by, the destination's declared class.</value>
+  </data>
+  <data name="SetCoercionRuntimeErrorExceptionObjectRequired_Verbose" xml:space="preserve">
+    <value>The source value is not an object reference, and an object is required for Set-coercion to this destination.</value>
+  </data>
   <data name="VBExponentOp_InvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>The result of a negative exponent value cannot be represented with base 0.</value>
   </data>

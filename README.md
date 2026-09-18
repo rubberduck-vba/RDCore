@@ -100,7 +100,8 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 |---|---|
 | Runtime semantics — operators | ✅ |
 | Runtime semantics — let-coercions | 🚧 |
-| Runtime semantics — set-coercions, statements | 🎯 |
+| Runtime semantics — Set-coercion (MS-VBAL §5.5.2.2) | 🚧 Nothing-passthrough and the class-compatibility check are implemented; the latter only matches an exact same-class today, since nothing yet populates `VBClassType.Supertypes` from real `Implements` clauses; nothing in production calls it yet |
+| Runtime semantics — statements | 🎯 `With` statement's own semantics (target → anonymous variable, MS-VBAL §5.4.2.21) landed for a class-valued target; no statement-tree interpreter exists yet for any statement kind, so nothing drives this from real execution |
 | Standard library (`IStd*`) | 🎯 |
 | Interpreter · IR lowering | 🎯 planned |
 

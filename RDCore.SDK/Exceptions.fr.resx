@@ -180,6 +180,12 @@
   <data name="LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>La valeur source est à l'extérieur de la plage de codes d'erreur standards (0 et 65535, inclusivement) représentable par le type de destination de cette coercion.</value>
   </data>
+  <data name="SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
+    <value>La classe de l'objet source ne correspond pas à la classe déclarée de la destination, et n'est pas implémentée par celle-ci.</value>
+  </data>
+  <data name="SetCoercionRuntimeErrorExceptionObjectRequired_Verbose" xml:space="preserve">
+    <value>La valeur source n'est pas une référence d'objet, et un objet est requis pour la coercion Set (set-coercion) vers cette destination.</value>
+  </data>
   <data name="VBExponentOp_InvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>Le résultat d'un exposant négatif ne peut être représenté avec une base à 0.</value>
   </data>

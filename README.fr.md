@@ -99,7 +99,8 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 |---|---|
 | Sémantiques _runtime_ — opérateurs | ✅ |
 | Sémantiques _runtime_ — _let-coercions_ | 🚧 |
-| Sémantiques _runtime_ — _set-coercions_, _statements_ | 🎯 |
+| Sémantiques _runtime_ — _Set-coercion_ (MS-VBAL §5.5.2.2) | 🚧 le passage de `Nothing` et la vérification de compatibilité de classe sont implémentés; cette dernière ne détecte qu'une correspondance de classe exacte pour l'instant, rien ne peuplant encore `VBClassType.Supertypes` à partir des clauses `Implements` réelles; rien en production ne l'appelle encore |
+| Sémantiques _runtime_ — _statements_ | 🎯 les sémantiques propres au `With` (cible → variable anonyme, MS-VBAL §5.4.2.21) sont en place pour une cible de type classe; aucun interpréteur d'arbre d'instructions n'existe encore pour quelque type d'instruction que ce soit, donc rien n'invoque ceci depuis une exécution réelle |
 | Librairie standard (`IStd*`) | 🎯 |
 | Interpréteur · _IR lowering_ | 🎯 prévu |
 
