@@ -4,3 +4,5 @@
   href: vbc00001.md
 - name: VBC00042 — Numeric literal overflow
   href: vbc00042.md
+- name: VBC09309 — Label not defined
+  href: vbc09309.md

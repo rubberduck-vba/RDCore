@@ -31,6 +31,12 @@ token, which literal, which type — travel in the diagnostic's verbose detail, 
 |[VBC00001](vbc00001.md)|Syntax error — a token the grammar cannot place|
 |[VBC00042](vbc00042.md)|Numeric literal overflow — a literal outside the range of its type|
 
+### Semantic compilation errors
+
+|Code|Condition|
+|---|---|
+|[VBC09309](vbc09309.md)|Label not defined — a jump names a line label or line number the procedure does not define|
+
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)
 

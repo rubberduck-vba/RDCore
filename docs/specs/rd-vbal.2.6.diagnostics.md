@@ -110,7 +110,11 @@ mismatch in a constant expression.
 |Detail|the offending symbol / expression, on `Diagnostic.data`|
 
 Emitted once the resolver and static semantic pass are online; the provider projects them through the
-same `ICoreDiagnosticsFactory` as syntax errors.
+same `ICoreDiagnosticsFactory` as syntax errors. Published so far:
+
+|Code|Condition|
+|---|---|
+|[`VBC09309`](../diagnostics/vbc09309.html)|a jump names a line label or line number the procedure does not define|
 
 ---
 ## 2.6.3 Runtime Errors
