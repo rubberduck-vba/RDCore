@@ -30,7 +30,15 @@ internal interface ISyntaxNodeProvider : IParseTreeListener
 /// </summary>
 public interface IModuleParser
 {
-    ModuleParseResult Parse(Uri uri, string content);
+    /// <summary>
+    /// Parses <paramref name="content"/> as a module.
+    /// </summary>
+    /// <param name="anchorOffset">
+    /// Where <paramref name="content"/> sits within a larger document. Every reported location (AST node
+    /// ranges and syntax errors alike) is offset by this position, so a non-zero anchor is how a fragment
+    /// of a larger document reports positions in that document's coordinates rather than its own.
+    /// </param>
+    ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default);
 }
 
 /// <param name="serverOptions">Supplies <see cref="SdkServerOptions.WireErrorDetail"/>; optional, the default suits tests.</param>
@@ -42,9 +50,9 @@ internal partial class ModuleParser(
     private readonly ILogger<ModuleParser> _logger = logger ?? NullLogger<ModuleParser>.Instance;
     private readonly SourcePathScrubMode _scrub = serverOptions?.Value.WireErrorDetail ?? SourcePathScrubMode.RepoRelative;
 
-    public ModuleParseResult Parse(Uri uri, string content)
+    public ModuleParseResult Parse(Uri uri, string content, SourcePosition anchorOffset = default)
     {
-        var errorListener = new ErrorListener(uri);
+        var errorListener = new ErrorListener(uri, anchorOffset);
         var precompilerTrivia = ImmutableArray<SyntaxNode>.Empty;
         DeclarationsParseTreeListener? declarations = null;
 
@@ -54,14 +62,14 @@ internal partial class ModuleParser(
             if (string.IsNullOrWhiteSpace(content))
             {
                 // an empty module is valid VBA, not a parse failure.
-                return ModuleParseResult.Success(EmptyModule(uri));
+                return ModuleParseResult.Success(EmptyModule(uri, anchorOffset));
             }
 
-            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)]);
-            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), precompilerTrivia);
+            precompilerTrivia = ParsePrecompilerNodes(content, errorListener, [new PrecompilerDirectiveListener(uri, errorListener)], anchorOffset);
+            var node = new ModuleNode(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), precompilerTrivia);
 
             var sanitized = PrecompilerNodePattern().Replace(content, match => new string(' ', match.Length));
-            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener));
+            var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
 
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
@@ -94,15 +102,15 @@ internal partial class ModuleParser(
                 SyntaxTree = salvaged,
                 PrecompilerTrivia = precompilerTrivia,
                 SyntaxErrors = errorListener.Errors.IsEmpty
-                    ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, SourceRange.Empty),
+                    ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                         SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]
                     : errorListener.Errors,
             };
         }
     }
 
-    private static ModuleNode EmptyModule(Uri uri)
-        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, SourceRange.Empty), []);
+    private static ModuleNode EmptyModule(Uri uri, SourcePosition anchorOffset)
+        => new(new SyntaxNodeId(uri.AbsolutePath, []), new(uri, new SourceRange(anchorOffset, anchorOffset)), []);
 
     // ANTLR's input stream and the precompiler-line regexes (RegexOptions.Multiline) only treat \n as
     // a line boundary, and a leading BOM would land in column 0 of the first token. Fold every line
@@ -127,7 +135,7 @@ internal partial class ModuleParser(
             .Replace('\u2029', '\n');
     }
 
-    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners)
+    private ImmutableArray<SyntaxNode> ParsePrecompilerNodes(string source, ErrorListener errorListener, ISyntaxNodeProvider[] listeners, SourcePosition anchorOffset)
     {
         // ignore everything that is NOT a precompiler node,
         // because grammar matches everything as a ccBlock otherwise.
@@ -146,6 +154,7 @@ internal partial class ModuleParser(
             // parse to a tree, then walk it: AddParseListener fires Exit before Enter<Op> on a
             // left-recursive ccExpression (`#If A And B`), desyncing the builder stack. A walk doesn't.
             var tree = parser.compilationUnit();
+            AnchorTree(tree, anchorOffset);
             foreach (var listener in listeners)
             {
                 ParseTreeWalker.Default.Walk(listener, tree);
@@ -165,12 +174,12 @@ internal partial class ModuleParser(
     /// recovery — which would desynchronize a stateful parse listener), then LL with default recovery
     /// on a <em>fresh</em> listener if SLL failed.
     /// </summary>
-    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory)
+    private TListener ParseWithFallback<TListener>(string content, ErrorListener errorListener, Func<TListener> listenerFactory, SourcePosition anchorOffset)
         where TListener : IParseTreeListener
     {
         try
         {
-            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory());
+            return ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, listenerFactory(), anchorOffset);
         }
         catch (Exception exception)
         {
@@ -183,11 +192,11 @@ internal partial class ModuleParser(
                 // a routine SLL bail needs no trace; anything else does, even though LL will retry.
                 _logger.LogDebug(exception, "SLL parse pass raised {type}; retrying on LL.", exception.GetType().Name);
             }
-            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory());
+            return ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, listenerFactory(), anchorOffset);
         }
     }
 
-    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener)
+    private static TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, TListener listener, SourcePosition anchorOffset)
         where TListener : IParseTreeListener
     {
         var stream = new AntlrInputStream(content);
@@ -210,8 +219,22 @@ internal partial class ModuleParser(
         // dedicated guard must run live, interleaved with the parse itself.
         parser.AddParseListener(new StackDepthGuardListener());
         var tree = parser.startRule();
+        AnchorTree(tree, anchorOffset);
         ParseTreeWalker.Default.Walk(listener, tree);
         return listener;
+    }
+
+    // every VBABaseParserRuleContext in a freshly-built tree is constructed anchored at L0C0 (ANTLR's
+    // generated grammar code only ever calls the zero-anchoring constructors — see
+    // VBABaseParserRuleContext). Re-anchoring the whole tree here, before anything reads SourceRange
+    // from it, is what lets a fragment report positions in the larger document it was extracted from.
+    private static void AnchorTree(IParseTree tree, SourcePosition anchorOffset)
+    {
+        if (anchorOffset == SourcePosition.Zero)
+        {
+            return;
+        }
+        ParseTreeWalker.Default.Walk(new AnchorOffsetListener(anchorOffset), tree);
     }
 
     [GeneratedRegex(@"^[ \t]*#.*$", RegexOptions.Multiline)]
@@ -232,9 +255,28 @@ internal sealed class StackDepthGuardListener : VBAParserBaseListener
         => System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
 }
 
+// grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):
+// EnterEveryRule fires for every rule context regardless of which parser produced the tree, so the same
+// listener anchors both the precompiler tree (VBAConditionalCompilationParser) and the main declarations
+// tree (VBAParser).
+internal sealed class AnchorOffsetListener(SourcePosition anchorOffset) : IParseTreeListener
+{
+    public void EnterEveryRule(ParserRuleContext context)
+    {
+        if (context is VBABaseParserRuleContext anchored)
+        {
+            anchored.AnchorAt(anchorOffset);
+        }
+    }
+
+    public void ExitEveryRule(ParserRuleContext context) { }
+    public void VisitTerminal(ITerminalNode node) { }
+    public void VisitErrorNode(IErrorNode node) { }
+}
+
 // collects both ANTLR grammar-mismatch errors and the token-semantic errors a declaration listener
 // raises (e.g. a numeric literal overflow), so ModuleParseResult.SyntaxErrors carries either origin.
-internal class ErrorListener(Uri uri) : IAntlrErrorListener<IToken>
+internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrErrorListener<IToken>
 {
     private readonly Uri _uri = uri;
     private readonly List<VBSyntaxErrorInfo> _errors = [];
@@ -243,8 +285,11 @@ internal class ErrorListener(Uri uri) : IAntlrErrorListener<IToken>
     public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
     {
         // ANTLR's line is 1-based; SourcePosition is documented zero-based (charPositionInLine already
-        // is), matching the same -1 conversion VBABaseParserRuleContext applies to node locations.
-        var location = new SourceLocation(_uri, new(line - 1, charPositionInLine, line - 1, charPositionInLine));
+        // is), matching the same -1 conversion VBABaseParserRuleContext applies to node locations. Also
+        // anchored, same as node locations, so a fragment's syntax errors land at an absolute position
+        // in the larger document rather than one local to the fragment.
+        var position = anchorOffset + new SourcePosition(line - 1, charPositionInLine);
+        var location = new SourceLocation(_uri, new(position, position));
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
 

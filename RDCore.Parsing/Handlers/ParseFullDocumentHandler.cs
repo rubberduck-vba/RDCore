@@ -33,7 +33,7 @@ public class ParseFullDocumentHandler(
         logger.LogInformation("📥 {method}: {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
         try
         {
-            var result = moduleParser.Parse(uri, content);
+            var result = moduleParser.Parse(uri, content, request.AnchorOffset);
             logger.LogInformation("📤 {uri}: {status}", uri,
                 result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
 
