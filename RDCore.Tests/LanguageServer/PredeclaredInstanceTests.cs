@@ -103,10 +103,28 @@ public sealed class PredeclaredInstanceTests
     }
 
     [TestMethod]
-    public void TheDefaultInstance_CanBeTheTargetOfASetAssignment()
-        // `Set Widget = New Widget`: an assignment to the predeclared variable is accepted (the benchmark's
-        // `Set Interface = New Interface` needs it). MS-VBAL 5.2.4.1.2 would call it invalid; it is not enforced.
-        => Assert.IsEmpty(Walk(["Set Widget = New Widget"], Widget("Attribute VB_PredeclaredId = True\r\n")));
+    [DataRow("Set Widget = New Widget")]
+    [DataRow("Set Widget = Nothing")]
+    public void TheDefaultInstance_IsInvalidAsTheTargetOfASetAssignment(string statement)
+        // MS-VBAL 5.2.4.1.2: "It is invalid for this named variable to be the target of a Set assignment" - whatever
+        // is assigned to it, Nothing included.
+    {
+        var errors = Walk([statement], Widget("Attribute VB_PredeclaredId = True\r\n"));
+
+        Assert.HasCount(1, errors);
+        Assert.AreEqual(VBCompileErrorId.InvalidUseOfObject, errors[0].VBCompileErrorId);
+        StringAssert.Contains(errors[0].Verbose, "Widget");
+    }
+
+    [TestMethod]
+    public void AMemberAssignmentThroughTheDefaultInstance_IsNotASetOfIt()
+        // the rule is about the variable being the target; `Widget.Size = 3` assigns a member of the object it holds.
+        => Assert.IsEmpty(Walk(["Widget.Size = 3"], Widget("Attribute VB_PredeclaredId = True\r\n")));
+
+    [TestMethod]
+    public void ASetToALocalNamedLikeAPredeclaredClass_IsNotASetOfTheDefaultInstance()
+        // the local hides the default instance (5.6.10's procedure namespace comes first), so it is the target.
+        => Assert.IsEmpty(Walk(["Dim Widget As Widget", "Set Widget = New Widget"], Widget("Attribute VB_PredeclaredId = True\r\n")));
 
     [TestMethod]
     public void ALocalNamedLikeAPredeclaredClass_HidesItsDefaultInstance()

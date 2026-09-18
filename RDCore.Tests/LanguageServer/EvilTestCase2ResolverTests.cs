@@ -445,16 +445,22 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void Class_SetInterfaceEqualsNewInterface_AssignsThePredeclaredInstance()
+    public void Class_SetInterfaceEqualsNewInterface_IsASetToTheDefaultInstance()
         // `Interface` is a name in the default binding context only through its predeclared instance
-        // (MS-VBAL 5.2.4.1.2, VB_PredeclaredId = True): a variable of type Interface, so this is an ordinary Set.
+        // (VB_PredeclaredId = True): a variable of type Interface, so it types as an ordinary Set - but the name is
+        // the default instance variable, and MS-VBAL 5.2.4.1.2 makes it invalid for that to be the target of a Set.
+        // This is the sample's only Set whose target is a predeclared class name.
     {
         var (context, block) = BodyOf(ClassParse, "Interface_MyProject", MemberKind.PropertyGet);
 
         CollectionAssert.AreEqual(
             new[] { "Interface = New Interface  ->  Interface := Interface" },
             TypedTrace(context, block));
-        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
+
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.HasCount(1, errors);
+        Assert.AreEqual(VBCompileErrorId.InvalidUseOfObject, errors[0].VBCompileErrorId);
     }
 
     [TestMethod]

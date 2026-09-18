@@ -158,9 +158,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = ImplicitOrDeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
-        return new VBModuleFieldVariableMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
+        return AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier), AsTypeOf(node));
     }
+
+    // MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it declares - or,
+    // for an array, each of its dependent variables - an automatic instantiation variable.
+    private static Symbol AutoInstantiatedIfDeclaredAsNew(Symbol variable, AsTypeExpressionNode? asType)
+        => asType is { AsAutoObject: true } ? variable.With(SymbolProperties.AutoInstantiated, true) : variable;
 
     public Symbol BuildConstant(ConstantDeclarationNode node)
     {
@@ -175,8 +180,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), typeHint: null, userDefinedTypeUri);
-        return new VBUserDefinedTypeFieldSymbol(
-            workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier);
+        return AutoInstantiatedIfDeclaredAsNew(new VBUserDefinedTypeFieldSymbol(
+            workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier), AsTypeOf(node));
     }
 
     // includeMe is opt-in per caller: a procedure/function/property body has a Me in scope
@@ -465,9 +470,9 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var asType = AsTypeOf(node);
         var elementType = ArrayElementType(asType, node.TypeHint, procedureUri);
         var type = VariableType(elementType, asType, node.Children.OfType<ArrayBoundsNode>().FirstOrDefault());
-        return new VBLocalVariableSymbol(
+        return AutoInstantiatedIfDeclaredAsNew(new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
-            IsStatic: node.IsStatic, ResolvedType: type);
+            IsStatic: node.IsStatic, ResolvedType: type), asType);
     }
 
     public Symbol BuildLocalConstant(ConstantDeclarationNode node, Uri procedureUri)
