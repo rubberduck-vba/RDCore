@@ -28,7 +28,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// Resolves <paramref name="name"/> as seen from the scope the symbol at <paramref name="handle"/>
     /// belongs to. <paramref name="scope"/> is not consulted — the lookup order is the tree's.
     /// </summary>
-    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle)
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
     {
         foreach (var lexicalScope in scopeTree.ScopeFor(handle).SelfAndAncestors())
         {

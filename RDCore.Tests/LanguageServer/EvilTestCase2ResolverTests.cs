@@ -68,15 +68,15 @@ public sealed class EvilTestCase2ResolverTests
         return (resolver, moduleUri, procUri);
     }
 
-    private static SymbolResolutionResult Resolve(string name, Uri from)
-        => Compose().Resolver.Resolve(name, ScopeKind.Unallocated, from);
+    private static SymbolResolutionResult ResolveValue(string name, Uri from)
+        => Compose().Resolver.ResolveValue(name, ScopeKind.Unallocated, from);
 
     [TestMethod]
     public void FromMyProc1_MyProject_BindsTheLocal_NotTheModuleConstOrType()
     {
         var (resolver, _, procUri) = Compose();
 
-        var result = resolver.Resolve("MyProject", ScopeKind.Unallocated, procUri);
+        var result = resolver.ResolveValue("MyProject", ScopeKind.Unallocated, procUri);
 
         var local = Assert.IsInstanceOfType<VBLocalVariableSymbol>(result.Symbol);
         Assert.AreEqual(procUri, local.ParentUri);
@@ -87,7 +87,7 @@ public sealed class EvilTestCase2ResolverTests
     {
         var (resolver, moduleUri, _) = Compose();
 
-        var result = resolver.Resolve("MyProject", ScopeKind.Unallocated, moduleUri);
+        var result = resolver.ResolveValue("MyProject", ScopeKind.Unallocated, moduleUri);
 
         Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
         CollectionAssert.AreEquivalent(
@@ -98,22 +98,22 @@ public sealed class EvilTestCase2ResolverTests
     [TestMethod]
     public void FromModuleScope_MyProc_IsADuplicateDeclaration_FieldAndType()
         => Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration,
-            Resolve("MyProc", Compose().ModuleUri).ErrorId);
+            ResolveValue("MyProc", Compose().ModuleUri).ErrorId);
 
     [TestMethod]
     public void FromModuleScope_MyModule_IsADuplicateDeclaration_ConstAndType()
         => Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration,
-            Resolve("MyModule", Compose().ModuleUri).ErrorId);
+            ResolveValue("MyModule", Compose().ModuleUri).ErrorId);
 
     [TestMethod]
     public void FromModuleScope_MyConst_ResolvesUnambiguously()
         => Assert.IsInstanceOfType<VBConstantMemberSymbol>(
-            Resolve("MyConst", Compose().ModuleUri).Symbol);
+            ResolveValue("MyConst", Compose().ModuleUri).Symbol);
 
     [TestMethod]
     public void FromGlobalScope_MyModule_ResolvesToTheModuleSymbol()
         => Assert.IsInstanceOfType<VBStandardModuleSymbol>(
-            Resolve("MyModule", GlobalSymbols.UnresolvedSymbol.Uri).Symbol);
+            ResolveValue("MyModule", GlobalSymbols.UnresolvedSymbol.Uri).Symbol);
 
     [TestMethod]
     [Ignore("Needs statement-node AST (parser §P): With-nesting, Set member access, Implements overlap.")]

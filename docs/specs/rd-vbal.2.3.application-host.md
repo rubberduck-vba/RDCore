@@ -33,7 +33,7 @@ the workspace's `References` (see below), and three services:
 |Service|Responsibility|
 |---|---|
 |`ISessionMemoryAllocator`|Allocates and frees blocks in the session's memory space and reports allocation / fragmentation statistics (`TryAllocate`, `TryDeallocate`, `Info`). This is an _accounting_ layer — it tracks sizes and addresses, MSVBVM-style, not the values themselves.|
-|`ISessionSymbols`|The session's symbol table: `TryDefine` a `Symbol` in a scope, and `TryResolve` a name visible from a scope.|
+|`ISessionSymbols`|The session's symbol table: `TryDefine` a `Symbol` in a scope, and `TryResolveValue` a name visible from a scope.|
 |`ISessionObjects`|Object lifetime: `CreateObject`, `AddRef` / `RemoveRef`, and `TryRemoveObject` for an instance whose reference count has reached zero.|
 
 `IRuntimeSession.References` is the workspace's project and library references as an ordered
@@ -50,11 +50,11 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 
 |Member|Description|
 |---|---|
-|`Resolve`|Resolves a specified _identifier name_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
+|`ResolveValue`|Resolves a specified _identifier name_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
-`Resolve` returns a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
+`ResolveValue` returns a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
 declared nowhere visible), or one of two compile-time errors with the colliding declarations
 attached: **VBC09303** _Duplicate declaration_ when the name is declared more than once within one
 module or procedure, and **VBC09301** _Ambiguous name_ when it resolves in more than one enclosing
@@ -133,14 +133,14 @@ A module's `LexicalScope` also carries its [ModuleDirectives](../api/RDCore.SDK.
 `EnclosingModuleDirectives()`. The static-semantics layer consumes this to decide whether an
 _unresolved_ simple name (below) is a deferred `VBUnknownType` or a **VBC09302** _Variable not
 defined_ compile-time error; see **§5.0.1.1** for how a `SimpleNameExpression`'s declared type is
-determined from a `Resolve` outcome.
+determined from a `ResolveValue` outcome.
 
 > [!NOTE]
 > Still to come: ordering referenced projects and libraries by their `.rdproj` reference priority
 > within the global scope (the ordering is already carried on `IRuntimeSession.References`; nothing
 > consults it yet). Reporting an ambiguous or duplicate name as a coded compile-time error is done —
 > `SimpleNameExpressionStaticSemantics` (**§5.0.1.1**) is the first static-semantics rule to consume
-> `Resolve`'s error outcomes.
+> `ResolveValue`'s error outcomes.
 
 
 ---

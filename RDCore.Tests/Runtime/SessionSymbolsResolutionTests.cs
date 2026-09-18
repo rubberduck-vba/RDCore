@@ -57,7 +57,7 @@ public sealed class SessionSymbolsResolutionTests
     {
         var symbols = Compose(Module("Mod1"));
 
-        Assert.IsTrue(symbols.TryResolve("Mod1", GlobalScope, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("Mod1", GlobalScope, out var resolved));
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(resolved);
     }
 
@@ -68,7 +68,7 @@ public sealed class SessionSymbolsResolutionTests
         var field = Field(module.Uri, "Total");
         var symbols = Compose(module, field);
 
-        Assert.IsTrue(symbols.TryResolve("Total", module, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("Total", module, out var resolved));
         Assert.AreSame(field, resolved);
     }
 
@@ -81,7 +81,7 @@ public sealed class SessionSymbolsResolutionTests
         var procedure = Procedure(module.Uri, "DoWork", parameter);
         var symbols = Compose(module, procedure);
 
-        Assert.IsTrue(symbols.TryResolve("value", procedure, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("value", procedure, out var resolved));
         Assert.AreSame(parameter, resolved);
     }
 
@@ -94,10 +94,10 @@ public sealed class SessionSymbolsResolutionTests
         var local = Local(procedure.Uri, "State");
         var symbols = Compose(module, procedure, field, local);
 
-        Assert.IsTrue(symbols.TryResolve("State", procedure, out var fromProcedure));
+        Assert.IsTrue(symbols.TryResolveValue("State", procedure, out var fromProcedure));
         Assert.AreSame(local, fromProcedure, "the procedure-local shadows the module field");
 
-        Assert.IsTrue(symbols.TryResolve("State", module, out var fromModule));
+        Assert.IsTrue(symbols.TryResolveValue("State", module, out var fromModule));
         Assert.AreSame(field, fromModule, "the field is still what resolves at module scope");
     }
 
@@ -109,7 +109,7 @@ public sealed class SessionSymbolsResolutionTests
         var buffer = Local(procedure.Uri, "buffer", LocalDeclarationKind.ReDim);
         var symbols = Compose(module, procedure, buffer);
 
-        Assert.IsTrue(symbols.TryResolve("buffer", procedure, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("buffer", procedure, out var resolved));
         Assert.AreSame(buffer, resolved);
     }
 
@@ -122,7 +122,7 @@ public sealed class SessionSymbolsResolutionTests
         var procedure = Procedure(module.Uri, "Value");
         var symbols = Compose(module, field, procedure);
 
-        Assert.IsFalse(symbols.TryResolve("Value", module, out var resolved));
+        Assert.IsFalse(symbols.TryResolveValue("Value", module, out var resolved));
         Assert.IsNull(resolved);
     }
 
@@ -135,7 +135,7 @@ public sealed class SessionSymbolsResolutionTests
         var run = Procedure(caller.Uri, "Run");
         var symbols = Compose(library, api, caller, run);
 
-        Assert.IsTrue(symbols.TryResolve("Compute", run, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("Compute", run, out var resolved));
         Assert.AreSame(api, resolved);
     }
 
@@ -147,7 +147,7 @@ public sealed class SessionSymbolsResolutionTests
         var caller = Module("Caller");
         var symbols = Compose(library, cache, caller);
 
-        Assert.IsFalse(symbols.TryResolve("Cache", caller, out var resolved));
+        Assert.IsFalse(symbols.TryResolveValue("Cache", caller, out var resolved));
         Assert.IsNull(resolved);
     }
 
@@ -161,7 +161,7 @@ public sealed class SessionSymbolsResolutionTests
         var local = Local(run.Uri, "Value");
         var symbols = Compose(library, api, caller, run, local);
 
-        Assert.IsTrue(symbols.TryResolve("Value", run, out var resolved));
+        Assert.IsTrue(symbols.TryResolveValue("Value", run, out var resolved));
         Assert.AreSame(local, resolved);
     }
 
@@ -170,7 +170,7 @@ public sealed class SessionSymbolsResolutionTests
     {
         var symbols = Compose(Module("Mod1"));
 
-        Assert.IsFalse(symbols.TryResolve("Nope", GlobalScope, out var resolved));
+        Assert.IsFalse(symbols.TryResolveValue("Nope", GlobalScope, out var resolved));
         Assert.IsNull(resolved);
     }
 
@@ -181,6 +181,6 @@ public sealed class SessionSymbolsResolutionTests
         var api = Procedure(module.Uri, "Run", AccessModifier.Public);
         var symbols = Compose(module, api);
 
-        Assert.AreSame(api, symbols.Resolver.Resolve("Run", ScopeKind.Unallocated, module.Uri).Symbol);
+        Assert.AreSame(api, symbols.Resolver.ResolveValue("Run", ScopeKind.Unallocated, module.Uri).Symbol);
     }
 }

@@ -30,7 +30,7 @@ public sealed class VBProjectSymbolTests
     {
         var resolver = Substitute.For<ISymbolResolver>();
         var field = Field("Total");
-        resolver.Resolve("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
         var result = VBProjectSymbol.ResolveQualified(resolver, qualifier: null, "Total", Root);
 
@@ -43,8 +43,8 @@ public sealed class VBProjectSymbolTests
         var project = new VBProjectSymbol(Root, "MyProject");
         var field = Field("Total");
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve("MyProject", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.Resolve("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+        resolver.ResolveValue("MyProject", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
         var result = VBProjectSymbol.ResolveQualified(resolver, "MyProject", "Total", Root);
 
@@ -57,8 +57,8 @@ public sealed class VBProjectSymbolTests
         // "Foo" as if it were a bare, unqualified name.
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
-        resolver.Resolve("Foo", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Foo")));
+        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
+        resolver.ResolveValue("Foo", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Foo")));
 
         var result = VBProjectSymbol.ResolveQualified(resolver, "Total", "Foo", Root);
 
@@ -69,7 +69,7 @@ public sealed class VBProjectSymbolTests
     public void QualifierDoesNotResolveAtAll_StaysUnbound()
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
+        resolver.ResolveValue("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
 
         var result = VBProjectSymbol.ResolveQualified(resolver, "Unknown", "ClassName", Root);
 

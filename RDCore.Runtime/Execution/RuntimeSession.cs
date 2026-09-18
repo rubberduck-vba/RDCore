@@ -151,9 +151,9 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
     public ISymbolResolver Resolver => Bindings;
 
-    public bool TryResolve(string name, Symbol scope, out Symbol? symbol)
+    public bool TryResolveValue(string name, Symbol scope, out Symbol? symbol)
     {
-        symbol = Resolver.Resolve(name, ScopeKind.Unallocated, scope.Uri).Symbol;
+        symbol = Resolver.ResolveValue(name, ScopeKind.Unallocated, scope.Uri).Symbol;
         return symbol is not null;
     }
 
@@ -206,8 +206,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     /// </summary>
     private sealed class LiveScopeResolver(SessionSymbols owner) : ISymbolResolver
     {
-        public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).Resolve(name, scope, handle);
+        public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
+            => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).ResolveValue(name, scope, handle);
 
         public IBindingHandle GetValue(Symbol symbol)
             => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");

@@ -24,7 +24,7 @@ public interface ISymbolResolver
     /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
     /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
     /// </returns>
-    SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle);
+    SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle);
 
     /// <summary>
     /// Gets the <see cref="IBindingHandle"/> currently associated with the specified <see cref="Symbol"/>.

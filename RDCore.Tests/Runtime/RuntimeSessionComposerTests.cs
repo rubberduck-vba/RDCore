@@ -52,10 +52,10 @@ public sealed class RuntimeSessionComposerTests
 
         var session = Compose(is64Bit: true, project);
 
-        Assert.IsTrue(session.Symbols.TryResolve("Win64", GlobalScope, out var win64));
+        Assert.IsTrue(session.Symbols.TryResolveValue("Win64", GlobalScope, out var win64));
         Assert.AreEqual((short)-1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
 
-        Assert.IsTrue(session.Symbols.TryResolve("RDDEBUG", GlobalScope, out var rdDebug));
+        Assert.IsTrue(session.Symbols.TryResolveValue("RDDEBUG", GlobalScope, out var rdDebug));
         Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)rdDebug!).Value).Value);
     }
 
@@ -67,7 +67,7 @@ public sealed class RuntimeSessionComposerTests
 
         var session = Compose(is64Bit: true, project, defines);
 
-        Assert.IsTrue(session.Symbols.TryResolve("RDDEBUG", GlobalScope, out var rdDebug));
+        Assert.IsTrue(session.Symbols.TryResolveValue("RDDEBUG", GlobalScope, out var rdDebug));
         Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)rdDebug!).Value).Value);
     }
 
@@ -81,7 +81,7 @@ public sealed class RuntimeSessionComposerTests
 
         var session = Compose(is64Bit: true, project);
 
-        Assert.IsTrue(session.Symbols.TryResolve("MyModule", GlobalScope, out var module));
+        Assert.IsTrue(session.Symbols.TryResolveValue("MyModule", GlobalScope, out var module));
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(module);
     }
 
@@ -103,7 +103,7 @@ public sealed class RuntimeSessionComposerTests
         var session = RuntimeSessionComposer.Compose(
             environment, new ProjectSymbolProvider(new Uri(root), project, fs));
 
-        Assert.IsTrue(session.Symbols.TryResolve("RealName", GlobalScope, out _), "should resolve under the VB_Name");
-        Assert.IsFalse(session.Symbols.TryResolve("File1", GlobalScope, out _), "should not resolve under the file name");
+        Assert.IsTrue(session.Symbols.TryResolveValue("RealName", GlobalScope, out _), "should resolve under the VB_Name");
+        Assert.IsFalse(session.Symbols.TryResolveValue("File1", GlobalScope, out _), "should not resolve under the file name");
     }
 }

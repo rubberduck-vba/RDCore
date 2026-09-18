@@ -19,8 +19,8 @@ public sealed class CompositeSymbolResolverTests
     private static ISymbolResolver Resolving(string name, SymbolResolutionResult result)
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(SymbolResolutionResult.Unbound);
-        resolver.Resolve(name, Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(result);
+        resolver.ResolveValue(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(SymbolResolutionResult.Unbound);
+        resolver.ResolveValue(name, Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(result);
         return resolver;
     }
 
@@ -31,7 +31,7 @@ public sealed class CompositeSymbolResolverTests
             Resolving("x", SymbolResolutionResult.Resolved(ASymbol)),
             Resolving("x", SymbolResolutionResult.Resolved(BSymbol)));
 
-        Assert.AreSame(ASymbol, composite.Resolve("x", ScopeKind.Global, Handle).Symbol);
+        Assert.AreSame(ASymbol, composite.ResolveValue("x", ScopeKind.Global, Handle).Symbol);
     }
 
     [TestMethod]
@@ -41,7 +41,7 @@ public sealed class CompositeSymbolResolverTests
             Substitute.For<ISymbolResolver>(), // returns default(SymbolResolutionResult) == Unbound
             Resolving("x", SymbolResolutionResult.Resolved(BSymbol)));
 
-        Assert.AreSame(BSymbol, composite.Resolve("x", ScopeKind.Global, Handle).Symbol);
+        Assert.AreSame(BSymbol, composite.ResolveValue("x", ScopeKind.Global, Handle).Symbol);
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public sealed class CompositeSymbolResolverTests
             Resolving("x", SymbolResolutionResult.Ambiguous([ASymbol, BSymbol])),
             Resolving("x", SymbolResolutionResult.Resolved(BSymbol)));
 
-        var result = composite.Resolve("x", ScopeKind.Global, Handle);
+        var result = composite.ResolveValue("x", ScopeKind.Global, Handle);
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorId);
@@ -60,7 +60,7 @@ public sealed class CompositeSymbolResolverTests
     [TestMethod]
     public void Resolve_IsUnbound_WhenEveryResolverIsUnbound()
         => Assert.IsTrue(new CompositeSymbolResolver(Substitute.For<ISymbolResolver>(), Substitute.For<ISymbolResolver>())
-            .Resolve("nope", ScopeKind.Global, Handle).IsUnbound);
+            .ResolveValue("nope", ScopeKind.Global, Handle).IsUnbound);
 
     [TestMethod]
     public void GetValue_Throws()

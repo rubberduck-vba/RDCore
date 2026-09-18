@@ -34,7 +34,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             throw new ArgumentException($"Expected a {nameof(SimpleNameExpressionNode)}.", nameof(expression));
         }
 
-        var result = context.Resolver.Resolve(simpleName.IdentifierName, ScopeKind.Local, context.Scope.Uri);
+        var result = context.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope.Uri);
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(GetResolutionErrorInfo(expression, simpleName.IdentifierName, result.ErrorId!.Value, result.Candidates));

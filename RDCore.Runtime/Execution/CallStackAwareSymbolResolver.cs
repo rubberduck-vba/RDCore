@@ -12,7 +12,7 @@ namespace RDCore.Runtime.Execution;
 /// (<strong>RD-VBAL §2.3.1.2</strong>'s lookup order): a locally-scoped symbol's value is read from the
 /// current <see cref="ICallStack"/> frame when one is active and declares it, falling back to
 /// <paramref name="inner"/> (the session-wide module/global bindings) otherwise. Name resolution
-/// (<see cref="Resolve"/>) is untouched — a local already resolves first through the scope tree a
+/// (<see cref="ResolveValue"/>) is untouched — a local already resolves first through the scope tree a
 /// procedure's <see cref="LexicalScope"/> walk naturally visits before its enclosing module.
 /// </summary>
 /// <remarks>
@@ -25,7 +25,7 @@ namespace RDCore.Runtime.Execution;
 public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolResolver inner) : ISymbolResolver
 {
     /// <inheritdoc/>
-    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle) => inner.Resolve(name, scope, handle);
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle) => inner.ResolveValue(name, scope, handle);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)

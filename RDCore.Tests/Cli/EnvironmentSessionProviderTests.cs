@@ -44,13 +44,13 @@ public sealed class EnvironmentSessionProviderTests
         Assert.IsTrue(sut.IsComposed);
         Assert.AreSame(session, sut.Session);
 
-        Assert.IsTrue(session.Symbols.TryResolve("MyModule", GlobalScope, out var module));
+        Assert.IsTrue(session.Symbols.TryResolveValue("MyModule", GlobalScope, out var module));
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(module);
 
-        Assert.IsTrue(session.Symbols.TryResolve("RDDEBUG", GlobalScope, out var rdDebug));
+        Assert.IsTrue(session.Symbols.TryResolveValue("RDDEBUG", GlobalScope, out var rdDebug));
         Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)rdDebug!).Value).Value);
 
-        Assert.IsTrue(session.Symbols.TryResolve("Win64", GlobalScope, out var win64));
+        Assert.IsTrue(session.Symbols.TryResolveValue("Win64", GlobalScope, out var win64));
         Assert.AreEqual((short)-1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
     }
 
@@ -67,9 +67,9 @@ public sealed class EnvironmentSessionProviderTests
 
         var session = NewProvider(fs).Compose(project, new Uri(root));
 
-        Assert.IsTrue(session.Symbols.TryResolve("Renamed", GlobalScope, out var module), "resolves under VB_Name");
+        Assert.IsTrue(session.Symbols.TryResolveValue("Renamed", GlobalScope, out var module), "resolves under VB_Name");
         Assert.IsInstanceOfType<VBStandardModuleSymbol>(module);
-        Assert.IsFalse(session.Symbols.TryResolve("oldName", GlobalScope, out _), "not under the file name");
+        Assert.IsFalse(session.Symbols.TryResolveValue("oldName", GlobalScope, out _), "not under the file name");
     }
 
     [TestMethod]
@@ -84,7 +84,7 @@ public sealed class EnvironmentSessionProviderTests
 
         var session = NewProvider(fs).Compose(project, new Uri(root));
 
-        Assert.IsTrue(session.Symbols.TryResolve("Helpers", GlobalScope, out _));
+        Assert.IsTrue(session.Symbols.TryResolveValue("Helpers", GlobalScope, out _));
     }
 
     [TestMethod]

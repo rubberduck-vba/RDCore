@@ -46,7 +46,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var procedure = Procedure(module.Uri, "DoWork");
         var local = Local(procedure.Uri, "temp");
 
-        var result = Resolver(module, procedure, local).Resolve("temp", ScopeKind.Unallocated, procedure.Uri);
+        var result = Resolver(module, procedure, local).ResolveValue("temp", ScopeKind.Unallocated, procedure.Uri);
 
         Assert.IsTrue(result.IsResolved);
         Assert.AreSame(local, result.Symbol);
@@ -60,7 +60,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var caller = Module("Caller");
         var run = Procedure(caller.Uri, "Run");
 
-        var result = Resolver(library, api, caller, run).Resolve("Compute", ScopeKind.Unallocated, run.Uri);
+        var result = Resolver(library, api, caller, run).ResolveValue("Compute", ScopeKind.Unallocated, run.Uri);
 
         Assert.AreSame(api, result.Symbol);
     }
@@ -74,8 +74,8 @@ public sealed class ScopeTreeSymbolResolverTests
         var field = Field(module.Uri, "State");
         var resolver = Resolver(module, procedure, local, field);
 
-        Assert.AreSame(local, resolver.Resolve("State", ScopeKind.Unallocated, procedure.Uri).Symbol);
-        Assert.AreSame(field, resolver.Resolve("State", ScopeKind.Unallocated, module.Uri).Symbol);
+        Assert.AreSame(local, resolver.ResolveValue("State", ScopeKind.Unallocated, procedure.Uri).Symbol);
+        Assert.AreSame(field, resolver.ResolveValue("State", ScopeKind.Unallocated, module.Uri).Symbol);
     }
 
     [TestMethod]
@@ -85,7 +85,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var field = Field(module.Uri, "Value");
         var procedure = Procedure(module.Uri, "Value");
 
-        var result = Resolver(module, field, procedure).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+        var result = Resolver(module, field, procedure).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
@@ -102,7 +102,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var get = PropertyGet(module.Uri, "Value");
         var let = PropertyLet(module.Uri, "Value");
 
-        var result = Resolver(module, get, let).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
 
         Assert.IsTrue(result.IsResolved);
         Assert.AreSame(get, result.Symbol);
@@ -116,7 +116,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var let = PropertyLet(module.Uri, "Value");
         var set = PropertySet(module.Uri, "Value");
 
-        var result = Resolver(module, get, let, set).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+        var result = Resolver(module, get, let, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
 
         Assert.AreSame(get, result.Symbol);
     }
@@ -129,7 +129,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var let = PropertyLet(module.Uri, "Value");
         var set = PropertySet(module.Uri, "Value");
 
-        var result = Resolver(module, let, set).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+        var result = Resolver(module, let, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
 
         Assert.AreSame(let, result.Symbol);
     }
@@ -143,7 +143,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var first = PropertyGet(module.Uri, "Value");
         var second = PropertyGet(module.Uri, "Value");
 
-        var result = Resolver(module, first, second).Resolve("Value", ScopeKind.Unallocated, module.Uri);
+        var result = Resolver(module, first, second).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
@@ -160,7 +160,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var run = Procedure(caller.Uri, "Run");
 
         var result = Resolver(alpha, alphaCompute, beta, betaCompute, caller, run)
-            .Resolve("Compute", ScopeKind.Unallocated, run.Uri);
+            .ResolveValue("Compute", ScopeKind.Unallocated, run.Uri);
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorId);
@@ -177,7 +177,7 @@ public sealed class ScopeTreeSymbolResolverTests
         var alphaRun = Procedure(alpha.Uri, "Run");
 
         var result = Resolver(alpha, alphaCompute, beta, betaCompute, alphaRun)
-            .Resolve("Compute", ScopeKind.Unallocated, alphaRun.Uri);
+            .ResolveValue("Compute", ScopeKind.Unallocated, alphaRun.Uri);
 
         Assert.AreSame(alphaCompute, result.Symbol, "own module wins before the project scope is reached");
     }
@@ -185,7 +185,7 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void Resolve_AnUndeclaredName_IsUnbound()
     {
-        var result = Resolver(Module("Mod1")).Resolve("Nope", ScopeKind.Unallocated, Module("Mod1").Uri);
+        var result = Resolver(Module("Mod1")).ResolveValue("Nope", ScopeKind.Unallocated, Module("Mod1").Uri);
 
         Assert.IsTrue(result.IsUnbound);
         Assert.IsFalse(result.IsError);
@@ -194,7 +194,7 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void Resolve_FromAnUnknownScope_FallsBackToTheGlobalScope()
         => Assert.IsInstanceOfType<VBStandardModuleSymbol>(
-            Resolver(Module("Mod1")).Resolve("Mod1", ScopeKind.Unallocated, new Uri("file://rdcore-test#Ghost")).Symbol);
+            Resolver(Module("Mod1")).ResolveValue("Mod1", ScopeKind.Unallocated, new Uri("file://rdcore-test#Ghost")).Symbol);
 
     [TestMethod]
     public void GetValue_Throws_ItBindsNamesOnly()

@@ -7,7 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// Chains <see cref="ISymbolResolver"/>s: <see cref="Resolve"/> tries each in order and returns the
+/// Chains <see cref="ISymbolResolver"/>s: <see cref="ResolveValue"/> tries each in order and returns the
 /// first result that is not <see cref="SymbolResolutionResult.IsUnbound"/> — a bound symbol, or an
 /// error result (a duplicate or ambiguous name found by an earlier resolver is not masked by a later
 /// fallback). The result is unbound only when every resolver is unbound.
@@ -20,11 +20,11 @@ namespace RDCore.SDK.Model.Symbols;
 public sealed class CompositeSymbolResolver(params ISymbolResolver[] resolvers) : ISymbolResolver
 {
     /// <inheritdoc/>
-    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle)
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
     {
         foreach (var resolver in resolvers)
         {
-            var result = resolver.Resolve(name, scope, handle);
+            var result = resolver.ResolveValue(name, scope, handle);
             if (!result.IsUnbound)
             {
                 return result;

@@ -35,12 +35,12 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     {
         if (qualifier is null)
         {
-            return resolver.Resolve(name, ScopeKind.Global, handle);
+            return resolver.ResolveValue(name, ScopeKind.Global, handle);
         }
 
-        var qualifierResult = resolver.Resolve(qualifier, ScopeKind.Global, handle);
+        var qualifierResult = resolver.ResolveValue(qualifier, ScopeKind.Global, handle);
         return qualifierResult.Symbol is VBProjectSymbol
-            ? resolver.Resolve(name, ScopeKind.Global, handle)
+            ? resolver.ResolveValue(name, ScopeKind.Global, handle)
             : SymbolResolutionResult.Unbound;
     }
 }

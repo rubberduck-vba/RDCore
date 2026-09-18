@@ -38,7 +38,7 @@ public sealed record class InstanceExpressionStaticSemantics : IStaticSemantics
 
         var moduleScope = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module);
         var moduleName = moduleScope?.Uri.Fragment.TrimStart('#');
-        var module = moduleName is null ? null : context.Resolver.Resolve(moduleName, ScopeKind.Global, moduleScope!.Uri).Symbol;
+        var module = moduleName is null ? null : context.Resolver.ResolveValue(moduleName, ScopeKind.Global, moduleScope!.Uri).Symbol;
 
         return module is VBClassModuleSymbol classModule
             ? StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.DefaultInterfaceMembers))

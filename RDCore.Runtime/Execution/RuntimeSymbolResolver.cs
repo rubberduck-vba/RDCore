@@ -16,14 +16,14 @@ namespace RDCore.Runtime.Execution;
 /// it — the address's actual <c>IBindingHandle</c> is <see cref="ISessionStorage"/>'s concern, not
 /// this resolver's. <see cref="GetValue"/> and <see cref="TryRead"/> both resolve through it.
 /// </remarks>
-/// <param name="names">The compile-time resolver <see cref="Resolve"/> delegates to.</param>
+/// <param name="names">The compile-time resolver <see cref="ResolveValue"/> delegates to.</param>
 /// <param name="storage">The session's value storage.</param>
 public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage storage) : ISymbolResolver
 {
     private readonly SymbolAddressTable _addresses = new(storage);
 
     /// <inheritdoc/>
-    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle) => names.Resolve(name, scope, handle);
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle) => names.ResolveValue(name, scope, handle);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);

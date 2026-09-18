@@ -108,10 +108,10 @@ public sealed class CallStackAwareSymbolResolverTests
         var callStack = new RuntimeCallStack();
         var inner = Substitute.For<ISymbolResolver>();
         var expected = SymbolResolutionResult.Unbound;
-        inner.Resolve("Foo", ScopeKind.Module, StaticSymbol.GlobalUri).Returns(expected);
+        inner.ResolveValue("Foo", ScopeKind.Module, StaticSymbol.GlobalUri).Returns(expected);
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
 
-        Assert.AreEqual(expected, sut.Resolve("Foo", ScopeKind.Module, StaticSymbol.GlobalUri));
+        Assert.AreEqual(expected, sut.ResolveValue("Foo", ScopeKind.Module, StaticSymbol.GlobalUri));
     }
 
     [TestMethod]

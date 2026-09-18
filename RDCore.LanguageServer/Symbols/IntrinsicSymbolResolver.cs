@@ -22,7 +22,7 @@ namespace RDCore.LanguageServer.Symbols;
 internal sealed class IntrinsicSymbolResolver : ISymbolResolver
 {
     /// <inheritdoc/>
-    public SymbolResolutionResult Resolve(string name, ScopeKind scope, Uri handle)
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         => IntrinsicVBTypes.TryResolve(name, out var type) || IntrinsicVBTypes.TryResolveTypeHint(name, out type)
             ? SymbolResolutionResult.Resolved(new StaticSymbol(name, SymbolKindExt.TypeDescriptor, type))
             : SymbolResolutionResult.Unbound;

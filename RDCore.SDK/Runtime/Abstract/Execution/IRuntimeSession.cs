@@ -86,7 +86,7 @@ public interface ISessionSymbols
     /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/>.
     /// </summary>
-    bool TryResolve(string name, Symbol scope, out Symbol? symbol);
+    bool TryResolveValue(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
     /// The read face over this table — resolves a name visible from a scope by walking the scope tree

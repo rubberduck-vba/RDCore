@@ -29,7 +29,7 @@ public sealed class WorkspaceSymbolResolverTests
         => (ModuleUri(name), ModuleType.ClassModule, new ModuleParser().Parse(
             new Uri($"file:///c:/ws/{name}.cls"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
 
-    private static List<Symbol> Resolve(
+    private static List<Symbol> ResolveValue(
         string moduleName, string moduleBody, params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] siblings)
     {
         var target = Module(moduleName, moduleBody);
@@ -44,7 +44,7 @@ public sealed class WorkspaceSymbolResolverTests
     {
         var types = Module("Types", "Public Type TPoint\r\n    X As Long\r\n    Y As Long\r\nEnd Type\r\n");
 
-        var field = Resolve("Consumer", "Public Origin As TPoint\r\n", types)
+        var field = ResolveValue("Consumer", "Public Origin As TPoint\r\n", types)
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         var udt = Assert.IsInstanceOfType<VBUserDefinedType>(field.ResolvedType);
@@ -57,7 +57,7 @@ public sealed class WorkspaceSymbolResolverTests
     {
         var enums = Module("Enums", "Public Enum Colour\r\n    Red\r\n    Green\r\nEnd Enum\r\n");
 
-        var field = Resolve("Consumer", "Public Selected As Colour\r\n", enums)
+        var field = ResolveValue("Consumer", "Public Selected As Colour\r\n", enums)
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual("Colour", Assert.IsInstanceOfType<VBEnumType>(field.ResolvedType).Name);
@@ -66,7 +66,7 @@ public sealed class WorkspaceSymbolResolverTests
     [TestMethod]
     public void AnIntrinsicTypeName_StillBinds_ThroughTheFallback()
     {
-        var field = Resolve("Consumer", "Public Total As Long\r\n")
+        var field = ResolveValue("Consumer", "Public Total As Long\r\n")
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBLong, field.ResolvedType.Name);
@@ -75,7 +75,7 @@ public sealed class WorkspaceSymbolResolverTests
     [TestMethod]
     public void AnUnknownTypeName_StaysUnknown()
     {
-        var field = Resolve("Consumer", "Public Widget As CWidget\r\n")
+        var field = ResolveValue("Consumer", "Public Widget As CWidget\r\n")
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
@@ -92,7 +92,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.Members);
         Assert.IsTrue(module.Members.Any(member => member.Name == "Total"));
@@ -110,7 +110,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.DefaultInterfaceMembers);
         Assert.IsTrue(module.DefaultInterfaceMembers.Any(member => member.Name == "PublicSub"));
@@ -126,7 +126,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(1, module.Members);
         Assert.AreEqual("DoWork", module.Members[0].Name);
@@ -141,7 +141,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBStandardModuleSymbol>(
-            resolver.Resolve("Globals", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Globals", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(1, module.Members);
         Assert.AreEqual("Total", module.Members[0].Name);
@@ -154,7 +154,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBModuleSymbol>(
-            resolver.Resolve("Strict", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Strict", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsTrue(module.Directives.Explicit);
     }
@@ -166,7 +166,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBModuleSymbol>(
-            resolver.Resolve("Loose", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Loose", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsFalse(module.Directives.Explicit);
     }
@@ -179,7 +179,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsTrue(module.GetProperty(SymbolProperties.Creatable));
     }
@@ -191,7 +191,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsFalse(module.GetProperty(SymbolProperties.Creatable));
     }
@@ -204,7 +204,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iWidget, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         var implemented = module.ImplementedInterfaces.Single();
         Assert.AreEqual("IWidget", implemented.Name);
@@ -219,7 +219,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iFoo, iBar, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.ImplementedInterfaces);
         Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IFoo"));
@@ -235,7 +235,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsEmpty(module.ImplementedInterfaces);
     }
@@ -249,7 +249,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsEmpty(module.ImplementedInterfaces);
     }
@@ -265,7 +265,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iBase, iMiddle, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
         var classType = VBClassType.FromClassModule(module);
 
         Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
@@ -284,7 +284,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iA, iB], new IntrinsicSymbolResolver());
 
         var moduleA = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.Resolve("IA", ScopeKind.Global, iA.Uri).Symbol);
+            resolver.ResolveValue("IA", ScopeKind.Global, iA.Uri).Symbol);
 
         Assert.IsTrue(moduleA.ImplementedInterfaces.Any(i => i.Name == "IB"));
     }
@@ -296,7 +296,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver(), projectName: "MyProject");
 
         var project = Assert.IsInstanceOfType<VBProjectSymbol>(
-            resolver.Resolve("MyProject", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveValue("MyProject", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.AreEqual("MyProject", project.Name);
     }

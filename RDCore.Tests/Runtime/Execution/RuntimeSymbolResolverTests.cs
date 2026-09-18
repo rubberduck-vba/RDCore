@@ -38,9 +38,9 @@ public sealed class RuntimeSymbolResolverTests
     {
         var sut = Sut(out var names, out _);
         var expected = SymbolResolutionResult.Unbound;
-        names.Resolve("Foo", ScopeKind.Module, StaticSymbol.GlobalUri).Returns(expected);
+        names.ResolveValue("Foo", ScopeKind.Module, StaticSymbol.GlobalUri).Returns(expected);
 
-        var result = sut.Resolve("Foo", ScopeKind.Module, StaticSymbol.GlobalUri);
+        var result = sut.ResolveValue("Foo", ScopeKind.Module, StaticSymbol.GlobalUri);
 
         Assert.AreEqual(expected, result);
     }

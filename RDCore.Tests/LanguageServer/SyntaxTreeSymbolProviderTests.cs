@@ -61,7 +61,7 @@ public sealed class SyntaxTreeSymbolProviderTests
     public void Function_ReturnType_ResolvesThroughSymbolResolver()
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve("Long", ScopeKind.Global, Arg.Any<Uri>())
+        resolver.ResolveValue("Long", ScopeKind.Global, Arg.Any<Uri>())
             .Returns(SymbolResolutionResult.Resolved(
                 new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", ScopeKind.Global, VBLongType.TypeInfo)));
 
@@ -80,8 +80,8 @@ public sealed class SyntaxTreeSymbolProviderTests
         var classModule = (VBClassModuleSymbol)new VBClassModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Widget")
             .With(SymbolProperties.Creatable, true);
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.Resolve("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.Resolve("Widget", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
+        resolver.ResolveValue("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveValue("Widget", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
 
         var symbol = Single<VBModuleFieldVariableMemberSymbol>(Provide("Public X As MyProject.Widget", resolver));
 
