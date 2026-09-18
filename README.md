@@ -71,7 +71,7 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Expression & operator grammar — arithmetic, logical, relational, concatenation, incl. `#If` conditions | ✅ |
 | Literal parsing — numeric and string literals | ✅ |
 | AST statement nodes | ✅ |
-| Anchored-fragment parse | 🎯 |
+| Anchored-fragment parse | ✅ |
 
 **RDCore.LanguageServer** — orchestrator + LSP server · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)
 

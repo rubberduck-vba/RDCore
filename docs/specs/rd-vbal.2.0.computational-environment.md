@@ -71,12 +71,12 @@ This catalogue is intended to _exhaustively_ document the platform capabilities 
 
 |Capability|Method|Provided by|Description|
 |---|---|---|---|
-|[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result containing the full syntax tree of a specified workspace document.|
+|[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result for a source fragment it supplies directly (the parser never reads from the filesystem), optionally anchored at a position within a larger document so a sub-range fragment's reported locations land in that document's coordinates.|
 |[`DefineSymbols`](../api/RDCore.SDK.Client.DefineSymbols.html)|`rdcore/host/symbols/define`|`EnvironmentHost`|Lets the language server send a module's member symbol descriptors to the environment host for definition in its runtime session.|
 |[`CliCommand`](../api/RDCore.SDK.Client.CliCommand.html)|_(none — in-process CLI dispatch)_|`ClientApp`, `Extension`|Advertises that the declaring component contributes `rdc.exe` command-mode verbs. The CLI declares it for its native verbs; an extension declares it so `rdc.exe describe-ext` records the capability in its manifest.|
 
 > [!NOTE]
-> Anchored-offset (fragment) parsing and further environment-host runtime operations will be added here as they are implemented. The handshake for every capability listed is still _informational_ (see 2.0.2.1).
+> Further environment-host runtime operations will be added here as they are implemented. The handshake for every capability listed is still _informational_ (see 2.0.2.1).
 
 > [!NOTE]
 > **First and third party extensions** distributed through the **RDCore Platform Cloud Infrastructure** _MAY_ use a _capability provider_ that _MAY_ validate the availability of certain advanced capabilities by **requiring 2FA authentication**, the validation of an **active subscription** (free or paid), and the validation of the _signed build_ against the certified distribution channel build.
