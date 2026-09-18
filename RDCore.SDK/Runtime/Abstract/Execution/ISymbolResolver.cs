@@ -16,9 +16,10 @@ public interface ISymbolResolver
     /// Resolves the specified <em>identifier name</em> in the <em>default binding context</em>
     /// (<strong>MS-VBAL §5.6.4</strong>), as seen from the scope the symbol at <paramref name="handle"/>
     /// belongs to. This is the context of a simple name expression: it binds a variable, constant,
-    /// Enum type or member, property, function, subroutine, module or project (<strong>§5.6.10</strong>),
-    /// and never a user-defined type, which is only ever a candidate in the type binding context
-    /// (<see cref="ResolveType"/>).
+    /// Enum type or member, property, function, subroutine, procedural module or project
+    /// (<strong>§5.6.10</strong>), and never a user-defined type or a class module, which are only ever
+    /// candidates in the type binding context (<see cref="ResolveType"/>). A class module is a name here
+    /// only through its predeclared instance (<strong>§5.2.4.1.2</strong>): a variable named after the class.
     /// </summary>
     /// <param name="name">The name of the <see cref="Symbol"/> to resolve.</param>
     /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>

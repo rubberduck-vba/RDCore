@@ -126,6 +126,15 @@ Determines whether the _environment host_ declares a global _auto-object_ instan
 
 The "Id" refers to an internal _unique semantic identifier_ given to every object in the _host environment_.
 
+**Static semantics** (**MS-VBAL §5.2.4.1.2**) — ✅ modeled: a class module with `VB_PredeclaredId = True` has a
+[VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html), a global
+variable named after the class whose declared type is that class. It is what the class name binds to in the
+_default binding context_ (`ISymbolResolver.ResolveValue`), so `Widget.Size` is a member access on a variable of
+type `Widget`, and `Set Widget = New Widget` assigns it. A class module is never a name in that context
+otherwise: a class that is not predeclared has no default instance, and its name in an expression is an undefined
+variable. In the _type binding context_ (`ResolveType`, an `As` clause or `New`) the name is still the class. The
+run-time behavior described below — never `Nothing`, re-created on reference — is 🎯 not modeled yet.
+
 > [!TIP]
 > Setting an _auto-object_ to `Nothing` destroys its internal state (_semantic flags_ should identify whether a _predeclared_ class module is _stateful_ or not), but the object reference is immediately re-created as soon as it is being referred to, _including_ within a `Is Nothing` reference check - that check is therefore _statically constant_ (`false`).
 

@@ -455,6 +455,56 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
+    public void ResolveValue_AClassModule_IsNotACandidate()
+        // MS-VBAL 5.6.10: the default binding context lists no class module - a class is a name there only
+        // through its predeclared instance (5.2.4.1.2).
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+
+        Assert.IsTrue(Resolver(module, widget).ResolveValue("Widget", ScopeKind.Unallocated, module.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ResolveValue_APredeclaredInstance_BindsAsTheVariableItIs()
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+        var instance = new VBPredeclaredInstanceSymbol(widget);
+
+        var result = Resolver(module, widget, instance).ResolveValue("Widget", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(instance, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AClassModule_StillBinds_ItsPredeclaredInstanceIsNotAType()
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+        var instance = new VBPredeclaredInstanceSymbol(widget);
+
+        var result = Resolver(module, widget, instance).ResolveType("Widget", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(widget, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_ALocalNamedLikeAPredeclaredClass_HidesItsDefaultInstance()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "Widget");
+        var widget = ClassModule("Widget");
+
+        var result = Resolver(module, procedure, local, widget, new VBPredeclaredInstanceSymbol(widget)).ResolveValue("Widget", ScopeKind.Unallocated, procedure.Uri);
+
+        Assert.AreSame(local, result.Symbol);
+    }
+
+    [TestMethod]
     public void GetValue_Throws_ItBindsNamesOnly()
         => Assert.ThrowsExactly<NotSupportedException>(
             () => Resolver(Module("Mod1")).GetValue(GlobalSymbols.UnresolvedSymbol));

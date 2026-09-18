@@ -88,9 +88,12 @@ public sealed class EvilTestCase2ResolverTests
         End Sub
         """;
 
-    // Interface.cls — the interface, whose members all return the interface itself.
+    // Interface.cls — the interface, whose members all return the interface itself. Both class modules are
+    // predeclared: the sample relies on it (`Set Interface = New Interface`), and the issue's listing is the VBE
+    // code-pane view, which does not show a module's attributes.
     private const string InterfaceSource = """
         Attribute VB_Name = "Interface"
+        Attribute VB_PredeclaredId = True
         Option Explicit
 
         Public Property Get MyProject() As Interface
@@ -115,6 +118,7 @@ public sealed class EvilTestCase2ResolverTests
     // Class.cls — implements the interface; its own private Type and field reuse the same names.
     private const string ClassSource = """
         Attribute VB_Name = "Class"
+        Attribute VB_PredeclaredId = True
         Option Explicit
 
         Implements Interface
@@ -441,17 +445,28 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    [Ignore("MS-VBAL 5.6.10's default binding context has no class module (a class module is only a name through a predeclared " +
-        "instance, VB_PredeclaredId), so `Set Interface = New Interface` in a module with Option Explicit is VariableNotDefined. " +
-        "Class modules still bind as names in the default context until predeclared instances are modeled.")]
-    public void Class_SetInterfaceEqualsNewInterface_IsAnUndefinedVariable()
+    public void Class_SetInterfaceEqualsNewInterface_AssignsThePredeclaredInstance()
+        // `Interface` is a name in the default binding context only through its predeclared instance
+        // (MS-VBAL 5.2.4.1.2, VB_PredeclaredId = True): a variable of type Interface, so this is an ordinary Set.
     {
         var (context, block) = BodyOf(ClassParse, "Interface_MyProject", MemberKind.PropertyGet);
 
-        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+        CollectionAssert.AreEqual(
+            new[] { "Interface = New Interface  ->  Interface := Interface" },
+            TypedTrace(context, block));
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
+    }
 
-        Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.VariableNotDefined, errors[0].VBCompileErrorId);
+    [TestMethod]
+    public void EveryPredeclaredClassOfTheSample_HasADefaultInstanceOfItsOwnType()
+    {
+        var resolver = Composed().Resolver;
+
+        foreach (var name in new[] { "Interface", "Class" })
+        {
+            var instance = Assert.IsInstanceOfType<VBPredeclaredInstanceSymbol>(resolver.ResolveValue(name, ScopeKind.Unallocated, MyModuleParse.Uri).Symbol);
+            Assert.AreEqual(name, Assert.IsInstanceOfType<VBClassType>(instance.ResolvedType).Name);
+        }
     }
 
     [TestMethod]

@@ -59,7 +59,9 @@ Which of the two lookups a name is resolved through is decided by the node being
 parameter (see [**§3.0.3** Binding Contexts](rd-vbal.3.0.syntax-tree.html)): a simple name expression
 calls `ResolveValue`; an `As` clause and the operand of `New` call `ResolveType`. The two bind different
 candidates (**MS-VBAL §5.6.10**): `ResolveValue` binds a variable, constant, Enum type or member, property,
-function, subroutine, module or project and never a user-defined type; `ResolveType` binds only a
+function, subroutine, procedural module or project and never a user-defined type or a class module — a
+class is a value there only through its _predeclared instance_
+([**§3.1.1.5**](rd-vbal.3.1.attributes-directives.html)); `ResolveType` binds only a
 user-defined type, an Enum type, a class or procedural module, or the project — in that order of precedence,
 starting from the enclosing module, so a local, parameter or constant can neither be bound nor hide the
 type it shadows. `ISessionSymbols` mirrors the pair as `TryResolveValue` and `TryResolveType`.
