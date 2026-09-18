@@ -88,12 +88,10 @@ public sealed class EvilTestCase2ResolverTests
         End Sub
         """;
 
-    // Interface.cls — the interface, whose members all return the interface itself. Both class modules are
-    // predeclared: the sample relies on it (`Set Interface = New Interface`), and the issue's listing is the VBE
-    // code-pane view, which does not show a module's attributes.
+    // Interface.cls — the interface, whose members all return the interface itself. Neither class module is
+    // predeclared: the sample is exactly as the issue lists it (imported into a VBE by the author, 2026-09-18).
     private const string InterfaceSource = """
         Attribute VB_Name = "Interface"
-        Attribute VB_PredeclaredId = True
         Option Explicit
 
         Public Property Get MyProject() As Interface
@@ -118,7 +116,6 @@ public sealed class EvilTestCase2ResolverTests
     // Class.cls — implements the interface; its own private Type and field reuse the same names.
     private const string ClassSource = """
         Attribute VB_Name = "Class"
-        Attribute VB_PredeclaredId = True
         Option Explicit
 
         Implements Interface
@@ -445,33 +442,35 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void Class_SetInterfaceEqualsNewInterface_IsASetToTheDefaultInstance()
-        // `Interface` is a name in the default binding context only through its predeclared instance
-        // (VB_PredeclaredId = True): a variable of type Interface, so it types as an ordinary Set - but the name is
-        // the default instance variable, and MS-VBAL 5.2.4.1.2 makes it invalid for that to be the target of a Set.
-        // This is the sample's only Set whose target is a predeclared class name.
+    public void Class_SetInterfaceEqualsNewInterface_IsAnUndefinedVariable()
+        // The one line of the sample that MS-VBA accepts and MS-VBAL does not (the author imported the sample into a
+        // VBE, 2026-09-18: it compiles and runs, yet the VBE cannot go to the definition of the assigned `Interface`,
+        // and Rubberduck reports an undeclared variable). Neither class module is predeclared, so no default instance
+        // variable has the name (5.2.4.1.2), and no default-context tier holds a class module (5.6.10): under
+        // Option Explicit the name is undefined. The spec is right and MS-VBA has a bug; RD-VBA follows the spec.
     {
         var (context, block) = BodyOf(ClassParse, "Interface_MyProject", MemberKind.PropertyGet);
 
         CollectionAssert.AreEqual(
-            new[] { "Interface = New Interface  ->  Interface := Interface" },
+            new[] { "Interface = New Interface  ->  ERROR VariableNotDefined := Interface" },
             TypedTrace(context, block));
 
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.InvalidUseOfObject, errors[0].VBCompileErrorId);
+        Assert.AreEqual(VBCompileErrorId.VariableNotDefined, errors[0].VBCompileErrorId);
+        Assert.AreEqual("Interface", errors[0].Verbose);
     }
 
     [TestMethod]
-    public void EveryPredeclaredClassOfTheSample_HasADefaultInstanceOfItsOwnType()
+    public void NeitherClassOfTheSample_HasADefaultInstance_SoNeitherNameIsAValue()
     {
         var resolver = Composed().Resolver;
 
         foreach (var name in new[] { "Interface", "Class" })
         {
-            var instance = Assert.IsInstanceOfType<VBPredeclaredInstanceSymbol>(resolver.ResolveValue(name, ScopeKind.Unallocated, MyModuleParse.Uri).Symbol);
-            Assert.AreEqual(name, Assert.IsInstanceOfType<VBClassType>(instance.ResolvedType).Name);
+            Assert.IsTrue(resolver.ResolveValue(name, ScopeKind.Unallocated, MyModuleParse.Uri).IsUnbound, $"'{name}' from MyModule");
+            Assert.IsTrue(resolver.ResolveValue(name, ScopeKind.Unallocated, ModuleUri("Class")).IsUnbound, $"'{name}' from Class");
         }
     }
 
