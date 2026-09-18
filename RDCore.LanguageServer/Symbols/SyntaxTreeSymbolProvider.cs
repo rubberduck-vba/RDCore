@@ -1,7 +1,9 @@
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -68,7 +70,11 @@ internal sealed class SyntaxTreeSymbolProvider(
 
         // a standard module's members are module-scoped; a class module's are instance-scoped.
         var memberScope = moduleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
-        var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver);
+        // MS-VBAL 5.2.3.1.5: a declaration that names no type is implicitly a Variant, unless a
+        // Def<Type> directive covers the first letter of its name. Which letters a directive covers isn't
+        // modeled yet, so a module that has any leaves such declarations undetermined rather than wrongly Variant.
+        var implicitType = module.Children.OfType<TypeDefDirectiveNode>().Any() ? VBUnknownType.TypeInfo : VBVariantType.TypeInfo;
+        var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver, implicitType);
 
         // module-level names are order-independent, so collect them before walking the members — a
         // ReDim in one procedure may re-dimension a field declared further down the module.

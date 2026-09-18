@@ -27,8 +27,14 @@ namespace RDCore.LanguageServer.Symbols;
 /// <see cref="ScopeKind.Module"/> for a standard module, <see cref="ScopeKind.Instance"/> for a
 /// class module. Parameters are <see cref="ScopeKind.Local"/> and user-defined-type fields are
 /// <see cref="ScopeKind.Instance"/> (reached through an instance of the type), regardless.
+/// <para>
+/// <paramref name="implicitType"/> is the declared type of a variable, parameter or function whose
+/// declaration names none (<strong>MS-VBAL §5.2.3.1.5</strong>): <see cref="VBVariantType"/> unless the
+/// module has a <c>Def&lt;Type&gt;</c> directive, which makes it depend on the name's first letter.
+/// Omitted, it is <see cref="VBUnknownType"/> — not yet determined, never a wrong answer.
+/// </para>
 /// </remarks>
-internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind memberScope, ISymbolResolver resolver)
+internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind memberScope, ISymbolResolver resolver, VBType? implicitType = null)
 {
     // MS-VBAL 3.3.2 type-declaration characters name a reserved type the resolver can bind.
     private static readonly ImmutableDictionary<string, string> _typeHintNames = new Dictionary<string, string>
@@ -151,7 +157,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     public Symbol BuildModuleField(VariableDeclarationNode node)
     {
         var range = RangeOf(node);
-        var type = DeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
+        var type = ImplicitOrDeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
         return new VBModuleFieldVariableMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
     }
@@ -204,16 +210,24 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind)
                 : new VBParameterSymbol(
                     workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind,
-                    DeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional));
+                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional));
         }
         return builder.ToImmutable();
     }
 
     private VBType ReturnType(MemberDeclarationNode member, Uri memberUri)
-        => DeclaredType(member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault(), typeHint: null, memberUri);
+        => ImplicitOrDeclaredType(member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault(), typeHint: null, memberUri);
 
     private static AsTypeExpressionNode? AsTypeOf(SyntaxNode node)
         => node.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
+
+    // A declaration that names no type - no As clause, no type-declaration character - has the
+    // module's implicit declared type (MS-VBAL 5.2.3.1.5). Not for a Const (its type comes from its
+    // value) nor a UDT field (the grammar requires an As clause there).
+    private VBType ImplicitOrDeclaredType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
+        => asType is null && typeHint is null
+            ? implicitType ?? VBUnknownType.TypeInfo
+            : DeclaredType(asType, typeHint, handle);
 
     // A declared type is a name the resolver binds from the given scope, optionally qualified by a
     // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualifiedType). An
@@ -478,7 +492,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     private VBType ArrayElementType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
         => asType is { IsArrayDef: true, QualifierName: null }
             ? ResolveTypeName(asType.TypeName, handle)
-            : DeclaredType(asType, typeHint, handle);
+            : ImplicitOrDeclaredType(asType, typeHint, handle);
 
     // MS-VBAL 5.2.3.1 / RD-VBAL 2.5.2.1.2: an array-dim clause with bounds declares a fixed-size
     // array; an empty `()` clause, or a trailing `()` on the As-clause, declares a dynamic array —

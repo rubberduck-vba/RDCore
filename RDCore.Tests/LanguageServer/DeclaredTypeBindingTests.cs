@@ -128,6 +128,15 @@ public sealed class DeclaredTypeBindingTests
     }
 
     [TestMethod]
+    public void ADeclarationThatNamesNoType_IsAVariant_SoMemberAccessOnItIsLateBound()
+        // MS-VBAL 5.2.3.1.5: no type spec and no Def<Type> directive - the implicit declared type is Variant.
+    {
+        var deep = TypeOfLastAssignment(["Dim v", "Dim r", "Set r = v.Anything.AtAll"]);
+
+        Assert.AreEqual(VBVariantType.TypeInfo, deep);
+    }
+
+    [TestMethod]
     public void NewQualifiedByTheProjectsName_IgnoresALocalOfThatName()
         // the legacy Rubberduck bug (issue #973): `New MyProject.Class` bound MyProject to the local variable.
     {

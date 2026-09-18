@@ -722,4 +722,40 @@ public sealed class SyntaxTreeSymbolProviderTests
 
         Assert.AreEqual("CLocal", local.Name);
     }
+
+    [TestMethod]
+    public void ADeclarationThatNamesNoType_IsImplicitlyVariant()
+        // MS-VBAL 5.2.3.1.5: no type spec, no type-declaration character, no Def<Type> directive.
+    {
+        var symbols = Provide("""
+            Public Field
+            Public Function Make(Argument)
+                Dim Local
+            End Function
+            """, new IntrinsicSymbolResolver());
+
+        Assert.AreEqual(VBTypeNames.VBVariant, Single<VBModuleFieldVariableMemberSymbol>(symbols).ResolvedType.Name);
+        var make = Single<VBFunctionMemberSymbol>(symbols);
+        Assert.AreEqual(VBTypeNames.VBVariant, make.ResolvedType.Name);
+        Assert.AreEqual(VBTypeNames.VBVariant, make.Parameters.Single(parameter => parameter.Name == "Argument").ResolvedType.Name);
+        Assert.AreEqual(VBTypeNames.VBVariant, Single<VBLocalVariableSymbol>(symbols).ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void ATypeDeclarationCharacter_IsNotImplicit()
+        => Assert.AreEqual(VBTypeNames.VBString, Single<VBModuleFieldVariableMemberSymbol>(Provide("Public Field$", new IntrinsicSymbolResolver())).ResolvedType.Name);
+
+    [TestMethod]
+    public void AConstThatNamesNoType_KeepsItsUndeterminedType()
+        // a Const's type comes from its value, not from the implicit declared type.
+        => Assert.AreEqual(VBTypeNames.VBUnknown, Single<VBConstantMemberSymbol>(Provide("Public Const Answer = 42", new IntrinsicSymbolResolver())).ResolvedType.Name);
+
+    [TestMethod]
+    public void AModuleWithADefTypeDirective_LeavesImplicitDeclarationsUndetermined()
+        // which names a Def<Type> covers is not modeled yet: undetermined, not a wrong Variant.
+    {
+        var field = Single<VBModuleFieldVariableMemberSymbol>(Provide("DefInt I-N\r\nPublic Index", new IntrinsicSymbolResolver()));
+
+        Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
+    }
 }
