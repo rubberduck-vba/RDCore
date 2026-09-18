@@ -12,6 +12,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -97,6 +98,7 @@ internal sealed class CoreLanguageServerApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<DocumentDiagnosticHandler>();
+        builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
     }
 
@@ -107,6 +109,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
