@@ -69,8 +69,10 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         VBBinaryOperatorExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[InputIndex.BinaryLeftOperand].TypeInfo;
-        var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
+        var lhsOperand = frame[InputIndex.BinaryLeftOperand];
+        var rhsOperand = frame[InputIndex.BinaryRightOperand];
+        var lhs = lhsOperand.TypeInfo;
+        var rhs = rhsOperand.TypeInfo;
         return lhs switch
         {
             VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
@@ -81,9 +83,11 @@ public record class BinaryConcatOperatorRuntimeSemantics(
                 when rhs is VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
                     => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
 
-            VBResizableByteArrayType
-                when rhs is VBResizableByteArrayType
-                    => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
+            // A Byte() array's own TypeInfo always collapses to the generic VBArrayType (VBArrayValue's
+            // base constructor tags every array with it, regardless of ItemType), so the pair can't be
+            // recognized through lhs/rhs above - it's checked against the actual operand values instead.
+            _ when IsByteArray(lhsOperand) && IsByteArray(rhsOperand)
+                => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
 
             VBNullType
                 when rhs is VBNullType
@@ -93,6 +97,8 @@ public record class BinaryConcatOperatorRuntimeSemantics(
                 Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [lhs.Name, rhs.Name]))))
         };
     }
+
+    private static bool IsByteArray(VBTypedValue value) => value is VBArrayValue { ItemType: VBByteType };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,

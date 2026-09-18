@@ -13,6 +13,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Globalization;
+using System.Text;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -60,8 +61,26 @@ public record class VBStringLetCoercionRuntimeSemantics(
             VBEmptyValue when frame.DestinationTypeDesc.Target is VBStringType
                 => LetCoercionResult.Success(VBStringValue.ZeroLengthString),
 
+            VBArrayValue byteArraySource when byteArraySource.ItemType is VBByteType && frame.DestinationTypeDesc.Target is VBStringType
+                => LetCoercionResult.Success(new VBStringValue(FromBytes(byteArraySource))),
+
             _ => LetCoercionResult.NotApplicable(frame)
         };
+    }
+
+    // MS-VBAL 5.5.1.2.6: "The binary data within the source Byte array is interpreted as if it
+    // represents the implementation-defined binary format used to store String data [...] The result
+    // is the string produced. This coercion never raises a runtime error. If the byte array is
+    // uninitialized, the result is a 0-length string. [...] Any trailing bytes leftover at the end of
+    // the byte array that could not be interpreted are discarded." .NET's own String storage already
+    // is that binary format (UTF-16LE), and every 2-byte pairing is a valid .NET char - the spec's "?"
+    // fallback for a byte sequence that "cannot be represented on the current platform" describes other
+    // hosts whose internal string encoding isn't UTF-16; it has no unrepresentable case to fall back to
+    // here, so Encoding.Unicode.GetString (dropping an unpaired trailing byte) satisfies the rule as-is.
+    private static string FromBytes(VBArrayValue byteArraySource)
+    {
+        var bytes = VBByteArrayCoercionHelpers.Flatten(byteArraySource);
+        return Encoding.Unicode.GetString(bytes[..(bytes.Length - bytes.Length % 2)]);
     }
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
