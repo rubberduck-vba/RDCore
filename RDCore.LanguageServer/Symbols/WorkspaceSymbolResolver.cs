@@ -47,8 +47,10 @@ internal static class WorkspaceSymbolResolver
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
             var directives = new ModuleDirectives(Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false);
+            var implementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [];
             VBModuleSymbol module = moduleType == ModuleType.ClassModule
-                ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives }
+                ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
+                    { Directives = directives, ImplementedInterfaceNames = implementedInterfaceNames }
                     .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
 
@@ -72,6 +74,87 @@ internal static class WorkspaceSymbolResolver
             symbols.AddRange(members);
         }
 
+        ResolveImplementedInterfaces(symbols);
+
         return new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols)), fallback);
+    }
+
+    /// <summary>
+    /// Resolves each class module's <see cref="VBClassModuleSymbol.ImplementedInterfaceNames"/>
+    /// (<strong>MS-VBAL §5.2.4.2</strong>) to the sibling class it names, mutating <paramref name="symbols"/>
+    /// in place. This has to be its own pass, after every module's own symbol already exists in
+    /// <paramref name="symbols"/> — unlike <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/>,
+    /// which only ever needs the current module's own already-known <c>Members</c> and so can be
+    /// computed inline in the per-module loop above.
+    /// </summary>
+    /// <remarks>
+    /// A class name is a project-level identifier with no lexical scoping/shadowing concerns, so a
+    /// direct case-insensitive lookup among this composition's own class modules is enough here — no
+    /// need for a full <see cref="ISymbolResolver"/> round-trip. A name that doesn't resolve to a class
+    /// in this composition, or that resolves back to the same class, is silently dropped rather than
+    /// reported: full MS-VBAL §5.2.4.2/§5.3.1.9 validity checking (self-reference, duplicate interfaces,
+    /// name collisions, member-shape matching) is not modeled yet.
+    /// <para>
+    /// Resolution is recursive and memoized by <c>Uri</c>, not a flat single pass over
+    /// <paramref name="symbols"/>: a flat pass would only ever assign each class's <c>ImplementedInterfaces</c>
+    /// from the <em>pre-resolution</em> snapshot in <c>classModulesByName</c>, so a transitive chain
+    /// (<c>Widget Implements IMiddle</c>, <c>IMiddle Implements IBase</c>) would leave <c>IMiddle</c>'s
+    /// own <c>ImplementedInterfaces</c> looking empty from <c>Widget</c>'s side, regardless of which
+    /// order the two classes happen to appear in <paramref name="symbols"/>. Recursing into (and
+    /// caching) each interface's own fully-resolved symbol before returning it is what makes
+    /// <see cref="VBClassType.FromClassModule(VBClassModuleSymbol)"/>'s own recursion see the whole
+    /// chain from any entry point.
+    /// </para>
+    /// </remarks>
+    private static void ResolveImplementedInterfaces(List<Symbol> symbols)
+    {
+        var classModulesByName = new Dictionary<string, VBClassModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        foreach (var classModule in symbols.OfType<VBClassModuleSymbol>())
+        {
+            classModulesByName.TryAdd(classModule.Name, classModule);
+        }
+
+        var resolved = new Dictionary<string, VBClassModuleSymbol>(StringComparer.Ordinal);
+        var resolving = new HashSet<string>(StringComparer.Ordinal);
+
+        VBClassModuleSymbol Resolve(VBClassModuleSymbol classModule)
+        {
+            var key = classModule.Uri.AbsoluteUri;
+            if (resolved.TryGetValue(key, out var already))
+            {
+                return already;
+            }
+            if (!resolving.Add(key))
+            {
+                // a cycle (MS-VBAL 5.2.3.6 disallows this, not yet validated) - stop recursing here
+                // rather than looping forever over a malformed workspace.
+                return classModule;
+            }
+
+            var implementedInterfaces = ImmutableArray.CreateBuilder<VBClassModuleSymbol>();
+            var seenUris = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var name in classModule.ImplementedInterfaceNames)
+            {
+                if (classModulesByName.TryGetValue(name, out var found)
+                    && !string.Equals(found.Uri.AbsoluteUri, key, StringComparison.Ordinal)
+                    && seenUris.Add(found.Uri.AbsoluteUri))
+                {
+                    implementedInterfaces.Add(Resolve(found));
+                }
+            }
+
+            var result = classModule with { ImplementedInterfaces = implementedInterfaces.ToImmutable() };
+            resolving.Remove(key);
+            resolved[key] = result;
+            return result;
+        }
+
+        for (var i = 0; i < symbols.Count; i++)
+        {
+            if (symbols[i] is VBClassModuleSymbol classModule && !classModule.ImplementedInterfaceNames.IsEmpty)
+            {
+                symbols[i] = Resolve(classModule);
+            }
+        }
     }
 }

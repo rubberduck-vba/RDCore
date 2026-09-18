@@ -1,4 +1,6 @@
 using RDCore.SDK.Model.AST.Directives;
+using RDCore.SDK.Model.AST.Expressions;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST.Declarations;
 
@@ -63,6 +65,32 @@ public static class ModuleNodeExtensions
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The interface names named by this module's own <c>Implements</c> directives
+    /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written — unresolved, in source order. A
+    /// project-qualified name (<c>Implements Project.IFoo</c>) yields just <c>IFoo</c>: RDCore only
+    /// ever composes one project's modules at a time, so the qualifier can only ever mean this same
+    /// project. A half-typed <c>Implements</c> with no name at all is skipped.
+    /// </summary>
+    public static ImmutableArray<string> GetImplementedInterfaceNames(this ModuleNode module)
+    {
+        var names = ImmutableArray.CreateBuilder<string>();
+        foreach (var directive in module.Children.OfType<ImplementsDirectiveNode>())
+        {
+            var name = directive.NameExpression switch
+            {
+                SimpleNameExpressionNode simple => simple.IdentifierName,
+                MemberAccessExpressionNode { Member: { } member } => member.IdentifierName,
+                _ => null,
+            };
+            if (name is not null)
+            {
+                names.Add(name);
+            }
+        }
+        return names.ToImmutable();
     }
 
     // AttributeDirectiveNode.Value is the raw parse-tree text; a VB_Name value is a string literal.

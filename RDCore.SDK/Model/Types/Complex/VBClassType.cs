@@ -31,13 +31,39 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     /// <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/> — not at resolution time.
     /// </remarks>
     public static VBClassType FromClassModule(VBClassModuleSymbol classModule)
-        => new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)]);
+        => FromClassModule(classModule, [classModule.Uri.AbsoluteUri]);
+
+    // classModule.ImplementedInterfaces isn't itself validated yet (MS-VBAL §5.2.3.6 disallows a
+    // circular Implements chain, but nothing enforces that today) - visited guards this recursion
+    // against looping forever over a malformed workspace exactly like it would over a well-formed one.
+    // Keyed by Uri.AbsoluteUri (an ordinal string), not Uri itself: Uri's own Equals/GetHashCode ignore
+    // Fragment, which is exactly where this codebase's symbol identity lives - two distinct classes
+    // could otherwise collide in this set.
+    private static VBClassType FromClassModule(VBClassModuleSymbol classModule, HashSet<string> visited)
+    {
+        VBType[] supertypes =
+        [
+            VBObjectType.TypeInfo,
+            .. classModule.ImplementedInterfaces
+                .Where(interfaceModule => visited.Add(interfaceModule.Uri.AbsoluteUri))
+                .Select(interfaceModule => FromClassModule(interfaceModule, visited)),
+        ];
+        return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)])
+        {
+            Supertypes = supertypes,
+        };
+    }
 
     /// <summary>
     /// An array of class types that this class directly inherits from, including interfaces.
     /// </summary>
     /// <remarks>
-    /// Controlled by <c>Implements</c> instructions for user code.
+    /// Every class always includes <see cref="VBObjectType"/>; <c>Implements</c> directives
+    /// (<strong>MS-VBAL §5.2.4.2</strong>, via <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>)
+    /// each contribute one more, recursively (an interface's own <c>Implements</c> directives are
+    /// included too — see <see cref="FromClassModule(VBClassModuleSymbol)"/>). Left at the default
+    /// <c>[VBObjectType.TypeInfo]</c> for a <see cref="VBClassType"/> built any other way than through
+    /// <see cref="FromClassModule(VBClassModuleSymbol)"/>.
     /// </remarks>
     public VBType[] Supertypes { get; init; } = [VBObjectType.TypeInfo];
     /// <summary>

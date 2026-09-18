@@ -28,4 +28,29 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// clauses, <c>Me</c>) read this directly rather than recomputing it at resolution time.
     /// </summary>
     public ImmutableArray<VBTypeMemberSymbol> DefaultInterfaceMembers { get; init; } = [];
+
+    /// <summary>
+    /// The interface names named by this class module's own <c>Implements</c> directives
+    /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written — unresolved, and not yet checked for
+    /// validity (self-reference, duplicates, or a name that doesn't resolve to a class at all).
+    /// Captured directly off the AST, alongside <see cref="Symbols.Abstract.VBModuleSymbol.Directives"/>,
+    /// in <c>WorkspaceSymbolResolver.Compose</c>'s first pass — before any other module's symbol is
+    /// known, so resolving these to real <see cref="VBClassModuleSymbol"/> references has to wait for
+    /// <see cref="ImplementedInterfaces"/>.
+    /// </summary>
+    public ImmutableArray<string> ImplementedInterfaceNames { get; init; } = [];
+
+    /// <summary>
+    /// <see cref="ImplementedInterfaceNames"/>, resolved to the sibling <see cref="VBClassModuleSymbol"/>
+    /// each name refers to — populated by a third pass in <c>WorkspaceSymbolResolver.Compose</c>, once
+    /// every module in the composition has its own symbol built. A name that doesn't resolve to a
+    /// class in this composition (or that resolves back to this same class) is silently dropped rather
+    /// than reported — full MS-VBAL §5.2.4.2/§5.3.1.9 validity checking is not modeled yet.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Types.Complex.VBClassType.FromClassModule"/> reads this to populate
+    /// <see cref="Types.Complex.VBClassType.Supertypes"/> — every consumer of that type gets a correct
+    /// <c>Supertypes</c> array for free once this is resolved, with no other code to update.
+    /// </remarks>
+    public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces { get; init; } = [];
 }

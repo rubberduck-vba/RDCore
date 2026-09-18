@@ -59,4 +59,42 @@ public sealed class VBClassTypeTests
 
         Assert.IsEmpty(classType.Members);
     }
+
+    [TestMethod]
+    public void NoImplementedInterfaces_SupertypesIsJustObject()
+    {
+        var classType = VBClassType.FromClassModule(ClassModule());
+
+        var supertype = classType.Supertypes.Single();
+        Assert.IsInstanceOfType<VBObjectType>(supertype);
+    }
+
+    [TestMethod]
+    public void AnImplementedInterface_IsIncludedInSupertypes()
+    {
+        var iWidget = new VBClassModuleSymbol(Root, Root, "IWidget");
+        var classModule = ClassModule() with { ImplementedInterfaces = [iWidget] };
+
+        var classType = VBClassType.FromClassModule(classModule);
+
+        Assert.HasCount(2, classType.Supertypes);
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBClassType { Name: "IWidget" }));
+    }
+
+    [TestMethod]
+    public void ATransitivelyImplementedInterface_IsIncludedInTheNestedSupertypes()
+        // Widget implements IMiddle, which itself implements IBase - FromClassModule walks the whole
+        // chain, not just the class's own direct Implements clause.
+    {
+        var iBase = new VBClassModuleSymbol(Root, Root, "IBase");
+        var iMiddle = new VBClassModuleSymbol(Root, Root, "IMiddle") { ImplementedInterfaces = [iBase] };
+        var classModule = ClassModule() with { ImplementedInterfaces = [iMiddle] };
+
+        var classType = VBClassType.FromClassModule(classModule);
+
+        var middle = classType.Supertypes.OfType<VBClassType>().Single(supertype => supertype.Name == "IMiddle");
+        Assert.IsTrue(middle.Supertypes.Any(nested => nested is VBClassType { Name: "IBase" }));
+    }
+
 }

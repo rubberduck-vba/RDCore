@@ -56,6 +56,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 |---|---|
 | Système de types statiques, modèle de types _runtime_ | ✅ |
 | Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
+| Directives `Implements` (MS-VBAL §5.2.4.2) — modules de classe et _resolver_ conscients des interfaces implémentées | 🚧 `VBClassModuleSymbol.ImplementedInterfaces` résolu par nom à travers la composition (récursivement, une chaîne de `Implements` se résout donc en entier) et reflété dans `VBClassType.Supertypes`; la surface de membres d'une classe n'est pas fusionnée avec celle d'une interface implémentée, et la validation complète des §5.2.4.2/§5.3.1.9 (auto-référence, doublons, correspondance de noms `Foo_Bar`, restriction des modules extensibles) n'est pas encore modélisée |
 | Sémantiques statiques — opérateurs, _let-coercions_, _set-coercion_ | ✅ |
 | Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux, expressions d'index, accès dictionnaire, `TypeOf...Is`) | ✅ chaque règle est complète et testée isolément |
 | Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | ✅ couvre les chaînes de _member access_/index/accès dictionnaire, les opérateurs, `New` et `TypeOf...Is`; l'accès relatif à `With` (`.Member`, `!Member`) se résout aussi désormais, via un _walker_ d'instructions (ci-dessous) qui propage le type cible du bloc `With` englobant le plus proche; rien en production n'appelle encore l'un ou l'autre |
@@ -99,7 +100,7 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 |---|---|
 | Sémantiques _runtime_ — opérateurs | ✅ |
 | Sémantiques _runtime_ — _let-coercions_ | 🚧 |
-| Sémantiques _runtime_ — _Set-coercion_ (MS-VBAL §5.5.2.2) | 🚧 le passage de `Nothing` et la vérification de compatibilité de classe sont implémentés; cette dernière ne détecte qu'une correspondance de classe exacte pour l'instant, rien ne peuplant encore `VBClassType.Supertypes` à partir des clauses `Implements` réelles; rien en production ne l'appelle encore |
+| Sémantiques _runtime_ — _Set-coercion_ (MS-VBAL §5.5.2.2) | 🚧 le passage de `Nothing` et la vérification de compatibilité de classe sont implémentés; cette dernière reconnaît désormais aussi une vraie relation `Implements` (via `VBClassType.Supertypes`, ci-dessus), pas seulement une correspondance de classe exacte; rien en production ne l'appelle encore |
 | Sémantiques _runtime_ — _statements_ | 🎯 les sémantiques propres au `With` (cible → variable anonyme, MS-VBAL §5.4.2.21) sont en place pour une cible de type classe; aucun interpréteur d'arbre d'instructions n'existe encore pour quelque type d'instruction que ce soit, donc rien n'invoque ceci depuis une exécution réelle |
 | Librairie standard (`IStd*`) | 🎯 |
 | Interpréteur · _IR lowering_ | 🎯 prévu |

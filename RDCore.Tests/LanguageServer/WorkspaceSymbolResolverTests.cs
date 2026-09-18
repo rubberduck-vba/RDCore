@@ -197,6 +197,99 @@ public sealed class WorkspaceSymbolResolverTests
     }
 
     [TestMethod]
+    public void AClassModuleImplementingASiblingInterface_ResolvesIt()
+    {
+        var iWidget = ClassModule("IWidget", "Public Sub DoWork()\r\nEnd Sub\r\n");
+        var target = ClassModule("Widget", "Implements IWidget\r\nPrivate Sub IWidget_DoWork()\r\nEnd Sub\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iWidget, target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        var implemented = module.ImplementedInterfaces.Single();
+        Assert.AreEqual("IWidget", implemented.Name);
+    }
+
+    [TestMethod]
+    public void AClassModuleImplementingMultipleInterfaces_ResolvesAllOfThem()
+    {
+        var iFoo = ClassModule("IFoo", "Public Sub DoFoo()\r\nEnd Sub\r\n");
+        var iBar = ClassModule("IBar", "Public Sub DoBar()\r\nEnd Sub\r\n");
+        var target = ClassModule("Widget", "Implements IFoo\r\nImplements IBar\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iFoo, iBar, target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.HasCount(2, module.ImplementedInterfaces);
+        Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IFoo"));
+        Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IBar"));
+    }
+
+    [TestMethod]
+    public void AnUnresolvableImplementsName_IsSilentlyDropped()
+        // full MS-VBAL 5.2.4.2 validity checking isn't modeled yet - a name that doesn't resolve to any
+        // class in this composition defers rather than errors, same convention as everywhere else.
+    {
+        var target = ClassModule("Widget", "Implements IDoesNotExist\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsEmpty(module.ImplementedInterfaces);
+    }
+
+    [TestMethod]
+    public void AClassImplementingItself_IsSilentlyDropped()
+        // MS-VBAL 5.2.4.2: "The interface class can't be the class defined by the class module
+        // containing the directive" - not yet reported as an error, but never resolved either.
+    {
+        var target = ClassModule("Widget", "Implements Widget\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsEmpty(module.ImplementedInterfaces);
+    }
+
+    [TestMethod]
+    public void AClassModulesSupertypes_IncludeItsResolvedImplementedInterfaces_Transitively()
+        // Widget implements IMiddle, which itself implements IBase - VBClassType.FromClassModule walks
+        // the whole chain, not just the class's own direct Implements clause.
+    {
+        var iBase = ClassModule("IBase", "Public Sub DoBase()\r\nEnd Sub\r\n");
+        var iMiddle = ClassModule("IMiddle", "Implements IBase\r\nPublic Sub DoMiddle()\r\nEnd Sub\r\n");
+        var target = ClassModule("Widget", "Implements IMiddle\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iBase, iMiddle, target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("Widget", ScopeKind.Global, target.Uri).Symbol);
+        var classType = VBClassType.FromClassModule(module);
+
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBClassType { Name: "IMiddle" }));
+        Assert.IsTrue(classType.Supertypes.OfType<VBClassType>().Any(supertype =>
+            supertype.Name == "IMiddle" && supertype.Supertypes.Any(nested => nested is VBClassType { Name: "IBase" })));
+    }
+
+    [TestMethod]
+    public void ACircularImplementsByName_DoesNotStackOverflow()
+        // MS-VBAL 5.2.3.6 disallows a circular Implements chain, but nothing enforces it yet -
+        // resolution must still terminate over a malformed workspace rather than recursing forever.
+    {
+        var iA = ClassModule("IA", "Implements IB\r\n");
+        var iB = ClassModule("IB", "Implements IA\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iA, iB], new IntrinsicSymbolResolver());
+
+        var moduleA = Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.Resolve("IA", ScopeKind.Global, iA.Uri).Symbol);
+
+        Assert.IsTrue(moduleA.ImplementedInterfaces.Any(i => i.Name == "IB"));
+    }
+
+    [TestMethod]
     public void AProjectName_SynthesizesAResolvableVBProjectSymbol()
     {
         var target = Module("Globals", "Public Total As Long\r\n");

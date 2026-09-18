@@ -156,6 +156,23 @@ public sealed class SetCoercionRuntimeSemanticsTests
     }
 
     [TestMethod]
+    public void ImplementingClassSource_InterfaceClassDestination_Succeeds()
+        // closes the loop this class's own remarks documented as a known limitation: Supertypes only
+        // ever matched an exact same class until VBClassModuleSymbol.ImplementedInterfaces existed.
+        // Widget Implements IWidget - an instance of Widget must now Set-coerce to IWidget's own
+        // declared type, not just to Widget's.
+    {
+        var iWidget = new VBClassModuleSymbol(Root, Root, "IWidget");
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { ImplementedInterfaces = [iWidget] };
+        var session = ComposeSession(iWidget, widget);
+        var instance = CreateInstance(session, widget);
+
+        var result = Sut().EvaluateSetCoercion(session, ThrowawayExpression, instance, VBClassType.FromClassModule(iWidget));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+    }
+
+    [TestMethod]
     public void NonObjectSource_VariantDestination_IsTypeMismatch()
         // MS-VBAL 5.5.2.2.2's own table: unlike Object/Class (Object required), a Variant destination
         // for a non-object source is specifically a Type mismatch - counterintuitive, verified directly
