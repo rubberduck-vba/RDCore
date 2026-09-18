@@ -1,7 +1,9 @@
 ﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 using RDCore.SDK.Semantics.Static.Operators;
@@ -56,22 +58,30 @@ public static class ExpressionStaticSemanticsEvaluator
     private static StaticSemanticsEvaluationResult EvaluateMemberAccess(
         StaticEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
     {
-        if (memberAccess.Owner is not { } owner)
+        VBType ownerType;
+        if (memberAccess.Owner is { } owner)
         {
-            // a With-relative access (.Member) needs the enclosing With block's target type; no
-            // statement-level walker exists yet to supply one here. MemberAccessExpressionStaticSemantics
-            // itself throws if called this way (a null owner is caller error, not something to feed it),
-            // so defer instead of violating that contract - not yet modeled, not wrong.
-            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+            var ownerResult = Evaluate(context, owner);
+            if (ownerResult.IsError)
+            {
+                return ownerResult;
+            }
+            ownerType = ownerResult.Result!;
+        }
+        else if (context.EnclosingWithTargetType is { } withTargetType)
+        {
+            // a With-relative access (.Member) resolves against the innermost enclosing With block's
+            // target type (MS-VBAL 5.6.15) - only known here when a statement walker threaded it in.
+            ownerType = withTargetType;
+        }
+        else
+        {
+            // MS-VBAL 5.6.15: "If there is no enclosing With block, the with-expression is invalid."
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.WithExpressionOutsideWithBlock,
+                expression.Location, $"'.{memberAccess.Member.IdentifierName}' has no enclosing With block."));
         }
 
-        var ownerResult = Evaluate(context, owner);
-        if (ownerResult.IsError)
-        {
-            return ownerResult;
-        }
-
-        return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerResult.Result!);
+        return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateIndexExpression(
@@ -110,21 +120,30 @@ public static class ExpressionStaticSemanticsEvaluator
     private static StaticSemanticsEvaluationResult EvaluateDictionaryAccess(
         StaticEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
     {
-        if (dictionaryAccess.Owner is not { } owner)
+        VBType ownerType;
+        if (dictionaryAccess.Owner is { } owner)
         {
-            // a With-relative access (!member) needs the enclosing With block's target type; no
-            // statement-level walker exists yet to supply one here, same gap as member access.
-            // DictionaryAccessExpressionStaticSemantics itself throws if called this way.
-            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+            var ownerResult = Evaluate(context, owner);
+            if (ownerResult.IsError)
+            {
+                return ownerResult;
+            }
+            ownerType = ownerResult.Result!;
+        }
+        else if (context.EnclosingWithTargetType is { } withTargetType)
+        {
+            // a With-relative access (!member) resolves against the innermost enclosing With block's
+            // target type (MS-VBAL 5.6.15) - only known here when a statement walker threaded it in.
+            ownerType = withTargetType;
+        }
+        else
+        {
+            // MS-VBAL 5.6.15: "If there is no enclosing With block, the with-expression is invalid."
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.WithExpressionOutsideWithBlock,
+                expression.Location, $"'!{dictionaryAccess.Member.IdentifierName}' has no enclosing With block."));
         }
 
-        var ownerResult = Evaluate(context, owner);
-        if (ownerResult.IsError)
-        {
-            return ownerResult;
-        }
-
-        return DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerResult.Result!);
+        return DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateTypeOfIs(

@@ -403,6 +403,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Implicit With-reference outside a With block.
+        /// </summary>
+        public static string VBCompileError_WithExpressionOutsideWithBlock {
+            get {
+                return ResourceManager.GetString("VBCompileError_WithExpressionOutsideWithBlock", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

@@ -337,7 +337,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         _isCapturingLoopHeaderExpression = 0;
     }
 
-    // `With...End With` (MS-VBAL 5.4.2.19) — same shape and same capture trick as While: a bare
+    // `With...End With` (MS-VBAL 5.4.2.21) — same shape and same capture trick as While: a bare
     // expression always precedes the body's block, with no ambiguity to resolve at Exit.
     public override void EnterWithStmt([NotNull] VBAParser.WithStmtContext context)
     {

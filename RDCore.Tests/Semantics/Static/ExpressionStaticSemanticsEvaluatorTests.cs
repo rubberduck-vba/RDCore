@@ -156,17 +156,36 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
     }
 
     [TestMethod]
-    public void WithRelativeAccess_DefersToUnknown_InsteadOfThrowing()
-        // MemberAccessExpressionStaticSemantics itself throws NotSupportedException for a null owner -
-        // the evaluator must never call it that way; it defers before ever reaching the rule.
+    public void WithRelativeAccess_NoEnclosingWith_IsAnError()
+        // MS-VBAL 5.6.15: "If there is no enclosing With block, the with-expression is invalid." A
+        // context with no EnclosingWithTargetType means exactly that - a real compile error, not a defer.
     {
         var module = Module("Caller");
         var context = ContextAt(module.Uri, module);
 
         var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, WithRelativeMemberOf("Bar"));
 
-        Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.WithExpressionOutsideWithBlock, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void WithRelativeAccess_EnclosingWithTargetType_ResolvesAgainstIt()
+        // proves the substitution end to end: a context carrying EnclosingWithTargetType (as a
+        // statement walker would supply for code inside a With block) resolves .Bar against it.
+    {
+        var owner = ClassModule("Owner");
+        var member = InstanceField(owner.Uri, "Bar", VBLongType.TypeInfo);
+        var populatedOwner = owner with { Members = [member], DefaultInterfaceMembers = [member] };
+        var context = ContextAt(owner.Uri, populatedOwner) with
+        {
+            EnclosingWithTargetType = new VBClassType(populatedOwner, populatedOwner.DefaultInterfaceMembers),
+        };
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, WithRelativeMemberOf("Bar"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBLongType.TypeInfo, result.Result);
     }
 
     [TestMethod]
@@ -241,17 +260,31 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
     }
 
     [TestMethod]
-    public void WithRelativeDictionaryAccess_DefersToUnknown_InsteadOfThrowing()
-        // DictionaryAccessExpressionStaticSemantics itself throws NotSupportedException for a null
-        // owner - the evaluator must never call it that way; it defers before ever reaching the rule.
+    public void WithRelativeDictionaryAccess_NoEnclosingWith_IsAnError()
     {
         var module = Module("Caller");
         var context = ContextAt(module.Uri, module);
 
         var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, WithRelativeDictionaryAccessOf("key"));
 
-        Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.WithExpressionOutsideWithBlock, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void WithRelativeDictionaryAccess_EnclosingWithTargetType_ResolvesAgainstIt()
+    {
+        var dictionaryClass = ClassModule("Dictionary");
+        var itemMember = InstanceField(dictionaryClass.Uri, "Item", VBVariantType.TypeInfo);
+        var context = ContextAt(dictionaryClass.Uri, dictionaryClass) with
+        {
+            EnclosingWithTargetType = new VBClassType(dictionaryClass, []) { DefaultMember = itemMember },
+        };
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, WithRelativeDictionaryAccessOf("key"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBVariantType.TypeInfo, result.Result);
     }
 
     [TestMethod]

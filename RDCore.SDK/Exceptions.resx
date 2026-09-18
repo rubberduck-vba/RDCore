@@ -300,6 +300,9 @@
   <data name="VBCompileError_MethodOrDataMemberNotFound" xml:space="preserve">
     <value>Method or data member not found</value>
   </data>
+  <data name="VBCompileError_WithExpressionOutsideWithBlock" xml:space="preserve">
+    <value>Implicit With-reference outside a With block</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>

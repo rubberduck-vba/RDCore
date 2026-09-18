@@ -58,7 +58,8 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
 | Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux, expressions d'index, accès dictionnaire, `TypeOf...Is`) | ✅ chaque règle est complète et testée isolément |
-| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🚧 récursion correcte pour les chaînes de _member access_/index/accès dictionnaire, les opérateurs, `New` et `TypeOf...Is`; seul l'accès relatif à `With` (`.Member`, `!Member`) retourne encore `VBUnknownType`, faute d'un _walker_ au niveau des instructions; rien en production ne l'appelle encore |
+| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | ✅ couvre les chaînes de _member access_/index/accès dictionnaire, les opérateurs, `New` et `TypeOf...Is`; l'accès relatif à `With` (`.Member`, `!Member`) se résout aussi désormais, via un _walker_ d'instructions (ci-dessous) qui propage le type cible du bloc `With` englobant le plus proche; rien en production n'appelle encore l'un ou l'autre |
+| Sémantiques statiques — _walker_ d'arbre d'instructions (récursion dans les blocs `If`/`Do`/`For`/`Select Case`/`With`, propageant le type cible de `With` dans leur corps) | ✅ collecte toutes les erreurs de compilation trouvées dans tout l'arbre d'instructions plutôt que de s'arrêter à la première, contrairement au _tree evaluator_ d'expressions; rien en production ne l'appelle encore |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 

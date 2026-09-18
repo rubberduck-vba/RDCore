@@ -123,9 +123,16 @@ public sealed class DictionaryAccessExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void AWithRelativeAccess_OwnerIsImplicit_IsNotYetSupported()
+    public void AWithRelativeAccess_ResolvesAgainstTheSubstitutedOwnerType()
+        // With-relative resolution (MS-VBAL 5.6.15) is the caller's (ExpressionStaticSemanticsEvaluator's)
+        // job to substitute the enclosing With target's type in for the missing Owner - this rule never
+        // reads Owner itself, so a null Owner with a real operand type behaves identically to a real one.
     {
-        Assert.ThrowsExactly<NotSupportedException>(
-            () => DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, WithRelativeAccess("key")));
+        var dictionary = Class("Dictionary", defaultMember: Method("Item", VBVariantType.TypeInfo));
+
+        var result = DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, WithRelativeAccess("key"), dictionary);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBVariantType.TypeInfo, result.Result);
     }
 }

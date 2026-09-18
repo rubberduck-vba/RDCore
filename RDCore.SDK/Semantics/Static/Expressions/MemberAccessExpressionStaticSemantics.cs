@@ -33,28 +33,20 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     /// </param>
     /// <param name="expression">The <see cref="MemberAccessExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">
-    /// <see cref="Owner"/>'s already-determined declared type, at
-    /// <see cref="InputIndex.MemberAccessOwner"/>. <see cref="MemberAccessExpressionNode.Member"/> has
-    /// no independent declared type to pass here — it is a bare member name, not a lexically resolved
-    /// expression.
+    /// The effective owner's already-determined declared type, at
+    /// <see cref="InputIndex.MemberAccessOwner"/> — <see cref="MemberAccessExpressionNode.Owner"/>'s
+    /// declared type, or, for a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
+    /// is <c>null</c>), the innermost enclosing <c>With</c> block's target type (MS-VBAL §5.6.15),
+    /// which the caller is responsible for substituting in — this rule doesn't care which it was.
+    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here —
+    /// it is a bare member name, not a lexically resolved expression.
     /// </param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="MemberAccessExpressionNode"/>.</exception>
-    /// <exception cref="NotSupportedException">
-    /// <paramref name="expression"/> is a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
-    /// is <c>null</c>): resolving one requires the enclosing <c>With</c> block's target type, which
-    /// <paramref name="context"/> does not carry.
-    /// </exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not MemberAccessExpressionNode memberAccess)
         {
             throw new ArgumentException($"Expected a {nameof(MemberAccessExpressionNode)}.", nameof(expression));
-        }
-
-        if (memberAccess.Owner is null)
-        {
-            throw new NotSupportedException(
-                "With-relative member access (an implicit owner) requires the enclosing With block's target type, which StaticEvaluationContext does not carry.");
         }
 
         var owner = operandDeclaredTypes[(int)InputIndex.MemberAccessOwner];

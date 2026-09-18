@@ -153,9 +153,16 @@ public sealed class MemberAccessExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void AWithRelativeAccess_OwnerIsImplicit_IsNotYetSupported()
+    public void AWithRelativeAccess_ResolvesAgainstTheSubstitutedOwnerType()
+        // With-relative resolution (MS-VBAL 5.6.15) is the caller's (ExpressionStaticSemanticsEvaluator's)
+        // job to substitute the enclosing With target's type in for the missing Owner - this rule never
+        // reads Owner itself, so a null Owner with a real operand type behaves identically to a real one.
     {
-        Assert.ThrowsExactly<NotSupportedException>(
-            () => MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, WithRelativeAccess("Whatever")));
+        var widget = Class("Widget", Method("Refresh", VBBooleanType.TypeInfo));
+
+        var result = MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, WithRelativeAccess("Refresh"), widget);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBBooleanType.TypeInfo, result.Result);
     }
 }

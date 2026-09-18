@@ -184,6 +184,15 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL 5.6.11</strong> Instance Expressions.
     /// </summary>
     InvalidUseOfMe = 9317,
+    /// <summary>
+    /// A <em>with-expression</em> (<c>.member</c> or <c>!member</c>) appears where there is no enclosing
+    /// <c>With</c> block to supply its implicit owner.<br/>
+    /// <strong>MS-VBAL §5.6.15</strong> With Expressions.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ Unable to find an official <c>learn.microsoft.com</c> documentation link for this error.
+    /// </remarks>
+    WithExpressionOutsideWithBlock = 9318,
 
 
     /***********************************************************************************************
