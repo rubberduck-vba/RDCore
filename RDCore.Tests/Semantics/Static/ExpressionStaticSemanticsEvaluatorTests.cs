@@ -53,6 +53,18 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
     private static TypeOfIsExpressionNode TypeOfIsOf(ExpressionNode operand, ExpressionNode typeExpression)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [6]), TestLocations.TestLocation, operand, typeExpression);
 
+    private static IndexExpressionNode IndexOf(ExpressionNode callee, params ExpressionNode[] arguments)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [7]), TestLocations.TestLocation, callee, [.. arguments]);
+
+    private static DictionaryAccessExpressionNode DictionaryAccessOf(ExpressionNode owner, string memberName)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [8]), TestLocations.TestLocation, owner, NameOf(memberName));
+
+    private static DictionaryAccessExpressionNode WithRelativeDictionaryAccessOf(string memberName)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [9]), TestLocations.TestLocation, null, NameOf(memberName));
+
+    private static AddressOfExpressionNode AddressOfOf(ExpressionNode target)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [10]), TestLocations.TestLocation, target);
+
     private static StaticEvaluationContext ContextAt(Uri scopeUri, params Symbol[] symbols)
     {
         var tree = ScopeTreeBuilder.Build(symbols);
@@ -159,12 +171,84 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void UnmappedNodeKind_DefersToUnknown()
-        // TypeOfIsExpressionNode has no static semantics rule yet.
+        // AddressOfExpressionNode is only ever meaningful as an IndexExpressionNode argument - the
+        // evaluator has no top-level rule for it and must defer, not throw or misreport.
     {
         var module = Module("Caller");
         var context = ContextAt(module.Uri, module);
 
-        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, TypeOfIsOf(NameOf("x"), NameOf("Foo")));
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, AddressOfOf(NameOf("Foo")));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void TypeOfIs_ClassOperand_ResolvesToBoolean_ThroughRealSymbols()
+    {
+        var caller = Module("Caller");
+        var widget = ClassModule("Widget");
+        var obj = ModuleField(caller.Uri, "obj", new VBClassType(widget, []));
+        var context = ContextAt(caller.Uri, caller with { Members = [obj] }, widget, obj);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, TypeOfIsOf(NameOf("obj"), NameOf("Widget")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBBooleanType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void IndexExpression_ArrayCallee_ResolvesElementType_ThroughRealSymbols()
+    {
+        var caller = Module("Caller");
+        var data = ModuleField(caller.Uri, "data", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var context = ContextAt(caller.Uri, caller with { Members = [data] }, data);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, IndexOf(NameOf("data"), NameOf("i")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBLongType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void IndexExpression_ArgumentError_PropagatesInsteadOfContinuing()
+        // an unresolved argument under Option Explicit must fail the whole index expression, even
+        // though IndexExpressionStaticSemantics itself never needs the argument's own declared type.
+    {
+        var caller = Module("Caller") with { Directives = new ModuleDirectives(Explicit: true) };
+        var data = ModuleField(caller.Uri, "data", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var context = ContextAt(caller.Uri, caller with { Members = [data] }, data);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, IndexOf(NameOf("data"), NameOf("DoesNotExist")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.VariableNotDefined, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void DictionaryAccess_ClassOwnerWithDefaultMember_ResolvesEndToEnd()
+    {
+        var caller = Module("Caller");
+        var dictionaryClass = ClassModule("Dictionary");
+        var itemMember = InstanceField(dictionaryClass.Uri, "Item", VBVariantType.TypeInfo);
+        var dict = ModuleField(caller.Uri, "dict", new VBClassType(dictionaryClass, []) { DefaultMember = itemMember });
+        var context = ContextAt(caller.Uri, caller with { Members = [dict] }, dictionaryClass, dict);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, DictionaryAccessOf(NameOf("dict"), "key"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBVariantType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void WithRelativeDictionaryAccess_DefersToUnknown_InsteadOfThrowing()
+        // DictionaryAccessExpressionStaticSemantics itself throws NotSupportedException for a null
+        // owner - the evaluator must never call it that way; it defers before ever reaching the rule.
+    {
+        var module = Module("Caller");
+        var context = ContextAt(module.Uri, module);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, WithRelativeDictionaryAccessOf("key"));
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);

@@ -47,4 +47,19 @@ public enum InputIndex
     /// The <em>owner</em> operand of a <em>member access</em> expression.
     /// </summary>
     MemberAccessOwner = First,
+
+    /// <summary>
+    /// The <em>callee</em> operand of an <em>index</em> expression.
+    /// </summary>
+    IndexExpressionCallee = First,
+
+    /// <summary>
+    /// The <em>owner</em> operand of a <em>dictionary access</em> expression.
+    /// </summary>
+    DictionaryAccessOwner = First,
+
+    /// <summary>
+    /// The <em>operand</em> of a <em>TypeOf...Is</em> expression.
+    /// </summary>
+    TypeOfIsOperand = First,
 }

@@ -58,8 +58,8 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 | Static type system, runtime type model | ✅ |
 | Symbol resolution — lexical scope tree, shadowing, ambiguity (RD-VBAL §2.3.1.2) | ✅ |
 | Static semantics — operators, let-coercions | ✅ |
-| Static semantics — per-node rules (simple names, member access, `New`, `Me`, literals) | ✅ each rule complete and unit-tested in isolation |
-| Static semantics — tree evaluator (recursive dispatch across a real expression, incl. operator-token dispatch) | 🚧 recurses correctly for member-access chains, operators, and `New`; `With`-relative access and a few node kinds (`Foo(1)`, `Foo!Bar`, `TypeOf...Is`) still defer to `VBUnknownType`; nothing in production calls it yet |
+| Static semantics — per-node rules (simple names, member access, `New`, `Me`, literals, index expressions, dictionary access, `TypeOf...Is`) | ✅ each rule complete and unit-tested in isolation |
+| Static semantics — tree evaluator (recursive dispatch across a real expression, incl. operator-token dispatch) | 🚧 recurses correctly for member-access/index/dictionary-access chains, operators, `New`, and `TypeOf...Is`; only `With`-relative access (`.Member`, `!Member`) still defers to `VBUnknownType`, for lack of a statement-level walker; nothing in production calls it yet |
 | Hosts, transport, connection lifecycle, platform-root | ✅ |
 | Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
 

@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// <strong>MS-VBAL 5.6.9.4</strong> TypeOf...Is Expressions — <c>TypeOf &lt;expr&gt; Is &lt;type-expression&gt;</c>,
+/// <strong>MS-VBAL 5.6.7</strong> TypeOf...Is Expressions — <c>TypeOf &lt;expr&gt; Is &lt;type-expression&gt;</c>,
 /// testing whether <see cref="Operand"/>'s run-time type is, or derives from, <see cref="TypeExpression"/>.
 /// </summary>
 /// <remarks>

@@ -44,6 +44,10 @@ public static class ExpressionStaticSemanticsEvaluator
             // TypeExpression names a type, not a value - nothing to recurse into as an expression.
             NewExpressionNode => NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression),
             MemberAccessExpressionNode memberAccess => EvaluateMemberAccess(context, expression, memberAccess),
+            IndexExpressionNode indexExpression => EvaluateIndexExpression(context, expression, indexExpression),
+            DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(context, expression, dictionaryAccess),
+            // TypeExpression names a type, not a value - nothing to recurse into as an expression.
+            TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(context, expression, typeOfIs),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(context, expression, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
@@ -68,6 +72,71 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerResult.Result!);
+    }
+
+    private static StaticSemanticsEvaluationResult EvaluateIndexExpression(
+        StaticEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression)
+    {
+        var calleeResult = Evaluate(context, indexExpression.Callee);
+        if (calleeResult.IsError)
+        {
+            return calleeResult;
+        }
+
+        foreach (var argument in indexExpression.Arguments)
+        {
+            var argumentResult = EvaluateIndexArgument(context, argument);
+            if (argumentResult is { IsError: true })
+            {
+                return argumentResult.Value;
+            }
+        }
+
+        return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
+    }
+
+    // MissingArgumentNode is a placeholder, not a value - nothing to evaluate. NamedArgumentNode and
+    // AddressOfExpressionNode wrap the expression actually worth checking for errors; neither has a
+    // declared type IndexExpressionStaticSemantics needs, so only the callee's type feeds it.
+    private static StaticSemanticsEvaluationResult? EvaluateIndexArgument(StaticEvaluationContext context, ExpressionNode argument)
+        => argument switch
+        {
+            MissingArgumentNode => null,
+            NamedArgumentNode named => Evaluate(context, named.Value),
+            AddressOfExpressionNode addressOf => Evaluate(context, addressOf.Target),
+            _ => Evaluate(context, argument),
+        };
+
+    private static StaticSemanticsEvaluationResult EvaluateDictionaryAccess(
+        StaticEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
+    {
+        if (dictionaryAccess.Owner is not { } owner)
+        {
+            // a With-relative access (!member) needs the enclosing With block's target type; no
+            // statement-level walker exists yet to supply one here, same gap as member access.
+            // DictionaryAccessExpressionStaticSemantics itself throws if called this way.
+            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+        }
+
+        var ownerResult = Evaluate(context, owner);
+        if (ownerResult.IsError)
+        {
+            return ownerResult;
+        }
+
+        return DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerResult.Result!);
+    }
+
+    private static StaticSemanticsEvaluationResult EvaluateTypeOfIs(
+        StaticEvaluationContext context, ExpressionNode expression, TypeOfIsExpressionNode typeOfIs)
+    {
+        var operandResult = Evaluate(context, typeOfIs.Operand);
+        if (operandResult.IsError)
+        {
+            return operandResult;
+        }
+
+        return TypeOfIsExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, operandResult.Result!);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateBinaryOperator(

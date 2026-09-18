@@ -57,8 +57,8 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 | Système de types statiques, modèle de types _runtime_ | ✅ |
 | Résolution de symboles — arbre de _lexical scope_, _shadowing_, ambiguïté (RD-VBAL §2.3.1.2) | ✅ |
 | Sémantiques statiques — opérateurs, _let-coercions_ | ✅ |
-| Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux) | ✅ chaque règle est complète et testée isolément |
-| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🚧 récursion correcte pour les chaînes de _member access_, les opérateurs et `New`; l'accès relatif à `With` et quelques types de nœuds (`Foo(1)`, `Foo!Bar`, `TypeOf...Is`) retournent encore `VBUnknownType`; rien en production ne l'appelle encore |
+| Sémantiques statiques — règles par nœud (_simple names_, _member access_, `New`, `Me`, littéraux, expressions d'index, accès dictionnaire, `TypeOf...Is`) | ✅ chaque règle est complète et testée isolément |
+| Sémantiques statiques — _tree evaluator_ (dispatch récursif sur une vraie expression, incl. dispatch par jeton d'opérateur) | 🚧 récursion correcte pour les chaînes de _member access_/index/accès dictionnaire, les opérateurs, `New` et `TypeOf...Is`; seul l'accès relatif à `With` (`.Member`, `!Member`) retourne encore `VBUnknownType`, faute d'un _walker_ au niveau des instructions; rien en production ne l'appelle encore |
 | Hôtes, transport, cycle de vie des connexions, racine de plateforme | ✅ |
 | Modèle de capacités (_handshake_ plateforme + LSP) | 🚧 informatif, sans application; la CLI et les extensions déclarent `CliCommand` |
 
