@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
@@ -77,6 +78,9 @@ public sealed class StatementStaticSemanticsEvaluatorTests
         => new(new(TestUri.TestModuleUri().AbsolutePath, [14]), TestLocations.TestLocation, new StatementBlock([.. body]));
 
     private static StatementBlock Block(params StatementNode[] statements) => new([.. statements]);
+
+    private static LiteralExpressionNode IntegerLiteralOf(short value)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [15]), TestLocations.TestLocation, new VBIntegerValue(value));
 
     private static StaticEvaluationContext ContextAt(Uri scopeUri, params Symbol[] symbols)
     {
@@ -251,6 +255,20 @@ public sealed class StatementStaticSemanticsEvaluatorTests
 
         Assert.AreEqual(1, errors.Length);
         Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void LetAssignment_OfALiteral_IsWalkedWithoutError()
+        // `n = 1`: the value expression is a literal leaf, which the tree evaluator used to throw on.
+    {
+        var module = Module("Caller");
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [n] }, n);
+
+        var block = Block(AssignOf(NameOf("n"), IntegerLiteralOf(1), AssignmentKind.ImplicitLet));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        CollectionAssert.AreEqual(Array.Empty<VBCompileErrorInfo>(), errors);
     }
 
     [TestMethod]

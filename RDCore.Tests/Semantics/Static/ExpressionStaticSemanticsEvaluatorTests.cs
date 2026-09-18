@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 
@@ -64,6 +65,9 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
 
     private static AddressOfExpressionNode AddressOfOf(ExpressionNode target)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [10]), TestLocations.TestLocation, target);
+
+    private static LiteralExpressionNode IntegerLiteralOf(short value)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [11]), TestLocations.TestLocation, new VBIntegerValue(value));
 
     private static StaticEvaluationContext ContextAt(Uri scopeUri, params Symbol[] symbols)
     {
@@ -136,6 +140,32 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
         var context = ContextAt(module.Uri, module with { Members = [x, y] }, x, y);
 
         var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, BinaryOf(Tokens.AdditionOp, NameOf("x"), NameOf("y")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBLongType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void Literal_ResolvesToTheDeclaredTypeOfItsOwnToken()
+        // a literal is a leaf with no operands: the evaluator must not hand the rule an empty operand list.
+    {
+        var module = Module("Caller");
+        var context = ContextAt(module.Uri, module);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, IntegerLiteralOf(1));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBIntegerType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void BinaryOperator_WithALiteralOperand_EvaluatesEndToEnd()
+    {
+        var module = Module("Caller");
+        var x = ModuleField(module.Uri, "x", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [x] }, x);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, BinaryOf(Tokens.AdditionOp, NameOf("x"), IntegerLiteralOf(1)));
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
         Assert.AreEqual(VBLongType.TypeInfo, result.Result);

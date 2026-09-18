@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 
@@ -15,7 +16,10 @@ public record class LiteralExpressionStaticSemantics : IStaticSemantics
     /// </summary>
     /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <em>expression node</em> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">The declared type of the operands.</param>
-    public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes) 
-        => StaticSemanticsEvaluationResult.Success(operandDeclaredTypes[(int)InputIndex.UnaryOperand]);
+    /// <param name="operandDeclaredTypes">Ignored: a literal has no operands, its type is that of its own token.</param>
+    /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="LiteralExpressionNode"/>.</exception>
+    public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
+        => expression is LiteralExpressionNode literal
+            ? StaticSemanticsEvaluationResult.Success(literal.StaticValue.TypeInfo)
+            : throw new ArgumentException($"Expected a {nameof(LiteralExpressionNode)}.", nameof(expression));
 }
