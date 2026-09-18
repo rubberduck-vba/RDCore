@@ -1,14 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NSubstitute;
 using RDCore.Parsing;
 using RDCore.Parsing.Handlers;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Server.Configuration;
-using System.IO.Abstractions;
 
 namespace RDCore.Tests.Parser;
 
@@ -26,7 +24,6 @@ public sealed class ParseServerWiringTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Substitute.For<IFile>());
         // the bridge RDCoreServerApp.ConfigureServer performs: a configured IOptions<SdkServerOptions>.
         services.AddSingleton<IOptions<SdkServerOptions>>(
             Options.Create(new SdkServerOptions { WireErrorDetail = scrub }));

@@ -10,7 +10,6 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
-using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 
 // for warnings about antlr-generated parser rule context types not requiring CLSCompliantAttribute because not present on assembly.
@@ -92,9 +91,6 @@ public class RDCoreParserApp(
 
     protected override void ConfigureServices(IServiceCollection services)
     {
-        services.AddSingleton<IFileSystem, FileSystem>();
-        services.AddSingleton(provider => provider.GetRequiredService<IFileSystem>().File);
-
         // ModuleParser takes IOptions<SdkServerOptions>; the base registers the configured instance
         // into this container (OmniSharp's own AddOptions would supply an unconfigured default).
         services.AddSingleton<IModuleParser, ModuleParser>();

@@ -7,13 +7,11 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
-using System.IO.Abstractions;
 
 namespace RDCore.Parsing.Handlers;
 
 [Method(RDCorePlatformProtocol.ParseFullDocument)]
 public class ParseFullDocumentHandler(
-    IFile fileService,
     IModuleParser moduleParser,
     ILogger<ParseFullDocumentHandler> logger,
     IOptions<SdkServerOptions> serverOptions)
@@ -26,13 +24,15 @@ public class ParseFullDocumentHandler(
             logger.LogWarning("📥 {method}: request had no DocumentUri.", RDCorePlatformProtocol.ParseFullDocument);
             throw new InvalidParametersException(request);
         }
+        if (request.Fragment is not string content)
+        {
+            logger.LogWarning("📥 {method}: request for {uri} had no Fragment.", RDCorePlatformProtocol.ParseFullDocument, uri);
+            throw new InvalidParametersException(request);
+        }
 
         logger.LogInformation("📥 {method}: {uri}", RDCorePlatformProtocol.ParseFullDocument, uri);
         try
         {
-            // LocalPath, not AbsolutePath: a file:// uri's AbsolutePath keeps the leading slash and
-            // percent-encoding, so `ReadAllText` can't find it on Windows.
-            var content = fileService.ReadAllText(uri.LocalPath);
             var result = moduleParser.Parse(uri, content);
             logger.LogInformation("📤 {uri}: {status}", uri,
                 result.IsSuccess ? "ok" : $"{result.SyntaxErrors.Length} syntax error(s)");
