@@ -84,9 +84,19 @@ public interface ISessionSymbols
     bool TryDefine(Symbol symbol, ScopeKind scope);
 
     /// <summary>
-    /// Resolves <paramref name="name"/> visible from <paramref name="scope"/>.
+    /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
+    /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>
+    /// <returns><c>true</c> if the name bound to exactly one symbol.</returns>
     bool TryResolveValue(string name, Symbol scope, out Symbol? symbol);
+
+    /// <summary>
+    /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the type binding
+    /// context (<see cref="ISymbolResolver.ResolveType"/>) — the context of an <c>As</c> clause or the
+    /// operand of <c>New</c>.
+    /// </summary>
+    /// <returns><c>true</c> if the name bound to exactly one symbol.</returns>
+    bool TryResolveType(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
     /// The read face over this table — resolves a name visible from a scope by walking the scope tree

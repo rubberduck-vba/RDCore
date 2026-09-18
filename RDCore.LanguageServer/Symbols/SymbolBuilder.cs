@@ -216,7 +216,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         => node.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
 
     // A declared type is a name the resolver binds from the given scope, optionally qualified by a
-    // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualified). An
+    // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualifiedType). An
     // array definition needs more than a name lookup, so it is left unresolved for a later semantic pass.
     private VBType DeclaredType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
     {
@@ -242,7 +242,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     // (MS-VBAL 5.6.4); an unresolved name stays Unknown. A resolved user-defined type, enum or class
     // module is a symbol carrying no VBType of its own, so build one.
     private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
-        => VBProjectSymbol.ResolveQualified(resolver, qualifier, typeName, handle).Symbol switch
+        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle).Symbol switch
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),

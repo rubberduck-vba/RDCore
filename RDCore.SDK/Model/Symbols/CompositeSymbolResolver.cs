@@ -21,10 +21,17 @@ public sealed class CompositeSymbolResolver(params ISymbolResolver[] resolvers) 
 {
     /// <inheritdoc/>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
+        => FirstBound(resolver => resolver.ResolveValue(name, scope, handle));
+
+    /// <inheritdoc/>
+    public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle)
+        => FirstBound(resolver => resolver.ResolveType(name, scope, handle));
+
+    private SymbolResolutionResult FirstBound(Func<ISymbolResolver, SymbolResolutionResult> resolve)
     {
         foreach (var resolver in resolvers)
         {
-            var result = resolver.ResolveValue(name, scope, handle);
+            var result = resolve(resolver);
             if (!result.IsUnbound)
             {
                 return result;

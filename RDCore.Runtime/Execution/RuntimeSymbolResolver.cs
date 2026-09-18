@@ -26,6 +26,9 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle) => names.ResolveValue(name, scope, handle);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => names.ResolveType(name, scope, handle);
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);
 
     /// <inheritdoc/>

@@ -101,7 +101,22 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ResolvesToANonClassSymbol_IsATypeMismatchError()
+    public void ResolvesToATypeThatIsNotAClass_IsATypeMismatchError()
+    {
+        var module = Module("Mod1");
+        var udt = new VBUserDefinedTypeMemberSymbol(Root, module.Uri, "Point", ScopeKind.Module, R, R, AccessModifier.Public);
+        var context = ContextAt(module.Uri, module, udt);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Point")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void NamesAVariable_IsNotAType_UserDefinedTypeNotDefined()
+        // the operand of New binds in the type binding context (MS-VBAL 5.6.4): a variable is never a
+        // candidate there, so it is not a type that could fail to be a class - it is not a type at all.
     {
         var module = Module("Mod1");
         var field = Field(module.Uri, "Total", VBLongType.TypeInfo);
@@ -110,7 +125,59 @@ public sealed class NewExpressionStaticSemanticsTests
         var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Total")));
 
         Assert.IsTrue(result.IsError);
-        Assert.AreEqual(VBCompileErrorId.TypeMismatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void AVariableNamedLikeTheClass_DoesNotHideTheClass()
+        // `Dim Widget As New Widget`-style shadowing: the class binds in the type binding context however
+        // the variable is named.
+    {
+        var module = Module("Mod1");
+        var field = Field(module.Uri, "Collection1", VBLongType.TypeInfo);
+        var classModule = ClassModule("Collection1");
+        var context = ContextAt(module.Uri, module, field, classModule);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual("Collection1", Assert.IsInstanceOfType<VBClassType>(result.Result).Name);
+    }
+
+    [TestMethod]
+    public void QualifiedByTheProjectsName_IgnoresAVariableOfThatName()
+        // the legacy Rubberduck bug (issue #973, comment 3): `New MyProject.Class` bound MyProject to a
+        // local variable. A variable is never a candidate for the qualifier in the type binding context.
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var module = Module("Caller");
+        var procedure = new VBProcedureMemberSymbol(Root, module.Uri, "Run", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+        var local = new VBLocalVariableSymbol(Root, procedure.Uri, "MyProject", ScopeKind.Local, R, R);
+        var classModule = ClassModule("Collection1");
+        var context = ContextAt(procedure.Uri, project, module, procedure, local, classModule);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(MemberOf(NameOf("MyProject"), "Collection1")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual("Collection1", Assert.IsInstanceOfType<VBClassType>(result.Result).Name);
+    }
+
+    [TestMethod]
+    public void QualifiedByTheProjectsName_WhenTheModuleDeclaresATypeOfThatName_IsNotTheProject()
+        // MS-VBAL 5.6.10: the first tier with a match is the selected tier. A Type declared at module level
+        // is the enclosing-module tier and beats the project, so `MyProject` is that type, not a project,
+        // and `.Collection1` is then not a member access the type binding context defines.
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var module = Module("Caller");
+        var udt = new VBUserDefinedTypeMemberSymbol(Root, module.Uri, "MyProject", ScopeKind.Module, R, R, AccessModifier.Private);
+        var classModule = ClassModule("Collection1");
+        var context = ContextAt(module.Uri, project, module, udt, classModule);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(MemberOf(NameOf("MyProject"), "Collection1")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
     }
 
     [TestMethod]

@@ -151,6 +151,7 @@ The node types _directly_ derived from `SyntaxNode` are as follows:
 
 The **RDCore** interpretation is reflected in its modelization as follows:
 - 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `SimpleNameExpressionNode`;
+- ✅ the binding context is chosen by the node being evaluated: a `SimpleNameExpressionNode` binds under the _default binding context_ (`ISymbolResolver.ResolveValue`), while an `As` clause and the operand of a `NewExpressionNode` bind under the _type binding context_ (`ISymbolResolver.ResolveType`) — see [**§2.3.1.2** Session Services](rd-vbal.2.3.application-host.html);
 - 🎯 Evaluation returns an [_evaluation result record_](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) describing and encapsulating the result, or runtime error metadata.
 
 Because the type system includes and leverages meta-types such as `VBTypeDescValue`, the binding context is easily inferred from the managed type of a provided value.

@@ -49,7 +49,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
-        var result = VBProjectSymbol.ResolveQualified(context.Resolver, qualifier, typeName, context.Scope.Uri);
+        var result = VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri);
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,

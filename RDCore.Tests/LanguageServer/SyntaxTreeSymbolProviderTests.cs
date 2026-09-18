@@ -61,7 +61,7 @@ public sealed class SyntaxTreeSymbolProviderTests
     public void Function_ReturnType_ResolvesThroughSymbolResolver()
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveValue("Long", ScopeKind.Global, Arg.Any<Uri>())
+        resolver.ResolveType("Long", ScopeKind.Global, Arg.Any<Uri>())
             .Returns(SymbolResolutionResult.Resolved(
                 new UnboundVBModuleFieldVariableMemberSymbol(WorkspaceRoot, WorkspaceRoot, "Long", ScopeKind.Global, VBLongType.TypeInfo)));
 
@@ -73,15 +73,15 @@ public sealed class SyntaxTreeSymbolProviderTests
     [TestMethod]
     public void QualifiedFieldType_ResolvesThroughVBProjectSymbol()
         // Dim x As Project.ClassName (MS-VBAL 5.6.4's type binding context): AsTypeExpressionNode's
-        // QualifierName flows into VBProjectSymbol.ResolveQualified, which falls through to an
+        // QualifierName flows into VBProjectSymbol.ResolveQualifiedType, which falls through to an
         // ordinary lookup for ClassName once Project resolves to the enclosing project itself.
     {
         var project = new VBProjectSymbol(WorkspaceRoot, "MyProject");
         var classModule = (VBClassModuleSymbol)new VBClassModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Widget")
             .With(SymbolProperties.Creatable, true);
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveValue("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.ResolveValue("Widget", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
+        resolver.ResolveType("MyProject", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveType("Widget", ScopeKind.Global, Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(classModule));
 
         var symbol = Single<VBModuleFieldVariableMemberSymbol>(Provide("Public X As MyProject.Widget", resolver));
 

@@ -157,6 +157,12 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return symbol is not null;
     }
 
+    public bool TryResolveType(string name, Symbol scope, out Symbol? symbol)
+    {
+        symbol = Resolver.ResolveType(name, ScopeKind.Unallocated, scope.Uri).Symbol;
+        return symbol is not null;
+    }
+
     public ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure)
         => new CallStackFrame(nodeId, procedure, [], storage);
 
@@ -208,6 +214,9 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     {
         public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
             => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).ResolveValue(name, scope, handle);
+
+        public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle)
+            => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).ResolveType(name, scope, handle);
 
         public IBindingHandle GetValue(Symbol symbol)
             => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");

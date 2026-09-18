@@ -11,7 +11,7 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.Tests.Model.Symbols;
 
 /// <summary>
-/// Characterization matrix for <see cref="VBProjectSymbol.ResolveQualified"/> — MS-VBAL 5.6.4's type
+/// Characterization matrix for <see cref="VBProjectSymbol.ResolveQualifiedType"/> — MS-VBAL 5.6.4's type
 /// binding context: <c>Project.Name</c> resolves <c>Project</c> before looking up <c>Name</c>.
 /// Scoped to the enclosing project only — a qualifier that resolves to anything other than a
 /// <see cref="VBProjectSymbol"/> stays unbound (no referenced-project namespace is modeled yet).
@@ -30,23 +30,26 @@ public sealed class VBProjectSymbolTests
     {
         var resolver = Substitute.For<ISymbolResolver>();
         var field = Field("Total");
-        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+        resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
-        var result = VBProjectSymbol.ResolveQualified(resolver, qualifier: null, "Total", Root);
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, qualifier: null, "Total", Root);
 
         Assert.AreEqual(field, result.Symbol);
     }
 
     [TestMethod]
-    public void QualifierResolvesToTheProject_FallsThroughToTheOrdinaryLookup()
+    public void QualifierResolvesToTheProject_LooksTheNameUpFromTheProjectsOwnScope()
+        // not from the caller's scope: nothing declared in the enclosing module can hide the module or
+        // type the project-qualified name refers to.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
+        var callerScope = new Uri("file://rdcore-test#Caller.Run");
         var field = Field("Total");
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveValue("MyProject", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+        resolver.ResolveType("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
-        var result = VBProjectSymbol.ResolveQualified(resolver, "MyProject", "Total", Root);
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, "MyProject", "Total", callerScope);
 
         Assert.AreEqual(field, result.Symbol);
     }
@@ -57,10 +60,10 @@ public sealed class VBProjectSymbolTests
         // "Foo" as if it were a bare, unqualified name.
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveValue("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
-        resolver.ResolveValue("Foo", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Foo")));
+        resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
+        resolver.ResolveType("Foo", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Foo")));
 
-        var result = VBProjectSymbol.ResolveQualified(resolver, "Total", "Foo", Root);
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, "Total", "Foo", Root);
 
         Assert.IsTrue(result.IsUnbound);
     }
@@ -69,9 +72,9 @@ public sealed class VBProjectSymbolTests
     public void QualifierDoesNotResolveAtAll_StaysUnbound()
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveValue("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
+        resolver.ResolveType("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
 
-        var result = VBProjectSymbol.ResolveQualified(resolver, "Unknown", "ClassName", Root);
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, "Unknown", "ClassName", Root);
 
         Assert.IsTrue(result.IsUnbound);
     }

@@ -36,6 +36,17 @@ public sealed class ScopeTreeSymbolResolverTests
     private static VBPropertySetMemberSymbol PropertySet(Uri moduleUri, string name)
         => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
 
+    private static VBClassModuleSymbol ClassModule(string name) => new(Root, Root, name);
+
+    private static VBUserDefinedTypeMemberSymbol Udt(Uri moduleUri, string name, AccessModifier access = AccessModifier.Implicit)
+        => new(Root, moduleUri, name, ScopeKind.Module, R, R, access);
+
+    private static VBEnumMemberSymbol EnumType(Uri moduleUri, string name)
+        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Enum, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+
+    private static VBConstantMemberSymbol Const(Uri moduleUri, string name)
+        => new(Root, moduleUri, name, ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+
     private static ScopeTreeSymbolResolver Resolver(params Symbol[] symbols)
         => new(ScopeTreeBuilder.Build(symbols));
 
@@ -195,6 +206,199 @@ public sealed class ScopeTreeSymbolResolverTests
     public void Resolve_FromAnUnknownScope_FallsBackToTheGlobalScope()
         => Assert.IsInstanceOfType<VBStandardModuleSymbol>(
             Resolver(Module("Mod1")).ResolveValue("Mod1", ScopeKind.Unallocated, new Uri("file://rdcore-test#Ghost")).Symbol);
+
+    [TestMethod]
+    public void ResolveValue_AUserDefinedType_IsNotACandidate()
+        // MS-VBAL 5.6.10: the default binding context's tiers list a variable, constant, Enum type, Enum
+        // member, property, function or subroutine - no user-defined type.
+    {
+        var module = Module("Mod1");
+        var udt = Udt(module.Uri, "Point");
+
+        Assert.IsTrue(Resolver(module, udt).ResolveValue("Point", ScopeKind.Unallocated, module.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ResolveValue_AConstantAndATypeOfTheSameName_IsNotADuplicate()
+    {
+        var module = Module("Mod1");
+        var constant = Const(module.Uri, "Total");
+        var udt = Udt(module.Uri, "Total");
+
+        var result = Resolver(module, constant, udt).ResolveValue("Total", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(constant, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_AFieldAndATypeOfTheSameName_BindsTheField()
+    {
+        var module = Module("Mod1");
+        var field = Field(module.Uri, "Total");
+        var udt = Udt(module.Uri, "Total");
+
+        Assert.AreSame(field, Resolver(module, field, udt).ResolveValue("Total", ScopeKind.Unallocated, module.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_AnEnumType_IsACandidate()
+    {
+        var module = Module("Mod1");
+        var enumType = EnumType(module.Uri, "Colour");
+
+        Assert.AreSame(enumType, Resolver(module, enumType).ResolveValue("Colour", ScopeKind.Unallocated, module.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AModuleLevelUserDefinedType_BindsFromItsProcedure()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var udt = Udt(module.Uri, "Point");
+
+        Assert.AreSame(udt, Resolver(module, procedure, udt).ResolveType("Point", ScopeKind.Unallocated, procedure.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AnEnumType_IsAType()
+    {
+        var module = Module("Mod1");
+        var enumType = EnumType(module.Uri, "Colour");
+
+        Assert.AreSame(enumType, Resolver(module, enumType).ResolveType("Colour", ScopeKind.Unallocated, module.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_ALocalNamedLikeAClass_DoesNotHideTheClass()
+        // `Dim Widget As Widget`: the local is a candidate in the default binding context only.
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "Widget");
+        var widget = ClassModule("Widget");
+        var resolver = Resolver(module, procedure, local, widget);
+
+        Assert.AreSame(widget, resolver.ResolveType("Widget", ScopeKind.Unallocated, procedure.Uri).Symbol);
+        Assert.AreSame(local, resolver.ResolveValue("Widget", ScopeKind.Unallocated, procedure.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AConstantAndATypeOfTheSameName_BindsTheType()
+    {
+        var module = Module("Mod1");
+        var constant = Const(module.Uri, "Total");
+        var udt = Udt(module.Uri, "Total");
+
+        Assert.AreSame(udt, Resolver(module, constant, udt).ResolveType("Total", ScopeKind.Unallocated, module.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AFieldNamedLikeAType_DoesNotHideTheType()
+    {
+        var module = Module("Mod1");
+        var field = Field(module.Uri, "Total");
+        var udt = Udt(module.Uri, "Total");
+
+        Assert.AreSame(udt, Resolver(module, field, udt).ResolveType("Total", ScopeKind.Unallocated, module.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_BindsTheProject_AndAProceduralOrClassModuleByName()
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var caller = Module("Caller");
+        var helpers = Module("Helpers");
+        var widget = ClassModule("Widget");
+        var resolver = Resolver(project, caller, helpers, widget);
+
+        Assert.AreSame(project, resolver.ResolveType("MyProject", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(helpers, resolver.ResolveType("Helpers", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(widget, resolver.ResolveType("Widget", ScopeKind.Unallocated, caller.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AModuleLevelType_BeatsTheProjectOfTheSameName_OnlyInItsOwnModule()
+        // MS-VBAL 5.6.4's type tiers: the enclosing module's own types come before the project, and the
+        // first tier with a match is the selected tier (5.6.10). Another module sees the project.
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var owner = Module("Owner");
+        var udt = Udt(owner.Uri, "MyProject", AccessModifier.Public);
+        var other = Module("Other");
+        var resolver = Resolver(project, owner, udt, other);
+
+        Assert.AreSame(udt, resolver.ResolveType("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
+        Assert.AreSame(project, resolver.ResolveType("MyProject", ScopeKind.Unallocated, other.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AModule_BeatsAnotherModulesPublicTypeOfTheSameName()
+        // the project tier (its modules) precedes the tier of other modules' accessible types.
+    {
+        var shape = Module("Shape");
+        var other = Module("Other");
+        var udt = Udt(other.Uri, "Shape", AccessModifier.Public);
+        var caller = Module("Caller");
+
+        var result = Resolver(shape, other, udt, caller).ResolveType("Shape", ScopeKind.Unallocated, caller.Uri);
+
+        Assert.AreSame(shape, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AnotherModulesPublicType_IsVisible_APrivateOneIsNot()
+    {
+        var library = Module("Library");
+        var visible = Udt(library.Uri, "Visible", AccessModifier.Public);
+        var hidden = Udt(library.Uri, "Hidden", AccessModifier.Private);
+        var caller = Module("Caller");
+        var resolver = Resolver(library, visible, hidden, caller);
+
+        Assert.AreSame(visible, resolver.ResolveType("Visible", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.IsTrue(resolver.ResolveType("Hidden", ScopeKind.Unallocated, caller.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ResolveType_TwoTypesOfTheSameNameInOneModule_IsADuplicateDeclaration()
+    {
+        var module = Module("Mod1");
+        var first = Udt(module.Uri, "Point");
+        var second = EnumType(module.Uri, "Point");
+
+        var result = Resolver(module, first, second).ResolveType("Point", ScopeKind.Unallocated, module.Uri);
+
+        Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
+        CollectionAssert.AreEquivalent(new Symbol[] { first, second }, result.Candidates.ToArray());
+    }
+
+    [TestMethod]
+    public void ResolveType_APublicTypeInTwoModules_IsAnAmbiguousName_FromAThirdModule()
+    {
+        var alpha = Module("Alpha");
+        var alphaPoint = Udt(alpha.Uri, "Point", AccessModifier.Public);
+        var beta = Module("Beta");
+        var betaPoint = Udt(beta.Uri, "Point", AccessModifier.Public);
+        var caller = Module("Caller");
+
+        var result = Resolver(alpha, alphaPoint, beta, betaPoint, caller).ResolveType("Point", ScopeKind.Unallocated, caller.Uri);
+
+        Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorId);
+        CollectionAssert.AreEquivalent(new Symbol[] { alphaPoint, betaPoint }, result.Candidates.ToArray());
+    }
+
+    [TestMethod]
+    public void ResolveType_AVariable_IsNeverAType()
+    {
+        var module = Module("Mod1");
+        var field = Field(module.Uri, "Total");
+
+        Assert.IsTrue(Resolver(module, field).ResolveType("Total", ScopeKind.Unallocated, module.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ResolveType_AnUndeclaredName_IsUnbound()
+        => Assert.IsTrue(Resolver(Module("Mod1")).ResolveType("Nope", ScopeKind.Unallocated, Module("Mod1").Uri).IsUnbound);
 
     [TestMethod]
     public void GetValue_Throws_ItBindsNamesOnly()

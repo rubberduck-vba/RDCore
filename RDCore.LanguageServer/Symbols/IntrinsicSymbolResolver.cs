@@ -17,12 +17,16 @@ namespace RDCore.LanguageServer.Symbols;
 /// A compile-time type resolver only — it holds no runtime bindings, so the value-lookup members
 /// throw. With it in place the <c>SymbolBuilder</c> binds intrinsic declared types instead of
 /// leaving every one <c>VBUnknownType</c>; project and library type names still fall through until a
-/// resolver composed with those symbols is available.
+/// resolver composed with those symbols is available. A reserved data-type name is a type, never a
+/// value, so it binds in the type binding context only.
 /// </remarks>
 internal sealed class IntrinsicSymbolResolver : ISymbolResolver
 {
     /// <inheritdoc/>
-    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
+    public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle) => SymbolResolutionResult.Unbound;
+
+    /// <inheritdoc/>
+    public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle)
         => IntrinsicVBTypes.TryResolve(name, out var type) || IntrinsicVBTypes.TryResolveTypeHint(name, out type)
             ? SymbolResolutionResult.Resolved(new StaticSymbol(name, SymbolKindExt.TypeDescriptor, type))
             : SymbolResolutionResult.Unbound;

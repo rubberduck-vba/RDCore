@@ -50,11 +50,21 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 
 |Member|Description|
 |---|---|
-|`ResolveValue`|Resolves a specified _identifier name_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
+|`ResolveValue`|Resolves a specified _identifier name_ in the _default binding context_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
+|`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, likewise|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
-`ResolveValue` returns a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
+Which of the two lookups a name is resolved through is decided by the node being evaluated, never by a
+parameter (see [**§3.0.3** Binding Contexts](rd-vbal.3.0.syntax-tree.html)): a simple name expression
+calls `ResolveValue`; an `As` clause and the operand of `New` call `ResolveType`. The two bind different
+candidates (**MS-VBAL §5.6.10**): `ResolveValue` binds a variable, constant, Enum type or member, property,
+function, subroutine, module or project and never a user-defined type; `ResolveType` binds only a
+user-defined type, an Enum type, a class or procedural module, or the project — in that order of precedence,
+starting from the enclosing module, so a local, parameter or constant can neither be bound nor hide the
+type it shadows. `ISessionSymbols` mirrors the pair as `TryResolveValue` and `TryResolveType`.
+
+`ResolveValue` and `ResolveType` each return a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
 declared nowhere visible), or one of two compile-time errors with the colliding declarations
 attached: **VBC09303** _Duplicate declaration_ when the name is declared more than once within one
 module or procedure, and **VBC09301** _Ambiguous name_ when it resolves in more than one enclosing

@@ -16,8 +16,15 @@ namespace RDCore.Tests.LanguageServer;
 /// (<c>MyProject</c> / <c>MyModule</c> / <c>MyProc</c>) reused at once as a module name, a
 /// <c>Const</c>, a <c>Type</c>, a field, a procedure, a local, and an interface member. This pins the
 /// <em>declaration-scope</em> behaviour the resolver can settle today; the <c>With</c>-nested,
-/// <c>Set</c>-heavy body of <c>MyProc1</c> and the <c>Implements</c> overlap in <c>Class</c> need the
-/// statement-node AST (parser §P) and are covered by the ignored case below.
+/// <c>Set</c>-heavy body of <c>MyProc1</c> and the <c>Implements</c> overlap in <c>Class</c> are covered
+/// by the ignored case below.
+/// <para>
+/// The collisions are legal, not duplicates: <strong>MS-VBAL §5.6.4</strong> binds a name in one of two
+/// contexts. A simple name expression uses the default binding context, whose candidates
+/// (<strong>§5.6.10</strong>) include no user-defined type; <c>As X</c> and <c>New X</c> use the type
+/// binding context, whose candidates are only types, modules and the project. A <c>Const</c> and a
+/// <c>Type</c> of one name therefore never compete for the same lookup.
+/// </para>
 /// </summary>
 [TestClass]
 public sealed class EvilTestCase2ResolverTests
@@ -71,8 +78,11 @@ public sealed class EvilTestCase2ResolverTests
     private static SymbolResolutionResult ResolveValue(string name, Uri from)
         => Compose().Resolver.ResolveValue(name, ScopeKind.Unallocated, from);
 
+    private static SymbolResolutionResult ResolveType(string name, Uri from)
+        => Compose().Resolver.ResolveType(name, ScopeKind.Unallocated, from);
+
     [TestMethod]
-    public void FromMyProc1_MyProject_BindsTheLocal_NotTheModuleConstOrType()
+    public void FromMyProc1_MyProject_BindsTheLocal_NotTheModuleConst()
     {
         var (resolver, _, procUri) = Compose();
 
@@ -83,32 +93,62 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void FromModuleScope_MyProject_IsADuplicateDeclaration_ConstAndType()
+    public void FromModuleScope_MyProject_BindsTheConst_TheTypeIsNotInTheDefaultContext()
+        // MS-VBAL 5.6.10: a Const and a Type of one name do not compete - the Type is only a candidate in
+        // the type binding context (see the ResolveType cases below).
     {
-        var (resolver, moduleUri, _) = Compose();
+        var result = ResolveValue("MyProject", Compose().ModuleUri);
 
-        var result = resolver.ResolveValue("MyProject", ScopeKind.Unallocated, moduleUri);
-
-        Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
-        CollectionAssert.AreEquivalent(
-            new[] { nameof(VBConstantMemberSymbol), nameof(VBUserDefinedTypeMemberSymbol) },
-            result.Candidates.Select(c => c.GetType().Name).ToArray());
+        Assert.IsTrue(result.IsResolved);
+        Assert.IsInstanceOfType<VBConstantMemberSymbol>(result.Symbol);
     }
 
     [TestMethod]
-    public void FromModuleScope_MyProc_IsADuplicateDeclaration_FieldAndType()
-        => Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration,
-            ResolveValue("MyProc", Compose().ModuleUri).ErrorId);
+    public void FromModuleScope_MyProc_BindsTheField_TheTypeIsNotInTheDefaultContext()
+        => Assert.IsInstanceOfType<VBModuleFieldVariableMemberSymbol>(
+            ResolveValue("MyProc", Compose().ModuleUri).Symbol);
 
     [TestMethod]
-    public void FromModuleScope_MyModule_IsADuplicateDeclaration_ConstAndType()
-        => Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration,
-            ResolveValue("MyModule", Compose().ModuleUri).ErrorId);
+    public void FromModuleScope_MyModule_BindsTheConst_NotTheModuleNorTheType()
+        // the module-level Const is the enclosing-module tier; the module of the same name is a later tier.
+        => Assert.IsInstanceOfType<VBConstantMemberSymbol>(
+            ResolveValue("MyModule", Compose().ModuleUri).Symbol);
 
     [TestMethod]
     public void FromModuleScope_MyConst_ResolvesUnambiguously()
         => Assert.IsInstanceOfType<VBConstantMemberSymbol>(
             ResolveValue("MyConst", Compose().ModuleUri).Symbol);
+
+    [TestMethod]
+    public void AsTypeContext_FromModuleScope_MyProject_BindsTheType_NotTheConst()
+    {
+        var result = ResolveType("MyProject", Compose().ModuleUri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.IsInstanceOfType<VBUserDefinedTypeMemberSymbol>(result.Symbol);
+    }
+
+    [TestMethod]
+    public void AsTypeContext_FromModuleScope_MyProc_BindsTheType_NotTheField()
+        => Assert.IsInstanceOfType<VBUserDefinedTypeMemberSymbol>(
+            ResolveType("MyProc", Compose().ModuleUri).Symbol);
+
+    [TestMethod]
+    public void AsTypeContext_FromModuleScope_MyModule_BindsTheModulesOwnType_NotTheModule()
+        // the enclosing module's types are the first tier of the type binding context; the module named
+        // MyModule is a later one.
+        => Assert.IsInstanceOfType<VBUserDefinedTypeMemberSymbol>(
+            ResolveType("MyModule", Compose().ModuleUri).Symbol);
+
+    [TestMethod]
+    public void AsTypeContext_FromMyProc1_MyProject_BindsTheType_NotTheLocal()
+        // the local Dim MyProject As Interface is never a candidate in the type binding context.
+        => Assert.IsInstanceOfType<VBUserDefinedTypeMemberSymbol>(
+            ResolveType("MyProject", Compose().ProcUri).Symbol);
+
+    [TestMethod]
+    public void AsTypeContext_AConstant_IsNotAType()
+        => Assert.IsTrue(ResolveType("MyConst", Compose().ModuleUri).IsUnbound);
 
     [TestMethod]
     public void FromGlobalScope_MyModule_ResolvesToTheModuleSymbol()

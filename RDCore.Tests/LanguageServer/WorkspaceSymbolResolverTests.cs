@@ -29,7 +29,7 @@ public sealed class WorkspaceSymbolResolverTests
         => (ModuleUri(name), ModuleType.ClassModule, new ModuleParser().Parse(
             new Uri($"file:///c:/ws/{name}.cls"), $"Attribute VB_Name = \"{name}\"\r\n{body}"));
 
-    private static List<Symbol> ResolveValue(
+    private static List<Symbol> Resolve(
         string moduleName, string moduleBody, params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] siblings)
     {
         var target = Module(moduleName, moduleBody);
@@ -44,7 +44,7 @@ public sealed class WorkspaceSymbolResolverTests
     {
         var types = Module("Types", "Public Type TPoint\r\n    X As Long\r\n    Y As Long\r\nEnd Type\r\n");
 
-        var field = ResolveValue("Consumer", "Public Origin As TPoint\r\n", types)
+        var field = Resolve("Consumer", "Public Origin As TPoint\r\n", types)
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         var udt = Assert.IsInstanceOfType<VBUserDefinedType>(field.ResolvedType);
@@ -57,7 +57,7 @@ public sealed class WorkspaceSymbolResolverTests
     {
         var enums = Module("Enums", "Public Enum Colour\r\n    Red\r\n    Green\r\nEnd Enum\r\n");
 
-        var field = ResolveValue("Consumer", "Public Selected As Colour\r\n", enums)
+        var field = Resolve("Consumer", "Public Selected As Colour\r\n", enums)
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual("Colour", Assert.IsInstanceOfType<VBEnumType>(field.ResolvedType).Name);
@@ -66,7 +66,7 @@ public sealed class WorkspaceSymbolResolverTests
     [TestMethod]
     public void AnIntrinsicTypeName_StillBinds_ThroughTheFallback()
     {
-        var field = ResolveValue("Consumer", "Public Total As Long\r\n")
+        var field = Resolve("Consumer", "Public Total As Long\r\n")
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBLong, field.ResolvedType.Name);
@@ -75,7 +75,7 @@ public sealed class WorkspaceSymbolResolverTests
     [TestMethod]
     public void AnUnknownTypeName_StaysUnknown()
     {
-        var field = ResolveValue("Consumer", "Public Widget As CWidget\r\n")
+        var field = Resolve("Consumer", "Public Widget As CWidget\r\n")
             .OfType<VBModuleFieldVariableMemberSymbol>().Single();
 
         Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
