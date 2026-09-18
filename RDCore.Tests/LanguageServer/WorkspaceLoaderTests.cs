@@ -100,6 +100,27 @@ public sealed class WorkspaceLoaderTests
     }
 
     [TestMethod]
+    public async Task WorkspaceDocumentService_TryGetDocument_FindsALoadedDocumentByUri_AndMissesAnUnknownOne()
+    {
+        var fs = FileSystemWith(("src/Mod1.bas", "Public Sub Foo()\r\nEnd Sub"));
+        var documentStates = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        var documents = new WorkspaceDocumentService(
+            documentStates, NullLogger<WorkspaceDocumentService>.Instance, fs.Path, fs.File);
+
+        var sut = new WorkspaceService(
+            new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
+            fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
+            [ProtocolSupportedLanguage.VBA]);
+        await sut.LoadAsync(Root);
+
+        var loaded = documents.GetAllDocuments().Single();
+
+        Assert.IsTrue(documents.TryGetDocument(loaded.Id.Uri.ToUri(), out var found));
+        Assert.AreEqual(loaded.Text, found.Text);
+        Assert.IsFalse(documents.TryGetDocument(new Uri("file:///c:/nowhere/Ghost.bas"), out _));
+    }
+
+    [TestMethod]
     public async Task WorkspaceService_LoadAsync_NotInitializing_Throws()
     {
         var state = Substitute.For<IServerStateProvider>();

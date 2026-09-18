@@ -35,22 +35,45 @@ public sealed class ParsingClientServiceTests
         return (new ParsingClientService(orchestration, documents, NullLogger<ParsingClientService>.Instance), parser, documents);
     }
 
+    // NSubstitute's out-parameter support: the callback writes the out value via the call's argument index.
+    private static void StubDocument(IWorkspaceDocumentService documents, Uri uri, WorkspaceDocument document)
+        => documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>())
+            .Returns(call => { call[1] = document; return true; });
+
     [TestMethod]
     public async Task ParseDocumentAsync_WaitsForReady_SendsRequest_AndCaches()
     {
-        var (sut, parser, _) = Build();
+        var (sut, parser, documents) = Build();
         var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        var document = new WorkspaceDocument("Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub");
+        StubDocument(documents, uri, document);
 
         var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
 
         await parser.Received(1).WaitForReadyAsync(Arg.Any<CancellationToken>());
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == uri),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == uri && p.Fragment == document.Text),
             Arg.Any<CancellationToken>());
 
         Assert.IsTrue(result.IsSuccess);
         Assert.IsTrue(sut.TryGetCached(uri, out var cached));
         Assert.AreSame(result, cached);
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_NoWorkspaceDocumentLoaded_FailsWithoutContactingTheParser()
+    {
+        var (sut, parser, _) = Build();
+        var uri = new Uri("file:///c:/ws/src/Ghost.bas");
+
+        var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(sut.TryGetCached(uri, out var cached));
+        Assert.AreSame(result, cached);
+        await parser.DidNotReceive().WaitForReadyAsync(Arg.Any<CancellationToken>());
+        await parser.DidNotReceive().SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
+            Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -60,14 +83,16 @@ public sealed class ParsingClientServiceTests
         var module = new WorkspaceDocument("src/Mod1.bas", Root, "x");
         var klass = new WorkspaceDocument("src/Cls1.cls", Root, "y");
         documents.GetAllDocuments().Returns([module, klass]);
+        StubDocument(documents, module.Id.Uri.ToUri(), module);
+        StubDocument(documents, klass.Id.Uri.ToUri(), klass);
 
         await sut.ParseWorkspaceAsync(CancellationToken.None);
 
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == module.Id.Uri.ToUri()),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == module.Id.Uri.ToUri() && p.Fragment == module.Text),
             Arg.Any<CancellationToken>());
         await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == klass.Id.Uri.ToUri()),
+            Arg.Is<ParseDocumentParams>(p => p.DocumentUri == klass.Id.Uri.ToUri() && p.Fragment == klass.Text),
             Arg.Any<CancellationToken>());
     }
 
@@ -88,7 +113,9 @@ public sealed class ParsingClientServiceTests
     public async Task ParseWorkspaceAsync_DoesNotThrow_WhenAParseRequestFails()
     {
         var (sut, parser, documents) = Build();
-        documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "x")]);
+        var module = new WorkspaceDocument("src/Mod1.bas", Root, "x");
+        documents.GetAllDocuments().Returns([module]);
+        StubDocument(documents, module.Id.Uri.ToUri(), module);
         parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default)
             .ThrowsForAnyArgs(new InvalidOperationException("boom"));
 
@@ -98,9 +125,10 @@ public sealed class ParsingClientServiceTests
     [TestMethod]
     public async Task ParseDocumentAsync_NullEnvelope_CachesAFailedResult()
     {
-        var (sut, parser, _) = Build();
+        var (sut, parser, documents) = Build();
         parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs((PlatformJsonEnvelope)null!);
         var uri = new Uri("file:///c:/ws/src/Mod1.bas");
+        StubDocument(documents, uri, new WorkspaceDocument("Mod1.bas", Root, "x"));
 
         var result = await sut.ParseDocumentAsync(uri, CancellationToken.None);
 

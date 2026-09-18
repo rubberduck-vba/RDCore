@@ -109,5 +109,5 @@ internal sealed class DocumentDiagnosticsService(
     // no DidChangeTextDocument handler yet, so the version only moves on reload/rename today; the gate
     // is in place so a future edit that bumps WorkspaceDocument.Version invalidates the next pull.
     private WorkspaceDocument? Resolve(Uri documentUri)
-        => documents.GetAllDocuments().FirstOrDefault(document => document.Id.Uri.ToUri().Equals(documentUri));
+        => documents.TryGetDocument(documentUri, out var document) ? document : null;
 }

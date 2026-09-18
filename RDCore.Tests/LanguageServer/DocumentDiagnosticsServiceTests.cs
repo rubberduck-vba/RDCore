@@ -31,10 +31,25 @@ public sealed class DocumentDiagnosticsServiceTests
         => new("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version);
 
     private void WorkspaceHas(params WorkspaceDocument[] docs)
-        => _documents.GetAllDocuments().Returns(docs);
+    {
+        _documents.GetAllDocuments().Returns(docs);
+        foreach (var doc in docs)
+        {
+            _documents.TryGetDocument(doc.Id.Uri.ToUri(), out Arg.Any<WorkspaceDocument>())
+                .Returns(call => { call[1] = doc; return true; });
+        }
+    }
 
     private void WorkspaceVersions(WorkspaceDocument first, WorkspaceDocument then)
-        => _documents.GetAllDocuments().Returns([first], [then]);
+    {
+        _documents.GetAllDocuments().Returns([first], [then]);
+        // both versions live at the same URI (same relative path/root); TryGetDocument must
+        // resolve the version GetAllDocuments would have handed out for the same call.
+        _documents.TryGetDocument(first.Id.Uri.ToUri(), out Arg.Any<WorkspaceDocument>())
+            .Returns(
+                call => { call[1] = first; return true; },
+                call => { call[1] = then; return true; });
+    }
 
     private void ParseYields()
         => _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())

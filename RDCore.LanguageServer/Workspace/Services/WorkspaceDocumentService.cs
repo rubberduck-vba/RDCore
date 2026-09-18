@@ -10,6 +10,7 @@ namespace RDCore.LanguageServer.Workspace.Services;
 internal interface IWorkspaceDocumentService
 {
     IEnumerable<WorkspaceDocument> GetAllDocuments();
+    bool TryGetDocument(Uri documentUri, out WorkspaceDocument document);
     void Initialize(string workspaceRoot);
     Task<bool> TryLoadAsync(TextDocumentIdentifier id);
     Task<bool> TrySaveAsync(TextDocumentIdentifier id);
@@ -38,6 +39,12 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     }
 
     public IEnumerable<WorkspaceDocument> GetAllDocuments() => [.. _documents.Values];
+
+    public bool TryGetDocument(Uri documentUri, out WorkspaceDocument document)
+    {
+        document = _documents.Values.FirstOrDefault(candidate => candidate.Id.Uri.ToUri().Equals(documentUri))!;
+        return document is not null;
+    }
 
     public async Task<bool> TryLoadAsync(TextDocumentIdentifier id)
     {

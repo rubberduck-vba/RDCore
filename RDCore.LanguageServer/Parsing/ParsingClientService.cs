@@ -20,6 +20,12 @@ internal interface IParsingClientService
     /// <summary>
     /// Parses one workspace document, waiting for the parsing server to be ready first, and caches the result.
     /// </summary>
+    /// <remarks>
+    /// Sends the document's current in-memory text (not necessarily what is saved to disk) as the
+    /// request's <c>Fragment</c> — the parser never reads from the filesystem. A URI with no loaded
+    /// <see cref="WorkspaceDocument"/> degrades to a failed <see cref="ModuleParseResult"/> rather than
+    /// contacting the parser.
+    /// </remarks>
     Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token);
 
     /// <summary>
@@ -45,10 +51,19 @@ internal sealed class ParsingClientService(
 
     public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token)
     {
+        if (!documents.TryGetDocument(documentUri, out var document))
+        {
+            var error = ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty),
+                "no workspace document is loaded for this URI");
+            _cache[documentUri] = error;
+            logger.LogWarning("❌ Parse skipped for {uri}: no workspace document is loaded for it.", documentUri);
+            return error;
+        }
+
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
         var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            new ParseDocumentParams { DocumentUri = documentUri }, token);
+            new ParseDocumentParams { DocumentUri = documentUri, Fragment = document.Text }, token);
 
         // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
