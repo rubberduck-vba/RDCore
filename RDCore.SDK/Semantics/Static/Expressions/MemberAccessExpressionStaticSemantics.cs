@@ -1,10 +1,14 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Static.Expressions;
 
@@ -28,8 +32,10 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     /// <see cref="MemberAccessExpressionNode.Owner"/>'s declared type.
     /// </summary>
     /// <param name="context">
-    /// The compile-time context this expression is evaluated against. Unused — member lookup here is
-    /// structural (an owner type's declared <c>Members</c>), not lexical.
+    /// The compile-time context this expression is evaluated against. Member lookup is structural (an
+    /// owner type's own members), not lexical; the context's resolver is only used to read those members
+    /// from the owner class's or user-defined type's declaration, by identity, rather than from the
+    /// snapshot the type was built with — a class typed after itself cannot carry a complete snapshot.
     /// </param>
     /// <param name="expression">The <see cref="MemberAccessExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">
@@ -64,7 +70,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         }
 
         var memberName = memberAccess.Member.IdentifierName;
-        var found = ownerType.Members.FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
+        var found = CurrentMembersOf(context, ownerType).FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
         if (found is not null)
         {
             return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
@@ -76,4 +82,19 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
             ? StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));
     }
+
+    // A declared type carries the members its declaration had when the type was built, and a class whose
+    // member is typed as the class itself - or two classes typed after each other - cannot be built by
+    // value at all: some members of that snapshot hold types that were not bound yet. The declaration is
+    // the source of truth, so the members are read from it, by the type's own identity, through the
+    // resolver; the snapshot is what remains only when the declaration cannot be found.
+    private static ImmutableArray<VBTypeMemberSymbol> CurrentMembersOf(StaticEvaluationContext context, IVBMemberOwnerType ownerType)
+        => ownerType switch
+        {
+            VBClassType classType when context.Resolver.ResolveType(classType.Symbol.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol
+                is VBClassModuleSymbol current => current.DefaultInterfaceMembers,
+            VBUserDefinedType udtType when context.Resolver.ResolveType(udtType.Symbol.Name, ScopeKind.Global, udtType.Symbol.ParentUri).Symbol
+                is VBUserDefinedTypeMemberSymbol current => current.Members,
+            _ => ownerType.Members,
+        };
 }

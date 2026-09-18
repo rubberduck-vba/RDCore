@@ -77,11 +77,17 @@ The compile-time implementation is
 the [ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html) described below and binds names only —
 its `GetValue` / `TryRead` throw, since it holds no run-time bindings. The session exposes one over
 its own symbols as `ISessionSymbols.Resolver`, rebuilt as symbols are defined. A design-time host
-composes its own the same way: a first pass extracts every parsed module's declarations with an
-intrinsic-only resolver, then a
-[CompositeSymbolResolver](../api/RDCore.SDK.Model.Symbols.CompositeSymbolResolver.html) layers a
-`ScopeTreeSymbolResolver` over the lot in front of the intrinsic one — so a module's `As SomeType`
-binds to a sibling module's `Type` or `Enum`, not only to a reserved data-type name.
+composes its own the same way, in two passes: the first extracts every parsed module's declarations
+with an intrinsic-only resolver, which is enough to know which types, classes and enums the workspace
+declares; the second extracts them again through a resolver over those declarations, so every declared
+type name — a field's, a local's, a parameter's, a function's return type — binds, in the type binding
+context, to the workspace type it names. A
+[CompositeSymbolResolver](../api/RDCore.SDK.Model.Symbols.CompositeSymbolResolver.html) then layers a
+`ScopeTreeSymbolResolver` over the second pass's symbols in front of the intrinsic one — so a module's
+`As SomeType` binds to a sibling module's `Type` or `Enum` or to a class, not only to a reserved
+data-type name. A type is a reference to its declaration: a member access reads the members of a class or
+user-defined type from that declaration, by the type's own identity, so a class whose member is typed as the
+class itself resolves through any number of hops.
 
 `ISymbolProvider` exposes a single `ProvideSymbols` method that yields the `Symbol`s its source
 defines; the composition root then defines each one into the semantic layer (static context) or the

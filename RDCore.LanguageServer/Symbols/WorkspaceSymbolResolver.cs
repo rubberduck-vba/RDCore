@@ -9,11 +9,23 @@ using System.Collections.Immutable;
 namespace RDCore.LanguageServer.Symbols;
 
 /// <summary>
-/// Composes an <see cref="ISymbolResolver"/> over a whole parsed workspace. A first pass extracts
-/// every module's declarations with <paramref name="fallback"/> alone (intrinsic type names only);
-/// the resolver returned then binds a workspace name — a sibling module's <c>Type</c> or <c>Enum</c>,
-/// a <c>Public</c> member — through a <see cref="ScopeTreeSymbolResolver"/> over the lot, falling
-/// back to <paramref name="fallback"/> for the intrinsics.
+/// A composed workspace: the resolver that binds its names, and the <see cref="ScopeTree"/> that
+/// resolver walks — what a semantic pass needs to start evaluating from a given procedure's scope.
+/// </summary>
+/// <param name="Resolver">Binds a workspace name, falling back to the intrinsic type names.</param>
+/// <param name="ScopeTree">The scope tree over the composed workspace's symbols.</param>
+internal readonly record struct WorkspaceComposition(ISymbolResolver Resolver, ScopeTree ScopeTree);
+
+/// <summary>
+/// Composes an <see cref="ISymbolResolver"/> over a whole parsed workspace, in two passes. The first
+/// extracts every module's declarations with <paramref name="fallback"/> alone (intrinsic type names
+/// only) — enough to know which types, classes and enums the workspace declares. The second extracts
+/// them again through a resolver over those declarations, so every declared type name — a field's, a
+/// local's, a parameter's, a function's return type — binds, in the type binding context
+/// (<strong>MS-VBAL §5.6.4</strong>), to the workspace type it names. The resolver returned binds a
+/// workspace name — a sibling module's <c>Type</c> or <c>Enum</c>, a <c>Public</c> member — through a
+/// <see cref="ScopeTreeSymbolResolver"/> over the second pass's symbols, falling back to
+/// <paramref name="fallback"/> for the intrinsics.
 /// </summary>
 internal static class WorkspaceSymbolResolver
 {
@@ -33,6 +45,31 @@ internal static class WorkspaceSymbolResolver
     public static ISymbolResolver Compose(
         Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
         ISymbolResolver fallback, string? projectName = null)
+        => ComposeWithScopes(workspaceRoot, modules, fallback, projectName).Resolver;
+
+    /// <summary>
+    /// Composes the workspace like <see cref="Compose"/> and also returns the scope tree the resolver
+    /// walks.
+    /// </summary>
+    public static WorkspaceComposition ComposeWithScopes(
+        Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
+        ISymbolResolver fallback, string? projectName = null)
+    {
+        var parsed = modules.ToList();
+
+        var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName);
+        var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(declared)), fallback);
+
+        var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName);
+        var scopeTree = ScopeTreeBuilder.Build(bound);
+        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree);
+    }
+
+    // one extraction pass: every module symbol and member symbol, with each declared type name bound
+    // through typeResolver.
+    private static List<Symbol> BuildSymbols(
+        Uri workspaceRoot, IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
+        ISymbolResolver typeResolver, string? projectName)
     {
         var symbols = new List<Symbol>();
         if (projectName is not null)
@@ -57,7 +94,7 @@ internal static class WorkspaceSymbolResolver
             // members can't ride on the module symbol the way a Type's fields ride on it (built from
             // one AST node's own children) - a module's members are separate top-level declarations,
             // so they're only known once the member provider below has run.
-            var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, fallback).ProvideSymbols().ToList();
+            var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, typeResolver).ProvideSymbols().ToList();
             ImmutableArray<VBTypeMemberSymbol> ownMembers =
                 [.. members.Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri).OfType<VBTypeMemberSymbol>()];
 
@@ -76,7 +113,7 @@ internal static class WorkspaceSymbolResolver
 
         ResolveImplementedInterfaces(symbols);
 
-        return new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(symbols)), fallback);
+        return symbols;
     }
 
     /// <summary>
