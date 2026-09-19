@@ -18,6 +18,7 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics;
 
@@ -105,7 +106,7 @@ where TFlags : struct, Enum
         // 3. evaluate the result - the way the operator itself would, which is on the operands as let-coerced to the
         //    effective type (evaluating the raw operands would hand a Double operation a Long), and which reports the
         //    error, if there is one, that stopped the operation: no effective type, a failed coercion, or the evaluation.
-        var evaluationResult = Evaluate(resolver, initialContext, expression, frame);
+        var evaluationResult = EvaluateForAnalysis(resolver, initialContext, expression, frame);
         builder.AddOnError(evaluationResult.ErrorInfo);
 
         // 4. ...profit:
@@ -299,7 +300,28 @@ where TFlags : struct, Enum
             : LetCoerceNonNullOperand(resolver, expression, frame, index);
     }
 
-    protected LetCoercionAnalysisContext AnalyzeValidateOperand(
+    /// <summary>
+    /// Evaluates the operation for the analysis of it, which is to say without its effect: analyzing an operator that has a
+    /// side effect, an assignment, must not perform it.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Most operators evaluate to a value and nothing else, and are evaluated as they are; an operator with an effect overrides this.
+    /// </remarks>
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateForAnalysis(
+        ISymbolResolver resolver,
+        TContext context,
+        VBOperatorExpression expression,
+        OperatorEvaluationFrame frame)
+        => Evaluate(resolver, context, expression, frame);
+
+    /// <summary>
+    /// The analysis counterpart of <see cref="ValidateOperand"/>: describes the let-coercion of an operand of the operation, if it has one.
+    /// </summary>
+    /// <remarks>
+    /// 👉 An operator whose <see cref="ValidateOperand"/> differs from the default overrides this one to match it: the analysis
+    /// describes the coercion the operation performs, not another one.
+    /// </remarks>
+    protected virtual LetCoercionAnalysisContext AnalyzeValidateOperand(
         ISymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         VBOperatorExpression expression,
@@ -308,21 +330,49 @@ where TFlags : struct, Enum
     {
         var operand = frame[operandIndex];
 
-        // the same operands ValidateOperand exempts, and the same destination it coerces the others to: the analysis
-        // describes the coercion the operation performs, not another one.
+        // a Null operand is not coerced (nothing to coerce it to), but it is a fact about the operand all the same.
+        if (operand is VBNullValue)
+        {
+            builder.AddLetCoercionFlags(ConversionSemanticFlags.NullOperand | OperandPositionFlags.Of(expression, operandIndex), operandIndex);
+        }
+
+        // the same operands ValidateOperand exempts, and the same destination it coerces the others to.
         var destinationType = CoercionDestinationOf(frame);
         return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
             || destinationType.Equals(operand.TypeInfo) // no coercion occurs
             ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []))
-            : LetCoercionSemanticsProvider.Analyze(resolver, builder, expression,
-                new()
-                {
-                    NodeId = expression.Identity,
-                    OperandIndex = operandIndex,
-                    SourceValue = operand,
-                    DestinationTypeDesc = new VBTypeDescValue(destinationType),
-                });
+            : AnalyzeOperandCoercion(resolver, builder, expression, operand, operandIndex, destinationType);
     }
+
+    /// <summary>
+    /// Describes the let-coercion of <paramref name="operand"/> to <paramref name="destinationType"/>, the way the operation asks for it.
+    /// </summary>
+    protected LetCoercionAnalysisContext AnalyzeOperandCoercion(
+        ISymbolResolver resolver,
+        ILetCoercionSemanticContextBuilder builder,
+        VBOperatorExpression expression,
+        VBTypedValue operand,
+        InputIndex operandIndex,
+        VBType destinationType)
+    {
+        var context = LetCoercionSemanticsProvider.Analyze(resolver, builder, expression,
+            new()
+            {
+                NodeId = expression.Identity,
+                OperandIndex = operandIndex,
+                SourceValue = operand,
+                DestinationTypeDesc = new VBTypeDescValue(destinationType),
+            });
+
+        builder.AddLetCoercionFlags(OperandConversionKind, operandIndex);
+        return context;
+    }
+
+    /// <summary>
+    /// Whether the operands of this operation are coerced <see cref="ConversionSemanticFlags.Implicit"/>ly, the way MS-VBAL
+    /// operators do, or <see cref="ConversionSemanticFlags.Explicit"/>ly, the way RD-VBAL's let-coercion operator does.
+    /// </summary>
+    protected virtual ConversionSemanticFlags OperandConversionKind => ConversionSemanticFlags.Implicit;
 
     // a Date effective type is computed in Double (MS-VBAL 5.6.9.3 et al.): the operands are let-coerced to Double even
     // when their own declared type already is Date.

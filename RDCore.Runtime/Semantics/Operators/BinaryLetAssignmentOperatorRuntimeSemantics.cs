@@ -48,8 +48,49 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         VBOperatorExpression expression,
         OperatorAnalysisContext<ConversionSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
-        // TODO: assignment-specific semantic flags, once a caller (an analyzer) actually needs them.
-        => builder;
+        // the facts of an assignment are those of the coercion of its source to the declared type of its target: the operand
+        // and conversion flags, and none at all when the source already is of that type and nothing is converted.
+        => builder.AddFlags(coercionContext.Flags);
+
+    protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
+        ISymbolResolver resolver,
+        ILetCoercionSemanticContextBuilder builder,
+        VBOperatorExpression expression,
+        OperatorEvaluationFrame frame,
+        InputIndex operandIndex)
+    {
+        var operand = frame[operandIndex];
+        return operandIndex == InputIndex.BinaryRightOperand && !frame.EffectiveType.Equals(operand.TypeInfo)
+            ? AnalyzeOperandCoercion(resolver, builder, expression, operand, operandIndex, frame.EffectiveType)
+            : new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []));
+    }
+
+    protected override RuntimeSemanticsEvaluationResult EvaluateForAnalysis(
+        ISymbolResolver resolver,
+        ConversionOperationSemanticContext context,
+        VBOperatorExpression expression,
+        OperatorEvaluationFrame frame)
+    {
+        var effectiveTypeResult = DetermineOperatorEffectiveType(resolver, context, expression, frame);
+        if (effectiveTypeResult.Result is null)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(effectiveTypeResult.ErrorInfo
+                ?? OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression, Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose));
+        }
+
+        var coercionResult = CoerceSource(resolver, expression, frame with { EffectiveType = effectiveTypeResult.Result });
+        return coercionResult.IsSuccess
+            ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)
+            : RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo
+                ?? OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression, Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose));
+    }
+
+    private LetCoercionResult CoerceSource(ISymbolResolver resolver, VBOperatorExpression expression, OperatorEvaluationFrame frame)
+        => LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression,
+            new(NodeId: expression.Identity,
+                OperandIndex: InputIndex.BinaryRightOperand,
+                SourceValue: frame[InputIndex.BinaryRightOperand],
+                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
 
     protected override OperatorAnalysisContext<ConversionSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,
@@ -91,13 +132,8 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame)
     {
         var target = ((VBSymbolDescValue)frame[InputIndex.BinaryLeftOperand]).Symbol;
-        var source = frame[InputIndex.BinaryRightOperand];
 
-        var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression,
-            new(NodeId: expression.Identity,
-                OperandIndex: InputIndex.BinaryRightOperand,
-                SourceValue: source,
-                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
+        var coercionResult = CoerceSource(resolver, expression, frame);
 
         if (!coercionResult.IsSuccess)
         {

@@ -50,7 +50,25 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,
         VBOperatorExpression expression,
         OperatorAnalysisContext<ConversionSemanticFlags> analysisContext,
-        params VBTypedValue[] operands) => builder.AddFlags(ConversionSemanticFlags.Explicit);
+        params VBTypedValue[] operands)
+        // an explicit coercion is one whether or not it converts anything (a redundant one is a fact, too).
+        => builder.AddFlags(ConversionSemanticFlags.Explicit | coercionContext.Flags);
+
+    protected override ConversionSemanticFlags OperandConversionKind => ConversionSemanticFlags.Explicit;
+
+    protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
+        ISymbolResolver resolver,
+        ILetCoercionSemanticContextBuilder builder,
+        VBOperatorExpression expression,
+        OperatorEvaluationFrame frame,
+        InputIndex operandIndex)
+    {
+        var operand = frame[operandIndex];
+        // the operator coerces its source (left operand) to the target type described by the right operand, unconditionally.
+        return operandIndex == InputIndex.BinaryLeftOperand
+            ? AnalyzeOperandCoercion(resolver, builder, expression, operand, operandIndex, frame.EffectiveType)
+            : new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []));
+    }
 
     protected override OperatorAnalysisContext<ConversionSemanticFlags> CreateAnalysisContext(
         SyntaxNode node, 

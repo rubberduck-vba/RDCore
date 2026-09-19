@@ -88,7 +88,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
 
         // confirms the flags actually got built from the coercion, not just "nothing threw".
         builder.Received().AddLetCoercionFlags(
-            ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, InputIndex.CoercionSourceValue);
+            ConversionSemanticFlags.LetCoerced, InputIndex.CoercionSourceValue);
     }
 
     [TestMethod]

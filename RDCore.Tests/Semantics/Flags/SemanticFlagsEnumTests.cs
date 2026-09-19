@@ -1,4 +1,4 @@
-using RDCore.SDK.Semantics.Flags;
+﻿using RDCore.SDK.Semantics.Flags;
 using System.Reflection;
 
 namespace RDCore.Tests.Semantics.Flags;
@@ -55,10 +55,7 @@ public sealed class SemanticFlagsEnumTests
             .Select(group => string.Join(" = ", group.Select(member => member.Name)))
             .ToArray();
 
-        // the one documented alias: a let-coercion IS an implicit conversion.
-        var unexpected = shared.Where(names => names != $"{nameof(ConversionSemanticFlags.Implicit)} = {nameof(ConversionSemanticFlags.LetCoerced)}"
-            && names != $"{nameof(ConversionSemanticFlags.LetCoerced)} = {nameof(ConversionSemanticFlags.Implicit)}").ToArray();
-        Assert.IsEmpty(unexpected, $"{type.Name}: {string.Join("; ", unexpected)}");
+        Assert.IsEmpty(shared, $"{type.Name}: {string.Join("; ", shared)}");
     }
 
     [TestMethod]

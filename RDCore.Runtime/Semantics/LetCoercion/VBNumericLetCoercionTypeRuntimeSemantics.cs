@@ -122,25 +122,41 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
     {
         // these describe how THIS operand is coerced (an operation's two operands can widen and narrow differently), so
         // they are reported for the operand rather than for the operation as a whole.
-        builder.AddLetCoercionFlags(ConversionSemanticFlags.LetCoerced
-            // IMPLEMENTATION NOTE: LetCoercionRuntimeSemantics does not know about its own context.
-            // Following MS-VBAL we should be adding an 'Implicit' flag here, but the introdction of an
-            // explicit [__c()_op] coercion operator changes this: statement-level analysis must set the Implicit|Explicit coercion flags.
-            // | ConversionSemanticFlags.Implicit
-            | ConversionSemanticFlags.Numeric
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric
             | ConversionSemanticFlags.CTypeAvailable
-            | frame.SourceValue.TypeInfo switch
-            {
-                IFloatingPointNumericType or IFixedPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType
-                    => ConversionSemanticFlags.Narrowing
-                     | ConversionSemanticFlags.Lossy | ConversionSemanticFlags.BankersRounding,
-
-                IIntegralNumericType when frame.DestinationTypeDesc.Target is IFloatingPointNumericType or IFixedPointNumericType
-                    => ConversionSemanticFlags.Widening,
-
-                _ => 0
-            }, frame.OperandIndex);
+            | WidthFlagsOf(frame.SourceValue.TypeInfo, frame.DestinationTypeDesc.Target), frame.OperandIndex);
         return builder;
+    }
+
+    // MS-VBAL 5.5.1.2.1: a conversion is wider when the destination type can hold every value of the source type, and
+    // narrower when it cannot (the other way around, the source type holds values the destination type cannot).
+    private static ConversionSemanticFlags WidthFlagsOf(VBType source, VBType destination)
+    {
+        // the fraction of a non-integral value is dropped by rounding to the nearest integer (banker's rounding):
+        if (source is IFloatingPointNumericType or IFixedPointNumericType && destination is IIntegralNumericType)
+        {
+            return ConversionSemanticFlags.Narrowing | ConversionSemanticFlags.Lossy | ConversionSemanticFlags.BankersRounding;
+        }
+
+        if (source is not VBNumericType from || destination is not VBNumericType to || from.Equals(to))
+        {
+            return 0;
+        }
+
+        if (to.ManagedMinValue <= from.ManagedMinValue && to.ManagedMaxValue >= from.ManagedMaxValue)
+        {
+            return ConversionSemanticFlags.Widening;
+        }
+
+        if (from.ManagedMinValue <= to.ManagedMinValue && from.ManagedMaxValue >= to.ManagedMaxValue)
+        {
+            // a Double that is put in a Single loses digits, too; an integer put in a smaller integer type only loses its range.
+            return source is IFloatingPointNumericType && destination is IFloatingPointNumericType
+                ? ConversionSemanticFlags.Narrowing | ConversionSemanticFlags.Lossy
+                : ConversionSemanticFlags.Narrowing;
+        }
+
+        return 0;
     }
 
     private LetCoercionResult CoerceStringToNumeric(ExpressionNode expression, LetCoercionStackFrame frame, VBStringValue source)

@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
+using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
@@ -124,6 +125,37 @@ public sealed class OperatorAnalysisPipelineTests : LetCoercionRuntimeSemanticsT
 
         Assert.IsEmpty(provider.AnalyzedFrames);
     }
+
+    #endregion
+
+    #region the conversion facts of the operands
+
+    // `Null & 2`: the Null operand is exempt from coercion, the Long one is let-coerced to the String effective type.
+    private static LetCoercionSemanticContextFlagsBuilder ConversionFactsOfNullConcatLong()
+    {
+        var provider = new RecordingLetCoercionProvider(LetCoercionAnalysisHarness.BuildProvider());
+        OperatorAnalysisHarness.Analyze(new BinaryConcatOperatorRuntimeSemantics(provider, Formatter()), ThrowawayExpression, VBNullValue.Null, new VBLongValue(2));
+        return (LetCoercionSemanticContextFlagsBuilder)provider.Builder!;
+    }
+
+    [TestMethod]
+    public void ANullOperand_IsFlaggedAsOne_ForItsPosition_AlthoughItIsNotCoerced()
+        => Assert.AreEqual(
+            ConversionSemanticFlags.NullOperand | ConversionSemanticFlags.BinaryLeftOperand,
+            ConversionFactsOfNullConcatLong().LetCoercionFlagsOf(InputIndex.BinaryLeftOperand));
+
+    [TestMethod]
+    public void AnOperandThatIsCoercedByAnOperator_IsLetCoercedImplicitly()
+    {
+        var flags = ConversionFactsOfNullConcatLong().LetCoercionFlagsOf(InputIndex.BinaryRightOperand);
+
+        Assert.IsTrue(flags.HasFlag(ConversionSemanticFlags.LetCoerced | ConversionSemanticFlags.Implicit | ConversionSemanticFlags.BinaryRightOperand));
+        Assert.IsFalse(flags.HasFlag(ConversionSemanticFlags.Explicit));
+    }
+
+    [TestMethod]
+    public void ANonNullOperand_IsNotFlaggedAsANullOperand()
+        => Assert.IsFalse(ConversionFactsOfNullConcatLong().LetCoercionFlagsOf(InputIndex.BinaryRightOperand).HasFlag(ConversionSemanticFlags.NullOperand));
 
     #endregion
 

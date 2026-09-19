@@ -1,4 +1,4 @@
-using NSubstitute;
+﻿using NSubstitute;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Values.Abstract;
@@ -60,6 +60,8 @@ internal static class OperatorAnalysisHarness
 internal sealed class RecordingLetCoercionProvider(ILetCoercionRuntimeSemanticsProvider inner) : ILetCoercionRuntimeSemanticsProvider
 {
     public List<LetCoercionStackFrame> AnalyzedFrames { get; } = [];
+    /// <summary>The builder every analyzed coercion of an operation contributes to: the one the whole operation's conversion facts end up in.</summary>
+    public ILetCoercionSemanticContextBuilder? Builder { get; private set; }
 
     public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
         => inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
@@ -67,6 +69,7 @@ internal sealed class RecordingLetCoercionProvider(ILetCoercionRuntimeSemanticsP
     public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
     {
         AnalyzedFrames.Add(frame);
+        Builder = builder;
         return inner.Analyze(resolver, builder, expression, frame);
     }
 }

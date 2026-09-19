@@ -3,6 +3,10 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -147,29 +151,23 @@ public class LetCoercionRuntimeSemanticsProvider(
         // the caller's own frame is used directly rather than reading it back off the strategy's
         // LetCoercionResult: a strategy's Success()/Error() call is not required to attach one (most
         // don't, for the ordinary case), and LetCoercionResult.Frame throws on an empty Frames array.
-        builder.AddLetCoercionFlags(ConversionSemanticFlags.Implicit | ConversionSemanticFlags.LetCoerced, frame.OperandIndex);
-        EncodeApplicableOperandFlag(builder, expression, frame);
+        //
+        // whether the coercion is Implicit or Explicit is not known here: it is the operation that asks for it that says.
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.LetCoerced | SourceOperandFlagOf(frame.SourceValue), frame.OperandIndex);
+        builder.AddLetCoercionFlags(OperandPositionFlags.Of(expression, frame.OperandIndex), frame.OperandIndex);
     }
 
-    private static void EncodeApplicableOperandFlag(
-        ILetCoercionSemanticContextBuilder builder, 
-        VBOperatorExpression expression, 
-        LetCoercionStackFrame frame)
+    // what the source is, whichever destination type it is coerced to: a strategy is chosen by the destination, so a
+    // Null, Empty, Error or object source coerced to a Long is never seen by the strategy of its own type.
+    private static ConversionSemanticFlags SourceOperandFlagOf(VBTypedValue source) => source switch
     {
-        builder.AddLetCoercionFlags(expression switch
-        {
-            VBUnaryOperatorExpressionNode when frame.OperandIndex == InputIndex.UnaryOperand 
-                => ConversionSemanticFlags.UnaryOperand,
-
-            VBBinaryOperatorExpressionNode when frame.OperandIndex == InputIndex.BinaryLeftOperand
-                => ConversionSemanticFlags.BinaryLeftOperand,
-
-            VBBinaryOperatorExpressionNode when frame.OperandIndex == InputIndex.BinaryRightOperand
-                => ConversionSemanticFlags.BinaryRightOperand,
-
-            _ => 0
-        }, frame.OperandIndex);
-    }
+        VBNullValue => ConversionSemanticFlags.NullOperand,
+        VBEmptyValue => ConversionSemanticFlags.EmptyOperand,
+        VBErrorValue => ConversionSemanticFlags.ErrorOperand,
+        VBObjectValue => ConversionSemanticFlags.ObjectOperand, // Nothing included
+        VBArrayValue { ItemType: VBByteType } => ConversionSemanticFlags.ByteArrayOperand,
+        _ => 0
+    };
 
     public LetCoercionResult EvaluateLetCoercionSemantics(
         ISymbolResolver resolver, 

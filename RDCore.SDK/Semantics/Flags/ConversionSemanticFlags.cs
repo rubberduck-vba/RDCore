@@ -14,10 +14,11 @@ public enum ConversionSemanticFlags
     /// </summary>
     Explicit = 1 << 0,
     /// <summary>
-    /// This conversion operation does not occur via an explicit <c>CType</c> data type conversion function.
+    /// This conversion operation is not written in the source: it is performed by the semantics of the operation it is an operand of.
     /// </summary>
     /// <remarks>
-    /// 👉 MS-VBAL equivalent to <c>ConversionSemanticFlags.LetCoerced</c>, but RD-VBAL introduces an <em>explicit coercion operator</em> that changes this.
+    /// 👉 The opposite of <see cref="Explicit"/>. Combined with <see cref="LetCoerced"/> (<c>LetCoerced | Implicit</c>), this is the MS-VBAL let-coercion;
+    /// <c>LetCoerced | Explicit</c> is the same coercion, requested with RD-VBAL's <em>explicit let-coercion operator</em>.
     /// </remarks>
     Implicit = 1 << 1,
     /// <summary>
@@ -32,9 +33,10 @@ public enum ConversionSemanticFlags
     /// This conversion implicates let-coercion semantics.
     /// </summary>
     /// <remarks>
-    /// 👉 Equivalent to <see cref="ConversionSemanticFlags.Implicit"/>.
+    /// 👉 Says <em>which</em> conversion this is, not <em>how</em> it came about: it is issued along with either <see cref="Implicit"/>
+    /// or <see cref="Explicit"/>, never instead of one.
     /// </remarks>
-    LetCoerced = Implicit,
+    LetCoerced = 1 << 23,
     /// <summary>
     /// This conversion operation can be made explicit by inserting the appropriate <c>CType</c> data type conversion function call.
     /// </summary>
@@ -121,7 +123,7 @@ public enum ConversionSemanticFlags
     /// <summary>
     /// Combines all values.
     /// </summary>
-    All = Explicit | Implicit | Failed | Recursive | CTypeAvailable | Widening | Narrowing | Lossy | BankersRounding | Numeric | DateSerial
+    All = Explicit | Implicit | Failed | Recursive | LetCoerced | CTypeAvailable | Widening | Narrowing | Lossy | BankersRounding | Numeric | DateSerial
         | NullOperand | EmptyOperand | ErrorOperand | ObjectOperand | UnaryOperand | BinaryLeftOperand | BinaryRightOperand
         | UserDefinedTypeTarget | VariantTarget | ArrayTarget | ByteArrayTarget | ByteArrayOperand
 }

@@ -1,4 +1,4 @@
-using RDCore.Runtime.Semantics.LetCoercion;
+﻿using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
@@ -36,8 +36,8 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     private static readonly VBUnaryOperatorExpressionNode UnaryExpression = new(
         "-", NodeId, TestLocations.TestLocation, [new LiteralExpressionNode(default, TestLocations.TestLocation, new VBIntegerValue((short)0))]);
 
-    // every coercion the provider analyzes is one the language performs implicitly, and can name with a conversion function.
-    private const ConversionSemanticFlags Implicit = ConversionSemanticFlags.Implicit;
+    // every coercion the provider analyzes is a let-coercion; whether it is implicit or explicit is for the operation asking for it to say.
+    private const ConversionSemanticFlags LetCoerced = ConversionSemanticFlags.LetCoerced;
 
     private static LetCoercionAnalysisHarness.Analysis Analyze(VBTypedValue source, VBType destination, InputIndex operand = InputIndex.BinaryLeftOperand)
         => LetCoercionAnalysisHarness.Analyze(source, destination, ThrowawayExpression, operand);
@@ -45,11 +45,11 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     #region what the provider adds to every coercion
 
     [TestMethod]
-    public void AnalyzedCoercion_IsImplicit_AndAsksForItsOperand()
+    public void AnalyzedCoercion_IsLetCoerced_AndAsksForItsOperand()
     {
         var analysis = Analyze(new VBLongValue(1), VBDoubleType.TypeInfo, InputIndex.BinaryLeftOperand);
 
-        Assert.IsTrue(analysis.Flags.HasFlag(Implicit));
+        Assert.IsTrue(analysis.Flags.HasFlag(LetCoerced));
         Assert.IsTrue(analysis.Flags.HasFlag(ConversionSemanticFlags.BinaryLeftOperand));
         Assert.IsFalse(analysis.Flags.HasFlag(ConversionSemanticFlags.BinaryRightOperand));
         Assert.IsFalse(analysis.Flags.HasFlag(ConversionSemanticFlags.UnaryOperand));
@@ -145,23 +145,34 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
         ("Currency", VBCurrencyType.TypeInfo, Kind.Fixed), ("Decimal", VBDecimalType.TypeInfo, Kind.Fixed),
     ];
 
+    // the numeric types from the narrowest range of values to the widest: Byte 0..255, Integer, Long, Currency (about 9.2e14),
+    // LongLong (about 9.2e18), Decimal (about 7.9e28), Single (about 3.4e38) and Double (about 1.8e308).
+    private static readonly string[] RangeOrder = ["Byte", "Integer", "Long", "Currency", "LongLong", "Decimal", "Single", "Double"];
+
     public static IEnumerable<object[]> NumericToNumeric()
     {
         foreach (var source in NumericSources)
         {
             foreach (var destination in NumericDestinations)
             {
-                // a fractional value into a whole-number type is rounded (banker's) and so loses precision; a whole
-                // number into a fractional type only gets wider.
+                var sourceRank = Array.IndexOf(RangeOrder, source.Name);
+                var destinationRank = Array.IndexOf(RangeOrder, destination.Name);
+
+                // a fractional value into a whole-number type is rounded (banker's) and so loses precision; any other conversion
+                // gets wider when the destination holds every value of the source, and narrower when it does not (a Double put
+                // in a Single loses digits, too).
                 ConversionSemanticFlags conversion = (source.Kind, destination.Kind) switch
                 {
                     (Kind.Float or Kind.Fixed, Kind.Integral)
                         => ConversionSemanticFlags.Narrowing | ConversionSemanticFlags.Lossy | ConversionSemanticFlags.BankersRounding,
-                    (Kind.Integral, Kind.Float or Kind.Fixed) => ConversionSemanticFlags.Widening,
+                    (Kind.Float, Kind.Float) when destinationRank < sourceRank
+                        => ConversionSemanticFlags.Narrowing | ConversionSemanticFlags.Lossy,
+                    _ when destinationRank > sourceRank => ConversionSemanticFlags.Widening,
+                    _ when destinationRank < sourceRank => ConversionSemanticFlags.Narrowing,
                     _ => 0,
                 };
                 yield return [source.Name, source.Value, destination.Name, destination.Type,
-                    Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand | conversion];
+                    LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand | conversion];
             }
         }
     }
@@ -176,13 +187,13 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     [DataRow(false)]
     public void BooleanToNumeric_IsNumericAndConvertible_WithoutAWidthChange(bool value)
         => Assert.AreEqual(
-            Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
+            LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
             Analyze(new VBBooleanValue(value), VBLongType.TypeInfo).Flags);
 
     [TestMethod]
     public void StringToNumeric_IsNumericAndConvertible()
         => Assert.AreEqual(
-            Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
+            LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
             Analyze(new VBStringValue("12"), VBDoubleType.TypeInfo).Flags);
 
     #endregion
@@ -194,20 +205,20 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     [DataRow(2, DisplayName = "String source")]
     public void ToBoolean_IsNumericAndConvertible(int sourceKind)
         => Assert.AreEqual(
-            Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
+            LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
             Analyze(sourceKind == 1 ? new VBLongValue(1) : new VBStringValue("True"), VBBooleanType.TypeInfo).Flags);
 
     [TestMethod]
     public void ANarrowNumberToDate_IsNumericAndWidening()
         // a Date is a Double underneath, so anything narrower than a Double widens into it.
         => Assert.AreEqual(
-            Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.Widening | ConversionSemanticFlags.BinaryLeftOperand,
+            LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.Widening | ConversionSemanticFlags.BinaryLeftOperand,
             Analyze(new VBIntegerValue(1), VBDateType.TypeInfo).Flags);
 
     [TestMethod]
     public void ADoubleToDate_IsNumeric_ButNotWidening()
         => Assert.AreEqual(
-            Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
+            LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.Numeric | ConversionSemanticFlags.BinaryLeftOperand,
             Analyze(new VBDoubleValue(1), VBDateType.TypeInfo).Flags);
 
     [TestMethod]
@@ -217,7 +228,7 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void AStringOrDateToDate_IsOnlyConvertible()
     {
-        var expected = Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.BinaryLeftOperand;
+        var expected = LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.BinaryLeftOperand;
 
         Assert.AreEqual(expected, Analyze(new VBStringValue("1/1/2026"), VBDateType.TypeInfo).Flags);
         Assert.AreEqual(expected, Analyze(new VBDateValue(1), VBDateType.TypeInfo).Flags);
@@ -226,7 +237,7 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void ToString_IsConvertible_AndNotNumeric()
     {
-        var expected = Implicit | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.BinaryLeftOperand;
+        var expected = LetCoerced | ConversionSemanticFlags.CTypeAvailable | ConversionSemanticFlags.BinaryLeftOperand;
 
         Assert.AreEqual(expected, Analyze(new VBLongValue(1), VBStringType.TypeInfo).Flags);
         Assert.AreEqual(expected, Analyze(VBBooleanValue.True, VBStringType.TypeInfo).Flags);
@@ -367,37 +378,53 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
 
     #endregion
 
-    #region known gaps in what the analysis reports
+    #region what the source of a coercion says, whatever it is coerced to
+
+    // the strategy of a coercion is the one of its destination type: a Null, Empty, Error or object source coerced to a Long
+    // never reaches the strategy of its own type, and it is the provider that reports what the source is.
+    public static IEnumerable<object[]> SourceOperands()
+    {
+        yield return ["Null", new VBNullValue(), ConversionSemanticFlags.NullOperand];
+        yield return ["Empty", VBEmptyValue.Empty, ConversionSemanticFlags.EmptyOperand];
+        yield return ["Error", new VBErrorValue(5), ConversionSemanticFlags.ErrorOperand];
+        yield return ["Nothing", VBObjectValue.Nothing, ConversionSemanticFlags.ObjectOperand];
+        yield return ["object", new VBObjectValue(new VBRuntimeObjectId()), ConversionSemanticFlags.ObjectOperand];
+    }
 
     [TestMethod]
-    [Ignore("Only integral<->fractional coercions are flagged as widening/narrowing (VBNumericLetCoercionTypeRuntimeSemantics): " +
-        "Byte -> Long reports no Widening although the flag is documented as 'results in a wider data type', and Long -> Integer " +
-        "reports no Narrowing. Whether integral-to-integral and float-to-float size changes should be flagged is the author's call.")]
-    public void AWiderIntegralType_IsWidening_AndANarrowerOne_IsNarrowing()
+    [DynamicData(nameof(SourceOperands))]
+    public void ASourceIntoALong_IsFlaggedForWhatItIs(string source, VBTypedValue value, ConversionSemanticFlags expected)
+        => Assert.IsTrue(Analyze(value, VBLongType.TypeInfo).Flags.HasFlag(expected), source);
+
+    [TestMethod]
+    [DynamicData(nameof(SourceOperands))]
+    public void ASourceIntoAString_IsFlaggedForWhatItIs(string source, VBTypedValue value, ConversionSemanticFlags expected)
+        => Assert.IsTrue(Analyze(value, VBStringType.TypeInfo).Flags.HasFlag(expected), source);
+
+    [TestMethod]
+    public void AnObjectIntoAnObject_IsFlaggedAsAnObjectOperand()
+        => Assert.IsTrue(Analyze(new VBObjectValue(new VBRuntimeObjectId()), VBObjectType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.ObjectOperand));
+
+    [TestMethod]
+    public void ANumericSource_IsNotFlaggedForAnyOfThem()
     {
-        Assert.IsTrue(Analyze(new VBByteValue(1), VBLongType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.Widening));
-        Assert.IsTrue(Analyze(new VBLongValue(1), VBIntegerType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.Narrowing));
+        var operandFlags = ConversionSemanticFlags.NullOperand | ConversionSemanticFlags.EmptyOperand | ConversionSemanticFlags.ErrorOperand
+            | ConversionSemanticFlags.ObjectOperand | ConversionSemanticFlags.ByteArrayOperand;
+
+        Assert.AreEqual((ConversionSemanticFlags)0, Analyze(new VBIntegerValue(1), VBLongType.TypeInfo).Flags & operandFlags);
     }
+
+    #endregion
+
+    #region known gaps in what the analysis reports
 
     [TestMethod]
     [Ignore("DateSerial is documented as 'a DateSerial conversion from a Date' but is never issued: only the Date strategy has that " +
         "logic, and the provider dispatches by destination type, so a Date coerced to a numeric type is the numeric strategy's, " +
-        "which does not flag it. The Date strategy's own Date-source branches are unreachable.")]
+        "which does not flag it. The Date strategy's own Date-source branches are unreachable. Conversions should be able to issue it; " +
+        "kept noted until that is picked up.")]
     public void ADateToANumericType_IsADateSerialConversion()
         => Assert.IsTrue(Analyze(new VBDateValue(2), VBLongType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.DateSerial));
-
-    [TestMethod]
-    [Ignore("The Object strategy's analysis contributes nothing (a TODO in VBObjectLetCoercionRuntimeSemantics): an Object operand " +
-        "is not flagged, although ConversionSemanticFlags.ObjectOperand exists for it.")]
-    public void AnObjectOperand_IsFlaggedAsOne()
-        => Assert.IsTrue(Analyze(new VBObjectValue(new ValueBindingHandle(new VBRuntimeValue<int>(1))), VBObjectType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.ObjectOperand));
-
-    [TestMethod]
-    [Ignore("Null, Empty and Error sources are handled by strategies registered for the DESTINATION types Null, Empty and Error, so the " +
-        "provider never routes a Null source into a Long (or any other) destination to them: the Null strategy's analysis is " +
-        "unreachable through the provider. Whoever drives an operand's coercion must special-case those sources first.")]
-    public void ANullSource_IntoALong_ThroughTheProvider_IsFlaggedNull()
-        => Assert.IsTrue(Analyze(new VBNullValue(), VBLongType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.NullOperand));
 
     #endregion
 }

@@ -1,4 +1,4 @@
-using RDCore.Runtime.Semantics.LetCoercion;
+﻿using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.Runtime.Semantics.Operators.Logical;
@@ -379,14 +379,6 @@ public sealed class OperatorAnalysisFlagsTests : LetCoercionRuntimeSemanticsTest
     public void AnExplicitLetCoercion_IsFlaggedExplicit()
         => Assert.IsTrue(FlagsOf(new BinaryLetCoerceOperatorRuntimeSemantics(Provider(), Formatter()), new VBLongValue(1), new RDCore.SDK.Model.Values.Meta.VBTypeDescValue(VBDoubleType.TypeInfo))
             .HasFlag(ConversionSemanticFlags.Explicit));
-
-    [TestMethod]
-    [Ignore("BinaryLetAssignmentOperatorRuntimeSemantics.Analyze contributes nothing (\"TODO: assignment-specific semantic flags, once a caller (an " +
-        "analyzer) actually needs them\"): an assignment's own conversion - Implicit, and whatever the let-coercion of the assigned value into the " +
-        "target's type involves - is not reported.")]
-    public void AnAssignment_ReportsItsImplicitConversion()
-        => Assert.IsTrue(FlagsOf(new BinaryLetAssignmentOperatorRuntimeSemantics(Provider(), Formatter()), new VBLongValue(1), new RDCore.SDK.Model.Values.Meta.VBTypeDescValue(VBDoubleType.TypeInfo))
-            .HasFlag(ConversionSemanticFlags.Implicit));
 
     #endregion
 }
