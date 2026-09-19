@@ -41,21 +41,32 @@ jobs:
      if: github.event_name == 'push'
      run: |
        dotnet tool install --global dotnet-reportgenerator-globaltool
+       # product code only: our own assemblies (not the tests, not the third-party ones that dotnet-coverage also
+       # instruments, e.g. Spectre.Console), and none of the code generated at build time (ANTLR parsers, regex generators).
        reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage-report \
-         -reporttypes:JsonSummary "-assemblyfilters:-RDCore.Tests"
+         -reporttypes:JsonSummary \
+         "-assemblyfilters:+RDCore.SDK;+RDCore.Runtime;+RDCore.LanguageServer;+RDCore.Diagnostics;+RDCore.ParseServer;+rdc" \
+         "-filefilters:-*/obj/*;-*\\obj\\*"
        pct=$(grep -m1 -oE '"linecoverage": [0-9.]+' coverage-report/Summary.json | grep -oE '[0-9.]+$')
        echo "RDCore product line coverage: ${pct}%"
-       n=${pct%.*}
-       if   [ "$n" -ge 80 ]; then color=brightgreen
-       elif [ "$n" -ge 60 ]; then color=green
-       elif [ "$n" -ge 40 ]; then color=yellowgreen
-       elif [ "$n" -ge 25 ]; then color=yellow
-       elif [ "$n" -ge 10 ]; then color=orange
-       else color=red
-       fi
        mkdir badge
-       printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$pct" "$color" > badge/coverage.json
-       cat badge/coverage.json
+       # one shields.io endpoint file per badge: the overall one, and one per project (coverage-<assembly>.json)
+       badge() {
+         n=${2%.*}
+         if   [ "$n" -ge 80 ]; then color=brightgreen
+         elif [ "$n" -ge 60 ]; then color=green
+         elif [ "$n" -ge 40 ]; then color=yellowgreen
+         elif [ "$n" -ge 25 ]; then color=yellow
+         elif [ "$n" -ge 10 ]; then color=orange
+         else color=red
+         fi
+         printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$2" "$color" > "badge/$1.json"
+         echo "$1: $2%"
+       }
+       badge coverage "$pct"
+       jq -r '.coverage.assemblies[] | "\(.name) \(.coverage)"' coverage-report/Summary.json | while read -r name value; do
+         badge "coverage-$name" "$value"
+       done
 
    - name: Publish coverage badge
      if: github.event_name == 'push'
@@ -63,10 +74,10 @@ jobs:
        git config --global user.name  'github-actions[bot]'
        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
        tmp=$(mktemp -d)
-       cp badge/coverage.json "$tmp/coverage.json"
+       cp badge/*.json "$tmp/"
        cd "$tmp"
        git init -q
        git checkout -q -b badges
-       git add coverage.json
+       git add ./*.json
        git commit -q -m 'coverage badge'
        git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
