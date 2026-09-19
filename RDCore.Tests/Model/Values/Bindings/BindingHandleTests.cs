@@ -178,7 +178,7 @@ public sealed class BindingHandleTests
 
     [TestMethod]
     public void AValueOfNoBinding_CanBePrinted()
-        => Assert.Contains("Handle = InvalidBindingHandle", new RDCore.SDK.Model.Values.Intrinsic.VBNullValue().ToString());
+        => Assert.Contains("Handle = InvalidBindingHandle", new RDCore.SDK.Model.Values.Intrinsic.VBMissingValue().ToString());
 
     [TestMethod]
     public void InvalidBindingHandle_HasNoCapabilities()

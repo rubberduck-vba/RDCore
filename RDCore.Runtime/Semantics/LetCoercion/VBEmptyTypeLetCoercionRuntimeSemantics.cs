@@ -27,9 +27,9 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
     public override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame) =>
         frame.DestinationTypeDesc.Target switch
         {
-            // MS-VBAL 5.5.1.2.11: "The result is 0." — Empty carries no runtime value of its own
-            // (VBEmptyValue isn't a VBNumericTypedValue), so the destination's zero is constructed
-            // directly rather than reinterpreted from the source.
+            // MS-VBAL 5.5.1.2.11: "The result is 0." — the runtime value of Empty is only its VT_EMPTY tag
+            // (VBEmptyValue isn't a VBNumericTypedValue), so the destination's zero is constructed directly rather
+            // than reinterpreted from the source.
             VBNumericType numericType => LetCoercionResult.Success(numericType.CreateValue(0d)),
         
             VBBooleanType => LetCoercionResult.Success(VBBooleanValue.False),
