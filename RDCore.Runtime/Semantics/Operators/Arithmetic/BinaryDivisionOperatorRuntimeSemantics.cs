@@ -61,7 +61,8 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
         {
             var lhsNumeric = (VBNumericTypedValue)lhs;
             var rhsNumeric = (VBNumericTypedValue)rhs;
-            if (((VBRuntimeDecimalValue)rhsNumeric.RuntimeValue).ManagedValue == 0)
+            // the runtime value is the decimal's storage struct wrapped in a runtime value; its managed value is the number.
+            if (Convert.ToDecimal(rhsNumeric.RuntimeValue.BoxedValue) == 0)
             {
                 return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }

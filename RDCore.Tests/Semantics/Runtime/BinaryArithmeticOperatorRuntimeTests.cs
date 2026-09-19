@@ -137,6 +137,18 @@ public sealed class BinaryArithmeticOperatorRuntimeTests : OperatorArithmeticRun
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
+    public void Division_Decimal_RealQuotient()
+        => AssertResult<VBDecimalValue>(
+            Evaluate(Div(), new VBDecimalValue(6m), new VBDecimalValue(4m)), 1.5m);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
+    public void Division_Decimal_ByZero_IsDivisionByZero()
+        => AssertError(
+            Evaluate(Div(), new VBDecimalValue(5m), new VBDecimalValue(0m)), VBRuntimeErrorId.DivisionByZero);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
     public void Division_Null_IsNull()
         => AssertIsNull(Evaluate(Div(), VBNullValue.Null, VBNullValue.Null));
 
