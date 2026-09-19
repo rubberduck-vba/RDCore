@@ -33,7 +33,15 @@ public interface ILetCoercionSemanticContextBuilder : ISemanticContextContributo
 public record class LetCoercionSemanticContextFlagsBuilder :
     SemanticContextFlagsBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags>, ILetCoercionSemanticContextBuilder
 {
-    ILetCoercionSemanticContextBuilder ILetCoercionSemanticContextBuilder.AddFlags(ConversionSemanticFlags flags) 
+    // this builder's own flags are conversion flags: what it is told about an operand's let-coercion is also what the
+    // conversion looked like, so it counts toward the flags of the context this builds.
+    public override ISemanticFlagsAccumulator<ConversionSemanticFlags> AddLetCoercionFlags(ConversionSemanticFlags flags, InputIndex operand)
+    {
+        base.AddLetCoercionFlags(flags, operand);
+        return AddFlags(flags);
+    }
+
+    ILetCoercionSemanticContextBuilder ILetCoercionSemanticContextBuilder.AddFlags(ConversionSemanticFlags flags)
         => (ILetCoercionSemanticContextBuilder)AddFlags(flags);
 
     ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags>.AddFlags(ConversionSemanticFlags flags)

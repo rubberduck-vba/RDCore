@@ -103,11 +103,25 @@ public enum ConversionSemanticFlags
     /// This conversion operation has a <see cref="VBVariantValue"/> <em>destination data type</em>.
     /// </summary>
     VariantTarget = 1 << 19,
+    /// <summary>
+    /// This conversion operation has an <em>array</em> <em>destination data type</em> (MS-VBAL 5.5.1.2.6, 5.5.1.2.7).
+    /// </summary>
     ArrayTarget = 1 << 20,
+    /// <summary>
+    /// This conversion operation has a resizable <c>Byte()</c> <em>destination data type</em> (MS-VBAL 5.5.1.2.6).
+    /// </summary>
+    /// <remarks>
+    /// 👉 Issued along with <see cref="ArrayTarget"/>.
+    /// </remarks>
     ByteArrayTarget = 1 << 21,
+    /// <summary>
+    /// This conversion operation implicates a <c>Byte()</c> operand (MS-VBAL 5.5.1.2.6).
+    /// </summary>
     ByteArrayOperand = 1 << 22,
     /// <summary>
     /// Combines all values.
     /// </summary>
-    All = Explicit | Implicit | Failed | Recursive | CTypeAvailable | Widening | Narrowing | Lossy | BankersRounding | Numeric | DateSerial | NullOperand | EmptyOperand | UnaryOperand | BinaryLeftOperand | BinaryRightOperand
+    All = Explicit | Implicit | Failed | Recursive | CTypeAvailable | Widening | Narrowing | Lossy | BankersRounding | Numeric | DateSerial
+        | NullOperand | EmptyOperand | ErrorOperand | ObjectOperand | UnaryOperand | BinaryLeftOperand | BinaryRightOperand
+        | UserDefinedTypeTarget | VariantTarget | ArrayTarget | ByteArrayTarget | ByteArrayOperand
 }
