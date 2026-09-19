@@ -1,11 +1,15 @@
-﻿namespace RDCore.SDK.Semantics.Flags;
+namespace RDCore.SDK.Semantics.Flags;
 
+/// <summary>
+/// The semantic flags of a <em>logical operator</em> operation (MS-VBAL 5.6.9.8).
+/// </summary>
+[Flags]
 public enum LogicalOperatorSemanticFlags
 {
     /// <summary>
     /// The operation involves a <c>VBNullValue</c> operand.
     /// </summary>
-    HasNullOperand = 0,
+    HasNullOperand = 1 << 0,
     /// <summary>
     /// The semantic <em>effective type</em> of the operation is <c>VBByteType</c>.
     /// </summary>
@@ -33,7 +37,13 @@ public enum LogicalOperatorSemanticFlags
     /// <summary>
     /// <c>true</c> if the operation is evaluated using <em>bitwise</em> semantics.
     /// </summary>
+    /// <remarks>
+    /// 👉 That is the case when every operand is of an <em>integral numeric</em> type; a <c>Boolean</c> operand makes a <em>logical</em> operation.
+    /// </remarks>
     IsBitwiseSemantics = 1 << 7,
 
+    /// <summary>
+    /// Combines all values.
+    /// </summary>
     All = HasNullOperand | ByteEffectiveType | BooleanEffectiveType | IntegerEffectiveType | LongEffectiveType | LongLongEffectiveType | NullEffectiveType | IsBitwiseSemantics
 }

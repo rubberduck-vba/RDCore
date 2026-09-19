@@ -22,5 +22,13 @@ public enum ArithmeticOperatorSemanticFlags
     /// <summary>
     /// The operation involves the <em>Banker's Rounding</em> algorithm.
     /// </summary>
+    /// <remarks>
+    /// 👉 That is the case when an operand is let-coerced from a fractional to a whole-number type: the operation is
+    /// performed on the rounded value.
+    /// </remarks>
     BankersRounding = 1 << 4,
+    /// <summary>
+    /// The operation is evaluated with <em>error effective type</em> semantics.
+    /// </summary>
+    VBErrorEffectiveType = 1 << 5,
 }

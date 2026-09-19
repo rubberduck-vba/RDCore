@@ -79,6 +79,6 @@ public enum DateTokenSemanticFlags
     SecondsValue = 1 << 16,
 
     All = TimeValueSpecified | DateValueSpecified 
-        | YearLeft | YearRight | MonthNameLeft | MonthNameMiddle | MonthNameRight | DayLeft 
+        | YearLeft | YearRight | MonthLeft | MonthMiddle | MonthRight | MonthNameLeft | MonthNameMiddle | MonthNameRight | DayLeft 
         | DayMiddle | DayRight | AmPmLong | AmPmShort | MinutesValue | SecondsValue
 }

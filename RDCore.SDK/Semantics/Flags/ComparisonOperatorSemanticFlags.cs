@@ -1,5 +1,9 @@
 ﻿namespace RDCore.SDK.Semantics.Flags;
 
+/// <summary>
+/// The semantic flags of a <em>relational operator</em> operation (MS-VBAL 5.6.9.5).
+/// </summary>
+[Flags]
 public enum ComparisonOperatorSemanticFlags
 {
     /// <summary>
@@ -22,6 +26,9 @@ public enum ComparisonOperatorSemanticFlags
     /// The semantic <em>effective type</em> of the comparison operation is <c>VBBooleanType</c>.
     /// </summary>
     BooleanEffectiveType = 1 << 4,
+    /// <summary>
+    /// The semantic <em>effective type</em> of the comparison operation is <c>VBByteType</c>.
+    /// </summary>
     ByteEffectiveType = 1 << 5,
     IntegerEffectiveType = 1 << 6,
     LongEffectiveType = 1 << 7,
@@ -65,9 +72,13 @@ public enum ComparisonOperatorSemanticFlags
     /// </remarks>
     IsVariantStringNumericException = 1 << 19,
 
-    All = IntegralNumericEffectiveType | FixedPointNumericEffectiveType 
-        | FloatingPointNumericEffectiveType | HasNaNOperand 
-        | BooleanEffectiveType
+    /// <summary>
+    /// Combines all values.
+    /// </summary>
+    All = IntegralNumericEffectiveType | FixedPointNumericEffectiveType
+        | FloatingPointNumericEffectiveType | HasNaNOperand
+        | BooleanEffectiveType | ByteEffectiveType | IntegerEffectiveType | LongEffectiveType | LongLongEffectiveType
+        | SingleEffectiveType | DoubleEffectiveType | CurrencyEffectiveType | DecimalEffectiveType
         | StringEffectiveType | StringComparisonBinary | StringComparisonText 
         | NullEffectiveType 
         | ErrorEffectiveType | HasStandardErrorCodes 
