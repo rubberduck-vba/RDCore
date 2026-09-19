@@ -171,6 +171,17 @@ public sealed class ConversionOperatorAnalysisTests : LetCoercionRuntimeSemantic
         Assert.AreEqual(raised, analyzed);
     }
 
+    [TestMethod]
+    public void AnAssignmentToATargetOfNoKnownType_IsATypeMismatch_AndConvertsNothing()
+    {
+        var (session, field) = SessionWithField(VBUnknownType.TypeInfo);
+
+        var context = Assign(session, field, new VBLongValue(5));
+
+        Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, Assert.ContainsSingle(context.Errors).ErrorId);
+        Assert.AreEqual((ConversionSemanticFlags)0, context.Flags);
+    }
+
     #endregion
 
     #region explicit let-coercion

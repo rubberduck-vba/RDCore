@@ -188,10 +188,9 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             VBErrorType when rhs is VBErrorType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBErrorType.TypeInfo),
 
-            VBErrorType when rhs is not VBErrorType => DetermineOperatorEffectiveTypeResult.NotApplicable(),
-            not VBErrorType when rhs is VBErrorType => DetermineOperatorEffectiveTypeResult.NotApplicable(),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
+            // MS-VBAL 5.6.9.5: no effective type is defined for any other pair of operands - a type mismatch.
+            _ => DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [lhs.Name, rhs.Name]))))
         };
     }
 
