@@ -108,7 +108,16 @@ RDCore est en phase active de développement **pré-alpha**. La **spécification
 
 **RDCore.Diagnostics** — extension d'inspection _core_ · 🚧 · [RD-VBAL §2.6](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.6.diagnostics.html) — squelette d'analyseur; découverte depuis son _manifest_ généré et démarrée par le serveur de langage lors de l'assemblage de la plateforme.
 
-**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour) — sémantiques d'opérateurs et de _let-coercions_ (_runtime_ + statiques) bien couvertes; grammaire du _parser_ et CLI minces; les _statements_ / l'interpréteur du _runtime_ n'ont encore rien à couvrir.
+**Tests** · 🎯 cible ~70% de couverture de lignes (le badge ci-haut est à jour; code du produit seulement — code généré (ANTLR/regex) et assemblages tiers exclus) — sémantiques d'opérateurs et de _let-coercions_ (_runtime_ + statiques) bien couvertes; grammaire du _parser_ et CLI minces; les _statements_ / l'interpréteur du _runtime_ n'ont encore rien à couvrir.
+
+| Projet | Rôle | Couverture de lignes |
+|---|---|---|
+| **RDCore.Runtime** | sémantiques d'exécution VBA + bibliothèque standard | [![RDCore.Runtime](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.ParseServer** | _parser_ sans état (sémantique des jetons MS-VBAL) | [![RDCore.ParseServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.ParseServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.SDK** | modèle du langage + plomberie partagée de la plateforme | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **rdc** | client CLI / hôte d'environnement | [![rdc](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-rdc.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.LanguageServer** | coordonnateur de la plateforme | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.Diagnostics** | extension d'inspection de base | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 
 **Contributions** — individuelles ✅ ouvertes ([CLA](CLA.fr.md)) · corporatives ⏳ à venir
 

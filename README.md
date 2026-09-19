@@ -111,6 +111,15 @@ RDCore is in active **pre-alpha** development. The **specification** and **docum
 
 **Tests** · 🎯 target ~70% line coverage (badge above is live; product code only — generated ANTLR/regex code and third-party assemblies are excluded) — operator and let-coercion semantics (runtime + static) well covered; parser grammar and CLI thin; runtime statement/interpreter work still has nothing to cover.
 
+| Project | Role | Line coverage |
+|---|---|---|
+| **RDCore.Runtime** | VBA runtime semantics + standard library | [![RDCore.Runtime](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.ParseServer** | stateless parser (MS-VBAL token semantics) | [![RDCore.ParseServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.ParseServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.SDK** | language model + shared platform plumbing | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **rdc** | CLI client / environment host | [![rdc](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-rdc.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.LanguageServer** | platform coordinator | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.Diagnostics** | core inspection extension | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+
 **Contributions** — individuals ✅ open ([CLA](CLA.md)) · corporate ⏳ planned
 
 <sub>✅ done / stable · 🚧 in progress · 🎯 not started · 👉 up for grabs</sub>
