@@ -19,8 +19,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// <remarks>
 /// <see cref="ResolveValue"/> and <see cref="ResolveType"/> walk the same tree under the two binding
 /// contexts <strong>MS-VBAL §5.6.4</strong> distinguishes, each with its own candidates: a user-defined
-/// type or a class module is only ever bound by <see cref="ResolveType"/>, and a local, parameter,
-/// constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
+/// type or a class module is only ever bound by <see cref="ResolveType"/> (or, for a class module, by
+/// <see cref="ResolveClass"/>, the type binding context narrowed to what <c>New</c> instantiates), and a
+/// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
 /// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
 /// context — as that instance, a variable of the class's type.
 /// <para>
@@ -102,6 +103,22 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         return SymbolResolutionResult.Unbound;
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="name"/> in the type binding context as narrowed by <c>New</c>, as seen from the
+    /// scope the symbol at <paramref name="handle"/> belongs to. <c>New</c> instantiates classes, so it never
+    /// looks for a user-defined type or an Enum type: the enclosing module's own types and the types of the
+    /// project's other modules are not tiers here, and what is left is the enclosing project itself, or a
+    /// procedural or class module in it. <paramref name="scope"/> is not consulted.
+    /// </summary>
+    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle)
+    {
+        var global = scopeTree.ScopeFor(handle).SelfAndAncestors().FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+
+        return global is not null && SelectTier(global, global.DeclaredAs(name).Where(IsProjectOrModule)) is { } result
+            ? result
+            : SymbolResolutionResult.Unbound;
     }
 
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this

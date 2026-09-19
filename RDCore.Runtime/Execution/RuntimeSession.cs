@@ -218,6 +218,9 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle)
             => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).ResolveType(name, scope, handle);
 
+        public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle)
+            => new ScopeTreeSymbolResolver(owner.EnsureScopeTree()).ResolveClass(name, scope, handle);
+
         public IBindingHandle GetValue(Symbol symbol)
             => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");
 

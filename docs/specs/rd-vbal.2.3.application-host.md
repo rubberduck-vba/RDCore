@@ -52,19 +52,23 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 |---|---|
 |`ResolveValue`|Resolves a specified _identifier name_ in the _default binding context_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
 |`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, likewise|
+|`ResolveClass`|Resolves a specified _identifier name_ in the _type binding context_ as narrowed by `New` (the _class binding context_): a class, or the project or module that qualifies one — never a user-defined type or an Enum type|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
-Which of the two lookups a name is resolved through is decided by the node being evaluated, never by a
+Which lookup a name is resolved through is decided by the node being evaluated, never by a
 parameter (see [**§3.0.3** Binding Contexts](rd-vbal.3.0.syntax-tree.html)): a simple name expression
-calls `ResolveValue`; an `As` clause and the operand of `New` call `ResolveType`. The two bind different
+calls `ResolveValue`; an `As` clause calls `ResolveType`; the operand of `New` (and of an `As New` clause) calls
+`ResolveClass`. `ResolveValue` and `ResolveType` bind different
 candidates (**MS-VBAL §5.6.10**): `ResolveValue` binds a variable, constant, Enum type or member, property,
 function, subroutine, procedural module or project and never a user-defined type or a class module — a
 class is a value there only through its _predeclared instance_
 ([**§3.1.1.5**](rd-vbal.3.1.attributes-directives.html)); `ResolveType` binds only a
 user-defined type, an Enum type, a class or procedural module, or the project — in that order of precedence,
 starting from the enclosing module, so a local, parameter or constant can neither be bound nor hide the
-type it shadows. `ISessionSymbols` mirrors the pair as `TryResolveValue` and `TryResolveType`.
+type it shadows. `ResolveClass` is `ResolveType` without the user-defined types and Enum types: only the
+enclosing project, or a procedural or class module, is a candidate. `ISessionSymbols` mirrors the pair as
+`TryResolveValue` and `TryResolveType`.
 
 `ResolveValue` and `ResolveType` each return a `SymbolResolutionResult` — the bound `Symbol`, an _unbound_ result (the name is
 declared nowhere visible), or one of two compile-time errors with the colliding declarations

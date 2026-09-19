@@ -342,7 +342,7 @@ public sealed class EvilTestCase2ResolverTests
             "MyModule = New Interface  ->  Variant := Interface",
             "MyProject.MyModule = MyModule  ->  Interface := Variant",
             "MyProject = New Class  ->  Interface := Class",
-            "MyProject.MyModule = New MyProject.Class  ->  Interface := ERROR UserDefinedTypeNotDefined",
+            "MyProject.MyModule = New MyProject.Class  ->  Interface := Class",
             "MyProject.MyModule.MyProc = MyProject  ->  Interface := Interface",
             "o = MyProject.MyModule  ->  Variant := Interface",
             "MyModule.MyProc = MyProject.MyModule  ->  Variant := Interface",
@@ -353,18 +353,16 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void MyProc1_HasExactlyOneCompileError_NewMyProjectDotClass()
-        // MS-VBAL 5.6.10 selects the FIRST tier that has a match. In the type binding context that is the
-        // enclosing module's own Type - and MyModule declares `Type MyProject` - so the qualifier is that type,
-        // not the project, and a member access on a user-defined type is not a type expression. The legacy bug
-        // (issue comment 3) was the qualifier binding the LOCAL variable; a variable is never a candidate.
+    public void MyProc1_HasNoCompileErrors_NewMyProjectDotClassBindsTheProjectsClass()
+        // `New MyProject.Class`, where MyModule declares `Type MyProject`: the type binding context's first tier is the
+        // enclosing module's own Type, which would be the qualifier - but New instantiates classes and never looks for
+        // a user-defined type (ISymbolResolver.ResolveClass), so the qualifier is the project. Legacy Rubberduck (issue
+        // comment 3) bound it to the LOCAL variable, and later to the Type; the VBE offers no Type after `New `, and
+        // compiles it. A variable is never a candidate for either.
     {
         var (context, block) = BodyOf(MyModuleParse, "MyProc1", MemberKind.Procedure);
 
-        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
-
-        Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, errors[0].VBCompileErrorId);
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
     }
 
     [TestMethod]

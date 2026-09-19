@@ -38,14 +38,35 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     /// that might have named something real (a referenced project) this doesn't model yet.
     /// </remarks>
     public static SymbolResolutionResult ResolveQualifiedType(ISymbolResolver resolver, string? qualifier, string name, Uri handle)
+        => ResolveQualified((candidate, from) => resolver.ResolveType(candidate, ScopeKind.Global, from), qualifier, name, handle);
+
+    /// <summary>
+    /// Resolves the class <paramref name="name"/> the operand of a <c>New</c> expression or of an <c>As New</c>
+    /// clause names, honoring an optional <paramref name="qualifier"/> (a project name, e.g. the
+    /// <c>Project</c> in <c>New Project.ClassName</c>).
+    /// </summary>
+    /// <remarks>
+    /// <c>New</c> instantiates classes, so neither the qualifier nor the name is looked up in a tier that only
+    /// holds user-defined types and Enum types (<see cref="ISymbolResolver.ResolveClass"/>): a
+    /// <c>Type</c> of the enclosing module that shares the project's name is not a candidate for the
+    /// qualifier, and <c>New Project.ClassName</c> binds the project. Otherwise this is
+    /// <see cref="ResolveQualifiedType"/>: when the qualifier is the enclosing project, <paramref name="name"/>
+    /// is looked up from the project's own scope, and a qualifier that doesn't resolve to a
+    /// <see cref="VBProjectSymbol"/> stays unbound.
+    /// </remarks>
+    public static SymbolResolutionResult ResolveQualifiedClass(ISymbolResolver resolver, string? qualifier, string name, Uri handle)
+        => ResolveQualified((candidate, from) => resolver.ResolveClass(candidate, ScopeKind.Global, from), qualifier, name, handle);
+
+    private static SymbolResolutionResult ResolveQualified(
+        Func<string, Uri, SymbolResolutionResult> resolve, string? qualifier, string name, Uri handle)
     {
         if (qualifier is null)
         {
-            return resolver.ResolveType(name, ScopeKind.Global, handle);
+            return resolve(name, handle);
         }
 
-        return resolver.ResolveType(qualifier, ScopeKind.Global, handle).Symbol is VBProjectSymbol project
-            ? resolver.ResolveType(name, ScopeKind.Global, project.WorkspaceRoot)
+        return resolve(qualifier, handle).Symbol is VBProjectSymbol project
+            ? resolve(name, project.WorkspaceRoot)
             : SymbolResolutionResult.Unbound;
     }
 }

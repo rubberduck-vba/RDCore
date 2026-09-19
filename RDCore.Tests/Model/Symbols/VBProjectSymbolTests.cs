@@ -55,6 +55,44 @@ public sealed class VBProjectSymbolTests
     }
 
     [TestMethod]
+    public void ResolveQualifiedClass_ResolvesBothTheQualifierAndTheNameInTheClassContext()
+        // what New binds: never through ResolveType, whose enclosing-module tier could hand back a Type that
+        // shares the project's name.
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var callerScope = new Uri("file://rdcore-test#Caller.Run");
+        var field = Field("Total");
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.ResolveClass("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveClass("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+
+        var result = VBProjectSymbol.ResolveQualifiedClass(resolver, "MyProject", "Total", callerScope);
+
+        Assert.AreEqual(field, result.Symbol);
+        resolver.DidNotReceive().ResolveType(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>());
+    }
+
+    [TestMethod]
+    public void ResolveQualifiedClass_WithoutAQualifier_ResolvesTheNameFromTheCallersScope()
+    {
+        var callerScope = new Uri("file://rdcore-test#Caller.Run");
+        var field = Field("Total");
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.ResolveClass("Total", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(field));
+
+        Assert.AreEqual(field, VBProjectSymbol.ResolveQualifiedClass(resolver, qualifier: null, "Total", callerScope).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveQualifiedClass_AQualifierThatIsNotAProject_StaysUnbound()
+    {
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.ResolveClass("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
+
+        Assert.IsTrue(VBProjectSymbol.ResolveQualifiedClass(resolver, "Total", "Foo", Root).IsUnbound);
+    }
+
+    [TestMethod]
     public void QualifierResolvesToSomethingOtherThanAProject_StaysUnbound()
         // e.g. "Total.Foo" where Total is a field, not a project - never falls through to resolving
         // "Foo" as if it were a bare, unqualified name.
