@@ -69,26 +69,6 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext, 
         params VBTypedValue[] operands)
     {
-        var lhs = operands[(int)InputIndex.BinaryLeftOperand];
-        var rhs = operands[(int)InputIndex.BinaryRightOperand];
-        if (lhs.TypeInfo is IIntegralNumericType && rhs.TypeInfo is IIntegralNumericType)
-        {
-            builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);
-        }
-        if (lhs is VBNullValue || rhs is VBNullValue)
-        {
-            builder.AddFlags(LogicalOperatorSemanticFlags.HasNullOperand);
-        }
-
-        return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
-        {
-            VBBooleanType => LogicalOperatorSemanticFlags.BooleanEffectiveType,
-            VBByteType => LogicalOperatorSemanticFlags.ByteEffectiveType,
-            VBIntegerType => LogicalOperatorSemanticFlags.IntegerEffectiveType,
-            VBLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
-            VBLongLongType => LogicalOperatorSemanticFlags.LongEffectiveType,
-            VBNullType => LogicalOperatorSemanticFlags.NullEffectiveType,
-            _ => 0
-        });
+        return LogicalOperatorAnalysis.Analyze(builder, analysisContext.EffectiveTypeResult, operands);
     }
 }

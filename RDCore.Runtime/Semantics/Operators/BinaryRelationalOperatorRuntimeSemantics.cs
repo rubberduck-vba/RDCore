@@ -50,9 +50,10 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         VBOperatorExpression expression, 
         OperatorAnalysisContext<ComparisonOperatorSemanticFlags> analysisContext, params VBTypedValue[] operands)
     {
-        if (analysisContext.EffectiveTypeResult.Result is VBErrorType 
-            && analysisContext.EvaluationResult.Result!.RuntimeValue.BoxedValue is int errorCode
-            && errorCode > 0 && errorCode < VBErrorType.MaximumStdErrorValue)
+        // MS-VBAL 5.6.9.5: comparing two Error values is only defined when both hold a standard error code.
+        if (analysisContext.EffectiveTypeResult.Result is VBErrorType
+            && operands.OfType<VBErrorValue>().ToArray() is { Length: > 1 } errorOperands
+            && errorOperands.All(error => error.Value >= VBErrorType.MinimumStdErrorValue && error.Value <= VBErrorType.MaximumStdErrorValue))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasStandardErrorCodes);
         }
@@ -63,10 +64,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             builder.AddFlags(ComparisonOperatorSemanticFlags.HasNaNOperand);
         }
 
-        var variantOperands = operands.Select(operand => operand.TypeInfo).Cast<VBVariantType>().ToArray();
-        if (operands.All(operand => operand is VBVariantValue) 
-            && variantOperands.Any(operand => operand.SubType is VBStringType)
-            && variantOperands.Any(operand => operand.SubType is VBNumericType))
+        // only Variant operands have a subtype to look at.
+        var variantSubTypes = operands.Select(operand => operand.TypeInfo).OfType<VBVariantType>().Select(variant => variant.SubType).ToArray();
+        if (operands.All(operand => operand is VBVariantValue)
+            && variantSubTypes.Any(subType => subType is VBStringType)
+            && variantSubTypes.Any(subType => subType is VBNumericType))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringNumericException);
         }

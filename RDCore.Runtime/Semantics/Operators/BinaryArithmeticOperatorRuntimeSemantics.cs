@@ -14,6 +14,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
@@ -243,12 +244,21 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         VBOperatorExpression expression,
         OperatorAnalysisContext<ArithmeticOperatorSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
-        => builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
+    {
+        // an operand let-coerced from a fractional to a whole-number type is rounded, and the operation runs on the rounded value.
+        if (coercionContext.Flags.HasFlag(ConversionSemanticFlags.BankersRounding))
+        {
+            builder.AddFlags(ArithmeticOperatorSemanticFlags.BankersRounding);
+        }
+
+        return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
         {
             VBNumericType => ArithmeticOperatorSemanticFlags.VBNumericEffectiveType,
             VBDateType => ArithmeticOperatorSemanticFlags.VBDateEffectiveType,
             VBStringType => ArithmeticOperatorSemanticFlags.VBStringEffectiveType,
             VBNullType => ArithmeticOperatorSemanticFlags.VBNullEffectiveType,
+            VBErrorType => ArithmeticOperatorSemanticFlags.VBErrorEffectiveType,
             _ => 0
         });
+    }
 }

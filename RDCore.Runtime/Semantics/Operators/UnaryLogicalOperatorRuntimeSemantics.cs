@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
+using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
@@ -32,6 +33,12 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// <typeparam name="T">The CLR representation of the operation's <em>effective integral type</em>.</typeparam>
     /// <param name="operand">The managed value of a unary expression operand, in the operation's effective type.</param>
     protected abstract T EvaluateBitwiseOp<T>(T operand) where T : IBinaryInteger<T>;
+
+    protected sealed override ISemanticContextContributor<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> AnalyzeOperands(
+        ISemanticContextContributor<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder,
+        DetermineOperatorEffectiveTypeResult effectiveType,
+        params VBTypedValue[] operands)
+        => Logical.LogicalOperatorAnalysis.Analyze(builder, effectiveType, operands);
 
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,

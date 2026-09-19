@@ -50,9 +50,23 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         {
             builder.AddFlags(ConcatOperationSemanticFlags.HasNumericOperand);
         }
-        if (operands.OfType<VBResizableByteArrayValue>().Any())
+        // the same Byte() the effective type recognizes: any array of Byte elements.
+        if (operands.Any(IsByteArray))
         {
             builder.AddFlags(ConcatOperationSemanticFlags.HasByteArrayOperand);
+        }
+        // the operands no concatenation is defined for (MS-VBAL 5.6.9.4): each is a type mismatch.
+        if (operands.OfType<VBArrayValue>().Any(array => array.ItemType is not VBByteType))
+        {
+            builder.AddFlags(ConcatOperationSemanticFlags.HasNonByteArrayOperand);
+        }
+        if (operands.OfType<VBUserDefinedTypeValue>().Any())
+        {
+            builder.AddFlags(ConcatOperationSemanticFlags.HasUserDefinedTypeOperand);
+        }
+        if (operands.OfType<VBErrorValue>().Any())
+        {
+            builder.AddFlags(ConcatOperationSemanticFlags.HasErrorOperand);
         }
 
         return builder.AddFlags(analysisContext.EffectiveTypeResult.Result switch
