@@ -68,6 +68,24 @@ public static class ModuleNodeExtensions
     }
 
     /// <summary>
+    /// Whether a class module has a predeclared default instance, per its
+    /// <c>Attribute VB_PredeclaredId</c> directive (<strong>MS-VBAL §5.2.4.1.2</strong>). Defaults to
+    /// <c>false</c> — VBE's own default for a class module that declares no such attribute.
+    /// </summary>
+    public static bool IsPredeclared(this ModuleNode module)
+    {
+        foreach (var attribute in module.Children.OfType<AttributeDirectiveNode>())
+        {
+            if (attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_PredeclaredId, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(attribute.Value.Trim(), "True", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The interface names named by this module's own <c>Implements</c> directives
     /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written — unresolved, in source order. A
     /// project-qualified name (<c>Implements Project.IFoo</c>) yields just <c>IFoo</c>: RDCore only

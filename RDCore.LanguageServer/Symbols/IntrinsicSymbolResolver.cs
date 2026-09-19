@@ -32,6 +32,9 @@ internal sealed class IntrinsicSymbolResolver : ISymbolResolver
             : SymbolResolutionResult.Unbound;
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle) => ResolveType(name, scope, handle);
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
         => throw new NotSupportedException("The intrinsic symbol resolver resolves type names only; it holds no runtime bindings.");
 

@@ -151,10 +151,15 @@ The node types _directly_ derived from `SyntaxNode` are as follows:
 
 The **RDCore** interpretation is reflected in its modelization as follows:
 - 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `SimpleNameExpressionNode`;
-- ✅ the binding context is chosen by the node being evaluated: a `SimpleNameExpressionNode` binds under the _default binding context_ (`ISymbolResolver.ResolveValue`), while an `As` clause and the operand of a `NewExpressionNode` bind under the _type binding context_ (`ISymbolResolver.ResolveType`) — see [**§2.3.1.2** Session Services](rd-vbal.2.3.application-host.html);
+- ✅ the binding context is chosen by the node being evaluated: a `SimpleNameExpressionNode` binds under the _default binding context_ (`ISymbolResolver.ResolveValue`), while an `As` clause binds under the _type binding context_ (`ISymbolResolver.ResolveType`), and the operand of a `NewExpressionNode` (or of an `As New` clause) under the _class binding context_ (`ISymbolResolver.ResolveClass`, below) — see [**§2.3.1.2** Session Services](rd-vbal.2.3.application-host.html);
 - 🎯 Evaluation returns an [_evaluation result record_](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) describing and encapsulating the result, or runtime error metadata.
 
 Because the type system includes and leverages meta-types such as `VBTypeDescValue`, the binding context is easily inferred from the managed type of a provided value.
+
+### The class binding context
+`New` instantiates _classes_, and it is the only operand of the _type binding context_ that does: the names the VBE offers after `New` never include a _user-defined type_, and `New Project.ClassName` compiles in a module that declares a `Type` named like the project. **RD-VBAL** therefore narrows the _type binding context_ for the operand of a `New` expression and of an `As New` clause (the `<as-auto-object>` of **MS-VBAL §5.2.3.1.4**) to what `New` can instantiate: the tiers that only hold _user-defined types_ and _Enum types_ are dropped, and what is left is a class module, or the project or module that qualifies one (`ISymbolResolver.ResolveClass`). Nothing is added and the order of the remaining tiers is unchanged. In particular, the qualifier of `New Project.ClassName` binds the _project_, whatever the enclosing module declares, and a class shares its name with a `Type` without contest.
+
+Whether the class found is _creatable_ is not a lookup concern: it is checked once the name is bound (**MS-VBAL §5.6.8**), so a class that exists but cannot be instantiated is reported as such, not as an undefined type. An `As` clause without `New` is unaffected: it keeps the full _type binding context_, user-defined types and Enum types included.
 
 > [!WARNING]
 > Because a `VBTypeDescValue` is a _data value_ that represents a _data type_, the implementation of both static and runtime semantics must be mindful of the possbility of accidentally pattern-matching such a _type descriptor_.  

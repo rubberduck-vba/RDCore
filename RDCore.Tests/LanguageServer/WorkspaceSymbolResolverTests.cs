@@ -92,7 +92,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.Members);
         Assert.IsTrue(module.Members.Any(member => member.Name == "Total"));
@@ -110,7 +110,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.DefaultInterfaceMembers);
         Assert.IsTrue(module.DefaultInterfaceMembers.Any(member => member.Name == "PublicSub"));
@@ -126,7 +126,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(1, module.Members);
         Assert.AreEqual("DoWork", module.Members[0].Name);
@@ -179,7 +179,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsTrue(module.GetProperty(SymbolProperties.Creatable));
     }
@@ -191,9 +191,47 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsFalse(module.GetProperty(SymbolProperties.Creatable));
+    }
+
+    [TestMethod]
+    public void APredeclaredClassModule_HasAGlobalDefaultInstance_OfItsOwnType()
+        // MS-VBAL 5.2.4.1.2: a variable named after the class, declared as that class.
+    {
+        var target = ClassModule("Widget", "Attribute VB_PredeclaredId = True\r\nPublic Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
+        var instance = Assert.IsInstanceOfType<VBPredeclaredInstanceSymbol>(resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsTrue(module.GetProperty(SymbolProperties.PredeclaredId));
+        Assert.AreEqual(ScopeKind.Global, instance.Scope);
+        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(instance.ResolvedType).Name);
+    }
+
+    [TestMethod]
+    public void AClassModuleThatIsNotPredeclared_HasNoDefaultInstance_AndIsNotAValue()
+    {
+        var target = ClassModule("Widget", "Public Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        Assert.IsFalse(Assert.IsInstanceOfType<VBClassModuleSymbol>(
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol).GetProperty(SymbolProperties.PredeclaredId));
+        Assert.IsTrue(resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ADefaultInstance_CarriesTheInterfacesItsClassImplements()
+    {
+        var iface = ClassModule("IShape", "Public Sub Draw()\r\nEnd Sub\r\n");
+        var target = ClassModule("Widget", "Attribute VB_PredeclaredId = True\r\nImplements IShape\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iface, target], new IntrinsicSymbolResolver());
+
+        var instance = Assert.IsInstanceOfType<VBPredeclaredInstanceSymbol>(resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsTrue(Assert.IsInstanceOfType<VBClassType>(instance.ResolvedType).Supertypes.Any(supertype => supertype.Name == "IShape"));
     }
 
     [TestMethod]
@@ -204,7 +242,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iWidget, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         var implemented = module.ImplementedInterfaces.Single();
         Assert.AreEqual("IWidget", implemented.Name);
@@ -219,7 +257,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iFoo, iBar, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.HasCount(2, module.ImplementedInterfaces);
         Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IFoo"));
@@ -235,7 +273,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsEmpty(module.ImplementedInterfaces);
     }
@@ -249,7 +287,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
         Assert.IsEmpty(module.ImplementedInterfaces);
     }
@@ -265,7 +303,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iBase, iMiddle, target], new IntrinsicSymbolResolver());
 
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("Widget", ScopeKind.Global, target.Uri).Symbol);
+            resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
         var classType = VBClassType.FromClassModule(module);
 
         Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
@@ -284,7 +322,7 @@ public sealed class WorkspaceSymbolResolverTests
         var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [iA, iB], new IntrinsicSymbolResolver());
 
         var moduleA = Assert.IsInstanceOfType<VBClassModuleSymbol>(
-            resolver.ResolveValue("IA", ScopeKind.Global, iA.Uri).Symbol);
+            resolver.ResolveType("IA", ScopeKind.Global, iA.Uri).Symbol);
 
         Assert.IsTrue(moduleA.ImplementedInterfaces.Any(i => i.Name == "IB"));
     }

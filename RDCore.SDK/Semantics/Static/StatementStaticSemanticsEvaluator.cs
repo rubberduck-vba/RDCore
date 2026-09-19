@@ -1,6 +1,9 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -28,6 +31,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// The operand of a jump statement names a label, not a value, and a label is not a symbol, so it is
 /// never handed to the expression evaluator. <c>On Error GoTo 0</c>, <c>On Error GoTo -1</c> and
 /// <c>Resume 0</c> are not jumps at all: their operand is a sentinel, not a label reference.
+/// </para>
+/// <para>
+/// A <c>Set</c> assignment whose target is the default instance variable of a predeclared class
+/// (<see cref="VBPredeclaredInstanceSymbol"/>) is invalid (<strong>MS-VBAL §5.2.4.1.2</strong>) and reported as
+/// <see cref="VBCompileErrorId.InvalidUseOfObject"/>.
 /// </para>
 /// </remarks>
 public static class StatementStaticSemanticsEvaluator
@@ -97,6 +105,11 @@ public static class StatementStaticSemanticsEvaluator
         {
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
+            if (assignment.Kind == AssignmentKind.Set && DefaultInstanceNamedBy(context, assignment.Target) is { } defaultInstance)
+            {
+                walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfObject, assignment.Target.Location,
+                    $"'{defaultInstance.Name}' is the default instance variable of a predeclared class and can't be the target of a Set assignment (MS-VBAL §5.2.4.1.2)."));
+            }
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
             CollectError(valueResult, walk);
 
@@ -265,6 +278,14 @@ public static class StatementStaticSemanticsEvaluator
     // Set-coercion - which aren't modeled yet (a real, accepted gap; see FixedString let-coercion in
     // the runtime layer for the same kind of deliberate deferral). Falls through to null, deferred by
     // the caller like any other unmapped case.
+    // MS-VBAL §5.2.4.1.2: the variable a predeclared class's name refers to can't be the target of a Set
+    // assignment. Only a simple name reaches it - a local or field of the same name hides it, and resolves
+    // to that instead.
+    private static VBPredeclaredInstanceSymbol? DefaultInstanceNamedBy(StaticEvaluationContext context, ExpressionNode target)
+        => target is SimpleNameExpressionNode name
+            ? context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
+            : null;
+
     private static IStaticSemantics? ResolveCoercionRule(AssignmentKind kind) => kind switch
     {
         AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet => LetCoercionStaticSemantics.Instance,

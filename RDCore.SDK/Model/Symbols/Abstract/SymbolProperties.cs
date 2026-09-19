@@ -16,6 +16,14 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> PredeclaredId = new(nameof(PredeclaredId));
     /// <summary>
+    /// Whether a variable is an <em>automatic instantiation variable</em> (<strong>MS-VBAL §2.5.1</strong>): one
+    /// declared with an <c>As New</c> clause (<strong>§5.2.3.1.1</strong>), or the default instance variable of a
+    /// predeclared class (<strong>§5.2.4.1.2</strong>, declared "as if" <c>As New</c>). Each time its content is
+    /// accessed while its value is <c>Nothing</c>, a new instance of its class is created and stored in it. For an
+    /// array variable, it is each dependent variable — each element — that is one.
+    /// </summary>
+    public static readonly SymbolProperty<bool> AutoInstantiated = new(nameof(AutoInstantiated));
+    /// <summary>
     /// The value of the <c>VB_Exposed</c> attribute of a <see cref="VBClassModuleSymbol"/>
     /// </summary>
     public static readonly SymbolProperty<bool> Exposed = new(nameof(Exposed));

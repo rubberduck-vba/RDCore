@@ -126,6 +126,25 @@ Determines whether the _environment host_ declares a global _auto-object_ instan
 
 The "Id" refers to an internal _unique semantic identifier_ given to every object in the _host environment_.
 
+**Static semantics** (**MS-VBAL §5.2.4.1.2**) — ✅ modeled: a class module with `VB_PredeclaredId = True` has a
+[VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html), a global
+variable named after the class whose declared type is that class. It is created as if declared `As New`, so it is
+an _automatic instantiation variable_ (`SymbolProperties.AutoInstantiated`, **MS-VBAL §2.5.1**), like any
+variable declared with an `As New` clause (**§5.2.3.1.1**). It is what the class name binds to in the
+_default binding context_ (`ISymbolResolver.ResolveValue`), so `Widget.Size` is a member access on a variable of
+type `Widget`. A class module is never a name in that context otherwise: a class that is not predeclared has no
+default instance, and its name in an expression is an undefined variable. In the _type binding context_
+(`ResolveType`, an `As` clause or `New`) the name is still the class.
+
+It is **invalid for the default instance variable to be the target of a `Set` assignment** (**§5.2.4.1.2**),
+whatever is assigned to it: `Set Widget = New Widget` and `Set Widget = Nothing` are both compile errors
+(`VBC09304`), while `Widget.Size = 3` assigns a member of the object it holds, and a local or field that is
+itself named `Widget` hides the default instance and is an ordinary `Set` target.
+
+The run-time behavior described below — never `Nothing`, re-created on reference — is 🎯 not modeled yet, and
+neither is the declaration-level validity of `As New` (the specified type must be a named class, and creatable
+unless declared in the same project, **§5.2.3.1.4**).
+
 > [!TIP]
 > Setting an _auto-object_ to `Nothing` destroys its internal state (_semantic flags_ should identify whether a _predeclared_ class module is _stateful_ or not), but the object reference is immediately re-created as soon as it is being referred to, _including_ within a `Is Nothing` reference check - that check is therefore _statically constant_ (`false`).
 

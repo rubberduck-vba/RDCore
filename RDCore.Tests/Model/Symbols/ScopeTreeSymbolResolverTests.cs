@@ -304,6 +304,71 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
+    public void ResolveClass_BindsAClassModule_TheProject_AndAProceduralModuleByName()
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var caller = Module("Caller");
+        var helpers = Module("Helpers");
+        var widget = ClassModule("Widget");
+        var resolver = Resolver(project, caller, helpers, widget);
+
+        Assert.AreSame(project, resolver.ResolveClass("MyProject", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(helpers, resolver.ResolveClass("Helpers", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(widget, resolver.ResolveClass("Widget", ScopeKind.Unallocated, caller.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveClass_NeverLooksForAUserDefinedTypeOrAnEnum()
+        // New instantiates classes: neither is a candidate, wherever it is declared.
+    {
+        var owner = Module("Owner");
+        var udt = Udt(owner.Uri, "Point", AccessModifier.Public);
+        var enumType = EnumType(owner.Uri, "Colour");
+        var resolver = Resolver(owner, udt, enumType);
+
+        Assert.IsTrue(resolver.ResolveClass("Point", ScopeKind.Unallocated, owner.Uri).IsUnbound);
+        Assert.IsTrue(resolver.ResolveClass("Colour", ScopeKind.Unallocated, owner.Uri).IsUnbound);
+        Assert.AreSame(udt, resolver.ResolveType("Point", ScopeKind.Unallocated, owner.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveClass_AModuleLevelTypeOfTheProjectsName_DoesNotHideTheProject()
+        // ResolveType selects the enclosing module's own Type first (5.6.10); ResolveClass has no such tier.
+    {
+        var project = new VBProjectSymbol(Root, "MyProject");
+        var owner = Module("Owner");
+        var udt = Udt(owner.Uri, "MyProject");
+        var resolver = Resolver(project, owner, udt);
+
+        Assert.AreSame(udt, resolver.ResolveType("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
+        Assert.AreSame(project, resolver.ResolveClass("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveClass_ALocalOrAFieldNamedLikeAClass_DoesNotHideIt()
+    {
+        var owner = Module("Owner");
+        var procedure = Procedure(owner.Uri, "Run");
+        var local = Local(procedure.Uri, "Widget");
+        var field = Field(owner.Uri, "Widget");
+        var widget = ClassModule("Widget");
+
+        Assert.AreSame(widget, Resolver(owner, procedure, local, field, widget).ResolveClass("Widget", ScopeKind.Unallocated, procedure.Uri).Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveClass_ATypeAndAClassOfTheSameName_BindsTheClass()
+    {
+        var owner = Module("Owner");
+        var udt = Udt(owner.Uri, "Widget");
+        var widget = ClassModule("Widget");
+        var resolver = Resolver(owner, udt, widget);
+
+        Assert.AreSame(widget, resolver.ResolveClass("Widget", ScopeKind.Unallocated, owner.Uri).Symbol);
+        Assert.AreSame(udt, resolver.ResolveType("Widget", ScopeKind.Unallocated, owner.Uri).Symbol);
+    }
+
+    [TestMethod]
     public void ResolveType_BindsTheProject_AndAProceduralOrClassModuleByName()
     {
         var project = new VBProjectSymbol(Root, "MyProject");
@@ -452,6 +517,56 @@ public sealed class ScopeTreeSymbolResolverTests
         var result = Resolver(project, shape, caller).ResolveValue("Shape", ScopeKind.Unallocated, caller.Uri);
 
         Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void ResolveValue_AClassModule_IsNotACandidate()
+        // MS-VBAL 5.6.10: the default binding context lists no class module - a class is a name there only
+        // through its predeclared instance (5.2.4.1.2).
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+
+        Assert.IsTrue(Resolver(module, widget).ResolveValue("Widget", ScopeKind.Unallocated, module.Uri).IsUnbound);
+    }
+
+    [TestMethod]
+    public void ResolveValue_APredeclaredInstance_BindsAsTheVariableItIs()
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+        var instance = new VBPredeclaredInstanceSymbol(widget);
+
+        var result = Resolver(module, widget, instance).ResolveValue("Widget", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(instance, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveType_AClassModule_StillBinds_ItsPredeclaredInstanceIsNotAType()
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+        var instance = new VBPredeclaredInstanceSymbol(widget);
+
+        var result = Resolver(module, widget, instance).ResolveType("Widget", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(widget, result.Symbol);
+    }
+
+    [TestMethod]
+    public void ResolveValue_ALocalNamedLikeAPredeclaredClass_HidesItsDefaultInstance()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "Widget");
+        var widget = ClassModule("Widget");
+
+        var result = Resolver(module, procedure, local, widget, new VBPredeclaredInstanceSymbol(widget)).ResolveValue("Widget", ScopeKind.Unallocated, procedure.Uri);
+
+        Assert.AreSame(local, result.Symbol);
     }
 
     [TestMethod]

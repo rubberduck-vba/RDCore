@@ -158,9 +158,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = ImplicitOrDeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
-        return new VBModuleFieldVariableMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
+        return AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier), AsTypeOf(node));
     }
+
+    // MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it declares - or,
+    // for an array, each of its dependent variables - an automatic instantiation variable.
+    private static Symbol AutoInstantiatedIfDeclaredAsNew(Symbol variable, AsTypeExpressionNode? asType)
+        => asType is { AsAutoObject: true } ? variable.With(SymbolProperties.AutoInstantiated, true) : variable;
 
     public Symbol BuildConstant(ConstantDeclarationNode node)
     {
@@ -175,8 +180,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), typeHint: null, userDefinedTypeUri);
-        return new VBUserDefinedTypeFieldSymbol(
-            workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier);
+        return AutoInstantiatedIfDeclaredAsNew(new VBUserDefinedTypeFieldSymbol(
+            workspaceRoot, userDefinedTypeUri, node.Name, type, range, range, node.AccessModifier), AsTypeOf(node));
     }
 
     // includeMe is opt-in per caller: a procedure/function/property body has a Me in scope
@@ -230,8 +235,9 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             : DeclaredType(asType, typeHint, handle);
 
     // A declared type is a name the resolver binds from the given scope, optionally qualified by a
-    // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualifiedType). An
-    // array definition needs more than a name lookup, so it is left unresolved for a later semantic pass.
+    // project name (MS-VBAL 5.6.4's type binding context - see VBProjectSymbol.ResolveQualifiedType; an
+    // `As New` clause binds a class, see ResolveQualifiedClass). An array definition needs more than a name
+    // lookup, so it is left unresolved for a later semantic pass.
     private VBType DeclaredType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
     {
         string? typeName = null;
@@ -249,14 +255,18 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             return VBUnknownType.TypeInfo;
         }
 
-        return ResolveTypeName(typeName, handle, asType?.QualifierName);
+        return ResolveTypeName(typeName, handle, asType?.QualifierName, asType?.AsAutoObject ?? false);
     }
 
     // Binds a reserved/declared type name through the resolver, optionally qualified by a project name
     // (MS-VBAL 5.6.4); an unresolved name stays Unknown. A resolved user-defined type, enum or class
-    // module is a symbol carrying no VBType of its own, so build one.
-    private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
-        => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle).Symbol switch
+    // module is a symbol carrying no VBType of its own, so build one. The class an `As New` clause names
+    // is bound the way the operand of a New expression is: New instantiates classes, so no user-defined
+    // type or Enum is a candidate.
+    private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null, bool instantiated = false)
+        => (instantiated
+            ? VBProjectSymbol.ResolveQualifiedClass(resolver, qualifier, typeName, handle)
+            : VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle)).Symbol switch
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),
@@ -465,9 +475,9 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var asType = AsTypeOf(node);
         var elementType = ArrayElementType(asType, node.TypeHint, procedureUri);
         var type = VariableType(elementType, asType, node.Children.OfType<ArrayBoundsNode>().FirstOrDefault());
-        return new VBLocalVariableSymbol(
+        return AutoInstantiatedIfDeclaredAsNew(new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
-            IsStatic: node.IsStatic, ResolvedType: type);
+            IsStatic: node.IsStatic, ResolvedType: type), asType);
     }
 
     public Symbol BuildLocalConstant(ConstantDeclarationNode node, Uri procedureUri)
@@ -491,7 +501,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     // As-clause (`Dim x As Long()`), which DeclaredType leaves unresolved for the scalar case.
     private VBType ArrayElementType(AsTypeExpressionNode? asType, string? typeHint, Uri handle)
         => asType is { IsArrayDef: true, QualifierName: null }
-            ? ResolveTypeName(asType.TypeName, handle)
+            ? ResolveTypeName(asType.TypeName, handle, instantiated: asType.AsAutoObject)
             : ImplicitOrDeclaredType(asType, typeHint, handle);
 
     // MS-VBAL 5.2.3.1 / RD-VBAL 2.5.2.1.2: an array-dim clause with bounds declares a fixed-size

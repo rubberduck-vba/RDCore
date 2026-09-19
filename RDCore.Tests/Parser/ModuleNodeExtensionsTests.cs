@@ -78,4 +78,37 @@ public sealed class ModuleNodeExtensionsTests
 
         Assert.IsTrue(module.IsCreatable());
     }
+
+    [TestMethod]
+    public void IsPredeclared_False_WhenModuleDeclaresNoVB_PredeclaredId()
+        // VBE's own default: a class module that declares no Attribute VB_PredeclaredId is not predeclared.
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nPublic X As Long\r\n");
+
+        Assert.IsFalse(module.IsPredeclared());
+    }
+
+    [TestMethod]
+    public void IsPredeclared_True_WhenModuleDeclaresVB_PredeclaredIdTrue()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nAttribute VB_PredeclaredId = True\r\nPublic X As Long\r\n");
+
+        Assert.IsTrue(module.IsPredeclared());
+    }
+
+    [TestMethod]
+    public void IsPredeclared_False_WhenModuleDeclaresVB_PredeclaredIdFalse()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nAttribute VB_PredeclaredId = False\r\nPublic X As Long\r\n");
+
+        Assert.IsFalse(module.IsPredeclared());
+    }
+
+    [TestMethod]
+    public void IsPredeclared_IsNotConfusedByAnotherAttribute()
+    {
+        var module = Parse("Attribute VB_Name = \"M1\"\r\nAttribute VB_Creatable = True\r\nPublic X As Long\r\n");
+
+        Assert.IsFalse(module.IsPredeclared());
+    }
 }

@@ -31,6 +31,9 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => inner.ResolveType(name, scope, handle);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle) => inner.ResolveClass(name, scope, handle);
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
         => symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryResolve(symbol, out var local)
             ? local
