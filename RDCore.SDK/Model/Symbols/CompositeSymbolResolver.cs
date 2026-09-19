@@ -28,8 +28,8 @@ public sealed class CompositeSymbolResolver(params ISymbolResolver[] resolvers) 
         => FirstBound(resolver => resolver.ResolveType(name, scope, handle));
 
     /// <inheritdoc/>
-    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle)
-        => FirstBound(resolver => resolver.ResolveClass(name, scope, handle));
+    public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle)
+        => FirstBound(resolver => resolver.ResolveQualifier(name, scope, handle));
 
     private SymbolResolutionResult FirstBound(Func<ISymbolResolver, SymbolResolutionResult> resolve)
     {

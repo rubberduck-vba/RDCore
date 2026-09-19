@@ -31,7 +31,7 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => inner.ResolveType(name, scope, handle);
 
     /// <inheritdoc/>
-    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle) => inner.ResolveClass(name, scope, handle);
+    public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle) => inner.ResolveQualifier(name, scope, handle);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)

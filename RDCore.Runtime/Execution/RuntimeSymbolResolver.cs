@@ -29,7 +29,7 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => names.ResolveType(name, scope, handle);
 
     /// <inheritdoc/>
-    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle) => names.ResolveClass(name, scope, handle);
+    public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle) => names.ResolveQualifier(name, scope, handle);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);

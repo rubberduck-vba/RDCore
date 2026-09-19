@@ -190,14 +190,15 @@ public sealed class EvilTestCase2ResolverTests
     private static SymbolResolutionResult ResolveType(string name, Uri from)
         => Compose().Resolver.ResolveType(name, ScopeKind.Unallocated, from);
 
-    // a member's body, evaluated from its own scope; a property's Get/Set accessors share one scope.
+    // a member's body, evaluated from its own scope; each accessor of a property has a scope of its own.
     private static (StaticEvaluationContext Context, StatementBlock Block) BodyOf(
         (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) module, string member, MemberKind kind,
         WorkspaceComposition? composition = null)
     {
         composition ??= Composed();
         var node = module.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(candidate => candidate.Name == member && candidate.MemberKind == kind);
-        Assert.IsTrue(composition.Value.ScopeTree.TryGetScope(ModuleUri($"{module.Uri.Fragment.TrimStart('#')}.{member}"), out var scope));
+        var accessor = kind switch { MemberKind.PropertyLet => ".Let", MemberKind.PropertySet => ".Set", _ => string.Empty };
+        Assert.IsTrue(composition.Value.ScopeTree.TryGetScope(ModuleUri($"{module.Uri.Fragment.TrimStart('#')}.{member}{accessor}"), out var scope));
 
         return (new StaticEvaluationContext(composition.Value.Resolver, scope), new StatementBlock([.. node.Children]));
     }
@@ -355,10 +356,10 @@ public sealed class EvilTestCase2ResolverTests
     [TestMethod]
     public void MyProc1_HasNoCompileErrors_NewMyProjectDotClassBindsTheProjectsClass()
         // `New MyProject.Class`, where MyModule declares `Type MyProject`: the type binding context's first tier is the
-        // enclosing module's own Type, which would be the qualifier - but New instantiates classes and never looks for
-        // a user-defined type (ISymbolResolver.ResolveClass), so the qualifier is the project. Legacy Rubberduck (issue
-        // comment 3) bound it to the LOCAL variable, and later to the Type; the VBE offers no Type after `New `, and
-        // compiles it. A variable is never a candidate for either.
+        // enclosing module's own Type, which a bare `MyProject` would mean - but the qualifier of a qualified name is a
+        // namespace, and a Type cannot contain a type (ISymbolResolver.ResolveQualifier), so the qualifier is the
+        // project. Legacy Rubberduck (issue comment 3) bound it to the LOCAL variable, and later to the Type; the VBE
+        // compiles it, and so does the VB6 compiler. A variable is never a candidate for either.
     {
         var (context, block) = BodyOf(MyModuleParse, "MyProc1", MemberKind.Procedure);
 
@@ -427,16 +428,17 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    [Ignore("A property's Get/Let/Set accessors share one scope (Symbol.CreateUri keys on the name alone), so the last accessor " +
-        "registered decides the scope's parameters: a Set accessor's `MyModule As Interface` parameter is not visible when a Get " +
-        "follows it in the module, and the name falls through to the module MyModule. Per-accessor scopes are separate tracked work.")]
-    public void Class_PropertySetBodies_SeeTheirOwnParameter()
+    [DataRow("Interface_MyModule", "MyProject.MyModule = MyModule  ->  Interface := Interface")]
+    [DataRow("Interface_MyProc", "MyProject.MyProject = MyModule  ->  Interface := Interface")]
+    [DataRow("Interface_MyProject", "MyProject.MyProc = MyModule  ->  Interface := Interface")]
+    public void Class_PropertySetBodies_SeeTheirOwnParameter(string member, string expected)
+        // each Set's `MyModule As Interface` parameter is in its own accessor's scope, however the Get of the same
+        // name follows it in the module: `MyModule` is that parameter, not the module of the same name.
     {
-        var (context, block) = BodyOf(ClassParse, "Interface_MyModule", MemberKind.PropertySet);
+        var (context, block) = BodyOf(ClassParse, member, MemberKind.PropertySet);
 
-        CollectionAssert.AreEqual(
-            new[] { "MyProject.MyModule = MyModule  ->  Interface := Interface" },
-            TypedTrace(context, block));
+        CollectionAssert.AreEqual(new[] { expected }, TypedTrace(context, block));
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
     }
 
     [TestMethod]

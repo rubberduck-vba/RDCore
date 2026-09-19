@@ -32,7 +32,7 @@ internal sealed class IntrinsicSymbolResolver : ISymbolResolver
             : SymbolResolutionResult.Unbound;
 
     /// <inheritdoc/>
-    public SymbolResolutionResult ResolveClass(string name, ScopeKind scope, Uri handle) => ResolveType(name, scope, handle);
+    public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle) => SymbolResolutionResult.Unbound; // a reserved data-type name is no namespace
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)

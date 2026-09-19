@@ -46,7 +46,7 @@ public sealed class VBProjectSymbolTests
         var callerScope = new Uri("file://rdcore-test#Caller.Run");
         var field = Field("Total");
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveType("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveQualifier("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
         resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
         var result = VBProjectSymbol.ResolveQualifiedType(resolver, "MyProject", "Total", callerScope);
@@ -55,41 +55,23 @@ public sealed class VBProjectSymbolTests
     }
 
     [TestMethod]
-    public void ResolveQualifiedClass_ResolvesBothTheQualifierAndTheNameInTheClassContext()
-        // what New binds: never through ResolveType, whose enclosing-module tier could hand back a Type that
-        // shares the project's name.
+    public void TheLookupIsPositional_TheQualifierIsANamespace_TheLastPartAType()
+        // a Type of the caller's module named like the project is what the bare name means (ResolveType), but it is
+        // no namespace - neither a Type nor an Enum can contain a type - so it is not what the qualifier means.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
         var callerScope = new Uri("file://rdcore-test#Caller.Run");
         var field = Field("Total");
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveClass("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
-        resolver.ResolveClass("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
+        resolver.ResolveType("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(Field("MyProject")));
+        resolver.ResolveQualifier("MyProject", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(project));
+        resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(field));
 
-        var result = VBProjectSymbol.ResolveQualifiedClass(resolver, "MyProject", "Total", callerScope);
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, "MyProject", "Total", callerScope);
 
         Assert.AreEqual(field, result.Symbol);
-        resolver.DidNotReceive().ResolveType(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>());
-    }
-
-    [TestMethod]
-    public void ResolveQualifiedClass_WithoutAQualifier_ResolvesTheNameFromTheCallersScope()
-    {
-        var callerScope = new Uri("file://rdcore-test#Caller.Run");
-        var field = Field("Total");
-        var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveClass("Total", ScopeKind.Global, callerScope).Returns(SymbolResolutionResult.Resolved(field));
-
-        Assert.AreEqual(field, VBProjectSymbol.ResolveQualifiedClass(resolver, qualifier: null, "Total", callerScope).Symbol);
-    }
-
-    [TestMethod]
-    public void ResolveQualifiedClass_AQualifierThatIsNotAProject_StaysUnbound()
-    {
-        var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveClass("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
-
-        Assert.IsTrue(VBProjectSymbol.ResolveQualifiedClass(resolver, "Total", "Foo", Root).IsUnbound);
+        resolver.DidNotReceive().ResolveType("MyProject", Arg.Any<ScopeKind>(), Arg.Any<Uri>());
+        resolver.DidNotReceive().ResolveQualifier("Total", Arg.Any<ScopeKind>(), Arg.Any<Uri>());
     }
 
     [TestMethod]
@@ -98,7 +80,7 @@ public sealed class VBProjectSymbolTests
         // "Foo" as if it were a bare, unqualified name.
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveType("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
+        resolver.ResolveQualifier("Total", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Total")));
         resolver.ResolveType("Foo", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Resolved(Field("Foo")));
 
         var result = VBProjectSymbol.ResolveQualifiedType(resolver, "Total", "Foo", Root);
@@ -110,7 +92,7 @@ public sealed class VBProjectSymbolTests
     public void QualifierDoesNotResolveAtAll_StaysUnbound()
     {
         var resolver = Substitute.For<ISymbolResolver>();
-        resolver.ResolveType("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
+        resolver.ResolveQualifier("Unknown", ScopeKind.Global, Root).Returns(SymbolResolutionResult.Unbound);
 
         var result = VBProjectSymbol.ResolveQualifiedType(resolver, "Unknown", "ClassName", Root);
 
