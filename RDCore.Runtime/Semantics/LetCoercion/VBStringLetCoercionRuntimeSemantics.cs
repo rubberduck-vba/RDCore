@@ -11,6 +11,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Globalization;
 using System.Text;
@@ -89,7 +90,15 @@ public record class VBStringLetCoercionRuntimeSemantics(
         VBOperatorExpression expression,
         LetCoercionStackFrame frame)
     {
-        throw new NotImplementedException();
+        // CStr makes the conversion explicit; an Empty source (5.5.1.2.11) and a Byte() source (5.5.1.2.6) are the
+        // operands with a rule of their own.
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
+        {
+            VBEmptyValue => ConversionSemanticFlags.EmptyOperand,
+            VBArrayValue { ItemType: VBByteType } => ConversionSemanticFlags.ByteArrayOperand,
+            _ => 0
+        }, frame.OperandIndex);
+        return builder;
     }
 
     /// <summary>

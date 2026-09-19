@@ -57,15 +57,17 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
         VBOperatorExpression expression,
         LetCoercionStackFrame frame)
     {
+        // the flags describe this operand's coercion - not always the first operand's.
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.EmptyOperand, frame.OperandIndex);
         if (expression is VBUnaryOperatorExpressionNode)
         {
-            builder.AddLetCoercionFlags(ConversionSemanticFlags.UnaryOperand);
+            builder.AddLetCoercionFlags(ConversionSemanticFlags.UnaryOperand, frame.OperandIndex);
         }
         else
         {
-            builder.AddLetCoercionFlags(frame.OperandIndex == InputIndex.BinaryLeftOperand 
-                ? ConversionSemanticFlags.BinaryLeftOperand 
-                : ConversionSemanticFlags.BinaryRightOperand);
+            builder.AddLetCoercionFlags(frame.OperandIndex == InputIndex.BinaryLeftOperand
+                ? ConversionSemanticFlags.BinaryLeftOperand
+                : ConversionSemanticFlags.BinaryRightOperand, frame.OperandIndex);
         }
 
         return builder;

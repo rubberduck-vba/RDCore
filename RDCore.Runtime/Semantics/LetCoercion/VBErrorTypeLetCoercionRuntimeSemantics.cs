@@ -51,5 +51,9 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
         VBOperatorExpression expression,
-        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ErrorOperand);
+        LetCoercionStackFrame frame)
+    {
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.ErrorOperand, frame.OperandIndex);
+        return builder;
+    }
 }

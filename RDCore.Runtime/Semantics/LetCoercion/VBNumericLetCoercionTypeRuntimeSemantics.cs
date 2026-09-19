@@ -118,25 +118,30 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
         VBOperatorExpression expression,
-        LetCoercionStackFrame frame) => 
-        builder.AddFlags(ConversionSemanticFlags.LetCoerced
+        LetCoercionStackFrame frame)
+    {
+        // these describe how THIS operand is coerced (an operation's two operands can widen and narrow differently), so
+        // they are reported for the operand rather than for the operation as a whole.
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.LetCoerced
             // IMPLEMENTATION NOTE: LetCoercionRuntimeSemantics does not know about its own context.
             // Following MS-VBAL we should be adding an 'Implicit' flag here, but the introdction of an
             // explicit [__c()_op] coercion operator changes this: statement-level analysis must set the Implicit|Explicit coercion flags.
             // | ConversionSemanticFlags.Implicit
-            | ConversionSemanticFlags.Numeric 
-            | ConversionSemanticFlags.CTypeAvailable 
+            | ConversionSemanticFlags.Numeric
+            | ConversionSemanticFlags.CTypeAvailable
             | frame.SourceValue.TypeInfo switch
             {
                 IFloatingPointNumericType or IFixedPointNumericType when frame.DestinationTypeDesc.Target is IIntegralNumericType
-                    => ConversionSemanticFlags.Narrowing 
+                    => ConversionSemanticFlags.Narrowing
                      | ConversionSemanticFlags.Lossy | ConversionSemanticFlags.BankersRounding,
 
                 IIntegralNumericType when frame.DestinationTypeDesc.Target is IFloatingPointNumericType or IFixedPointNumericType
                     => ConversionSemanticFlags.Widening,
 
                 _ => 0
-            });
+            }, frame.OperandIndex);
+        return builder;
+    }
 
     private LetCoercionResult CoerceStringToNumeric(ExpressionNode expression, LetCoercionStackFrame frame, VBStringValue source)
     {

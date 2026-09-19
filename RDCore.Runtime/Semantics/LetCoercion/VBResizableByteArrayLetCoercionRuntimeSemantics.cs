@@ -50,7 +50,7 @@ public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
         VBOperatorExpression expression,
-        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ArrayTarget);
+        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ArrayTarget | ConversionSemanticFlags.ByteArrayTarget);
 
     // MS-VBAL 5.5.1.2.6: "The result is a copy of the source Byte array" - bounds and rank are
     // preserved exactly (a whole-array Let-assignment implicitly ReDims the destination to the

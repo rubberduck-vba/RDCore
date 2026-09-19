@@ -36,7 +36,10 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
         VBOperatorExpression expression,
-        LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.NullOperand | 
+        LetCoercionStackFrame frame)
+    {
+        // the operand is the Null one, and it is that operand's coercion that fails (MS-VBAL 5.5.1.2.10).
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.NullOperand |
             frame.SourceValue switch
             {
                 VBNullValue when frame.DestinationTypeDesc.GetTargetType() is VBUserDefinedType or VBResizableArrayType
@@ -45,5 +48,7 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
                 VBNullValue when frame.DestinationTypeDesc.GetTargetType() is not VBNullType and not VBFixedSizeArrayType and not VBVariantType
                     => ConversionSemanticFlags.Failed,
                 _ => 0
-            });
+            }, frame.OperandIndex);
+        return builder;
+    }
 }
