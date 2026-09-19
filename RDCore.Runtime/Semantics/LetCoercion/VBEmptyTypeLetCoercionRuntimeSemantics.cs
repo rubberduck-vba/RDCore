@@ -35,8 +35,9 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
             VBBooleanType => LetCoercionResult.Success(VBBooleanValue.False),
 
             VBDateType => LetCoercionResult.Success(VBDateType.TypeInfo.CreateValue(new ValueBindingHandle(VBDateType.Zero.RuntimeValue))),
+            // MS-VBAL 5.5.1.2.11: "The result is a string containing length spaces." - not the fixed-length string's initial value, which is null characters.
             VBFixedStringType fixedStringDestinationType => LetCoercionResult.Success(
-                fixedStringDestinationType.DefaultValue),
+                new VBStringValue(new string(' ', fixedStringDestinationType.Length))),
 
             VBStringType => LetCoercionResult.Success(VBStringValue.ZeroLengthString),
         

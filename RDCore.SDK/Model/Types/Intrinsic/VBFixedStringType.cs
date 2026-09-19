@@ -20,8 +20,10 @@ public sealed record class VBFixedStringType(int Length) : VBStringType
 {
     private const int _maxLength = 65526;
 
-    private static readonly Lazy<VBStringValue> _defaultValue = new(() => new VBStringValue(string.Empty), LazyThreadSafetyMode.PublicationOnly);
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+    /// <summary>
+    /// A string of <see cref="Length"/> null characters (U+0000): the initial value of a fixed-length string variable (<strong>MS-VBAL 2.3</strong>).
+    /// </summary>
+    public override VBTypedValue DefaultValue => new VBStringValue(new string('\0', Length));
 
     /// <summary>
     /// <strong>MS-VBAL 2.2 Entities and Data Types</strong> restricts the maximum length of a fixed-length string to 65,526 characters.

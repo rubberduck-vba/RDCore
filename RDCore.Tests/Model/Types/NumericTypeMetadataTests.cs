@@ -36,4 +36,9 @@ public sealed class NumericTypeMetadataTests
         Assert.IsGreaterThan(VBCurrencyType.TypeInfo.ManagedMaxValue, VBDecimalType.TypeInfo.ManagedMaxValue);
         Assert.IsLessThan(VBCurrencyType.TypeInfo.ManagedMinValue, VBDecimalType.TypeInfo.ManagedMinValue);
     }
+
+    // MS-VBAL 2.3: a fixed-length string starts as n null characters (U+0000), which is not the empty string an unbounded String starts as.
+    [TestMethod]
+    public void AFixedLengthString_StartsAsLengthNullCharacters()
+        => Assert.AreEqual(new string('\0', 5), ((RDCore.SDK.Model.Values.Intrinsic.VBStringValue)new VBFixedStringType(5).DefaultValue).Value);
 }

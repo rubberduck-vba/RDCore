@@ -1,4 +1,4 @@
-using RDCore.Runtime.Semantics.LetCoercion;
+﻿using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -31,6 +31,10 @@ public sealed class VBEmptyTypeLetCoercionTests : LetCoercionRuntimeSemanticsTes
     [TestMethod]
     public void EmptySource_CoercesToStringTarget_IsAZeroLengthString()
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), VBEmptyValue.Empty, VBStringType.TypeInfo), string.Empty);
+
+    [TestMethod]
+    public void EmptySource_CoercesToAFixedLengthStringTarget_IsAStringOfLengthSpaces()
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), VBEmptyValue.Empty, new VBFixedStringType(4)), "    ");
 
     [TestMethod]
     public void EmptySource_CoercesToObjectTarget_IsObjectRequired()
