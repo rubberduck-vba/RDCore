@@ -355,10 +355,10 @@ public sealed class EvilTestCase2ResolverTests
     [TestMethod]
     public void MyProc1_HasNoCompileErrors_NewMyProjectDotClassBindsTheProjectsClass()
         // `New MyProject.Class`, where MyModule declares `Type MyProject`: the type binding context's first tier is the
-        // enclosing module's own Type, which would be the qualifier - but New instantiates classes and never looks for
-        // a user-defined type (ISymbolResolver.ResolveClass), so the qualifier is the project. Legacy Rubberduck (issue
-        // comment 3) bound it to the LOCAL variable, and later to the Type; the VBE offers no Type after `New `, and
-        // compiles it. A variable is never a candidate for either.
+        // enclosing module's own Type, which a bare `MyProject` would mean - but the qualifier of a qualified name is a
+        // namespace, and a Type cannot contain a type (ISymbolResolver.ResolveQualifier), so the qualifier is the
+        // project. Legacy Rubberduck (issue comment 3) bound it to the LOCAL variable, and later to the Type; the VBE
+        // compiles it, and so does the VB6 compiler. A variable is never a candidate for either.
     {
         var (context, block) = BodyOf(MyModuleParse, "MyProc1", MemberKind.Procedure);
 

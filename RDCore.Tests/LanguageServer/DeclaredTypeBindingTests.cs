@@ -151,8 +151,8 @@ public sealed class DeclaredTypeBindingTests
 
     [TestMethod]
     public void NewQualifiedByTheProjectsName_IsStillTheProject_WhenTheModuleDeclaresATypeOfThatName()
-        // New never looks for a user-defined type, so the enclosing module's own `Type MyProject` - the first tier of
-        // the type binding context - is not a candidate for the qualifier.
+        // the qualifier of a qualified name is a namespace, and a Type cannot contain a type, so the enclosing module's
+        // own `Type MyProject` - the first tier of the type binding context for a bare name - is not a candidate for it.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
         var main = Std("Main", "Private Type MyProject\r\n    Value As Long\r\nEnd Type\r\nSub Run()\r\nDim r\r\nSet r = New MyProject.Widget\r\nEnd Sub\r\n");
@@ -175,7 +175,6 @@ public sealed class DeclaredTypeBindingTests
 
     [TestMethod]
     public void AsNewQualifiedByTheProjectsName_IsStillTheProject_WhenTheModuleDeclaresATypeOfThatName()
-        // an `As New` clause binds like the operand of New: classes only.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
 
@@ -185,27 +184,25 @@ public sealed class DeclaredTypeBindingTests
     }
 
     [TestMethod]
-    public void AsQualifiedByTheProjectsName_WithoutNew_StillSeesTheModulesType()
-        // without New the type binding context is unchanged (MS-VBAL 5.6.10): the module's `Type MyProject` wins the
-        // qualifier, is not a project, and the qualified name stays unbound.
+    public void AsQualifiedByTheProjectsName_IsStillTheProject_WithoutNewToo()
+        // the rule is positional, not about New: `Dim c As MyProject.Widget` names the class (VB6, checked against its
+        // compiler, agrees) although the module's `Type MyProject` wins the bare name.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
 
         var type = DeclaredTypeOfLocal("Dim w As MyProject.Widget", "Private Type MyProject\r\n    Value As Long\r\nEnd Type\r\n", widget);
 
-        Assert.AreEqual(VBUnknownType.TypeInfo, type);
+        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(type).Name);
     }
 
     [TestMethod]
-    public void AsNewOfANameSharedByAClassAndAType_IsTheClass_WhileAsAloneIsTheType()
+    public void ABareName_IsStillTheModulesType_WhenAClassSharesIt()
+        // MS-VBAL 5.6.10: the enclosing module's own types are the first tier of the type binding context.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
-        var moduleLevel = "Private Type Widget\r\n    Value As Long\r\nEnd Type\r\n";
 
-        var created = DeclaredTypeOfLocal("Dim w As New Widget", moduleLevel, widget);
-        var declared = DeclaredTypeOfLocal("Dim w As Widget", moduleLevel, widget);
+        var declared = DeclaredTypeOfLocal("Dim w As Widget", "Private Type Widget\r\n    Value As Long\r\nEnd Type\r\n", widget);
 
-        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(created).Name);
         Assert.IsInstanceOfType<VBUserDefinedType>(declared);
     }
 }

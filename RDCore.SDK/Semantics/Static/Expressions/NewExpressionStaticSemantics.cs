@@ -34,10 +34,9 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             throw new ArgumentException($"Expected a {nameof(NewExpressionNode)}.", nameof(expression));
         }
 
-        // New Project.ClassName (MS-VBAL 5.6.4's type binding context, narrowed to classes - see
-        // ISymbolResolver.ResolveClass) arrives as a MemberAccessExpressionNode — Owner is the project
-        // qualifier, Member the class name. A deeper/other shape (a qualifier that isn't itself a bare
-        // name, say) isn't modeled — defer rather than misreport.
+        // New Project.ClassName (MS-VBAL 5.6.4's type binding context) arrives as a MemberAccessExpressionNode
+        // — Owner is the project qualifier, Member the class name. A deeper/other shape (a qualifier
+        // that isn't itself a bare name, say) isn't modeled — defer rather than misreport.
         var (qualifier, typeName) = newExpression.TypeExpression switch
         {
             SimpleNameExpressionNode simple => (null, simple.IdentifierName),
@@ -50,7 +49,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
-        var result = VBProjectSymbol.ResolveQualifiedClass(context.Resolver, qualifier, typeName, context.Scope.Uri);
+        var result = VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri);
         if (result.IsError)
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(result.ErrorId!.Value, expression.Location,

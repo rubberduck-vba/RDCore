@@ -52,21 +52,21 @@ The read face used by the static and runtime semantic layers is `ISymbolResolver
 |---|---|
 |`ResolveValue`|Resolves a specified _identifier name_ in the _default binding context_, as seen from the scope the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html)|
 |`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, likewise|
-|`ResolveClass`|Resolves a specified _identifier name_ in the _type binding context_ as narrowed by `New` (the _class binding context_): a class, or the project or module that qualifies one — never a user-defined type or an Enum type|
+|`ResolveQualifier`|Resolves a specified _identifier name_ as the _qualifier_ of a qualified type name (the `A` in `A.B`): the project, or a procedural or class module — never a user-defined type or an Enum type|
 |`GetValue`|Gets the `IBindingHandle` currently bound to a specified `Symbol`|
 |`TryRead`|Gets the `IBindingHandle` held at a specified `MemoryAddress`, if any|
 
 Which lookup a name is resolved through is decided by the node being evaluated, never by a
 parameter (see [**§3.0.3** Binding Contexts](rd-vbal.3.0.syntax-tree.html)): a simple name expression
-calls `ResolveValue`; an `As` clause calls `ResolveType`; the operand of `New` (and of an `As New` clause) calls
-`ResolveClass`. `ResolveValue` and `ResolveType` bind different
+calls `ResolveValue`; a type name (an `As` clause, the operand of `New`) calls `ResolveType` — except what precedes
+a dot in a qualified type name, which calls `ResolveQualifier`. `ResolveValue` and `ResolveType` bind different
 candidates (**MS-VBAL §5.6.10**): `ResolveValue` binds a variable, constant, Enum type or member, property,
 function, subroutine, procedural module or project and never a user-defined type or a class module — a
 class is a value there only through its _predeclared instance_
 ([**§3.1.1.5**](rd-vbal.3.1.attributes-directives.html)); `ResolveType` binds only a
 user-defined type, an Enum type, a class or procedural module, or the project — in that order of precedence,
 starting from the enclosing module, so a local, parameter or constant can neither be bound nor hide the
-type it shadows. `ResolveClass` is `ResolveType` without the user-defined types and Enum types: only the
+type it shadows. `ResolveQualifier` is `ResolveType` without the user-defined types and Enum types: only the
 enclosing project, or a procedural or class module, is a candidate. `ISessionSymbols` mirrors the pair as
 `TryResolveValue` and `TryResolveType`.
 

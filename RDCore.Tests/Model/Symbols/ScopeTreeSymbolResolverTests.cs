@@ -304,7 +304,7 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
-    public void ResolveClass_BindsAClassModule_TheProject_AndAProceduralModuleByName()
+    public void ResolveQualifier_BindsAClassModule_TheProject_AndAProceduralModuleByName()
     {
         var project = new VBProjectSymbol(Root, "MyProject");
         var caller = Module("Caller");
@@ -312,28 +312,28 @@ public sealed class ScopeTreeSymbolResolverTests
         var widget = ClassModule("Widget");
         var resolver = Resolver(project, caller, helpers, widget);
 
-        Assert.AreSame(project, resolver.ResolveClass("MyProject", ScopeKind.Unallocated, caller.Uri).Symbol);
-        Assert.AreSame(helpers, resolver.ResolveClass("Helpers", ScopeKind.Unallocated, caller.Uri).Symbol);
-        Assert.AreSame(widget, resolver.ResolveClass("Widget", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(project, resolver.ResolveQualifier("MyProject", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(helpers, resolver.ResolveQualifier("Helpers", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(widget, resolver.ResolveQualifier("Widget", ScopeKind.Unallocated, caller.Uri).Symbol);
     }
 
     [TestMethod]
-    public void ResolveClass_NeverLooksForAUserDefinedTypeOrAnEnum()
-        // New instantiates classes: neither is a candidate, wherever it is declared.
+    public void ResolveQualifier_NeverLooksForAUserDefinedTypeOrAnEnum()
+        // a qualifier is a namespace, and neither a Type nor an Enum can contain a type: neither is a candidate, wherever it is declared.
     {
         var owner = Module("Owner");
         var udt = Udt(owner.Uri, "Point", AccessModifier.Public);
         var enumType = EnumType(owner.Uri, "Colour");
         var resolver = Resolver(owner, udt, enumType);
 
-        Assert.IsTrue(resolver.ResolveClass("Point", ScopeKind.Unallocated, owner.Uri).IsUnbound);
-        Assert.IsTrue(resolver.ResolveClass("Colour", ScopeKind.Unallocated, owner.Uri).IsUnbound);
+        Assert.IsTrue(resolver.ResolveQualifier("Point", ScopeKind.Unallocated, owner.Uri).IsUnbound);
+        Assert.IsTrue(resolver.ResolveQualifier("Colour", ScopeKind.Unallocated, owner.Uri).IsUnbound);
         Assert.AreSame(udt, resolver.ResolveType("Point", ScopeKind.Unallocated, owner.Uri).Symbol);
     }
 
     [TestMethod]
-    public void ResolveClass_AModuleLevelTypeOfTheProjectsName_DoesNotHideTheProject()
-        // ResolveType selects the enclosing module's own Type first (5.6.10); ResolveClass has no such tier.
+    public void ResolveQualifier_AModuleLevelTypeOfTheProjectsName_DoesNotHideTheProject()
+        // ResolveType selects the enclosing module's own Type first (5.6.10); ResolveQualifier has no such tier.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
         var owner = Module("Owner");
@@ -341,11 +341,11 @@ public sealed class ScopeTreeSymbolResolverTests
         var resolver = Resolver(project, owner, udt);
 
         Assert.AreSame(udt, resolver.ResolveType("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
-        Assert.AreSame(project, resolver.ResolveClass("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
+        Assert.AreSame(project, resolver.ResolveQualifier("MyProject", ScopeKind.Unallocated, owner.Uri).Symbol);
     }
 
     [TestMethod]
-    public void ResolveClass_ALocalOrAFieldNamedLikeAClass_DoesNotHideIt()
+    public void ResolveQualifier_ALocalOrAFieldNamedLikeAClass_DoesNotHideIt()
     {
         var owner = Module("Owner");
         var procedure = Procedure(owner.Uri, "Run");
@@ -353,18 +353,18 @@ public sealed class ScopeTreeSymbolResolverTests
         var field = Field(owner.Uri, "Widget");
         var widget = ClassModule("Widget");
 
-        Assert.AreSame(widget, Resolver(owner, procedure, local, field, widget).ResolveClass("Widget", ScopeKind.Unallocated, procedure.Uri).Symbol);
+        Assert.AreSame(widget, Resolver(owner, procedure, local, field, widget).ResolveQualifier("Widget", ScopeKind.Unallocated, procedure.Uri).Symbol);
     }
 
     [TestMethod]
-    public void ResolveClass_ATypeAndAClassOfTheSameName_BindsTheClass()
+    public void ResolveQualifier_ATypeAndAClassOfTheSameName_BindsTheClass()
     {
         var owner = Module("Owner");
         var udt = Udt(owner.Uri, "Widget");
         var widget = ClassModule("Widget");
         var resolver = Resolver(owner, udt, widget);
 
-        Assert.AreSame(widget, resolver.ResolveClass("Widget", ScopeKind.Unallocated, owner.Uri).Symbol);
+        Assert.AreSame(widget, resolver.ResolveQualifier("Widget", ScopeKind.Unallocated, owner.Uri).Symbol);
         Assert.AreSame(udt, resolver.ResolveType("Widget", ScopeKind.Unallocated, owner.Uri).Symbol);
     }
 
