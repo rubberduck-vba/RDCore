@@ -1,9 +1,6 @@
 # RDCore™
 <sup>_Ce document est disponible en [français](./README.fr.md)_</sup>
 
-[![Build and Test](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml/badge.svg)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
-
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
 
 ## Before we begin.
@@ -19,110 +16,39 @@ This arrangement protects both the legacy and current contributors while enablin
 
 👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end, resolved across modules by a real MS-VBAL-ordered symbol resolver.
 
-### In this document
-- [Project status](#projectstatus)
-
-### See also
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
----
-# RDCore
-[RD-VBAL §1.0.1](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html#101-rdcore)  
-**RDCore**™ is an actively evolving _Language Server_ (LSP) platform that is currently a **work in progress**. Ultimately, the RDCore deliverables are:
-
-- 🚧 **rdc.exe**: a configurable and extensible RD-VBA _environment host_ and LSP client CLI application, with a _command mode_ (`rdc.exe <verb>`, e.g. `describe-ext`);
-- 🚧 **RDCore.LanguageServer.exe**: the platform's "orchestrator" LSP server application;
-- 🚧 **RDCore.ParseServer.exe**: the platform's parser is a satellite LSP server application owned and coordinated by the main language server;
-- 🚧 **RDCore.Diagnostics.exe**: a core platform extension asynchronously issuing _diagnostics_ to the main language server;
-- 🚧 **RDCore.Runtime.dll**: a library containing an implementation for all the RD-VBA runtime semantics and mechanics, _including an implementation of the VBA Standard Library_;
-- ✅ **RDCore.SDK.dll**: a library exposing the RDCore abstractions and encapsulating the base RD-VBA _language core_ implementation.
-
-
-## ✨ What RDCore could make possible
-- **Analyze VBA code** at depths only _LSP analyzers_ can reach
-- **Execute** VBA code outside the VBIDE
-- **Build dev tools** via the _Language Server Protocol_ (LSP)
-- **Inspect runtime** behavior and semantic facts
-- **Extend the platform** with analyzers and plugins
-
 <a id="projectstatus"/>
 
 ## 📊 Project Status
-RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols) but is not released yet. A rough picture per project — not issue-tracked, just where things stand:
+RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols) but is not completed nor released yet.
 
-**RDCore.SDK** — language model + shared plumbing · ✅ stable
+**Contributions**  
 
-| Area | |
-|---|---|
-| Static type system, runtime type model | ✅ |
-| Symbol resolution — lexical scope tree, shadowing, ambiguity, default and type binding contexts, qualified type names (RD-VBAL §2.3.1.2, §3.0.3, MS-VBAL §5.6.4) | ✅ |
-| `Implements` directives (MS-VBAL §5.2.4.2) — class modules and the resolver aware of implemented interfaces | 🚧 `VBClassModuleSymbol.ImplementedInterfaces` resolved by name across the composition (recursively, so a chain of `Implements` resolves in full) and reflected in `VBClassType.Supertypes`; a class's own member surface isn't merged with an implemented interface's, and full §5.2.4.2/§5.3.1.9 validity checking (self-reference, duplicates, `Foo_Bar` implemented-name matching, extensible-module restriction) isn't modeled yet |
-| Predeclared instances and auto-objects — `VB_PredeclaredId` default instance variables (MS-VBAL §5.2.4.1.2), `As New` automatic instantiation variables (§2.5.1, §5.2.3.1.1) | 🚧 static side: a predeclared class's name is a global auto-instantiation variable of the class's own type in the default binding context, a class that isn't predeclared is not a value at all, and a `Set` to the default instance is a compile error; `As New` declarations (module fields, locals, UDT members) are flagged as automatic instantiation variables; run-time auto-instantiation, the constant `Is Nothing`, `VB_GlobalNameSpace` and the declaration-level `As New` validity checks (§5.2.3.1.4) aren't modeled yet |
-| Static semantics — operators, let-coercions, Set-coercion | ✅ |
-| Static semantics — per-node rules (simple names, member access, `New`, `Me`, literals, index expressions, dictionary access, `TypeOf...Is`) | ✅ each rule complete and unit-tested in isolation |
-| Static semantics — tree evaluator (recursive dispatch across a real expression, incl. operator-token dispatch) | ✅ covers member-access/index/dictionary-access chains, operators, `New`, and `TypeOf...Is`; `With`-relative access (`.Member`, `!Member`) now resolves too, via a statement-tree walker (below) that threads the innermost enclosing `With` block's target type in; nothing in production calls either evaluator yet |
-| Static semantics — statement-tree walker (recurses `If`/`Do`/`For`/`Select Case`/`With` blocks, threading `With` target types into their bodies, checking `Let`/`Set` assignment coercion validity) | ✅ collects every compile error found across a whole statement tree rather than short-circuiting on the first, unlike the expression evaluator; `LSet`/`RSet` (their own distinct, not-yet-modeled semantics) are deferred; nothing in production calls it yet |
-| Hosts, transport, connection lifecycle, platform-root | ✅ |
-| Capability model (platform + LSP handshake) | 🚧 informational, no enforcement; CLI + extensions advertise `CliCommand` |
+- Individuals: ✅ Open ([CLA](CLA.md))  
+- Corporate: ⏳ Planned  
 
-**RDCore.Parsing** → `RDCore.ParseServer.exe` · 🚧 · [RD-VBAL §3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.3.0.syntax-tree.html)
 
-| Area | |
-|---|---|
-| Full-document parse — directives, declarations, UDT members | ✅ |
-| Expression & operator grammar — arithmetic, logical, relational, concatenation, incl. `#If` conditions | ✅ |
-| Literal parsing — numeric and string literals | ✅ |
-| AST statement nodes | ✅ |
-| Anchored-fragment parse | ✅ |
+[![Build and Test](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml/badge.svg)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml)
 
-**RDCore.LanguageServer** — orchestrator + LSP server · 🚧 · [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.html)
-
-| Area | |
-|---|---|
-| LSP lifecycle | ✅ |
-| Platform orchestration (bring-up, health, teardown) | ✅ core children + discovered extensions |
-| Workspace load → parse round-trip → symbol extraction → define | ✅ resolved across modules (UDT/Enum, project scope) |
-| LSP document + workspace features | 👉 up for grabs — spec'd |
-
-**RDCore.CLI** → `rdc.exe` — LSP client + environment host · 🚧 · [RD-VBAL §2.3](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.3.application-host.html)
-
-| Area | |
-|---|---|
-| Client mode (`--workspace`) drives the platform end to end | ✅ |
-| Runtime session composed from `.rdproj` (`--host`) | ✅ |
-| Session symbols (`rdcore/host/symbols/define`) | 🚧 define-only |
-| Session memory / allocation model | 🚧 accounting layer; addressable storage planned |
-| Command mode — verb dispatch, `describe-ext` | ✅ native + extension command providers |
-| Interactive REPL | 🎯 |
-
-**RDCore.Runtime** — RD-VBA runtime semantics + VBA stdlib · 🚧
-
-| Area | |
-|---|---|
-| Runtime semantics — operators | ✅ |
-| Runtime semantics — let-coercions | 🚧 |
-| Runtime semantics — Set-coercion (MS-VBAL §5.5.2.2) | 🚧 Nothing-passthrough and the class-compatibility check are implemented; the latter now recognizes a real `Implements` relationship too (via `VBClassType.Supertypes`, above), not just an exact same-class match; nothing in production calls it yet |
-| Runtime semantics — statements | 🎯 `With` statement's own semantics (target → anonymous variable, MS-VBAL §5.4.2.21) landed for a class-valued target; no statement-tree interpreter exists yet for any statement kind, so nothing drives this from real execution |
-| Standard library (`IStd*`) | 🎯 |
-| Interpreter · IR lowering | 🎯 planned |
-
-**RDCore.Diagnostics** — core inspection extension · 🚧 · [RD-VBAL §2.6](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.2.6.diagnostics.html) — analyzer skeleton; discovered from its generated manifest and brought up by the language server during platform assembly.
-
-**Tests** · 🎯 target ~70% line coverage (badge above is live; product code only — generated ANTLR/regex code and third-party assemblies are excluded) — operator and let-coercion semantics (runtime + static) well covered; parser grammar and CLI thin; runtime statement/interpreter work still has nothing to cover.
-
-| Project | Role | Line coverage |
+| Project | Role | Coverage |
 |---|---|---|
-| **RDCore.Runtime** | VBA runtime semantics + standard library | [![RDCore.Runtime](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **RDCore.ParseServer** | stateless parser (MS-VBAL token semantics) | [![RDCore.ParseServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.ParseServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **RDCore.SDK** | language model + shared platform plumbing | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **rdc** | CLI client / environment host | [![rdc](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-rdc.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **RDCore.LanguageServer** | platform coordinator | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **RDCore.Diagnostics** | core inspection extension | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.Runtime** | RD-VBA runtime semantics + standard library | [![RDCore.Runtime](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Runtime.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.ParseServer** | Stateless parser | [![RDCore.ParseServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.ParseServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.SDK** | Language core + shared plumbing | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.CLI** | CLI client / environment host | [![RDCore.CLI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-rdc.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.LanguageServer** | Platform coordinator | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.Diagnostics** | Core diagnostics extension | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 
-**Contributions** — individuals ✅ open ([CLA](CLA.md)) · corporate ⏳ planned
+✅ Parser and symbol resolution are functional, but the **language server** is still under development.  
+👉 LSP features are **[UP FOR GRABS!](https://github.com/rubberduck-vba/RDCore/issues?q=is%3Aissue%20state%3Aopen%20label%3Ardcore-language-server)**
 
-<sub>✅ done / stable · 🚧 in progress · 🎯 not started · 👉 up for grabs</sub>
+
+---
+### See also
+- [Getting Started](https://rubberduck-vba.github.io/RDCore/getting-started.html)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html)
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>
