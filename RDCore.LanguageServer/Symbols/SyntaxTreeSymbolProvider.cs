@@ -27,13 +27,8 @@ internal sealed class SyntaxTreeSymbolProvider(
     public IEnumerable<Symbol> ProvideSymbols()
     {
         // one identity (same uri, same concrete symbol type) can be declared once per #If branch —
-        // uri alone would also fuse Property Get/Let/Set, which must stay distinct. collapse each
-        // such group into the first site, carrying every site in Definitions.
-        // FIXME Property Get/Let/Set of one name share a Symbol.Uri (Symbol.CreateUri keys on name
-        // only); the concrete-type part of this key is what keeps them apart here, and _idMap in the
-        // session is still last-wins across them. give accessors a distinct semantic id (e.g. a
-        // "/get" | "/let" | "/set" uri suffix) — deferred, it's an identity change across the symbol
-        // ctors, SymbolDescriptorReader.ChildUri and every by-name uri lookup.
+        // collapse each such group into the first site, carrying every site in Definitions. the accessors
+        // of one property have identities of their own (Symbol.UriSuffix), so they never fuse here.
         foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
         {
             var sites = group.ToList();

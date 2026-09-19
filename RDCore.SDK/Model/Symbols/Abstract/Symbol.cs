@@ -26,12 +26,22 @@ public abstract record class Symbol
     {
         WorkspaceRoot = workspaceRoot;
         ParentUri = parentUri ?? workspaceRoot;
-        Uri = CreateUri(ParentUri, name);
+        Uri = CreateUri(ParentUri, UriSuffix is { } suffix ? $"{name}.{suffix}" : name);
 
         Name = name;
         ScopeKind = scope;
         Kind = kind;
     }
+
+    /// <summary>
+    /// A segment appended to the <c>name</c> to form the last segment of this symbol's <see cref="Uri"/>, for a
+    /// symbol whose name alone would not identify it: the accessors of one property share a name, and each defines
+    /// a scope of its own. <c>null</c> — the name alone identifies the symbol — unless overridden.
+    /// </summary>
+    /// <remarks>
+    /// Read while the base constructor runs, before any derived state exists: an override must return a constant.
+    /// </remarks>
+    protected virtual string? UriSuffix => null;
 
     private static Uri CreateUri(Uri parent, string name)
     {
