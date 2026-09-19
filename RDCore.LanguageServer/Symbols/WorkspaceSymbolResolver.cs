@@ -89,6 +89,7 @@ internal static class WorkspaceSymbolResolver
                 ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
                     { Directives = directives, ImplementedInterfaceNames = implementedInterfaceNames }
                     .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
+                    .With(SymbolProperties.PredeclaredId, parseResult.SyntaxTree?.IsPredeclared() ?? false)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
 
             // members can't ride on the module symbol the way a Type's fields ride on it (built from
@@ -112,6 +113,14 @@ internal static class WorkspaceSymbolResolver
         }
 
         ResolveImplementedInterfaces(symbols);
+
+        // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable
+        // named after the class. Added once the class modules are final, so the variable's type is the class's
+        // own type - with the interfaces it implements.
+        foreach (var classModule in symbols.OfType<VBClassModuleSymbol>().Where(module => module.GetProperty(SymbolProperties.PredeclaredId)).ToList())
+        {
+            symbols.Add(new VBPredeclaredInstanceSymbol(classModule));
+        }
 
         return symbols;
     }

@@ -151,10 +151,17 @@ The node types _directly_ derived from `SyntaxNode` are as follows:
 
 The **RDCore** interpretation is reflected in its modelization as follows:
 - 🎯 _name lookups_ become an _explicit evaluation step_ involving specific AST nodes such as `SimpleNameExpressionNode`;
-- ✅ the binding context is chosen by the node being evaluated: a `SimpleNameExpressionNode` binds under the _default binding context_ (`ISymbolResolver.ResolveValue`), while an `As` clause and the operand of a `NewExpressionNode` bind under the _type binding context_ (`ISymbolResolver.ResolveType`) — see [**§2.3.1.2** Session Services](rd-vbal.2.3.application-host.html);
+- ✅ the binding context is chosen by the node being evaluated: a `SimpleNameExpressionNode` binds under the _default binding context_ (`ISymbolResolver.ResolveValue`), while an `As` clause and the operand of a `NewExpressionNode` bind under the _type binding context_ (`ISymbolResolver.ResolveType`) — but the _qualifier_ of a qualified type name is bound as a namespace (`ISymbolResolver.ResolveQualifier`, below) — see [**§2.3.1.2** Session Services](rd-vbal.2.3.application-host.html);
 - 🎯 Evaluation returns an [_evaluation result record_](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) describing and encapsulating the result, or runtime error metadata.
 
 Because the type system includes and leverages meta-types such as `VBTypeDescValue`, the binding context is easily inferred from the managed type of a provided value.
+
+### Qualified type names
+In a qualified type name, `A.B`, the lookup is _positional_: the last part, like a bare name, is bound in the _type binding context_ (`ISymbolResolver.ResolveType`), while the _qualifier_, `A`, is a _namespace_ — the project, or a procedural or class module — and neither a _user-defined type_ nor an _Enum type_ is a candidate for it (`ISymbolResolver.ResolveQualifier`), because neither can contain a type. It holds wherever a type name appears: an `As` clause, an `As New` clause, the operand of `New`.
+
+This matters when a module declares a `Type` named like the project (or another module): the bare name `MyProject` still means that `Type`, first tier of the _type binding context_ (**MS-VBAL §5.6.10**), but `MyProject.ClassName` names the class in the project. Read literally, **MS-VBAL §5.6.12** does not say which binding context the left-hand side of a member access under the _type binding context_ is bound in, and the first-match rule of §5.6.10 would select the `Type`, which no member access could then qualify; the rule above is the one that fits what the compilers were observed to do. The VBE compiles `New MyProject.Class` next to a `Type MyProject` (legacy Rubberduck issue #973). The VB6 compiler was checked with `New MyProject.Class` and `Dim c As MyProject.Class`, both of which name the class, while a bare `Dim u As MyProject` still finds the `Type`; the VBA compiler was verified for the `New` form only, and `As New` follows from the rule without having been checked separately.
+
+Whether a class named by `New` is _creatable_ is not a lookup concern: it is checked once the name is bound (**MS-VBAL §5.6.8**).
 
 > [!WARNING]
 > Because a `VBTypeDescValue` is a _data value_ that represents a _data type_, the implementation of both static and runtime semantics must be mindful of the possbility of accidentally pattern-matching such a _type descriptor_.  

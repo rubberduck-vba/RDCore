@@ -88,7 +88,8 @@ public sealed class EvilTestCase2ResolverTests
         End Sub
         """;
 
-    // Interface.cls — the interface, whose members all return the interface itself.
+    // Interface.cls — the interface, whose members all return the interface itself. Neither class module is
+    // predeclared: the sample is exactly as the issue lists it (imported into a VBE by the author, 2026-09-18).
     private const string InterfaceSource = """
         Attribute VB_Name = "Interface"
         Option Explicit
@@ -189,14 +190,15 @@ public sealed class EvilTestCase2ResolverTests
     private static SymbolResolutionResult ResolveType(string name, Uri from)
         => Compose().Resolver.ResolveType(name, ScopeKind.Unallocated, from);
 
-    // a member's body, evaluated from its own scope; a property's Get/Set accessors share one scope.
+    // a member's body, evaluated from its own scope; each accessor of a property has a scope of its own.
     private static (StaticEvaluationContext Context, StatementBlock Block) BodyOf(
         (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) module, string member, MemberKind kind,
         WorkspaceComposition? composition = null)
     {
         composition ??= Composed();
         var node = module.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(candidate => candidate.Name == member && candidate.MemberKind == kind);
-        Assert.IsTrue(composition.Value.ScopeTree.TryGetScope(ModuleUri($"{module.Uri.Fragment.TrimStart('#')}.{member}"), out var scope));
+        var accessor = kind switch { MemberKind.PropertyLet => ".Let", MemberKind.PropertySet => ".Set", _ => string.Empty };
+        Assert.IsTrue(composition.Value.ScopeTree.TryGetScope(ModuleUri($"{module.Uri.Fragment.TrimStart('#')}.{member}{accessor}"), out var scope));
 
         return (new StaticEvaluationContext(composition.Value.Resolver, scope), new StatementBlock([.. node.Children]));
     }
@@ -341,7 +343,7 @@ public sealed class EvilTestCase2ResolverTests
             "MyModule = New Interface  ->  Variant := Interface",
             "MyProject.MyModule = MyModule  ->  Interface := Variant",
             "MyProject = New Class  ->  Interface := Class",
-            "MyProject.MyModule = New MyProject.Class  ->  Interface := ERROR UserDefinedTypeNotDefined",
+            "MyProject.MyModule = New MyProject.Class  ->  Interface := Class",
             "MyProject.MyModule.MyProc = MyProject  ->  Interface := Interface",
             "o = MyProject.MyModule  ->  Variant := Interface",
             "MyModule.MyProc = MyProject.MyModule  ->  Variant := Interface",
@@ -352,18 +354,16 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void MyProc1_HasExactlyOneCompileError_NewMyProjectDotClass()
-        // MS-VBAL 5.6.10 selects the FIRST tier that has a match. In the type binding context that is the
-        // enclosing module's own Type - and MyModule declares `Type MyProject` - so the qualifier is that type,
-        // not the project, and a member access on a user-defined type is not a type expression. The legacy bug
-        // (issue comment 3) was the qualifier binding the LOCAL variable; a variable is never a candidate.
+    public void MyProc1_HasNoCompileErrors_NewMyProjectDotClassBindsTheProjectsClass()
+        // `New MyProject.Class`, where MyModule declares `Type MyProject`: the type binding context's first tier is the
+        // enclosing module's own Type, which a bare `MyProject` would mean - but the qualifier of a qualified name is a
+        // namespace, and a Type cannot contain a type (ISymbolResolver.ResolveQualifier), so the qualifier is the
+        // project. Legacy Rubberduck (issue comment 3) bound it to the LOCAL variable, and later to the Type; the VBE
+        // compiles it, and so does the VB6 compiler. A variable is never a candidate for either.
     {
         var (context, block) = BodyOf(MyModuleParse, "MyProc1", MemberKind.Procedure);
 
-        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
-
-        Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, errors[0].VBCompileErrorId);
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
     }
 
     [TestMethod]
@@ -428,30 +428,50 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    [Ignore("A property's Get/Let/Set accessors share one scope (Symbol.CreateUri keys on the name alone), so the last accessor " +
-        "registered decides the scope's parameters: a Set accessor's `MyModule As Interface` parameter is not visible when a Get " +
-        "follows it in the module, and the name falls through to the module MyModule. Per-accessor scopes are separate tracked work.")]
-    public void Class_PropertySetBodies_SeeTheirOwnParameter()
+    [DataRow("Interface_MyModule", "MyProject.MyModule = MyModule  ->  Interface := Interface")]
+    [DataRow("Interface_MyProc", "MyProject.MyProject = MyModule  ->  Interface := Interface")]
+    [DataRow("Interface_MyProject", "MyProject.MyProc = MyModule  ->  Interface := Interface")]
+    public void Class_PropertySetBodies_SeeTheirOwnParameter(string member, string expected)
+        // each Set's `MyModule As Interface` parameter is in its own accessor's scope, however the Get of the same
+        // name follows it in the module: `MyModule` is that parameter, not the module of the same name.
     {
-        var (context, block) = BodyOf(ClassParse, "Interface_MyModule", MemberKind.PropertySet);
+        var (context, block) = BodyOf(ClassParse, member, MemberKind.PropertySet);
 
-        CollectionAssert.AreEqual(
-            new[] { "MyProject.MyModule = MyModule  ->  Interface := Interface" },
-            TypedTrace(context, block));
+        CollectionAssert.AreEqual(new[] { expected }, TypedTrace(context, block));
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
     }
 
     [TestMethod]
-    [Ignore("MS-VBAL 5.6.10's default binding context has no class module (a class module is only a name through a predeclared " +
-        "instance, VB_PredeclaredId), so `Set Interface = New Interface` in a module with Option Explicit is VariableNotDefined. " +
-        "Class modules still bind as names in the default context until predeclared instances are modeled.")]
     public void Class_SetInterfaceEqualsNewInterface_IsAnUndefinedVariable()
+        // The one line of the sample that MS-VBA accepts and MS-VBAL does not (the author imported the sample into a
+        // VBE, 2026-09-18: it compiles and runs, yet the VBE cannot go to the definition of the assigned `Interface`,
+        // and Rubberduck reports an undeclared variable). Neither class module is predeclared, so no default instance
+        // variable has the name (5.2.4.1.2), and no default-context tier holds a class module (5.6.10): under
+        // Option Explicit the name is undefined. The spec is right and MS-VBA has a bug; RD-VBA follows the spec.
     {
         var (context, block) = BodyOf(ClassParse, "Interface_MyProject", MemberKind.PropertyGet);
+
+        CollectionAssert.AreEqual(
+            new[] { "Interface = New Interface  ->  ERROR VariableNotDefined := Interface" },
+            TypedTrace(context, block));
 
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         Assert.HasCount(1, errors);
         Assert.AreEqual(VBCompileErrorId.VariableNotDefined, errors[0].VBCompileErrorId);
+        Assert.AreEqual("Interface", errors[0].Verbose);
+    }
+
+    [TestMethod]
+    public void NeitherClassOfTheSample_HasADefaultInstance_SoNeitherNameIsAValue()
+    {
+        var resolver = Composed().Resolver;
+
+        foreach (var name in new[] { "Interface", "Class" })
+        {
+            Assert.IsTrue(resolver.ResolveValue(name, ScopeKind.Unallocated, MyModuleParse.Uri).IsUnbound, $"'{name}' from MyModule");
+            Assert.IsTrue(resolver.ResolveValue(name, ScopeKind.Unallocated, ModuleUri("Class")).IsUnbound, $"'{name}' from Class");
+        }
     }
 
     [TestMethod]

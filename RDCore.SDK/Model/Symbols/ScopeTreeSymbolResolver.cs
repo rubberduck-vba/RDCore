@@ -19,8 +19,11 @@ namespace RDCore.SDK.Model.Symbols;
 /// <remarks>
 /// <see cref="ResolveValue"/> and <see cref="ResolveType"/> walk the same tree under the two binding
 /// contexts <strong>MS-VBAL §5.6.4</strong> distinguishes, each with its own candidates: a user-defined
-/// type is only ever bound by <see cref="ResolveType"/>, and a local, parameter, constant, variable or
-/// procedure only ever by <see cref="ResolveValue"/>.
+/// type or a class module is only ever bound by <see cref="ResolveType"/> (or, for a class module and the
+/// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
+/// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
+/// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
+/// context — as that instance, a variable of the class's type.
 /// <para>
 /// A name-resolution service only — the value-binding members throw, matching the intent of a
 /// design-time resolver that holds no run-time bindings. Ordering referenced projects and libraries
@@ -36,8 +39,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// symbol at <paramref name="handle"/> belongs to. The tiers, in order of precedence
     /// (<strong>MS-VBAL §5.6.10</strong>): the enclosing procedure; the enclosing module; the enclosing
     /// project itself, or a procedural module in it; an accessible member of another procedural module of
-    /// the project; then whatever else the global scope declares. A user-defined type is not a candidate
-    /// in any tier. <paramref name="scope"/> is not consulted.
+    /// the project; then whatever else the global scope declares, which includes a class module's
+    /// predeclared instance. Neither a user-defined type nor a class module is a candidate in any tier.
+    /// <paramref name="scope"/> is not consulted.
     /// </summary>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
     {
@@ -101,6 +105,22 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
+    /// <summary>
+    /// Resolves <paramref name="name"/> as the qualifier of a qualified type name (the <c>A</c> in <c>A.B</c>), as
+    /// seen from the scope the symbol at <paramref name="handle"/> belongs to. A qualifier is a namespace, and neither
+    /// a user-defined type nor an Enum type can contain a type: the enclosing module's own types and the types of
+    /// the project's other modules are not tiers here, and what is left is the enclosing project itself, or a
+    /// procedural or class module in it. <paramref name="scope"/> is not consulted.
+    /// </summary>
+    public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle)
+    {
+        var global = scopeTree.ScopeFor(handle).SelfAndAncestors().FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+
+        return global is not null && SelectTier(global, global.DeclaredAs(name).Where(IsProjectOrModule)) is { } result
+            ? result
+            : SymbolResolutionResult.Unbound;
+    }
+
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
     private static SymbolResolutionResult? SelectTier(LexicalScope lexicalScope, IEnumerable<Symbol> candidates)
@@ -129,8 +149,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : SymbolResolutionResult.Duplicate(matches);
     }
 
-    // MS-VBAL §5.6.10 lists no user-defined type among the default binding context's candidates.
-    private static bool IsValueDeclaration(Symbol symbol) => symbol is not VBUserDefinedTypeMemberSymbol;
+    // MS-VBAL §5.6.10 lists no user-defined type and no class module among the default binding context's
+    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2).
+    private static bool IsValueDeclaration(Symbol symbol) => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol);
 
     private static bool IsProjectOrProceduralModule(Symbol symbol) => symbol is VBProjectSymbol or VBStandardModuleSymbol;
 

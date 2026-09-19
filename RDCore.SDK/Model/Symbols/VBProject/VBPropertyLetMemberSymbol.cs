@@ -17,7 +17,14 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
 public sealed record class VBPropertyLetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier) 
     : VBProcedureMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier), IVBPropertyMemberSymbol
-{ }
+{
+    /// <remarks>
+    /// The property's <c>Get</c>, <c>Let</c> and <c>Set</c> accessors share a name, and each defines a scope of its
+    /// own — its parameters and locals. The <c>Get</c> accessor keeps the property's own identity; a <c>Let</c>
+    /// accessor is addressed by the reserved word <c>Let</c> after the name, which no local or parameter can be.
+    /// </remarks>
+    protected override string? UriSuffix => "Let";
+}
 
 /// <summary>
 /// Represents an unbound <c>Property Let</c> procedure member declaration symbol.

@@ -28,14 +28,16 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     /// <c>Project.ClassName</c>).
     /// </summary>
     /// <remarks>
-    /// The qualifier is itself a name in the type binding context, and the first tier that matches it is
-    /// the selected tier (<strong>MS-VBAL 5.6.10</strong>): a user-defined type or Enum declared in the
-    /// enclosing module with the project's name is found first, is not a project, and so leaves the
-    /// qualified name unbound. When the qualifier is the enclosing project, <paramref name="name"/> is
-    /// looked up from the project's own scope, not from <paramref name="handle"/>, so nothing declared in
-    /// the enclosing module can hide the project's module or type it names. A qualifier that doesn't
-    /// resolve to a <see cref="VBProjectSymbol"/> stays unbound, rather than silently ignoring a qualifier
-    /// that might have named something real (a referenced project) this doesn't model yet.
+    /// The lookup is positional. A bare name, and the last part of a qualified one, is bound by
+    /// <see cref="ISymbolResolver.ResolveType"/>; the qualifier is a namespace, bound by
+    /// <see cref="ISymbolResolver.ResolveQualifier"/>, where neither a user-defined type nor an Enum type is a
+    /// candidate — neither can contain a type. A <c>Type</c> of the enclosing module that shares the project's
+    /// name therefore does not stand in for the project in <c>Project.ClassName</c>, though it is still what the bare
+    /// name <c>Project</c> means. When the qualifier is the enclosing project, <paramref name="name"/> is looked up
+    /// from the project's own scope, not from <paramref name="handle"/>, so nothing declared in the enclosing module
+    /// can hide the project's module or type it names. A qualifier that doesn't resolve to a
+    /// <see cref="VBProjectSymbol"/> stays unbound, rather than silently ignoring a qualifier that might have named
+    /// something real (a referenced project) this doesn't model yet.
     /// </remarks>
     public static SymbolResolutionResult ResolveQualifiedType(ISymbolResolver resolver, string? qualifier, string name, Uri handle)
     {
@@ -44,7 +46,7 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
             return resolver.ResolveType(name, ScopeKind.Global, handle);
         }
 
-        return resolver.ResolveType(qualifier, ScopeKind.Global, handle).Symbol is VBProjectSymbol project
+        return resolver.ResolveQualifier(qualifier, ScopeKind.Global, handle).Symbol is VBProjectSymbol project
             ? resolver.ResolveType(name, ScopeKind.Global, project.WorkspaceRoot)
             : SymbolResolutionResult.Unbound;
     }

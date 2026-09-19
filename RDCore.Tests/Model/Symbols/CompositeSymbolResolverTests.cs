@@ -63,6 +63,19 @@ public sealed class CompositeSymbolResolverTests
             .ResolveValue("nope", ScopeKind.Global, Handle).IsUnbound);
 
     [TestMethod]
+    public void ResolveQualifier_ReturnsTheFirstNonUnboundResult_FromTheClassContext()
+    {
+        var first = Substitute.For<ISymbolResolver>();
+        var second = Substitute.For<ISymbolResolver>();
+        second.ResolveQualifier("x", Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(BSymbol));
+
+        var result = new CompositeSymbolResolver(first, second).ResolveQualifier("x", ScopeKind.Global, Handle);
+
+        Assert.AreSame(BSymbol, result.Symbol);
+        first.DidNotReceive().ResolveType(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>());
+    }
+
+    [TestMethod]
     public void GetValue_Throws()
         => Assert.ThrowsExactly<NotSupportedException>(
             () => new CompositeSymbolResolver().GetValue(ASymbol));

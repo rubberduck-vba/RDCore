@@ -150,15 +150,59 @@ public sealed class DeclaredTypeBindingTests
     }
 
     [TestMethod]
-    public void NewQualifiedByTheProjectsName_IsNotTheProject_WhenTheModuleDeclaresATypeOfThatName()
-        // MS-VBAL 5.6.10: the enclosing module's own types are the first tier of the type binding context.
+    public void NewQualifiedByTheProjectsName_IsStillTheProject_WhenTheModuleDeclaresATypeOfThatName()
+        // the qualifier of a qualified name is a namespace, and a Type cannot contain a type, so the enclosing module's
+        // own `Type MyProject` - the first tier of the type binding context for a bare name - is not a candidate for it.
     {
         var widget = Class("Widget", "Public Size As Long\r\n");
         var main = Std("Main", "Private Type MyProject\r\n    Value As Long\r\nEnd Type\r\nSub Run()\r\nDim r\r\nSet r = New MyProject.Widget\r\nEnd Sub\r\n");
 
         var result = EvaluateLastAssignment(main, "MyProject", widget);
 
-        Assert.IsTrue(result.IsError);
-        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(result.Result).Name);
+    }
+
+    // The declared type of a variable of the composed workspace, from the scope of its own procedure.
+    private static VBType DeclaredTypeOfLocal(string declaration, string moduleLevel, params (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse)[] modules)
+    {
+        var main = Std("Main", $"{moduleLevel}Sub Run()\r\n{declaration}\r\nEnd Sub\r\n");
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. modules, main], new IntrinsicSymbolResolver(), projectName: "MyProject");
+
+        var local = composition.Resolver.ResolveValue("w", ScopeKind.Unallocated, ModuleUri("Main.Run")).Symbol;
+        return Assert.IsInstanceOfType<ITypedSymbol>(local).ResolvedType;
+    }
+
+    [TestMethod]
+    public void AsNewQualifiedByTheProjectsName_IsStillTheProject_WhenTheModuleDeclaresATypeOfThatName()
+    {
+        var widget = Class("Widget", "Public Size As Long\r\n");
+
+        var type = DeclaredTypeOfLocal("Dim w As New MyProject.Widget", "Private Type MyProject\r\n    Value As Long\r\nEnd Type\r\n", widget);
+
+        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(type).Name);
+    }
+
+    [TestMethod]
+    public void AsQualifiedByTheProjectsName_IsStillTheProject_WithoutNewToo()
+        // the rule is positional, not about New: `Dim c As MyProject.Widget` names the class (VB6, checked against its
+        // compiler, agrees) although the module's `Type MyProject` wins the bare name.
+    {
+        var widget = Class("Widget", "Public Size As Long\r\n");
+
+        var type = DeclaredTypeOfLocal("Dim w As MyProject.Widget", "Private Type MyProject\r\n    Value As Long\r\nEnd Type\r\n", widget);
+
+        Assert.AreEqual("Widget", Assert.IsInstanceOfType<VBClassType>(type).Name);
+    }
+
+    [TestMethod]
+    public void ABareName_IsStillTheModulesType_WhenAClassSharesIt()
+        // MS-VBAL 5.6.10: the enclosing module's own types are the first tier of the type binding context.
+    {
+        var widget = Class("Widget", "Public Size As Long\r\n");
+
+        var declared = DeclaredTypeOfLocal("Dim w As Widget", "Private Type Widget\r\n    Value As Long\r\nEnd Type\r\n", widget);
+
+        Assert.IsInstanceOfType<VBUserDefinedType>(declared);
     }
 }

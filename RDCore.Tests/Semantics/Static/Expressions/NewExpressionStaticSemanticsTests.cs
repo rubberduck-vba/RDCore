@@ -101,7 +101,22 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ResolvesToATypeThatIsNotAClass_IsATypeMismatchError()
+    public void ResolvesToAModuleThatIsNotAClass_IsATypeMismatchError()
+    {
+        var module = Module("Mod1");
+        var other = Module("Mod2");
+        var context = ContextAt(module.Uri, module, other);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Mod2")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void ABareNameThatIsAUserDefinedType_IsATypeMismatchError()
+        // a bare name binds as any bare type name does (the first tier of the type binding context is the enclosing
+        // module's own types), and a user-defined type is not a class.
     {
         var module = Module("Mod1");
         var udt = new VBUserDefinedTypeMemberSymbol(Root, module.Uri, "Point", ScopeKind.Module, R, R, AccessModifier.Public);
@@ -163,10 +178,10 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void QualifiedByTheProjectsName_WhenTheModuleDeclaresATypeOfThatName_IsNotTheProject()
-        // MS-VBAL 5.6.10: the first tier with a match is the selected tier. A Type declared at module level
-        // is the enclosing-module tier and beats the project, so `MyProject` is that type, not a project,
-        // and `.Collection1` is then not a member access the type binding context defines.
+    public void QualifiedByTheProjectsName_WhenTheModuleDeclaresATypeOfThatName_IsStillTheProject()
+        // the qualifier of a qualified name is a namespace, and a Type cannot contain a type: the Type declared at
+        // module level - which would win the bare name in the type binding context - is not a candidate for it, and
+        // `MyProject` binds the project. This is the shape of `New MyProject.Class` in legacy Rubberduck issue #973.
     {
         var project = new VBProjectSymbol(Root, "MyProject");
         var module = Module("Caller");
@@ -176,8 +191,8 @@ public sealed class NewExpressionStaticSemanticsTests
 
         var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(MemberOf(NameOf("MyProject"), "Collection1")));
 
-        Assert.IsTrue(result.IsError);
-        Assert.AreEqual(VBCompileErrorId.UserDefinedTypeNotDefined, result.ErrorInfo!.VBCompileErrorId);
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual("Collection1", Assert.IsInstanceOfType<VBClassType>(result.Result).Name);
     }
 
     [TestMethod]
