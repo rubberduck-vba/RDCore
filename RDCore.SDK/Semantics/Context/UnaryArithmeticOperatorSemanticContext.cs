@@ -3,7 +3,10 @@ using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.SDK.Semantics.Context;
 
-public sealed record class UnaryArithmeticOperatorSemanticContext : SemanticContext<ArithmeticOperatorSemanticFlags>
+public sealed record class UnaryArithmeticOperatorSemanticContext : OperatorSemanticContext<ArithmeticOperatorSemanticFlags>
 {
-    public ConversionOperationSemanticContext UnaryOperandConversionContext { get; } = new();
+    /// <summary>
+    /// Gets the conversion semantic context of the operand.
+    /// </summary>
+    public ConversionOperationSemanticContext UnaryOperandConversionContext => ConversionContextOf(InputIndex.UnaryOperand);
 }

@@ -108,6 +108,16 @@ where TFlags : struct, Enum
             // merging the results aggregates their respective sub operations into a single unified coercion stack:
             .Aggregate((context, operation) => context.Merge(operation));
 
+        // what the operation does to each of its operands, and what is known about them, is part of the context of the operation:
+        foreach (var (_, operandIndex) in operandsInfo)
+        {
+            var operandFlags = conversionContextBuilder.LetCoercionFlagsOf(operandIndex);
+            if (operandFlags != 0)
+            {
+                builder.AddLetCoercionFlags(operandFlags, operandIndex);
+            }
+        }
+
         // 3. evaluate the result - the way the operator itself would, which is on the operands as let-coerced to the
         //    effective type (evaluating the raw operands would hand a Double operation a Long), and which reports the
         //    error, if there is one, that stopped the operation: no effective type, a failed coercion, or the evaluation.

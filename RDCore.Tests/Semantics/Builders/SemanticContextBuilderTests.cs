@@ -6,6 +6,7 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Semantics.Runtime.Operators;
 
 namespace RDCore.Tests.Semantics.Builders;
 
@@ -161,6 +162,49 @@ public sealed class SemanticContextBuilderTests
 
         Assert.AreEqual(ConversionSemanticFlags.Widening, builder.LetCoercionFlagsOf(InputIndex.BinaryLeftOperand));
         Assert.AreEqual((ConversionSemanticFlags)0, builder.Flags);
+    }
+
+    [TestMethod]
+    public void TheContextOfAnOperator_IsBuiltWithTheConversionContextOfEachOperand()
+    {
+        var builder = new SemanticContextFlagsBuilder<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>();
+
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Widening, InputIndex.BinaryLeftOperand);
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Narrowing, InputIndex.BinaryRightOperand);
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric, InputIndex.BinaryLeftOperand);
+
+        var context = builder.Build();
+
+        Assert.HasCount(2, context.OperandConversionContexts);
+        Assert.AreEqual(ConversionSemanticFlags.Widening | ConversionSemanticFlags.Numeric, context.LeftOperandConversionContext.Flags);
+        Assert.AreEqual(ConversionSemanticFlags.Narrowing, context.RightOperandConversionContext.Flags);
+    }
+
+    [TestMethod]
+    public void AnOperandNothingWasAddedFor_HasAnEmptyConversionContext_EvenBeforeAnOperandThatHasOne()
+    {
+        var builder = new SemanticContextFlagsBuilder<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>();
+
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Narrowing, InputIndex.BinaryRightOperand);
+
+        var context = builder.Build();
+
+        Assert.AreEqual((ConversionSemanticFlags)0, context.LeftOperandConversionContext.Flags);
+        Assert.AreEqual(ConversionSemanticFlags.Narrowing, context.RightOperandConversionContext.Flags);
+    }
+
+    [TestMethod]
+    public void TheContextOfAnOperator_NothingWasAddedFor_HasNoOperandConversionContexts()
+        => Assert.IsEmpty(new SemanticContextFlagsBuilder<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>().Build().OperandConversionContexts);
+
+    [TestMethod]
+    public void AContextThatIsNotAnOperators_IsBuiltAsItIs_WhateverWasAddedForOperands()
+    {
+        var builder = new SemanticContextFlagsBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags>();
+
+        builder.AddLetCoercionFlags(ConversionSemanticFlags.Widening, InputIndex.BinaryLeftOperand);
+
+        Assert.AreEqual((ConversionSemanticFlags)0, builder.Build().Flags);
     }
 
     [TestMethod]

@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Context.Abstract;
 
@@ -30,4 +31,22 @@ public abstract record class OperatorSemanticContext<TFlags> : SemanticContext<T
     /// 
     /// </remarks>
     public VBTypedValue? OperationResult { get; init; }
+
+    /// <summary>
+    /// Gets the conversion semantic context of each operand of the operation, in operand order (<see cref="InputIndex"/>): what
+    /// the operation does to that operand to make it a value it can operate on, and the facts about that operand.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Empty for a context that was not built by an analysis. Read a specific operand's with <see cref="ConversionContextOf"/>.
+    /// </remarks>
+    public ImmutableArray<ConversionOperationSemanticContext> OperandConversionContexts { get; init; } = [];
+
+    /// <summary>
+    /// Gets the conversion semantic context of the specified operand: its let-coercion flags (<c>LetCoerced</c>, <c>Implicit</c>,
+    /// <c>Widening</c>, ...), and what is known about the operand itself (<c>NullOperand</c>, <c>ObjectOperand</c>, ...).
+    /// </summary>
+    /// <param name="operand">The operand to get the conversion semantic context of.</param>
+    /// <returns>An empty context if nothing is known about the operand, for instance because the context was not built by an analysis.</returns>
+    public ConversionOperationSemanticContext ConversionContextOf(InputIndex operand)
+        => (int)operand < OperandConversionContexts.Length ? OperandConversionContexts[(int)operand] : new();
 }

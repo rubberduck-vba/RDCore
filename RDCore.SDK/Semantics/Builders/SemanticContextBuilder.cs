@@ -253,12 +253,30 @@ public record class SemanticContextFlagsBuilder<TContext, TFlags> : ISemanticCon
     /// <summary>
     /// Builds and returns an immutable <c>SemanticContext</c> instance from the current builder state.
     /// </summary>
-    public virtual TContext Build() => new TContext() with
+    /// <remarks>
+    /// 👉 The context of an operator expression also holds the conversion semantic context of each operand
+    /// (<see cref="OperatorSemanticContext{TFlags}.OperandConversionContexts"/>), built from the flags added with <see cref="AddLetCoercionFlags"/>.
+    /// </remarks>
+    public virtual TContext Build()
     {
-        Errors = [.. _errors],
-        Diagnostics = [],
-        Flags = Flags
-    };
+        var context = new TContext() with
+        {
+            Errors = [.. _errors],
+            Diagnostics = [],
+            Flags = Flags
+        };
+
+        if (context is not OperatorSemanticContext<TFlags> operatorContext || _operandLetCoercionFlags.IsEmpty)
+        {
+            return context;
+        }
+
+        var operandCount = _operandLetCoercionFlags.Keys.Max() + 1;
+        var conversions = Enumerable.Range(0, operandCount)
+            .Select(operand => new ConversionOperationSemanticContext { Flags = LetCoercionFlagsOf((InputIndex)operand) });
+
+        return (TContext)(SemanticContext<TFlags>)(operatorContext with { OperandConversionContexts = [.. conversions] });
+    }
 }
 
 
