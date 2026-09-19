@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
@@ -71,5 +72,24 @@ public sealed class RuntimeEnvironmentProfileTests
 
         Assert.IsTrue(options.Environment.Is64Bit);
         Assert.AreEqual(1252, options.Environment.AnsiCodePage);
+    }
+
+    [TestMethod]
+    public void OptionCompareDatabase_IsTextUnlessThePlatformSaysOtherwise()
+    {
+        Assert.AreEqual(OptionCompare.Text, RuntimeEnvironmentProfile.From(new SdkEnvironmentOptions()).DatabaseCompare);
+        Assert.AreEqual(OptionCompare.Text, RuntimeEnvironmentProfile.Default.DatabaseCompare);
+    }
+
+    [TestMethod]
+    public void OptionCompareDatabase_BindsFromAppSettingsConfigurationSection()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Configuration:Environment:DatabaseCompare"] = "Binary" })
+            .Build();
+
+        var options = configuration.GetSection("Configuration").Get<SdkAppOptions>()!.Environment;
+
+        Assert.AreEqual(OptionCompare.Binary, RuntimeEnvironmentProfile.From(options).DatabaseCompare);
     }
 }

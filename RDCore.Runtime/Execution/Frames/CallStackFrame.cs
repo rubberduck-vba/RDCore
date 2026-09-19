@@ -1,5 +1,6 @@
-using RDCore.Runtime.Execution;
+﻿using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -18,7 +19,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// held in a private lookup, and what lets <see cref="ReleaseAll"/> free them all in one pass when the
 /// frame is popped.
 /// </summary>
-public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs, ISessionStorage Storage) : ICallStackFrame
+public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol StaticSymbol, ImmutableArray<VBTypedValue> Inputs, ISessionStorage Storage, ModuleDirectives Directives = default) : ICallStackFrame
 {
     private readonly SymbolAddressTable _addresses = new(Storage);
     private readonly HashSet<SemanticId> _declared = [];

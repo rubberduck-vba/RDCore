@@ -10,11 +10,13 @@ namespace RDCore.SDK.Runtime;
 /// <param name="Lcid">The environment LCID; <c>0</c> for the invariant locale.</param>
 /// <param name="AnsiCodePage">The ANSI code page for <c>Byte()</c> ↔ <c>String</c>.</param>
 /// <param name="SupportsOptionCompareDatabase">Whether <c>Option Compare Database</c> is supported.</param>
+/// <param name="DatabaseCompare">The comparison mode <c>Option Compare Database</c> stands for; <c>Text</c> unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,
     int AnsiCodePage,
-    bool SupportsOptionCompareDatabase) : IRuntimeEnvironmentProfile
+    bool SupportsOptionCompareDatabase,
+    Model.Symbols.OptionCompare DatabaseCompare = Model.Symbols.OptionCompare.Text) : IRuntimeEnvironmentProfile
 {
     /// <summary>
     /// A 64-bit, current-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
@@ -28,7 +30,7 @@ public sealed record class RuntimeEnvironmentProfile(
 
     /// <summary>Builds a profile from bound <c>appsettings.json</c> options.</summary>
     public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options)
-        => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase);
+        => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase, options.DatabaseCompare);
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);

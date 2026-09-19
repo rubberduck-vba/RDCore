@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -23,6 +24,15 @@ public interface ICallStackFrame : IStackFrame
     /// The <see cref="StaticSymbol"/> identifying the procedure this frame is an activation of.
     /// </summary>
     StaticSymbol StaticSymbol { get; }
+
+    /// <summary>
+    /// The <see cref="ModuleDirectives"/> of the module declaring the procedure: what the code of this activation is executed
+    /// under — its comparison mode, chiefly (<strong>MS-VBAL §5.2.1.1</strong>).
+    /// </summary>
+    /// <remarks>
+    /// 👉 A <see cref="StaticSymbol"/> identifies a procedure by its name and type alone; it does not say which module it is in.
+    /// </remarks>
+    ModuleDirectives Directives { get; }
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for

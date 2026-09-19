@@ -194,6 +194,12 @@ public record class SdkEnvironmentOptions
     /// <c>true</c> when the host supports the <c>Option Compare Database</c> directive (Microsoft Access).
     /// </summary>
     public bool SupportsOptionCompareDatabase { get; set; }
+    /// <summary>
+    /// The comparison mode <c>Option Compare Database</c> stands for on this platform: <see cref="Model.Symbols.OptionCompare.Text"/>
+    /// or <see cref="Model.Symbols.OptionCompare.Binary"/>. Microsoft Access compares by the sort order of the database, which is not
+    /// case-sensitive; that is the default.
+    /// </summary>
+    public Model.Symbols.OptionCompare DatabaseCompare { get; set; } = Model.Symbols.OptionCompare.Text;
 }
 
 public record class SdkServerAppOptions

@@ -83,7 +83,9 @@ internal static class WorkspaceSymbolResolver
             // it here so the scope tree has a module tier to hang the members off (and so a
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
             var moduleName = moduleUri.Fragment.TrimStart('#');
-            var directives = new ModuleDirectives(Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false);
+            var directives = new ModuleDirectives(
+                Explicit: parseResult.SyntaxTree?.HasOptionExplicit() ?? false,
+                Compare: parseResult.SyntaxTree?.GetOptionCompare() ?? OptionCompare.Binary);
             var implementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [];
             VBModuleSymbol module = moduleType == ModuleType.ClassModule
                 ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)

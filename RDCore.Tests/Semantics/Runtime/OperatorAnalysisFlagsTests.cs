@@ -189,7 +189,7 @@ public sealed class OperatorAnalysisFlagsTests : LetCoercionRuntimeSemanticsTest
 
     [TestMethod]
     public void AStringComparison_ReportsAStringEffectiveType()
-        => Assert.AreEqual(ComparisonOperatorSemanticFlags.StringEffectiveType, Compare(new VBStringValue("a"), new VBStringValue("b")));
+        => Assert.AreEqual(ComparisonOperatorSemanticFlags.StringEffectiveType | ComparisonOperatorSemanticFlags.StringComparisonBinary, Compare(new VBStringValue("a"), new VBStringValue("b")));
 
     [TestMethod]
     public void ABooleanComparison_ReportsABooleanEffectiveType()

@@ -113,7 +113,8 @@ public interface ISessionSymbols
     /// </summary>
     /// <param name="nodeId">The <c>Identity</c> of the call-site node this activation is for.</param>
     /// <param name="procedure">The <see cref="StaticSymbol"/> identifying the procedure being activated.</param>
-    ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure);
+    /// <param name="directives">The <see cref="ModuleDirectives"/> of the module declaring the procedure: what the code of the activation is executed under.</param>
+    ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure, ModuleDirectives directives = default);
 
     /// <summary>
     /// Creates a new <see cref="IObjectInstance"/> for a freshly-created object of

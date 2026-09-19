@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Symbols;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST.Declarations;
@@ -47,6 +48,28 @@ public static class ModuleNodeExtensions
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The comparison mode the module declares with an <c>Option Compare</c> directive (<strong>MS-VBAL §5.2.1.1</strong>),
+    /// <see cref="OptionCompare.Binary"/> when it declares none.
+    /// </summary>
+    public static OptionCompare GetOptionCompare(this ModuleNode module)
+    {
+        foreach (var child in module.Children.OfType<ModuleOptionDirectiveNode>())
+        {
+            switch (child.ModuleOption)
+            {
+                case ModuleOptions.OptionCompareText:
+                    return OptionCompare.Text;
+                case ModuleOptions.OptionCompareDatabase:
+                    return OptionCompare.Database;
+                case ModuleOptions.OptionCompareBinary:
+                    return OptionCompare.Binary;
+            }
+        }
+
+        return OptionCompare.Binary;
     }
 
     /// <summary>

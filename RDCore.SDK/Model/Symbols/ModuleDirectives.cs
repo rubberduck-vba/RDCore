@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Model.Symbols;
+﻿namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
 /// The resolved module-level directives a <see cref="VBModuleSymbol"/> was declared under — the
@@ -22,7 +22,11 @@ namespace RDCore.SDK.Model.Symbols;
 /// Whether the module carries RD-VBA's <c>'@OptionStrict</c> annotation — turns select semantic
 /// flags that stay legal under plain <c>Option Explicit</c> into compile errors.
 /// </param>
-public readonly record struct ModuleDirectives(bool Explicit = false, bool Strict = false)
+/// <param name="Compare">
+/// The comparison mode of the module (<strong>MS-VBAL §5.2.1.1</strong>): how the relational operators compare <c>String</c> values in it.
+/// <see cref="OptionCompare.Binary"/> unless the module declares an <c>Option Compare</c> directive.
+/// </param>
+public readonly record struct ModuleDirectives(bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary)
 {
     /// <summary>
     /// The directives of a module that declares none of them explicitly.

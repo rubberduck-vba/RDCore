@@ -1,5 +1,6 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.Tests.Parser;
 
@@ -52,6 +53,18 @@ public sealed class ModuleNodeExtensionsTests
         var module = Parse("Attribute VB_Name = \"M1\"\r\nPublic X As Long\r\n");
 
         Assert.IsFalse(module.HasOptionExplicit());
+    }
+
+    [TestMethod]
+    [DataRow("Option Compare Text", OptionCompare.Text)]
+    [DataRow("Option Compare Binary", OptionCompare.Binary)]
+    [DataRow("Option Compare Database", OptionCompare.Database)]
+    [DataRow("Option Explicit", OptionCompare.Binary, DisplayName = "no Option Compare directive: MS-VBAL 5.2.1.1 says binary")]
+    public void GetOptionCompare_IsTheDeclaredComparisonMode(string directive, OptionCompare expected)
+    {
+        var module = Parse($"Attribute VB_Name = \"M1\"\r\n{directive}\r\nPublic X As Long\r\n");
+
+        Assert.AreEqual(expected, module.GetOptionCompare());
     }
 
     [TestMethod]

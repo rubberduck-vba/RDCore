@@ -163,8 +163,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return symbol is not null;
     }
 
-    public ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure)
-        => new CallStackFrame(nodeId, procedure, [], storage);
+    public ICallStackFrame CreateFrame(SyntaxNodeId nodeId, StaticSymbol procedure, ModuleDirectives directives = default)
+        => new CallStackFrame(nodeId, procedure, [], storage, directives);
 
     public IObjectInstance CreateInstance(VBRuntimeObjectId objectId, VBClassModuleSymbol classModule)
     {

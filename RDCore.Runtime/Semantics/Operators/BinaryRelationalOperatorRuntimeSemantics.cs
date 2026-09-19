@@ -4,6 +4,7 @@ using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -82,7 +83,10 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             VBLongLongType => ComparisonOperatorSemanticFlags.LongLongEffectiveType | ComparisonOperatorSemanticFlags.IntegralNumericEffectiveType,
             VBSingleType => ComparisonOperatorSemanticFlags.SingleEffectiveType | ComparisonOperatorSemanticFlags.FloatingPointNumericEffectiveType,
             VBDoubleType => ComparisonOperatorSemanticFlags.DoubleEffectiveType | ComparisonOperatorSemanticFlags.FloatingPointNumericEffectiveType,
-            VBStringType => ComparisonOperatorSemanticFlags.StringEffectiveType,
+            VBStringType => ComparisonOperatorSemanticFlags.StringEffectiveType
+                | (analysisContext.CompareMode == OptionCompare.Text
+                    ? ComparisonOperatorSemanticFlags.StringComparisonText
+                    : ComparisonOperatorSemanticFlags.StringComparisonBinary),
             VBCurrencyType => ComparisonOperatorSemanticFlags.CurrencyEffectiveType | ComparisonOperatorSemanticFlags.FixedPointNumericEffectiveType,
             VBDecimalType => ComparisonOperatorSemanticFlags.DecimalEffectiveType | ComparisonOperatorSemanticFlags.FixedPointNumericEffectiveType,
             VBNullType => ComparisonOperatorSemanticFlags.NullEffectiveType,
@@ -230,10 +234,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         }
         else if (frame.EffectiveType is VBStringType)
         {
-            // Binary compare (case-sensitive, culture-aware) is MS-VBA's default for a module with no
-            // Option Compare Text; ComparisonOp treats StringComparison.InvariantCultureIgnoreCase as
-            // the Text-compare signal (see LikeRelationalOperatorRuntimeSemantics.ComparisonOp).
-            var result = ComparisonOp(((VBStringValue)lhs).Value!, ((VBStringValue)rhs).Value!, StringComparison.InvariantCulture);
+            // MS-VBAL 5.6.9.5: in a module compared in text mode the strings are compared regardless of case; otherwise, by the
+            // code of each character. ComparisonOp treats StringComparison.InvariantCultureIgnoreCase as the Text-compare signal
+            // (see LikeRelationalOperatorRuntimeSemantics.ComparisonOp).
+            var comparison = frame.CompareMode == OptionCompare.Text ? StringComparison.InvariantCultureIgnoreCase : StringComparison.Ordinal;
+            var result = ComparisonOp(((VBStringValue)lhs).Value!, ((VBStringValue)rhs).Value!, comparison);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBCurrencyType)

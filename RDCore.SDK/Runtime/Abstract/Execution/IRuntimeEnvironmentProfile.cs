@@ -39,4 +39,13 @@ public interface IRuntimeEnvironmentProfile
     /// <c>true</c> when the host supports the <c>Option Compare Database</c> directive (Microsoft Access).
     /// </summary>
     bool SupportsOptionCompareDatabase { get; }
+
+    /// <summary>
+    /// The comparison mode <c>Option Compare Database</c> stands for in this environment: <see cref="Model.Symbols.OptionCompare.Text"/>
+    /// or <see cref="Model.Symbols.OptionCompare.Binary"/>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 MS-VBAL leaves <c>Option Compare Database</c> unspecified (§5.2.1.1); a module that declares it compares strings as this says.
+    /// </remarks>
+    Model.Symbols.OptionCompare DatabaseCompare { get; }
 }
