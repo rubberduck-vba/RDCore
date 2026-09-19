@@ -15,7 +15,7 @@ namespace RDCore.SDK.Model.Types;
 /// 💥 Declarations of this data type are <strong>statically invalid</strong> in a <strong>32-bit</strong> environment.<br/>
 /// 👉 Implements <see cref="IIntegralNumericType"/>.<br/>
 /// </remarks>
-public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLong), IIntegralNumericType
+public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLongLong), IIntegralNumericType
 {
     private static readonly Lazy<VBLongLongType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

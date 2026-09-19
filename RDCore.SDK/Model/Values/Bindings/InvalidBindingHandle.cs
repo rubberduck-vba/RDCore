@@ -18,6 +18,13 @@ public record class InvalidBindingHandle : IBindingHandle
 
     public IRuntimeValue Value => throw new NotSupportedException("The binding is not valid.");
 
+    // the record's own printing would read Value: a value that holds this handle must still be printable (a debugger, a test name, a log).
+    protected virtual bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("Invalid");
+        return true;
+    }
+
     public IRuntimeValue GetValue(ISymbolResolver resolver) => throw new NotSupportedException();
 
     public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();

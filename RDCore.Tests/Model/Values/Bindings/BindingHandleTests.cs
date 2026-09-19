@@ -173,6 +173,14 @@ public sealed class BindingHandleTests
             () => new ReferenceBindingHandle(new VBRuntimeReference(new MemoryAddress(1))).Invoke(Resolver, []));
 
     [TestMethod]
+    public void InvalidBindingHandle_CanBePrinted_ForItHoldsNoValueToPrint()
+        => Assert.AreEqual("InvalidBindingHandle { Invalid }", InvalidBindingHandle.Default.ToString());
+
+    [TestMethod]
+    public void AValueOfNoBinding_CanBePrinted()
+        => Assert.Contains("Handle = InvalidBindingHandle", new RDCore.SDK.Model.Values.Intrinsic.VBNullValue().ToString());
+
+    [TestMethod]
     public void InvalidBindingHandle_HasNoCapabilities()
         => Assert.AreEqual(BindingCapabilities.None, InvalidBindingHandle.Default.BindingCapabilities);
 
