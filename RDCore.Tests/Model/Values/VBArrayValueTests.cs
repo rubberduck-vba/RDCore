@@ -100,6 +100,32 @@ public sealed class VBArrayValueTests
         => Assert.IsFalse((bool)((VBBooleanValue)Fixed([(1, 2)], VBBooleanType.TypeInfo)[1]!).Value);
 
     [TestMethod]
+    public void GetElementHandle_ReadsTheCellsOwnBinding()
+    {
+        var a = Fixed([(1, 2)], VBLongType.TypeInfo);
+        var binding = new ValueBindingHandle(new VBRuntimeValue<int>(7));
+        a.TrySetElement(binding, 2);
+
+        Assert.AreSame(binding, a.GetElementHandle(2));
+        Assert.AreEqual(0, ((VBLongValue)a[1]!).Value, "an unassigned cell still holds its default");
+    }
+
+    [TestMethod]
+    public void GetElementHandle_OutOfBoundsOrWrongRank_IsNull()
+    {
+        var a = Fixed([(1, 2), (0, 1)], VBLongType.TypeInfo);
+
+        Assert.IsNull(a.GetElementHandle(3, 0));
+        Assert.IsNull(a.GetElementHandle(1));
+        Assert.IsNotNull(a.GetElementHandle(2, 1));
+    }
+
+    [TestMethod]
+    public void GetElementHandle_ReadsAnElementWhoseTypeHasNoValueBuiltFromABindingAlone()
+        // the indexer builds a typed value and throws for a Variant/UDT/Object cell; the raw binding is always readable.
+        => Assert.IsNotNull(Fixed([(0, 1)], VBVariantType.TypeInfo).GetElementHandle(1));
+
+    [TestMethod]
     public void ByteArrayCells_DefaultToZero()
         => Assert.AreEqual((byte)0, ((VBByteValue)new VBResizableByteArrayValue([(0, 2)])[0]!).Value);
 

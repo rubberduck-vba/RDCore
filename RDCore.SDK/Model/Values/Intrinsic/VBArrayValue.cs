@@ -103,6 +103,21 @@ public abstract record class VBArrayValue : VBTypedValue
     }
 
     /// <summary>
+    /// Gets the binding of the element at the given subscripts, or <c>null</c> when any subscript is out of
+    /// bounds or the subscript count does not match the array rank.
+    /// </summary>
+    /// <remarks>
+    /// Unlike the indexer, this never constructs a typed value, so it also reads an element whose type has no
+    /// value that can be built from a binding alone (a class, user-defined type or Object element). A cell that was
+    /// never assigned holds an inert binding.
+    /// </remarks>
+    public IBindingHandle? GetElementHandle(params int[] subscripts)
+    {
+        var index = LinearIndex(subscripts);
+        return index < 0 ? null : _cells[index];
+    }
+
+    /// <summary>
     /// Rebinds the element at the given subscripts to <paramref name="value"/>. Mutates the cell in
     /// place — array element storage is mutable. Returns <c>false</c> when the subscripts are out of
     /// bounds or their count does not match the array rank.
