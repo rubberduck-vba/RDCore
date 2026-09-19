@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
@@ -24,7 +25,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison) => throw new NotSupportedException();
+    protected override bool ComparisonOp(string lhs, string rhs, StringComparisonRules rules) => throw new NotSupportedException();
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(

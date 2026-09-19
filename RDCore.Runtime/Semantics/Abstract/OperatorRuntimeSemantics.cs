@@ -64,7 +64,7 @@ where TFlags : struct, Enum
         // builder, expression, operands) overload below it was clearly meant to delegate to; it only
         // compiled because both overloads' first parameter happened to be ISymbolResolver). Nothing
         // calls this Analyze path yet (RDCore.Diagnostics isn't wired to it), so it was latent.
-        => Analyze(session.Symbols.Resolver, (ISemanticContextContributor<TContext, TFlags>)builder, (VBOperatorExpression)node, session.CurrentCompareMode(), inputs);
+        => Analyze(session.Symbols.Resolver, (ISemanticContextContributor<TContext, TFlags>)builder, (VBOperatorExpression)node, session.CurrentStringComparison(), inputs);
 
     /// <summary>
     /// Analyzes the specified <c>VBOperatorExpression</c> node in the specified execution context, using the specified operands.
@@ -72,13 +72,13 @@ where TFlags : struct, Enum
     /// <param name="resolver">A read-only interface over the current execution context..</param>
     /// <param name="builder">A <em>semantic flags builder</em> specifically for the operation defined by the <see cref="VBOperatorExpression{TContext,TFlags}"/> node under scrutiny.</param>
     /// <param name="expression">The <em>operator expression</em> node to be evaluated.</param>
-    /// <param name="compareMode">The mode the operation compares <c>String</c> values in where it is analyzed.</param>
+    /// <param name="comparison">How the operation compares <c>String</c> values where it is analyzed.</param>
     /// <param name="operands">The operands of the <em>operator expression</em>.</param>
     protected ISemanticContextContributor<TContext, TFlags> Analyze(
         ISymbolResolver resolver,
         ISemanticContextContributor<TContext, TFlags> builder,
         VBOperatorExpression expression,
-        OptionCompare compareMode,
+        StringComparisonRules comparison,
         params VBTypedValue[] operands)
     {
         // what has been contributed so far is the context the effective type is determined in; any builder that can build
@@ -94,7 +94,7 @@ where TFlags : struct, Enum
             //OperatorSymbol = expression.Symbol,
             Operands = [.. operands],
             EffectiveType = VBUnknownType.TypeInfo,
-            CompareMode = compareMode,
+            Comparison = comparison,
         };
 
         var effectiveTypeResult = DetermineOperatorEffectiveType(resolver, initialContext, expression, frame);
@@ -116,7 +116,7 @@ where TFlags : struct, Enum
 
         // 4. ...profit:
         var analysisContext = CreateAnalysisContext(expression, effectiveTypeResult, coercionResult, evaluationResult, initialContext.Flags)
-            with { CompareMode = compareMode };
+            with { Comparison = comparison };
         return Analyze(resolver, conversionContextBuilder.Build(), builder, expression, analysisContext, [.. frame.Operands]);
     }
 
@@ -186,7 +186,7 @@ where TFlags : struct, Enum
         params VBTypedValue[] inputs)
     {
         var expression = (VBOperatorExpression)node;
-        var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo, session.CurrentCompareMode());
+        var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo, session.CurrentStringComparison());
         return Evaluate(session.Symbols.Resolver, context, expression, frame);
     }
 

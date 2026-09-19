@@ -34,10 +34,10 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
         public IEnumerable<Symbol> ProvideSymbols() => [];
     }
 
-    private static IRuntimeSession SessionIn(OptionCompare? declared, OptionCompare databaseCompare = OptionCompare.Text)
+    private static IRuntimeSession SessionIn(OptionCompare? declared, OptionCompare databaseCompare = OptionCompare.Text, int lcid = 0)
     {
         var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, SupportsOptionCompareDatabase: true, databaseCompare), new NoSymbols());
+            new RuntimeEnvironmentProfile(Is64Bit: true, lcid, 1252, SupportsOptionCompareDatabase: true, databaseCompare), new NoSymbols());
 
         if (declared is { } compare)
         {
@@ -133,6 +133,48 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     {
         Assert.IsTrue(Equal(SessionIn(OptionCompare.Database, OptionCompare.Text), "a", "A"));
         Assert.IsFalse(Equal(SessionIn(OptionCompare.Database, OptionCompare.Binary), "a", "A"));
+    }
+
+    #endregion
+
+    #region the regional settings of the environment (MS-VBAL 5.6.9.5: text mode compares "according to the platform's host-defined regional settings")
+
+    private const int Turkish = 1055; // tr-TR: the dotted capital İ (U+0130) is the capital of i.
+
+    private static bool Like(IRuntimeSession session, string text, string pattern)
+        => (bool)((VBBooleanValue)new LikeRelationalOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(), Formatter())
+            .Evaluate(session, new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(), ThrowawayExpression,
+                new VBStringValue(text), new VBStringValue(pattern)).Result!).Value!;
+
+    [TestMethod]
+    public void InTextMode_TheCaseOfALetter_IsThatOfTheEnvironmentsCulture()
+    {
+        Assert.IsTrue(Equal(SessionIn(OptionCompare.Text, lcid: Turkish), "i", "İ"));
+        Assert.IsFalse(Equal(SessionIn(OptionCompare.Text, lcid: 0), "i", "İ"));
+    }
+
+    [TestMethod]
+    public void InTextMode_TheCaseOfALetter_IsThatOfTheEnvironmentsCulture_ForLikeToo()
+    {
+        Assert.IsTrue(Like(SessionIn(OptionCompare.Text, lcid: Turkish), "i", "İ"));
+        Assert.IsFalse(Like(SessionIn(OptionCompare.Text, lcid: 0), "i", "İ"));
+    }
+
+    [TestMethod]
+    public void InBinaryMode_TheCultureOfTheEnvironment_ChangesNothing()
+    {
+        Assert.IsFalse(Equal(SessionIn(OptionCompare.Binary, lcid: Turkish), "i", "İ"));
+        Assert.IsFalse(Like(SessionIn(OptionCompare.Binary, lcid: Turkish), "i", "İ"));
+    }
+
+    [TestMethod]
+    public void LikeInTextMode_DoesNotChangeTheCultureOfTheCallingThread()
+    {
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+
+        Like(SessionIn(OptionCompare.Text, lcid: Turkish), "i", "İ");
+
+        Assert.AreEqual(before, System.Globalization.CultureInfo.CurrentCulture);
     }
 
     #endregion

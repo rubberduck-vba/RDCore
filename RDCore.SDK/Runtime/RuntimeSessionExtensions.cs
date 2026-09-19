@@ -26,4 +26,12 @@ public static class RuntimeSessionExtensions
             ? declared
             : session.Environment.DatabaseCompare == OptionCompare.Binary ? OptionCompare.Binary : OptionCompare.Text;
     }
+
+    /// <summary>
+    /// How the relational operators compare <c>String</c> values at the point of the session's execution (<strong>MS-VBAL §5.6.9.5</strong>):
+    /// the <see cref="CurrentCompareMode"/>, collated by the regional settings of the session's environment.
+    /// </summary>
+    /// <param name="session">The session the code is executing in.</param>
+    public static StringComparisonRules CurrentStringComparison(this IRuntimeSession session)
+        => new(session.CurrentCompareMode(), session.Environment.Culture);
 }

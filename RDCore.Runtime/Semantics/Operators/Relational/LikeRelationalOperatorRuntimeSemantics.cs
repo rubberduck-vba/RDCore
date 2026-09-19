@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
@@ -17,6 +18,8 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -69,14 +72,26 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
         }
     }
 
-    protected override bool ComparisonOp(string lhs, string rhs, StringComparison comparison)
+    protected override bool ComparisonOp(string lhs, string rhs, StringComparisonRules rules)
     {
-        var regex = ToRegex(rhs);
-        var options = comparison == StringComparison.InvariantCultureIgnoreCase
-            ? RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
-            : RegexOptions.CultureInvariant;
+        var pattern = ToRegex(rhs);
+        if (!rules.IgnoresCase)
+        {
+            return Regex.IsMatch(lhs, pattern, RegexOptions.CultureInvariant);
+        }
 
-        return Regex.IsMatch(lhs, regex, options);
+        // MS-VBAL 5.6.9.6: in text mode the match is regardless of case, by the regional settings of the environment; a Regex
+        // takes the culture it ignores case by from the current culture at the time it is constructed.
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = rules.EffectiveCulture;
+        try
+        {
+            return new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(lhs);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
