@@ -76,7 +76,9 @@ where TFlags : struct, Enum
         VBOperatorExpression expression,
         params VBTypedValue[] operands)
     {
-        var initialContext = ((ISemanticContextBuilder<TContext, TFlags>)builder).Build();
+        // what has been contributed so far is the context the effective type is determined in; any builder that can build
+        // a context will do - one that also carries diagnostics is not required.
+        var initialContext = ((ISemanticContextFlagsBuilder<TContext, TFlags>)builder).Build();
         var conversionContextBuilder = new LetCoercionSemanticContextFlagsBuilder();
         var operandsInfo = operands.Select((operand, index) => (operand.TypeInfo, Index:(InputIndex)index)).ToArray();
 
@@ -92,14 +94,19 @@ where TFlags : struct, Enum
         var effectiveTypeResult = DetermineOperatorEffectiveType(resolver, initialContext, expression, frame);
         frame = frame with { EffectiveType = effectiveTypeResult.Result ?? frame.EffectiveType };
 
-        // 2. validate the operands (let-coerce non-null operands):
+        // 2. validate the operands (let-coerce non-null operands); with no effective type there is nothing to coerce them to:
         var coercionResult = operandsInfo
-            .Select(info => AnalyzeValidateOperand(resolver, conversionContextBuilder, expression, frame, info.Index))
+            .Select(info => effectiveTypeResult.Result is null
+                ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(frame[info.Index], []))
+                : AnalyzeValidateOperand(resolver, conversionContextBuilder, expression, frame, info.Index))
             // merging the results aggregates their respective sub operations into a single unified coercion stack:
             .Aggregate((context, operation) => context.Merge(operation));
 
-        // 3. evaluate the result:
-        var evaluationResult = EvaluateExpressionResult(resolver, initialContext, expression, frame);
+        // 3. evaluate the result - the way the operator itself would, which is on the operands as let-coerced to the
+        //    effective type (evaluating the raw operands would hand a Double operation a Long), and which reports the
+        //    error, if there is one, that stopped the operation: no effective type, a failed coercion, or the evaluation.
+        var evaluationResult = Evaluate(resolver, initialContext, expression, frame);
+        builder.AddOnError(evaluationResult.ErrorInfo);
 
         // 4. ...profit:
         var analysisContext = CreateAnalysisContext(expression, effectiveTypeResult, coercionResult, evaluationResult, initialContext.Flags);
@@ -300,7 +307,12 @@ where TFlags : struct, Enum
         InputIndex operandIndex)
     {
         var operand = frame[operandIndex];
+
+        // the same operands ValidateOperand exempts, and the same destination it coerces the others to: the analysis
+        // describes the coercion the operation performs, not another one.
+        var destinationType = CoercionDestinationOf(frame);
         return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
+            || destinationType.Equals(operand.TypeInfo) // no coercion occurs
             ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []))
             : LetCoercionSemanticsProvider.Analyze(resolver, builder, expression,
                 new()
@@ -308,9 +320,14 @@ where TFlags : struct, Enum
                     NodeId = expression.Identity,
                     OperandIndex = operandIndex,
                     SourceValue = operand,
-                    DestinationTypeDesc = new VBTypeDescValue(frame.EffectiveType),
+                    DestinationTypeDesc = new VBTypeDescValue(destinationType),
                 });
     }
+
+    // a Date effective type is computed in Double (MS-VBAL 5.6.9.3 et al.): the operands are let-coerced to Double even
+    // when their own declared type already is Date.
+    private static VBType CoercionDestinationOf(OperatorEvaluationFrame frame)
+        => frame.EffectiveType is VBDateType ? VBDoubleType.TypeInfo : frame.EffectiveType;
 
     /// <summary>
     /// Let-coerces the non-null operands of an <em>operator expression</em>.
@@ -331,9 +348,7 @@ where TFlags : struct, Enum
         var operand = frame[operandIndex];
         Debug.Assert(operand is not VBNullValue);
 
-        // a Date effective type is computed in Double (MS-VBAL 5.6.9.3 et al.): the operand is
-        // let-coerced to Double even when its own declared type already is Date.
-        var destinationType = frame.EffectiveType is VBDateType ? VBDoubleType.TypeInfo : frame.EffectiveType;
+        var destinationType = CoercionDestinationOf(frame);
 
         return destinationType.Equals(operand.TypeInfo)
             // if the type of the operand is the destination type, the result is the unchanged operand (no coercion occurs).

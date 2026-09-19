@@ -164,10 +164,24 @@ public interface ISemanticContextFlagsBuilder<TContext, TFlags> : ISemanticFlags
 /// </summary>
 /// <typeparam name="TContext">The type of <c>SemanticContext</c> to build.</typeparam>
 /// <typeparam name="TFlags">A <c>[Flags]</c> <c>enum</c> type with bit-shifted members that can be composed to encode the <em>semantic flags</em> of the context.</typeparam>
-public record class SemanticContextFlagsBuilder<TContext, TFlags> : ISemanticContextFlagsBuilder<TContext, TFlags>
+public record class SemanticContextFlagsBuilder<TContext, TFlags> : ISemanticContextFlagsBuilder<TContext, TFlags>, ISemanticContextContributor<TContext, TFlags>
     where TContext : SemanticContext<TFlags>, new()
     where TFlags : struct, Enum
 {
+    // an analysis contributes to a builder through the narrower contributor view (flags and errors, no Build), and every
+    // builder of this kind is one - including the one that also carries diagnostics.
+    ISemanticContextContributor<TContext, TFlags> ISemanticContextContributor<TContext, TFlags>.AddFlags(TFlags flags)
+    {
+        AddFlags(flags);
+        return this;
+    }
+
+    ISemanticContextContributor<TContext, TFlags> ISemanticContextContributor<TContext, TFlags>.AddOnError<TError>(TError? error) where TError : class
+    {
+        AddOnError(error);
+        return this;
+    }
+
     private readonly ConcurrentBag<TFlags> _flags = [];
     // a queue, not a bag: the errors of a context are reported in the order they were found.
     private readonly ConcurrentQueue<VBErrorInfo> _errors = [];

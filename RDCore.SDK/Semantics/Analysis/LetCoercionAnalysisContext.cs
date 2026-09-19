@@ -50,15 +50,16 @@ public readonly record struct LetCoercionAnalysisContext
     /// </summary>
     /// <param name="context">The sub-coercion analysis context to merge into this one.</param>
     public LetCoercionAnalysisContext Merge(LetCoercionAnalysisContext context)
-        => new(context.NodeId, 
-            context.Result with
+        // the merged result is the failure, if either coercion failed - the earlier one first, as it was found first - and
+        // otherwise the later one; the frames of both are kept, in order. An operand that is not coerced at all (a Null
+        // operand, an operand that already has the effective type) has no frame, and so contributes none.
+        => new(context.NodeId,
+            (Result.ErrorInfo is not null ? Result : context.Result) with
             {
-                // NOTE: .Merge(context) is called within an aggregator stack-traversal enumeration;
-                // the aggregation root already contains the final result (or error) value from index 0,
-                // therefore we only need to append the aggregate frame here to keep the stack in order.
-                // 👉 Each iteration necessarily only contains a single frame.
-                Frames = [.. Result.Frames, context.Result.Frame],
-            }, 
+                // NOTE: .Merge(context) is called within an aggregator stack-traversal enumeration, so the frames
+                // accumulated so far are the aggregation root's, and the merged context's are appended after them.
+                Frames = [.. Result.Frames, .. context.Result.Frames],
+            },
             // NOTE: we must Bitwise-Or the flags to combine them; any possible duplicate flags are not a concern.
             Flags | context.Flags);
 }

@@ -35,7 +35,16 @@ where TFlags : struct, Enum
         VBOperatorExpression expression,
         OperatorAnalysisContext<TFlags> analysisContext,
         params VBTypedValue[] operands)
-        => AnalyzeEffectiveType(builder, analysisContext.EffectiveTypeResult);
+        => AnalyzeOperands(builder, analysisContext.EffectiveTypeResult, operands);
+
+    /// <summary>
+    /// Analyzes the operand of the operation, and the effective type it is evaluated in. Analyzes the effective type
+    /// alone, by default.
+    /// </summary>
+    protected virtual ISemanticContextContributor<TContext, TFlags> AnalyzeOperands(
+        ISemanticContextContributor<TContext, TFlags> builder,
+        DetermineOperatorEffectiveTypeResult effectiveType,
+        params VBTypedValue[] operands) => AnalyzeEffectiveType(builder, effectiveType);
 
     protected virtual ISemanticContextContributor<TContext, TFlags> AnalyzeEffectiveType(
         ISemanticContextContributor<TContext, TFlags> builder,

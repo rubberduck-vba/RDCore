@@ -29,7 +29,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
         ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,
         DetermineOperatorEffectiveTypeResult context)
     {
-        builder.AddOnError(context.ErrorInfo);
+        // the error that stopped the operation - a missing effective type among them - is reported once, by the analysis.
         return context.Result switch
         {
             VBNumericType => builder.AddFlags(ArithmeticOperatorSemanticFlags.VBNumericEffectiveType),
