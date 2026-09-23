@@ -269,6 +269,45 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
+    public void Resolve_GetsDeclaredTypeIsNotYetResolved_DoesNotFlagInconsistency()
+        // VBUnknownType (type-binding hasn't resolved it yet, or it can't be) can't be shown to
+        // mismatch anything - deferred, not flagged, same convention as
+        // SetCoercionStaticSemantics.IsSetCoercionInvalid.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { ResolvedType = VBUnknownType.TypeInfo };
+        var let = PropertyLet(module.Uri, "Value"); // ValueParameter is Object-typed
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
+    public void Resolve_AnIndexParametersTypeIsNotYetResolved_DoesNotFlagInconsistency()
+    {
+        var module = Module("Mod1");
+        var unresolvedIndex = new VBParameterSymbol(Root, module.Uri, "index", R, R, ParameterKind.ImplicitByVal, VBUnknownType.TypeInfo);
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [unresolvedIndex] };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri), ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
+    public void Resolve_ASetsValueTypeIsNotYetResolved_DoesNotFlagInconsistency()
+    {
+        var module = Module("Mod1");
+        var set = PropertySet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, VBUnknownType.TypeInfo)] };
+
+        var result = Resolver(module, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
     public void Resolve_ASetWhoseValueIsNotObjectVariantOrAClass_IsInconsistentPropertyAccessors()
         // MS-VBAL §5.3.1.7: the declared type of a property set declaration MUST be Object, Variant, or
         // a named class.

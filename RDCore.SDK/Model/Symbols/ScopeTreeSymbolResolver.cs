@@ -254,7 +254,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return false;
         }
 
-        return set is null || ValueTypeOf(set) is VBObjectType or VBVariantType or VBClassType;
+        // VBUnknownType (not yet resolved/modeled) can't be shown to violate this rule either, so it's
+        // deferred rather than flagged - same convention as SetCoercionStaticSemantics.IsSetCoercionInvalid.
+        return set is null || ValueTypeOf(set) is VBUnknownType or VBObjectType or VBVariantType or VBClassType;
     }
 
     private static IReadOnlyList<VBParameterSymbol> IndexParametersOf(IVBPropertyMemberSymbol accessor) => accessor switch
@@ -296,11 +298,18 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     // established identity accessor for this (Uri.AbsoluteUri, ordinal - Uri's own Equals/GetHashCode
     // ignore Fragment, which is where a Symbol's real identity lives). An intrinsic type owns no
     // symbol at all, so there is no such ambiguity to guard against - its Name is canonical there.
-    private static bool SameDeclaredType(VBType a, VBType b) => (OwningSymbolOf(a), OwningSymbolOf(b)) switch
+    // VBUnknownType (not yet resolved/modeled) on either side can't be shown to be a mismatch, so it's
+    // deferred (treated as matching) rather than flagged - same convention as
+    // SetCoercionStaticSemantics.IsSetCoercionInvalid.
+    private static bool SameDeclaredType(VBType a, VBType b) => (a, b) switch
     {
-        ({ } symbolA, { } symbolB) => symbolA.SemanticId == symbolB.SemanticId,
-        (null, null) => string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
-        _ => false,
+        (VBUnknownType, _) or (_, VBUnknownType) => true,
+        _ => (OwningSymbolOf(a), OwningSymbolOf(b)) switch
+        {
+            ({ } symbolA, { } symbolB) => symbolA.SemanticId == symbolB.SemanticId,
+            (null, null) => string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        },
     };
 
     private static Symbol? OwningSymbolOf(VBType type) => type switch
