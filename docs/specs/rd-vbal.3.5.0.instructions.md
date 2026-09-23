@@ -109,6 +109,14 @@ whatever it was before once lowering leaves the block. This is computed once at 
 as a runtime stack the interpreter pushes and pops: a `GoTo` into or out of a `With` block therefore leaves
 no stale state to unwind, because there never was any to begin with.
 
+**A dead `#If`/`#ElseIf`/`#Else` branch is never lowered.** `Lower` takes an optional `deadRanges`
+argument — the source ranges
+[RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator](../api/RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator.html)
+found not live. A statement or label lexically inside one of those ranges, at any depth, is skipped
+entirely: no instruction, no `ByNode` entry, no label definition — exactly as if the excluded source had
+never been there, the same way the real MS-VBA preprocessor logically removes it before the rest of the
+language ever sees it (**MS-VBAL §3.4.2**).
+
 **Not yet lowered.** `GoSub`/`Return`/`On…GoSub` and error-handling instructions (`On Error`, `Resume`,
 `Error`) fall through as `Simple`, same as any other statement kind this pass does not yet give a dedicated
 shape — a later slice.

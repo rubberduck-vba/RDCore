@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -73,6 +74,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         {
             LiteralExpressionNode => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression),
             SimpleNameExpressionNode simpleName => EvaluateSimpleName(session, context, simpleName),
+            PrecompilerNameExpressionNode precompilerName => EvaluatePrecompilerConstant(session, precompilerName),
             InstanceExpressionNode => EvaluateInstance(session, context, expression),
             NewExpressionNode newExpression => EvaluateNew(session, context, expression, newExpression),
             MemberAccessExpressionNode memberAccess => EvaluateMemberAccess(session, context, expression, memberAccess),
@@ -92,6 +94,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         return result.Symbol is ITypedSymbol typed
             ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(result.Symbol)))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // MS-VBAL §5.6.16.2: a conditional-compilation constant that names nothing is the value 0 - not a
+    // compile error, and Option Explicit (a variable-declaration concern) has no bearing on it.
+    private static RuntimeSemanticsEvaluationResult EvaluatePrecompilerConstant(IRuntimeSession session, PrecompilerNameExpressionNode name)
+    {
+        var result = session.Symbols.Resolver.ResolveValue(name.Name, ScopeKind.Global, StaticSymbol.GlobalUri);
+        return RuntimeSemanticsEvaluationResult.Success(result.Symbol is PrecompilerConstantSymbol constant ? constant.Value : new VBIntegerValue(0));
     }
 
     private static RuntimeSemanticsEvaluationResult EvaluateInstance(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
