@@ -205,25 +205,45 @@ public sealed class CallableBindingHandleTests
 
     #endregion
 
-    #region a Sub or a Function is not a value
+    #region no callable is ever a value - a property accessor included, whatever its arity
 
     private static VBFunctionMemberSymbol Function(string name = "Compute")
         => new(Root, Root, name, ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
 
-    public static IEnumerable<object[]> SubAndFunction()
+    private static VBParameterSymbol Parameter(string name)
+        => new(Root, Root, name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: false);
+
+    private static VBPropertyGetMemberSymbol Get(params VBParameterSymbol[] parameters)
+        => new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Module, "Total", SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
+
+    private static VBPropertyLetMemberSymbol Let(params VBParameterSymbol[] parameters)
+        => new VBPropertyLetMemberSymbol(Root, Root, "Total", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
+
+    private static VBPropertySetMemberSymbol Set(params VBParameterSymbol[] parameters)
+        => new VBPropertySetMemberSymbol(Root, Root, "Total", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
+
+    // a Property Get/Let/Set can run validation or have side effects, the same as a Sub or a Function -
+    // so it is never a value-slot shortcut, whatever its arity: zero-index, indexed, or ParamArray-indexed alike.
+    public static IEnumerable<object[]> EveryKindOfCallable()
     {
         yield return [Sub()];
         yield return [Function()];
+        yield return [Get()];
+        yield return [Get(Parameter("index"))];
+        yield return [Let(Parameter("value"))];
+        yield return [Let(Parameter("index"), Parameter("value"))];
+        yield return [Set(Parameter("value"))];
+        yield return [Get(new ParamArrayParameterSymbol(Root, Root, "rest", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByRef))];
     }
 
     [TestMethod]
-    [DynamicData(nameof(SubAndFunction))]
-    public void ASubOrAFunction_CanBeInvoked_AndNothingElse(VBTypeMemberSymbol procedure)
+    [DynamicData(nameof(EveryKindOfCallable))]
+    public void EveryCallable_CanOnlyBeInvoked_RegardlessOfArity(VBTypeMemberSymbol procedure)
         => Assert.AreEqual(BindingCapabilities.Invoke, new CallableBindingHandle(procedure, Substitute.For<IProcedureInvoker>()).BindingCapabilities);
 
     [TestMethod]
-    [DynamicData(nameof(SubAndFunction))]
-    public void ASubOrAFunction_HasNoValueToRead(VBTypeMemberSymbol procedure)
+    [DynamicData(nameof(EveryKindOfCallable))]
+    public void EveryCallable_HasNoValueToRead(VBTypeMemberSymbol procedure)
     {
         var handle = new CallableBindingHandle(procedure, Substitute.For<IProcedureInvoker>());
 
@@ -232,8 +252,8 @@ public sealed class CallableBindingHandleTests
     }
 
     [TestMethod]
-    [DynamicData(nameof(SubAndFunction))]
-    public void ASubOrAFunction_CannotBeAssigned(VBTypeMemberSymbol procedure)
+    [DynamicData(nameof(EveryKindOfCallable))]
+    public void EveryCallable_CannotBeAssigned(VBTypeMemberSymbol procedure)
         => Assert.ThrowsExactly<NotSupportedException>(() => new CallableBindingHandle(procedure, Substitute.For<IProcedureInvoker>()).SetValue(Resolver, Number(1)));
 
     [TestMethod]
@@ -249,19 +269,7 @@ public sealed class CallableBindingHandleTests
 
     #endregion
 
-    #region a property is read and written through its accessors
-
-    private static VBParameterSymbol Parameter(string name, bool optional = false)
-        => new(Root, Root, name, SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, optional);
-
-    private static VBPropertyGetMemberSymbol Get(params VBParameterSymbol[] parameters)
-        => new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Module, "Total", SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
-
-    private static VBPropertyLetMemberSymbol Let(params VBParameterSymbol[] parameters)
-        => new VBPropertyLetMemberSymbol(Root, Root, "Total", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
-
-    private static VBPropertySetMemberSymbol Set(params VBParameterSymbol[] parameters)
-        => new VBPropertySetMemberSymbol(Root, Root, "Total", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { Parameters = [.. parameters] };
+    #region a property accessor is invoked, like any other procedure
 
     private static (CallableBindingHandle Handle, IProcedureInvoker Invoker) HandleOf(VBTypeMemberSymbol accessor, IRuntimeValue? receiver = null, VBTypedValue? returns = null)
     {
@@ -271,23 +279,11 @@ public sealed class CallableBindingHandleTests
     }
 
     [TestMethod]
-    public void APropertyGet_ThatAsksForNoArguments_CanBeReadAndInvoked_NotWritten()
-        => Assert.AreEqual(BindingCapabilities.Invoke | BindingCapabilities.GetValue, HandleOf(Get()).Handle.BindingCapabilities);
-
-    [TestMethod]
-    public void APropertyLet_ThatAsksForTheValueOnly_CanBeWrittenAndInvoked_NotRead()
-        => Assert.AreEqual(BindingCapabilities.Invoke | BindingCapabilities.SetValue, HandleOf(Let(Parameter("value"))).Handle.BindingCapabilities);
-
-    [TestMethod]
-    public void APropertySet_ThatAsksForTheValueOnly_CanBeWrittenAndInvoked_NotRead()
-        => Assert.AreEqual(BindingCapabilities.Invoke | BindingCapabilities.SetValue, HandleOf(Set(Parameter("value"))).Handle.BindingCapabilities);
-
-    [TestMethod]
     public void ReadingAProperty_InvokesItsGetWithNoArguments_AndYieldsWhatItReturned()
     {
         var (handle, invoker) = HandleOf(Get(), returns: new VBLongValue(7));
 
-        var value = handle.GetValue(Resolver);
+        var value = handle.Invoke(Resolver, []);
 
         Assert.AreEqual(7, value.BoxedValue);
         invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 0));
@@ -299,7 +295,7 @@ public sealed class CallableBindingHandleTests
         var me = Number(42);
         var (handle, invoker) = HandleOf(Get(), receiver: me, returns: new VBLongValue(7));
 
-        handle.GetValue(Resolver);
+        handle.Invoke(Resolver, []);
 
         invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 1 && Equals(passed[0], me)));
     }
@@ -313,7 +309,7 @@ public sealed class CallableBindingHandleTests
         var (handle, invoker) = HandleOf(accessor);
         var value = Number(5);
 
-        handle.SetValue(Resolver, value);
+        handle.Invoke(Resolver, [value]);
 
         invoker.Received(1).Invoke(accessor, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 1 && Equals(passed[0], value)));
     }
@@ -324,74 +320,31 @@ public sealed class CallableBindingHandleTests
         var me = Number(42);
         var (handle, invoker) = HandleOf(Let(Parameter("value")), receiver: me);
 
-        handle.SetValue(Resolver, Number(5));
+        handle.Invoke(Resolver, [Number(5)]);
 
         invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 2 && Equals(passed[0], me) && Equals(passed[1], Number(5))));
     }
 
     [TestMethod]
-    public void APropertyGet_CannotBeWritten_AndALetOrSet_CannotBeRead()
+    public void AnIndexedProperty_IsReadOrWritten_ByInvokingWithTheIndexArguments()
     {
-        var (get, _) = HandleOf(Get());
-        var (let, _) = HandleOf(Let(Parameter("value")));
-        var (set, _) = HandleOf(Set(Parameter("value")));
+        var (get, getInvoker) = HandleOf(Get(Parameter("index")), returns: new VBLongValue(3));
+        get.Invoke(Resolver, [Number(1)]);
+        getInvoker.Received(1).Invoke(get.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 1));
 
-        Assert.ThrowsExactly<NotSupportedException>(() => get.SetValue(Resolver, Number(1)));
-        Assert.ThrowsExactly<NotSupportedException>(() => let.GetValue(Resolver));
-        Assert.ThrowsExactly<NotSupportedException>(() => set.GetValue(Resolver));
+        var (let, letInvoker) = HandleOf(Let(Parameter("index"), Parameter("value")));
+        let.Invoke(Resolver, [Number(1), Number(5)]);
+        letInvoker.Received(1).Invoke(let.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 2));
     }
 
     [TestMethod]
-    public void AnIndexedPropertyGet_CannotBeReadWithoutItsIndex_ButCanBeInvokedWithIt()
-    {
-        var (handle, invoker) = HandleOf(Get(Parameter("index")), returns: new VBLongValue(3));
-
-        Assert.AreEqual(BindingCapabilities.Invoke, handle.BindingCapabilities);
-        Assert.ThrowsExactly<NotSupportedException>(() => handle.GetValue(Resolver));
-
-        handle.Invoke(Resolver, [Number(1)]);
-        invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 1));
-    }
-
-    [TestMethod]
-    public void AnIndexedPropertyLet_CannotBeWrittenWithOnlyAValue()
-        => Assert.AreEqual(BindingCapabilities.Invoke, HandleOf(Let(Parameter("index"), Parameter("value"))).Handle.BindingCapabilities);
-
-    [TestMethod]
-    public void AnIndexMarkedOptional_StillExcludesTheSimpleReadOrWrite()
-        // MS-VBAL §5.3.1.7: property-parameters = "(" [parameter-list ","] value-param ")", and
-        // value-param = positional-param — always required, always last. A real index parameter is
-        // therefore always required too; this asserts the handle doesn't trust a symbol that claims
-        // otherwise.
-    {
-        Assert.IsFalse(HandleOf(Get(Parameter("index", optional: true))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
-        Assert.IsFalse(HandleOf(Let(Parameter("index", optional: true), Parameter("value"))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue));
-    }
-
-    [TestMethod]
-    public void AParamArrayIndex_AlsoExcludesTheSimpleRead_InvokeStillWorks()
-    {
-        var paramArray = new ParamArrayParameterSymbol(Root, Root, "rest", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByRef);
-        var (handle, invoker) = HandleOf(Get(paramArray), returns: new VBLongValue(3));
-
-        Assert.IsFalse(handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
-
-        handle.Invoke(Resolver, []);
-        invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 0));
-    }
-
-    [TestMethod]
-    public void APropertyLetWithNoParameterToTakeTheValue_CannotBeWritten()
-        => Assert.AreEqual(BindingCapabilities.Invoke, HandleOf(Let()).Handle.BindingCapabilities);
-
-    [TestMethod]
-    public void AnErrorRaisedByAnAccessor_IsThrownByTheReadOrTheWrite()
+    public void AnErrorRaisedByAnAccessor_IsThrownByInvoke()
     {
         var invoker = Substitute.For<IProcedureInvoker>();
         invoker.Invoke(default!, default!, default!).ReturnsForAnyArgs(RuntimeSemanticsEvaluationResult.Error(Error()));
 
-        Assert.ThrowsExactly<VBRuntimeErrorException>(() => new CallableBindingHandle(Get(), invoker).GetValue(Resolver));
-        Assert.ThrowsExactly<VBRuntimeErrorException>(() => new CallableBindingHandle(Let(Parameter("value")), invoker).SetValue(Resolver, Number(1)));
+        Assert.ThrowsExactly<VBRuntimeErrorException>(() => new CallableBindingHandle(Get(), invoker).Invoke(Resolver, []));
+        Assert.ThrowsExactly<VBRuntimeErrorException>(() => new CallableBindingHandle(Let(Parameter("value")), invoker).Invoke(Resolver, [Number(1)]));
     }
 
     [TestMethod]

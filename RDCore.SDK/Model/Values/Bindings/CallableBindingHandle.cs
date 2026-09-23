@@ -4,7 +4,6 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Values.Bindings;
 
@@ -14,19 +13,16 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every callable binding supports <see cref="BindingCapabilities.Invoke"/>. A <c>Sub</c> or a <c>Function</c> is not a value that can be
-/// read or assigned, so <see cref="GetValue"/> and <see cref="SetValue"/> are not supported for them; a reference to a parameterless
-/// <c>Function</c> that evaluates to its result is an invocation, made with no arguments.
+/// Every callable binding, whatever <see cref="Procedure"/> is - a <c>Sub</c>, a <c>Function</c>, or a <c>Property Get</c>/<c>Let</c>/<c>Set</c>
+/// of any arity - only ever supports <see cref="BindingCapabilities.Invoke"/>. <see cref="GetValue"/> and <see cref="SetValue"/> are never
+/// supported: a property accessor is a procedure, its source code can validate, have side effects, or raise errors, and none of that is
+/// something a value-slot shortcut may bypass. A reference to a parameterless <c>Function</c> that evaluates to its result, or a read/write of
+/// a property that takes no index, is still an ordinary invocation - made with no arguments, but an invocation all the same.
 /// </para>
 /// <para>
-/// A property accessor is the binding a read or a write of a property goes through, one handle per accessor: a <c>Property Get</c> that can be
-/// called with no arguments supports <see cref="BindingCapabilities.GetValue"/>, and a <c>Property Let</c> or <c>Property Set</c> whose only
-/// required parameter is the value supports <see cref="BindingCapabilities.SetValue"/>. Whether a write goes to the <c>Let</c> or to the
-/// <c>Set</c> accessor is not something the handle can tell from the value written: it is the accessor the handle was made for. An indexed
-/// property is read and written by invoking its accessors with the indexes.
-/// </para>
-/// <para>
-/// Reading or writing a property runs its source code, with everything that entails: it can have side effects, and it can raise errors.
+/// A property accessor is the binding a read or a write of a property goes through, one handle per accessor. Whether a write goes to the
+/// <c>Let</c> or to the <c>Set</c> accessor is not something the handle can tell from the value written: it is the accessor the handle was
+/// made for. An indexed property is read and written by invoking its accessor with the index arguments.
 /// </para>
 /// <para>
 /// <see cref="Value"/> is never supported: it reads without a resolver, and an invocation needs one.
@@ -43,28 +39,8 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// </param>
 public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedureInvoker Invoker, IRuntimeValue? Receiver = null) : IBindingHandle
 {
-    private ImmutableArray<VBParameterSymbol> Parameters => Procedure switch
-    {
-        VBReturningMemberSymbol returning => returning.Parameters,
-        VBProcedureMemberSymbol procedure => procedure.Parameters,
-        _ => [],
-    };
-
-    // MS-VBAL §5.3.1.7: property-parameters = "(" [parameter-list ","] value-param ")", and
-    // value-param = positional-param - the value is always required and always last, so an indexed
-    // property's index parameter(s) are always required too (an optional-param can never precede a
-    // positional-param in a parameter-list). GetValue/SetValue therefore only ever apply to a
-    // zero-index property; an indexed one is read or written through Invoke/Call with the index
-    // arguments supplied.
-    private bool IsReadable => Procedure is VBPropertyGetMemberSymbol && Parameters.Length == 0;
-
-    private bool IsWritable => Procedure is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol && Parameters.Length == 1;
-
     /// <inheritdoc/>
-    public BindingCapabilities BindingCapabilities
-        => BindingCapabilities.Invoke
-            | (IsReadable ? BindingCapabilities.GetValue : BindingCapabilities.None)
-            | (IsWritable ? BindingCapabilities.SetValue : BindingCapabilities.None);
+    public BindingCapabilities BindingCapabilities => BindingCapabilities.Invoke;
 
     /// <summary>
     /// Invokes the procedure and returns the outcome of the call as a result, the way the semantics of the language do:
@@ -100,32 +76,18 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     }
 
     /// <summary>
-    /// Reads a property, by invoking its <c>Property Get</c> accessor with no arguments.
+    /// Not supported: a procedure, including a property accessor, is never read as a value - see <see cref="Invoke"/>.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
-    /// <exception cref="NotSupportedException">The binding is not a <c>Property Get</c> that can be called with no arguments.</exception>
-    /// <exception cref="VBRuntimeErrorException">A run-time error was raised in the accessor and nothing handled it.</exception>
+    /// <exception cref="NotSupportedException">Always.</exception>
     public IRuntimeValue GetValue(ISymbolResolver resolver)
-        => IsReadable
-            ? Invoke(resolver, [])
-            : throw new NotSupportedException($"'{Procedure.Name}' is not a property that can be read without arguments: it is invoked, it has no value to read.");
+        => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it has no value to read.");
 
     /// <summary>
-    /// Writes a property, by invoking its <c>Property Let</c> or <c>Property Set</c> accessor with the value.
+    /// Not supported: a procedure, including a property accessor, is never assigned as a value - see <see cref="Invoke"/>.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
-    /// <param name="value">The value to write: the argument of the accessor's value parameter.</param>
-    /// <exception cref="NotSupportedException">The binding is not a <c>Property Let</c> or <c>Property Set</c> that can be called with only the value.</exception>
-    /// <exception cref="VBRuntimeErrorException">A run-time error was raised in the accessor and nothing handled it.</exception>
+    /// <exception cref="NotSupportedException">Always.</exception>
     public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
-    {
-        if (!IsWritable)
-        {
-            throw new NotSupportedException($"'{Procedure.Name}' is not a property that can be written with only a value: it cannot be assigned.");
-        }
-
-        Invoke(resolver, [value]);
-    }
+        => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it cannot be assigned.");
 
     /// <summary>
     /// Not supported: reading a binding without a resolver cannot run source code.
