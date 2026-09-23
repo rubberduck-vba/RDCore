@@ -55,6 +55,6 @@ The publisher of the **RDCore** platform project and of _this present documentat
 |2026-09-06|1.1|§2.3.1.2 session services (`IRuntimeSession` root; `IVirtualHeap` removed); §2.5.2.1.2 array values are a flat column-major store; §3.2.0.1 numeric literal types (type-declaration characters); §5.0.2.1 results are computed in the effective type; §5.0.2.2 let-coercion provider/strategy dispatch and the MS-VBAL-divergence principle; §2.5.2.1.3 UDT values are addressable IDs|
 |2026-09-09|1.2|§2.6 Diagnostics — the `VBC`/`VBR`/`VBA`/`RDC` code families, help-URL convention, and the LSP-pull provider pipeline (`textDocument/diagnostic`; the `DiagnoseDocument` provider capability; result identity and the version staleness gate)|
 |2026-09-13|1.3|§3.4 Statements — block/simple/file statement node families, each cross-referenced to its MS-VBAL section|
-|2026-09-23|1.4|§3.5 Instructions — the `InstructionList`/`Instruction` model and lowering for linear/jump statements ([VBC09319](../diagnostics/vbc09319.html) duplicate-label-definition diagnostic added) and for block statements (`If`/`Select Case`/loops/`With`, `Matching`/`EnclosingWith` links, `Exit For`/`Exit Do` resolution)|
+|2026-09-23|1.4|§3.5 Instructions — the `InstructionList`/`Instruction` model and lowering |
 | | | |
 
