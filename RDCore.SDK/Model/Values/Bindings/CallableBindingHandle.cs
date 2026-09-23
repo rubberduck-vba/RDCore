@@ -50,15 +50,15 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
         _ => [],
     };
 
-    private static bool IsRequired(VBParameterSymbol parameter) => !parameter.IsOptional && parameter is not ParamArrayParameterSymbol;
+    // MS-VBAL §5.3.1.7: property-parameters = "(" [parameter-list ","] value-param ")", and
+    // value-param = positional-param - the value is always required and always last, so an indexed
+    // property's index parameter(s) are always required too (an optional-param can never precede a
+    // positional-param in a parameter-list). GetValue/SetValue therefore only ever apply to a
+    // zero-index property; an indexed one is read or written through Invoke/Call with the index
+    // arguments supplied.
+    private bool IsReadable => Procedure is VBPropertyGetMemberSymbol && Parameters.Length == 0;
 
-    // read with no argument: a Property Get that asks for none.
-    private bool IsReadable => Procedure is VBPropertyGetMemberSymbol && !Parameters.Any(IsRequired);
-
-    // written with one argument, the value, which is the last parameter of the accessor: any parameter before it (an index) has to be optional.
-    private bool IsWritable => Procedure is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol
-        && Parameters.Length > 0
-        && !Parameters.Take(Parameters.Length - 1).Any(IsRequired);
+    private bool IsWritable => Procedure is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol && Parameters.Length == 1;
 
     /// <inheritdoc/>
     public BindingCapabilities BindingCapabilities

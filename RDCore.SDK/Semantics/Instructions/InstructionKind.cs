@@ -110,9 +110,7 @@ public enum InstructionKind
     /// <summary>
     /// <c>Exit For</c>/<c>Exit Do</c> (<strong>MS-VBAL §5.4.2.5</strong>, <strong>§5.4.2.7</strong>):
     /// branches to <see cref="Instruction.Target"/>, the offset right past the innermost enclosing loop
-    /// of the matching kind's closer — or, when lowering found no such enclosing loop, an unresolved
-    /// <c>null</c> target (raising <c>ExitDoNotWithinDoLoop</c>/<c>ExitForNotWithinForNext</c> for that
-    /// case is a named follow-up, not yet wired here).
+    /// of the matching kind's closer, or <c>null</c> when lowering found no such enclosing loop.
     /// </summary>
     ExitLoop,
 }

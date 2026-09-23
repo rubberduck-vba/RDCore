@@ -109,9 +109,9 @@ whatever it was before once lowering leaves the block. This is computed once at 
 as a runtime stack the interpreter pushes and pops: a `GoTo` into or out of a `With` block therefore leaves
 no stale state to unwind, because there never was any to begin with.
 
-**Not yet lowered.** `GoSub`/`Return`/`On…GoSub` and error-handling instructions (`On Error`, `Resume`,
-`Error`) fall through as `Simple`, same as any other statement kind this pass does not yet give a dedicated
-shape — a later slice.
+**Unrecognized statement kinds.** `GoSub`/`Return`/`On…GoSub` and error-handling statements (`On Error`,
+`Resume`, `Error`) fall through as `Simple`, the same as any statement kind this pass does not give a
+dedicated shape.
 
 ---
 ## 3.5.4 Placement and licensing

@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
@@ -30,23 +31,23 @@ namespace RDCore.Runtime.Semantics;
 /// node's own C# type (and, for operator nodes, by <c>Token</c>) to the matching runtime-semantics
 /// rule, evaluating children first and short-circuiting the moment one is not a
 /// <see cref="RuntimeSemanticsEvaluationResult.IsSuccess"/> — an error or an internal error alike, so a
-/// deferred/unmodeled gap deep in a tree never gets mistaken for a valid operand further up. This is what
-/// <c>ExecutionPipeline</c>'s <c>TODO</c> was waiting for.
+/// gap deep in a tree never gets mistaken for a valid operand further up.
 /// </summary>
 /// <remarks>
-/// <strong>Scope.</strong> Literal/<c>Me</c>/<c>New</c>/every operator are wired straight to their
-/// already-implemented runtime semantics. <c>SimpleName</c> reads a variable/constant's current bound
-/// value. <c>Index</c> only resolves an array element access (<c>Callee</c> evaluating to a
-/// <see cref="VBArrayValue"/>) — a function/property call through <c>Callee</c> needs procedure
-/// invocation machinery that doesn't exist yet, so it defers with
-/// <see cref="RuntimeSemanticsEvaluationResult.InternalError"/>, same as every other gap this pass
-/// documents rather than silently mishandles. <c>MemberAccess</c> only reads a data field
-/// (<c>Field</c>/<c>Variable</c>-kind member) off a live object instance — a late-bound Variant/Object
-/// member, or a call through a <c>Property</c>/<c>Function</c>/<c>Sub</c> member, needs the same
-/// invocation machinery and defers the same way. <c>DictionaryAccess</c> (<strong>MS-VBAL
-/// §5.6.14</strong>) is <em>always</em> sugar for a call through the owner's default member — with no
-/// invocation machinery at all, it always defers. <c>TypeOfIs</c> checks the operand's actual runtime
-/// class against the named class/interface, walking <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>.
+/// Literal/<c>Me</c>/<c>New</c>/every operator are wired straight to their runtime semantics.
+/// <c>SimpleName</c> reads a variable/constant's current bound value. <c>Index</c> resolves array-element
+/// access (<c>Callee</c> evaluating to a <see cref="VBArrayValue"/>). <c>MemberAccess</c> reads a
+/// <c>Field</c>/<c>Variable</c>-kind member off a live object instance. <c>TypeOfIs</c> checks the
+/// operand's actual runtime class against the named class/interface, walking
+/// <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>.
+/// <para>
+/// Reading a value and invoking a procedure are different operations: a bare reference to a
+/// <c>Function</c>/<c>Property Get</c>/<c>Sub</c>, a call through <c>Index</c>/<c>MemberAccess</c> whose
+/// target isn't a plain array/field, <c>DictionaryAccess</c> (<strong>MS-VBAL §5.6.14</strong>'s sugar
+/// for a call through the owner's default member), and <c>AddressOf</c> (which must never be evaluated
+/// as a value read at all — its whole point is to reference a procedure, not call it) all return
+/// <see cref="RuntimeSemanticsEvaluationResult.InternalError"/> here rather than being misread as values.
+/// </para>
 /// <para>
 /// A jump statement's own label operand is never evaluated here — <see cref="LabelOperands"/> reads it
 /// directly, the same way <see cref="StatementStaticSemanticsEvaluator"/> does; a label is not a symbol.
@@ -87,6 +88,16 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
     private static RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
     {
         var result = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+
+        if (result.Symbol is VBReturningMemberSymbol or VBProcedureMemberSymbol)
+        {
+            // a bare reference to a Function/Property Get is an implicit call (MS-VBAL §5.6.10); a bare
+            // Sub/Function name is also what AddressOf's Target names. Neither is a value to read, and
+            // no callable symbol ever has storage allocated for it, so GetValue below would throw
+            // KeyNotFoundException instead of failing cleanly.
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
         // static semantics should already have rejected an unresolved, ambiguous, or duplicate name;
         // reaching here means that check was skipped.
         return result.Symbol is ITypedSymbol typed
@@ -144,9 +155,8 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
         return EvaluateInstanceField(session, owner, memberAccess.Member.IdentifierName);
     }
 
-    // Only a Field/Variable-kind member is readable this way - a late-bound Variant/Object member, and
-    // a call through a Property/Function/Sub member, both need procedure invocation machinery that
-    // doesn't exist yet.
+    // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
+    // invocations, not reads - only a Field/Variable-kind member is readable this way.
     private static RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, VBTypedValue owner, string memberName)
     {
         if (owner is not VBObjectValue objectValue || objectValue.IsNothing()
@@ -173,8 +183,7 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
 
         if (calleeResult.Result is not VBArrayValue array)
         {
-            // a function/property call through Callee needs procedure invocation machinery that
-            // doesn't exist yet.
+            // any other Callee shape is a function/property call, not an element read.
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
@@ -208,7 +217,9 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
         {
             MissingArgumentNode => null,
             NamedArgumentNode named => Evaluate(session, named.Value, context),
-            AddressOfExpressionNode addressOf => Evaluate(session, addressOf.Target, context),
+            // AddressOf's Target names a procedure to reference, never one to call or read a value
+            // from, so this never delegates to Evaluate the way every other argument shape does.
+            AddressOfExpressionNode => RuntimeSemanticsEvaluationResult.InternalError(),
             _ => Evaluate(session, argument, context),
         };
 
@@ -237,8 +248,8 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14),
-        // which needs procedure invocation machinery that doesn't exist yet.
+        // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14) -
+        // never a plain read.
         return RuntimeSemanticsEvaluationResult.InternalError();
     }
 

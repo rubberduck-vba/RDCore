@@ -358,18 +358,26 @@ public sealed class CallableBindingHandleTests
         => Assert.AreEqual(BindingCapabilities.Invoke, HandleOf(Let(Parameter("index"), Parameter("value"))).Handle.BindingCapabilities);
 
     [TestMethod]
-    public void AnOptionalIndex_DoesNotStopAPropertyFromBeingReadOrWritten()
+    public void AnIndexMarkedOptional_StillExcludesTheSimpleReadOrWrite()
+        // MS-VBAL §5.3.1.7: property-parameters = "(" [parameter-list ","] value-param ")", and
+        // value-param = positional-param — always required, always last. A real index parameter is
+        // therefore always required too; this asserts the handle doesn't trust a symbol that claims
+        // otherwise.
     {
-        Assert.IsTrue(HandleOf(Get(Parameter("index", optional: true))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
-        Assert.IsTrue(HandleOf(Let(Parameter("index", optional: true), Parameter("value"))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue));
+        Assert.IsFalse(HandleOf(Get(Parameter("index", optional: true))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
+        Assert.IsFalse(HandleOf(Let(Parameter("index", optional: true), Parameter("value"))).Handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue));
     }
 
     [TestMethod]
-    public void AParamArray_DoesNotStopAPropertyGetFromBeingRead()
+    public void AParamArrayIndex_AlsoExcludesTheSimpleRead_InvokeStillWorks()
     {
         var paramArray = new ParamArrayParameterSymbol(Root, Root, "rest", SourceRange.Empty, SourceRange.Empty, ParameterKind.ExplicitByRef);
+        var (handle, invoker) = HandleOf(Get(paramArray), returns: new VBLongValue(3));
 
-        Assert.IsTrue(HandleOf(Get(paramArray)).Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
+        Assert.IsFalse(handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue));
+
+        handle.Invoke(Resolver, []);
+        invoker.Received(1).Invoke(handle.Procedure, Resolver, Arg.Is<IRuntimeValue[]>(passed => passed.Length == 0));
     }
 
     [TestMethod]

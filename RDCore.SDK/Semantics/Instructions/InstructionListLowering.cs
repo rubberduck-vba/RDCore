@@ -24,9 +24,9 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <see cref="StatementNode"/> (<see cref="Instruction.Node"/> is <c>null</c>), and are never keyed in
 /// <c>ByNode</c>. An unconditional "else" branch (<c>Else</c>, <c>Case Else</c>) gets no header
 /// instruction of its own — it has no condition to evaluate, so its chain's previous header branches
-/// straight to its body's first instruction. Not yet lowered: <c>GoSub</c>/<c>Return</c>/<c>On…GoSub</c>
-/// and error-handling instructions (a later slice) — they fall through as
-/// <see cref="InstructionKind.Simple"/>, same as any other statement kind this pass does not recognize.
+/// straight to its body's first instruction. Any statement kind this pass does not recognize —
+/// including <c>GoSub</c>/<c>Return</c>/<c>On…GoSub</c> and error-handling statements — falls through
+/// as <see cref="InstructionKind.Simple"/>.
 /// <para>
 /// Lowering doubles as a validator for the one static-semantics rule it needs to resolve jump targets
 /// at all: every label a jump names must be defined exactly once in the procedure
@@ -37,8 +37,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// pass needs no symbol resolver: a label is not a symbol, so <see cref="LabelOperands"/> reads a jump's
 /// operand directly off the expression tree, the same way <see cref="StatementStaticSemanticsEvaluator"/>
 /// does. An <c>Exit For</c>/<c>Exit Do</c> with no enclosing loop of the matching kind is left with an
-/// unresolved <see cref="Instruction.Target"/> and no diagnostic — wiring
-/// <c>ExitForNotWithinForNext</c>/<c>ExitDoNotWithinDoLoop</c> in here is a named follow-up.
+/// unresolved <see cref="Instruction.Target"/> and no diagnostic.
 /// </para>
 /// </remarks>
 public static class InstructionListLowering

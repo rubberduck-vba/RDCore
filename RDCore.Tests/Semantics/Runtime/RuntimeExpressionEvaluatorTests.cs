@@ -154,8 +154,7 @@ public sealed class RuntimeExpressionEvaluatorTests
 
     [TestMethod]
     public void MemberAccess_APropertyOrMethodMember_DefersAsInternalError()
-        // needs procedure invocation machinery that doesn't exist yet - a named follow-up, not silently
-        // (and wrongly) treated as a field.
+        // a call is not a field read, and must never be silently (and wrongly) treated as one.
     {
         var classModule = new VBClassModuleSymbol(Root, Root, "Class1");
         var method = new VBProcedureMemberSymbol(Root, classModule.Uri, "DoSomething", ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
@@ -296,6 +295,35 @@ public sealed class RuntimeExpressionEvaluatorTests
 
         var addition = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NodeId, TestLocations.TestLocation, SimpleName("Nowhere"), SimpleName("y"));
         var result = Evaluator().Evaluate(session, addition, new(ProcedureUri));
+
+        Assert.IsTrue(result.IsInternalError);
+    }
+
+    [TestMethod]
+    public void SimpleName_ABareFunctionReference_ReturnsInternalError_DoesNotThrow()
+        // MS-VBAL §5.6.10: a bare reference to a Function is an implicit call, not a value read.
+    {
+        var function = new VBFunctionMemberSymbol(Root, ProcedureUri, "DoStuff", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
+        var session = ComposeSession(function);
+
+        var result = Evaluator().Evaluate(session, SimpleName("DoStuff"), new(ProcedureUri));
+
+        Assert.IsTrue(result.IsInternalError);
+    }
+
+    [TestMethod]
+    public void AddressOf_NeverEvaluatesItsTarget_EvenWhenTheTargetWouldOtherwiseSucceed()
+    {
+        var array = new VBFixedSizeArrayValue([(1, 3)], VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        PushFrame(session).Push(x, new VBLongValue(2));
+
+        var addressOfX = new AddressOfExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("x"));
+        var index = new IndexExpressionNode(NodeId, TestLocations.TestLocation,
+            new LiteralExpressionNode(NodeId, TestLocations.TestLocation, array), [addressOfX]);
+
+        var result = Evaluator().Evaluate(session, index, new(ProcedureUri));
 
         Assert.IsTrue(result.IsInternalError);
     }
