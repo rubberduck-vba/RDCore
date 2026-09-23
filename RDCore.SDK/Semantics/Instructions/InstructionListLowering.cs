@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Static;
 using System.Collections.Immutable;
 
@@ -39,6 +40,13 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// does. An <c>Exit For</c>/<c>Exit Do</c> with no enclosing loop of the matching kind is left with an
 /// unresolved <see cref="Instruction.Target"/> and no diagnostic.
 /// </para>
+/// <para>
+/// A statement (or label) lexically inside a dead <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch — a
+/// <c>Lower</c> call's own <c>deadRanges</c> argument, from
+/// <c>RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator</c> — is skipped entirely: no
+/// instruction, no <c>ByNode</c> entry, no label definition, exactly as if the excluded text had never
+/// been there.
+/// </para>
 /// </remarks>
 public static class InstructionListLowering
 {
@@ -51,9 +59,13 @@ public static class InstructionListLowering
     /// <see cref="StatementBlock"/>. A label is scoped to the whole procedure, so passing a nested
     /// block on its own would under-resolve every jump into or out of it.
     /// </param>
-    public static InstructionListLoweringResult Lower(StatementBlock body)
+    /// <param name="deadRanges">
+    /// The source ranges of every <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch that is not live. Empty
+    /// (the default) when the body has no <c>#If</c> at all.
+    /// </param>
+    public static InstructionListLoweringResult Lower(StatementBlock body, ImmutableArray<SourceRange> deadRanges = default)
     {
-        var state = new LoweringState();
+        var state = new LoweringState(deadRanges.IsDefault ? [] : deadRanges);
         LowerBlock(body, state, default);
 
         // Every label in the procedure is now known, however deeply nested its definition was, so every
@@ -75,6 +87,11 @@ public static class InstructionListLowering
     {
         foreach (var child in block.Children)
         {
+            if (IsDead(child.SourceLocation.Range, state.DeadRanges))
+            {
+                continue;
+            }
+
             switch (child)
             {
                 case LineLabelNode label:
@@ -88,6 +105,21 @@ public static class InstructionListLowering
                     break;
             }
         }
+    }
+
+    // A dead branch's whole range was already reported by PrecompilerLiveBranchEvaluator - a child
+    // lexically inside it (at any depth) is simply never lowered, so no instruction, label, or ByNode
+    // entry for it ever exists.
+    private static bool IsDead(SourceRange range, ImmutableArray<SourceRange> deadRanges)
+    {
+        foreach (var dead in deadRanges)
+        {
+            if (dead.Start <= range.Start && range.End <= dead.End)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void LowerStatement(StatementNode statement, LoweringState state, LoweringScope scope)
@@ -384,7 +416,7 @@ public static class InstructionListLowering
     }
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState
+    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges)
     {
         public List<Instruction> Items { get; } = [];
         public Dictionary<string, int> Labels { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -392,6 +424,7 @@ public static class InstructionListLowering
         public ImmutableArray<VBCompileErrorInfo>.Builder Errors { get; } = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
         public List<(int Index, ExpressionNode Operand)> PendingJumps { get; } = [];
         public List<(int Index, ImmutableArray<ExpressionNode> Operands)> PendingJumpTables { get; } = [];
+        public ImmutableArray<SourceRange> DeadRanges { get; } = deadRanges;
     }
 
     // The offsets of every Exit For/Exit Do instruction found inside one loop, patched once that loop's

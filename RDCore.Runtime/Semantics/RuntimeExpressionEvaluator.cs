@@ -1,13 +1,10 @@
 using RDCore.Runtime.Semantics.Expressions;
-using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Literals;
 using RDCore.Runtime.Semantics.Operators;
-using RDCore.Runtime.Semantics.Operators.Arithmetic;
-using RDCore.Runtime.Semantics.Operators.Logical;
-using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -20,7 +17,6 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -52,8 +48,13 @@ namespace RDCore.Runtime.Semantics;
 /// A jump statement's own label operand is never evaluated here — <see cref="LabelOperands"/> reads it
 /// directly, the same way <see cref="StatementStaticSemanticsEvaluator"/> does; a label is not a symbol.
 /// </para>
+/// <para>
+/// Every operator's runtime semantics comes from <see cref="IOperatorRuntimeSemanticsProvider"/> - one
+/// instance per operator token, owned by the provider and reused for every evaluation, never rebuilt on
+/// the fly.
+/// </para>
 /// </remarks>
-public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, IVerboseMessageBuilder FormatterService)
+public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider OperatorProvider)
 {
     /// <summary>
     /// Evaluates <paramref name="expression"/>, recursively evaluating its children first wherever a
@@ -74,14 +75,15 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
         {
             LiteralExpressionNode => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression),
             SimpleNameExpressionNode simpleName => EvaluateSimpleName(session, context, simpleName),
+            PrecompilerNameExpressionNode precompilerName => EvaluatePrecompilerConstant(session, precompilerName),
             InstanceExpressionNode => EvaluateInstance(session, context, expression),
             NewExpressionNode newExpression => EvaluateNew(session, context, expression, newExpression),
             MemberAccessExpressionNode memberAccess => EvaluateMemberAccess(session, context, expression, memberAccess),
             IndexExpressionNode indexExpression => EvaluateIndex(session, context, expression, indexExpression),
             DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(session, context, expression, dictionaryAccess),
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(session, context, expression, typeOfIs),
-            VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, expression, binaryOperator),
-            VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, expression, unaryOperator),
+            VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, binaryOperator),
+            VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, unaryOperator),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
@@ -103,6 +105,14 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
         return result.Symbol is ITypedSymbol typed
             ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(result.Symbol)))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // MS-VBAL §5.6.16.2: a conditional-compilation constant that names nothing is the value 0 - not a
+    // compile error, and Option Explicit (a variable-declaration concern) has no bearing on it.
+    private static RuntimeSemanticsEvaluationResult EvaluatePrecompilerConstant(IRuntimeSession session, PrecompilerNameExpressionNode name)
+    {
+        var result = session.Symbols.Resolver.ResolveValue(name.Name, ScopeKind.Global, StaticSymbol.GlobalUri);
+        return RuntimeSemanticsEvaluationResult.Success(result.Symbol is PrecompilerConstantSymbol constant ? constant.Value : new VBIntegerValue(0));
     }
 
     private static RuntimeSemanticsEvaluationResult EvaluateInstance(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
@@ -315,7 +325,7 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
             _ => (null, null),
         };
 
-    private RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, VBBinaryOperatorExpressionNode binaryOperator)
+    private RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, VBBinaryOperatorExpressionNode binaryOperator)
     {
         var leftResult = Evaluate(session, binaryOperator.Left, context);
         if (!leftResult.IsSuccess)
@@ -328,36 +338,10 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
             return rightResult;
         }
 
-        var left = leftResult.Result!;
-        var right = rightResult.Result!;
-        return binaryOperator.Token switch
-        {
-            Tokens.AdditionOp => new BinaryAdditionOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.SubtractionOp => new BinarySubtractionOperatorRuntimeSematics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.MultiplicationOp => new BinaryMultiplicationOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.DivisionOp => new BinaryDivisionOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.IntegerDivisionOp => new BinaryIntegerDivisionOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.ModuloOp => new BinaryModuloOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.PowerOp => new BinaryExponentOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.ConcatOp => new BinaryConcatOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareIsOp => new BinaryIsRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareEqualOp => new BinaryEqRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareNotEqualOp => new BinaryNeqRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareGreaterThanOp => new BinaryGtRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareGreaterThanOrEqualOp => new BinaryGtEqRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLessThanOp => new BinaryLtRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLessThanOrEqualOp => new BinaryLtEqRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLikeOp => new LikeRelationalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalAndOp => new BinaryAndLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalOrOp => new BinaryOrLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalXOrOp => new BinaryXorLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalEqvOp => new BinaryEqvLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalImpOp => new BinaryImpLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, left, right),
-            _ => RuntimeSemanticsEvaluationResult.InternalError(),
-        };
+        return OperatorProvider.EvaluateBinaryOperator(session, binaryOperator, leftResult.Result!, rightResult.Result!);
     }
 
-    private RuntimeSemanticsEvaluationResult EvaluateUnaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, VBUnaryOperatorExpressionNode unaryOperator)
+    private RuntimeSemanticsEvaluationResult EvaluateUnaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, VBUnaryOperatorExpressionNode unaryOperator)
     {
         var operandResult = Evaluate(session, unaryOperator.Operand, context);
         if (!operandResult.IsSuccess)
@@ -365,12 +349,6 @@ public sealed class RuntimeExpressionEvaluator(ILetCoercionRuntimeSemanticsProvi
             return operandResult;
         }
 
-        var operand = operandResult.Result!;
-        return unaryOperator.Token switch
-        {
-            Tokens.NegationOp => new UnaryNegationOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, operand),
-            Tokens.LogicalNotOp => new UnaryNotOperatorRuntimeSemantics(LetCoercionProvider, FormatterService).Evaluate(session, new(), expression, operand),
-            _ => RuntimeSemanticsEvaluationResult.InternalError(),
-        };
+        return OperatorProvider.EvaluateUnaryOperator(session, unaryOperator, operandResult.Result!);
     }
 }

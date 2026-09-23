@@ -2,6 +2,7 @@ using NSubstitute;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -56,7 +57,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         => new(Root, ProcedureUri, name, R, R, ParameterKind.ImplicitByRef, type);
 
     private static RuntimeExpressionEvaluator Evaluator()
-        => new(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>());
+        => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>()));
 
     // The real Numeric let-coercion strategy - for operators to determine their effective type for
     // real, rather than the identity passthrough a bare NSubstitute fake would give every operand.

@@ -1,8 +1,23 @@
+using NSubstitute;
 using RDCore.Parsing;
+using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.Runtime.Semantics.Operators;
+using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract;
+using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Instructions;
@@ -455,5 +470,95 @@ public sealed class InstructionListLoweringTests
             Assert.AreEqual(withOpener.Offset, items[offset].EnclosingWith, $"offset {offset}");
         }
         Assert.IsNull(items[^1].EnclosingWith); // "after" is back outside the With block
+    }
+
+    // ---- #If live-branch skipping (integration: RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator) ----
+
+    private sealed class Provider(Symbol[] symbols) : ISymbolProvider
+    {
+        public IEnumerable<Symbol> ProvideSymbols() => symbols;
+    }
+
+    private static IRuntimeSession ComposeSession(params Symbol[] symbols)
+        => RuntimeSessionComposer.Compose(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider(symbols));
+
+    private static RuntimeExpressionEvaluator Evaluator() => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>()));
+
+    // The real Numeric/Boolean let-coercion strategies - for operators to determine their effective
+    // type for real, rather than the identity passthrough a bare NSubstitute fake would give every operand.
+    private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
+    {
+        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var handle = new ProviderHandle();
+        ILetCoercionRuntimeSemantics[] strategies =
+        [
+            new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle),
+            new VBStringLetCoercionRuntimeSemantics(formatter),
+            new VBBooleanLetCoercionRuntimeSemantics(handle, formatter),
+        ];
+        var provider = new LetCoercionRuntimeSemanticsProvider(strategies, formatter);
+        handle.Inner = provider;
+        return provider;
+    }
+
+    private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
+    {
+        public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+            => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
+            => Inner.Analyze(resolver, builder, expression, frame);
+    }
+
+    private static InstructionListLoweringResult LowerWithDeadBranches(IRuntimeSession session, params string[] procedureBody)
+    {
+        var source = $"Sub Foo()\r\n{string.Join("\r\n", procedureBody)}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(session, Evaluator(), new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parse.PrecompilerTrivia);
+        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), deadRanges);
+    }
+
+    [TestMethod]
+    public void IfElseBranch_OnlyTheLiveBranchLowers()
+    {
+        var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+        var result = LowerWithDeadBranches(session, "#If DEBUGMODE Then", "x = 1", "#Else", "x = 2", "#End If", "y = 3");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items); // x = 1, y = 3 - "x = 2" never lowered
+    }
+
+    [TestMethod]
+    public void IfElseBranch_TheOtherWayRound_LowersTheOtherBranch()
+    {
+        var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(0)));
+        var result = LowerWithDeadBranches(session, "#If DEBUGMODE Then", "x = 1", "#Else", "x = 2", "#End If", "y = 3");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items); // x = 2, y = 3
+    }
+
+    [TestMethod]
+    public void ALabelOnlyDefinedInADeadBranch_IsNotAddedToTheLabelTable()
+    {
+        var session = ComposeSession(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+        var result = LowerWithDeadBranches(session, "#If DEBUGMODE Then", "x = 1", "#Else", "Dead:", "x = 2", "#End If");
+
+        Assert.IsFalse(result.InstructionList.TryGetLabelOffset("Dead", out _));
+    }
+
+    [TestMethod]
+    public void AnUndefinedConstant_IsZero_SoExactlyOneBranchLowers()
+        // MS-VBAL §5.6.16.2: an undefined conditional-compilation constant is the value 0, not an error -
+        // it never makes a condition indeterminate, so this is never conservative about keeping both branches.
+    {
+        var session = ComposeSession();
+        var result = LowerWithDeadBranches(session, "#If NEVERDEFINED Then", "x = 1", "#Else", "x = 2", "#End If");
+
+        AssertNoErrors(result);
+        Assert.HasCount(1, result.InstructionList.Items); // x = 2 only - NEVERDEFINED = 0 = False
     }
 }
