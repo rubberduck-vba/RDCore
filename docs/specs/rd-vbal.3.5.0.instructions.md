@@ -1,8 +1,10 @@
 # 3.5.0 Instructions
 
 An *instruction* is the unit a future interpreter's program counter fetches — one per executable
-[StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html) of a procedure body, in source
-order. Where §3.4 catalogs the tree the parser produces, this section catalogs the flat, offset-addressable
+[StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html) of a procedure body (plus a
+handful of synthesized instructions a block statement needs but has no source node for), in the order
+execution would normally reach them. Where §3.4 catalogs the tree the parser produces, this section
+catalogs the flat, offset-addressable
 [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html) that
 [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) produces
 from it — **MS-VBAL §2.3.1**: "sequentially evaluate each instruction in the frame."
@@ -29,32 +31,41 @@ Two keys address an instruction without walking `Items`:
 |`ByNode` (`TryGetOffset`)|a statement's `SyntaxNodeId` → its offset|the fault-statement identity a breakpoint or a runtime error anchors to|
 
 Label names are looked up case-insensitively, like every VBA identifier. A label is scoped to the whole
-procedure — not the block it is written in — so it needs no separate handling for a nested block; §3.5.3
-covers why nested blocks are not walked yet at all.
+procedure — not the block it is written in, however deeply nested — so a `GoTo` from anywhere in the
+procedure into the middle of a loop or `If` body resolves exactly like any other jump (§3.5.3 covers the
+consequence this has for a loop's hidden per-activation state). A synthesized instruction (§3.5.3) has no
+source node, so it is never a value in `ByNode`.
 
 ---
 ## 3.5.2 Instruction
 
 Every [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html) carries its `Offset`, the
-source `Node` it lowered from, and an
+source `Node` it lowered from (`null` for a synthesized instruction — §3.5.3), and an
 [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) that tells the interpreter
-which of `Target`/`Targets` to consult, if either:
+which of the resolved-target fields to consult, if any:
 
 |Statement|InstructionKind|Resolved target(s)|MS-VBAL|
 |---|---|---|---|
 |`GoTo`|`Jump`|`Target`: the label's offset|§5.4.2.12|
 |`On expression GoTo label, ...`|`JumpTable`|`Targets`: one offset per label, in source order; a selector out of range falls through at runtime instead of branching|§5.4.2.13|
 |`Exit Sub`/`Exit Function`/`Exit Property`|`ExitProcedure`|—|§5.4.2.17/.18/.19|
+|`Exit For`/`Exit Do`|`ExitLoop`|`Target`: right past the innermost enclosing loop of the matching kind's closer; unresolved (no diagnostic yet) when lowering finds none|§5.4.2.5/.7|
 |`Stop`|`Break`|—|§5.4.2.11|
 |`End`|`Halt`|— (not a MS-VBAL-numbered statement)|
-|everything else (for now — see §3.5.3)|`Simple`|—|
+|`If`/`ElseIf` header, a `Case` header, a pre-test loop header (`Do While`/`Do Until`/`While…Wend`)|`ConditionalBranch`|`Else`: the offset to go to on false/no-match — the next header in the chain, or right past the whole construct|§5.4.2.2/.3(pre-test)/.8/.10|
+|`Do…Loop While`/`Do…Loop Until` closer|`LoopBack`|`Target`: the body's first instruction, taken when the loop continues; falling through ends it|§5.4.2.6|
+|`For` opener / `Next` closer|`ForOpener` / `ForNext`|opener's `End`: the `Next`'s offset · `Next`'s `Target`: the body's first instruction|§5.4.2.3|
+|`For Each` opener / `Next` closer|`ForEachOpener` / `ForEachNext`|same shape as `For`|§5.4.2.4|
+|`With` opener|`With`|`End`: right past the block; every instruction inside carries `EnclosingWith` = this opener's offset|§5.4.2.21|
+|`Select Case` opener|`Select`|`End`: right past the block; each `Case` header's `Matching` names this opener's offset|§5.4.2.10|
+|everything else, including a synthesized branch's trailing jump and a bare/post-test loop's back-edge|`Simple` / `Jump`|`Jump`'s `Target` when it has one|—|
 
 A `Jump`/`JumpTable` operand that does not resolve to a label the procedure defines carries a `null`
 target instead — lowering reports [VBC09309](../diagnostics/vbc09309.html) for it, the same way a repeated
 label definition reports [VBC09319](../diagnostics/vbc09319.html), and keeps the first offset the label was
 defined at. Lowering never fails outright: it always produces a complete `InstructionList`, whether or not
-every label resolved. Whether to refuse to run a body that lowered with errors is a decision for whatever
-executes it, not for lowering.
+every label and loop-exit resolved. Whether to refuse to run a body that lowered with errors is a decision
+for whatever executes it, not for lowering.
 
 > [!TIP]
 > A statement's own runtime semantics stay pure — they evaluate operands and return a result, never mutate
@@ -63,16 +74,53 @@ executes it, not for lowering.
 > know about the program counter at all.
 
 ---
-## 3.5.3 Scope of this section
+## 3.5.3 Block statements
 
-Lowering today only reads a procedure body's own direct children — a
-[MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)'s `Children`,
-wrapped in a [StatementBlock](../api/RDCore.SDK.Model.AST.Statements.StatementBlock.html). A block
-statement (`If`/`Select Case`/a loop/`With`) therefore lowers as one opaque `Simple` instruction: its
-nested `Body` is not visited, and none of the statements inside it are lowered at all. Block-statement
-lowering — synthesized block closers, `Matching`/`EnclosingWith` links — and `GoSub`/`Return`/error-handling
-instructions are later additions to this same list; nothing here is expected to change shape when they
-land, only to grow new `InstructionKind` members and new resolved-target fields.
+A block statement (`If`/`Select Case`/a loop/`With`) is structured, not flattened into a low-level jump IR
+(**D1** in the interpreter plan): its header(s) stay real instructions, addressed by `ByNode` like any
+other statement, and only the *control effects between them* — an `If`/`Case` branch's fall-through-vs-skip
+choice, a loop's back-edge — are pre-resolved offsets, computed once by lowering instead of on every
+fetch.
+
+**A closer with no source node.** MS-VBAL gives `Next`/`Loop`/`Wend` no AST node of their own — the whole
+construct is one `ForStatementNode`/`DoLoopStatementNode`/etc. with a `Body`. Where a loop's closer does
+real work (a `For`'s `Next` increments and tests the counter; a post-test loop's closer evaluates the
+condition and decides whether to branch back), lowering still needs a real instruction to hold that work,
+so it synthesizes one with `Node = null` — reusing the loop's own node would silently steal its `ByNode`
+entry away from the opener, which is the more useful attribution for a breakpoint on the `For`/`For Each`
+line. `If`/`Select Case` need no such synthesized closer at all: falling out of the last branch, or the
+`Else`/`Case Else` that needs no condition, already lands exactly where the construct's own `End`/`Else`
+chaining says it should, with nothing left to do.
+
+**Every branch ends with a jump.** After an `If`/`ElseIf`/`Case` branch's body runs, lowering always emits
+a synthesized, unconditional `Jump` to right past the whole construct — even for the last branch, where it
+is redundant with the fall-through that would happen anyway. This keeps the emission logic uniform instead
+of special-casing "is this the last branch," at the cost of one harmless extra instruction.
+
+**Loop exits.** `Exit For`/`Exit Do` resolve against the *innermost* enclosing loop of the matching kind —
+`Exit For` needs a `For`/`For Each`; `Exit Do` needs one of the five `Do…Loop` forms. `While…Wend` grants
+neither: MS-VBAL gives it no exit statement of its own, so an `Exit Do` written inside one is not consumed
+by it and resolves against whatever real `Do` loop already encloses it (or is left unresolved, with no
+diagnostic, if none does).
+
+**`EnclosingWith` is static.** Every instruction lexically inside a `With` block — however deeply nested,
+through an `If` or a loop — carries `EnclosingWith` set to that `With`'s opener offset, restored to
+whatever it was before once lowering leaves the block. This is computed once at lowering time, not tracked
+as a runtime stack the interpreter pushes and pops: a `GoTo` into or out of a `With` block therefore leaves
+no stale state to unwind, because there never was any to begin with.
+
+**Not yet lowered.** `GoSub`/`Return`/`On…GoSub` and error-handling instructions (`On Error`, `Resume`,
+`Error`) fall through as `Simple`, same as any other statement kind this pass does not yet give a dedicated
+shape — a later slice.
+
+---
+## 3.5.4 Placement and licensing
+
+`InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
+lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
+(unreachable code, unused label, a flow-based inspection) want the same flattened list a future
+interpreter drives. The interpreter's executor, activation state, and hidden per-loop/per-`Select`/per-`With`
+storage are **RDCore.Runtime** (GPLv3).
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
