@@ -134,14 +134,16 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return null;
         }
 
-        if (matches.Length == 1)
-        {
-            return SymbolResolutionResult.Resolved(matches[0]);
-        }
-
+        // checked ahead of the single-match fast path too: a lone Property Let/Set with no parameters
+        // at all is invalid on its own (VBC09321), not only when it collides with other accessors.
         if (TryResolvePropertyAccessors(matches) is { } propertyResult)
         {
             return propertyResult;
+        }
+
+        if (matches.Length == 1)
+        {
+            return SymbolResolutionResult.Resolved(matches[0]);
         }
 
         // a collision inside one module or procedure is a duplicate declaration; one at the
@@ -211,6 +213,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         if (property is null)
         {
             return null;
+        }
+
+        // MS-VBAL §5.3.1.5: value-param is never bracketed in property-parameters, so it is always
+        // mandatory - a Property Let/Set with no parameters at all has none to receive the assigned
+        // value. Checked on its own, ahead of IsConsistentProperty, so it fires for a lone accessor too.
+        if (let is { Parameters.Length: 0 } || set is { Parameters.Length: 0 })
+        {
+            return SymbolResolutionResult.ArgumentRequiredForPropertyLetOrSet(matches);
         }
 
         return IsConsistentProperty(get, let, set)

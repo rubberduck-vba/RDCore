@@ -318,6 +318,9 @@
   <data name="VBCompileError_InconsistentPropertyAccessors" xml:space="preserve">
     <value>Les définitions des procédures de propriété pour une même propriété sont incohérentes, ou une procédure de propriété comporte un paramètre facultatif, un ParamArray, ou un paramètre final Set non valide</value>
   </data>
+  <data name="VBCompileError_ArgumentRequiredForPropertyLetOrSet" xml:space="preserve">
+    <value>Argument requis pour Property Let ou Property Set</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>

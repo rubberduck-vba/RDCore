@@ -457,6 +457,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Argument required for Property Let or Property Set.
+        /// </summary>
+        public static string VBCompileError_ArgumentRequiredForPropertyLetOrSet {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArgumentRequiredForPropertyLetOrSet", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

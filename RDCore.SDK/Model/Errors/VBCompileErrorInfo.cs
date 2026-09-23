@@ -79,5 +79,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.WithExpressionOutsideWithBlock] = Exceptions.VBCompileError_WithExpressionOutsideWithBlock,
         [VBCompileErrorId.DuplicateLabelDefinition] = Exceptions.VBCompileError_DuplicateLabelDefinition,
         [VBCompileErrorId.InconsistentPropertyAccessors] = Exceptions.VBCompileError_InconsistentPropertyAccessors,
+        [VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet] = Exceptions.VBCompileError_ArgumentRequiredForPropertyLetOrSet,
     };
 }

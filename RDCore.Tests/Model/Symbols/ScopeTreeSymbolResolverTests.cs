@@ -394,6 +394,62 @@ public sealed class ScopeTreeSymbolResolverTests
         Assert.IsTrue(result.IsResolved);
     }
 
+    // ---- Property Let/Set with no value parameter at all (MS-VBAL §5.3.1.5) ----
+
+    [TestMethod]
+    public void Resolve_ALoneLetWithNoParametersAtAll_IsArgumentRequired()
+        // "Property Let Foo()" - no index, no value - is invalid on its own, not only when it
+        // collides with another accessor: value-param is never bracketed in property-parameters.
+    {
+        var module = Module("Mod1");
+        var let = new VBPropertyLetMemberSymbol(Root, module.Uri, "Value", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+
+        var result = Resolver(module, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_ALoneSetWithNoParametersAtAll_IsArgumentRequired()
+    {
+        var module = Module("Mod1");
+        var set = new VBPropertySetMemberSymbol(Root, module.Uri, "Value", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+
+        var result = Resolver(module, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_AGetPairedWithALetThatHasNoParametersAtAll_IsArgumentRequired()
+        // reported ahead of (and instead of) InconsistentPropertyAccessors, even when paired with a
+        // valid Get - a missing value parameter is a more fundamental problem than a mismatched one.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value");
+        var let = new VBPropertyLetMemberSymbol(Root, module.Uri, "Value", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_ALoneGetWithNoParameters_IsStillJustResolved()
+        // a Property Get needs no value parameter at all - MS-VBAL §5.3.1.5's value-param only applies
+        // to property-parameters (Let/Set); this is not the same rule as VBC09321.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value");
+
+        var result = Resolver(module, get).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
     [TestMethod]
     public void Resolve_APublicNameInTwoModules_IsAnAmbiguousName_FromAThirdModule()
     {

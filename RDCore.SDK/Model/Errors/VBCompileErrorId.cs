@@ -218,6 +218,16 @@ public enum VBCompileErrorId
     /// but is confirmed by the real compiler's own error wording.
     /// </remarks>
     InconsistentPropertyAccessors = 9320,
+    /// <summary>
+    /// A <c>Property Let</c> or <c>Property Set</c> procedure declares no parameters at all - it has no
+    /// value parameter to receive the value being assigned.<br/>
+    /// <strong>MS-VBAL §5.3.1.5</strong>: <c>property-parameters = "(" [parameter-list ","] value-param
+    /// ")"</c> - <c>value-param</c> is never bracketed, so it is always mandatory.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ Unable to find an official <c>learn.microsoft.com</c> documentation link for this error.
+    /// </remarks>
+    ArgumentRequiredForPropertyLetOrSet = 9321,
 
 
     /***********************************************************************************************
