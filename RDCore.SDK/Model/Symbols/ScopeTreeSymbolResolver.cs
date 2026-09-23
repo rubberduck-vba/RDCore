@@ -1,6 +1,9 @@
 ﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -136,9 +139,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return SymbolResolutionResult.Resolved(matches[0]);
         }
 
-        if (TryResolvePropertyAccessors(matches, out var property))
+        if (TryResolvePropertyAccessors(matches) is { } propertyResult)
         {
-            return SymbolResolutionResult.Resolved(property);
+            return propertyResult;
         }
 
         // a collision inside one module or procedure is a duplicate declaration; one at the
@@ -163,7 +166,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// A property's Get/Let/Set accessors share one declared name by design (MS-VBAL §5.3.1) and are
     /// not a duplicate declaration. Resolves to a single representative accessor — Get when present
     /// (the common read-context lookup), else Let, else Set — when every match is a distinct accessor
-    /// kind of the same property. A second accessor of the same kind is still a genuine duplicate.
+    /// kind of the same property and their declarations form a valid property
+    /// (<see cref="IsConsistentProperty"/>). A second accessor of the same kind is still a genuine
+    /// duplicate (<see langword="null"/>, falling through to the caller's own Duplicate/Ambiguous
+    /// handling).
     /// </summary>
     /// <remarks>
     /// Collapsing to one representative, rather than exposing all matched accessors, is an interim
@@ -171,12 +177,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// <c>Symbol.Uri</c> and can only be told apart by concrete type — giving each accessor its own
     /// uri suffix is separately-tracked follow-up work.
     /// </remarks>
-    private static bool TryResolvePropertyAccessors(Symbol[] matches, [NotNullWhen(true)] out Symbol? property)
+    private static SymbolResolutionResult? TryResolvePropertyAccessors(Symbol[] matches)
     {
-        property = null;
         if (matches.Any(symbol => symbol is not IVBPropertyMemberSymbol))
         {
-            return false;
+            return null;
         }
 
         VBPropertyGetMemberSymbol? get = null;
@@ -198,13 +203,98 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
                 default:
                     // a second accessor of the same kind (or an unrecognized IVBPropertyMemberSymbol
                     // implementation) is a genuine duplicate declaration, not a multi-accessor property.
-                    return false;
+                    return null;
             }
         }
 
-        property = get as Symbol ?? let as Symbol ?? set as Symbol;
-        return property is not null;
+        var property = get as Symbol ?? let as Symbol ?? set as Symbol;
+        if (property is null)
+        {
+            return null;
+        }
+
+        return IsConsistentProperty(get, let, set)
+            ? SymbolResolutionResult.Resolved(property)
+            : SymbolResolutionResult.InconsistentPropertyAccessors(matches);
     }
+
+    // MS-VBAL §5.3.1.7: property declarations sharing a name must have equivalent parameter lists -
+    // the same number of index parameters, each with the same name, declared type, and parameter
+    // mechanism (implicit vs explicit ByRef is not a difference); a property let declaration and a
+    // property-get-declaration sharing a name must have the same declared type; a property set
+    // declaration's value parameter must be typed Object, Variant, or a named class. The real compiler
+    // also rejects an Optional or ParamArray index parameter the moment a property has more than one
+    // accessor - only a Get-only property may declare one. That consequence is not spelled out verbatim
+    // in the spec text above, but is confirmed by the compiler's own error wording.
+    private static bool IsConsistentProperty(VBPropertyGetMemberSymbol? get, VBPropertyLetMemberSymbol? let, VBPropertySetMemberSymbol? set)
+    {
+        IVBPropertyMemberSymbol?[] accessors = [get, let, set];
+        var present = accessors.Where(accessor => accessor is not null).Select(accessor => accessor!).ToArray();
+        if (present.Length < 2)
+        {
+            return true; // a single accessor has nothing to be inconsistent with.
+        }
+
+        var indexParameterLists = present.Select(IndexParametersOf).ToArray();
+        if (indexParameterLists.Any(parameters => parameters.Any(parameter => parameter.IsOptional || parameter is ParamArrayParameterSymbol)))
+        {
+            return false;
+        }
+
+        for (var i = 1; i < indexParameterLists.Length; i++)
+        {
+            if (!HaveEquivalentParameters(indexParameterLists[0], indexParameterLists[i]))
+            {
+                return false;
+            }
+        }
+
+        if (get is not null && let is not null && !SameDeclaredType(get.ResolvedType, ValueTypeOf(let)))
+        {
+            return false;
+        }
+
+        return set is null || ValueTypeOf(set) is VBObjectType or VBVariantType or VBClassType;
+    }
+
+    private static IReadOnlyList<VBParameterSymbol> IndexParametersOf(IVBPropertyMemberSymbol accessor) => accessor switch
+    {
+        VBPropertyGetMemberSymbol getAccessor => getAccessor.Parameters,
+        VBPropertyLetMemberSymbol letAccessor => letAccessor.Parameters.Take(Math.Max(0, letAccessor.Parameters.Length - 1)).ToArray(),
+        VBPropertySetMemberSymbol setAccessor => setAccessor.Parameters.Take(Math.Max(0, setAccessor.Parameters.Length - 1)).ToArray(),
+        _ => [],
+    };
+
+    private static VBType ValueTypeOf(VBPropertyLetMemberSymbol let) => let.Parameters.Length > 0 ? let.Parameters[^1].ResolvedType : VBUnknownType.TypeInfo;
+
+    private static VBType ValueTypeOf(VBPropertySetMemberSymbol set) => set.Parameters.Length > 0 ? set.Parameters[^1].ResolvedType : VBUnknownType.TypeInfo;
+
+    private static bool HaveEquivalentParameters(IReadOnlyList<VBParameterSymbol> a, IReadOnlyList<VBParameterSymbol> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (!string.Equals(a[i].Name, b[i].Name, StringComparison.OrdinalIgnoreCase)
+                || !SameDeclaredType(a[i].ResolvedType, b[i].ResolvedType)
+                || IsByRef(a[i].ParameterKind) != IsByRef(b[i].ParameterKind))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Name is the symbolic name of a type as it appears in code - safe to compare this way (unlike a
+    // class/UDT type's own record equality, which would walk its Members - see VBClassType.FromClassModule
+    // for the same Uri.AbsoluteUri-over-Uri pitfall this sidesteps by comparing a stable string instead).
+    private static bool SameDeclaredType(VBType a, VBType b) => string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)

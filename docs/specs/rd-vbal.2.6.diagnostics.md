@@ -116,6 +116,7 @@ same `ICoreDiagnosticsFactory` as syntax errors. Published so far:
 |---|---|
 |[`VBC09309`](../diagnostics/vbc09309.html)|a jump names a line label or line number the procedure does not define|
 |[`VBC09319`](../diagnostics/vbc09319.html)|a procedure defines the same line label or line number more than once|
+|[`VBC09320`](../diagnostics/vbc09320.html)|a property's Get/Let/Set sharing a name do not together describe one valid property|
 
 ---
 ## 2.6.3 Runtime Errors

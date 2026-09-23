@@ -315,6 +315,9 @@
   <data name="VBCompileError_DuplicateLabelDefinition" xml:space="preserve">
     <value>Label already defined in this procedure</value>
   </data>
+  <data name="VBCompileError_InconsistentPropertyAccessors" xml:space="preserve">
+    <value>Definitions of property procedures for the same property are inconsistent, or property procedure has an optional parameter, a ParamArray, or an invalid Set final parameter</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>

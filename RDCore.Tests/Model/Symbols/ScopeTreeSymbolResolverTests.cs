@@ -27,14 +27,20 @@ public sealed class ScopeTreeSymbolResolverTests
     private static VBLocalVariableSymbol Local(Uri procedureUri, string name)
         => new(Root, procedureUri, name, ScopeKind.Local, R, R);
 
+    // a realistic, valid property: Get returns Object, Let/Set each take just the matching Object value
+    // parameter - MS-VBAL §5.3.1.7 consistency (see ScopeTreeSymbolResolver.IsConsistentProperty) is not
+    // what these fixtures are testing, so they stay internally consistent rather than triggering it.
+    private static VBParameterSymbol ValueParameter(Uri moduleUri)
+        => new(Root, moduleUri, "value", R, R, ParameterKind.ImplicitByVal, VBObjectType.TypeInfo);
+
     private static VBPropertyGetMemberSymbol PropertyGet(Uri moduleUri, string name)
-        => new(Root, moduleUri, ScopeKind.Module, name, R, R, AccessModifier.Implicit);
+        => new VBPropertyGetMemberSymbol(Root, moduleUri, ScopeKind.Module, name, R, R, AccessModifier.Implicit) { ResolvedType = VBObjectType.TypeInfo };
 
     private static VBPropertyLetMemberSymbol PropertyLet(Uri moduleUri, string name)
-        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+        => new VBPropertyLetMemberSymbol(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit) { Parameters = [ValueParameter(moduleUri)] };
 
     private static VBPropertySetMemberSymbol PropertySet(Uri moduleUri, string name)
-        => new(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
+        => new VBPropertySetMemberSymbol(Root, moduleUri, name, ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit) { Parameters = [ValueParameter(moduleUri)] };
 
     private static VBClassModuleSymbol ClassModule(string name) => new(Root, Root, name);
 
@@ -158,6 +164,162 @@ public sealed class ScopeTreeSymbolResolverTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, result.ErrorId);
+    }
+
+    // ---- property accessor consistency (MS-VBAL §5.3.1.7) ----
+
+    private static VBParameterSymbol IndexParameter(Uri moduleUri, string name = "index", bool optional = false)
+        => new(Root, moduleUri, name, R, R, ParameterKind.ImplicitByVal, VBLongType.TypeInfo, optional);
+
+    private static ParamArrayParameterSymbol ParamArrayIndex(Uri moduleUri, string name = "rest")
+        => new(Root, moduleUri, name, R, R, ParameterKind.ExplicitByRef);
+
+    [TestMethod]
+    public void Resolve_GetAndLetWithMismatchedIndexCount_IsInconsistentPropertyAccessors()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri)] };
+        var let = PropertyLet(module.Uri, "Value"); // no index at all
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_GetAndLetWithMatchingIndex_IsConsistent()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri)] };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri), ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+        Assert.AreSame(get, result.Symbol);
+    }
+
+    [TestMethod]
+    public void Resolve_IndexParametersWithDifferentNames_IsInconsistentPropertyAccessors()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri, "idx")] };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri, "index"), ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_AGetOnlyPropertyWithAnOptionalIndex_IsConsistent()
+        // a single accessor has nothing to be inconsistent with - Optional is only ever rejected once
+        // a property has more than one accessor.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri, optional: true)] };
+
+        var result = Resolver(module, get).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
+    public void Resolve_AGetWithAnOptionalIndex_PairedWithALet_IsInconsistentPropertyAccessors()
+        // the real compiler's own wording: "...or property procedure has an optional parameter, a
+        // ParamArray, or an invalid Set final parameter" - Optional/ParamArray is only ever legal on a
+        // Get-only property, even when both accessors would otherwise describe the same index shape.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri, optional: true)] };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [IndexParameter(module.Uri, optional: true), ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_AGetWithAParamArrayIndex_PairedWithASet_IsInconsistentPropertyAccessors()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [ParamArrayIndex(module.Uri)] };
+        var set = PropertySet(module.Uri, "Value") with { Parameters = [ParamArrayIndex(module.Uri), ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_GetAndLetWithDifferentDeclaredTypes_IsInconsistentPropertyAccessors()
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { ResolvedType = VBLongType.TypeInfo };
+        var let = PropertyLet(module.Uri, "Value"); // ValueParameter is Object-typed
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_ASetWhoseValueIsNotObjectVariantOrAClass_IsInconsistentPropertyAccessors()
+        // MS-VBAL §5.3.1.7: the declared type of a property set declaration MUST be Object, Variant, or
+        // a named class.
+    {
+        var module = Module("Mod1");
+        var get = PropertyGet(module.Uri, "Value") with { ResolvedType = VBLongType.TypeInfo };
+        var set = PropertySet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, VBLongType.TypeInfo)] };
+
+        var result = Resolver(module, get, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_ASetWhoseValueIsAVariant_IsConsistent()
+    {
+        var module = Module("Mod1");
+        var set = PropertySet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, VBVariantType.TypeInfo)] };
+
+        var result = Resolver(module, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
+    public void Resolve_ASetWhoseValueIsANamedClass_IsConsistent()
+    {
+        var module = Module("Mod1");
+        var widget = VBClassType.FromClassModule(ClassModule("Widget"));
+        var set = PropertySet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, widget)] };
+
+        var result = Resolver(module, set).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
+    public void Resolve_ImplicitVsExplicitByRef_IsNotADifference()
+        // MS-VBAL §5.3.1.7: corresponding parameters can differ in whether the parameter-mechanism is
+        // implicitly or explicitly specified - only the actual ByRef-vs-ByVal distinction counts.
+    {
+        var module = Module("Mod1");
+        var implicitByRef = new VBParameterSymbol(Root, module.Uri, "index", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
+        var explicitByRef = new VBParameterSymbol(Root, module.Uri, "index", R, R, ParameterKind.ExplicitByRef, VBLongType.TypeInfo);
+        var get = PropertyGet(module.Uri, "Value") with { Parameters = [implicitByRef] };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [explicitByRef, ValueParameter(module.Uri)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
     }
 
     [TestMethod]

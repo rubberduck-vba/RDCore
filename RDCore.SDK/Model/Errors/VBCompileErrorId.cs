@@ -202,6 +202,22 @@ public enum VBCompileErrorId
     /// ℹ️ Unable to find an official <c>learn.microsoft.com</c> documentation link for this error.
     /// </remarks>
     DuplicateLabelDefinition = 9319,
+    /// <summary>
+    /// A <c>Property Get</c>, <c>Property Let</c>, and <c>Property Set</c> sharing a name declare
+    /// incompatible index-parameter lists, or a property procedure with an <c>Optional</c> parameter
+    /// or a <c>ParamArray</c> shares its name with another accessor, or a <c>Property Set</c>'s value
+    /// parameter is not typed <c>Object</c>, <c>Variant</c>, or a named class.<br/>
+    /// <strong>MS-VBAL §5.3.1.7</strong> Property Declarations.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ The real VBE bundles all three conditions into one message: "Definitions of property
+    /// procedures for the same property are inconsistent, or property procedure has an optional
+    /// parameter, a ParamArray, or an invalid Set final parameter." Only the first (index-parameter
+    /// equivalence) and third (Set's value type) are literal MS-VBAL static-semantics bullets; the
+    /// Optional/ParamArray-implies-Get-only consequence is not spelled out verbatim in the spec text,
+    /// but is confirmed by the real compiler's own error wording.
+    /// </remarks>
+    InconsistentPropertyAccessors = 9320,
 
 
     /***********************************************************************************************
