@@ -2,7 +2,11 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Semantics.Precompiler;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Instructions;
@@ -455,5 +459,59 @@ public sealed class InstructionListLoweringTests
             Assert.AreEqual(withOpener.Offset, items[offset].EnclosingWith, $"offset {offset}");
         }
         Assert.IsNull(items[^1].EnclosingWith); // "after" is back outside the With block
+    }
+
+    // ---- #If live-branch skipping (S3: PrecompilerLiveBranchEvaluator) ----
+
+    private static ISymbolResolver Resolver(params PrecompilerConstantSymbol[] constants)
+        => new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build([.. constants]));
+
+    private static InstructionListLoweringResult LowerWithDeadBranches(ISymbolResolver resolver, params string[] procedureBody)
+    {
+        var source = $"Sub Foo()\r\n{string.Join("\r\n", procedureBody)}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(parse.PrecompilerTrivia, resolver);
+        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), deadRanges);
+    }
+
+    [TestMethod]
+    public void IfElseBranch_OnlyTheLiveBranchLowers()
+    {
+        var resolver = Resolver(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+        var result = LowerWithDeadBranches(resolver, "#If DEBUGMODE Then", "x = 1", "#Else", "x = 2", "#End If", "y = 3");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items); // x = 1, y = 3 - "x = 2" never lowered
+    }
+
+    [TestMethod]
+    public void IfElseBranch_TheOtherWayRound_LowersTheOtherBranch()
+    {
+        var resolver = Resolver(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(0)));
+        var result = LowerWithDeadBranches(resolver, "#If DEBUGMODE Then", "x = 1", "#Else", "x = 2", "#End If", "y = 3");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items); // x = 2, y = 3
+    }
+
+    [TestMethod]
+    public void ALabelOnlyDefinedInADeadBranch_IsNotAddedToTheLabelTable()
+    {
+        var resolver = Resolver(new PrecompilerConstantSymbol("DEBUGMODE", new VBIntegerValue(1)));
+        var result = LowerWithDeadBranches(resolver, "#If DEBUGMODE Then", "x = 1", "#Else", "Dead:", "x = 2", "#End If");
+
+        Assert.IsFalse(result.InstructionList.TryGetLabelOffset("Dead", out _));
+    }
+
+    [TestMethod]
+    public void AnIndeterminateCondition_LowersBothBranches_Conservatively()
+    {
+        var result = LowerWithDeadBranches(Resolver(), "#If Nowhere Then", "x = 1", "#Else", "x = 2", "#End If");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items); // can't tell which is live - keep both
     }
 }
