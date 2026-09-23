@@ -289,10 +289,27 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return true;
     }
 
-    // Name is the symbolic name of a type as it appears in code - safe to compare this way (unlike a
-    // class/UDT type's own record equality, which would walk its Members - see VBClassType.FromClassModule
-    // for the same Uri.AbsoluteUri-over-Uri pitfall this sidesteps by comparing a stable string instead).
-    private static bool SameDeclaredType(VBType a, VBType b) => string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+    // A class/UDT/Enum type is identified by the symbol that declares it, not its bare Name: two
+    // distinct types can share a simple name - different modules of the same project, or two entirely
+    // different referenced projects/libraries (Excel.Range vs Word.Range - not workspace types, but the
+    // same shape applies to VBProject1.Class1 vs VBProject2.Class1). SemanticId is the safe, already-
+    // established identity accessor for this (Uri.AbsoluteUri, ordinal - Uri's own Equals/GetHashCode
+    // ignore Fragment, which is where a Symbol's real identity lives). An intrinsic type owns no
+    // symbol at all, so there is no such ambiguity to guard against - its Name is canonical there.
+    private static bool SameDeclaredType(VBType a, VBType b) => (OwningSymbolOf(a), OwningSymbolOf(b)) switch
+    {
+        ({ } symbolA, { } symbolB) => symbolA.SemanticId == symbolB.SemanticId,
+        (null, null) => string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
+        _ => false,
+    };
+
+    private static Symbol? OwningSymbolOf(VBType type) => type switch
+    {
+        VBClassType classType => classType.Symbol,
+        VBUserDefinedType userDefinedType => userDefinedType.Symbol,
+        VBEnumType enumType => enumType.Symbol,
+        _ => null,
+    };
 
     private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 

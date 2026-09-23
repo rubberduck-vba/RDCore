@@ -307,6 +307,39 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
+    public void Resolve_GetAndLetTypedAsDifferentClassesSharingABareName_IsInconsistentPropertyAccessors()
+        // two distinct classes can share a simple name - different modules, or entirely different
+        // referenced projects/libraries (Excel.Range vs Word.Range). Comparing declared types by their
+        // bare Name alone would wrongly treat these as the same type; SameDeclaredType must key on the
+        // declaring symbol's identity (SemanticId) instead.
+    {
+        var otherProject = new Uri("file://rdcore-other-project");
+        var module = Module("Mod1");
+        var widgetHere = VBClassType.FromClassModule(ClassModule("Widget"));
+        var widgetElsewhere = VBClassType.FromClassModule(new VBClassModuleSymbol(otherProject, otherProject, "Widget"));
+        var get = PropertyGet(module.Uri, "Value") with { ResolvedType = widgetHere };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, widgetElsewhere)] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.InconsistentPropertyAccessors, result.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resolve_GetAndLetTypedAsTheSameClass_IsConsistent()
+    {
+        var module = Module("Mod1");
+        var widget = ClassModule("Widget");
+        var get = PropertyGet(module.Uri, "Value") with { ResolvedType = VBClassType.FromClassModule(widget) };
+        var let = PropertyLet(module.Uri, "Value") with { Parameters = [new VBParameterSymbol(Root, module.Uri, "value", R, R, ParameterKind.ImplicitByVal, VBClassType.FromClassModule(widget))] };
+
+        var result = Resolver(module, get, let).ResolveValue("Value", ScopeKind.Unallocated, module.Uri);
+
+        Assert.IsTrue(result.IsResolved);
+    }
+
+    [TestMethod]
     public void Resolve_ImplicitVsExplicitByRef_IsNotADifference()
         // MS-VBAL §5.3.1.7: corresponding parameters can differ in whether the parameter-mechanism is
         // implicitly or explicitly specified - only the actual ByRef-vs-ByVal distinction counts.
