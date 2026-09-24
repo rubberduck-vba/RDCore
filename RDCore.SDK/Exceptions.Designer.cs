@@ -583,6 +583,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This For Each loop&apos;s collection expression is an array with no dimensions - it was never initialized by a Dim with bounds or a ReDim, so there is nothing to enumerate..
+        /// </summary>
+        public static string VBForEach_ArrayNotInitialized_Verbose {
+            get {
+                return ResourceManager.GetString("VBForEach_ArrayNotInitialized_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>
         public static string VBRuntimeError {

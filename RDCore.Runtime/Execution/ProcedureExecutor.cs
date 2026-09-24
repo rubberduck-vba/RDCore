@@ -504,10 +504,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         switch (collectionResult.Result)
         {
+            case VBArrayValue { IsInitialized: false }:
+                // A Dim'd-but-never-ReDim'd array has no SAFEARRAY behind it at all - not "an array with
+                // no elements" (MS-VBAL §5.4.2.4's silent-skip case below), the same distinction real VBA
+                // draws for LBound/UBound on an uninitialized array: error 9, Subscript out of range.
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange,
+                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ArrayNotInitialized_Verbose));
+
             case VBArrayValue array:
                 if (array.Length == 0)
                 {
-                    // MS-VBAL §5.4.2.4: "if the array has no elements, execution completes immediately."
+                    // MS-VBAL §5.4.2.4: "if the array has no elements, execution completes immediately" -
+                    // a real, initialized array whose declared bounds just happen to hold zero elements.
                     if (instruction.End is not { } emptyEnd)
                     {
                         return RuntimeExecutionOutcome.InternalError;

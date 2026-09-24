@@ -228,6 +228,9 @@
   <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
     <value>This For Each loop's collection expression must be an array, or an object exposing an enumeration member (VB_UserMemId = -4, commonly named _NewEnum).</value>
   </data>
+  <data name="VBForEach_ArrayNotInitialized_Verbose" xml:space="preserve">
+    <value>This For Each loop's collection expression is an array with no dimensions - it was never initialized by a Dim with bounds or a ReDim, so there is nothing to enumerate.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>

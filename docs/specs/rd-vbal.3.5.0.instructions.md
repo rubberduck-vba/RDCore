@@ -204,8 +204,13 @@ element (Set, when the array's own item type is `Object` — **§5.4.2.4**'s own
 `ForEachState` (control symbol/expression, the array, a flat index) via
 `ICallStackFrame.TryGetForEachState`/`CallStackFrame.SetForEachState` — the array's own storage is
 already column-major, exactly the traversal order **§5.4.2.4.1** ("Array Enumeration Order") mandates, so
-`VBArrayValue.ElementAt(flatIndex)` walks it directly with no per-dimension subscript math. An empty
-array skips the body entirely (`.End`). `ForEachNext` reads the state back via `Instruction.Matching`
+`VBArrayValue.ElementAt(flatIndex)` walks it directly with no per-dimension subscript math. A *declared*
+array whose bounds just happen to hold zero elements skips the body entirely (`.End`), per **§5.4.2.4**'s
+own "if the array has no elements" wording — but an array that was never initialized at all
+(`VBArrayValue.IsInitialized` false: a `Dim` with no bounds, never `ReDim`'d) is a different condition the
+spec text doesn't separately call out: real VBA raises error 9, `SubscriptOutOfRange`, the same as
+`LBound`/`UBound` would on it, rather than silently skipping. `ForEachNext` reads the state back via
+`Instruction.Matching`
 (the same field `ForNext`/`Case` reuse), advances the index, assigns the next element or falls through
 when exhausted — no stashed state at `ForEachNext` is error 92, same as `For`. A live object whose class
 exposes a member with `VB_UserMemId = -4` (commonly `_NewEnum`) is recognized structurally

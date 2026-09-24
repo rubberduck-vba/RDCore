@@ -222,6 +222,9 @@
   <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
     <value>L'expression de collection de cette boucle For Each doit être un tableau, ou un objet exposant un membre d'énumération (VB_UserMemId = -4, communément nommé _NewEnum).</value>
   </data>
+  <data name="VBForEach_ArrayNotInitialized_Verbose" xml:space="preserve">
+    <value>L'expression de collection de cette boucle For Each est un tableau sans dimension - il n'a jamais été initialisé par un Dim avec des bornes ou un ReDim, il n'y a donc rien à énumérer.</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>
