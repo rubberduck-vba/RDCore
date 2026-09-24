@@ -11,6 +11,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -79,7 +80,8 @@ public sealed class ProcedureExecutorTests
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
         var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
-        return new ProcedureExecutor(statements, conditions, withTargets, cases);
+        var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
+        return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -292,6 +294,106 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void ForLoop_CountsFromStartToEndInclusive()
+    {
+        var list = Lower("For i = 1 To 3", "s = s + i", "Next");
+        var i = Local("i", VBLongType.TypeInfo);
+        var s = Local("s", VBLongType.TypeInfo);
+        var session = ComposeSession(i, s);
+        var frame = PushFrame(session, (i, new VBLongValue(0)), (s, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(6, session.Symbols.Resolver.GetValue(s).Value.BoxedValue); // 1 + 2 + 3
+        Assert.AreEqual(4, session.Symbols.Resolver.GetValue(i).Value.BoxedValue); // holds its post-loop value
+    }
+
+    [TestMethod]
+    public void ForLoop_NeverEntersTheBody_WhenStartAlreadyExceedsEnd()
+    {
+        var list = Lower("For i = 5 To 1", "s = 999", "Next");
+        var i = Local("i", VBLongType.TypeInfo);
+        var s = Local("s", VBLongType.TypeInfo);
+        var session = ComposeSession(i, s);
+        var frame = PushFrame(session, (i, new VBLongValue(0)), (s, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(0, session.Symbols.Resolver.GetValue(s).Value.BoxedValue);
+        Assert.AreEqual(5, session.Symbols.Resolver.GetValue(i).Value.BoxedValue); // still Let-assigned once
+    }
+
+    [TestMethod]
+    public void ForLoop_WithAnExplicitStep_CountsByThatStep()
+    {
+        var list = Lower("For i = 10 To 0 Step -2", "s = s + i", "Next");
+        var i = Local("i", VBLongType.TypeInfo);
+        var s = Local("s", VBLongType.TypeInfo);
+        var session = ComposeSession(i, s);
+        var frame = PushFrame(session, (i, new VBLongValue(0)), (s, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(30, session.Symbols.Resolver.GetValue(s).Value.BoxedValue); // 10+8+6+4+2+0
+        Assert.AreEqual(-2, session.Symbols.Resolver.GetValue(i).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void ForLoop_WithANonIntegerStep_CountsFractionally()
+        // proves Step isn't assumed integral: IsOutOfRange/Increment operate on the counter's own
+        // declared type (Double here), not on some internal integer-only stepping assumption.
+    {
+        var list = Lower("For i = 0 To 2 Step 0.5", "n = n + 1", "Next");
+        var i = Local("i", VBDoubleType.TypeInfo);
+        var n = Local("n", VBLongType.TypeInfo);
+        var session = ComposeSession(i, n);
+        var frame = PushFrame(session, (i, new VBDoubleValue(0)), (n, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(5, session.Symbols.Resolver.GetValue(n).Value.BoxedValue); // 0, 0.5, 1, 1.5, 2
+        Assert.AreEqual(2.5, session.Symbols.Resolver.GetValue(i).Value.BoxedValue); // post-loop overshoot value
+    }
+
+    [TestMethod]
+    public void ExitFor_FromANestedIf_BreaksOutCleanly()
+    {
+        var list = Lower("For i = 1 To 100", "If i = 3 Then Exit For", "s = i", "Next");
+        var i = Local("i", VBLongType.TypeInfo);
+        var s = Local("s", VBLongType.TypeInfo);
+        var session = ComposeSession(i, s);
+        var frame = PushFrame(session, (i, new VBLongValue(0)), (s, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(i).Value.BoxedValue);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(s).Value.BoxedValue); // last completed iteration
+    }
+
+    [TestMethod]
+    public void ForNext_WithNoEnclosingForOpener_ReportsForLoopNotInitialized()
+        // MS-VBAL 5.4.2.3: a GoTo landing directly on Next without its own For header ever running is
+        // error 92. Hand-built rather than parsed - the real parser/lowering pair always emits a ForNext
+        // whose own Matching resolves to a real ForOpener, so this simulates the GoTo-bypass scenario
+        // directly against a minimal instruction list.
+    {
+        var forNext = new Instruction(0, null, InstructionKind.ForNext, 0, [], null, null, 999, null);
+        var list = new InstructionList([forNext], new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), new Dictionary<SyntaxNodeId, int>());
+        var session = ComposeSession();
+        var frame = PushFrame(session);
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.ForLoopNotInitialized, outcome.ErrorInfo!.ErrorId);
     }
 
     [TestMethod]

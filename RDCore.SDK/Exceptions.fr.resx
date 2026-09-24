@@ -213,6 +213,9 @@
   <data name="VBRuntimeError_ArithmeticOverflow" xml:space="preserve">
     <value>Le résultat de cette opération ne peut être représentée par le type effectif déterminé.</value>
   </data>
+  <data name="VBForLoopNotInitialized_Verbose" xml:space="preserve">
+    <value>L'instruction Next de cette boucle For s'est exécutée sans que son propre en-tête For n'ait jamais été exécuté dans cet appel - un GoTo a sauté directement dans le corps de la boucle, de sorte que les valeurs de début, de fin et de pas n'ont jamais été évaluées.</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>

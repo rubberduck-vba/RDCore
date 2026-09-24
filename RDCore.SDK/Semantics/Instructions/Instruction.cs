@@ -44,10 +44,17 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <c>Do…Loop</c>, a post-test loop, an inline <c>If</c>).
 /// </param>
 /// <param name="Matching">
-/// For a <c>Select Case</c> <c>Case</c> header (<see cref="InstructionKind.ConditionalBranch"/> lowered
-/// from a <c>CaseExpressionStatementNode</c>): the offset of the enclosing <see cref="InstructionKind.Select"/>
-/// instruction whose hidden selector value this header matches its range clauses against. <c>null</c>
-/// otherwise — including on a <c>Case Else</c>, which never reads the selector.
+/// The offset of the enclosing block-opening instruction whose own per-activation hidden state this
+/// instruction reads back. For a <c>Select Case</c> <c>Case</c> header
+/// (<see cref="InstructionKind.ConditionalBranch"/> lowered from a <c>CaseExpressionStatementNode</c>):
+/// the enclosing <see cref="InstructionKind.Select"/> instruction whose hidden selector value this
+/// header's range clauses are matched against (<c>null</c> on a <c>Case Else</c>, which never reads it).
+/// For a <see cref="InstructionKind.ForNext"/>/<see cref="InstructionKind.ForEachNext"/> closer: its own
+/// <see cref="InstructionKind.ForOpener"/>/<see cref="InstructionKind.ForEachOpener"/>, whose stashed
+/// counter/end/step (or enumerator) this closer advances and tests — a <c>GoTo</c> landing directly on
+/// the closer without that opener having run this activation is <strong>MS-VBAL §5.4.2.3</strong> error
+/// 92, "For loop not initialized", detected the same way an unresolved with-target would be: no state
+/// stashed for the offset this instruction names. <c>null</c> on every other instruction kind.
 /// </param>
 /// <param name="EnclosingWith">
 /// The offset of the innermost <see cref="InstructionKind.With"/> instruction lexically enclosing this

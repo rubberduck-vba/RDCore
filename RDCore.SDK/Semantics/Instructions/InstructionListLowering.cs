@@ -358,7 +358,7 @@ public static class InstructionListLowering
         var opener = Emit(state, scope, forStatement, InstructionKind.ForOpener);
         var bodyStart = state.Items.Count;
         LowerBlock(forStatement.Body, state, scope);
-        Emit(state, scope, null, InstructionKind.ForNext, target: bodyStart);
+        Emit(state, scope, null, InstructionKind.ForNext, target: bodyStart, matching: opener);
         var after = state.Items.Count;
         PatchEnd(state, opener, after);
         return after;
@@ -369,7 +369,7 @@ public static class InstructionListLowering
         var opener = Emit(state, scope, forEach, InstructionKind.ForEachOpener);
         var bodyStart = state.Items.Count;
         LowerBlock(forEach.Body, state, scope);
-        Emit(state, scope, null, InstructionKind.ForEachNext, target: bodyStart);
+        Emit(state, scope, null, InstructionKind.ForEachNext, target: bodyStart, matching: opener);
         var after = state.Items.Count;
         PatchEnd(state, opener, after);
         return after;

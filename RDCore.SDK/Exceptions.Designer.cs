@@ -554,7 +554,16 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBIsOp_ObjectRequired", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to This For loop&apos;s Next statement ran without its own For header ever running in this call - a GoTo jumped directly into the loop body, so the start, end, and step values were never evaluated..
+        /// </summary>
+        public static string VBForLoopNotInitialized_Verbose {
+            get {
+                return ResourceManager.GetString("VBForLoopNotInitialized_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>

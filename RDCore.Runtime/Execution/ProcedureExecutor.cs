@@ -1,9 +1,12 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Statements;
+using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -41,12 +44,17 @@ namespace RDCore.Runtime.Execution;
 /// <c>Do…Loop</c> is already just an unconditional <c>Jump</c> back to its own body — none of the three
 /// need any new per-activation state, only a Boolean condition and, for the <c>Until</c> half of each
 /// pair, a polarity flip (see <c>GetCondition</c>). <c>Exit For</c>/<c>Exit Do</c> (<c>ExitLoop</c>) is
-/// handled identically to <c>Jump</c>. Every other kind (<c>JumpTable</c>, <c>ForOpener</c>/<c>ForNext</c>,
-/// <c>ForEachOpener</c>/<c>ForEachNext</c>) is not yet wired and defers with
-/// <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently mishandled.
+/// handled identically to <c>Jump</c>. A <c>For</c> loop's own shape is wired too: <c>ForOpener</c>
+/// evaluates start/end/step once (<see cref="ForLoopEvaluator"/>) and stashes them — the counter itself
+/// is a real, addressable variable, Let-assigned through <see cref="ICallStackFrame.TryGetForLoopState"/>'s
+/// own state rather than shadowed — then either falls through into the body or skips it entirely when
+/// already out of range; <c>ForNext</c> reads that same state back via <see cref="Instruction.Matching"/>,
+/// increments, and re-tests. Every other kind (<c>JumpTable</c>, <c>ForEachOpener</c>/<c>ForEachNext</c>)
+/// is not yet wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being
+/// silently mishandled.
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -113,6 +121,22 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     if (selectOutcome is { } stopSelect)
                     {
                         return stopSelect;
+                    }
+                    break;
+
+                case InstructionKind.ForOpener:
+                    var forOpenerOutcome = ExecuteForOpener(session, instructionContext, instruction, activation);
+                    if (forOpenerOutcome is { } stopForOpener)
+                    {
+                        return stopForOpener;
+                    }
+                    break;
+
+                case InstructionKind.ForNext:
+                    var forNextOutcome = ExecuteForNext(session, instructionContext, instruction, activation);
+                    if (forNextOutcome is { } stopForNext)
+                    {
+                        return stopForNext;
                     }
                     break;
 
@@ -305,6 +329,135 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         activation.Pc = instruction.Offset + 1;
         return null;
     }
+
+    // Returns null when start/end/step were evaluated and stashed successfully and the loop should keep
+    // running (activation.Pc set to the body's first instruction, or skipped straight past the whole
+    // construct when already out of range on entry); returns a non-null outcome only when execution
+    // must stop.
+    private RuntimeExecutionOutcome? ExecuteForOpener(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (instruction.Node is not ForStatementNode forStatement || forStatement.ControlExpression is not SimpleNameExpressionNode simpleName)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var counterResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        if (counterResult.Symbol is not { } counterSymbol)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var startResult = forLoop.EvaluateOperand(session, forStatement.StartExpression, context);
+        if (!startResult.IsSuccess)
+        {
+            return ToFailureOutcome(startResult);
+        }
+
+        var endResult = forLoop.EvaluateOperand(session, forStatement.EndExpression, context);
+        if (!endResult.IsSuccess)
+        {
+            return ToFailureOutcome(endResult);
+        }
+
+        // MS-VBAL §5.4.2.3: "if no step-clause is present, the step-increment value is the integer data
+        // value 1" - a static default, never itself evaluated as a source expression.
+        RuntimeSemanticsEvaluationResult stepResult = forStatement.StepExpression is { } stepExpression
+            ? forLoop.EvaluateOperand(session, stepExpression, context)
+            : RuntimeSemanticsEvaluationResult.Success(new VBLongValue(1));
+        if (!stepResult.IsSuccess)
+        {
+            return ToFailureOutcome(stepResult);
+        }
+
+        var state = new ForLoopState(counterSymbol, forStatement.ControlExpression, endResult.Result!, stepResult.Result!);
+
+        var assignResult = forLoop.AssignCounter(session, state, forStatement.StartExpression, startResult.Result!);
+        if (!assignResult.IsSuccess)
+        {
+            return ToFailureOutcome(assignResult);
+        }
+
+        // stashed before the entry test below, exactly as MS-VBAL frames it: start/end/step are
+        // considered evaluated the moment the opener runs, regardless of whether the body ever executes.
+        activation.SetForLoopState(instruction.Offset, state);
+
+        var rangeResult = forLoop.IsOutOfRange(session, state, assignResult.Result!);
+        if (!rangeResult.IsSuccess)
+        {
+            return ToFailureOutcome(rangeResult);
+        }
+
+        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        {
+            // steps 1/2: already out of range - the body never runs at all.
+            if (instruction.End is not { } end)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+            activation.Pc = end;
+        }
+        else
+        {
+            activation.Pc = instruction.Offset + 1;
+        }
+        return null;
+    }
+
+    // Returns null when the counter was incremented and re-tested successfully and the loop should keep
+    // running (activation.Pc branched back to the body, or fallen through past the loop); returns a
+    // non-null outcome only when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteForNext(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (instruction.Matching is not { } openerOffset || !activation.TryGetForLoopState(openerOffset, out var state))
+        {
+            // MS-VBAL §5.4.2.3: a GoTo landed directly on this Next without its own ForOpener ever
+            // running this activation - error 92, "For loop not initialized".
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
+                instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
+        }
+
+        var counterResult = forLoop.EvaluateOperand(session, state.ControlExpression, context);
+        if (!counterResult.IsSuccess)
+        {
+            return ToFailureOutcome(counterResult);
+        }
+
+        var sumResult = forLoop.Increment(session, state, counterResult.Result!);
+        if (!sumResult.IsSuccess)
+        {
+            return ToFailureOutcome(sumResult);
+        }
+
+        var assignResult = forLoop.AssignCounter(session, state, state.ControlExpression, sumResult.Result!);
+        if (!assignResult.IsSuccess)
+        {
+            return ToFailureOutcome(assignResult);
+        }
+
+        var rangeResult = forLoop.IsOutOfRange(session, state, assignResult.Result!);
+        if (!rangeResult.IsSuccess)
+        {
+            return ToFailureOutcome(rangeResult);
+        }
+
+        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        {
+            activation.Pc = instruction.Offset + 1; // out of range - the loop ends here.
+        }
+        else
+        {
+            if (instruction.Target is not { } target)
+            {
+                // lowering always sets Target on a ForNext instruction - reaching here is a lowering bug.
+                return RuntimeExecutionOutcome.InternalError;
+            }
+            activation.Pc = target;
+        }
+        return null;
+    }
+
+    private static RuntimeExecutionOutcome ToFailureOutcome(RuntimeSemanticsEvaluationResult result)
+        => result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
 
     // The If/ElseIf/inline-If/pre-test-and-post-test-loop header node kinds only - a Select Case's own
     // Case header (CaseExpressionStatementNode) needs different handling entirely (range-clause matching

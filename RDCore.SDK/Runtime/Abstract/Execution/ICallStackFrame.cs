@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
@@ -74,4 +75,16 @@ public interface ICallStackFrame : IStackFrame
     /// <param name="value">The stashed value, if one exists for <paramref name="openerOffset"/>.</param>
     /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
     bool TryGetBlockState(int openerOffset, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value);
+
+    /// <summary>
+    /// Gets the <see cref="ForLoopState"/> a <c>For</c> loop's own opener stashed on this activation,
+    /// keyed by that instruction's own offset — mirrors <see cref="TryGetBlockState"/>, but a <c>For</c>
+    /// loop's per-activation hidden state is more than the single value that mechanism holds.
+    /// </summary>
+    /// <param name="openerOffset">The offset of the <c>ForOpener</c> instruction that stashed the state.</param>
+    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/> — its
+    /// absence when a <c>ForNext</c> instruction looks it up is <strong>MS-VBAL §5.4.2.3</strong> error
+    /// 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
+    /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
+    bool TryGetForLoopState(int openerOffset, out ForLoopState state);
 }

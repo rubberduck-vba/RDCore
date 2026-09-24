@@ -162,10 +162,43 @@ before branching when `Negate` is true, rather than duplicating the branch logic
 `Exit For`/`Exit Do` (`ExitLoop`) branches to `Instruction.Target` exactly like `Jump` does — literally the
 same `case` arm — since lowering has already resolved it to the offset right past the innermost enclosing
 loop of the matching kind (or left it `null`, an Exit outside any loop, a static gap with no `VBC` id
-wired yet). `JumpTable` and the `For`/`For Each` opener/closer kinds are not dispatched by the loop yet and
-report `InternalError` when reached — they need genuinely new per-activation state (a `For` loop's
-end/step values; a `For Each` loop's enumerator) that `TryGetBlockState`'s single-value-per-opener shape
-isn't built for.
+wired yet).
+
+A `For` loop (**MS-VBAL §5.4.2.3**) is the first construct needing genuinely new per-activation state:
+`ForOpener` evaluates `start-value`, `end-value`, and `step-increment` once, in that order (a missing
+`step-clause` defaults to the integer value `1`, never itself evaluated as a source expression), Let-assigns
+the counter to `start-value` through the same real Let-assignment machinery a `Let` statement uses, then
+stashes `end`/`step` — plus the counter symbol and its own expression node, for every later step to reuse —
+as a `RDCore.SDK.Runtime.Shared.ForLoopState`, read back via `ICallStackFrame.TryGetForLoopState`/
+`CallStackFrame.SetForLoopState`. This is a *second*, richer hidden-state mechanism alongside
+`TryGetBlockState`, exactly as anticipated when `With`/`Select` were wired: a `For` loop's state is more
+than the single value that one holds. Steps 1/2 of the algorithm ("if step is zero or positive and the
+counter already exceeds end" / "if step is negative and the counter already falls short") are checked
+immediately, using the real relational operators
+(`RDCore.Runtime.Semantics.Operators.Relational.BinaryGtRelationalOperatorRuntimeSemantics`/
+`BinaryLtRelationalOperatorRuntimeSemantics`) rather than a raw numeric comparison — the counter's own
+declared type (Currency, Decimal, Date-as-Double, …) has real, spec-mandated comparison semantics a plain
+CLR `>`/`<` would get wrong; only `step`'s own sign, which the algorithm frames as a plain classification
+rather than a VBA-visible comparison expression, is read directly off its numeric magnitude. Already out of
+range → skip straight to `Instruction.End`; otherwise fall through into the body. `ForNext` reads the
+stashed state back via `Instruction.Matching` (reusing the same field a `Case` header's own back-reference
+to its `Select` uses — the two are never ambiguous, since `InstructionKind` alone picks which
+interpretation applies), reads the counter's *current* value (the body may have reassigned it directly —
+legal, if unusual, VBA), adds `step` through the real addition operator
+(`RDCore.Runtime.Semantics.Operators.Arithmetic.BinaryAdditionOperatorRuntimeSemantics`, MS-VBAL §5.6.9.3 —
+a real, overflow-checked operation, not a bare CLR add), Let-assigns the sum back, then re-tests the same
+way the opener did: back to the body when still in range, fall through past the loop otherwise. `ForNext`
+finding no stashed state for its own `Matching` offset means its `ForOpener` never ran this activation — a
+`GoTo` landed directly on the closer — which is **MS-VBAL §5.4.2.3** error 92, "For loop not initialized"
+(`VBRuntimeErrorId.ForLoopNotInitialized`, new resx entry `VBForLoopNotInitialized_Verbose`, both
+languages). Every location-bearing node passed to any of these operator calls is a real node the loop
+already has (the counter's own expression, or, for its very first assignment, the loop's own start
+expression) — never a synthetic stand-in, the same discipline the `ExpressionNode` widening this section
+already described for `Case` clause matching applies here too.
+
+`For Each` and `JumpTable` are not dispatched by the loop yet and report `InternalError` when reached — a
+`For Each` loop needs its own further-still per-activation state (an enumerator/cursor over its
+collection), a separate slice.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
 semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
@@ -218,13 +251,15 @@ for a `.Member`/`!member` with-expression however control reached that instructi
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc`/`TryGetBlockState` are likewise on the SDK interface (read-only there, for a
-future debugger surface) but only ever mutated by the executor, through `CallStackFrame.Pc`/`SetBlockState`.
-`TryGetBlockState` is a single hidden value per block-opening instruction, keyed by that instruction's own
-offset — enough for `With`'s target and `Select Case`'s selector; a `For`/`For Each` loop's several named
-hidden values (start/end/step/current, an enumerator) will need a different shape when S6 gets to them,
-not this one stretched to fit. `ProcedureExecutor`, its statement dispatch, and activation
-state are **RDCore.Runtime** (GPLv3).
+drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState` are likewise on the SDK interface
+(read-only there, for a future debugger surface) but only ever mutated by the executor, through
+`CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`. `TryGetBlockState` is a single hidden value per
+block-opening instruction, keyed by that instruction's own offset — enough for `With`'s target and `Select
+Case`'s selector. A `For` loop's own state is richer — counter symbol, counter expression, end, step — so
+it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`, and its own parallel
+`TryGetForLoopState`/`SetForLoopState` pair rather than stretching `TryGetBlockState`'s single-value shape
+to fit; a `For Each` loop's enumerator will need a further, different shape still, when that slice comes.
+`ProcedureExecutor`, its statement dispatch, and activation state are **RDCore.Runtime** (GPLv3).
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

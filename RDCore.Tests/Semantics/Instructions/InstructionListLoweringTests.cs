@@ -386,6 +386,7 @@ public sealed class InstructionListLoweringTests
         Assert.AreEqual(InstructionKind.ForNext, items[2].Kind);
         Assert.IsNull(items[2].Node); // no dedicated "Next" AST node exists to attribute it to
         Assert.AreEqual(1, items[2].Target); // back to the body's first instruction
+        Assert.AreEqual(0, items[2].Matching); // its own opener's offset
     }
 
     [TestMethod]
@@ -399,6 +400,7 @@ public sealed class InstructionListLoweringTests
         Assert.AreEqual(InstructionKind.ForEachOpener, items[0].Kind);
         Assert.AreEqual(InstructionKind.ForEachNext, items[2].Kind);
         Assert.AreEqual(1, items[2].Target);
+        Assert.AreEqual(0, items[2].Matching); // its own opener's offset
     }
 
     [TestMethod]

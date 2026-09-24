@@ -219,6 +219,9 @@
   <data name="VBIsOp_ObjectRequired" xml:space="preserve">
     <value>Relational operator 'Is' requires an object in this context.</value>
   </data>
+  <data name="VBForLoopNotInitialized_Verbose" xml:space="preserve">
+    <value>This For loop's Next statement ran without its own For header ever running in this call - a GoTo jumped directly into the loop body, so the start, end, and step values were never evaluated.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>

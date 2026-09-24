@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
@@ -24,6 +25,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private readonly SymbolAddressTable _addresses = new(Storage);
     private readonly HashSet<SemanticId> _declared = [];
     private readonly Dictionary<int, VBTypedValue> _blockState = [];
+    private readonly Dictionary<int, ForLoopState> _forLoopState = [];
 
     /// <inheritdoc/>
     public int Pc { get; set; }
@@ -38,6 +40,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <inheritdoc/>
     public bool TryGetBlockState(int openerOffset, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value)
         => _blockState.TryGetValue(openerOffset, out value);
+
+    /// <summary>
+    /// Stashes <paramref name="state"/> as this activation's hidden state for the <c>ForOpener</c>
+    /// instruction at <paramref name="openerOffset"/>.
+    /// </summary>
+    public void SetForLoopState(int openerOffset, ForLoopState state) => _forLoopState[openerOffset] = state;
+
+    /// <inheritdoc/>
+    public bool TryGetForLoopState(int openerOffset, out ForLoopState state)
+        => _forLoopState.TryGetValue(openerOffset, out state);
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for
