@@ -85,7 +85,8 @@ public sealed class ProcedureExecutorTests
         var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
         var forEach = new ForEachEvaluator(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
         var jumpTable = new JumpTableEvaluator(expressionEvaluator, numericCoercion);
-        return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable);
+        var errorHandling = new ErrorHandlingEvaluator(expressionEvaluator, numericCoercion);
+        return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable, errorHandling);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -982,5 +983,181 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
         Assert.AreEqual((int)VBRuntimeErrorId.ReturnWithoutGoSub, outcome.ErrorInfo!.ErrorId);
+    }
+
+    private static VBParameterSymbol ArrayLocal(string name) => Local(name, new VBFixedSizeArrayType(VBLongType.TypeInfo));
+
+    [TestMethod]
+    public void OnErrorResumeNext_SwallowsAnError_AndContinuesAtTheNextStatement()
+    {
+        var list = Lower("On Error Resume Next", "x = arr(99)", "y = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(0, session.Symbols.Resolver.GetValue(x).Value.BoxedValue); // never assigned - the RHS errored
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnErrorResumeNext_KeepsCatchingEveryError_NotJustTheFirst()
+        // Unlike GoTo, catching via Resume Next does not reset the policy - MS-VBAL §5.4.4's own
+        // asymmetry between the two.
+    {
+        var list = Lower("On Error Resume Next", "x = arr(99)", "x = arr(98)", "y = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnErrorGoTo_BranchesToTheHandlerOnError()
+    {
+        var list = Lower("On Error GoTo Handler", "x = arr(99)", "Exit Sub", "Handler:", "y = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnErrorGoTo_ResetsPolicyToDisabled_SoASecondErrorInsideTheHandlerPropagates()
+    {
+        var list = Lower("On Error GoTo Handler", "x = arr(99)", "Exit Sub", "Handler:", "y = arr(98)");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void OnErrorGoToZero_DisablesHandling_SoALaterErrorPropagates()
+    {
+        var list = Lower("On Error Resume Next", "On Error GoTo 0", "x = arr(99)");
+        var x = Local("x", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void Resume_ReExecutesTheFaultStatement()
+        // The handler fixes the condition that faulted (i points at an out-of-range subscript) before
+        // Resume re-runs the exact same statement - this time it succeeds.
+    {
+        var list = Lower("i = 99", "On Error GoTo Handler", "x = arr(i)", "Exit Sub", "Handler:", "i = 1", "Resume");
+        var i = Local("i", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(i, x, arr);
+        var frame = PushFrame(session, (i, new VBLongValue(0)), (x, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(20, session.Symbols.Resolver.GetValue(x).Value.BoxedValue); // arr(1)
+    }
+
+    [TestMethod]
+    public void ResumeNext_Statement_ContinuesAfterTheFaultStatement()
+    {
+        var list = Lower("On Error GoTo Handler", "x = arr(99)", "y = 1", "Exit Sub", "Handler:", "Resume Next");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(0, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void Resume_ALabel_BranchesThere()
+    {
+        var list = Lower("On Error GoTo Handler", "x = arr(99)", "Exit Sub",
+            "Handler:", "Resume Done", "y = 999", "Done:", "y = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var arr = ArrayLocal("arr");
+        var session = ComposeSession(x, y, arr);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue); // 999 skipped by the branch
+    }
+
+    [TestMethod]
+    public void Resume_WithNoActiveError_ReportsResumeWithoutError()
+    {
+        var list = Lower("Resume");
+        var session = ComposeSession();
+        var frame = PushFrame(session);
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.ResumeWithoutError, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void ErrorStatement_RaisesTheGivenErrorNumber()
+    {
+        var list = Lower("Error 5");
+        var session = ComposeSession();
+        var frame = PushFrame(session);
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual(5, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void ErrorStatement_IsCatchableLikeAnyOtherRuntimeError()
+    {
+        var list = Lower("On Error Resume Next", "Error 5", "y = 1");
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(y);
+        var frame = PushFrame(session, (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
     }
 }

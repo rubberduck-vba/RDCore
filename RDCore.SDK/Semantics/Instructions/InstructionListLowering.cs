@@ -25,8 +25,9 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <see cref="StatementNode"/> (<see cref="Instruction.Node"/> is <c>null</c>), and are never keyed in
 /// <c>ByNode</c>. An unconditional "else" branch (<c>Else</c>, <c>Case Else</c>) gets no header
 /// instruction of its own — it has no condition to evaluate, so its chain's previous header branches
-/// straight to its body's first instruction. Any statement kind this pass does not recognize —
-/// including error-handling statements — falls through as <see cref="InstructionKind.Simple"/>.
+/// straight to its body's first instruction. Any statement kind this pass does not recognize as one of
+/// the control-flow shapes above — an ordinary data-manipulation statement (Let/Set-assignment, a
+/// <c>Call</c>) chiefly — falls through as <see cref="InstructionKind.Simple"/>.
 /// <para>
 /// Lowering doubles as a validator for the one static-semantics rule it needs to resolve jump targets
 /// at all: every label a jump names must be defined exactly once in the procedure
@@ -145,6 +146,26 @@ public static class InstructionListLowering
                 Emit(state, scope, statement, InstructionKind.Return);
                 break;
 
+            case OnErrorGoToStatementNode onErrorGoTo:
+                LowerOnErrorGoTo(onErrorGoTo, state, scope);
+                break;
+
+            case OnErrorResumeStatementNode:
+                Emit(state, scope, statement, InstructionKind.OnErrorResumeNext);
+                break;
+
+            case ResumeStatementNode resume:
+                LowerResume(resume, state, scope);
+                break;
+
+            case ResumeNextStatementNode:
+                Emit(state, scope, statement, InstructionKind.ResumeNext);
+                break;
+
+            case ErrorStatementNode:
+                Emit(state, scope, statement, InstructionKind.RaiseError);
+                break;
+
             case KeywordStatementNode { Token: Tokens.ExitSub or Tokens.ExitFunction or Tokens.ExitProperty }:
                 Emit(state, scope, statement, InstructionKind.ExitProcedure);
                 break;
@@ -239,6 +260,36 @@ public static class InstructionListLowering
     {
         var index = Emit(state, scope, statement, InstructionKind.ExitLoop);
         exit?.ExitIndexes.Add(index);
+    }
+
+    // MS-VBAL §5.4.4.1 carves the line-number-label 0 out as a sentinel ("error handling disabled"), not
+    // a label to resolve; real-world VBA also accepts -1 the same way (OnErrorGoToStatementNode's own doc
+    // already anticipated both). Neither sentinel gets a PendingJumps entry - OnErrorDisable needs no
+    // Target at all, it always means "disable, right now."
+    private static void LowerOnErrorGoTo(OnErrorGoToStatementNode onErrorGoTo, LoweringState state, LoweringScope scope)
+    {
+        if (LabelOperands.IsIntegerConstant(onErrorGoTo.LabelExpression, 0) || LabelOperands.IsIntegerConstant(onErrorGoTo.LabelExpression, -1))
+        {
+            Emit(state, scope, onErrorGoTo, InstructionKind.OnErrorDisable);
+            return;
+        }
+
+        state.PendingJumps.Add((Emit(state, scope, onErrorGoTo, InstructionKind.OnErrorGoTo), onErrorGoTo.LabelExpression));
+    }
+
+    // MS-VBAL §5.4.4.2: a bare Resume and a Resume whose label is the line-number-label 0 both
+    // re-execute the fault statement (ResumeCurrentStatement, no static Target - the executor reads it
+    // off the activation's own ErrorHandlerState at runtime); a real label branches there instead
+    // (ResumeLabel, resolved the same way GoTo's own label is).
+    private static void LowerResume(ResumeStatementNode resume, LoweringState state, LoweringScope scope)
+    {
+        if (resume.LabelExpression is null || LabelOperands.IsIntegerConstant(resume.LabelExpression, 0))
+        {
+            Emit(state, scope, resume, InstructionKind.ResumeCurrentStatement);
+            return;
+        }
+
+        state.PendingJumps.Add((Emit(state, scope, resume, InstructionKind.ResumeLabel), resume.LabelExpression));
     }
 
     private static void LowerIf(IfBlockStatementNode ifBlock, LoweringState state, LoweringScope scope)

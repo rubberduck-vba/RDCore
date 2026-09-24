@@ -18,10 +18,12 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <param name="Target">
 /// For <see cref="InstructionKind.Jump"/>, <see cref="InstructionKind.GoSub"/>,
 /// <see cref="InstructionKind.LoopBack"/>, <see cref="InstructionKind.ForNext"/>,
-/// <see cref="InstructionKind.ForEachNext"/>, and <see cref="InstructionKind.ExitLoop"/>: the resolved
-/// offset to branch to. <c>null</c> for a <see cref="InstructionKind.Jump"/> lowered from
-/// <c>GoTo</c>/<c>On…GoTo</c>, or a <see cref="InstructionKind.GoSub"/> lowered from <c>GoSub</c>, whose
-/// operand did not resolve to a label the procedure defines (lowering already reported the
+/// <see cref="InstructionKind.ForEachNext"/>, <see cref="InstructionKind.ExitLoop"/>,
+/// <see cref="InstructionKind.OnErrorGoTo"/>, and <see cref="InstructionKind.ResumeLabel"/>: the
+/// resolved offset to branch to. <c>null</c> for a <see cref="InstructionKind.Jump"/> lowered from
+/// <c>GoTo</c>/<c>On…GoTo</c>, a <see cref="InstructionKind.GoSub"/> lowered from <c>GoSub</c>, or an
+/// <see cref="InstructionKind.OnErrorGoTo"/>/<see cref="InstructionKind.ResumeLabel"/>, whose operand did
+/// not resolve to a label the procedure defines (lowering already reported the
 /// <see cref="RDCore.SDK.Model.Errors.VBCompileErrorId.LabelNotDefined"/> diagnostic for it), or for an
 /// <see cref="InstructionKind.ExitLoop"/> lowering found no matching enclosing loop for. Unused
 /// otherwise.

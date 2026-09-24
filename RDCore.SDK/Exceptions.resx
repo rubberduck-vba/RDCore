@@ -237,6 +237,12 @@
   <data name="VBOnGoToGoSub_SelectorOutOfRange_Verbose" xml:space="preserve">
     <value>An On...GoTo or On...GoSub selector, once Let-coerced to Integer, must be zero or a positive value no greater than 255.</value>
   </data>
+  <data name="VBResume_WithoutError_Verbose" xml:space="preserve">
+    <value>This Resume statement ran with no active error - there is nothing for it to resume from.</value>
+  </data>
+  <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
+    <value>Raised explicitly by an Error statement.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>

@@ -231,6 +231,12 @@
   <data name="VBOnGoToGoSub_SelectorOutOfRange_Verbose" xml:space="preserve">
     <value>Le sélecteur d'un On...GoTo ou d'un On...GoSub, une fois coercé (let-coercion) en Integer, doit être zéro ou une valeur positive ne dépassant pas 255.</value>
   </data>
+  <data name="VBResume_WithoutError_Verbose" xml:space="preserve">
+    <value>Cette instruction Resume s'est exécutée sans erreur active - il n'y a rien dont elle puisse reprendre.</value>
+  </data>
+  <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
+    <value>Levée explicitement par une instruction Error.</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>

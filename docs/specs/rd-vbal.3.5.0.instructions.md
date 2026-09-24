@@ -304,26 +304,62 @@ over from whichever `With` last ran — so `RuntimeExpressionEvaluator`'s existi
 resolution (**MS-VBAL §5.6.15**, wired since S4) picks up the innermost enclosing `With`'s stashed target
 for a `.Member`/`!member` with-expression however control reached that instruction, `GoTo` included.
 
+`On Error`/`Resume` (**MS-VBAL §5.4.4**) work by interception, not by dedicated per-error branch logic:
+every dispatch above that could yield an `Error` outcome routes it through `ProcedureExecutor`'s own
+`InterceptError` before the loop decides whether to actually stop. This means every runtime error the
+executor can already raise — `TypeMismatch`, `SubscriptOutOfRange`, `ForLoopNotInitialized`, any of
+them, from any subsystem, present or future — became catchable in this one slice, with no changes at any
+individual error-raising site. `activation.ErrorHandler` (`ErrorHandlerState`) is a single mutable value
+per activation, like `Pc` — not per-offset hidden state the way `With`/`Select`/`For`/`For Each` state is
+— since an `On Error` statement changes the activation's policy going forward, it isn't scoped to one
+block. `On Error Resume Next` catches an error silently and continues at the statement right after the
+one that raised it, *without* resetting the policy — every later error in the same activation is caught
+the same way. `On Error GoTo` `<label>` branches there and *does* reset the policy to disabled — a second,
+unhandled error inside the handler body itself propagates rather than re-entering it. This asymmetry is
+MS-VBAL's own, not a simplification. `On Error GoTo 0` (and the undocumented VBA6/7 `On Error GoTo -1`,
+which `OnErrorGoToStatementNode`'s own doc comment already anticipated) both lower as `OnErrorDisable`,
+treated identically for now — MS-VBAL doesn't document `-1` at all, so nothing here diverges from spec by
+not distinguishing them further. `Resume`/`Resume Next`/`Resume` `<label>` all require an active error
+(error 20, "Resume without error", otherwise) and clear it on success: a bare `Resume` (or `Resume 0`,
+the same **MS-VBAL §5.4.4.2** sentinel `On Error GoTo 0` uses) re-executes the fault statement, `Resume
+Next` continues past it, `Resume` `<label>` branches there. `Error` `<number>` raises a run-time error
+directly, "as if `Err.Raise` were invoked" — `RDCore.Runtime.Execution.ErrorHandlingEvaluator` Let-coerces
+the number expression to `Integer` the same direct-strategy-call way `ConditionEvaluator` forces a
+condition to `Boolean`.
+
+**Deliberately not modeled by this slice:** the `Err` object as something VBA source can read or call
+(`Err.Number`, `Err.Raise(...)`) — that needs real member-dispatch machinery, S9's job, the same
+prerequisite blocking `_NewEnum` invocation. Also not modeled: a `Default`-policy error actually
+propagating to a real *caller* activation and applying *its* policy — no multi-frame call stack exists
+yet (S9 again). Today, "propagate" means this `Run` call's own return value; a future caller's `Run`
+would see exactly that value from invoking the callee, and could route it through its own
+`InterceptError` the same way — the mechanism generalizes for free once S9 exists, it doesn't need
+rework.
+
 ---
 ## 3.5.5 Placement and licensing
 
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState`/`GoSubDepth` are
-likewise on the SDK interface (read-only there, for a future debugger surface) but only ever mutated by
-the executor, through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/`SetForEachState`/
-`PushGoSubReturn`/`TryPopGoSubReturn` — the GoSub Resumption List is a plain stack, not a per-offset
-dictionary like the other three, since nothing about *which* `GoSub` pushed an entry matters to `Return`,
-only order does; `GoSubDepth` (a count, not a peek) is exposed instead of anything that could look inside
-it. `TryGetBlockState` is a
-single hidden value per block-opening instruction, keyed by that instruction's own offset — enough for
-`With`'s target and `Select Case`'s selector. A `For` loop's own state is richer — counter symbol, counter
-expression, end, step — so it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For
-Each` loop's is different again — an enumeration cursor (control symbol/expression, the array, a flat
-index) — its own `ForEachState`. Each gets its own parallel `TryGetXState`/`SetXState` pair rather than
-stretching `TryGetBlockState`'s single-value shape to fit all three. `ProcedureExecutor`, its statement
-dispatch, and activation state are **RDCore.Runtime** (GPLv3).
+drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState`/`GoSubDepth`/
+`ErrorHandler` are likewise on the SDK interface (read-only there, for a future debugger surface) but only
+ever mutated by the executor, through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/
+`SetForEachState`/`PushGoSubReturn`/`TryPopGoSubReturn`/`ErrorHandler`'s own setter — the GoSub Resumption
+List is a plain stack, not a per-offset dictionary like the other three, since nothing about *which*
+`GoSub` pushed an entry matters to `Return`, only order does; `GoSubDepth` (a count, not a peek) is exposed
+instead of anything that could look inside it. `TryGetBlockState` is a single hidden value per
+block-opening instruction, keyed by that instruction's own offset — enough for `With`'s target and `Select
+Case`'s selector. A `For` loop's own state is richer — counter symbol, counter expression, end, step — so
+it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For Each` loop's is different again
+— an enumeration cursor (control symbol/expression, the array, a flat index) — its own `ForEachState`.
+Each gets its own parallel `TryGetXState`/`SetXState` pair rather than stretching `TryGetBlockState`'s
+single-value shape to fit all three. `ErrorHandlerState` (mode, handler target, active error,
+fault-statement offset) is different again — like `Pc`, it's a single mutable value per activation rather
+than per-offset hidden state, since an `On Error` statement changes the policy going forward rather than
+scoping it to one block — so it gets a plain `ErrorHandler { get; }`/`{ get; set; }` property pair, the
+same shape `Pc` itself uses, rather than a `TryGetXState`/`SetXState` pair. `ProcedureExecutor`, its
+statement dispatch, and activation state are **RDCore.Runtime** (GPLv3).
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

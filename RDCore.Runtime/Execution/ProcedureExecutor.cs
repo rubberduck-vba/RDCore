@@ -65,8 +65,28 @@ namespace RDCore.Runtime.Execution;
 /// <c>On…GoSub</c>'s successful branch does the same. <c>Return</c> pops that list
 /// (<see cref="CallStackFrame.TryPopGoSubReturn"/>) and branches there — an empty list is error 3.
 /// </para>
+/// <para>
+/// <c>On Error</c>/<c>Resume</c> (<strong>MS-VBAL §5.4.4</strong>) work by interception, not by their own
+/// dedicated branch logic: every dispatch above that could yield an <c>Error</c> outcome routes it through
+/// <c>InterceptError</c> before the loop decides whether to actually stop, so EVERY runtime error this
+/// executor can already raise — from any subsystem, present or future — becomes catchable for free, with
+/// no per-error-site changes. <c>activation.ErrorHandler</c> (<see cref="ErrorHandlerState"/>) is a single
+/// mutable value per activation, like <c>Pc</c>, not per-offset hidden state: an <c>On Error</c> statement
+/// changes the policy going forward, it isn't scoped to one block. <c>On Error Resume Next</c> catches
+/// silently and keeps catching every later error the same way; <c>On Error GoTo</c> &lt;label&gt; branches
+/// there and resets the policy to disabled, so an unhandled second error inside the handler body itself
+/// propagates rather than re-entering it — real VBA's own asymmetry between the two, not a simplification.
+/// <c>Resume</c>/<c>Resume Next</c>/<c>Resume</c> &lt;label&gt; all require an active error (error 20
+/// otherwise) and clear it; <c>Error</c> &lt;number&gt; raises a run-time error directly, "as if
+/// <c>Err.Raise</c> were invoked." What this slice does NOT model: the <c>Err</c> object itself as
+/// something VBA source can read/call (<c>Err.Number</c>, <c>Err.Raise(...)</c> — needs member-dispatch
+/// machinery, S9's job) and a <c>Default</c>-policy error actually propagating to a real CALLER activation
+/// (no multi-frame call stack exists yet — today, "propagate" means this <c>Run</c> call's own return
+/// value, which is exactly what a future caller's <c>Run</c> would see and apply its own policy to, so the
+/// mechanism generalizes for free once S9 exists).
+/// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable, ErrorHandlingEvaluator errorHandling)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -87,7 +107,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     var outcome = statements.Execute(session, instructionContext, instruction.Node!);
                     if (outcome.Kind != RuntimeExecutionOutcomeKind.Next)
                     {
-                        return outcome;
+                        if (InterceptError(activation, instruction.Offset, outcome) is { } unhandledSimple)
+                        {
+                            return unhandledSimple;
+                        }
+                        break; // handled - activation.Pc already redirected by InterceptError.
                     }
                     activation.Pc = instruction.Offset + 1;
                     break;
@@ -106,81 +130,118 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
                 case InstructionKind.ConditionalBranch:
                     var branchOutcome = ExecuteConditionalBranch(session, instructionContext, instruction, activation);
-                    if (branchOutcome is { } stop)
+                    if (branchOutcome is { } stop && InterceptError(activation, instruction.Offset, stop) is { } unhandledBranch)
                     {
-                        return stop;
+                        return unhandledBranch;
                     }
                     break;
 
                 case InstructionKind.LoopBack:
                     var loopBackOutcome = ExecuteLoopBack(session, instructionContext, instruction, activation);
-                    if (loopBackOutcome is { } stopLoopBack)
+                    if (loopBackOutcome is { } stopLoopBack && InterceptError(activation, instruction.Offset, stopLoopBack) is { } unhandledLoopBack)
                     {
-                        return stopLoopBack;
+                        return unhandledLoopBack;
                     }
                     break;
 
                 case InstructionKind.With:
                     var withOutcome = ExecuteWith(session, instructionContext, instruction, activation);
-                    if (withOutcome is { } stopWith)
+                    if (withOutcome is { } stopWith && InterceptError(activation, instruction.Offset, stopWith) is { } unhandledWith)
                     {
-                        return stopWith;
+                        return unhandledWith;
                     }
                     break;
 
                 case InstructionKind.Select:
                     var selectOutcome = ExecuteSelect(session, instructionContext, instruction, activation);
-                    if (selectOutcome is { } stopSelect)
+                    if (selectOutcome is { } stopSelect && InterceptError(activation, instruction.Offset, stopSelect) is { } unhandledSelect)
                     {
-                        return stopSelect;
+                        return unhandledSelect;
                     }
                     break;
 
                 case InstructionKind.ForOpener:
                     var forOpenerOutcome = ExecuteForOpener(session, instructionContext, instruction, activation);
-                    if (forOpenerOutcome is { } stopForOpener)
+                    if (forOpenerOutcome is { } stopForOpener && InterceptError(activation, instruction.Offset, stopForOpener) is { } unhandledForOpener)
                     {
-                        return stopForOpener;
+                        return unhandledForOpener;
                     }
                     break;
 
                 case InstructionKind.ForNext:
                     var forNextOutcome = ExecuteForNext(session, instructionContext, instruction, activation);
-                    if (forNextOutcome is { } stopForNext)
+                    if (forNextOutcome is { } stopForNext && InterceptError(activation, instruction.Offset, stopForNext) is { } unhandledForNext)
                     {
-                        return stopForNext;
+                        return unhandledForNext;
                     }
                     break;
 
                 case InstructionKind.ForEachOpener:
                     var forEachOpenerOutcome = ExecuteForEachOpener(session, instructionContext, instruction, activation);
-                    if (forEachOpenerOutcome is { } stopForEachOpener)
+                    if (forEachOpenerOutcome is { } stopForEachOpener && InterceptError(activation, instruction.Offset, stopForEachOpener) is { } unhandledForEachOpener)
                     {
-                        return stopForEachOpener;
+                        return unhandledForEachOpener;
                     }
                     break;
 
                 case InstructionKind.ForEachNext:
                     var forEachNextOutcome = ExecuteForEachNext(session, instructionContext, instruction, activation);
-                    if (forEachNextOutcome is { } stopForEachNext)
+                    if (forEachNextOutcome is { } stopForEachNext && InterceptError(activation, instruction.Offset, stopForEachNext) is { } unhandledForEachNext)
                     {
-                        return stopForEachNext;
+                        return unhandledForEachNext;
+                    }
+                    break;
+
+                case InstructionKind.OnErrorGoTo:
+                    if (instruction.Target is not { } handlerTarget)
+                    {
+                        return RuntimeExecutionOutcome.InternalError;
+                    }
+                    activation.ErrorHandler = new ErrorHandlerState(ErrorHandlingMode.GoTo, handlerTarget, null, null);
+                    activation.Pc = instruction.Offset + 1;
+                    break;
+
+                case InstructionKind.OnErrorDisable:
+                    activation.ErrorHandler = ErrorHandlerState.Disabled;
+                    activation.Pc = instruction.Offset + 1;
+                    break;
+
+                case InstructionKind.OnErrorResumeNext:
+                    activation.ErrorHandler = new ErrorHandlerState(ErrorHandlingMode.ResumeNext, null, null, null);
+                    activation.Pc = instruction.Offset + 1;
+                    break;
+
+                case InstructionKind.ResumeCurrentStatement:
+                case InstructionKind.ResumeNext:
+                case InstructionKind.ResumeLabel:
+                    var resumeOutcome = ExecuteResume(instruction, activation);
+                    if (resumeOutcome is { } stopResume && InterceptError(activation, instruction.Offset, stopResume) is { } unhandledResume)
+                    {
+                        return unhandledResume;
+                    }
+                    break;
+
+                case InstructionKind.RaiseError:
+                    var raiseOutcome = ExecuteRaiseError(session, instructionContext, instruction);
+                    if (InterceptError(activation, instruction.Offset, raiseOutcome) is { } unhandledRaise)
+                    {
+                        return unhandledRaise;
                     }
                     break;
 
                 case InstructionKind.JumpTable:
                     var jumpTableOutcome = ExecuteJumpTable(session, instructionContext, instruction, activation, pushReturn: false);
-                    if (jumpTableOutcome is { } stopJumpTable)
+                    if (jumpTableOutcome is { } stopJumpTable && InterceptError(activation, instruction.Offset, stopJumpTable) is { } unhandledJumpTable)
                     {
-                        return stopJumpTable;
+                        return unhandledJumpTable;
                     }
                     break;
 
                 case InstructionKind.GoSubTable:
                     var goSubTableOutcome = ExecuteJumpTable(session, instructionContext, instruction, activation, pushReturn: true);
-                    if (goSubTableOutcome is { } stopGoSubTable)
+                    if (goSubTableOutcome is { } stopGoSubTable && InterceptError(activation, instruction.Offset, stopGoSubTable) is { } unhandledGoSubTable)
                     {
-                        return stopGoSubTable;
+                        return unhandledGoSubTable;
                     }
                     break;
 
@@ -196,9 +257,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
                 case InstructionKind.Return:
                     var returnOutcome = ExecuteReturn(instruction, activation);
-                    if (returnOutcome is { } stopReturn)
+                    if (returnOutcome is { } stopReturn && InterceptError(activation, instruction.Offset, stopReturn) is { } unhandledReturn)
                     {
-                        return stopReturn;
+                        return unhandledReturn;
                     }
                     break;
 
@@ -702,6 +763,83 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         activation.Pc = returnOffset;
         return null;
+    }
+
+    // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that
+    // could produce an Error outcome routes through here before the executor loop decides whether to
+    // actually stop. Returns null when an active handler caught it (activation.Pc/ErrorHandler already
+    // updated - the loop keeps running); returns `outcome` unchanged otherwise (no active handler, or a
+    // non-Error outcome - propagate/stop exactly as if this interception point didn't exist).
+    private static RuntimeExecutionOutcome? InterceptError(CallStackFrame activation, int faultOffset, RuntimeExecutionOutcome outcome)
+    {
+        if (outcome.Kind != RuntimeExecutionOutcomeKind.Error)
+        {
+            return outcome;
+        }
+
+        var handler = activation.ErrorHandler;
+        switch (handler.Mode)
+        {
+            case ErrorHandlingMode.ResumeNext:
+                // "Resume Next" does not reset the activation's own policy - it keeps silently catching
+                // every later error in the same activation, not just the first one.
+                activation.ErrorHandler = handler with { ActiveError = outcome.ErrorInfo, FaultStatementOffset = faultOffset };
+                activation.Pc = faultOffset + 1;
+                return null;
+
+            case ErrorHandlingMode.GoTo:
+                // Catching via GoTo resets the activation's own policy to Default - an unhandled second
+                // error inside the handler body itself propagates rather than re-entering the handler.
+                activation.ErrorHandler = new ErrorHandlerState(ErrorHandlingMode.Disabled, null, outcome.ErrorInfo, faultOffset);
+                activation.Pc = handler.HandlerTarget!.Value;
+                return null;
+
+            default:
+                return outcome;
+        }
+    }
+
+    // Returns null when the Resume succeeded (activation.Pc/ErrorHandler already updated - the loop
+    // keeps running); returns a non-null outcome only when there was no active error to resume from
+    // (error 20), itself routed back through InterceptError by the caller like any other Error outcome.
+    private static RuntimeExecutionOutcome? ExecuteResume(Instruction instruction, CallStackFrame activation)
+    {
+        if (activation.ErrorHandler.ActiveError is null || activation.ErrorHandler.FaultStatementOffset is not { } faultOffset)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ResumeWithoutError,
+                instruction.Node?.SourceLocation ?? default, Exceptions.VBResume_WithoutError_Verbose));
+        }
+
+        activation.ErrorHandler = activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
+        activation.Pc = instruction.Kind switch
+        {
+            InstructionKind.ResumeCurrentStatement => faultOffset,
+            InstructionKind.ResumeNext => faultOffset + 1,
+            InstructionKind.ResumeLabel => instruction.Target!.Value,
+            _ => activation.Pc,
+        };
+        return null;
+    }
+
+    // MS-VBAL §5.4.4.3: "the effect is as if the Err.Raise method were invoked" - always produces an
+    // Error outcome (or InternalError on a lowering bug/a number expression that fails to evaluate), for
+    // the caller to route through InterceptError exactly like any other runtime error.
+    private RuntimeExecutionOutcome ExecuteRaiseError(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction)
+    {
+        if (instruction.Node is not ErrorStatementNode errorStatement)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var numberResult = errorHandling.EvaluateErrorNumber(session, errorStatement.NumberExpression, context);
+        if (!numberResult.IsSuccess)
+        {
+            return ToFailureOutcome(numberResult);
+        }
+
+        var number = ((VBIntegerValue)numberResult.Result!).Value;
+        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For((VBRuntimeErrorId)number,
+            errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }
 
     // Structural recognition only - the member's own body is never called (no procedure invocation

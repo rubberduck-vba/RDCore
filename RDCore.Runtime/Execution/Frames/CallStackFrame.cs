@@ -32,6 +32,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <inheritdoc/>
     public int Pc { get; set; }
 
+    /// <inheritdoc/>
+    public ErrorHandlerState ErrorHandler { get; set; } = ErrorHandlerState.Disabled;
+
     /// <summary>
     /// Stashes <paramref name="value"/> as this activation's hidden state for the block-opening
     /// instruction at <paramref name="openerOffset"/> — a <c>With</c>'s target, a <c>Select Case</c>'s

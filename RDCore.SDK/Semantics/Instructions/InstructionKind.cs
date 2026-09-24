@@ -134,4 +134,51 @@ public enum InstructionKind
     /// of the matching kind's closer, or <c>null</c> when lowering found no such enclosing loop.
     /// </summary>
     ExitLoop,
+
+    /// <summary>
+    /// <c>On Error GoTo</c> &lt;label&gt; (<strong>MS-VBAL §5.4.4.1</strong>): sets the activation's
+    /// error-handling policy to branch to <see cref="Instruction.Target"/> on the next error. Always
+    /// falls through — the branch only happens later, when (if) an error is actually raised.
+    /// </summary>
+    OnErrorGoTo,
+
+    /// <summary>
+    /// <c>On Error GoTo 0</c> (or the undocumented VBA6/7 <c>On Error GoTo -1</c>) — disables the
+    /// activation's error-handling policy and clears any active error. Always falls through.
+    /// </summary>
+    OnErrorDisable,
+
+    /// <summary>
+    /// <c>On Error Resume Next</c> (<strong>MS-VBAL §5.4.4.1</strong>): sets the activation's
+    /// error-handling policy to silently continue at the statement after any statement that raises an
+    /// error. Always falls through.
+    /// </summary>
+    OnErrorResumeNext,
+
+    /// <summary>
+    /// A bare <c>Resume</c>, or <c>Resume 0</c> (<strong>MS-VBAL §5.4.4.2</strong>): re-executes the
+    /// statement whose fault raised the activation's active error, and clears it. No active error is
+    /// error 20, "Resume without error".
+    /// </summary>
+    ResumeCurrentStatement,
+
+    /// <summary>
+    /// <c>Resume Next</c> (<strong>MS-VBAL §5.4.4.2</strong>): continues at the statement right after
+    /// the one whose fault raised the activation's active error, and clears it. No active error is error
+    /// 20, "Resume without error".
+    /// </summary>
+    ResumeNext,
+
+    /// <summary>
+    /// <c>Resume</c> &lt;label&gt; (<strong>MS-VBAL §5.4.4.2</strong>): branches to
+    /// <see cref="Instruction.Target"/> and clears the activation's active error. No active error is
+    /// error 20, "Resume without error".
+    /// </summary>
+    ResumeLabel,
+
+    /// <summary>
+    /// <c>Error</c> &lt;number&gt; (<strong>MS-VBAL §5.4.4.3</strong>): raises the given number as a
+    /// run-time error, "as if the <c>Err.Raise</c> method were invoked" with it.
+    /// </summary>
+    RaiseError,
 }

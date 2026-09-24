@@ -610,6 +610,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This Resume statement ran with no active error - there is nothing for it to resume from..
+        /// </summary>
+        public static string VBResume_WithoutError_Verbose {
+            get {
+                return ResourceManager.GetString("VBResume_WithoutError_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Raised explicitly by an Error statement..
+        /// </summary>
+        public static string VBErrorStatement_Raised_Verbose {
+            get {
+                return ResourceManager.GetString("VBErrorStatement_Raised_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>
         public static string VBRuntimeError {

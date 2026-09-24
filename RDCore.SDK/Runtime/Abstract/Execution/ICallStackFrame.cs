@@ -108,4 +108,14 @@ public interface ICallStackFrame : IStackFrame
     /// (<strong>MS-VBAL §5.4.2.15</strong>) when this is zero is error 3, "Return without GoSub".
     /// </summary>
     int GoSubDepth { get; }
+
+    /// <summary>
+    /// This activation's current <see cref="ErrorHandlerState"/> (<strong>MS-VBAL §5.4.4</strong>) — a
+    /// single mutable value, like <see cref="Pc"/>, not per-offset hidden state like
+    /// <see cref="TryGetBlockState"/>/<see cref="TryGetForLoopState"/>/<see cref="TryGetForEachState"/>:
+    /// an <c>On Error</c> statement changes the activation's policy going forward, it isn't scoped to one
+    /// block-opening instruction. Read-only here: only the interpreter's executor (RDCore.Runtime)
+    /// updates it, through the concrete frame type it constructs.
+    /// </summary>
+    ErrorHandlerState ErrorHandler { get; }
 }

@@ -228,6 +228,99 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
+    public void OnErrorGoTo_AForwardLabel_ResolvesToTheLabelsOffset()
+    {
+        var result = Lower("On Error GoTo Handler", "x = 1", "Handler:", "x = 2");
+
+        AssertNoErrors(result);
+        var onErrorGoTo = result.InstructionList.Items[0];
+        Assert.AreEqual(InstructionKind.OnErrorGoTo, onErrorGoTo.Kind);
+        Assert.AreEqual(2, onErrorGoTo.Target);
+    }
+
+    [TestMethod]
+    public void OnErrorGoTo_AnUndefinedLabel_LeavesTheTargetUnresolved_AndReportsLabelNotDefined()
+    {
+        var result = Lower("On Error GoTo Nowhere");
+
+        AssertSingleError(result, VBCompileErrorId.LabelNotDefined, "Nowhere");
+        Assert.IsNull(result.InstructionList.Items[0].Target);
+        Assert.AreEqual(InstructionKind.OnErrorGoTo, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    [DataRow("0", DisplayName = "On Error GoTo 0 (MS-VBAL §5.4.4.1)")]
+    [DataRow("-1", DisplayName = "On Error GoTo -1 (undocumented VBA6/7 extension)")]
+    public void OnErrorGoTo_TheZeroOrNegativeOneSentinel_LowersAsOnErrorDisable_NotARealLabel(string sentinel)
+    {
+        var result = Lower($"On Error GoTo {sentinel}");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.OnErrorDisable, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    public void OnErrorResumeNext_LowersAsItsOwnInstructionKind()
+    {
+        var result = Lower("On Error Resume Next");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.OnErrorResumeNext, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    [DataRow("", DisplayName = "bare Resume")]
+    [DataRow(" 0", DisplayName = "Resume 0 (MS-VBAL §5.4.4.2 sentinel)")]
+    public void Resume_BareOrZero_LowersAsResumeCurrentStatement_NoStaticTarget(string suffix)
+    {
+        var result = Lower($"Resume{suffix}");
+
+        AssertNoErrors(result);
+        var resume = result.InstructionList.Items[0];
+        Assert.AreEqual(InstructionKind.ResumeCurrentStatement, resume.Kind);
+        Assert.IsNull(resume.Target);
+    }
+
+    [TestMethod]
+    public void ResumeNext_LowersAsItsOwnInstructionKind()
+    {
+        var result = Lower("Resume Next");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.ResumeNext, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    public void Resume_ARealLabel_ResolvesToTheLabelsOffset()
+    {
+        var result = Lower("Resume Handler", "x = 1", "Handler:", "x = 2");
+
+        AssertNoErrors(result);
+        var resume = result.InstructionList.Items[0];
+        Assert.AreEqual(InstructionKind.ResumeLabel, resume.Kind);
+        Assert.AreEqual(2, resume.Target);
+    }
+
+    [TestMethod]
+    public void Resume_AnUndefinedLabel_LeavesTheTargetUnresolved_AndReportsLabelNotDefined()
+    {
+        var result = Lower("Resume Nowhere");
+
+        AssertSingleError(result, VBCompileErrorId.LabelNotDefined, "Nowhere");
+        Assert.IsNull(result.InstructionList.Items[0].Target);
+        Assert.AreEqual(InstructionKind.ResumeLabel, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    public void ErrorStatement_LowersAsRaiseError()
+    {
+        var result = Lower("Error 5");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.RaiseError, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
     public void ADuplicateLabelDefinition_KeepsTheFirstOffset_AndReportsDuplicateLabelDefinition()
     {
         var result = Lower("Top:", "x = 1", "Top:", "y = 2");
