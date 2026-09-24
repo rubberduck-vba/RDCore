@@ -38,7 +38,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
         ISymbolResolver resolver, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];
@@ -65,7 +65,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext, 
         params VBTypedValue[] operands)
     {

@@ -2,6 +2,7 @@
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
@@ -32,7 +33,7 @@ where TFlags : struct, Enum
         ISymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<TContext, TFlags> builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorAnalysisContext<TFlags> analysisContext,
         params VBTypedValue[] operands)
         => AnalyzeOperands(builder, analysisContext.EffectiveTypeResult, operands);
@@ -53,7 +54,7 @@ where TFlags : struct, Enum
     public sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver, 
         TContext context, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var result = DetermineOperatorEffectiveType(resolver, expression, frame);
@@ -102,7 +103,7 @@ where TFlags : struct, Enum
     /// <param name="frame">The current evaluation frame for this operation.</param>
     protected abstract DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     /// <summary>
@@ -116,6 +117,6 @@ where TFlags : struct, Enum
     /// This implementation satifies the specifiations of every defined unary operator with regards to <c>VBNullValue</c> operands.
     /// </remarks>
     /// <returns>An evaluation result containing the value <c>VBNullValue.Null</c>.</returns>
-    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(ISymbolResolver resolver, VBUnaryOperatorExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
+    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(ISymbolResolver resolver, ExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
         RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
 }

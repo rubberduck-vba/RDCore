@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
@@ -26,7 +27,7 @@ public record class BinaryOrLogicalOperatorRuntimeSemantics(
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
         ISymbolResolver resolver,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];

@@ -78,7 +78,7 @@ public sealed class ProcedureExecutorTests
         var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
-        var cases = new CaseMatchEvaluator(expressionEvaluator);
+        var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
         return new ProcedureExecutor(statements, conditions, withTargets, cases);
     }
 

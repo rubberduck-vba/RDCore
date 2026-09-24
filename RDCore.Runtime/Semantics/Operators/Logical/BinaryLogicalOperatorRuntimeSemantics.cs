@@ -100,7 +100,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand].GetTargetType();
@@ -149,10 +149,10 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
                 Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [lhs.Name, rhs.Name]))));
     }
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];
@@ -181,14 +181,14 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// </remarks>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
         ISymbolResolver resolver, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame);
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorAnalysisContext<LogicalOperatorSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
     {

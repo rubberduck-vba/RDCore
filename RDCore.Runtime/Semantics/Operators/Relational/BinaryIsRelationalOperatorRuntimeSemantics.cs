@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
@@ -31,13 +32,13 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.Success(VBBooleanType.TypeInfo);
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];

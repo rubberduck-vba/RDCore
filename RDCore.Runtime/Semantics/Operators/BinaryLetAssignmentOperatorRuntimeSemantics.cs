@@ -45,7 +45,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorAnalysisContext<ConversionSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
         // the facts of an assignment are those of the coercion of its source to the declared type of its target: the operand
@@ -55,7 +55,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
         ISymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex operandIndex)
     {
@@ -68,7 +68,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     protected override RuntimeSemanticsEvaluationResult EvaluateForAnalysis(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var effectiveTypeResult = DetermineOperatorEffectiveType(resolver, context, expression, frame);
@@ -85,7 +85,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
                 ?? OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression, Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose));
     }
 
-    private LetCoercionResult CoerceSource(ISymbolResolver resolver, VBOperatorExpression expression, OperatorEvaluationFrame frame)
+    private LetCoercionResult CoerceSource(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame)
         => LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression,
             new(NodeId: expression.Identity,
                 OperandIndex: InputIndex.BinaryRightOperand,
@@ -102,7 +102,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var targetType = frame[InputIndex.BinaryLeftOperand].GetTargetType();
@@ -114,10 +114,10 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
 
     protected override LetCoercionResult ValidateOperand(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex index)
-        // This operator performs its own let-coercion inside EvaluateExpressionResult — the source
+        // This operator performs its own let-coercion inside EvaluateBinaryOperatorExpressionResult — the source
         // (right operand) coerced to the target's (left operand) declared type. The base pipeline's
         // generic operand validation would instead try to pre-coerce BOTH operands toward
         // frame.EffectiveType, which would corrupt the left operand: it's a VBSymbolDescValue target
@@ -125,10 +125,10 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         // BinaryLetCoerceOperatorRuntimeSemantics.ValidateOperand.
         => LetCoercionResult.Success(frame[index], []);
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var target = ((VBSymbolDescValue)frame[InputIndex.BinaryLeftOperand]).Symbol;

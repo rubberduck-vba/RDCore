@@ -1,6 +1,7 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -27,7 +28,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver, 
         BinaryArithmeticOperatorSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame) 
     {
         var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
@@ -59,10 +60,10 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         };
     }
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var lhs = frame[InputIndex.BinaryLeftOperand];

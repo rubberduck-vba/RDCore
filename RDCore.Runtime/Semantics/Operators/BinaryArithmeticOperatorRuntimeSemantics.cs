@@ -93,13 +93,13 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     protected abstract DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var result = DetermineArithmeticOperatorEffectiveType(resolver, (BinaryArithmeticOperatorSemanticContext)context, expression, frame);
@@ -241,7 +241,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorAnalysisContext<ArithmeticOperatorSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
     {

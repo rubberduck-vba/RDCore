@@ -41,7 +41,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand].GetTargetType();
@@ -51,15 +51,15 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
             lhs is VBNullType || rhs is VBNullType ? VBNullType.TypeInfo : VBStringType.TypeInfo);
     }
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         try
         {
-            return base.EvaluateExpressionResult(resolver, context, expression, frame);
+            return base.EvaluateBinaryOperatorExpressionResult(resolver, context, expression, frame);
         }
         catch (ArgumentException)
         {

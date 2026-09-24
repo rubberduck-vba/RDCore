@@ -50,7 +50,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
 
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // lets the base semantics handle this.
 
     /// <summary>

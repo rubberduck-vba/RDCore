@@ -49,7 +49,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> builder, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         OperatorAnalysisContext<ComparisonOperatorSemanticFlags> analysisContext, params VBTypedValue[] operands)
     {
         // MS-VBAL 5.6.9.5: comparing two Error values is only defined when both hold a standard error code.
@@ -99,7 +99,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand].GetTargetType();
@@ -195,10 +195,10 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         };
     }
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var lhs = frame.Operands[(int)InputIndex.BinaryLeftOperand];

@@ -38,7 +38,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         ISymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> builder, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         OperatorAnalysisContext<ConcatOperationSemanticFlags> analysisContext, 
         params VBTypedValue[] operands)
     {
@@ -80,7 +80,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         ConcatOperationSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var lhsOperand = frame[InputIndex.BinaryLeftOperand];
@@ -114,10 +114,10 @@ public record class BinaryConcatOperatorRuntimeSemantics(
 
     private static bool IsByteArray(VBTypedValue value) => value is VBArrayValue { ItemType: VBByteType };
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         ConcatOperationSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame) =>
         frame.EffectiveType switch
         {

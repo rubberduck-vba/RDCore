@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
@@ -40,27 +41,27 @@ where TFlags : struct, Enum
     protected abstract DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver, 
         TContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     public sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver,
         TContext context,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
-        => DetermineBinaryOperatorEffectiveType(resolver, context, (VBBinaryOperatorExpressionNode)expression, frame);
+        => DetermineBinaryOperatorEffectiveType(resolver, context, expression, frame);
 
-    protected abstract RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected abstract RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         TContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     protected sealed override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,
         TContext context,
-        VBOperatorExpression expression,
-        OperatorEvaluationFrame frame) => EvaluateExpressionResult(resolver, context, (VBBinaryOperatorExpressionNode)expression, frame);
+        ExpressionNode expression,
+        OperatorEvaluationFrame frame) => EvaluateBinaryOperatorExpressionResult(resolver, context, expression, frame);
 
     /// <summary>
     /// Evaluates the <see cref="VBNullType"/> runtime semantics of a <em>binary operator expression</em>.<br/>

@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -26,7 +27,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
 {
     protected override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame[InputIndex.UnaryOperand].TypeInfo switch
         {
             VBByteType  => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
@@ -39,7 +40,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
         ISymbolResolver resolver,
         UnaryArithmeticOperatorSemanticContext context,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
         {
             /* 

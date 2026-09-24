@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -27,7 +28,7 @@ public record class UnaryNotOperatorRuntimeSemantics(
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(ISymbolResolver resolver,
         UnaryLogicalOperatorSemanticContext context,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame) =>
         frame.EffectiveType switch
         {

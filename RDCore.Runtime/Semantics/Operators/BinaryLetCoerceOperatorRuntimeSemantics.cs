@@ -48,7 +48,7 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorAnalysisContext<ConversionSemanticFlags> analysisContext,
         params VBTypedValue[] operands)
         // an explicit coercion is one whether or not it converts anything (a redundant one is a fact, too).
@@ -59,7 +59,7 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
     protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
         ISymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex operandIndex)
     {
@@ -80,7 +80,7 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context,
-        VBBinaryOperatorExpressionNode expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         var targetType = frame[InputIndex.BinaryRightOperand].GetTargetType();
@@ -92,10 +92,10 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
 
     protected override LetCoercionResult ValidateOperand(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex index)
-        // This operator performs its own let-coercion inside EvaluateExpressionResult — the left
+        // This operator performs its own let-coercion inside EvaluateBinaryOperatorExpressionResult — the left
         // operand's source value, coerced to the right operand's requested target type. The base
         // pipeline's generic operand validation would pre-coerce the left operand toward
         // frame.EffectiveType (the RESOLVED target type) before this operator gets to run its own
@@ -104,10 +104,10 @@ public record class BinaryLetCoerceOperatorRuntimeSemantics(
         // value this operator exists to coerce. Both operands pass through unchanged.
         => LetCoercionResult.Success(frame[index], []);
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
+    protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
         ConversionOperationSemanticContext context, 
-        VBBinaryOperatorExpressionNode expression, 
+        ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
         var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, 

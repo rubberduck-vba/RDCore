@@ -152,17 +152,28 @@ outcome as an explicit `Exit`). `JumpTable` and the loop kinds are not dispatche
 report `InternalError` when reached.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
-semantics — as a real comparison/logical expression, evaluated through the same operator machinery every
-other expression uses, never a hand-rolled equality/range check: a value clause (`Case 5`) becomes
-`selector = 5`; a comparison clause (`Case Is > 5`) becomes `selector > 5`, reusing the clause's own
-already-normalized comparison-operator token; a `To` clause (`Case 1 To 10`) becomes
-`(selector >= 1) And (selector <= 10)`. The already-evaluated selector is wrapped as a `LiteralExpressionNode`
-so it is never re-evaluated per clause — the spec's own "the select-expression is immediately evaluated"
-(once, ahead of every case-clause). A `Null` selector short-circuits every `Case` header straight to `Case
-Else` without evaluating any range clause at all (**MS-VBAL §5.4.2.10**: "If select-expression is the data
-value Null, only the case-else-clause is executed") — not yet exercisable by an automated test, since
-neither the parser's `Null` literal keyword nor pushing a raw `VBNullValue` onto a frame work today
-(separate, pre-existing gaps; ticketed, not this slice's scope).
+semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
+other expression uses (`BinaryRelationalOperatorRuntimeSemantics`/`BinaryAndLogicalOperatorRuntimeSemantics`),
+never a hand-rolled equality/range check: a value clause (`Case 5`) becomes `selector = 5`; a comparison
+clause (`Case Is > 5`) becomes `selector > 5`, reusing the clause's own already-normalized
+comparison-operator token to pick the right strategy directly; a `To` clause (`Case 1 To 10`) becomes
+`(selector >= 1) And (selector <= 10)`. `CaseMatchEvaluator` calls the specific strategy directly rather
+than going through `OperatorRuntimeSemanticsProvider`'s token dispatch — it already knows which one it
+wants — passing the clause's own real operand expression (never a fabricated stand-in for the
+already-evaluated selector) as the location-bearing node; the already-evaluated selector itself is passed
+straight through as an operand *value*, not re-evaluated per clause, matching the spec's own "the
+select-expression is immediately evaluated" (once, ahead of every case-clause). This is what motivated
+widening `OperatorRuntimeSemantics<TContext,TFlags>`'s own node parameter from `VBOperatorExpression` down
+to `ExpressionNode` (mirroring S5c's identical widening of `ILetCoercionRuntimeSemantics`): nothing in the
+whole operator hierarchy ever read `.Left`/`.Right`/`.Token` off that parameter — only `.Identity` (for
+error attribution) and, at the token-dispatch layer alone (`OperatorRuntimeSemanticsProvider`, deliberately
+untouched), `.Token` — so requiring a real binary/unary operator node there was never load-bearing, and
+forced exactly the same kind of synthetic-node fabrication S5c had already ruled out for let-coercion. A
+`Null` selector short-circuits every `Case` header straight to `Case Else` without evaluating any range
+clause at all (**MS-VBAL §5.4.2.10**: "If select-expression is the data value Null, only the
+case-else-clause is executed") — not yet exercisable by an automated test, since neither the parser's
+`Null` literal keyword nor pushing a raw `VBNullValue` onto a frame work today (separate, pre-existing
+gaps; ticketed, not this slice's scope).
 
 A `ConditionalBranch`'s condition is forced to `Boolean` by `RDCore.Runtime.Execution.ConditionEvaluator`
 (**MS-VBAL §5.5.1.2.2**), which calls `VBBooleanLetCoercionRuntimeSemantics` directly rather than through
