@@ -72,8 +72,9 @@ public sealed class ProcedureExecutorTests
         var formatter = Substitute.For<IVerboseMessageBuilder>();
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
+        var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
-            [new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle), booleanCoercion], formatter);
+            [numericCoercion, booleanCoercion], formatter);
         handle.Inner = letCoercion;
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
@@ -83,7 +84,8 @@ public sealed class ProcedureExecutorTests
         var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
         var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
         var forEach = new ForEachEvaluator(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
-        return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach);
+        var jumpTable = new JumpTableEvaluator(expressionEvaluator, numericCoercion);
+        return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -855,5 +857,130 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void GoSub_RunsTheHandler_ThenReturnsToTheStatementAfterGoSub()
+    {
+        var list = Lower("GoSub Handler", "x = x + 1", "Exit Sub", "Handler:", "x = 100", "Return");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(101, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void Return_WithoutGoSub_ReportsReturnWithoutGoSub()
+    {
+        var list = Lower("Return");
+        var session = ComposeSession();
+        var frame = PushFrame(session);
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.ReturnWithoutGoSub, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void NestedGoSub_ReturnsInLifoOrder()
+        // First's GoSub Second nests inside First's own handler; each Return must go back to ITS OWN
+        // GoSub's continuation, innermost first (MS-VBAL §5.4.2.14's "LIFO manner") - s accumulates a
+        // decimal digit per statement, so the final value encodes the exact order they ran in.
+    {
+        var list = Lower(
+            "GoSub First", "Exit Sub",
+            "First:", "s = s * 10 + 1", "GoSub Second", "s = s * 10 + 3", "Return",
+            "Second:", "s = s * 10 + 2", "Return");
+        var s = Local("s", VBLongType.TypeInfo);
+        var session = ComposeSession(s);
+        var frame = PushFrame(session, (s, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(123, session.Symbols.Resolver.GetValue(s).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnGoTo_BranchesToTheNthLabel()
+    {
+        var list = Lower("On n GoTo A, B, C", "x = 0", "Exit Sub",
+            "A:", "x = 1", "Exit Sub", "B:", "x = 2", "Exit Sub", "C:", "x = 3");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(2)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnGoTo_SelectorOutOfRange_FallsThroughWithoutBranching()
+        // MS-VBAL §5.4.2.13: n zero or greater than the label count completes the statement immediately
+        // - the next statement still runs, it just isn't reached via a branch.
+    {
+        var list = Lower("On n GoTo A", "x = 999", "A:");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(0)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(999, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnGoTo_NegativeSelector_ReportsInvalidProcedureCallOrArgument()
+    {
+        var list = Lower("On n GoTo A", "A:");
+        var n = Local("n", VBLongType.TypeInfo);
+        var session = ComposeSession(n);
+        var frame = PushFrame(session, (n, new VBLongValue(-1)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void OnGoSub_BranchesAndPushesReturn_ThenReturnGoesBackAfterTheOnGoSub()
+    {
+        var list = Lower("On n GoSub A", "x = x + 1", "Exit Sub", "A:", "x = 100", "Return");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(1)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(101, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnGoSub_SelectorOutOfRange_FallsThroughWithoutPushingAnything()
+        // Proven indirectly: if the out-of-range fallthrough had pushed a resumption point anyway, the
+        // Return right after it would find the stack non-empty and branch instead of erroring.
+    {
+        var list = Lower("On n GoSub A", "Return", "A:", "Return");
+        var n = Local("n", VBLongType.TypeInfo);
+        var session = ComposeSession(n);
+        var frame = PushFrame(session, (n, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.ReturnWithoutGoSub, outcome.ErrorInfo!.ErrorId);
     }
 }

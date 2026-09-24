@@ -99,4 +99,13 @@ public interface ICallStackFrame : IStackFrame
     /// error 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
     /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
     bool TryGetForEachState(int openerOffset, out ForEachState state);
+
+    /// <summary>
+    /// The current depth of this activation's own GoSub Resumption List
+    /// (<strong>MS-VBAL §5.4.2.14</strong>) — how many <c>GoSub</c>/<c>On…GoSub</c> calls are still
+    /// awaiting their <c>Return</c>. Read-only here: only the interpreter's executor (RDCore.Runtime)
+    /// pushes and pops it, through the concrete frame type it constructs. A <c>Return</c>
+    /// (<strong>MS-VBAL §5.4.2.15</strong>) when this is zero is error 3, "Return without GoSub".
+    /// </summary>
+    int GoSubDepth { get; }
 }

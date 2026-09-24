@@ -27,6 +27,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private readonly Dictionary<int, VBTypedValue> _blockState = [];
     private readonly Dictionary<int, ForLoopState> _forLoopState = [];
     private readonly Dictionary<int, ForEachState> _forEachState = [];
+    private readonly Stack<int> _goSubReturns = new();
 
     /// <inheritdoc/>
     public int Pc { get; set; }
@@ -61,6 +62,34 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <inheritdoc/>
     public bool TryGetForEachState(int openerOffset, out ForEachState state)
         => _forEachState.TryGetValue(openerOffset, out state);
+
+    /// <inheritdoc/>
+    public int GoSubDepth => _goSubReturns.Count;
+
+    /// <summary>
+    /// Pushes <paramref name="returnOffset"/> onto this activation's own GoSub Resumption List — a
+    /// <c>GoSub</c> or a successful <c>On…GoSub</c> branch adds the offset right after itself, for a
+    /// later <c>Return</c> to pop back to.
+    /// </summary>
+    public void PushGoSubReturn(int returnOffset) => _goSubReturns.Push(returnOffset);
+
+    /// <summary>
+    /// Pops this activation's own GoSub Resumption List and returns the offset a <c>Return</c> statement
+    /// branches to.
+    /// </summary>
+    /// <param name="returnOffset">The most recently pushed offset, if the list isn't empty.</param>
+    /// <returns><c>false</c> if the list is empty — error 3, "Return without GoSub".</returns>
+    public bool TryPopGoSubReturn(out int returnOffset)
+    {
+        if (_goSubReturns.Count == 0)
+        {
+            returnOffset = 0;
+            return false;
+        }
+
+        returnOffset = _goSubReturns.Pop();
+        return true;
+    }
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for

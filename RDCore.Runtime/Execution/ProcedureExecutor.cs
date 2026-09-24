@@ -57,12 +57,16 @@ namespace RDCore.Runtime.Execution;
 /// over a live object whose class exposes an enumeration member (<c>VB_UserMemId = -4</c>, commonly
 /// named <c>_NewEnum</c>) is recognized but not yet runnable (actually enumerating one needs real
 /// procedure invocation, which doesn't exist yet); anything else the collection expression could
-/// evaluate to is a real, reportable run-time error, not a deferred gap. <c>JumpTable</c> is not yet
-/// wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently
-/// mishandled.
+/// evaluate to is a real, reportable run-time error, not a deferred gap. <c>On…GoTo</c>/<c>On…GoSub</c>
+/// (<c>JumpTable</c>/<c>GoSubTable</c>) share one selector algorithm (<see cref="JumpTableEvaluator"/>):
+/// evaluate once, Let-coerce to <c>Integer</c>, branch to the n'th label — zero or out-of-range falls
+/// through, negative or over 255 is error 5. <c>GoSub</c> pushes the offset right after itself onto the
+/// activation's own GoSub Resumption List before branching (<see cref="CallStackFrame.PushGoSubReturn"/>);
+/// <c>On…GoSub</c>'s successful branch does the same. <c>Return</c> pops that list
+/// (<see cref="CallStackFrame.TryPopGoSubReturn"/>) and branches there — an empty list is error 3.
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -161,6 +165,40 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     if (forEachNextOutcome is { } stopForEachNext)
                     {
                         return stopForEachNext;
+                    }
+                    break;
+
+                case InstructionKind.JumpTable:
+                    var jumpTableOutcome = ExecuteJumpTable(session, instructionContext, instruction, activation, pushReturn: false);
+                    if (jumpTableOutcome is { } stopJumpTable)
+                    {
+                        return stopJumpTable;
+                    }
+                    break;
+
+                case InstructionKind.GoSubTable:
+                    var goSubTableOutcome = ExecuteJumpTable(session, instructionContext, instruction, activation, pushReturn: true);
+                    if (goSubTableOutcome is { } stopGoSubTable)
+                    {
+                        return stopGoSubTable;
+                    }
+                    break;
+
+                case InstructionKind.GoSub:
+                    if (instruction.Target is not { } goSubTarget)
+                    {
+                        // an unresolved label already reported its own VBC09309 at lowering time.
+                        return RuntimeExecutionOutcome.InternalError;
+                    }
+                    activation.PushGoSubReturn(instruction.Offset + 1);
+                    activation.Pc = goSubTarget;
+                    break;
+
+                case InstructionKind.Return:
+                    var returnOutcome = ExecuteReturn(instruction, activation);
+                    if (returnOutcome is { } stopReturn)
+                    {
+                        return stopReturn;
                     }
                     break;
 
@@ -595,6 +633,74 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return RuntimeExecutionOutcome.InternalError;
         }
         activation.Pc = target;
+        return null;
+    }
+
+    // Shared by On...GoTo (JumpTable, pushReturn: false) and On...GoSub (GoSubTable, pushReturn: true) -
+    // MS-VBAL §5.4.2.13/.16 describe the exact same selector algorithm for both, differing only in
+    // whether a successful branch also pushes a GoSub Resumption List entry. Returns null when the
+    // instruction fell through (out-of-range selector) or branched successfully; a non-null outcome only
+    // when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteJumpTable(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation, bool pushReturn)
+    {
+        var selector = instruction.Node switch
+        {
+            OnGoToStatementNode onGoTo => onGoTo.Selector,
+            OnGoSubStatementNode onGoSub => onGoSub.Selector,
+            _ => null
+        };
+        if (selector is null)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var selectorResult = jumpTable.EvaluateSelector(session, selector, context);
+        if (!selectorResult.IsSuccess)
+        {
+            return ToFailureOutcome(selectorResult);
+        }
+
+        var n = ((VBIntegerValue)selectorResult.Result!).Value;
+        if (n == 0 || n > instruction.Targets.Length)
+        {
+            // MS-VBAL §5.4.2.13/.16: "if n is zero, or greater than the number of statement-label
+            // defined..., execution completes immediately" - falls through without branching.
+            activation.Pc = instruction.Offset + 1;
+            return null;
+        }
+
+        if (n < 0 || n > 255)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument,
+                selector.Location, Exceptions.VBOnGoToGoSub_SelectorOutOfRange_Verbose));
+        }
+
+        if (instruction.Targets[n - 1] is not { } target)
+        {
+            // an unresolved label already reported its own VBC09309 at lowering time.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (pushReturn)
+        {
+            activation.PushGoSubReturn(instruction.Offset + 1);
+        }
+        activation.Pc = target;
+        return null;
+    }
+
+    // Returns null when the branch was taken (activation.Pc already set); returns a non-null outcome
+    // only when execution must stop.
+    private static RuntimeExecutionOutcome? ExecuteReturn(Instruction instruction, CallStackFrame activation)
+    {
+        if (!activation.TryPopGoSubReturn(out var returnOffset))
+        {
+            // MS-VBAL §5.4.2.15: an empty GoSub Resumption List is error 3, "Return without GoSub".
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ReturnWithoutGoSub,
+                instruction.Node?.SourceLocation ?? default, Exceptions.VBReturn_WithoutGoSub_Verbose));
+        }
+
+        activation.Pc = returnOffset;
         return null;
     }
 

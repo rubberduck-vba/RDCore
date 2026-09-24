@@ -16,18 +16,20 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// </param>
 /// <param name="Kind">The control-flow shape of this instruction.</param>
 /// <param name="Target">
-/// For <see cref="InstructionKind.Jump"/>, <see cref="InstructionKind.LoopBack"/>,
-/// <see cref="InstructionKind.ForNext"/>, <see cref="InstructionKind.ForEachNext"/>, and
-/// <see cref="InstructionKind.ExitLoop"/>: the resolved offset to branch to. <c>null</c> for a
-/// <see cref="InstructionKind.Jump"/> lowered from <c>GoTo</c>/<c>On…GoTo</c> whose operand did not
-/// resolve to a label the procedure defines (lowering already reported the
+/// For <see cref="InstructionKind.Jump"/>, <see cref="InstructionKind.GoSub"/>,
+/// <see cref="InstructionKind.LoopBack"/>, <see cref="InstructionKind.ForNext"/>,
+/// <see cref="InstructionKind.ForEachNext"/>, and <see cref="InstructionKind.ExitLoop"/>: the resolved
+/// offset to branch to. <c>null</c> for a <see cref="InstructionKind.Jump"/> lowered from
+/// <c>GoTo</c>/<c>On…GoTo</c>, or a <see cref="InstructionKind.GoSub"/> lowered from <c>GoSub</c>, whose
+/// operand did not resolve to a label the procedure defines (lowering already reported the
 /// <see cref="RDCore.SDK.Model.Errors.VBCompileErrorId.LabelNotDefined"/> diagnostic for it), or for an
 /// <see cref="InstructionKind.ExitLoop"/> lowering found no matching enclosing loop for. Unused
 /// otherwise.
 /// </param>
 /// <param name="Targets">
-/// For <see cref="InstructionKind.JumpTable"/>: the resolved offset for each label in source order,
-/// with a <c>null</c> entry wherever the corresponding label did not resolve. Empty otherwise.
+/// For <see cref="InstructionKind.JumpTable"/> and <see cref="InstructionKind.GoSubTable"/>: the
+/// resolved offset for each label in source order, with a <c>null</c> entry wherever the corresponding
+/// label did not resolve. Empty otherwise.
 /// </param>
 /// <param name="Else">
 /// For <see cref="InstructionKind.ConditionalBranch"/>: the offset to branch to when the condition is

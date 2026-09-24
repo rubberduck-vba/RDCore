@@ -231,6 +231,12 @@
   <data name="VBForEach_ArrayNotInitialized_Verbose" xml:space="preserve">
     <value>This For Each loop's collection expression is an array with no dimensions - it was never initialized by a Dim with bounds or a ReDim, so there is nothing to enumerate.</value>
   </data>
+  <data name="VBReturn_WithoutGoSub_Verbose" xml:space="preserve">
+    <value>This Return statement ran with an empty GoSub Resumption List - no GoSub or On...GoSub call in this activation is still awaiting it.</value>
+  </data>
+  <data name="VBOnGoToGoSub_SelectorOutOfRange_Verbose" xml:space="preserve">
+    <value>An On...GoTo or On...GoSub selector, once Let-coerced to Integer, must be zero or a positive value no greater than 255.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>

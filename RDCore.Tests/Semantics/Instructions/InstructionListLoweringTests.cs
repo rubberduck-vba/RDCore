@@ -175,6 +175,59 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
+    public void GoSub_AForwardLabel_ResolvesToTheLabelsOffset()
+    {
+        var result = Lower("GoSub Done", "x = 1", "Done:", "Return");
+
+        AssertNoErrors(result);
+        var goSub = result.InstructionList.Items[0];
+        Assert.AreEqual(InstructionKind.GoSub, goSub.Kind);
+        Assert.AreEqual(2, goSub.Target);
+    }
+
+    [TestMethod]
+    public void GoSub_AnUndefinedLabel_LeavesTheTargetUnresolved_AndReportsLabelNotDefined()
+    {
+        var result = Lower("GoSub Nowhere");
+
+        AssertSingleError(result, VBCompileErrorId.LabelNotDefined, "Nowhere");
+        Assert.IsNull(result.InstructionList.Items[0].Target);
+        Assert.AreEqual(InstructionKind.GoSub, result.InstructionList.Items[0].Kind);
+    }
+
+    [TestMethod]
+    public void Return_LowersAsItsOwnInstructionKind()
+    {
+        var result = Lower("GoSub Done", "Exit Sub", "Done:", "Return");
+
+        AssertNoErrors(result);
+        Assert.AreEqual(InstructionKind.Return, result.InstructionList.Items[2].Kind);
+    }
+
+    [TestMethod]
+    public void OnGoSub_ResolvesEveryLabelInOrder()
+    {
+        var result = Lower("On n GoSub A, B, C", "A:", "Return", "B:", "Return", "C:");
+
+        AssertNoErrors(result);
+        var goSubTable = result.InstructionList.Items[0];
+        Assert.AreEqual(InstructionKind.GoSubTable, goSubTable.Kind);
+        CollectionAssert.AreEqual(new int?[] { 1, 2, 3 }, goSubTable.Targets.ToArray());
+    }
+
+    [TestMethod]
+    public void OnGoSub_AnUndefinedLabelInTheList_LeavesOnlyThatEntryUnresolved()
+    {
+        var result = Lower("On n GoSub A, Missing, C", "A:", "Return", "C:");
+
+        AssertSingleError(result, VBCompileErrorId.LabelNotDefined, "Missing");
+        var targets = result.InstructionList.Items[0].Targets;
+        Assert.AreEqual(1, targets[0]);
+        Assert.IsNull(targets[1]);
+        Assert.AreEqual(2, targets[2]);
+    }
+
+    [TestMethod]
     public void ADuplicateLabelDefinition_KeepsTheFirstOffset_AndReportsDuplicateLabelDefinition()
     {
         var result = Lower("Top:", "x = 1", "Top:", "y = 2");

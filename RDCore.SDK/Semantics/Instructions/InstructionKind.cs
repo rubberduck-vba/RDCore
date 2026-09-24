@@ -32,6 +32,27 @@ public enum InstructionKind
     JumpTable,
 
     /// <summary>
+    /// <c>GoSub</c> (<strong>MS-VBAL §5.4.2.14</strong>): pushes the offset right after this instruction
+    /// onto the activation's own GoSub Resumption List, then branches unconditionally to
+    /// <see cref="Instruction.Target"/> — everything <see cref="Jump"/> does, plus the push.
+    /// </summary>
+    GoSub,
+
+    /// <summary>
+    /// <c>Return</c> (<strong>MS-VBAL §5.4.2.15</strong>): pops the activation's own GoSub Resumption
+    /// List and branches to the popped offset. An empty list is error 3, "Return without GoSub".
+    /// </summary>
+    Return,
+
+    /// <summary>
+    /// An indexed branch that also pushes a resumption point (<c>On…GoSub</c>, <strong>MS-VBAL
+    /// §5.4.2.16</strong>) to one of <see cref="Instruction.Targets"/>, selected at runtime — everything
+    /// <see cref="JumpTable"/> does, plus the same push <see cref="GoSub"/> does on a successful branch;
+    /// an out-of-range selector falls through without pushing anything.
+    /// </summary>
+    GoSubTable,
+
+    /// <summary>
     /// <c>Exit Sub</c>/<c>Exit Function</c>/<c>Exit Property</c> (<strong>MS-VBAL §5.4.2.17</strong>–
     /// <strong>§5.4.2.19</strong>): ends the current activation as if execution had reached the end of
     /// its body.

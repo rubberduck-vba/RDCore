@@ -26,8 +26,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <c>ByNode</c>. An unconditional "else" branch (<c>Else</c>, <c>Case Else</c>) gets no header
 /// instruction of its own — it has no condition to evaluate, so its chain's previous header branches
 /// straight to its body's first instruction. Any statement kind this pass does not recognize —
-/// including <c>GoSub</c>/<c>Return</c>/<c>On…GoSub</c> and error-handling statements — falls through
-/// as <see cref="InstructionKind.Simple"/>.
+/// including error-handling statements — falls through as <see cref="InstructionKind.Simple"/>.
 /// <para>
 /// Lowering doubles as a validator for the one static-semantics rule it needs to resolve jump targets
 /// at all: every label a jump names must be defined exactly once in the procedure
@@ -132,6 +131,18 @@ public static class InstructionListLowering
 
             case OnGoToStatementNode onGoTo:
                 state.PendingJumpTables.Add((Emit(state, scope, statement, InstructionKind.JumpTable), onGoTo.Labels));
+                break;
+
+            case GoSubStatementNode goSub:
+                state.PendingJumps.Add((Emit(state, scope, statement, InstructionKind.GoSub), goSub.LabelExpression));
+                break;
+
+            case OnGoSubStatementNode onGoSub:
+                state.PendingJumpTables.Add((Emit(state, scope, statement, InstructionKind.GoSubTable), onGoSub.Labels));
+                break;
+
+            case ReturnStatementNode:
+                Emit(state, scope, statement, InstructionKind.Return);
                 break;
 
             case KeywordStatementNode { Token: Tokens.ExitSub or Tokens.ExitFunction or Tokens.ExitProperty }:

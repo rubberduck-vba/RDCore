@@ -230,8 +230,34 @@ intact — rather than attempting to rebuild one from a bare handle (**RD-VBAL �
 mechanism). `ProcedureExecutorTests` now proves `For Each item In arr` end to end over a real `Dim`'d
 array local for that reason; `LowerForEachOverLiteralCollection` (feeding the collection through a
 `LiteralExpressionNode`, reading its `StaticValue` directly) remains only for the empty-array case, which
-hits a separate, still-open zero-size-value storage gap unrelated to array storage. `JumpTable` is not
-dispatched by the loop yet and reports `InternalError` when reached.
+hits a separate, still-open zero-size-value storage gap unrelated to array storage.
+
+`On…GoTo`/`On…GoSub` (**MS-VBAL §5.4.2.13**/**§5.4.2.16**) share one selector algorithm
+(`RDCore.Runtime.Execution.JumpTableEvaluator`): evaluate the selector expression once, Let-coerce it to
+`Integer` (calling `VBNumericLetCoercionTypeRuntimeSemantics` directly, the same bypass-the-provider
+pattern `ConditionEvaluator` already established for `Boolean`), then branch to the *n*'th label
+(1-based) in `Instruction.Targets` — *n* zero or greater than the label count falls through without
+branching; *n* negative or greater than 255 is error 5, "Invalid procedure call or argument". `JumpTable`
+(`On…GoTo`) was lowered since S1 but never dispatched until this slice, which closes that gap alongside
+its closest sibling rather than leaving it dangling a third time. `GoSubTable` (`On…GoSub`) does exactly
+the same, plus pushing a resumption point on a successful branch — the identical push a bare `GoSub`
+(**MS-VBAL §5.4.2.14**) does.
+
+`GoSub`/`Return` (**MS-VBAL §5.4.2.14**/**§5.4.2.15**) give each activation its own GoSub Resumption
+List — a per-activation LIFO stack of return offsets, `CallStackFrame.PushGoSubReturn`/
+`TryPopGoSubReturn` (a third such per-activation mechanism, but unlike `TryGetForLoopState`/
+`TryGetForEachState`/`TryGetBlockState`'s single-value-per-offset shape, this is a plain stack: nothing
+about *which* `GoSub` pushed an entry matters to `Return`, only order does — `ICallStackFrame` exposes
+only `GoSubDepth`, a count, not the mutators). A `GoSub` (or a successful
+`On…GoSub` branch) pushes the offset right after itself, then branches; `Return` pops the list and
+branches there — an empty list is error 3, "Return without GoSub". Nested `GoSub`s unwind correctly in
+LIFO order (innermost `Return` first), proven directly by a test. Neither statement's own runtime
+semantics resolve a target label at execution time — like `GoTo`, that's entirely lowering's job
+(`InstructionKind.GoSub`/`GoSubTable`'s `Target`/`Targets`), so a `GoSub` to an undefined label is left
+unresolved with its own `VBC09309` diagnostic, exactly like `GoTo`. Not modeled (a pre-existing gap `GoTo`
+already has too, not new to this slice): MS-VBAL's "if the *n*'th label is the same as the end-label of
+the lexically enclosing procedure declaration, execution completes as if reaching the end of the body" —
+no test exercises a procedure's own implicit end-label today.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
 semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
@@ -284,9 +310,13 @@ for a `.Member`/`!member` with-expression however control reached that instructi
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState` are likewise on
-the SDK interface (read-only there, for a future debugger surface) but only ever mutated by the executor,
-through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/`SetForEachState`. `TryGetBlockState` is a
+drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState`/`GoSubDepth` are
+likewise on the SDK interface (read-only there, for a future debugger surface) but only ever mutated by
+the executor, through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/`SetForEachState`/
+`PushGoSubReturn`/`TryPopGoSubReturn` — the GoSub Resumption List is a plain stack, not a per-offset
+dictionary like the other three, since nothing about *which* `GoSub` pushed an entry matters to `Return`,
+only order does; `GoSubDepth` (a count, not a peek) is exposed instead of anything that could look inside
+it. `TryGetBlockState` is a
 single hidden value per block-opening instruction, keyed by that instruction's own offset — enough for
 `With`'s target and `Select Case`'s selector. A `For` loop's own state is richer — counter symbol, counter
 expression, end, step — so it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For

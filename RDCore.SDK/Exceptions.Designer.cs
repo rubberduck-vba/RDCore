@@ -592,6 +592,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This Return statement ran with an empty GoSub Resumption List - no GoSub or On...GoSub call in this activation is still awaiting it..
+        /// </summary>
+        public static string VBReturn_WithoutGoSub_Verbose {
+            get {
+                return ResourceManager.GetString("VBReturn_WithoutGoSub_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An On...GoTo or On...GoSub selector, once Let-coerced to Integer, must be zero or a positive value no greater than 255..
+        /// </summary>
+        public static string VBOnGoToGoSub_SelectorOutOfRange_Verbose {
+            get {
+                return ResourceManager.GetString("VBOnGoToGoSub_SelectorOutOfRange_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>
         public static string VBRuntimeError {
