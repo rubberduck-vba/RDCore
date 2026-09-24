@@ -87,4 +87,16 @@ public interface ICallStackFrame : IStackFrame
     /// 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
     /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
     bool TryGetForLoopState(int openerOffset, out ForLoopState state);
+
+    /// <summary>
+    /// Gets the <see cref="ForEachState"/> a <c>For Each</c> loop's own opener stashed on this
+    /// activation, keyed by that instruction's own offset — mirrors <see cref="TryGetForLoopState"/> for
+    /// the different per-activation shape a <c>For Each</c> loop's own enumeration cursor needs.
+    /// </summary>
+    /// <param name="openerOffset">The offset of the <c>ForEachOpener</c> instruction that stashed the state.</param>
+    /// <param name="state">The stashed state, if one exists for <paramref name="openerOffset"/> — its
+    /// absence when a <c>ForEachNext</c> instruction looks it up is <strong>MS-VBAL §5.4.2.4</strong>
+    /// error 92, "For loop not initialized" (a <c>GoTo</c> landed directly on the closer this activation).</param>
+    /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
+    bool TryGetForEachState(int openerOffset, out ForEachState state);
 }

@@ -26,6 +26,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private readonly HashSet<SemanticId> _declared = [];
     private readonly Dictionary<int, VBTypedValue> _blockState = [];
     private readonly Dictionary<int, ForLoopState> _forLoopState = [];
+    private readonly Dictionary<int, ForEachState> _forEachState = [];
 
     /// <inheritdoc/>
     public int Pc { get; set; }
@@ -50,6 +51,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <inheritdoc/>
     public bool TryGetForLoopState(int openerOffset, out ForLoopState state)
         => _forLoopState.TryGetValue(openerOffset, out state);
+
+    /// <summary>
+    /// Stashes <paramref name="state"/> as this activation's hidden state for the <c>ForEachOpener</c>
+    /// instruction at <paramref name="openerOffset"/>.
+    /// </summary>
+    public void SetForEachState(int openerOffset, ForEachState state) => _forEachState[openerOffset] = state;
+
+    /// <inheritdoc/>
+    public bool TryGetForEachState(int openerOffset, out ForEachState state)
+        => _forEachState.TryGetValue(openerOffset, out state);
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for

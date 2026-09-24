@@ -196,9 +196,37 @@ already has (the counter's own expression, or, for its very first assignment, th
 expression) — never a synthetic stand-in, the same discipline the `ExpressionNode` widening this section
 already described for `Case` clause matching applies here too.
 
-`For Each` and `JumpTable` are not dispatched by the loop yet and report `InternalError` when reached — a
-`For Each` loop needs its own further-still per-activation state (an enumerator/cursor over its
-collection), a separate slice.
+`For Each` (**MS-VBAL §5.4.2.4**) is wired for arrays, structurally recognizes an object exposing an
+enumeration member, and reports a real run-time error for anything else — never `InternalError` for a
+well-formed program hitting a genuine language-level condition. `ForEachOpener` evaluates the collection
+expression once; when it's a `VBArrayValue`, it Let- or Set-assigns the control variable to the first
+element (Set, when the array's own item type is `Object` — **§5.4.2.4**'s own rule) and stashes a
+`ForEachState` (control symbol/expression, the array, a flat index) via
+`ICallStackFrame.TryGetForEachState`/`CallStackFrame.SetForEachState` — the array's own storage is
+already column-major, exactly the traversal order **§5.4.2.4.1** ("Array Enumeration Order") mandates, so
+`VBArrayValue.ElementAt(flatIndex)` walks it directly with no per-dimension subscript math. An empty
+array skips the body entirely (`.End`). `ForEachNext` reads the state back via `Instruction.Matching`
+(the same field `ForNext`/`Case` reuse), advances the index, assigns the next element or falls through
+when exhausted — no stashed state at `ForEachNext` is error 92, same as `For`. A live object whose class
+exposes a member with `VB_UserMemId = -4` (commonly `_NewEnum`) is recognized structurally
+(`VBReturningMemberSymbol`/`SymbolProperties.UserMemId`/`WellKnownDispIds.NewEnum`, the same lookup
+`VBCollectionType`'s own constructor already used) but reports `InternalError`: actually enumerating one
+means invoking it and then the COM `IEnumVARIANT`-shaped methods on whatever it returns, which needs real
+procedure invocation (S9) that doesn't exist yet. `Nothing` is error 91 (invoking `_NewEnum` on an unset
+reference); a live object with no such member is error 438; anything else (a scalar) is error 13,
+`TypeMismatch` — MS-VBAL requires the collection to be an array or an enumeration-capable object
+reference, so neither is a deferred gap.
+
+**Known limitation, separate from this dispatch logic:** reading a plain array-typed variable back out as
+an expression (`SimpleNameExpressionNode`, the ordinary shape of `arr` in `For Each item In arr`) doesn't
+work yet at all — `RuntimeExpressionEvaluator`'s generic symbol-read path reconstructs a value from its
+stored `IBindingHandle` via `VBType.CreateValue`, which `VBArrayType` never overrides (an array's own
+`Dimensions`/`ItemType`/element cells can't be rebuilt from a bare handle the way a scalar's can) —
+`VBArrayValue`'s own class doc already names this the deferred "session-storage follow-up." Ticketed, not
+fixed here; `ProcedureExecutorTests` proves `ForEachOpener`/`ForEachNext`'s own logic by feeding the
+collection through a `LiteralExpressionNode` instead (`LowerForEachOverLiteralCollection`), which reads
+its `StaticValue` directly, bypassing the broken path. `JumpTable` is not dispatched by the loop yet and
+reports `InternalError` when reached.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
 semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
@@ -251,15 +279,16 @@ for a `.Member`/`!member` with-expression however control reached that instructi
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState` are likewise on the SDK interface
-(read-only there, for a future debugger surface) but only ever mutated by the executor, through
-`CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`. `TryGetBlockState` is a single hidden value per
-block-opening instruction, keyed by that instruction's own offset — enough for `With`'s target and `Select
-Case`'s selector. A `For` loop's own state is richer — counter symbol, counter expression, end, step — so
-it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`, and its own parallel
-`TryGetForLoopState`/`SetForLoopState` pair rather than stretching `TryGetBlockState`'s single-value shape
-to fit; a `For Each` loop's enumerator will need a further, different shape still, when that slice comes.
-`ProcedureExecutor`, its statement dispatch, and activation state are **RDCore.Runtime** (GPLv3).
+drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState` are likewise on
+the SDK interface (read-only there, for a future debugger surface) but only ever mutated by the executor,
+through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/`SetForEachState`. `TryGetBlockState` is a
+single hidden value per block-opening instruction, keyed by that instruction's own offset — enough for
+`With`'s target and `Select Case`'s selector. A `For` loop's own state is richer — counter symbol, counter
+expression, end, step — so it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For
+Each` loop's is different again — an enumeration cursor (control symbol/expression, the array, a flat
+index) — its own `ForEachState`. Each gets its own parallel `TryGetXState`/`SetXState` pair rather than
+stretching `TryGetBlockState`'s single-value shape to fit all three. `ProcedureExecutor`, its statement
+dispatch, and activation state are **RDCore.Runtime** (GPLv3).
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

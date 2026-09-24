@@ -103,6 +103,19 @@ public abstract record class VBArrayValue : VBTypedValue
     }
 
     /// <summary>
+    /// Gets the element at the given flat (column-major) index, or <c>null</c> when out of bounds.
+    /// </summary>
+    /// <remarks>
+    /// <strong>MS-VBAL §5.4.2.4.1</strong> Array Enumeration Order: the first element has every index
+    /// at its dimension's lower bound; the next increments the leftmost (outermost) dimension, carrying
+    /// into the next dimension to its right on overflow — exactly this store's own column-major layout,
+    /// so a <c>For Each</c> over an array can walk <see cref="Length"/> flat indices directly, without
+    /// re-deriving per-dimension subscripts.
+    /// </remarks>
+    public VBTypedValue? ElementAt(int flatIndex)
+        => flatIndex < 0 || flatIndex >= _cells.Length ? null : ItemType.CreateValue(_cells[flatIndex]);
+
+    /// <summary>
     /// Gets the binding of the element at the given subscripts, or <c>null</c> when any subscript is out of
     /// bounds or the subscript count does not match the array rank.
     /// </summary>

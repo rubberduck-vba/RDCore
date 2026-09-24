@@ -5,8 +5,11 @@ using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -49,12 +52,17 @@ namespace RDCore.Runtime.Execution;
 /// is a real, addressable variable, Let-assigned through <see cref="ICallStackFrame.TryGetForLoopState"/>'s
 /// own state rather than shadowed — then either falls through into the body or skips it entirely when
 /// already out of range; <c>ForNext</c> reads that same state back via <see cref="Instruction.Matching"/>,
-/// increments, and re-tests. Every other kind (<c>JumpTable</c>, <c>ForEachOpener</c>/<c>ForEachNext</c>)
-/// is not yet wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being
-/// silently mishandled.
+/// increments, and re-tests. <c>For Each</c> over an array works the same shape, via
+/// <see cref="ForEachEvaluator"/>/<see cref="ICallStackFrame.TryGetForEachState"/> — a <c>For Each</c>
+/// over a live object whose class exposes an enumeration member (<c>VB_UserMemId = -4</c>, commonly
+/// named <c>_NewEnum</c>) is recognized but not yet runnable (actually enumerating one needs real
+/// procedure invocation, which doesn't exist yet); anything else the collection expression could
+/// evaluate to is a real, reportable run-time error, not a deferred gap. <c>JumpTable</c> is not yet
+/// wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently
+/// mishandled.
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -137,6 +145,22 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     if (forNextOutcome is { } stopForNext)
                     {
                         return stopForNext;
+                    }
+                    break;
+
+                case InstructionKind.ForEachOpener:
+                    var forEachOpenerOutcome = ExecuteForEachOpener(session, instructionContext, instruction, activation);
+                    if (forEachOpenerOutcome is { } stopForEachOpener)
+                    {
+                        return stopForEachOpener;
+                    }
+                    break;
+
+                case InstructionKind.ForEachNext:
+                    var forEachNextOutcome = ExecuteForEachNext(session, instructionContext, instruction, activation);
+                    if (forEachNextOutcome is { } stopForEachNext)
+                    {
+                        return stopForEachNext;
                     }
                     break;
 
@@ -455,6 +479,120 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
         return null;
     }
+
+    // Returns null when the collection was evaluated and stashed successfully and the loop should keep
+    // running (activation.Pc set to the body's first instruction, or skipped straight past the whole
+    // construct when the array is empty); returns a non-null outcome only when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteForEachOpener(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (instruction.Node is not ForEachStatementNode forEachStatement || forEachStatement.ControlExpression is not SimpleNameExpressionNode simpleName)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var controlResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        if (controlResult.Symbol is not ITypedSymbol control)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var collectionResult = forEach.EvaluateCollection(session, forEachStatement.CollectionExpression, context);
+        if (!collectionResult.IsSuccess)
+        {
+            return ToFailureOutcome(collectionResult);
+        }
+
+        switch (collectionResult.Result)
+        {
+            case VBArrayValue array:
+                if (array.Length == 0)
+                {
+                    // MS-VBAL §5.4.2.4: "if the array has no elements, execution completes immediately."
+                    if (instruction.End is not { } emptyEnd)
+                    {
+                        return RuntimeExecutionOutcome.InternalError;
+                    }
+                    activation.Pc = emptyEnd;
+                    return null;
+                }
+
+                var firstElement = array.ElementAt(0)!;
+                var assignResult = forEach.AssignControl(session, control, forEachStatement.ControlExpression, array.ItemType is VBObjectType, firstElement);
+                if (!assignResult.IsSuccess)
+                {
+                    return ToFailureOutcome(assignResult);
+                }
+
+                activation.SetForEachState(instruction.Offset, new ForEachState(control, forEachStatement.ControlExpression, array, 0));
+                activation.Pc = instruction.Offset + 1;
+                return null;
+
+            case VBObjectValue objectValue when objectValue.IsNothing():
+                // enumerating an object collection means invoking its _NewEnum member; on Nothing that
+                // invocation itself would raise error 91.
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet,
+                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
+
+            case VBObjectValue objectValue when session.Symbols.TryGetInstance(objectValue.Value, out var instance) && HasNewEnumMember(instance.ClassModule):
+                // recognized (VB_UserMemId = -4, commonly "_NewEnum"), but actually enumerating it means
+                // calling it and then the COM IEnumVARIANT-shaped methods on whatever it returns - real
+                // procedure invocation, which doesn't exist yet.
+                return RuntimeExecutionOutcome.InternalError;
+
+            case VBObjectValue:
+                // a live object with no enumeration member - MS-VBAL §5.4.2.4 requires one.
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod,
+                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_RequiresEnumerableCollection_Verbose));
+
+            default:
+                // a scalar value - MS-VBAL §5.4.2.4 requires an array or an enumeration-capable object.
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch,
+                    forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_RequiresEnumerableCollection_Verbose));
+        }
+    }
+
+    // Returns null when the next element was assigned successfully and the loop should keep running
+    // (activation.Pc branched back to the body, or fallen through past the loop); returns a non-null
+    // outcome only when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteForEachNext(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (instruction.Matching is not { } openerOffset || !activation.TryGetForEachState(openerOffset, out var state))
+        {
+            // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever
+            // running this activation - error 92, "For loop not initialized".
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
+                instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
+        }
+
+        var nextIndex = state.Index + 1;
+        if (nextIndex >= state.Array.Length)
+        {
+            activation.Pc = instruction.Offset + 1; // no more elements - the loop ends here.
+            return null;
+        }
+
+        var element = state.Array.ElementAt(nextIndex)!;
+        var assignResult = forEach.AssignControl(session, state.Control, state.ControlExpression, state.Array.ItemType is VBObjectType, element);
+        if (!assignResult.IsSuccess)
+        {
+            return ToFailureOutcome(assignResult);
+        }
+
+        activation.SetForEachState(openerOffset, state with { Index = nextIndex });
+
+        if (instruction.Target is not { } target)
+        {
+            // lowering always sets Target on a ForEachNext instruction - reaching here is a lowering bug.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+        activation.Pc = target;
+        return null;
+    }
+
+    // Structural recognition only - the member's own body is never called (no procedure invocation
+    // machinery exists yet). Matches VBCollectionType's own constructor logic for finding this member.
+    private static bool HasNewEnumMember(VBClassModuleSymbol classModule)
+        => classModule.Members.OfType<VBReturningMemberSymbol>().Any(member => member.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum);
 
     private static RuntimeExecutionOutcome ToFailureOutcome(RuntimeSemanticsEvaluationResult result)
         => result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);

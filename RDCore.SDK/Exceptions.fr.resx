@@ -216,6 +216,12 @@
   <data name="VBForLoopNotInitialized_Verbose" xml:space="preserve">
     <value>L'instruction Next de cette boucle For s'est exécutée sans que son propre en-tête For n'ait jamais été exécuté dans cet appel - un GoTo a sauté directement dans le corps de la boucle, de sorte que les valeurs de début, de fin et de pas n'ont jamais été évaluées.</value>
   </data>
+  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
+    <value>L'expression de collection de cette boucle For Each est Nothing. Son énumération requiert l'invocation de son membre _NewEnum, ce qui est impossible sur une référence d'objet non définie.</value>
+  </data>
+  <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
+    <value>L'expression de collection de cette boucle For Each doit être un tableau, ou un objet exposant un membre d'énumération (VB_UserMemId = -4, communément nommé _NewEnum).</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>

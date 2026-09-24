@@ -222,6 +222,12 @@
   <data name="VBForLoopNotInitialized_Verbose" xml:space="preserve">
     <value>This For loop's Next statement ran without its own For header ever running in this call - a GoTo jumped directly into the loop body, so the start, end, and step values were never evaluated.</value>
   </data>
+  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
+    <value>This For Each loop's collection expression is Nothing. Enumerating it requires invoking its _NewEnum member, which cannot be done on an object reference that isn't set.</value>
+  </data>
+  <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
+    <value>This For Each loop's collection expression must be an array, or an object exposing an enumeration member (VB_UserMemId = -4, commonly named _NewEnum).</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>
