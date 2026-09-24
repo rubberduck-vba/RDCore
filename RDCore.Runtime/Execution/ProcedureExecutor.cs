@@ -35,9 +35,15 @@ namespace RDCore.Runtime.Execution;
 /// expression context), resolved back into <see cref="RuntimeEvaluationContext.EnclosingWithTarget"/> per
 /// instruction before every <c>Simple</c>/<c>ConditionalBranch</c> dispatch below, so a with-relative
 /// <c>.Member</c> read resolves correctly however control reached that instruction. <c>ExitProcedure</c>,
-/// <c>Halt</c>, <c>Break</c> are wired too. Every other kind (<c>JumpTable</c>, the loop kinds) is not yet
-/// wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently
-/// mishandled.
+/// <c>Halt</c>, <c>Break</c> are wired too, and so are five of the six loop shapes: a pre-test loop
+/// (<c>While…Wend</c>/<c>Do While</c>/<c>Do Until</c>) is a <c>ConditionalBranch</c> like an <c>If</c>
+/// header, a post-test loop (<c>Do…Loop While</c>/<c>Do…Loop Until</c>) is <c>LoopBack</c>, and a bare
+/// <c>Do…Loop</c> is already just an unconditional <c>Jump</c> back to its own body — none of the three
+/// need any new per-activation state, only a Boolean condition and, for the <c>Until</c> half of each
+/// pair, a polarity flip (see <c>GetCondition</c>). <c>Exit For</c>/<c>Exit Do</c> (<c>ExitLoop</c>) is
+/// handled identically to <c>Jump</c>. Every other kind (<c>JumpTable</c>, <c>ForOpener</c>/<c>ForNext</c>,
+/// <c>ForEachOpener</c>/<c>ForEachNext</c>) is not yet wired and defers with
+/// <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently mishandled.
 /// </para>
 /// </remarks>
 public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases)
@@ -67,9 +73,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     break;
 
                 case InstructionKind.Jump:
+                case InstructionKind.ExitLoop:
                     if (instruction.Target is not { } target)
                     {
-                        // an unresolved label already reported its own VBC09309 at lowering time.
+                        // an unresolved label already reported its own VBC09309 at lowering time; an
+                        // Exit For/Do with no enclosing loop of the matching kind is a real static gap
+                        // (no VBC id wired yet) that lowering also leaves unresolved rather than guess.
                         return RuntimeExecutionOutcome.InternalError;
                     }
                     activation.Pc = target;
@@ -80,6 +89,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     if (branchOutcome is { } stop)
                     {
                         return stop;
+                    }
+                    break;
+
+                case InstructionKind.LoopBack:
+                    var loopBackOutcome = ExecuteLoopBack(session, instructionContext, instruction, activation);
+                    if (loopBackOutcome is { } stopLoopBack)
+                    {
+                        return stopLoopBack;
                     }
                     break;
 
@@ -135,16 +152,64 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ExecuteCaseHeader(session, context, instruction, activation, selectOffset);
         }
 
-        if (GetCondition(instruction.Node) is not { } condition)
+        var (condition, negate) = GetCondition(instruction.Node);
+        if (condition is null)
         {
             // a lowering bug - every ConditionalBranch is either a Case header (Matching set) or one of
-            // the If-family node kinds GetCondition recognizes.
+            // the If-family/pre-test-loop node kinds GetCondition recognizes.
             return RuntimeExecutionOutcome.InternalError;
         }
 
         var conditionResult = conditions.EvaluateBoolean(session, condition, context);
-        return Branch(activation, instruction, conditionResult);
+        return Branch(activation, instruction, negate ? Negate(conditionResult) : conditionResult);
     }
+
+    // Returns null when the loop should keep running (activation.Pc already set, either back to the
+    // body's first instruction or past the loop) and a non-null outcome only when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteLoopBack(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        var (condition, negate) = GetCondition(instruction.Node);
+        if (condition is null)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var conditionResult = conditions.EvaluateBoolean(session, condition, context);
+        if (negate)
+        {
+            conditionResult = Negate(conditionResult);
+        }
+
+        if (!conditionResult.IsSuccess)
+        {
+            return conditionResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(conditionResult.ErrorInfo!);
+        }
+
+        if (((VBBooleanValue)conditionResult.Result!).Value.StoredValue != 0)
+        {
+            // MS-VBAL §5.4.2.6: the loop continues - branch back to the body's first instruction.
+            if (instruction.Target is not { } target)
+            {
+                // lowering always sets Target on a LoopBack instruction - reaching here is a lowering bug.
+                return RuntimeExecutionOutcome.InternalError;
+            }
+            activation.Pc = target;
+        }
+        else
+        {
+            activation.Pc = instruction.Offset + 1; // false - fall through, the loop ends here.
+        }
+        return null;
+    }
+
+    // Do…Loop Until / Do Until…Loop / While…Wend's own opposite polarity (exits on True rather than
+    // False) is the only difference from an If/ElseIf/inline-If condition - everything else about
+    // evaluating and branching on it is identical, so this inverts the already-evaluated result rather
+    // than duplicating Branch's own dispatch for a second polarity.
+    private static RuntimeSemanticsEvaluationResult Negate(RuntimeSemanticsEvaluationResult result)
+        => result.IsSuccess
+            ? RuntimeSemanticsEvaluationResult.Success(((VBBooleanValue)result.Result!).Value.StoredValue != 0 ? VBBooleanValue.False : VBBooleanValue.True)
+            : result;
 
     // Returns null when the target was evaluated and stashed successfully and the loop should keep
     // running (activation.Pc already falls through into the first Case header); returns a non-null
@@ -241,14 +306,22 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         return null;
     }
 
-    // The If/ElseIf/inline-If header node kinds only - a Select Case's own Case header
-    // (CaseExpressionStatementNode) needs different handling entirely (range-clause matching against a
-    // stashed selector, not a single Boolean condition), not this method's job.
-    private static ExpressionNode? GetCondition(StatementNode? node) => node switch
+    // The If/ElseIf/inline-If/pre-test-and-post-test-loop header node kinds only - a Select Case's own
+    // Case header (CaseExpressionStatementNode) needs different handling entirely (range-clause matching
+    // against a stashed selector, not a single Boolean condition), not this method's job. The bool is
+    // true for a "…Until" condition, whose polarity is the opposite of every other kind here (MS-VBAL
+    // §5.4.2.2/.6: an "Until"/"While" pair share one node shape per test position, distinguished only by
+    // which value of the same ConditionExpression means "keep going").
+    private static (ExpressionNode? Condition, bool Negate) GetCondition(StatementNode? node) => node switch
     {
-        IfBlockStatementNode ifBlock => ifBlock.ConditionExpression,
-        ElseIfBlockStatementNode elseIf => elseIf.ConditionExpression,
-        InlineIfStatementNode inlineIf => inlineIf.ConditionExpression,
-        _ => null,
+        IfBlockStatementNode ifBlock => (ifBlock.ConditionExpression, false),
+        ElseIfBlockStatementNode elseIf => (elseIf.ConditionExpression, false),
+        InlineIfStatementNode inlineIf => (inlineIf.ConditionExpression, false),
+        WhileWendStatementNode whileWend => (whileWend.ConditionExpression, false),
+        DoWhileLoopStatementNode doWhile => (doWhile.ConditionExpression, false),
+        DoUntilLoopStatementNode doUntil => (doUntil.ConditionExpression, true),
+        DoLoopWhileStatementNode doLoopWhile => (doLoopWhile.ConditionExpression, false),
+        DoLoopUntilStatementNode doLoopUntil => (doLoopUntil.ConditionExpression, true),
+        _ => (null, false),
     };
 }

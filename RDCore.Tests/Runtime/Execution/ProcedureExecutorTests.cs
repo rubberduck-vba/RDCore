@@ -295,6 +295,124 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
+    public void WhileWendLoop_RunsWhileTheConditionIsTrue()
+    {
+        var list = Lower("While x < 3", "x = x + 1", "Wend");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void WhileWendLoop_NeverEntersTheBody_WhenTheConditionStartsFalse()
+    {
+        var list = Lower("While x < 0", "x = 999", "Wend");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(0, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void DoWhileLoop_RunsWhileTheConditionIsTrue()
+    {
+        var list = Lower("Do While x < 3", "x = x + 1", "Loop");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void DoUntilLoop_RunsUntilTheConditionIsTrue()
+        // proves the opposite polarity from Do While: the condition being tracked is "stop", not "go".
+    {
+        var list = Lower("Do Until x = 3", "x = x + 1", "Loop");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void DoLoopWhile_RunsTheBodyAtLeastOnce_EvenWhenTheConditionStartsFalse()
+        // post-test: the body always runs once before the condition is ever checked.
+    {
+        var list = Lower("Do", "x = x + 1", "Loop While x < 0");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void DoLoopUntil_RunsUntilTheConditionIsTrue()
+    {
+        var list = Lower("Do", "x = x + 1", "Loop Until x = 3");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void BareDoLoop_RunsUntilExitDo()
+        // Do...Loop (no condition of its own) already lowers as a plain unconditional Jump back to its
+        // own body - this proves that + ExitLoop's own dispatch together produce a real, terminating loop.
+    {
+        var list = Lower("Do", "x = x + 1", "If x = 3 Then Exit Do", "Loop");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void ExitDo_FromANestedIfInsideAPreTestLoop_BreaksOutCleanly()
+    {
+        var list = Lower("Do While x < 100", "x = x + 1", "If x = 3 Then Exit Do", "Loop", "y = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(x, y);
+        var frame = PushFrame(session, (x, new VBLongValue(0)), (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(3, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
     public void AnUnconditionalGoTo_SkipsTheStatementsBetween()
     {
         var list = Lower("GoTo Skip", "x = 999", "Skip:", "x = 1");

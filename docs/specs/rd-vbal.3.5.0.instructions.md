@@ -148,8 +148,24 @@ offset via `ICallStackFrame.TryGetBlockState`/`CallStackFrame.SetBlockState`, th
 body; `With` additionally Set/Let-coerces its target first. Neither has a separate closer instruction to
 pop the stash on exit), `ExitProcedure`, `Halt` (`End`), `Break` (`Stop`), and falling off the end of the
 list (**MS-VBAL §5.4.2.17**'s "completes as if execution had reached the end of the body" — the same
-outcome as an explicit `Exit`). `JumpTable` and the loop kinds are not dispatched by the loop yet and
-report `InternalError` when reached.
+outcome as an explicit `Exit`). Five of the six loop shapes, too: a pre-test loop (`While…Wend`/`Do
+While`/`Do Until`, **MS-VBAL §5.4.2.2**) is just another `ConditionalBranch`, dispatched exactly like an
+`If` header; a post-test loop (`Do…Loop While`/`Do…Loop Until`, **§5.4.2.6**) is `LoopBack` — evaluate the
+condition, branch back to the body's first instruction (`Instruction.Target`) when the loop continues,
+fall through when it ends; a bare `Do…Loop` (**§5.4.2.7**) was already just an unconditional `Jump` back
+to its own body, needing no new dispatch at all. None of the three need any new per-activation state —
+only a Boolean condition, evaluated by the same `ConditionEvaluator` an `If` uses. The `…Until` half of
+each pre-test/post-test pair shares its node shape with the `…While` half (MS-VBAL models them as the same
+construct with opposite exit polarity: `…While` exits on `False`, `…Until` exits on `True`) — `GetCondition`
+returns a `(Condition, Negate)` pair instead of a bare expression, and the evaluated Boolean is inverted
+before branching when `Negate` is true, rather than duplicating the branch logic for a second polarity.
+`Exit For`/`Exit Do` (`ExitLoop`) branches to `Instruction.Target` exactly like `Jump` does — literally the
+same `case` arm — since lowering has already resolved it to the offset right past the innermost enclosing
+loop of the matching kind (or left it `null`, an Exit outside any loop, a static gap with no `VBC` id
+wired yet). `JumpTable` and the `For`/`For Each` opener/closer kinds are not dispatched by the loop yet and
+report `InternalError` when reached — they need genuinely new per-activation state (a `For` loop's
+end/step values; a `For Each` loop's enumerator) that `TryGetBlockState`'s single-value-per-opener shape
+isn't built for.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
 semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
