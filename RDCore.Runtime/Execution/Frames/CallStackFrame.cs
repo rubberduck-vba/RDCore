@@ -24,6 +24,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 {
     private readonly SymbolAddressTable _addresses = new(Storage);
     private readonly HashSet<SemanticId> _declared = [];
+    private readonly Dictionary<SemanticId, MemoryAddress> _byRefAliases = [];
     private readonly Dictionary<int, VBTypedValue> _blockState = [];
     private readonly Dictionary<int, ForLoopState> _forLoopState = [];
     private readonly Dictionary<int, ForEachState> _forEachState = [];
@@ -34,6 +35,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public ErrorHandlerState ErrorHandler { get; set; } = ErrorHandlerState.Disabled;
+
+    /// <inheritdoc/>
+    public VBTypedValue? ReturnValue { get; set; }
 
     /// <summary>
     /// Stashes <paramref name="value"/> as this activation's hidden state for the block-opening
@@ -114,16 +118,48 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         _ = _addresses.TryAllocate(symbol, value, out _);
     }
 
+    /// <summary>
+    /// Declares <paramref name="symbol"/> on this frame as a <c>ByRef</c> reference parameter binding
+    /// (<strong>MS-VBAL §5.3.1.11</strong>): <paramref name="address"/> is an existing address — the
+    /// caller's own argument variable, not storage this frame allocates or ever frees — so every
+    /// subsequent read or write through <paramref name="symbol"/> goes straight to it. This is real
+    /// aliasing, the same variable under a second local name, not a copy: a write inside this activation
+    /// is visible to the caller the instant it happens, with no copy-back step needed.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame.</exception>
+    public void PushByRef(Symbol symbol, MemoryAddress address)
+    {
+        if (!_declared.Add(symbol.SemanticId))
+        {
+            throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
+        }
+
+        _byRefAliases[symbol.SemanticId] = address;
+    }
+
     /// <inheritdoc/>
-    public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);
+    public IBindingHandle GetValue(Symbol symbol)
+        => _byRefAliases.TryGetValue(symbol.SemanticId, out var aliased)
+            ? Storage.TryRead(aliased, out var handle) ? handle : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.")
+            : _addresses.GetValue(symbol);
 
     /// <inheritdoc/>
     public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-        => _addresses.TryRead(symbol, out value);
+        => _byRefAliases.TryGetValue(symbol.SemanticId, out var aliased)
+            ? Storage.TryRead(aliased, out value)
+            : _addresses.TryRead(symbol, out value);
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+        => _byRefAliases.TryGetValue(symbol.SemanticId, out address) || _addresses.TryGetAddress(symbol, out address);
 
     /// <summary>
     /// Frees every local this frame allocated. Called when the frame is popped off the
     /// <see cref="ICallStack"/> that owns it — a frame is never partially torn down.
     /// </summary>
+    /// <remarks>
+    /// A <c>ByRef</c> alias (<see cref="PushByRef"/>) is never freed here: its address belongs to
+    /// whichever frame originally allocated it (the caller's own), and this frame only ever borrowed it.
+    /// </remarks>
     public void ReleaseAll() => _addresses.ReleaseAll();
 }

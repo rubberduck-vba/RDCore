@@ -38,6 +38,9 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => storage.TryRead(address, out value);
 
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address) => _addresses.TryGetAddress(symbol, out address);
+
     /// <summary>
     /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>,
     /// reachable afterwards through both <see cref="GetValue"/> (by symbol) and <see cref="TryRead"/>

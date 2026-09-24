@@ -42,4 +42,15 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => inner.TryRead(address, out value);
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+    {
+        if (symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryGetAddress(symbol, out address))
+        {
+            return true;
+        }
+
+        return inner.TryGetAddress(symbol, out address);
+    }
 }

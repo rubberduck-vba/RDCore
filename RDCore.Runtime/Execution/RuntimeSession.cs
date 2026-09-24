@@ -229,5 +229,11 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             value = null;
             return false;
         }
+
+        public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+        {
+            address = default;
+            return false;
+        }
     }
 }

@@ -1,3 +1,4 @@
+using NSubstitute;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Execution.Memory;
@@ -109,6 +110,101 @@ public sealed class CallStackFrameTests
         Assert.IsFalse(sut.TryResolve(local, out _));
         // the address is genuinely free again in the underlying storage, not just unlinked here.
         Assert.IsTrue(storage.TryAllocate(value.Size, value.Handle, out _));
+    }
+
+    [TestMethod]
+    public void TryGetAddress_ForAPushedLocal_ReturnsItsOwnAddress()
+    {
+        var sut = Sut(out var storage);
+        var local = Local("i");
+        sut.Push(local, new VBLongValue(5));
+
+        Assert.IsTrue(sut.TryGetAddress(local, out var address));
+        Assert.IsTrue(storage.TryRead(address, out var handle));
+        Assert.AreEqual(sut.GetValue(local), handle);
+    }
+
+    [TestMethod]
+    public void TryGetAddress_UndeclaredSymbol_ReturnsFalse()
+        => Assert.IsFalse(Sut(out _).TryGetAddress(Local("i"), out _));
+
+    [TestMethod]
+    public void PushByRef_ThenGetValue_ReadsTheCallersOwnBinding()
+        // The caller's own frame owns the storage; the callee's frame only ever borrows the address.
+    {
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var caller = new CallStackFrame(NodeId, Procedure, [], storage);
+        var callee = new CallStackFrame(NodeId, Procedure, [], storage);
+        var argument = Local("x");
+        var parameter = Local("n");
+        caller.Push(argument, new VBLongValue(1));
+        Assert.IsTrue(caller.TryGetAddress(argument, out var address));
+
+        callee.PushByRef(parameter, address);
+
+        Assert.AreEqual(caller.GetValue(argument), callee.GetValue(parameter));
+    }
+
+    [TestMethod]
+    public void PushByRef_ThenWriteThroughTheCalleesOwnHandle_IsVisibleToTheCaller()
+        // Real aliasing, not a copy: a write through the callee's own binding for the parameter is the
+        // SAME write the caller sees through its own binding for the argument.
+    {
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var caller = new CallStackFrame(NodeId, Procedure, [], storage);
+        var callee = new CallStackFrame(NodeId, Procedure, [], storage);
+        var argument = Local("x");
+        var parameter = Local("n");
+        caller.Push(argument, new VBLongValue(1));
+        Assert.IsTrue(caller.TryGetAddress(argument, out var address));
+        callee.PushByRef(parameter, address);
+
+        callee.GetValue(parameter).SetValue(Substitute.For<ISymbolResolver>(), new VBLongValue(999).RuntimeValue);
+
+        Assert.AreEqual(999, caller.GetValue(argument).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void PushByRef_TheSameSymbolTwice_Throws()
+        => Assert.ThrowsExactly<InvalidOperationException>(() =>
+        {
+            var sut = Sut(out _);
+            var parameter = Local("n");
+            sut.PushByRef(parameter, MemoryAddress.Zero);
+            sut.PushByRef(parameter, MemoryAddress.Zero);
+        });
+
+    [TestMethod]
+    public void TryGetAddress_ForAByRefAlias_ReturnsTheAliasedAddress()
+    {
+        var sut = Sut(out _);
+        var parameter = Local("n");
+        var address = new MemoryAddress(7);
+
+        sut.PushByRef(parameter, address);
+
+        Assert.IsTrue(sut.TryGetAddress(parameter, out var resolved));
+        Assert.AreEqual(address, resolved);
+    }
+
+    [TestMethod]
+    public void ReleaseAll_NeverFreesAByRefAlias_TheAliasedAddressSurvives()
+        // A callee's frame is torn down on every return; it must never take the caller's own storage
+        // down with it just because it borrowed the address for one call.
+    {
+        var storage = new SessionStorage(new SessionMemory(new FreeListManager(), PointerSize.x86));
+        var caller = new CallStackFrame(NodeId, Procedure, [], storage);
+        var callee = new CallStackFrame(NodeId, Procedure, [], storage);
+        var argument = Local("x");
+        var parameter = Local("n");
+        caller.Push(argument, new VBLongValue(1));
+        Assert.IsTrue(caller.TryGetAddress(argument, out var address));
+        callee.PushByRef(parameter, address);
+
+        callee.ReleaseAll();
+
+        Assert.IsTrue(storage.TryRead(address, out _));
+        Assert.AreEqual(1, caller.GetValue(argument).Value.BoxedValue);
     }
 
     [TestMethod]

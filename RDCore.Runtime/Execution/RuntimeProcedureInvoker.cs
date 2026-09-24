@@ -18,8 +18,13 @@ using System.Collections.Immutable;
 namespace RDCore.Runtime.Execution;
 
 /// <summary>
-/// The <strong>RDCore.Runtime</strong> implementation of <see cref="IProcedureInvoker"/> — the S9a
-/// walking skeleton: a <c>Sub</c>, ByVal parameters only, same module, no <c>Me</c>, no return value.
+/// The <strong>RDCore.Runtime</strong> implementation of <see cref="IProcedureInvoker"/>: a <c>Sub</c>,
+/// <c>Function</c> or <c>Property Get</c>, same session, no <c>Me</c>. Parameters are bound <c>ByVal</c>
+/// (a fresh copy) or <c>ByRef</c> (a real alias onto the caller's own storage, per
+/// <strong>MS-VBAL §5.3.1.11</strong>) depending on <see cref="VBParameterSymbol.ParameterKind"/> and
+/// whether <see cref="RuntimeExpressionEvaluator"/> could resolve the argument's own address; a
+/// <c>Function</c>/<c>Property Get</c> returns the data value of its own function result variable
+/// (<strong>MS-VBAL §5.3.1</strong>) rather than <c>Void</c>.
 /// </summary>
 /// <remarks>
 /// One instance per session, matching <see cref="IProcedureInvoker"/>'s own xmldoc ("what a runtime
@@ -62,12 +67,34 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 default, Exceptions.VBProcedureCall_OutOfStackSpace_Verbose));
         }
 
+        if (procedure is VBReturningMemberSymbol returning)
+        {
+            // MS-VBAL §5.3.1: "each invocation of a function declaration has a distinct function result
+            // variable" - seeded to the declared return type's own default, exactly like a fresh Dim,
+            // before the body ever runs (a Function that never assigns its own name still returns
+            // something well-defined, not an uninitialized slot).
+            frame.ReturnValue = returning.ResolvedType.DefaultValue;
+        }
+
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            // ByVal only (S9a's own scope): a fresh ValueBindingHandle around the argument's own runtime
-            // value, never aliasing the caller's storage - ByRef write-back is a later sub-slice's job.
-            frame.Push(parameter, parameter.ResolvedType.CreateValue(new ValueBindingHandle(arguments[i])));
+            if (IsByRef(parameter.ParameterKind) && arguments[i] is VBRuntimeReference reference)
+            {
+                // MS-VBAL §5.3.1.11: "a reference parameter binding is defined... referring to the
+                // variable referenced by the argument's expression" - true aliasing onto the caller's own
+                // storage, set up by RuntimeExpressionEvaluator when it could resolve the argument's own
+                // address. A write inside this activation is visible to the caller instantly; no
+                // copy-back step is needed because nothing was ever copied.
+                frame.PushByRef(parameter, reference.Value);
+            }
+            else
+            {
+                // ByVal, or ByRef with a non-addressable argument (a literal, an expression result) -
+                // MS-VBAL §5.3.1.11's own "otherwise" case: a fresh local, Let-assigned from the
+                // argument's value, never aliasing anything the caller can see again.
+                frame.Push(parameter, parameter.ResolvedType.CreateValue(new ValueBindingHandle(arguments[i])));
+            }
         }
 
         var outcome = Executor.Run(Session, frame, body, new RuntimeEvaluationContext(procedure.Uri));
@@ -75,7 +102,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
         return outcome.Kind switch
         {
-            RuntimeExecutionOutcomeKind.ExitProcedure => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void),
+            RuntimeExecutionOutcomeKind.ExitProcedure => RuntimeSemanticsEvaluationResult.Success(
+                procedure is VBReturningMemberSymbol ? frame.ReturnValue! : VBVoidValue.Void),
             RuntimeExecutionOutcomeKind.Error => RuntimeSemanticsEvaluationResult.Error(outcome.ErrorInfo!),
             // Halt (End) and Break (Stop) inside a called procedure have no way to propagate through
             // this return type yet - RuntimeSemanticsEvaluationResult is Result-or-Error only. End's own
@@ -85,7 +113,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         };
     }
 
-    private static ImmutableArray<VBParameterSymbol> GetParameters(VBTypeMemberSymbol procedure) => procedure switch
+    internal static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
+
+    internal static ImmutableArray<VBParameterSymbol> GetParameters(VBTypeMemberSymbol procedure) => procedure switch
     {
         VBProcedureMemberSymbol sub => sub.Parameters,
         VBReturningMemberSymbol returning => returning.Parameters,

@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK;
@@ -9,10 +10,13 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Statements;
@@ -92,6 +96,32 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         if (!valueResult.IsSuccess)
         {
             return valueResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(valueResult.ErrorInfo!);
+        }
+
+        if (target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+            && target.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
+        {
+            // MS-VBAL §5.3.1: "Foo = value" inside Foo's own body Let-assigns its function result
+            // variable, not the general symbol table - the read-side mirror of this check is
+            // RuntimeExpressionEvaluator.EvaluateSimpleName's own self-reference check. The function
+            // result variable isn't a real addressable Symbol, so this can't go through the same
+            // "__let_op" operator every other target does (it needs a real IBindingHandle) - Let-coerce
+            // directly instead, the same lower-level call ByVal/ByRef-fallback parameter passing already
+            // makes for the identical reason.
+            var returnCoercionFrame = new LetCoercionStackFrame(assignment.Identity, InputIndex.CoercionSourceValue,
+                valueResult.Result!, new VBTypeDescValue(((ITypedSymbol)target).ResolvedType));
+            var returnCoercionResult = _letAssignment.LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, assignment.Value, returnCoercionFrame);
+            if (!returnCoercionResult.IsApplicable)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+            if (!returnCoercionResult.IsSuccess)
+            {
+                return RuntimeExecutionOutcome.Error(returnCoercionResult.ErrorInfo!);
+            }
+
+            ((CallStackFrame)enclosing).ReturnValue = returnCoercionResult.Result!;
+            return RuntimeExecutionOutcome.Next;
         }
 
         // the reserved synthetic "__let_op" binary operator - the same shape its own test suite

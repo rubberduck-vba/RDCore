@@ -55,4 +55,11 @@ public sealed class CompositeSymbolResolver(params ISymbolResolver[] resolvers) 
         value = null;
         return false;
     }
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+    {
+        address = default;
+        return false;
+    }
 }

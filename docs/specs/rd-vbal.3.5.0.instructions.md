@@ -336,28 +336,23 @@ would see exactly that value from invoking the callee, and could route it throug
 `InterceptError` the same way — the mechanism generalizes for free once S9 exists, it doesn't need
 rework.
 
-A `Call`/bare-call statement (**MS-VBAL §5.4.2.1**) and a bare `Sub` reference — the S9a walking
-skeleton's own scope — invoke through `IProcedureInvoker`: `RDCore.Runtime.Execution.RuntimeProcedureInvoker`
-looks the callee's own lowered body up by symbol, pushes a fresh `ICallStackFrame` (one Let-coerced,
-freshly-bound `ValueBindingHandle` per ByVal parameter — never aliasing the caller's own storage), runs it
-through the same `ProcedureExecutor`, and reports the outcome back — `ExitProcedure` becomes a successful
-`VBVoidValue`, an `Error` outcome becomes a `RuntimeSemanticsEvaluationResult` error the caller's own
-`ExecuteCall` turns back into an `Error` outcome, so a nested call's own runtime error propagates exactly
-like any other. `RuntimeExpressionEvaluator.ProcedureInvoker`/`.LetCoercionProvider` are settable
+A `Call`/bare-call statement (**MS-VBAL §5.4.2.1**) and a bare `Sub`/`Function`/`Property Get` reference
+invoke through `IProcedureInvoker`: `RDCore.Runtime.Execution.RuntimeProcedureInvoker` looks the callee's
+own lowered body up by symbol, pushes a fresh `ICallStackFrame`, runs it through the same
+`ProcedureExecutor`, and reports the outcome back — `ExitProcedure` becomes a successful result (the
+`Function`/`Property Get`'s own function result variable, or `VBVoidValue` for a `Sub`), an `Error` outcome
+becomes a `RuntimeSemanticsEvaluationResult` error the caller's own `ExecuteCall` turns back into an
+`Error` outcome, so a nested call's own runtime error propagates exactly like any other. `RuntimeExpressionEvaluator.ProcedureInvoker`/`.LetCoercionProvider` are settable
 properties, not constructor parameters: `RuntimeProcedureInvoker` itself needs a `ProcedureExecutor` built
 from a `StatementRuntimeSemanticsProvider` built from the SAME evaluator, so the evaluator has to exist
 before its own invoker can be built, and gets wired after every other collaborator is composed. An
-`IndexExpressionNode` whose `Callee` is a bare name resolving to a `Sub` is checked for that BEFORE the
-usual recursive `Evaluate(Callee)` — otherwise a bare-name `Callee` would already have been auto-invoked
-with zero arguments by `SimpleName`'s own dispatch, before `Index` ever got to supply its own. `RuntimeCallStack`
-now enforces a real depth limit (`OnBeforeTryPush`, MS-VBAL error 28, "Out of stack space") — previously
-unenforced, since nothing ever pushed a SECOND frame before S9a existed. **Deliberately not modeled by
-this slice** (each needing its own later sub-slice): `Function`/`Property Get` return values (needs the
-function-name-as-its-own-return-slot mechanism), `ByRef` write-back, `Optional`/`ParamArray`/named
-arguments, `Me`/class members (`Class_Initialize`/`Terminate` stay no-ops), qualified cross-module calls,
-and `Halt`/`Break` propagating out of a nested call (`RuntimeSemanticsEvaluationResult` has no slot for
-either — today they surface as `InternalError` inside a callee rather than being silently mismodeled).
-Found and fixed a real, previously-unreachable bug along the way: `RuntimeExpressionEvaluator`'s own bare
+`IndexExpressionNode` whose `Callee` is a bare name resolving to a `Sub`/`Function`/`Property Get` is
+checked for that BEFORE the usual recursive `Evaluate(Callee)` — otherwise a bare-name `Callee` would
+already have been auto-invoked with zero arguments by `SimpleName`'s own dispatch, before `Index` ever got
+to supply its own; this is also the ONLY shape that recurses (`Foo(n - 1)`, even from within `Foo`'s own
+body). `RuntimeCallStack` now enforces a real depth limit (`OnBeforeTryPush`, MS-VBAL error 28, "Out of
+stack space") — previously unenforced, since nothing ever pushed a SECOND frame before S9a existed. Found
+and fixed a real, previously-unreachable bug along the way: `RuntimeExpressionEvaluator`'s own bare
 `SimpleName` dispatch tested `VBReturningMemberSymbol` (a `Function`/`Property Get`'s own base type) to
 decide "is this an implicit call" — but `Const`/`EnumConst`/module-and-instance fields/UDT fields all
 share that SAME base type, so a plain field read was always wrongly treated as a call attempt. Invisible
@@ -365,34 +360,70 @@ until S9a's own tests were the first in the whole suite to read a module-level s
 by checking the two actually-callable leaf types (`VBFunctionMemberSymbol`/`VBPropertyGetMemberSymbol`)
 instead of their shared base.
 
+**`ByRef` parameter binding (MS-VBAL §5.3.1.11) and `Function`/`Property Get` return values (§5.3.1).**
+A parameter is bound `ByVal` (a fresh, Let-coerced `ValueBindingHandle` — never aliasing the caller's own
+storage) UNLESS it is `ByRef` AND `RuntimeExpressionEvaluator`'s own argument-evaluation loop could resolve
+the argument to a real, addressable, writable variable whose declared type exactly matches the parameter's
+own (or is `Variant`) — the two shapes §5.3.1.11 allows a plain reference binding for without a
+class/Object copy-back dance, which isn't modeled yet (an `Object`-typed `ByRef` parameter falls through to
+a `ByVal`-style copy today, a documented, narrower-than-spec gap, not a wrong result). When it can, the
+argument is passed as a `VBRuntimeReference` (the address itself); `RuntimeProcedureInvoker` binds the
+parameter through the NEW `CallStackFrame.PushByRef` — a real name-aliasing binding onto that SAME address
+(`ISymbolResolver.TryGetAddress`/`ICallStackFrame.TryGetAddress` resolve it), not a copy, so a write inside
+the callee is visible to the caller the instant it happens; `CallStackFrame.ReleaseAll` never deallocates a
+`ByRef` alias's address — it belongs to whoever originally allocated it, the callee only ever borrowed it.
+Whenever a `ByRef` parameter's own argument isn't recognized as aliasable (an expression, a literal, a
+mismatched-declared-type variable, a read-only target), §5.3.1.11's own "otherwise" case applies: the SAME
+`ByVal`-style Let-coerced copy, never an error.
+
+Each invocation of a `Function`/`Property Get` gets a fresh function result variable (§5.3.1), modeled as
+the NEW `ICallStackFrame.ReturnValue` — a single per-activation slot, read-only on the SDK interface like
+`Pc`, mutable on `CallStackFrame`, seeded to the declared return type's own default before the body runs.
+A bare reference to the procedure's OWN name, from within its own body, reads or Let-assigns this slot
+instead of the general symbol table: `RuntimeExpressionEvaluator.EvaluateSimpleName` and
+`StatementRuntimeSemanticsProvider.ExecuteLetAssignment` both detect self-reference the same way —
+comparing the resolved symbol's own `Uri` against `RuntimeEvaluationContext.Scope`, which
+`RuntimeProcedureInvoker` always sets to that SAME procedure's own `Uri` for the whole activation, the same
+identity check `EvaluateInstance` already uses for `Me`. A bare reference to the function result variable
+can never go through `"__let_op"`, since it isn't a real addressable `Symbol` with an `IBindingHandle` —
+`ExecuteLetAssignment`'s self-reference branch Let-coerces directly instead, the same lower-level call
+`ByVal`/`ByRef`-fallback parameter passing already makes for the identical reason. `RuntimeProcedureInvoker`
+reads `frame.ReturnValue` back once `ExitProcedure` is reached — however it was reached, an explicit
+`Exit Function`/`Exit Property` or falling off the end of the body alike — instead of always reporting
+`VBVoidValue`.
+
 ---
 ## 3.5.5 Placement and licensing
 
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc`/`TryGetBlockState`/`TryGetForLoopState`/`TryGetForEachState`/`GoSubDepth`/
-`ErrorHandler` are likewise on the SDK interface (read-only there, for a future debugger surface) but only
-ever mutated by the executor, through `CallStackFrame.Pc`/`SetBlockState`/`SetForLoopState`/
-`SetForEachState`/`PushGoSubReturn`/`TryPopGoSubReturn`/`ErrorHandler`'s own setter — the GoSub Resumption
-List is a plain stack, not a per-offset dictionary like the other three, since nothing about *which*
-`GoSub` pushed an entry matters to `Return`, only order does; `GoSubDepth` (a count, not a peek) is exposed
-instead of anything that could look inside it. `TryGetBlockState` is a single hidden value per
-block-opening instruction, keyed by that instruction's own offset — enough for `With`'s target and `Select
-Case`'s selector. A `For` loop's own state is richer — counter symbol, counter expression, end, step — so
-it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For Each` loop's is different again
-— an enumeration cursor (control symbol/expression, the array, a flat index) — its own `ForEachState`.
-Each gets its own parallel `TryGetXState`/`SetXState` pair rather than stretching `TryGetBlockState`'s
-single-value shape to fit all three. `ErrorHandlerState` (mode, handler target, active error,
-fault-statement offset) is different again — like `Pc`, it's a single mutable value per activation rather
-than per-offset hidden state, since an `On Error` statement changes the policy going forward rather than
-scoping it to one block — so it gets a plain `ErrorHandler { get; }`/`{ get; set; }` property pair, the
-same shape `Pc` itself uses, rather than a `TryGetXState`/`SetXState` pair. `ProcedureExecutor`, its
-statement dispatch, and activation state are **RDCore.Runtime** (GPLv3). `IProcedureInvoker`/`CallableBindingHandle`
-(the call *contract*: given a procedure symbol, a resolver, and arguments, run it) predate S9a and live in
-**RDCore.SDK** (MIT); `RuntimeProcedureInvoker` (the call's own real implementation — frame setup, ByVal
-parameter binding, the depth guard) is **RDCore.Runtime** (GPLv3), matching the SDK-contract/
-Runtime-implementation split every other execution-engine piece already follows.
+drives. `ICallStackFrame.Pc`/`ReturnValue`/`TryGetAddress`/`TryGetBlockState`/`TryGetForLoopState`/
+`TryGetForEachState`/`GoSubDepth`/`ErrorHandler` are likewise on the SDK interface (read-only there, for a
+future debugger surface) but only ever mutated by the executor, through `CallStackFrame.Pc`/`ReturnValue`/
+`PushByRef`/`SetBlockState`/`SetForLoopState`/`SetForEachState`/`PushGoSubReturn`/`TryPopGoSubReturn`/
+`ErrorHandler`'s own setter — the GoSub Resumption List is a plain stack, not a per-offset dictionary like
+the other three, since nothing about *which* `GoSub` pushed an entry matters to `Return`, only order does;
+`GoSubDepth` (a count, not a peek) is exposed instead of anything that could look inside it. `TryGetBlockState`
+is a single hidden value per block-opening instruction, keyed by that instruction's own offset — enough for
+`With`'s target and `Select Case`'s selector. A `For` loop's own state is richer — counter symbol, counter
+expression, end, step — so it gets its own SDK type, `RDCore.SDK.Runtime.Shared.ForLoopState`; a `For Each`
+loop's is different again — an enumeration cursor (control symbol/expression, the array, a flat index) —
+its own `ForEachState`. Each gets its own parallel `TryGetXState`/`SetXState` pair rather than stretching
+`TryGetBlockState`'s single-value shape to fit all three. `ErrorHandlerState` (mode, handler target, active
+error, fault-statement offset) is different again — like `Pc`, it's a single mutable value per activation
+rather than per-offset hidden state, since an `On Error` statement changes the policy going forward rather
+than scoping it to one block — so it gets a plain `ErrorHandler { get; }`/`{ get; set; }` property pair,
+the same shape `Pc` itself uses, rather than a `TryGetXState`/`SetXState` pair. `ISymbolResolver.TryGetAddress`
+is the same read-only/SDK-interface split applied to name resolution itself: `CallStackAwareSymbolResolver`/
+`RuntimeSymbolResolver` (**RDCore.Runtime**) are its only two resolvers with a real answer; every
+compile-time-only resolver (`CompositeSymbolResolver`, `ScopeTreeSymbolResolver`, `IntrinsicSymbolResolver`)
+returns `false`, mirroring `TryRead`'s own existing pattern. `ProcedureExecutor`, its statement dispatch,
+and activation state are **RDCore.Runtime** (GPLv3). `IProcedureInvoker`/`CallableBindingHandle` (the call
+*contract*: given a procedure symbol, a resolver, and arguments, run it) predate S9a and live in
+**RDCore.SDK** (MIT); `RuntimeProcedureInvoker` (the call's own real implementation — frame setup,
+`ByVal`/`ByRef` parameter binding, function result values, the depth guard) is **RDCore.Runtime** (GPLv3),
+matching the SDK-contract/Runtime-implementation split every other execution-engine piece already follows.
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

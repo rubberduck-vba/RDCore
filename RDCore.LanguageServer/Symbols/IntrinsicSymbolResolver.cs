@@ -44,4 +44,11 @@ internal sealed class IntrinsicSymbolResolver : ISymbolResolver
         value = null;
         return false;
     }
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+    {
+        address = default;
+        return false;
+    }
 }

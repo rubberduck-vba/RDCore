@@ -342,4 +342,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         value = null;
         return false;
     }
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
+    {
+        address = default;
+        return false;
+    }
 }

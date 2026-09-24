@@ -43,6 +43,16 @@ public interface ICallStackFrame : IStackFrame
     int Pc { get; }
 
     /// <summary>
+    /// The current value of this activation's <em>function result variable</em>
+    /// (<strong>MS-VBAL §5.3.1</strong>) — <see langword="null"/> for an activation of a <c>Sub</c>, a
+    /// <c>Property Let</c>, or a <c>Property Set</c>, none of which have one. A bare reference to a
+    /// <c>Function</c>/<c>Property Get</c>'s own name, from within its own body, reads and writes this
+    /// rather than the general symbol table (<strong>RD-VBAL §3.5.4</strong>). Read-only here: only
+    /// RDCore.Runtime ever writes it, through the concrete frame type it constructs.
+    /// </summary>
+    VBTypedValue? ReturnValue { get; }
+
+    /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for
     /// <paramref name="value"/>, its initial value — the caller's argument for a parameter, the
     /// declared type's default value for a fresh <c>Dim</c>. MS-VBAL draws no distinction between a
@@ -57,6 +67,14 @@ public interface ICallStackFrame : IStackFrame
     /// </summary>
     /// <exception cref="KeyNotFoundException">No binding exists yet for <paramref name="symbol"/> on this frame.</exception>
     IBindingHandle GetValue(Symbol symbol);
+
+    /// <summary>
+    /// Gets the <see cref="MemoryAddress"/> currently reserved for the specified locally-scoped
+    /// <see cref="Symbol"/> on this frame, if any — a <c>ByRef</c> parameter (<see cref="Push"/>ed by
+    /// aliasing an existing address rather than allocating one of its own) resolves to the SAME address
+    /// its argument does, exactly like an ordinary declared local.
+    /// </summary>
+    bool TryGetAddress(Symbol symbol, out MemoryAddress address);
 
     /// <summary>
     /// Gets the <see cref="IBindingHandle"/> currently held in this frame for the specified

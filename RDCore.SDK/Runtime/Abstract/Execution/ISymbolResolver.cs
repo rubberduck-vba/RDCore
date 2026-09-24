@@ -85,5 +85,14 @@ public interface ISymbolResolver
     /// <param name="address">The memory address to read.</param>
     /// <param name="value">The retrieved binding, if successful.</param>
     bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value);
+
+    /// <summary>
+    /// Gets the <see cref="MemoryAddress"/> currently reserved for <paramref name="symbol"/>, if any —
+    /// what a <c>ByRef</c> argument binds to (<strong>MS-VBAL §5.3.1.11</strong>: "a reference parameter
+    /// binding... referring to the variable referenced by the argument's expression").
+    /// </summary>
+    /// <param name="symbol">The <see cref="Symbol"/> whose address to look up.</param>
+    /// <param name="address">The reserved address, if <paramref name="symbol"/> is currently allocated.</param>
+    bool TryGetAddress(Symbol symbol, out MemoryAddress address);
 }
 
