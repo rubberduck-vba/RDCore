@@ -1,5 +1,6 @@
 using NSubstitute;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -27,10 +28,10 @@ internal static class LetCoercionAnalysisHarness
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
 
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
 
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
+        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
@@ -76,7 +77,7 @@ internal static class LetCoercionAnalysisHarness
     /// <paramref name="operand"/> of <paramref name="expression"/>, into <paramref name="builder"/> (a new one, if none is given —
     /// pass one to analyze several operands of one operation into the same context).
     /// </summary>
-    public static Analysis Analyze(VBTypedValue source, VBType destination, VBOperatorExpression expression,
+    public static Analysis Analyze(VBTypedValue source, VBType destination, ExpressionNode expression,
         InputIndex operand = InputIndex.CoercionSourceValue, LetCoercionSemanticContextFlagsBuilder? builder = null)
     {
         var frame = new LetCoercionStackFrame(expression.Identity, operand, source, new VBTypeDescValue(destination));

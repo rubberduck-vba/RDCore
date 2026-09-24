@@ -1,6 +1,7 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
@@ -24,7 +25,7 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             // 5.5.1.2.8 — coercion to the same UDT type. The value is a location; deep field copy is
@@ -46,6 +47,6 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.UserDefinedTypeTarget);
 }

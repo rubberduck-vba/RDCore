@@ -1,4 +1,5 @@
 ﻿using NSubstitute;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Values.Abstract;
@@ -34,7 +35,7 @@ internal static class OperatorAnalysisHarness
     /// Analyzes <paramref name="operands"/> as the operands of <paramref name="expression"/> and builds the semantic context.
     /// </summary>
     public static TContext Analyze<TContext, TFlags>(
-        IRuntimeSemantics<TContext, TFlags> semantics, VBOperatorExpression expression, params VBTypedValue[] operands)
+        IRuntimeSemantics<TContext, TFlags> semantics, ExpressionNode expression, params VBTypedValue[] operands)
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
     {
@@ -47,7 +48,7 @@ internal static class OperatorAnalysisHarness
     /// Evaluates the same operation, the way it runs: what the analysis of it is meant to describe.
     /// </summary>
     public static RuntimeSemanticsEvaluationResult Evaluate<TContext, TFlags>(
-        IRuntimeSemantics<TContext, TFlags> semantics, VBOperatorExpression expression, params VBTypedValue[] operands)
+        IRuntimeSemantics<TContext, TFlags> semantics, ExpressionNode expression, params VBTypedValue[] operands)
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
         => semantics.Evaluate(Session(), new TContext(), expression, operands);
@@ -63,10 +64,10 @@ internal sealed class RecordingLetCoercionProvider(ILetCoercionRuntimeSemanticsP
     /// <summary>The builder every analyzed coercion of an operation contributes to: the one the whole operation's conversion facts end up in.</summary>
     public ILetCoercionSemanticContextBuilder? Builder { get; private set; }
 
-    public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+    public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
         => inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
 
-    public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
+    public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         AnalyzedFrames.Add(frame);
         Builder = builder;

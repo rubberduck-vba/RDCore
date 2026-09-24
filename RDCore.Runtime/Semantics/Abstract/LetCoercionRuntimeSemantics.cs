@@ -41,12 +41,12 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <typeparam name="TContext">The type of <em>semantic context</em> of the <c>expression</c> the let-coercion is occurring inside of.</typeparam>
     /// <typeparam name="TFlags">The type of semantic flags associated with the semantic context of the <c>expression</c>.</typeparam>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>ExpressionNode</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns></returns>
     public abstract LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame);
 
     /// <summary>
@@ -54,14 +54,14 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// </summary>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>ExpressionNode</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <param name="result">The result of the let-coercion operation for the current stack frame.</param>
     /// <returns>The <see cref="LetCoercionAnalysisContext"/> for the context of this <em>let-coercion</em> operation.</returns>
     public LetCoercionAnalysisContext Analyze(
         ILetCoercionSemanticContextBuilder builder, 
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame,
         LetCoercionResult result)
     {
@@ -87,13 +87,13 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <typeparam name="TFlags">The type of semantic flags associated with the semantic context of the <c>expression</c>.</typeparam>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The <c>ExpressionNode</c> that is being evaluated.</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns></returns>
     protected abstract ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder, 
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame);
 
     /// <summary>

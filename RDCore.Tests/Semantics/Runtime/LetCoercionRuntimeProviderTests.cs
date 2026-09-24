@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Runtime.Abstract;
@@ -30,9 +31,9 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, VBOperatorExpression e, LetCoercionStackFrame f)
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.EvaluateLetCoercionSemantics(r, e, f);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, VBOperatorExpression e, LetCoercionStackFrame f)
+        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.Analyze(r, b, e, f);
     }
 

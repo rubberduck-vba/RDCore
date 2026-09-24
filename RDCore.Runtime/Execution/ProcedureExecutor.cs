@@ -1,6 +1,10 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Statements;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
 
@@ -17,14 +21,15 @@ namespace RDCore.Runtime.Execution;
 /// decides <em>whether</em> to branch without any statement semantics needing to know about the program
 /// counter at all - the same split RD-VBAL §3.5.2's own design note describes.
 /// <para>
-/// Only the kinds a straight-line, branch-free-of-loops procedure can produce are wired here:
-/// <c>Simple</c>, <c>Jump</c>, <c>ExitProcedure</c>, <c>Halt</c>, <c>Break</c>. Every other kind
-/// (<c>ConditionalBranch</c>, <c>JumpTable</c>, the loop/<c>With</c>/<c>Select</c> kinds) is not yet
-/// wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently
-/// mishandled.
+/// Wired here: <c>Simple</c>, <c>Jump</c>, <c>ConditionalBranch</c> for <c>If</c>/<c>ElseIf</c>/inline
+/// <c>If</c> (a <c>Select Case</c>'s own <c>Case</c> headers are also <c>ConditionalBranch</c>, but need
+/// the enclosing <c>Select</c>'s stashed selector value — not wired yet, no per-activation hidden state
+/// exists to hold it), <c>ExitProcedure</c>, <c>Halt</c>, <c>Break</c>. Every other kind (<c>JumpTable</c>,
+/// the loop/<c>With</c>/<c>Select</c> kinds) is not yet wired and defers with
+/// <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently mishandled.
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -58,6 +63,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     activation.Pc = target;
                     break;
 
+                case InstructionKind.ConditionalBranch:
+                    var branchOutcome = ExecuteConditionalBranch(session, context, instruction, activation);
+                    if (branchOutcome is { } stop)
+                    {
+                        return stop;
+                    }
+                    break;
+
                 case InstructionKind.ExitProcedure:
                     return RuntimeExecutionOutcome.ExitProcedure;
 
@@ -76,4 +89,48 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // the end of the body" is the same outcome as an explicit Exit.
         return RuntimeExecutionOutcome.ExitProcedure;
     }
+
+    // Returns null when the branch was taken and the loop should keep running (activation.Pc is
+    // already set correctly); returns a non-null outcome only when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteConditionalBranch(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (GetCondition(instruction.Node) is not { } condition)
+        {
+            // a Select Case's own Case header - needs the enclosing Select's stashed selector, which
+            // no per-activation hidden state exists to hold yet.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var conditionResult = conditions.EvaluateBoolean(session, condition, context);
+        if (!conditionResult.IsSuccess)
+        {
+            return conditionResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(conditionResult.ErrorInfo!);
+        }
+
+        if (((VBBooleanValue)conditionResult.Result!).Value.StoredValue != 0)
+        {
+            activation.Pc = instruction.Offset + 1; // true - fall through into the branch's own body.
+            return null;
+        }
+
+        if (instruction.Else is not { } elseTarget)
+        {
+            // lowering always sets Else on a ConditionalBranch header - reaching here is a lowering bug.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        activation.Pc = elseTarget;
+        return null;
+    }
+
+    // The If/ElseIf/inline-If header node kinds only - a Select Case's own Case header
+    // (CaseExpressionStatementNode) needs different handling entirely (range-clause matching against a
+    // stashed selector, not a single Boolean condition), not this method's job.
+    private static ExpressionNode? GetCondition(StatementNode? node) => node switch
+    {
+        IfBlockStatementNode ifBlock => ifBlock.ConditionExpression,
+        ElseIfBlockStatementNode elseIf => elseIf.ConditionExpression,
+        InlineIfStatementNode inlineIf => inlineIf.ConditionExpression,
+        _ => null,
+    };
 }

@@ -1,6 +1,7 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
@@ -36,7 +37,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         var cultureInfo = CultureInfo.InvariantCulture;
@@ -87,7 +88,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         // CStr makes the conversion explicit; an Empty source (5.5.1.2.11) and a Byte() source (5.5.1.2.6) are the

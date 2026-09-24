@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 
@@ -10,7 +11,7 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </summary>
 internal static class OperandPositionFlags
 {
-    public static ConversionSemanticFlags Of(VBOperatorExpression expression, InputIndex operandIndex) => expression switch
+    public static ConversionSemanticFlags Of(ExpressionNode expression, InputIndex operandIndex) => expression switch
     {
         VBUnaryOperatorExpressionNode when operandIndex == InputIndex.UnaryOperand
             => ConversionSemanticFlags.UnaryOperand,

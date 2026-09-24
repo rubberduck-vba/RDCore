@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -31,7 +32,7 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         if (frame.DestinationTypeDesc.Target is not VBResizableArrayType destination)
@@ -59,7 +60,7 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ArrayTarget);
 
     // a class, user-defined type or Enum element type is a reference to its declaration, and two of them are the same

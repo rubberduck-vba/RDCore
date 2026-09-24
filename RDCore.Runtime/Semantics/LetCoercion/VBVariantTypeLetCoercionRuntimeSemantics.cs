@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
@@ -21,7 +22,7 @@ public record class VBVariantTypeLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             not VBObjectValue and not VBNothingValue => 
@@ -33,6 +34,6 @@ public record class VBVariantTypeLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.VariantTarget);
 }

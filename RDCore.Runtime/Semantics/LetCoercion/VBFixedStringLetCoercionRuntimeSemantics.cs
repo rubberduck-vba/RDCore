@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
@@ -31,7 +32,7 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         if (frame.DestinationTypeDesc.Target is not VBFixedStringType destination)
@@ -48,7 +49,7 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         ConversionSemanticFlags flags = frame.SourceValue switch
@@ -71,7 +72,7 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
 
     // the source as a String value, before it is fitted to the destination's length: MS-VBAL 5.5.1.2.5 defines every
     // other source as "Let-coerced to a String value and then Let-coerced to a String * length value".
-    private LetCoercionResult ToText(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+    private LetCoercionResult ToText(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
         => frame.SourceValue switch
         {
             VBStringValue source => LetCoercionResult.Success(source),

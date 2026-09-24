@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -33,7 +34,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : LetCoercionRuntimeSemantics<VBBooleanType>(FormatterService)
 {
-    public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame) =>
+    public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
         frame.SourceValue switch
         {
             VBBooleanValue booleanSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
@@ -59,7 +60,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
 
     // MS-VBAL 5.5.1.2.4: "True"/"False" are matched case-insensitive; "#TRUE#"/"#FALSE#" case-sensitive.
     // Otherwise, the result is the source string let-coerced to Double, then let-coerced to Boolean.
-    private LetCoercionResult CoerceStringToBoolean(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame, VBStringValue source)
+    private LetCoercionResult CoerceStringToBoolean(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame, VBStringValue source)
     {
         if (string.Equals(source.Value, Tokens.True, StringComparison.InvariantCultureIgnoreCase)
             || string.Equals(source.Value, "#TRUE#", StringComparison.InvariantCulture))
@@ -81,7 +82,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
             : doubleCoercion;
     }
 
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric | ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
         {

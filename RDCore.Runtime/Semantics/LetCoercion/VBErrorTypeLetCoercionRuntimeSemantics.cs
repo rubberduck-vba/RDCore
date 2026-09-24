@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
@@ -23,7 +24,7 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
             VBErrorValue when frame.DestinationTypeDesc.GetTargetType() is not VBVariantType and not VBFixedSizeArrayType =>
@@ -50,7 +51,7 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         builder.AddLetCoercionFlags(ConversionSemanticFlags.ErrorOperand, frame.OperandIndex);

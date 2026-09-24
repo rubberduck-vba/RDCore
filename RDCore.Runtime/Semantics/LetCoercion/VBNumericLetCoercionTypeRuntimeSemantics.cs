@@ -39,7 +39,7 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
     private static partial Regex NumericCoercionStringPattern();
 
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, VBOperatorExpression expression,
+        ISymbolResolver resolver, ExpressionNode expression,
         LetCoercionStackFrame frame) => frame.SourceValue.TypeInfo switch
         {
             VBStringType when frame.DestinationTypeDesc.Target is INumericType
@@ -117,7 +117,7 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         // these describe how THIS operand is coerced (an operation's two operands can widen and narrow differently), so

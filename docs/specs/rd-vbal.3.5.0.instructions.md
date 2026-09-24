@@ -139,11 +139,25 @@ statement kinds currently handled; Set-coercion (**MS-VBAL §5.5.2.2**) goes thr
 point `RDCore.Runtime.Semantics.Statements.WithStatementRuntimeSemantics` already uses for its own
 `With`-target coercion, not the operator pipeline Let-assignment reuses — Set-coercion has no
 per-destination-type strategy fan-out to need one; anything the provider doesn't recognize reports
-`InternalError`, the run stops), `Jump` (unconditional `GoTo`), `ExitProcedure`, `Halt` (`End`), `Break`
-(`Stop`), and falling off the end of the list (**MS-VBAL §5.4.2.17**'s "completes as if execution had
-reached the end of the body" — the same outcome as an explicit `Exit`). `ConditionalBranch`, `JumpTable`,
-the loop kinds, and `With`/`Select` themselves are not dispatched by the loop yet and report
-`InternalError` when reached.
+`InternalError`, the run stops), `Jump` (unconditional `GoTo`), `ConditionalBranch` for an `If`/`ElseIf`
+header or an inline `If` (a `Select Case`'s own `Case` headers are also `ConditionalBranch`, but need the
+enclosing `Select`'s stashed selector value — not wired yet, no per-activation hidden state exists to hold
+it), `ExitProcedure`, `Halt` (`End`), `Break` (`Stop`), and falling off the end of the list (**MS-VBAL
+§5.4.2.17**'s "completes as if execution had reached the end of the body" — the same outcome as an
+explicit `Exit`). `JumpTable`, the loop kinds, and `With`/`Select` themselves are not dispatched by the
+loop yet and report `InternalError` when reached.
+
+A `ConditionalBranch`'s condition is forced to `Boolean` by `RDCore.Runtime.Execution.ConditionEvaluator`
+(**MS-VBAL §5.5.1.2.2**), which calls `VBBooleanLetCoercionRuntimeSemantics` directly rather than through
+an operator node: a condition has no operator of its own in source (`If x Then` let-coerces `x` without
+any `(...)`), and the `"__c()_op"` explicit let-coercion operator (**RD-VBAL §3.3**) is reserved for the
+case where source *does* write parentheses around the coerced expression, forcing that frame explicitly —
+which a plain condition's truth test never does. Because that bypasses the operator pipeline entirely, the
+let-coercion strategy contract (`ILetCoercionRuntimeSemantics.EvaluateLetCoercion`/`.Analyze`) now takes
+the coerced value's own `ExpressionNode` rather than a `VBOperatorExpression`: every strategy already used
+that node opaquely (identity/location only, for error reporting), so the narrower type was never load-bearing
+— a condition simply passes its own expression through with no synthetic node standing in for an operator
+that was never there.
 
 ---
 ## 3.5.5 Placement and licensing

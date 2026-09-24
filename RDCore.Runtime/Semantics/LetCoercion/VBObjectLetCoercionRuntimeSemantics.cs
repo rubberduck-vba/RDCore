@@ -70,7 +70,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame) 
         => frame.SourceValue switch
         {
@@ -92,6 +92,6 @@ public record class VBObjectLetCoercionRuntimeSemantics(
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame) => builder; // TODO
 }

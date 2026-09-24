@@ -1,4 +1,4 @@
-﻿using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
@@ -18,12 +18,17 @@ public interface ILetCoercionRuntimeSemantics
     /// Evaluates the let-coerced <c>VBTypedValue</c> for the specified <c>effectiveType</c> in the context of the specified <c>expression</c>.
     /// </summary>
     /// <param name="resolver">A service that can resolve symbols and their values in the current context.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
+    /// <param name="expression">
+    /// The expression whose evaluated value is being let-coerced. Usually a <c>VBOperatorExpression</c>
+    /// (an operand of an operator that itself needs let-coercion semantics), but not always: a construct
+    /// that forces a value to a specific type without an operator node of its own in source — a
+    /// condition's truth test, for instance — coerces the same way and passes its own expression here.
+    /// </param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns>An object that encapsulates the result of the operation, including any run-time errors to be thrown.</returns>
     LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame);
 
     /// <summary>
@@ -31,7 +36,7 @@ public interface ILetCoercionRuntimeSemantics
     /// </summary>
     /// <param name="builder">Builds the semantic context of the conversion operation.</param>
     /// <param name="resolver">A symbol lookup service.</param>
-    /// <param name="expression">The <c>VBOperatorExpression</c> that is being evaluated.</param>
+    /// <param name="expression">The expression whose evaluated value is being let-coerced (see <see cref="EvaluateLetCoercion"/>).</param>
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <param name="result">The result of the let-coercion operation for the current stack frame.</param>
     /// <remarks>
@@ -41,7 +46,7 @@ public interface ILetCoercionRuntimeSemantics
     LetCoercionAnalysisContext Analyze(
         ILetCoercionSemanticContextBuilder builder, 
         ISymbolResolver resolver, 
-        VBOperatorExpression expression, 
+        ExpressionNode expression, 
         LetCoercionStackFrame frame,
         LetCoercionResult result);
 }

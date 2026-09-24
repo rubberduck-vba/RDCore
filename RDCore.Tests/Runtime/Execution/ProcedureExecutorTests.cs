@@ -68,10 +68,15 @@ public sealed class ProcedureExecutorTests
     private static ProcedureExecutor Executor()
     {
         var formatter = Substitute.For<IVerboseMessageBuilder>();
-        var letCoercion = new LetCoercionRuntimeSemanticsProvider([new VBNumericLetCoercionTypeRuntimeSemantics(formatter, new ProviderHandle())], formatter);
+        var handle = new ProviderHandle();
+        var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
+        var letCoercion = new LetCoercionRuntimeSemanticsProvider(
+            [new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle), booleanCoercion], formatter);
+        handle.Inner = letCoercion;
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
-        return new ProcedureExecutor(statements);
+        var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
+        return new ProcedureExecutor(statements, conditions);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -79,9 +84,9 @@ public sealed class ProcedureExecutorTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, VBOperatorExpression expression, LetCoercionStackFrame frame)
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
@@ -189,17 +194,91 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
-    public void ANotYetWiredInstructionKind_DefersAsInternalError_DoesNotThrow()
-        // If/ConditionalBranch is real, spec-shaped syntax - lowering already handles it - but S5a's
-        // executor loop doesn't dispatch it yet.
+    public void AnIfBlock_TrueCondition_RunsTheThenBranch_AndSkipsPastEndIf()
     {
-        var list = Lower("If True Then", "x = 1", "End If");
+        var list = Lower("If True Then", "x = 1", "End If", "x = x + 10");
         var x = Local("x", VBLongType.TypeInfo);
         var session = ComposeSession(x);
         var frame = PushFrame(session, (x, new VBLongValue(0)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.InternalError, outcome.Kind);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(11, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AnIfBlock_FalseCondition_SkipsTheThenBranch()
+    {
+        var list = Lower("If False Then", "x = 1", "End If", "x = x + 10");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(10, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AnIfElseBlock_FalseCondition_RunsTheElseBranch()
+    {
+        var list = Lower("If False Then", "x = 1", "Else", "x = 2", "End If");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AnIfElseIfElseBlock_PicksTheMatchingElseIfBranch()
+    {
+        var list = Lower("If False Then", "x = 1", "ElseIf True Then", "x = 2", "Else", "x = 3", "End If");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AnInlineIf_TrueCondition_RunsItsStatement()
+    {
+        var list = Lower("If True Then x = 1");
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(x);
+        var frame = PushFrame(session, (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AConditionWithNoParentheses_DoesNotRouteThroughTheExplicitCoercionOperator()
+        // If x Then has no "(...)" in source, so it must not synthesize the "__c()_op" explicit
+        // let-coercion operator (RD-VBAL §5.6.9.9) - a numeric condition still let-coerces to Boolean
+        // (MS-VBAL §5.5.1.2.2) via ConditionEvaluator calling VBBooleanLetCoercionRuntimeSemantics
+        // directly instead.
+    {
+        var list = Lower("If x Then", "y = 1", "End If");
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(x, y);
+        var frame = PushFrame(session, (x, new VBLongValue(42)), (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
     }
 }

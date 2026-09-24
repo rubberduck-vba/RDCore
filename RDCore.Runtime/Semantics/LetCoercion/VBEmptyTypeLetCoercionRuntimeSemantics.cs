@@ -1,6 +1,7 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
@@ -24,7 +25,7 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
     : LetCoercionRuntimeSemantics<VBEmptyType>(FormatterService)
 {
-    public override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, VBOperatorExpression expression, LetCoercionStackFrame frame) =>
+    public override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
         frame.DestinationTypeDesc.Target switch
         {
             // MS-VBAL 5.5.1.2.11: "The result is 0." — the runtime value of Empty is only its VT_EMPTY tag
@@ -55,7 +56,7 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ISymbolResolver resolver,
-        VBOperatorExpression expression,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         // the flags describe this operand's coercion - not always the first operand's.
