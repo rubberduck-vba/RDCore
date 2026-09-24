@@ -171,10 +171,9 @@ public sealed class RuntimeExpressionEvaluatorTests
         Assert.IsTrue(result.IsInternalError);
     }
 
-    // The array itself arrives as a literal's already-known static value - array-typed local storage
-    // (round-tripping a VBArrayValue through a frame Push/GetValue) is a separate, pre-existing gap:
-    // VBArrayType has no CreateValue(IBindingHandle) override, so a generic SimpleName read can't
-    // reconstruct one from a bare handle. Nothing about Index's own dispatch depends on that.
+    // The array itself arrives as a literal's already-known static value here - SimpleName_
+    // ReadsTheCurrentlyBoundArrayLocalValue_CellsIntact below is what exercises the frame
+    // Push/GetValue round trip; nothing about Index's own dispatch depends on it.
     [TestMethod]
     public void Index_ReadsAnArrayElement()
     {
@@ -201,6 +200,22 @@ public sealed class RuntimeExpressionEvaluatorTests
         var result = Evaluator().Evaluate(session, index, new(ProcedureUri));
 
         Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, result.ErrorInfo?.ErrorId);
+    }
+
+    [TestMethod]
+    public void SimpleName_ReadsTheCurrentlyBoundArrayLocalValue_CellsIntact()
+    {
+        var arr = Local("arr", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var session = ComposeSession(arr);
+        var array = new VBFixedSizeArrayValue([(1, 3)], VBLongType.TypeInfo);
+        array.TrySetElement(new RDCore.SDK.Model.Values.Bindings.ValueBindingHandle(new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(99)), 2);
+        PushFrame(session).Push(arr, array);
+
+        var result = Evaluator().Evaluate(session, SimpleName("arr"), new(ProcedureUri));
+
+        Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
+        var roundTripped = (VBArrayValue)result.Result!;
+        Assert.AreEqual(99, ((VBLongValue)roundTripped[2]!).Value);
     }
 
     [TestMethod]
