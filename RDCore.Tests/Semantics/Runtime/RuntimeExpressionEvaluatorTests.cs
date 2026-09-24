@@ -96,6 +96,23 @@ public sealed class RuntimeExpressionEvaluatorTests
     }
 
     [TestMethod]
+    public void SimpleName_ReadsAModuleField_NotMisreadAsAnImplicitCall()
+        // Regression: VBModuleFieldVariableMemberSymbol (and Const/EnumConst/instance/UDT fields) are
+        // ALSO VBReturningMemberSymbol - the same base Function/Property Get share - so a check against
+        // that base type alone would wrongly treat a plain field read as an implicit call. Never
+        // reachable before S9a's own tests were the first to read a module-level symbol by bare name.
+    {
+        var moduleUri = TestUri.TestModuleUri();
+        var counter = new VBModuleFieldVariableMemberSymbol(Root, moduleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var session = ComposeSession(counter);
+
+        var result = Evaluator().Evaluate(session, SimpleName("counter"), new(ProcedureUri));
+
+        Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
+        Assert.AreEqual(0, ((VBLongValue)result.Result!).Value);
+    }
+
+    [TestMethod]
     public void SimpleName_AnUndefinedName_ReturnsInternalError_DoesNotThrow()
     {
         var session = ComposeSession();

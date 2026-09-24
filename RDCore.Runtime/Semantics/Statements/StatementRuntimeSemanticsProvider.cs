@@ -50,8 +50,27 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         {
             AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment => ExecuteLetAssignment(session, context, assignment),
             AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
+            CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
+
+    // MS-VBAL §5.4.2.1: both the explicit Call Foo(...) form and the bare Foo(...)/Foo form evaluate
+    // Callee (its own argument list, if any, already part of its tree - see CallStatementNode's own
+    // doc) and discard whatever it returns; a Sub's own Void result discards just as cleanly as a real
+    // one would. The bare, unparenthesized multi-argument form (Foo 1, 2, populating Arguments directly
+    // instead) isn't wired yet - S9a's own scope is the parenthesized/no-argument shapes only.
+    private RuntimeExecutionOutcome ExecuteCall(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
+    {
+        if (!call.Arguments.IsEmpty)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var result = _expressionEvaluator.Evaluate(session, call.Callee, context);
+        return result.IsSuccess ? RuntimeExecutionOutcome.Next
+            : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+    }
 
     // MS-VBAL §5.4.3.8. Scoped to a target that already resolves to a plain Symbol, same as
     // BinaryLetAssignmentOperatorRuntimeSemantics itself documents - a member-access or indexed target

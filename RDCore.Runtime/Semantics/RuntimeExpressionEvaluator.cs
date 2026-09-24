@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Expressions;
+using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Literals;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK;
@@ -14,9 +15,12 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Static;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -38,11 +42,16 @@ namespace RDCore.Runtime.Semantics;
 /// <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>.
 /// <para>
 /// Reading a value and invoking a procedure are different operations: a bare reference to a
-/// <c>Function</c>/<c>Property Get</c>/<c>Sub</c>, a call through <c>Index</c>/<c>MemberAccess</c> whose
-/// target isn't a plain array/field, <c>DictionaryAccess</c> (<strong>MS-VBAL §5.6.14</strong>'s sugar
-/// for a call through the owner's default member), and <c>AddressOf</c> (which must never be evaluated
-/// as a value read at all — its whole point is to reference a procedure, not call it) all return
+/// <c>Function</c>/<c>Property Get</c>, a call through <c>MemberAccess</c> whose target isn't a plain
+/// field, <c>DictionaryAccess</c> (<strong>MS-VBAL §5.6.14</strong>'s sugar for a call through the
+/// owner's default member), and <c>AddressOf</c> (which must never be evaluated as a value read at all —
+/// its whole point is to reference a procedure, not call it) all return
 /// <see cref="RuntimeSemanticsEvaluationResult.InternalError"/> here rather than being misread as values.
+/// A bare reference to a <c>Sub</c>, and an <c>Index</c> whose <c>Callee</c> is a bare name resolving to
+/// one — the S9a walking skeleton's own scope — invoke it instead, ByVal parameters only, same module,
+/// no <c>Me</c>: see <c>InvokeSub</c>. <c>ProcedureInvoker</c> is <c>null</c>-checked at each of those two
+/// call sites rather than required, so every existing caller that never passes one keeps working exactly
+/// as before — those two sites just fall back to <c>InternalError</c> the same way they always did.
 /// </para>
 /// <para>
 /// A jump statement's own label operand is never evaluated here — <see cref="LabelOperands"/> reads it
@@ -56,6 +65,24 @@ namespace RDCore.Runtime.Semantics;
 /// </remarks>
 public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider OperatorProvider)
 {
+    /// <summary>
+    /// The invoker a bare <c>Sub</c> call (S9a's own scope) runs through. Settable rather than a
+    /// constructor parameter, to break the circular dependency wiring one naturally creates:
+    /// <c>RuntimeProcedureInvoker</c> itself needs a <c>ProcedureExecutor</c>, built from a
+    /// <c>StatementRuntimeSemanticsProvider</c>, built from THIS evaluator — so the evaluator has to
+    /// exist first, and this gets assigned once every other collaborator is composed. <c>null</c> until
+    /// then, matching every existing caller that never needs procedure calls at all.
+    /// </summary>
+    public IProcedureInvoker? ProcedureInvoker { get; set; }
+
+    /// <summary>
+    /// Let-coerces each argument of a bare <c>Sub</c> call to its own parameter's declared type
+    /// (<strong>MS-VBAL §5.5.1.2</strong>) before passing it to <see cref="ProcedureInvoker"/> - ByVal
+    /// parameter passing is itself a Let-target, the same as any other. Settable for the same
+    /// construction-order reason as <see cref="ProcedureInvoker"/>.
+    /// </summary>
+    public ILetCoercionRuntimeSemanticsProvider? LetCoercionProvider { get; set; }
+
     /// <summary>
     /// Evaluates <paramref name="expression"/>, recursively evaluating its children first wherever a
     /// rule needs their bound values as operands.
@@ -87,16 +114,27 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
-    private static RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
+    private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
     {
         var result = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
 
-        if (result.Symbol is VBReturningMemberSymbol or VBProcedureMemberSymbol)
+        if (result.Symbol is VBProcedureMemberSymbol sub)
         {
-            // a bare reference to a Function/Property Get is an implicit call (MS-VBAL §5.6.10); a bare
-            // Sub/Function name is also what AddressOf's Target names. Neither is a value to read, and
-            // no callable symbol ever has storage allocated for it, so GetValue below would throw
-            // KeyNotFoundException instead of failing cleanly.
+            // a bare reference to a Sub, with no enclosing Index to supply arguments, is a call with
+            // none (MS-VBAL §5.6.10) - "Foo" alone, or Call Foo's own Callee.
+            return InvokeSub(session, context, sub, []);
+        }
+
+        if (result.Symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+        {
+            // a bare reference to a Function/Property Get is also an implicit call (MS-VBAL §5.6.10),
+            // but reading its return value needs the function-name-as-return-slot mechanism, which
+            // doesn't exist yet (S9b) - a bare Function/Property Get name is also what AddressOf's
+            // Target names, so this stays InternalError rather than being misread as a value either way.
+            // Deliberately NOT VBReturningMemberSymbol (its own base type): that also covers
+            // Const/EnumConst/module-and-instance fields/UDT fields, every one of them a plain value to
+            // read below, not a call - a pre-existing bug this fix surfaced (never reachable before,
+            // since nothing had read a module-level field by bare name until S9a's own tests did).
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
@@ -185,6 +223,15 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     private RuntimeSemanticsEvaluationResult EvaluateIndex(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression)
     {
+        // A bare name Callee that resolves to a Sub is a call with indexExpression's own arguments
+        // (Foo(1, 2), or Call Foo(1, 2)'s own Callee) - checked BEFORE recursing into Evaluate below,
+        // which would otherwise reach EvaluateSimpleName's own bare-call path and wrongly invoke it with
+        // zero arguments instead of leaving the call to this method, arguments and all.
+        if (TryResolveCallableSub(session, context, indexExpression.Callee) is { } sub)
+        {
+            return InvokeSub(session, context, sub, indexExpression.Arguments);
+        }
+
         var calleeResult = Evaluate(session, indexExpression.Callee, context);
         if (!calleeResult.IsSuccess)
         {
@@ -217,6 +264,58 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             ? RuntimeSemanticsEvaluationResult.Success(element)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                 string.Join(", ", subscripts)));
+    }
+
+    private static VBProcedureMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)
+        => callee is SimpleNameExpressionNode simpleName
+            && session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope).Symbol is VBProcedureMemberSymbol sub
+            ? sub
+            : null;
+
+    // S9a's own walking-skeleton scope: ByVal parameters only, same module, no Me, no Optional/
+    // ParamArray/named arguments, no depth-guard-aware error attribution beyond what RuntimeProcedureInvoker
+    // itself reports. A parameter count mismatch, or ProcedureInvoker/LetCoercionProvider never having
+    // been wired in, is InternalError - real static-semantics/composition gaps this slice doesn't newly
+    // introduce.
+    private RuntimeSemanticsEvaluationResult InvokeSub(IRuntimeSession session, RuntimeEvaluationContext context, VBProcedureMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)
+    {
+        if (ProcedureInvoker is null || LetCoercionProvider is null || procedure.Parameters.Length != argumentNodes.Length)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var arguments = new IRuntimeValue[argumentNodes.Length];
+        for (var i = 0; i < argumentNodes.Length; i++)
+        {
+            var argumentResult = EvaluateIndexArgument(session, argumentNodes[i], context);
+            if (argumentResult is { } evaluated && !evaluated.IsSuccess)
+            {
+                return evaluated;
+            }
+            if (argumentResult is null)
+            {
+                return RuntimeSemanticsEvaluationResult.InternalError();
+            }
+
+            // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
+            // (MS-VBAL §5.5.1.2) before it's ever wrapped into a fresh binding - the same rule any other
+            // Let-target follows, a literal "5" (Integer) passed to a Long parameter included.
+            var coercionFrame = new LetCoercionStackFrame(argumentNodes[i].Identity, InputIndex.CoercionSourceValue,
+                argumentResult.Value.Result!, new VBTypeDescValue(procedure.Parameters[i].ResolvedType));
+            var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNodes[i], coercionFrame);
+            if (!coercionResult.IsApplicable)
+            {
+                return RuntimeSemanticsEvaluationResult.InternalError();
+            }
+            if (!coercionResult.IsSuccess)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo!);
+            }
+
+            arguments[i] = coercionResult.Result!.RuntimeValue;
+        }
+
+        return ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, arguments);
     }
 
     // MissingArgumentNode is a placeholder, not a value - element access needs every subscript, so it

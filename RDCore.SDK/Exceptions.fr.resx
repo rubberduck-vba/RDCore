@@ -237,6 +237,9 @@
   <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
     <value>Levée explicitement par une instruction Error.</value>
   </data>
+  <data name="VBProcedureCall_OutOfStackSpace_Verbose" xml:space="preserve">
+    <value>Cet appel dépasserait la profondeur maximale de la pile d'appels de la session - probablement une récursion non bornée.</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>

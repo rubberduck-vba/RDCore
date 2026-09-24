@@ -336,6 +336,35 @@ would see exactly that value from invoking the callee, and could route it throug
 `InterceptError` the same way — the mechanism generalizes for free once S9 exists, it doesn't need
 rework.
 
+A `Call`/bare-call statement (**MS-VBAL §5.4.2.1**) and a bare `Sub` reference — the S9a walking
+skeleton's own scope — invoke through `IProcedureInvoker`: `RDCore.Runtime.Execution.RuntimeProcedureInvoker`
+looks the callee's own lowered body up by symbol, pushes a fresh `ICallStackFrame` (one Let-coerced,
+freshly-bound `ValueBindingHandle` per ByVal parameter — never aliasing the caller's own storage), runs it
+through the same `ProcedureExecutor`, and reports the outcome back — `ExitProcedure` becomes a successful
+`VBVoidValue`, an `Error` outcome becomes a `RuntimeSemanticsEvaluationResult` error the caller's own
+`ExecuteCall` turns back into an `Error` outcome, so a nested call's own runtime error propagates exactly
+like any other. `RuntimeExpressionEvaluator.ProcedureInvoker`/`.LetCoercionProvider` are settable
+properties, not constructor parameters: `RuntimeProcedureInvoker` itself needs a `ProcedureExecutor` built
+from a `StatementRuntimeSemanticsProvider` built from the SAME evaluator, so the evaluator has to exist
+before its own invoker can be built, and gets wired after every other collaborator is composed. An
+`IndexExpressionNode` whose `Callee` is a bare name resolving to a `Sub` is checked for that BEFORE the
+usual recursive `Evaluate(Callee)` — otherwise a bare-name `Callee` would already have been auto-invoked
+with zero arguments by `SimpleName`'s own dispatch, before `Index` ever got to supply its own. `RuntimeCallStack`
+now enforces a real depth limit (`OnBeforeTryPush`, MS-VBAL error 28, "Out of stack space") — previously
+unenforced, since nothing ever pushed a SECOND frame before S9a existed. **Deliberately not modeled by
+this slice** (each needing its own later sub-slice): `Function`/`Property Get` return values (needs the
+function-name-as-its-own-return-slot mechanism), `ByRef` write-back, `Optional`/`ParamArray`/named
+arguments, `Me`/class members (`Class_Initialize`/`Terminate` stay no-ops), qualified cross-module calls,
+and `Halt`/`Break` propagating out of a nested call (`RuntimeSemanticsEvaluationResult` has no slot for
+either — today they surface as `InternalError` inside a callee rather than being silently mismodeled).
+Found and fixed a real, previously-unreachable bug along the way: `RuntimeExpressionEvaluator`'s own bare
+`SimpleName` dispatch tested `VBReturningMemberSymbol` (a `Function`/`Property Get`'s own base type) to
+decide "is this an implicit call" — but `Const`/`EnumConst`/module-and-instance fields/UDT fields all
+share that SAME base type, so a plain field read was always wrongly treated as a call attempt. Invisible
+until S9a's own tests were the first in the whole suite to read a module-level symbol by bare name; fixed
+by checking the two actually-callable leaf types (`VBFunctionMemberSymbol`/`VBPropertyGetMemberSymbol`)
+instead of their shared base.
+
 ---
 ## 3.5.5 Placement and licensing
 
@@ -359,7 +388,11 @@ fault-statement offset) is different again — like `Pc`, it's a single mutable 
 than per-offset hidden state, since an `On Error` statement changes the policy going forward rather than
 scoping it to one block — so it gets a plain `ErrorHandler { get; }`/`{ get; set; }` property pair, the
 same shape `Pc` itself uses, rather than a `TryGetXState`/`SetXState` pair. `ProcedureExecutor`, its
-statement dispatch, and activation state are **RDCore.Runtime** (GPLv3).
+statement dispatch, and activation state are **RDCore.Runtime** (GPLv3). `IProcedureInvoker`/`CallableBindingHandle`
+(the call *contract*: given a procedure symbol, a resolver, and arguments, run it) predate S9a and live in
+**RDCore.SDK** (MIT); `RuntimeProcedureInvoker` (the call's own real implementation — frame setup, ByVal
+parameter binding, the depth guard) is **RDCore.Runtime** (GPLv3), matching the SDK-contract/
+Runtime-implementation split every other execution-engine piece already follows.
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)

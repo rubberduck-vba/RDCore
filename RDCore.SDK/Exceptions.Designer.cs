@@ -628,6 +628,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to This call would push the session&apos;s call stack past its own maximum depth - most likely unbounded recursion..
+        /// </summary>
+        public static string VBProcedureCall_OutOfStackSpace_Verbose {
+            get {
+                return ResourceManager.GetString("VBProcedureCall_OutOfStackSpace_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>
         public static string VBRuntimeError {

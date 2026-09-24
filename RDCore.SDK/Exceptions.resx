@@ -243,6 +243,9 @@
   <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
     <value>Raised explicitly by an Error statement.</value>
   </data>
+  <data name="VBProcedureCall_OutOfStackSpace_Verbose" xml:space="preserve">
+    <value>This call would push the session's call stack past its own maximum depth - most likely unbounded recursion.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>

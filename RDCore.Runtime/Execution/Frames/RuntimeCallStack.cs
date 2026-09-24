@@ -12,8 +12,16 @@ namespace RDCore.Runtime.Execution.Frames;
 /// </summary>
 public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
 {
+    // Real VBA's own stack limit is implementation-defined; this is a conservative bound, generous
+    // enough for any legitimate call depth but low enough to fail fast (MS-VBAL error 28, "Out of stack
+    // space") on runaway recursion well before the host process's own real stack would be at risk.
+    private const int MaxDepth = 5000;
+
     /// <inheritdoc cref="ICallStack.Current"/>
     public CallStackFrame? Current => Frames.Count > 0 ? Frames.First() : null;
+
+    /// <inheritdoc/>
+    protected override bool OnBeforeTryPush(CallStackFrame frame) => Depth < MaxDepth;
 
     /// <inheritdoc/>
     protected override void OnFramePopped(CallStackFrame? frame) => frame?.ReleaseAll();
