@@ -76,7 +76,9 @@ public sealed class ProcedureExecutorTests
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
         var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
-        return new ProcedureExecutor(statements, conditions);
+        var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
+        var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
+        return new ProcedureExecutor(statements, conditions, withTargets);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -135,6 +137,60 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.AreNotEqual(VBObjectValue.Nothing.RuntimeValue.BoxedValue, session.Symbols.Resolver.GetValue(obj).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void AWithBlock_ReadsAFieldThroughTheWithRelativeMemberAccess()
+        // Sub Foo(): With obj: x = .State: End With: End Sub - obj.State is pre-set directly on the
+        // live instance (no field-write statement exists yet), proving the With opener stashes the
+        // coerced target and RuntimeEvaluationContext.EnclosingWithTarget resolves it back for a plain
+        // ".State" read with no owner in source.
+    {
+        var list = Lower("With obj", "x = .State", "End With");
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget");
+        var field = new VBInstanceFieldVariableMemberSymbol(Root, widget.Uri, "State", R, R, VBLongType.TypeInfo, AccessModifier.Implicit);
+        widget = widget with { DefaultInterfaceMembers = [field] };
+        var obj = Local("obj", VBObjectType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(widget, field, obj, x);
+        var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), widget);
+        instance.GetValue(field).SetValue(session.Symbols.Resolver, new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(7));
+        var frame = PushFrame(session, (obj, new VBObjectValue(instance.ObjectId)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(7, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void NestedWithBlocks_EachResolveTheirOwnTarget_NotTheOuterOnesStaleStash()
+        // Sub Foo(): With a: With b: y = .State: End With: x = .State: End With: End Sub - proves the
+        // per-instruction context is recomputed fresh from Instruction.EnclosingWith rather than carried
+        // over from whichever With ran most recently.
+    {
+        var list = Lower("With a", "With b", "y = .State", "End With", "x = .State", "End With");
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget");
+        var field = new VBInstanceFieldVariableMemberSymbol(Root, widget.Uri, "State", R, R, VBLongType.TypeInfo, AccessModifier.Implicit);
+        widget = widget with { DefaultInterfaceMembers = [field] };
+        var a = Local("a", VBObjectType.TypeInfo);
+        var b = Local("b", VBObjectType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(widget, field, a, b, x, y);
+        var instanceA = session.Symbols.CreateInstance(session.Objects.CreateObject(), widget);
+        instanceA.GetValue(field).SetValue(session.Symbols.Resolver, new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(1));
+        var instanceB = session.Symbols.CreateInstance(session.Objects.CreateObject(), widget);
+        instanceB.GetValue(field).SetValue(session.Symbols.Resolver, new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(2));
+        var frame = PushFrame(session,
+            (a, new VBObjectValue(instanceA.ObjectId)), (b, new VBObjectValue(instanceB.ObjectId)),
+            (x, new VBLongValue(0)), (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
     }
 
     [TestMethod]

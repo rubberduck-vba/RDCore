@@ -62,4 +62,16 @@ public interface ICallStackFrame : IStackFrame
     /// locally-scoped <see cref="Symbol"/>, if any.
     /// </summary>
     bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value);
+
+    /// <summary>
+    /// Gets the hidden value a block-opening instruction (a <c>With</c>'s target, a <c>Select Case</c>'s
+    /// selector) stashed on this activation, keyed by that instruction's own offset
+    /// (<strong>RD-VBAL §3.5.4</strong>) — however control reached the instruction reading it, a
+    /// <c>GoTo</c> included, since the stash lives on the activation rather than on any call stack a
+    /// structured walk would otherwise need to unwind.
+    /// </summary>
+    /// <param name="openerOffset">The offset of the block-opening instruction that stashed the value.</param>
+    /// <param name="value">The stashed value, if one exists for <paramref name="openerOffset"/>.</param>
+    /// <remarks>Read-only here: only the interpreter's executor (RDCore.Runtime) stashes a value, through the concrete frame type it constructs.</remarks>
+    bool TryGetBlockState(int openerOffset, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value);
 }

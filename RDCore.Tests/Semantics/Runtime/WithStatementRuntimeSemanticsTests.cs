@@ -1,5 +1,6 @@
 using NSubstitute;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.SetCoercion;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model;
@@ -49,8 +50,29 @@ public sealed class WithStatementRuntimeSemanticsTests
         return new VBObjectValue(objectId);
     }
 
-    private static WithStatementRuntimeSemantics Sut(ISetCoercionRuntimeSemantics? setCoercion = null)
-        => new(setCoercion ?? new SetCoercionRuntimeSemantics(Substitute.For<IVerboseMessageBuilder>()));
+    private static WithStatementRuntimeSemantics Sut(ISetCoercionRuntimeSemantics? setCoercion = null, ILetCoercionRuntimeSemanticsProvider? letCoercion = null)
+        => new(setCoercion ?? new SetCoercionRuntimeSemantics(Substitute.For<IVerboseMessageBuilder>()), letCoercion ?? RealLetCoercionProvider());
+
+    // VBUserDefinedTypeLetCoercionRuntimeSemantics needs the provider back to report a same-type
+    // coercion's own analysis - this handle breaks that construction cycle, same pattern used throughout
+    // the runtime test suite.
+    private static ILetCoercionRuntimeSemanticsProvider RealLetCoercionProvider()
+    {
+        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var handle = new ProviderHandle();
+        var provider = new LetCoercionRuntimeSemanticsProvider([new VBUserDefinedTypeLetCoercionRuntimeSemantics(handle, formatter)], formatter);
+        handle.Inner = provider;
+        return provider;
+    }
+
+    private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
+    {
+        public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
+        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+            => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+            => Inner.Analyze(resolver, builder, expression, frame);
+    }
 
     [TestMethod]
     public void ClassTarget_SucceedsThroughRealSetCoercion()
@@ -95,7 +117,10 @@ public sealed class WithStatementRuntimeSemanticsTests
     }
 
     [TestMethod]
-    public void UdtTarget_ReturnsInternalError_DocumentedDeferredGap()
+    public void UdtTarget_SucceedsThroughRealLetCoercion()
+        // MS-VBAL 5.4.2.21: a UDT-valued With target is Let-assigned, not Set-assigned - this needed
+        // ILetCoercionRuntimeSemantics's entry point widened from VBOperatorExpression to ExpressionNode
+        // (S5c) before a With statement's own target expression could be passed through it at all.
     {
         var udt = new VBUserDefinedTypeMemberSymbol(Root, Root, "TPoint", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
         var session = ComposeSession();
@@ -103,6 +128,6 @@ public sealed class WithStatementRuntimeSemanticsTests
 
         var result = Sut().Evaluate(session, new WithStatementSemanticContext(), WithNode(), value);
 
-        Assert.IsTrue(result.IsInternalError);
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
     }
 }

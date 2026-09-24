@@ -23,13 +23,19 @@ namespace RDCore.Runtime.Execution;
 /// <para>
 /// Wired here: <c>Simple</c>, <c>Jump</c>, <c>ConditionalBranch</c> for <c>If</c>/<c>ElseIf</c>/inline
 /// <c>If</c> (a <c>Select Case</c>'s own <c>Case</c> headers are also <c>ConditionalBranch</c>, but need
-/// the enclosing <c>Select</c>'s stashed selector value — not wired yet, no per-activation hidden state
-/// exists to hold it), <c>ExitProcedure</c>, <c>Halt</c>, <c>Break</c>. Every other kind (<c>JumpTable</c>,
-/// the loop/<c>With</c>/<c>Select</c> kinds) is not yet wired and defers with
-/// <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently mishandled.
+/// the enclosing <c>Select</c>'s stashed selector value — not wired yet), <c>With</c> (evaluates and
+/// coerces the target, stashes it on the activation keyed by its own offset via
+/// <see cref="CallStackFrame.SetBlockState"/>, then falls through into the body — there is no separate
+/// closer instruction to pop the stash on exit; a <c>With</c> block's own instructions carry
+/// <see cref="Instruction.EnclosingWith"/>, resolved back into <see cref="RuntimeEvaluationContext.EnclosingWithTarget"/>
+/// per instruction before every <c>Simple</c>/<c>ConditionalBranch</c> dispatch below, so a with-relative
+/// <c>.Member</c> read resolves correctly however control reached that instruction), <c>ExitProcedure</c>,
+/// <c>Halt</c>, <c>Break</c>. Every other kind (<c>JumpTable</c>, the loop/<c>Select</c> kinds) is not yet
+/// wired and defers with <see cref="RuntimeExecutionOutcome.InternalError"/> rather than being silently
+/// mishandled.
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -42,11 +48,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         while (activation.Pc < list.Items.Length)
         {
             var instruction = list.Items[activation.Pc];
+            var instructionContext = ResolveContext(context, activation, instruction);
 
             switch (instruction.Kind)
             {
                 case InstructionKind.Simple:
-                    var outcome = statements.Execute(session, context, instruction.Node!);
+                    var outcome = statements.Execute(session, instructionContext, instruction.Node!);
                     if (outcome.Kind != RuntimeExecutionOutcomeKind.Next)
                     {
                         return outcome;
@@ -64,10 +71,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     break;
 
                 case InstructionKind.ConditionalBranch:
-                    var branchOutcome = ExecuteConditionalBranch(session, context, instruction, activation);
+                    var branchOutcome = ExecuteConditionalBranch(session, instructionContext, instruction, activation);
                     if (branchOutcome is { } stop)
                     {
                         return stop;
+                    }
+                    break;
+
+                case InstructionKind.With:
+                    var withOutcome = ExecuteWith(session, instructionContext, instruction, activation);
+                    if (withOutcome is { } stopWith)
+                    {
+                        return stopWith;
                     }
                     break;
 
@@ -89,6 +104,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // the end of the body" is the same outcome as an explicit Exit.
         return RuntimeExecutionOutcome.ExitProcedure;
     }
+
+    // A purely lexical property of the instruction about to run, not something that should persist from
+    // whatever the previous instruction's own context happened to carry - a GoTo into or out of a With
+    // block leaves no stale stack, so this is recomputed fresh every fetch rather than pushed/popped.
+    private static RuntimeEvaluationContext ResolveContext(RuntimeEvaluationContext outer, CallStackFrame activation, Instruction instruction)
+        => instruction.EnclosingWith is { } openerOffset && activation.TryGetBlockState(openerOffset, out var target)
+            ? outer with { EnclosingWithTarget = target }
+            : outer with { EnclosingWithTarget = null };
 
     // Returns null when the branch was taken and the loop should keep running (activation.Pc is
     // already set correctly); returns a non-null outcome only when execution must stop.
@@ -120,6 +143,27 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
 
         activation.Pc = elseTarget;
+        return null;
+    }
+
+    // Returns null when the target was evaluated, coerced, and stashed successfully and the loop should
+    // keep running (activation.Pc already falls through into the body); returns a non-null outcome only
+    // when execution must stop.
+    private RuntimeExecutionOutcome? ExecuteWith(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+    {
+        if (instruction.Node is not WithStatementNode withStatement)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var targetResult = withTargets.Evaluate(session, withStatement, context);
+        if (!targetResult.IsSuccess)
+        {
+            return targetResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(targetResult.ErrorInfo!);
+        }
+
+        activation.SetBlockState(instruction.Offset, targetResult.Result!);
+        activation.Pc = instruction.Offset + 1;
         return null;
     }
 

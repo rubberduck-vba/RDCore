@@ -23,9 +23,21 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 {
     private readonly SymbolAddressTable _addresses = new(Storage);
     private readonly HashSet<SemanticId> _declared = [];
+    private readonly Dictionary<int, VBTypedValue> _blockState = [];
 
     /// <inheritdoc/>
     public int Pc { get; set; }
+
+    /// <summary>
+    /// Stashes <paramref name="value"/> as this activation's hidden state for the block-opening
+    /// instruction at <paramref name="openerOffset"/> — a <c>With</c>'s target, a <c>Select Case</c>'s
+    /// selector.
+    /// </summary>
+    public void SetBlockState(int openerOffset, VBTypedValue value) => _blockState[openerOffset] = value;
+
+    /// <inheritdoc/>
+    public bool TryGetBlockState(int openerOffset, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value)
+        => _blockState.TryGetValue(openerOffset, out value);
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame and reserves storage sized for

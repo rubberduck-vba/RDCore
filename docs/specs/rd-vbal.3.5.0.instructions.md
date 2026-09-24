@@ -142,10 +142,13 @@ per-destination-type strategy fan-out to need one; anything the provider doesn't
 `InternalError`, the run stops), `Jump` (unconditional `GoTo`), `ConditionalBranch` for an `If`/`ElseIf`
 header or an inline `If` (a `Select Case`'s own `Case` headers are also `ConditionalBranch`, but need the
 enclosing `Select`'s stashed selector value — not wired yet, no per-activation hidden state exists to hold
-it), `ExitProcedure`, `Halt` (`End`), `Break` (`Stop`), and falling off the end of the list (**MS-VBAL
-§5.4.2.17**'s "completes as if execution had reached the end of the body" — the same outcome as an
-explicit `Exit`). `JumpTable`, the loop kinds, and `With`/`Select` themselves are not dispatched by the
-loop yet and report `InternalError` when reached.
+it), `With` (evaluates and Set/Let-coerces its target, stashes it on the activation keyed by the `With`
+instruction's own offset via `ICallStackFrame.TryGetBlockState`/`CallStackFrame.SetBlockState`, then falls
+through into the body — there is no separate closer instruction to pop the stash on exit), `ExitProcedure`,
+`Halt` (`End`), `Break` (`Stop`), and falling off the end of the list (**MS-VBAL §5.4.2.17**'s "completes
+as if execution had reached the end of the body" — the same outcome as an explicit `Exit`). `JumpTable`,
+the loop kinds, and `Select` itself are not dispatched by the loop yet and report `InternalError` when
+reached.
 
 A `ConditionalBranch`'s condition is forced to `Boolean` by `RDCore.Runtime.Execution.ConditionEvaluator`
 (**MS-VBAL §5.5.1.2.2**), which calls `VBBooleanLetCoercionRuntimeSemantics` directly rather than through
@@ -157,7 +160,16 @@ let-coercion strategy contract (`ILetCoercionRuntimeSemantics.EvaluateLetCoercio
 the coerced value's own `ExpressionNode` rather than a `VBOperatorExpression`: every strategy already used
 that node opaquely (identity/location only, for error reporting), so the narrower type was never load-bearing
 — a condition simply passes its own expression through with no synthetic node standing in for an operator
-that was never there.
+that was never there. The same widening let `WithStatementRuntimeSemantics` close its own documented
+UDT-target gap: a UDT-valued `With` target now Let-assigns through
+`ILetCoercionRuntimeSemanticsProvider.EvaluateLetCoercionSemantics` directly, the same way a class-valued
+one already Set-assigned through `ISetCoercionRuntimeSemantics`.
+
+Every `Simple`/`ConditionalBranch` instruction's own `RuntimeEvaluationContext` is recomputed fresh before
+dispatch from `Instruction.EnclosingWith` — a purely lexical fact about that instruction, not state carried
+over from whichever `With` last ran — so `RuntimeExpressionEvaluator`'s existing `EnclosingWithTarget`
+resolution (**MS-VBAL §5.6.15**, wired since S4) picks up the innermost enclosing `With`'s stashed target
+for a `.Member`/`!member` with-expression however control reached that instruction, `GoTo` included.
 
 ---
 ## 3.5.5 Placement and licensing
@@ -165,9 +177,13 @@ that was never there.
 `InstructionList`/`Instruction`/`InstructionKind`/`InstructionListLowering` live in **RDCore.SDK** (MIT):
 lowering is pure — no symbol resolver, no runtime session — and the SDK's static-analysis consumers
 (unreachable code, unused label, a flow-based inspection) want the same flattened list the interpreter
-drives. `ICallStackFrame.Pc` is likewise on the SDK interface (read-only there, for a future debugger
-surface) but only ever mutated by the executor. `ProcedureExecutor`, its statement dispatch, activation
-state, and hidden per-loop/per-`Select`/per-`With` storage are **RDCore.Runtime** (GPLv3).
+drives. `ICallStackFrame.Pc`/`TryGetBlockState` are likewise on the SDK interface (read-only there, for a
+future debugger surface) but only ever mutated by the executor, through `CallStackFrame.Pc`/`SetBlockState`.
+`TryGetBlockState` is a single hidden value per block-opening instruction, keyed by that instruction's own
+offset — enough for `With`'s target and (once wired) `Select Case`'s selector; a `For`/`For Each` loop's
+several named hidden values (start/end/step/current, an enumerator) will need a different shape when S6
+gets to them, not this one stretched to fit. `ProcedureExecutor`, its statement dispatch, and activation
+state are **RDCore.Runtime** (GPLv3).
 
 ---
 > ⏮️ [**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.html) | ⏭️ [**RD-VBAL §4.0** Program Structure](rd-vbal.4.0.program-structure.html)
