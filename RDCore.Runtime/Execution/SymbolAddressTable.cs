@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -44,7 +45,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
             storage.TryDeallocate(previous);
         }
 
-        if (!storage.TryAllocate(value.Size, FreshBinding(value.Handle), out address))
+        if (!storage.TryAllocate(value.Size, FreshBinding(value), out address))
         {
             _addressBySymbol.Remove(symbol.SemanticId);
             return false;
@@ -64,11 +65,23 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
     /// safely-mutable binding; a <see cref="ConstantBindingHandle"/> (or anything else that can never
     /// be mutated) is safe to share as-is.
     /// </summary>
-    private static IBindingHandle FreshBinding(IBindingHandle handle) => handle switch
+    /// <remarks>
+    /// A <see cref="VBArrayValue"/> is location-identified, not value-identified: its real storage is
+    /// the element cells on the array object itself, which a scalar <c>IRuntimeValue</c> (an
+    /// <c>int</c>, a <see cref="VBRuntimeReference"/>, …) has nowhere to hold. It gets its own fresh
+    /// <see cref="ValueBindingHandle"/> boxing a <see cref="VBRuntimeArrayValue"/> around the array
+    /// itself, so <see cref="RDCore.SDK.Model.Types.VBArrayType.CreateValue"/> can hand back the very
+    /// same instance — cells intact — on every subsequent read.
+    /// </remarks>
+    private static IBindingHandle FreshBinding(VBTypedValue value) => value switch
     {
-        ValueBindingHandle => new ValueBindingHandle(handle.Value),
-        ReferenceBindingHandle => new ReferenceBindingHandle((VBRuntimeReference)handle.Value),
-        _ => handle,
+        VBArrayValue array => new ValueBindingHandle(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),
+        _ => value.Handle switch
+        {
+            ValueBindingHandle => new ValueBindingHandle(value.Handle.Value),
+            ReferenceBindingHandle => new ReferenceBindingHandle((VBRuntimeReference)value.Handle.Value),
+            _ => value.Handle,
+        }
     };
 
     /// <summary>

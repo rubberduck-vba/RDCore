@@ -150,6 +150,8 @@ The elements of an _array value_ are stored in a single flat block addressed in 
 
 > 👉 The element block is a value-model detail today; the _environment host_ session is expected to move it to addressable session storage (a contiguous byte block per array), so that iteration and _copy_ operations can run directly against the underlying storage without materializing a `VBTypedValue` per element.
 
+An _array value_ is **location-identified**, not value-identified: unlike an intrinsic scalar (whose entire runtime payload is the one managed value a binding handle carries), an array's real data is the element block above, which lives on the `VBArrayValue` object itself. A symbol's storage allocation (`SymbolAddressTable`, shared by `ICallStackFrame` and the module/global resolver) therefore boxes the array value itself — not a derived scalar — into the handle it allocates, via `VBRuntimeArrayValue`; `VBArrayType.CreateValue(IBindingHandle)` unboxes it back out unchanged on every subsequent read, rather than attempting to reconstruct one from a bare handle. `VBRuntimeArrayValue` is a plain (non-`record`) wrapper: boxing the array through a structurally-equatable type would make comparing two array-typed `VBTypedValue`s recurse back into the array's own equality through the same boxed value.
+
 
 #### 2.5.2.1.3 User-Defined Types (UDT) Values
 An instance of a UDT is a [VBUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html).
