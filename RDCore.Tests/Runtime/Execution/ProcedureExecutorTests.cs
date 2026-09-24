@@ -111,13 +111,11 @@ public sealed class ProcedureExecutorTests
 
     // Parses a real "For Each item In placeholder" (the identifier is never resolved - lowering is pure
     // syntax, no symbol resolver involved) then swaps CollectionExpression for a LiteralExpressionNode
-    // wrapping `collection` directly, sidestepping a real, separate, pre-existing gap:
-    // RuntimeExpressionEvaluator's SimpleName read path can't reconstruct an array-typed value from its
-    // stored binding handle (VBArrayType doesn't override VBType.CreateValue - array variable storage
-    // round-tripping is a known, deferred "session-storage follow-up" gap, not something this slice
-    // introduced or should fix). A LiteralExpressionNode's own Evaluate returns StaticValue directly, no
-    // handle involved, so this exercises every bit of ForEachOpener/ForEachNext/ForEachEvaluator's own
-    // logic faithfully without needing a working "Dim arr() ... For Each x In arr" round trip yet.
+    // wrapping `collection` directly. Array-variable storage round-tripping (VBArrayType.CreateValue) is
+    // fixed now - most ForEach-over-array tests push a real "Dim arr(...) As Long" local instead (see
+    // LongArray + PushFrame below). This helper still earns its keep for the empty-array case: an empty
+    // array's Size is 0, and CallStackFrame.Push/SymbolAddressTable.TryAllocate has a separate, still-open
+    // gap with zero-size values (task_e8956b5b) that has nothing to do with array storage specifically.
     private static InstructionList LowerForEachOverLiteralCollection(VBTypedValue collection, params string[] bodyLines)
     {
         var source = $"Sub Foo()\r\nFor Each item In placeholder\r\n{string.Join("\r\n", bodyLines)}\r\nNext\r\nEnd Sub\r\n";
@@ -435,12 +433,15 @@ public sealed class ProcedureExecutorTests
 
     [TestMethod]
     public void ForEachLoop_OverAnArray_VisitsEveryElementInOrder()
+        // Dim arr(0 To 2) As Long: arr(0)=10, arr(1)=20, arr(2)=30 - a real array LOCAL, round-tripped
+        // through Push/GetValue like any other symbol (VBArrayType.CreateValue no longer throws).
     {
-        var list = LowerForEachOverLiteralCollection(LongArray(10, 20, 30), "s = s + item");
+        var list = Lower("For Each item In arr", "s = s + item", "Next");
         var item = Local("item", VBLongType.TypeInfo);
         var s = Local("s", VBLongType.TypeInfo);
-        var session = ComposeSession(item, s);
-        var frame = PushFrame(session, (item, new VBLongValue(0)), (s, new VBLongValue(0)));
+        var arr = Local("arr", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var session = ComposeSession(item, s, arr);
+        var frame = PushFrame(session, (item, new VBLongValue(0)), (s, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
@@ -451,6 +452,9 @@ public sealed class ProcedureExecutorTests
 
     [TestMethod]
     public void ForEachLoop_OverAnEmptyArray_NeverEntersTheBody()
+        // An empty array's Size is 0 - pushing it as a real frame local hits the separate, still-open
+        // zero-size-value storage gap (task_e8956b5b), so this still goes through the literal-collection
+        // workaround rather than a real "Dim arr() As Long" local.
     {
         var list = LowerForEachOverLiteralCollection(LongArray(), "s = 999");
         var item = Local("item", VBLongType.TypeInfo);
@@ -467,11 +471,12 @@ public sealed class ProcedureExecutorTests
     [TestMethod]
     public void ExitForEach_FromANestedIf_BreaksOutCleanly()
     {
-        var list = LowerForEachOverLiteralCollection(LongArray(10, 20, 30), "If item = 20 Then Exit For", "s = item");
+        var list = Lower("For Each item In arr", "If item = 20 Then Exit For", "s = item", "Next");
         var item = Local("item", VBLongType.TypeInfo);
         var s = Local("s", VBLongType.TypeInfo);
-        var session = ComposeSession(item, s);
-        var frame = PushFrame(session, (item, new VBLongValue(0)), (s, new VBLongValue(0)));
+        var arr = Local("arr", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var session = ComposeSession(item, s, arr);
+        var frame = PushFrame(session, (item, new VBLongValue(0)), (s, new VBLongValue(0)), (arr, LongArray(10, 20, 30)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 

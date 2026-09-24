@@ -217,16 +217,15 @@ reference); a live object with no such member is error 438; anything else (a sca
 `TypeMismatch` — MS-VBAL requires the collection to be an array or an enumeration-capable object
 reference, so neither is a deferred gap.
 
-**Known limitation, separate from this dispatch logic:** reading a plain array-typed variable back out as
-an expression (`SimpleNameExpressionNode`, the ordinary shape of `arr` in `For Each item In arr`) doesn't
-work yet at all — `RuntimeExpressionEvaluator`'s generic symbol-read path reconstructs a value from its
-stored `IBindingHandle` via `VBType.CreateValue`, which `VBArrayType` never overrides (an array's own
-`Dimensions`/`ItemType`/element cells can't be rebuilt from a bare handle the way a scalar's can) —
-`VBArrayValue`'s own class doc already names this the deferred "session-storage follow-up." Ticketed, not
-fixed here; `ProcedureExecutorTests` proves `ForEachOpener`/`ForEachNext`'s own logic by feeding the
-collection through a `LiteralExpressionNode` instead (`LowerForEachOverLiteralCollection`), which reads
-its `StaticValue` directly, bypassing the broken path. `JumpTable` is not dispatched by the loop yet and
-reports `InternalError` when reached.
+Reading a plain array-typed variable back out as an expression (`SimpleNameExpressionNode`, the ordinary
+shape of `arr` in `For Each item In arr`) round-trips correctly: `VBArrayType.CreateValue` unboxes the
+`VBRuntimeArrayValue` `SymbolAddressTable` boxed for it, handing back the exact same instance — cells
+intact — rather than attempting to rebuild one from a bare handle (**RD-VBAL §2.5.2.1.2** has the storage
+mechanism). `ProcedureExecutorTests` now proves `For Each item In arr` end to end over a real `Dim`'d
+array local for that reason; `LowerForEachOverLiteralCollection` (feeding the collection through a
+`LiteralExpressionNode`, reading its `StaticValue` directly) remains only for the empty-array case, which
+hits a separate, still-open zero-size-value storage gap unrelated to array storage. `JumpTable` is not
+dispatched by the loop yet and reports `InternalError` when reached.
 
 A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
 semantics — as a real comparison/logical expression, evaluated through the real operator strategies every
