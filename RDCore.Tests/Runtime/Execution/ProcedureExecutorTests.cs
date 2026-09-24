@@ -469,10 +469,11 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
-    public void ForEachLoop_OverAnUninitializedArray_ReportsSubscriptOutOfRange()
+    public void ForEachLoop_OverAnUninitializedArray_ReportsForLoopNotInitialized()
         // Dim arr() As Long, never ReDim'd: no dimensions at all, not merely a declared-empty one -
-        // real VBA raises error 9 here (same as LBound/UBound would), it doesn't silently skip the body
-        // the way MS-VBAL §5.4.2.4's "array has no elements" wording covers a zero-length declared array.
+        // real VBA raises error 92 here (the collection was never properly set up), it doesn't silently
+        // skip the body the way MS-VBAL §5.4.2.4's "array has no elements" wording covers a zero-length
+        // declared array.
     {
         var list = LowerForEachOverLiteralCollection(new VBFixedSizeArrayValue([]), "s = 999");
         var item = Local("item", VBLongType.TypeInfo);
@@ -483,7 +484,7 @@ public sealed class ProcedureExecutorTests
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual((int)VBRuntimeErrorId.ForLoopNotInitialized, outcome.ErrorInfo!.ErrorId);
     }
 
     [TestMethod]

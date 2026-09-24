@@ -506,9 +506,10 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             case VBArrayValue { IsInitialized: false }:
                 // A Dim'd-but-never-ReDim'd array has no SAFEARRAY behind it at all - not "an array with
-                // no elements" (MS-VBAL §5.4.2.4's silent-skip case below), the same distinction real VBA
-                // draws for LBound/UBound on an uninitialized array: error 9, Subscript out of range.
-                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange,
+                // no elements" (MS-VBAL §5.4.2.4's silent-skip case below). Real VBA raises error 92 here,
+                // the same "For loop not initialized" ForNext/ForEachNext already report on a GoTo landing
+                // directly on the closer - the collection itself was never properly set up either way.
+                return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
                     forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ArrayNotInitialized_Verbose));
 
             case VBArrayValue array:
