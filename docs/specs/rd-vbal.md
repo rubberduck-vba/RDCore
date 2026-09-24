@@ -56,6 +56,5 @@ The publisher of the **RDCore** platform project and of _this present documentat
 |2026-09-09|1.2|§2.6 Diagnostics — the `VBC`/`VBR`/`VBA`/`RDC` code families, help-URL convention, and the LSP-pull provider pipeline (`textDocument/diagnostic`; the `DiagnoseDocument` provider capability; result identity and the version staleness gate)|
 |2026-09-13|1.3|§3.4 Statements — block/simple/file statement node families, each cross-referenced to its MS-VBAL section|
 |2026-09-23|1.4|§3.5 Instructions — the `InstructionList`/`Instruction` model, lowering, and execution (`ProcedureExecutor`'s fetch/decode loop, `ICallStackFrame.Pc`, Let/Set-assignment statement dispatch)|
-|2026-09-23|1.5|§3.5.4 Execution — `ConditionalBranch` dispatch for `If`/`ElseIf`/inline `If`; `ILetCoercionRuntimeSemantics.EvaluateLetCoercion`/`.Analyze` widened from `VBOperatorExpression` to `ExpressionNode` (a condition's truth test has no operator node of its own)|
 | | | |
 
