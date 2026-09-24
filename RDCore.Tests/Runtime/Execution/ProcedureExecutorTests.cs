@@ -78,7 +78,8 @@ public sealed class ProcedureExecutorTests
         var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
-        return new ProcedureExecutor(statements, conditions, withTargets);
+        var cases = new CaseMatchEvaluator(expressionEvaluator);
+        return new ProcedureExecutor(statements, conditions, withTargets, cases);
     }
 
     // VBNumericLetCoercionTypeRuntimeSemantics needs itself back to coerce a numeric operand recursively;
@@ -191,6 +192,106 @@ public sealed class ProcedureExecutorTests
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.AreEqual(2, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
         Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void SelectCase_AValueClause_MatchesByEquality()
+    {
+        var list = Lower("Select Case n", "Case 2", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(2)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void SelectCase_AComparisonClause_MatchesByTheRealRelationalOperator()
+    {
+        var list = Lower("Select Case n", "Case Is > 5", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(9)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void SelectCase_AToRangeClause_MatchesInclusively()
+    {
+        var list = Lower("Select Case n", "Case 1 To 10", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(10)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void SelectCase_NoClauseMatches_FallsThroughToCaseElse()
+    {
+        var list = Lower("Select Case n", "Case 1, 2, 3", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(99)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void SelectCase_ASecondCommaSeparatedClause_MatchesWhenTheFirstDoesNot()
+        // Case 1, 2, 3 - proves every comma-separated range clause on one Case line is tried, not just the first.
+    {
+        var list = Lower("Select Case n", "Case 1, 2, 3", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBLongValue(2)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    [Ignore("Two separate, pre-existing gaps block this: the parser doesn't implement the Null literal " +
+        "keyword yet (so 'Select Case Null' can't come from real source), and CallStackFrame.Push silently " +
+        "drops a directly-pushed VBNullValue.Null (SymbolAddressTable.TryAllocate rejects its Size => 0). " +
+        "The ExecuteSelect/ExecuteCaseHeader short-circuit for a Null selector (MS-VBAL 5.4.2.10) is " +
+        "implemented and believed correct, just not exercisable by a test yet.")]
+    public void SelectCase_ANullSelector_SkipsEveryClause_GoesStraightToCaseElse()
+        // MS-VBAL 5.4.2.10: "If select-expression is the data value Null, only the case-else-clause is
+        // executed" - a real "=" comparison against Null doesn't produce a plain Boolean result, so this
+        // also proves the range clause is never actually evaluated for a Null selector, not just skipped
+        // after evaluating to False.
+    {
+        var list = Lower("Select Case n", "Case 5", "x = 1", "Case Else", "x = 2", "End Select");
+        var n = Local("n", VBLongType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, VBNullValue.Null), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
     }
 
     [TestMethod]

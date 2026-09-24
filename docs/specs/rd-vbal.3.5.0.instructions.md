@@ -140,15 +140,29 @@ point `RDCore.Runtime.Semantics.Statements.WithStatementRuntimeSemantics` alread
 `With`-target coercion, not the operator pipeline Let-assignment reuses — Set-coercion has no
 per-destination-type strategy fan-out to need one; anything the provider doesn't recognize reports
 `InternalError`, the run stops), `Jump` (unconditional `GoTo`), `ConditionalBranch` for an `If`/`ElseIf`
-header or an inline `If` (a `Select Case`'s own `Case` headers are also `ConditionalBranch`, but need the
-enclosing `Select`'s stashed selector value — not wired yet, no per-activation hidden state exists to hold
-it), `With` (evaluates and Set/Let-coerces its target, stashes it on the activation keyed by the `With`
-instruction's own offset via `ICallStackFrame.TryGetBlockState`/`CallStackFrame.SetBlockState`, then falls
-through into the body — there is no separate closer instruction to pop the stash on exit), `ExitProcedure`,
-`Halt` (`End`), `Break` (`Stop`), and falling off the end of the list (**MS-VBAL §5.4.2.17**'s "completes
-as if execution had reached the end of the body" — the same outcome as an explicit `Exit`). `JumpTable`,
-the loop kinds, and `Select` itself are not dispatched by the loop yet and report `InternalError` when
-reached.
+header or an inline `If` (a Boolean condition) and, separately, for a `Select Case`'s own `Case` header
+(`Instruction.Matching` set instead — matches its range clauses against the enclosing `Select`'s own
+stashed selector, via `RDCore.Runtime.Execution.CaseMatchEvaluator`), `Select`/`With` (each evaluates its
+own header expression once — the selector, the target — and stashes it on the activation keyed by its own
+offset via `ICallStackFrame.TryGetBlockState`/`CallStackFrame.SetBlockState`, then falls through into the
+body; `With` additionally Set/Let-coerces its target first. Neither has a separate closer instruction to
+pop the stash on exit), `ExitProcedure`, `Halt` (`End`), `Break` (`Stop`), and falling off the end of the
+list (**MS-VBAL §5.4.2.17**'s "completes as if execution had reached the end of the body" — the same
+outcome as an explicit `Exit`). `JumpTable` and the loop kinds are not dispatched by the loop yet and
+report `InternalError` when reached.
+
+A `Case` header's range clauses are matched exactly the way **MS-VBAL §5.4.2.10** phrases its own runtime
+semantics — as a real comparison/logical expression, evaluated through the same operator machinery every
+other expression uses, never a hand-rolled equality/range check: a value clause (`Case 5`) becomes
+`selector = 5`; a comparison clause (`Case Is > 5`) becomes `selector > 5`, reusing the clause's own
+already-normalized comparison-operator token; a `To` clause (`Case 1 To 10`) becomes
+`(selector >= 1) And (selector <= 10)`. The already-evaluated selector is wrapped as a `LiteralExpressionNode`
+so it is never re-evaluated per clause — the spec's own "the select-expression is immediately evaluated"
+(once, ahead of every case-clause). A `Null` selector short-circuits every `Case` header straight to `Case
+Else` without evaluating any range clause at all (**MS-VBAL §5.4.2.10**: "If select-expression is the data
+value Null, only the case-else-clause is executed") — not yet exercisable by an automated test, since
+neither the parser's `Null` literal keyword nor pushing a raw `VBNullValue` onto a frame work today
+(separate, pre-existing gaps; ticketed, not this slice's scope).
 
 A `ConditionalBranch`'s condition is forced to `Boolean` by `RDCore.Runtime.Execution.ConditionEvaluator`
 (**MS-VBAL §5.5.1.2.2**), which calls `VBBooleanLetCoercionRuntimeSemantics` directly rather than through
@@ -180,9 +194,9 @@ lowering is pure — no symbol resolver, no runtime session — and the SDK's st
 drives. `ICallStackFrame.Pc`/`TryGetBlockState` are likewise on the SDK interface (read-only there, for a
 future debugger surface) but only ever mutated by the executor, through `CallStackFrame.Pc`/`SetBlockState`.
 `TryGetBlockState` is a single hidden value per block-opening instruction, keyed by that instruction's own
-offset — enough for `With`'s target and (once wired) `Select Case`'s selector; a `For`/`For Each` loop's
-several named hidden values (start/end/step/current, an enumerator) will need a different shape when S6
-gets to them, not this one stretched to fit. `ProcedureExecutor`, its statement dispatch, and activation
+offset — enough for `With`'s target and `Select Case`'s selector; a `For`/`For Each` loop's several named
+hidden values (start/end/step/current, an enumerator) will need a different shape when S6 gets to them,
+not this one stretched to fit. `ProcedureExecutor`, its statement dispatch, and activation
 state are **RDCore.Runtime** (GPLv3).
 
 ---
