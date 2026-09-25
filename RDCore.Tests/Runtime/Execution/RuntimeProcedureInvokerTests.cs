@@ -435,6 +435,142 @@ public sealed class RuntimeProcedureInvokerTests
     }
 
     [TestMethod]
+    public void NamedArguments_MapToTheCorrectParameterRegardlessOfSourceOrder()
+        // MS-VBAL §5.3.1.11: a named argument maps by name, not by its own position in the call -
+        // b:=2, a:=1 must still bind a=1/b=2, not the reverse a naive positional read would produce.
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var a = new VBParameterSymbol(Root, calleeStub.Uri, "a", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var b = new VBParameterSymbol(Root, calleeStub.Uri, "b", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [a, b] };
+
+        var calleeBody = Lower("counter = a * 10 + b");
+        var callerList = Lower("Call Callee(b:=2, a:=1)");
+        var counter = new VBModuleFieldVariableMemberSymbol(Root, ModuleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, counter, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(12, session.Symbols.Resolver.GetValue(counter).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OptionalParameter_UsesItsOwnDefaultValue_WhenTheArgumentIsOmitted()
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var y = new VBParameterSymbol(Root, calleeStub.Uri, "y", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: new VBLongValue(99));
+        var callee = calleeStub with { Parameters = [x, y] };
+
+        var calleeBody = Lower("counter = x + y");
+        var callerList = Lower("Call Callee(1)");
+        var counter = new VBModuleFieldVariableMemberSymbol(Root, ModuleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, counter, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(100, session.Symbols.Resolver.GetValue(counter).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OptionalParameter_WithNoSpecifiedDefault_FallsBackToItsDeclaredTypesOwnDefault()
+        // MS-VBAL §5.3.1.11's own third bullet: "If the parameter has no specified default value, the
+        // new local variable is initialized to the default value for its declared type" - y's own
+        // DefaultValue is null here (Optional with no "= ..." clause in source), so it must fall back
+        // to VBLongType's own zero, not error or leave it uninitialized.
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var y = new VBParameterSymbol(Root, calleeStub.Uri, "y", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true);
+        var callee = calleeStub with { Parameters = [x, y] };
+
+        var calleeBody = Lower("counter = x + y");
+        var callerList = Lower("Call Callee(1)");
+        var counter = new VBModuleFieldVariableMemberSymbol(Root, ModuleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, counter, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(counter).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void TooManyPositionalArguments_ReportsWrongNumberOfArguments()
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [x] };
+
+        var calleeBody = Lower("x = x + 1");
+        var callerList = Lower("Call Callee(1, 2)");
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void MissingRequiredArgument_ReportsArgumentNotOptional()
+        // x has no argument mapped to it at all - not the same shape as Foo(, 2)'s own explicitly
+        // omitted value (a different, more specific error - see MissingArgumentNode's own handling in
+        // MapArguments), just genuinely too few positional arguments for a non-Optional parameter.
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var y = new VBParameterSymbol(Root, calleeStub.Uri, "y", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [x, y] };
+
+        var calleeBody = Lower("x = x + 1");
+        var callerList = Lower("Call Callee(1)");
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.ArgumentNotOptional, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void UnknownNamedArgument_ReportsNamedArgumentNotFound()
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [x] };
+
+        var calleeBody = Lower("x = x + 1");
+        var callerList = Lower("Call Callee(z:=1)");
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var (executor, session) = Compose(bodies, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
+        Assert.AreEqual((int)VBRuntimeErrorId.NamedArgumentNotFound, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
     public void ACalleeRaisingAnError_PropagatesToTheCaller()
         // Proves the round trip a nested call takes through RuntimeProcedureInvoker.Invoke: the callee's
         // own Run() produces an Error outcome, Invoke turns it into a RuntimeSemanticsEvaluationResult

@@ -293,30 +293,53 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             : null;
     }
 
-    // Same module, no Me, no Optional/ParamArray/named arguments, no depth-guard-aware error
-    // attribution beyond what RuntimeProcedureInvoker itself reports. A parameter count mismatch, or
-    // ProcedureInvoker/LetCoercionProvider never having been wired in, is InternalError - real
-    // static-semantics/composition gaps this slice doesn't newly introduce.
+    // Same module, no Me, no ParamArray (needs array-typed argument passing, a separate, pre-existing
+    // gap RuntimeProcedureInvoker's own ByVal path has for ANY array-typed parameter - VBArrayType.CreateValue
+    // requires a VBRuntimeArrayValue-boxed handle a plain ValueBindingHandle never supplies, so this
+    // isn't ParamArray-specific to fix), no depth-guard-aware error attribution beyond what
+    // RuntimeProcedureInvoker itself reports. ProcedureInvoker/LetCoercionProvider never having been
+    // wired in is InternalError - a real composition gap this slice doesn't newly introduce.
     private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
-        if (ProcedureInvoker is null || LetCoercionProvider is null || parameters.Length != argumentNodes.Length)
+        if (ProcedureInvoker is null || LetCoercionProvider is null)
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var arguments = new IRuntimeValue[argumentNodes.Length];
-        for (var i = 0; i < argumentNodes.Length; i++)
+        var mapResult = MapArguments(parameters, argumentNodes);
+        if (mapResult.Error is { } mappingError)
+        {
+            return mappingError;
+        }
+
+        var mapped = mapResult.Mapped!;
+        var arguments = new IRuntimeValue[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
+            var argumentNode = mapped[i];
+
+            if (argumentNode is null or MissingArgumentNode)
+            {
+                // MS-VBAL §5.3.1.11: no argument mapped to this parameter - MapArguments already
+                // rejected the case where that's true of a non-Optional one, so this is always a fresh
+                // local Let-assigned from the parameter's own declared default (or its declared type's
+                // own default, when none was specified) - never a reference binding, ByRef or not:
+                // there is no caller expression to alias. Nothing to Let-coerce either: a default value
+                // is already of the parameter's own declared type by construction.
+                arguments[i] = (parameter.DefaultValue ?? parameter.ResolvedType.DefaultValue).RuntimeValue;
+                continue;
+            }
+
             if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)
-                && TryResolveByRefArgument(session, context, argumentNodes[i], parameter, out var reference))
+                && TryResolveByRefArgument(session, context, argumentNode, parameter, out var reference))
             {
                 arguments[i] = reference;
                 continue;
             }
 
-            var argumentResult = EvaluateIndexArgument(session, argumentNodes[i], context);
+            var argumentResult = EvaluateIndexArgument(session, argumentNode, context);
             if (argumentResult is { } evaluated && !evaluated.IsSuccess)
             {
                 return evaluated;
@@ -332,9 +355,9 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             // parameter whose argument wasn't recognized as an aliasable variable above falls through to
             // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
             // reported error.
-            var coercionFrame = new LetCoercionStackFrame(argumentNodes[i].Identity, InputIndex.CoercionSourceValue,
+            var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
                 argumentResult.Value.Result!, new VBTypeDescValue(parameter.ResolvedType));
-            var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNodes[i], coercionFrame);
+            var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
             if (!coercionResult.IsApplicable)
             {
                 return RuntimeSemanticsEvaluationResult.InternalError();
@@ -348,6 +371,84 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         }
 
         return ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, arguments);
+    }
+
+    private readonly record struct ArgumentMapResult(ExpressionNode?[]? Mapped, RuntimeSemanticsEvaluationResult? Error);
+
+    // MS-VBAL §5.3.1.11's own mapping pass: each positional argument maps left-to-right to its
+    // positional parameter; each named argument maps to the same-named parameter, whichever order they
+    // arrive in relative to each other (a named argument always follows every positional one in real
+    // source, so this never needs to reconcile the two against each other beyond "does this slot
+    // already have a mapping"). ParamArray collection is deliberately not implemented here - see
+    // InvokeProcedure's own doc for why - so an extra positional argument beyond the parameter count is
+    // always error 450, even when the last parameter happens to be a ParamArray; the same gap means a
+    // ParamArray's own "unmapped defaults to an empty array, never an error" rule isn't applied either
+    // - a call that omits it errors 449 like any other missing non-Optional argument would, since
+    // ParamArrayParameterSymbol.IsOptional is always false.
+    private static ArgumentMapResult MapArguments(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes)
+    {
+        var mapped = new ExpressionNode?[parameters.Length];
+        var positionalIndex = 0;
+
+        foreach (var argument in argumentNodes)
+        {
+            if (argument is NamedArgumentNode named)
+            {
+                var index = IndexOfParameter(parameters, named.Name);
+                if (index < 0 || mapped[index] is not null)
+                {
+                    return new ArgumentMapResult(null, RuntimeSemanticsEvaluationResult.Error(
+                        VBRuntimeErrorInfo.For(VBRuntimeErrorId.NamedArgumentNotFound, argument.Location, Exceptions.VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose)));
+                }
+
+                mapped[index] = named.Value;
+                continue;
+            }
+
+            if (positionalIndex >= parameters.Length)
+            {
+                return new ArgumentMapResult(null, RuntimeSemanticsEvaluationResult.Error(
+                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, argument.Location, Exceptions.VBWrongNumberOfArguments_Verbose)));
+            }
+
+            if (argument is MissingArgumentNode && !parameters[positionalIndex].IsOptional)
+            {
+                // MS-VBAL §5.3.1.11: "If a positional argument is specified with its value omitted and
+                // its mapped parameter is not optional, runtime error 448... is raised, EVEN IF a named
+                // argument is later mapped to this parameter" - checked here, during mapping, rather
+                // than folded into the general unmapped-parameter sweep below, which is error 449 for
+                // every other "nothing landed in this slot at all" case.
+                return new ArgumentMapResult(null, RuntimeSemanticsEvaluationResult.Error(
+                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.NamedArgumentNotFound, argument.Location, Exceptions.VBNamedArgumentNotFound_MissingRequiredPositional_Verbose)));
+            }
+
+            mapped[positionalIndex] = argument;
+            positionalIndex++;
+        }
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (mapped[i] is null && !parameters[i].IsOptional)
+            {
+                return new ArgumentMapResult(null, RuntimeSemanticsEvaluationResult.Error(
+                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.ArgumentNotOptional, default, Exceptions.VBArgumentNotOptional_Verbose)));
+            }
+        }
+
+        return new ArgumentMapResult(mapped, null);
+    }
+
+    private static int IndexOfParameter(ImmutableArray<VBParameterSymbol> parameters, string name)
+    {
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (string.Equals(parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     // MS-VBAL §5.3.1.11: a ByRef parameter whose mapped argument's expression is "classified as a

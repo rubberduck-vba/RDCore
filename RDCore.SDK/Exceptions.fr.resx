@@ -351,4 +351,16 @@
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>
+  <data name="VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose" xml:space="preserve">
+    <value>Cet argument nommé ne correspond à aucun paramètre de la procédure appelée, ou un argument positionnel ou nommé antérieur dans le même appel correspondait déjà à ce paramètre.</value>
+  </data>
+  <data name="VBNamedArgumentNotFound_MissingRequiredPositional_Verbose" xml:space="preserve">
+    <value>La valeur de cet argument positionnel a été omise, et le paramètre auquel il correspond n'est pas déclaré Optional.</value>
+  </data>
+  <data name="VBArgumentNotOptional_Verbose" xml:space="preserve">
+    <value>Un paramètre de la procédure appelée qui n'est pas déclaré Optional n'a aucun argument qui lui correspond.</value>
+  </data>
+  <data name="VBWrongNumberOfArguments_Verbose" xml:space="preserve">
+    <value>Cet appel fournit plus d'arguments positionnels que la procédure appelée ne déclare de paramètres.</value>
+  </data>
 </root>

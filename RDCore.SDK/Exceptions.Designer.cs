@@ -762,5 +762,41 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("Verbose_LetCoercionStackTrace", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This named argument does not match any parameter of the called procedure, or a positional or named argument earlier in the same call already mapped to that parameter..
+        /// </summary>
+        public static string VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose {
+            get {
+                return ResourceManager.GetString("VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This positional argument&apos;s value was omitted, and the parameter it maps to is not declared Optional..
+        /// </summary>
+        public static string VBNamedArgumentNotFound_MissingRequiredPositional_Verbose {
+            get {
+                return ResourceManager.GetString("VBNamedArgumentNotFound_MissingRequiredPositional_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A parameter of the called procedure that is not declared Optional has no argument mapped to it..
+        /// </summary>
+        public static string VBArgumentNotOptional_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgumentNotOptional_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to This call supplies more positional arguments than the called procedure declares parameters for..
+        /// </summary>
+        public static string VBWrongNumberOfArguments_Verbose {
+            get {
+                return ResourceManager.GetString("VBWrongNumberOfArguments_Verbose", resourceCulture);
+            }
+        }
     }
 }

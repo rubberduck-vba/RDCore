@@ -417,6 +417,29 @@ own initializer expression to where the runtime could evaluate it; reading one s
 procedure declared `Static` (MS-VBAL §5.3.1.2 — every one of ITS OWN locals gets module extent, not just
 the ones with an explicit `Static` keyword) — narrower than full spec, not wrong for what it does cover.
 
+**Named arguments and `Optional` parameters (MS-VBAL §5.3.1.11).** `RuntimeExpressionEvaluator.MapArguments`
+replaces the previous strict positional 1:1 check with the spec's own two-pass algorithm: positional
+arguments map left-to-right, `NamedArgumentNode` maps by name, a `MissingArgumentNode` mapped to a
+non-`Optional` parameter is error 448 (checked during mapping, per spec, not folded into the general
+error-449 sweep afterwards); an extra positional argument beyond the parameter count is error 450. An
+unmapped `Optional` parameter uses the new `VBParameterSymbol.DefaultValue` (pre-computed, `null` when no
+`= ...` clause was specified, falling back to the declared type's own default) directly — no Let-coercion,
+no reference binding, since there's no caller expression to coerce from or alias.
+
+Comma-omitting an argument (`Foo(1, , 3)`) is legal MS-VBA for a parameter of any declared type — MS-VBA
+defers argument-type validation to run-time, it never rejects this at compile time. What actually depends
+on the parameter being `Variant` is `IsMissing`: the omitted value is a `VT_ERROR` Variant carrying
+`DISP_E_PARAMNOTFOUND`, so `IsMissing` always returns `False` for a non-`Variant` parameter — silently, not
+an error — since nothing else can hold that sentinel. RDCore doesn't flag this yet; a design-time diagnostic
+for it is planned.
+
+**Deliberately not modeled:** `ParamArray`. Collecting the trailing extra arguments needs a real array
+value, but `RuntimeProcedureInvoker`'s `ByVal` push can't pass an array-typed argument at all yet
+(`VBArrayType.CreateValue` needs its handle `VBRuntimeArrayValue`-boxed, which it never is) — a pre-existing
+gap, not specific to `ParamArray`, that needs closing first. Until then a trailing `ParamArrayParameterSymbol`
+isn't special-cased: an extra positional argument still reports 450, and omitting it reports 449 instead of
+defaulting to an empty array.
+
 ---
 ## 3.5.5 Placement and licensing
 

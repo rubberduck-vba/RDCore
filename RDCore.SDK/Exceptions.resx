@@ -351,4 +351,16 @@
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>
+  <data name="VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose" xml:space="preserve">
+    <value>This named argument does not match any parameter of the called procedure, or a positional or named argument earlier in the same call already mapped to that parameter.</value>
+  </data>
+  <data name="VBNamedArgumentNotFound_MissingRequiredPositional_Verbose" xml:space="preserve">
+    <value>This positional argument's value was omitted, and the parameter it maps to is not declared Optional.</value>
+  </data>
+  <data name="VBArgumentNotOptional_Verbose" xml:space="preserve">
+    <value>A parameter of the called procedure that is not declared Optional has no argument mapped to it.</value>
+  </data>
+  <data name="VBWrongNumberOfArguments_Verbose" xml:space="preserve">
+    <value>This call supplies more positional arguments than the called procedure declares parameters for.</value>
+  </data>
 </root>
