@@ -86,7 +86,7 @@ namespace RDCore.Runtime.Execution;
 /// mechanism generalizes for free once S9 exists).
 /// </para>
 /// </remarks>
-public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable, ErrorHandlingEvaluator errorHandling)
+public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable, ErrorHandlingEvaluator errorHandling, CancellationToken cancellation = default)
 {
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
@@ -98,6 +98,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         while (activation.Pc < list.Items.Length)
         {
+            // between instructions, never inside one: a half-executed statement would leave the
+            // session in a state no VBA program could have produced. This is what stops a program
+            // whose own control flow never would - an empty Do…Loop, a GoTo cycle.
+            if (cancellation.IsCancellationRequested)
+            {
+                return RuntimeExecutionOutcome.Break;
+            }
+
             var instruction = list.Items[activation.Pc];
             var instructionContext = ResolveContext(context, activation, instruction);
 

@@ -29,6 +29,19 @@ internal interface IParsingClientService
     Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token);
 
     /// <summary>
+    /// Parses source that is not a workspace document, and caches nothing.
+    /// </summary>
+    /// <remarks>
+    /// Not every module a client wants parsed is a file. An interactive shell's program lives in a
+    /// buffer, and its immediate-mode line is a procedure that exists for one statement's worth of
+    /// time — neither is a workspace document, and neither should evict the cached parse of one.
+    /// </remarks>
+    /// <param name="documentUri">The URI the parse result is addressed under.</param>
+    /// <param name="source">The source to parse.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<ModuleParseResult> ParseFragmentAsync(Uri documentUri, string source, CancellationToken token);
+
+    /// <summary>
     /// Parses every currently-loaded workspace source document. Failures are logged, not thrown.
     /// </summary>
     Task ParseWorkspaceAsync(CancellationToken token);
@@ -48,6 +61,18 @@ internal sealed class ParsingClientService(
 
     public bool TryGetCached(Uri documentUri, out ModuleParseResult result)
         => _cache.TryGetValue(documentUri, out result!);
+
+    public async Task<ModuleParseResult> ParseFragmentAsync(Uri documentUri, string source, CancellationToken token)
+    {
+        await orchestration.ParsingService.WaitForReadyAsync(token);
+
+        var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
+            new ParseDocumentParams { DocumentUri = documentUri, Fragment = source }, token);
+
+        return envelope is not null
+            ? envelope.Unwrap<ModuleParseResult>()
+            : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
+    }
 
     public async Task<ModuleParseResult> ParseDocumentAsync(Uri documentUri, CancellationToken token)
     {

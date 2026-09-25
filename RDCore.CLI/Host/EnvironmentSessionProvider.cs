@@ -38,6 +38,12 @@ public interface IEnvironmentSessionProvider
     int ModuleCount { get; }
 
     /// <summary>
+    /// The session's output channel, routed: each run points it at its own buffer for the duration,
+    /// so the output of one run never reaches the caller of another.
+    /// </summary>
+    RuntimeOutputRouter Output { get; }
+
+    /// <summary>
     /// The composed runtime session.
     /// </summary>
     /// <exception cref="InvalidOperationException">
@@ -72,6 +78,9 @@ public sealed class EnvironmentSessionProvider(
     public int ModuleCount { get; private set; }
 
     /// <inheritdoc/>
+    public RuntimeOutputRouter Output { get; } = new();
+
+    /// <inheritdoc/>
     public IRuntimeSession Session => _session ?? throw new InvalidOperationException(
         "The runtime session has not been composed yet; it is composed on the LSP initialize handshake.");
 
@@ -81,7 +90,7 @@ public sealed class EnvironmentSessionProvider(
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
 
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, modules]);
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, modules], Output);
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;
 

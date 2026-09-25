@@ -65,10 +65,16 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="session">The session every part of the pipeline runs against.</param>
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
     /// <param name="messages">Builds the verbose half of a run-time error message.</param>
+    /// <param name="cancellation">
+    /// Stops the interpreter between instructions. A pipeline is composed per run, so this is that
+    /// run's own cancellation — it is what makes a program that will never finish on its own
+    /// interruptible.
+    /// </param>
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
-        IVerboseMessageBuilder messages)
+        IVerboseMessageBuilder messages,
+        CancellationToken cancellation = default)
     {
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, messages);
@@ -107,7 +113,8 @@ public sealed class RuntimeExecutionPipeline
             new ForLoopEvaluator(expressions, letCoercion, messages),
             new ForEachEvaluator(expressions, letCoercion, setCoercion, messages),
             new JumpTableEvaluator(expressions, numericCoercion),
-            new ErrorHandlingEvaluator(expressions, numericCoercion));
+            new ErrorHandlingEvaluator(expressions, numericCoercion),
+            cancellation);
 
         // the evaluator needs the invoker, which needs the executor, which needs the evaluator: the
         // last edge of the cycle is closed by assignment rather than by construction.

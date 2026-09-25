@@ -18,4 +18,9 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public Task<SessionStatusResult> GetSessionStatusAsync(int waitMilliseconds, CancellationToken token)
         => client.SendRequestAsync<SessionStatusParams, SessionStatusResult>(
             new SessionStatusParams { WaitMilliseconds = waitMilliseconds }, token);
+
+    /// <inheritdoc/>
+    public Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token)
+        => client.SendRequestAsync<ExecuteSessionParams, ExecuteSessionResult>(
+            new ExecuteSessionParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint }, token);
 }

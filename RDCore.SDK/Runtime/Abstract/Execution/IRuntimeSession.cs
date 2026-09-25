@@ -91,6 +91,20 @@ public interface ISessionSymbols
     bool TryDefine(Symbol symbol, ScopeKind scope);
 
     /// <summary>
+    /// Removes <paramref name="symbol"/> from <paramref name="scope"/>, freeing whatever storage its
+    /// definition allocated.
+    /// </summary>
+    /// <remarks>
+    /// What makes a definition replaceable, which a live session needs: a module the user edits is
+    /// defined again, and the second definition is the one that is true. Undefining a symbol whose
+    /// storage held a value discards that value — it is a redefinition, not a rename.
+    /// </remarks>
+    /// <param name="symbol">The symbol to remove.</param>
+    /// <param name="scope">The scope it was defined in.</param>
+    /// <returns><c>false</c> if no such symbol was defined in that scope.</returns>
+    bool TryUndefine(Symbol symbol, ScopeKind scope);
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>

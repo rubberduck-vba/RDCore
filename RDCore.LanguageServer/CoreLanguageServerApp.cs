@@ -75,6 +75,7 @@ internal sealed class CoreLanguageServerApp(
                         {
                             DefineSymbols = new DefineSymbols(true),
                             SessionStatus = new SessionStatus(true),
+                            SessionExecute = new SessionExecute(true),
                         }
                     }));
 
@@ -103,6 +104,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SessionStatusHandler>();
+        builder.WithHandler<SessionExecuteHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -114,6 +116,8 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolSyncService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)

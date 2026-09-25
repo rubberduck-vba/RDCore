@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -73,6 +74,7 @@ public static class SymbolDescriptorReader
     {
         VBType Declared(string? typeName) => typeName is not null && resolveType(typeName) is { } type ? type : VBUnknownType.TypeInfo;
         ImmutableArray<VBParameterSymbol> Parameters(Uri memberUri) => ReadParameters(node, workspaceRoot, memberUri, resolveType);
+        ImmutableArray<BoundTypedSymbol> Locals(Uri memberUri) => ReadLocals(node, workspaceRoot, memberUri, resolveType);
 
         switch (node.Kind)
         {
@@ -81,7 +83,7 @@ public static class SymbolDescriptorReader
                 var symbol = new VBProcedureMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.Procedure,
                     VBVoidType.TypeInfo, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return symbol with { Parameters = Parameters(symbol.Uri) };
+                yield return symbol with { Parameters = Parameters(symbol.Uri), Locals = Locals(symbol.Uri) };
                 break;
             }
             case SymbolDescriptorKind.Function:
@@ -89,7 +91,7 @@ public static class SymbolDescriptorReader
                 var symbol = new VBFunctionMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.Function,
                     Declared(node.DeclaredTypeName), node.Range, node.SelectionRange, node.AccessModifier);
-                yield return symbol with { Parameters = Parameters(symbol.Uri) };
+                yield return symbol with { Parameters = Parameters(symbol.Uri), Locals = Locals(symbol.Uri) };
                 break;
             }
             case SymbolDescriptorKind.PropertyGet:
@@ -100,6 +102,7 @@ public static class SymbolDescriptorReader
                 {
                     ResolvedType = Declared(node.DeclaredTypeName),
                     Parameters = Parameters(symbol.Uri),
+                    Locals = Locals(symbol.Uri),
                 };
                 break;
             }
@@ -205,6 +208,33 @@ public static class SymbolDescriptorReader
 
         return new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, field.Name, type, field.Range, field.SelectionRange, field.AccessModifier);
+    }
+
+    /// <summary>
+    /// Reconstructs a procedure's <c>Dim</c>/<c>Static</c> variables. An invocation allocates frame
+    /// storage from these (<strong>MS-VBAL §5.4.3</strong> step 4), so a procedure reconstructed
+    /// without them has a body that cannot assign to any of its own locals.
+    /// </summary>
+    private static ImmutableArray<BoundTypedSymbol> ReadLocals(
+        SymbolDescriptor member, Uri workspaceRoot, Uri memberUri, Func<string, VBType?> resolveType)
+    {
+        if (member.Locals.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        var builder = ImmutableArray.CreateBuilder<BoundTypedSymbol>(member.Locals.Length);
+        foreach (var local in member.Locals)
+        {
+            builder.Add(new VBLocalVariableSymbol(
+                workspaceRoot, memberUri, local.Name, ScopeKind.Local, local.Range, local.SelectionRange,
+                local.IsStatic,
+                local.DeclaredTypeName is not null && resolveType(local.DeclaredTypeName) is { } type
+                    ? type
+                    : VBUnknownType.TypeInfo,
+                local.DeclaredBy));
+        }
+        return builder.ToImmutable();
     }
 
     private static ImmutableArray<VBParameterSymbol> ReadParameters(

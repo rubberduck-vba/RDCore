@@ -89,3 +89,31 @@ public sealed class RuntimeOutputBuffer : IRuntimeOutput
         _current.Clear();
     }
 }
+
+/// <summary>
+/// An output channel whose destination can be changed while the session runs.
+/// </summary>
+/// <remarks>
+/// A session is composed once and lives for as long as the host does, but the thing that wants its
+/// output changes: each "run this and tell me what it printed" request wants that run's output and
+/// nobody else's. Routing lets the session keep one output channel for its whole life while each run
+/// points it at its own buffer — without a session having to be re-composed, or its
+/// <see cref="IRuntimeSession.Output"/> being mutable for everyone.
+/// </remarks>
+public sealed class RuntimeOutputRouter : IRuntimeOutput
+{
+    /// <summary>
+    /// Where output currently goes. <see cref="NullRuntimeOutput"/> — discarded — until something
+    /// claims it.
+    /// </summary>
+    public IRuntimeOutput Target { get; set; } = NullRuntimeOutput.Instance;
+
+    /// <inheritdoc/>
+    public int LinePosition => Target.LinePosition;
+
+    /// <inheritdoc/>
+    public void Write(string text) => Target.Write(text);
+
+    /// <inheritdoc/>
+    public void WriteLine() => Target.WriteLine();
+}

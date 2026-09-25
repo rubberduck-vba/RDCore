@@ -43,6 +43,7 @@ internal sealed class DefineSymbolsHandler(
         }
 
         var defined = 0;
+        var replaced = 0;
         var merged = 0;
         var skipped = new List<string>();
 
@@ -60,6 +61,14 @@ internal sealed class DefineSymbolsHandler(
             {
                 defined++;
             }
+            else if (request.Replace && session.Symbols.TryUndefine(symbol, symbol.ScopeKind)
+                && session.Symbols.TryDefine(symbol, symbol.ScopeKind))
+            {
+                // the caller says this module has been re-read, so the newest definition wins: the
+                // previous one may have had different locals, a different declared type, or a body
+                // this one no longer has.
+                replaced++;
+            }
             else
             {
                 skipped.Add(symbol.Name);
@@ -69,13 +78,14 @@ internal sealed class DefineSymbolsHandler(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "📥 {module}: defined {defined} symbol(s), merged {merged}, skipped {skipped}, {unresolved} unresolved type name(s).",
-                request.ModuleName, defined, merged, skipped.Count, unresolvedTypeNames.Count);
+                "📥 {module}: defined {defined} symbol(s), replaced {replaced}, merged {merged}, skipped {skipped}, {unresolved} unresolved type name(s).",
+                request.ModuleName, defined, replaced, merged, skipped.Count, unresolvedTypeNames.Count);
         }
 
         return Task.FromResult(new DefineSymbolsResult
         {
             Defined = defined,
+            Replaced = replaced,
             Skipped = skipped,
             UnresolvedTypeNames = [.. unresolvedTypeNames],
             MergedDefinitions = merged,

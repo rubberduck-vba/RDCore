@@ -9,6 +9,18 @@ namespace RDCore.LanguageServer.Workspace.Services;
 
 internal interface IWorkspaceDocumentService
 {
+    /// <summary>
+    /// The workspace root this service was initialized with, exactly as it arrived — empty before
+    /// <see cref="Initialize"/>.
+    /// </summary>
+    /// <remarks>
+    /// Anything that addresses a symbol has to derive it from the same root string every time. A
+    /// second copy of "the workspace root" that differs only in the case of its drive letter yields
+    /// symbol URIs that compare unequal, which means the same declaration defined twice and a name
+    /// that then resolves to neither of them.
+    /// </remarks>
+    string WorkspaceRoot { get; }
+
     IEnumerable<WorkspaceDocument> GetAllDocuments();
     bool TryGetDocument(Uri documentUri, out WorkspaceDocument document);
     void Initialize(string workspaceRoot);
@@ -27,10 +39,11 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 {
     private readonly Dictionary<TextDocumentIdentifier, WorkspaceDocument> _documents = [];
 
-    private string _workspaceRoot = string.Empty;
+    public string WorkspaceRoot { get; private set; } = string.Empty;
+
     public void Initialize(string workspaceRoot)
     {
-        _workspaceRoot = workspaceRoot;
+        WorkspaceRoot = workspaceRoot;
         if (logger.IsEnabled(LogLevel.Trace))
         {
             logger.LogTrace("WorkspaceDocumentService initialized with workspace root: {workspaceRoot}", workspaceRoot);
@@ -49,7 +62,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public async Task<bool> TryLoadAsync(TextDocumentIdentifier id)
     {
         var path = id.Uri.GetFileSystemPath();
-        var relativeUri = ioPath.GetRelativePath(_workspaceRoot, path);
+        var relativeUri = ioPath.GetRelativePath(WorkspaceRoot, path);
 
         try
         {
@@ -61,7 +74,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 }
 
                 var content = await ioFile.ReadAllTextAsync(path);
-                var document = new WorkspaceDocument(relativeUri, _workspaceRoot, content);
+                var document = new WorkspaceDocument(relativeUri, WorkspaceRoot, content);
                 _documents[document.Id] = document;
 
                 documentStateProvider.OnDocumentLoaded(document.Id);
@@ -71,7 +84,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
             else
             {
-                var document = new WorkspaceDocument(relativeUri, _workspaceRoot);
+                var document = new WorkspaceDocument(relativeUri, WorkspaceRoot);
                 _documents[document.Id] = document;
 
                 logger.LogWarning("⚠ Workspace document at '{uri}' is missing.", relativeUri);
@@ -80,7 +93,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         }
         catch (Exception exception)
         {
-            var document = new WorkspaceDocument(relativeUri, _workspaceRoot);
+            var document = new WorkspaceDocument(relativeUri, WorkspaceRoot);
             _documents[document.Id] = document;
 
             logger.LogWarning(exception, "❌ Workspace document '{uri}' could not be loaded.", relativeUri);
@@ -92,7 +105,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Create(string relativePath)
     {
-        var id = new TextDocumentIdentifier(new Uri(ioPath.Combine(_workspaceRoot, relativePath)));
+        var id = new TextDocumentIdentifier(new Uri(ioPath.Combine(WorkspaceRoot, relativePath)));
         if (_documents.ContainsKey(id))
         {
             logger.LogWarning("⚠️ Workspace document '{uri}' already exists and cannot be created.", relativePath);
@@ -107,7 +120,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogTrace("Created new file '{path}'.", path);
         }
 
-        var document = new WorkspaceDocument(relativePath, _workspaceRoot);
+        var document = new WorkspaceDocument(relativePath, WorkspaceRoot);
         _documents[id] = document;
         documentStateProvider.OnDocumentLoaded(document.Id);
 
@@ -212,7 +225,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             {
                 try
                 {
-                    var path = ioPath.Combine(_workspaceRoot, document.FileName);
+                    var path = ioPath.Combine(WorkspaceRoot, document.FileName);
                     if (logger.IsEnabled(LogLevel.Trace))
                     {
                         logger.LogTrace("Saving file: '{path}'...", path);
@@ -250,9 +263,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         if (currentState is LoadedDocumentState or OpenedDocumentState
             && _documents.TryGetValue(id, out var d) && d is WorkspaceDocument document)
         {
-            var relativePath = ioPath.GetRelativePath(_workspaceRoot, document.Id.Uri.GetFileSystemPath());
+            var relativePath = ioPath.GetRelativePath(WorkspaceRoot, document.Id.Uri.GetFileSystemPath());
             var newRelativePath = ioPath.Combine(ioPath.GetDirectoryName(relativePath)!, newName);
-            var newId = new TextDocumentIdentifier(new Uri(ioPath.Combine(_workspaceRoot, newRelativePath)));
+            var newId = new TextDocumentIdentifier(new Uri(ioPath.Combine(WorkspaceRoot, newRelativePath)));
 
             if (logger.IsEnabled(LogLevel.Trace))
             {

@@ -21,6 +21,22 @@ internal interface ISymbolSyncService
     /// Sends the symbols of every workspace module with a cached parse result to the environment host.
     /// </summary>
     Task SyncWorkspaceAsync(CancellationToken token);
+
+    /// <summary>
+    /// Sends the symbols of one parsed module to the environment host.
+    /// </summary>
+    /// <remarks>
+    /// For a module the client supplied rather than the workspace: it has no document, no cached
+    /// parse, and no sibling modules to resolve declared type names against beyond the intrinsics.
+    /// </remarks>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="parseResult">The parsed module.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>
+    /// The module URI the symbols were defined under — derived here, from the workspace's own root, so
+    /// that a caller cannot address the same module differently than the workspace sync does.
+    /// </returns>
+    Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
 }
 
 internal sealed class SymbolSyncService(
@@ -30,6 +46,23 @@ internal sealed class SymbolSyncService(
     ISymbolResolver resolver,
     ILogger<SymbolSyncService> logger) : ISymbolSyncService
 {
+    public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    {
+        var host = orchestration.RuntimeEnvironment;
+        await host.WaitForReadyAsync(token);
+
+        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+        var workspaceResolver = WorkspaceSymbolResolver.Compose(
+            workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver);
+
+        // a module the client keeps editing is defined again every time it is run, so the newest
+        // definition has to win rather than being skipped as a duplicate.
+        await DefineModuleSymbolsAsync(
+            workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true, token);
+        return moduleUri;
+    }
+
     public async Task SyncWorkspaceAsync(CancellationToken token)
     {
         try
@@ -80,7 +113,7 @@ internal sealed class SymbolSyncService(
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, token);
+                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -106,7 +139,7 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, CancellationToken token)
+        ISymbolResolver workspaceResolver, bool replace, CancellationToken token)
     {
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver).ProvideSymbols();
         var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
@@ -118,15 +151,16 @@ internal sealed class SymbolSyncService(
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Symbols = descriptors,
+                Replace = replace,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("📤 {module}: {defined} defined, {skipped} skipped, {unresolved} unresolved type(s).",
-                moduleName, result.Defined, result.Skipped.Count, result.UnresolvedTypeNames.Count);
+            logger.LogInformation("📤 {module}: {defined} defined, {replaced} replaced, {skipped} skipped, {unresolved} unresolved type(s).",
+                moduleName, result.Defined, result.Replaced, result.Skipped.Count, result.UnresolvedTypeNames.Count);
         }
 
-        return result.Defined;
+        return result.Defined + result.Replaced;
     }
 
     private void LogIfEnabled(LogLevel level, string message)

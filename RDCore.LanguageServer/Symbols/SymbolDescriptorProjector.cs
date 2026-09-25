@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -59,6 +60,7 @@ internal static class SymbolDescriptorProjector
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),
             Parameters = ParametersOf(symbol),
+            Locals = LocalsOf(symbol, children),
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
             External = ExternalOf(symbol),
         };
@@ -111,6 +113,48 @@ internal static class SymbolDescriptorProjector
         => symbol is null || symbol.ResolvedType is VBUnknownType or VBVoidType
             ? null
             : symbol.ResolvedType.Name;
+
+    // a procedure's Dim/Static variables. Parameters are not among them: they are their own descriptor
+    // array, and VBParameterSymbol derives from VBLocalVariableSymbol, so they would otherwise be
+    // projected twice and allocated twice on every activation.
+    private static ImmutableArray<LocalDescriptor> LocalsOf(Symbol symbol, IEnumerable<Symbol> children)
+    {
+        var declared = symbol switch
+        {
+            VBReturningMemberSymbol returning => returning.Locals,
+            VBProcedureMemberSymbol procedure => procedure.Locals,
+            _ => ImmutableArray<BoundTypedSymbol>.Empty,
+        };
+
+        // a local reaches the projector two ways: on its own procedure's Locals, and as a child of it
+        // in the flat symbol stream (by ParentUri). Which of the two a given provider populates is its
+        // own business, so read both and let the name settle a duplicate.
+        var locals = declared.OfType<VBLocalVariableSymbol>()
+            .Concat(children.OfType<VBLocalVariableSymbol>())
+            .Where(local => local is not VBParameterSymbol)
+            .DistinctBy(local => local.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (locals.Length == 0)
+        {
+            return [];
+        }
+
+        var builder = ImmutableArray.CreateBuilder<LocalDescriptor>(locals.Length);
+        foreach (var local in locals)
+        {
+            builder.Add(new LocalDescriptor
+            {
+                Name = local.Name,
+                DeclaredTypeName = local.ResolvedType is null or VBUnknownType or VBVoidType ? null : local.ResolvedType.Name,
+                IsStatic = local.IsStatic,
+                DeclaredBy = local.DeclaredBy,
+                Range = local.Range,
+                SelectionRange = local.SelectionRange,
+            });
+        }
+        return builder.ToImmutable();
+    }
 
     private static ImmutableArray<ParameterDescriptor> ParametersOf(Symbol symbol)
     {

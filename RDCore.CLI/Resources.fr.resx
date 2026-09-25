@@ -279,5 +279,13 @@
   </data>
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Écrit un octet à une adresse mémoire de la session.</value>
+  </data>  <data name="Repl_RuntimeError" xml:space="preserve">
+    <value>?ERREUR: {0}</value>
+  </data>
+  <data name="Repl_NotImplemented" xml:space="preserve">
+    <value>?ERREUR: NON IMPLÉMENTÉ</value>
+  </data>
+  <data name="Repl_NotFound" xml:space="preserve">
+    <value>?ERREUR: PROCÉDURE NON DÉFINIE</value>
   </data>
 </root>

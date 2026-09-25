@@ -96,8 +96,7 @@ internal sealed class ReplShell(
                 return result;
 
             default:
-                // TODO immediate-mode execution: hand the statement to the language server to run.
-                console.WriteMessage(MessageKind.Error, Resources.Repl_NotAvailable, input.Text);
+                await RunImmediateAsync(context, input.Text, token);
                 WriteReady();
                 return ReplCommandResult.Continue;
         }
@@ -122,6 +121,33 @@ internal sealed class ReplShell(
             logger.LogError(exception, "Shell command '{command}' failed.", input.CommandName);
             console.WriteMessage(MessageKind.Error, input.CommandName.ToUpperInvariant(), exception.Message);
             return ReplCommandResult.Continue;
+        }
+        finally
+        {
+            _running = null;
+        }
+    }
+
+    /// Runs one unnumbered statement on the spot. It is compiled as a procedure of the same module
+    /// the program lives in, so it sees the same scope the program does, and a break cancels it the
+    /// same way it cancels a RUN.
+    private async Task RunImmediateAsync(ReplCommandContext context, string statement, CancellationToken token)
+    {
+        using var running = CancellationTokenSource.CreateLinkedTokenSource(token);
+        _running = running;
+        try
+        {
+            await ReplExecution.ExecuteAsync(
+                context, program.ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, running.Token);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            console.WriteLine(Resources.Repl_Break);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Immediate-mode execution failed.");
+            console.WriteMessage(MessageKind.Error, Resources.Repl_SyntaxError, exception.Message);
         }
         finally
         {

@@ -24,6 +24,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
@@ -36,6 +37,7 @@ using System.Runtime.CompilerServices;
 [assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
 // the environment host owns the runtime session, so it answers for its state:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
+[assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
 // native command-mode verbs provided by rdc.exe:
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
@@ -116,6 +118,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ListReplCommand>()
+            .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, NewReplCommand>()
             .AddSingleton<IReplCommand, ExitReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
@@ -207,6 +210,7 @@ internal class RDCoreConsoleClientApp(
         LanguageServer = new LanguageServerCapabilities
         {
             SessionStatus = new SessionStatus(true),
+            SessionExecute = new SessionExecute(true),
         },
     };
 
@@ -324,7 +328,10 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
 
         // the runtime session this host owns for the workspace it was launched against; composed on
         // the LSP initialize handshake, then populated as the language server sends symbol descriptors.
-        services.AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
+        services
+            .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
+            .AddVerboseMessages()
+            .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
@@ -351,12 +358,15 @@ internal class RDCoreConsoleEnvironmentHostApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
         => builder
             .WithHandler<DefineSymbolsHandler>()
-            .WithHandler<HostSessionStatusHandler>();
+            .WithHandler<HostSessionStatusHandler>()
+            .WithHandler<HostExecuteHandler>();
 
     // bridge the outer-container singleton into the language-server handler container so a handler
     // resolves the same session provider the app composes on initialize.
     protected override void ConfigureServices(IServiceCollection services)
-        => services.AddSingleton(sessionProvider);
+        => services
+            .AddSingleton(sessionProvider)
+            .AddSingleton(_ => ExternalServices.GetRequiredService<IVerboseMessageBuilder>());
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
 

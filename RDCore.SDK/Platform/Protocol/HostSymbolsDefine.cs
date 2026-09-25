@@ -4,6 +4,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 
@@ -46,6 +47,19 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// The member symbol descriptors, in declaration order.
     /// </summary>
     public ImmutableArray<SymbolDescriptor> Symbols { get; init; } = [];
+
+    /// <summary>
+    /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
+    /// skipped.
+    /// </summary>
+    /// <remarks>
+    /// The one-shot workspace sync defines each module once, and first-definition-wins is what
+    /// collapses a name declared in several conditional-compilation branches. A module the user is
+    /// editing is the other case: it is defined again every time it is run, and the newest definition
+    /// is the one that is true — skipping it would leave the session running yesterday's symbols, with
+    /// whatever locals and declared types they had.
+    /// </remarks>
+    public bool Replace { get; init; }
 }
 
 /// <summary>
@@ -68,6 +82,12 @@ public record class DefineSymbolsResult
     /// defined, with <c>VBUnknownType</c>; a later resolver pass can bind them.
     /// </summary>
     public IReadOnlyList<string> UnresolvedTypeNames { get; init; } = [];
+
+    /// <summary>
+    /// The number of already-defined symbols that were replaced, when
+    /// <see cref="DefineSymbolsParams.Replace"/> was set.
+    /// </summary>
+    public int Replaced { get; init; }
 
     /// <summary>
     /// The number of duplicate descriptors that were collapsed into an already-reconstructed symbol
@@ -137,6 +157,19 @@ public record class SymbolDescriptor
     public ImmutableArray<ParameterDescriptor> Parameters { get; init; } = [];
 
     /// <summary>
+    /// The procedure-extent variables the member declares — one per <c>Dim</c> or <c>Static</c> — for
+    /// the procedure, function and property kinds.
+    /// </summary>
+    /// <remarks>
+    /// A local is not a member of the module and is never resolvable from outside its procedure, so it
+    /// rides on its own procedure's descriptor rather than appearing beside it. It has to travel at
+    /// all because the procedure symbol is what an invocation allocates frame storage from
+    /// (<strong>MS-VBAL §5.4.3</strong> step 4): a procedure reconstructed without its locals has a
+    /// body that cannot assign to any of them.
+    /// </remarks>
+    public ImmutableArray<LocalDescriptor> Locals { get; init; } = [];
+
+    /// <summary>
     /// Members parented to this descriptor rather than the module: <c>Enum</c> constants and
     /// user-defined-<c>Type</c> fields.
     /// </summary>
@@ -170,6 +203,44 @@ public record class DefinitionDescriptor
     /// <see cref="DefinitionState.Unknown"/> until a precompiler-evaluation pass resolves it.
     /// </summary>
     public DefinitionState State { get; init; } = DefinitionState.Unknown;
+}
+
+/// <summary>
+/// A transport-friendly projection of a <c>VBLocalVariableSymbol</c> — one <c>Dim</c> or <c>Static</c>
+/// of a procedure.
+/// </summary>
+public record class LocalDescriptor
+{
+    /// <summary>
+    /// The variable's identifier name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The declared type's name, or <c>null</c> — resolved host-side like a member's.
+    /// </summary>
+    public string? DeclaredTypeName { get; init; }
+
+    /// <summary>
+    /// Whether the declaration carries the <c>Static</c> token (<strong>MS-VBAL §5.4.3.1</strong>):
+    /// module-extent storage that outlives one activation, not procedure-extent.
+    /// </summary>
+    public bool IsStatic { get; init; }
+
+    /// <summary>
+    /// How the variable entered the procedure scope — a real declaration, or an implicit one.
+    /// </summary>
+    public LocalDeclarationKind DeclaredBy { get; init; } = LocalDeclarationKind.Dim;
+
+    /// <summary>
+    /// The source span of the declaration.
+    /// </summary>
+    public SourceRange Range { get; init; }
+
+    /// <summary>
+    /// The source span to select when navigating to the variable.
+    /// </summary>
+    public SourceRange SelectionRange { get; init; }
 }
 
 /// <summary>

@@ -62,6 +62,18 @@ public interface IReplPlatformClient
     /// <param name="waitMilliseconds">How long the language server may wait for the session to come up; <c>0</c> answers immediately.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<SessionStatusResult> GetSessionStatusAsync(int waitMilliseconds, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to run one procedure of a module.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="entryPoint">The parameterless procedure to invoke.</param>
+    /// <param name="token">
+    /// Cancelling this cancels the run itself, all the way into the interpreter loop — it is what a
+    /// break at the keyboard turns into.
+    /// </param>
+    Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token);
 }
 
 /// <summary>

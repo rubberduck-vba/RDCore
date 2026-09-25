@@ -60,6 +60,11 @@ public class EnvironmentHostCapabilities
     /// If supported, the environment host reports the state of the runtime session it owns.
     /// </summary>
     public SessionStatus SessionStatus { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the environment host lowers and runs a parsed module in its runtime session.
+    /// </summary>
+    public SessionExecute SessionExecute { get; set; } = new();
 }
 
 /// <summary>
@@ -73,6 +78,12 @@ public class LanguageServerCapabilities
     /// platform's runtime session, including its memory.
     /// </summary>
     public SessionStatus SessionStatus { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server runs a procedure of a module the client supplies, over
+    /// <c>rdcore/session/execute</c>, and reports what it printed.
+    /// </summary>
+    public SessionExecute SessionExecute { get; set; } = new();
 }
 
 public static class RDCorePlatformProtocol
@@ -87,6 +98,17 @@ public static class RDCorePlatformProtocol
     /// side of <see cref="SessionStatus"/>; never sent by a client.
     /// </summary>
     public const string HostSessionStatus = "rdcore/host/session/status";
+
+    /// <summary>
+    /// Asks the language server to run one procedure of a module the client supplies.
+    /// </summary>
+    public const string SessionExecute = "rdcore/session/execute";
+
+    /// <summary>
+    /// Asks the environment host to lower and run a parsed module in its runtime session. The
+    /// language-server side of <see cref="SessionExecute"/>; never sent by a client.
+    /// </summary>
+    public const string HostExecute = "rdcore/host/execute";
 
     /// <summary>
     /// Requests an AST from the parser for a full document.
@@ -109,6 +131,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(CliCommand))]
 [JsonDerivedType(typeof(DiagnoseDocument))]
 [JsonDerivedType(typeof(SessionStatus))]
+[JsonDerivedType(typeof(SessionExecute))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -134,6 +157,13 @@ public record class DefineSymbols(bool IsSupported = false) : CorePlatformClient
 /// the same question at two levels.
 /// </remarks>
 public record class SessionStatus(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component runs a procedure of a supplied module and reports what it
+/// printed — <c>rdcore/session/execute</c> to a client, <c>rdcore/host/execute</c> between the
+/// language server and the component that owns the runtime session.
+/// </summary>
+public record class SessionExecute(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c> — it is a

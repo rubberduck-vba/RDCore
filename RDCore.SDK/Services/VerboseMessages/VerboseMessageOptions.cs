@@ -39,4 +39,12 @@ public record class VerboseMessageOptions(
     string TopStackFrameMarker = ">💥",
     bool ShowValues = false,
     bool ShowValuesIcon = true,
-    string ValuesIcon = "🚩");
+    string ValuesIcon = "🚩")
+{
+    /// <summary>
+    /// The defaults. Required by the options binder, which constructs a <c>T</c> before it binds
+    /// anything onto it — a positional record's own all-optional constructor is not parameterless, so
+    /// without this an <c>IOptions&lt;VerboseMessageOptions&gt;</c> cannot be resolved at all.
+    /// </summary>
+    public VerboseMessageOptions() : this(IsEnabled: true) { }
+}

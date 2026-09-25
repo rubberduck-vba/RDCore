@@ -483,5 +483,32 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Poke_Summary", resourceCulture);
             }
         }
+         
+        /// <summary>
+        ///   Looks up a localized string similar to ?{0} ERROR.
+        /// </summary>
+        public static string Repl_RuntimeError {
+            get {
+                return ResourceManager.GetString("Repl_RuntimeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?NOT IMPLEMENTED ERROR.
+        /// </summary>
+        public static string Repl_NotImplemented {
+            get {
+                return ResourceManager.GetString("Repl_NotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?UNDEFINED PROCEDURE ERROR.
+        /// </summary>
+        public static string Repl_NotFound {
+            get {
+                return ResourceManager.GetString("Repl_NotFound", resourceCulture);
+            }
+        }
     }
 }
