@@ -2,6 +2,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -32,7 +33,14 @@ public sealed class JumpTableEvaluator(RuntimeExpressionEvaluator expressionEval
             return valueResult;
         }
 
-        var frame = new LetCoercionStackFrame(selector.Identity, InputIndex.CoercionSourceValue, valueResult.Result!, new VBTypeDescValue(VBIntegerType.TypeInfo));
+        // unwrap Variant: bypassing the provider skips its own unwrap too.
+        var source = valueResult.Result!;
+        while (source is VBVariantValue { TypedValue: var wrapped })
+        {
+            source = wrapped;
+        }
+
+        var frame = new LetCoercionStackFrame(selector.Identity, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBIntegerType.TypeInfo));
         var coercionResult = numericCoercion.EvaluateLetCoercion(session.Symbols.Resolver, selector, frame);
 
         if (!coercionResult.IsApplicable)

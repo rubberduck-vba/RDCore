@@ -893,6 +893,22 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
+    public void AConditionOnAVariant_LetCoercesTheWrappedValue()
+        // regression: ConditionEvaluator bypasses the coercion provider, so it skipped the unwrap too.
+    {
+        var list = Lower("If x Then", "y = 1", "End If");
+        var x = Local("x", VBVariantType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(x, y);
+        var frame = PushFrame(session, (x, new VBVariantValue(new VBLongValue(42))), (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
     public void GoSub_RunsTheHandler_ThenReturnsToTheStatementAfterGoSub()
     {
         var list = Lower("GoSub Handler", "x = x + 1", "Exit Sub", "Handler:", "x = 100", "Return");
@@ -948,6 +964,23 @@ public sealed class ProcedureExecutorTests
         var x = Local("x", VBLongType.TypeInfo);
         var session = ComposeSession(n, x);
         var frame = PushFrame(session, (n, new VBLongValue(2)), (x, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(2, session.Symbols.Resolver.GetValue(x).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void OnGoTo_VariantSelector_LetCoercesTheWrappedValue()
+        // regression: JumpTableEvaluator bypasses the coercion provider too - same unwrap gap.
+    {
+        var list = Lower("On n GoTo A, B, C", "x = 0", "Exit Sub",
+            "A:", "x = 1", "Exit Sub", "B:", "x = 2", "Exit Sub", "C:", "x = 3");
+        var n = Local("n", VBVariantType.TypeInfo);
+        var x = Local("x", VBLongType.TypeInfo);
+        var session = ComposeSession(n, x);
+        var frame = PushFrame(session, (n, new VBVariantValue(new VBLongValue(2))), (x, new VBLongValue(0)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 

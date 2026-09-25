@@ -2,6 +2,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -34,7 +35,14 @@ public sealed class ConditionEvaluator(RuntimeExpressionEvaluator expressionEval
             return valueResult;
         }
 
-        var frame = new LetCoercionStackFrame(condition.Identity, InputIndex.CoercionSourceValue, valueResult.Result!, new VBTypeDescValue(VBBooleanType.TypeInfo));
+        // unwrap Variant: bypassing the provider skips its own unwrap too.
+        var source = valueResult.Result!;
+        while (source is VBVariantValue { TypedValue: var wrapped })
+        {
+            source = wrapped;
+        }
+
+        var frame = new LetCoercionStackFrame(condition.Identity, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBBooleanType.TypeInfo));
         var coercionResult = booleanCoercion.EvaluateLetCoercion(session.Symbols.Resolver, condition, frame);
 
         if (!coercionResult.IsApplicable)
