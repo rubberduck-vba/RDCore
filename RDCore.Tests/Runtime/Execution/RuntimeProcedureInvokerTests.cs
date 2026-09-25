@@ -86,8 +86,9 @@ public sealed class RuntimeProcedureInvokerTests
         var formatter = Substitute.For<IVerboseMessageBuilder>();
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
+        var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
-            [new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle), booleanCoercion], formatter);
+            [numericCoercion, booleanCoercion], formatter);
         handle.Inner = letCoercion;
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
@@ -97,7 +98,9 @@ public sealed class RuntimeProcedureInvokerTests
         var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
         var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
         var forEach = new ForEachEvaluator(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
-        var executor = new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach);
+        var jumpTable = new JumpTableEvaluator(expressionEvaluator, numericCoercion);
+        var errorHandling = new ErrorHandlingEvaluator(expressionEvaluator, numericCoercion);
+        var executor = new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable, errorHandling);
         expressionEvaluator.ProcedureInvoker = new RuntimeProcedureInvoker(session, bodies, executor);
         expressionEvaluator.LetCoercionProvider = letCoercion;
         return (executor, session);
