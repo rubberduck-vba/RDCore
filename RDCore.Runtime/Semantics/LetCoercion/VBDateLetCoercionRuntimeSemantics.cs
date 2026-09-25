@@ -100,13 +100,13 @@ public record class VBDateLetCoercionRuntimeSemantics(
         LetCoercionStackFrame frame)
     {
         var destinationType = frame.DestinationTypeDesc.Target;
+        // a Date SOURCE never reaches this switch: the provider dispatches by destination type, and
+        // this strategy is keyed on VBDateType, so destinationType here is always Date - the "Date ->
+        // numeric/Boolean" DateSerial flag lives in VBNumericLetCoercionTypeRuntimeSemantics.DateSerialFlagsOf
+        // and VBBooleanLetCoercionRuntimeSemantics's own switch instead, the strategies that actually run
+        // for those destinations.
         builder.AddLetCoercionFlags(ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
         {
-            VBDateValue when destinationType is VBNumericType or VBBooleanType && destinationType.DefaultValue.Size < VBDoubleType.TypeInfo.DefaultValue.Size
-                => ConversionSemanticFlags.DateSerial | ConversionSemanticFlags.Narrowing,
-            VBDateValue when destinationType is VBNumericType or VBBooleanType
-                => ConversionSemanticFlags.DateSerial,
-
             VBNumericTypedValue or VBBooleanValue when destinationType is VBDateType && frame.SourceValue.Size < VBDoubleType.TypeInfo.DefaultValue.Size
                 => ConversionSemanticFlags.Numeric | ConversionSemanticFlags.Widening,
             VBNumericTypedValue or VBBooleanValue when destinationType is VBDateType

@@ -124,9 +124,22 @@ public sealed partial record class VBNumericLetCoercionTypeRuntimeSemantics(
         // they are reported for the operand rather than for the operation as a whole.
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric
             | ConversionSemanticFlags.CTypeAvailable
+            | DateSerialFlagsOf(frame.SourceValue, frame.DestinationTypeDesc.Target)
             | WidthFlagsOf(frame.SourceValue.TypeInfo, frame.DestinationTypeDesc.Target), frame.OperandIndex);
         return builder;
     }
+
+    // MS-VBAL 5.5.1.2.1: a Date source coerced to a numeric type is its own DateSerial conversion, not
+    // an ordinary numeric one - the provider dispatches by DESTINATION type, so this strategy (keyed on
+    // VBNumericType) is the one that actually runs for Date -> Long/Double/etc, never
+    // VBDateLetCoercionRuntimeSemantics's own Date-source branches (keyed on VBDateType, so only ever
+    // reachable for the reverse direction).
+    internal static ConversionSemanticFlags DateSerialFlagsOf(VBTypedValue source, VBType destination)
+        => source is VBDateValue && destination.DefaultValue.Size < VBDoubleType.TypeInfo.DefaultValue.Size
+            ? ConversionSemanticFlags.DateSerial | ConversionSemanticFlags.Narrowing
+            : source is VBDateValue
+                ? ConversionSemanticFlags.DateSerial
+                : 0;
 
     // MS-VBAL 5.5.1.2.1: a conversion is wider when the destination type can hold every value of the source type, and
     // narrower when it cannot (the other way around, the source type holds values the destination type cannot).

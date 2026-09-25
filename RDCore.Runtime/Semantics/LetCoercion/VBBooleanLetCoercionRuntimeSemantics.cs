@@ -96,6 +96,11 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
                 && ValidateDestinationTypeRange(expression, frame, out _)
                     => ConversionSemanticFlags.Widening,
 
+            // the provider dispatches by DESTINATION type, so this strategy (keyed on VBBooleanType) is
+            // the one that actually runs for Date -> Boolean, never VBDateLetCoercionRuntimeSemantics's
+            // own Date-source branches (keyed on VBDateType, only reachable for the reverse direction).
+            VBDateValue => VBNumericLetCoercionTypeRuntimeSemantics.DateSerialFlagsOf(frame.SourceValue, frame.DestinationTypeDesc.Target),
+
             _ => 0 // nop
         }, frame.OperandIndex);
         return builder;

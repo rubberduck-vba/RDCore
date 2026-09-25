@@ -414,17 +414,16 @@ public sealed class LetCoercionAnalysisTests : LetCoercionRuntimeSemanticsTests
         Assert.AreEqual((ConversionSemanticFlags)0, Analyze(new VBIntegerValue(1), VBLongType.TypeInfo).Flags & operandFlags);
     }
 
-    #endregion
-
-    #region known gaps in what the analysis reports
+    [TestMethod]
+    public void ADateToANumericType_IsADateSerialConversion()
+        // the provider dispatches by destination type, so this is VBNumericLetCoercionTypeRuntimeSemantics's
+        // own DateSerialFlagsOf, not VBDateLetCoercionRuntimeSemantics (only reachable for Date as the
+        // destination, never the source).
+        => Assert.IsTrue(Analyze(new VBDateValue(2), VBLongType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.DateSerial));
 
     [TestMethod]
-    [Ignore("DateSerial is documented as 'a DateSerial conversion from a Date' but is never issued: only the Date strategy has that " +
-        "logic, and the provider dispatches by destination type, so a Date coerced to a numeric type is the numeric strategy's, " +
-        "which does not flag it. The Date strategy's own Date-source branches are unreachable. Conversions should be able to issue it; " +
-        "kept noted until that is picked up.")]
-    public void ADateToANumericType_IsADateSerialConversion()
-        => Assert.IsTrue(Analyze(new VBDateValue(2), VBLongType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.DateSerial));
+    public void ADateToABooleanType_IsADateSerialConversion()
+        => Assert.IsTrue(Analyze(new VBDateValue(2), VBBooleanType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.DateSerial));
 
     #endregion
 }
