@@ -955,6 +955,40 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
+    public void OnGoTo_NegativeSelector_IsCatchableLikeAnyOtherRuntimeError()
+        // S7 (GoSub/On...GoTo) and S8 (On Error/Resume) were built and merged independently, off the
+        // same base commit, so neither's own test suite could prove the two actually compose: an error
+        // raised by ExecuteJumpTable/ExecuteReturn must route through InterceptError exactly like every
+        // other error-yielding dispatch site, or an active On Error handler silently fails to catch it.
+    {
+        var list = Lower("On Error Resume Next", "On n GoTo A", "y = 1", "A:");
+        var n = Local("n", VBLongType.TypeInfo);
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(n, y);
+        var frame = PushFrame(session, (n, new VBLongValue(-1)), (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void Return_WithoutGoSub_IsCatchableLikeAnyOtherRuntimeError()
+        // Same composition gap as above, proven for Return's own error 3 instead of On...GoTo's error 5.
+    {
+        var list = Lower("On Error Resume Next", "Return", "y = 1");
+        var y = Local("y", VBLongType.TypeInfo);
+        var session = ComposeSession(y);
+        var frame = PushFrame(session, (y, new VBLongValue(0)));
+
+        var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
     public void OnGoSub_BranchesAndPushesReturn_ThenReturnGoesBackAfterTheOnGoSub()
     {
         var list = Lower("On n GoSub A", "x = x + 1", "Exit Sub", "A:", "x = 100", "Return");
