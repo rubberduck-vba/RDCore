@@ -510,5 +510,23 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_NotFound", resourceCulture);
             }
         }
+         
+        /// <summary>
+        ///   Looks up a localized string similar to NOTHING TO REPORT ({0} PROVIDER(S)).
+        /// </summary>
+        public static string Repl_Analyze_NoFindings {
+            get {
+                return ResourceManager.GetString("Repl_Analyze_NoFindings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} DIAGNOSTIC(S).
+        /// </summary>
+        public static string Repl_Analyze_Count {
+            get {
+                return ResourceManager.GetString("Repl_Analyze_Count", resourceCulture);
+            }
+        }
     }
 }

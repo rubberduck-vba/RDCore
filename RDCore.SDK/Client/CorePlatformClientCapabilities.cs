@@ -84,6 +84,12 @@ public class LanguageServerCapabilities
     /// <c>rdcore/session/execute</c>, and reports what it printed.
     /// </summary>
     public SessionExecute SessionExecute { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server analyzes a module the client supplies, over
+    /// <c>rdcore/session/analyze</c>, and reports the diagnostics its providers found.
+    /// </summary>
+    public SessionAnalyze SessionAnalyze { get; set; } = new();
 }
 
 public static class RDCorePlatformProtocol
@@ -111,6 +117,11 @@ public static class RDCorePlatformProtocol
     public const string HostExecute = "rdcore/host/execute";
 
     /// <summary>
+    /// Asks the language server to analyze a module the client supplies.
+    /// </summary>
+    public const string SessionAnalyze = "rdcore/session/analyze";
+
+    /// <summary>
     /// Requests an AST from the parser for a full document.
     /// </summary>
     public const string ParseFullDocument = "rdcore/parser/document";
@@ -132,6 +143,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(DiagnoseDocument))]
 [JsonDerivedType(typeof(SessionStatus))]
 [JsonDerivedType(typeof(SessionExecute))]
+[JsonDerivedType(typeof(SessionAnalyze))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -164,6 +176,12 @@ public record class SessionStatus(bool IsSupported = false) : CorePlatformClient
 /// language server and the component that owns the runtime session.
 /// </summary>
 public record class SessionExecute(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component analyzes a supplied module and reports diagnostics —
+/// <c>rdcore/session/analyze</c>, the editor-less counterpart to LSP's own diagnostics pull.
+/// </summary>
+public record class SessionAnalyze(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c> — it is a

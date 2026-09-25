@@ -287,5 +287,10 @@
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
     <value>?ERREUR: PROCÉDURE NON DÉFINIE</value>
+  </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
+    <value>RIEN À SIGNALER ({0} FOURNISSEUR(S))</value>
+  </data>
+  <data name="Repl_Analyze_Count" xml:space="preserve">
+    <value>{0} DIAGNOSTIC(S)</value>
   </data>
 </root>

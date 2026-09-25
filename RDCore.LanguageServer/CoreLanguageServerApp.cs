@@ -105,6 +105,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<FoldingRangeHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
+        builder.WithHandler<SessionAnalyzeHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)

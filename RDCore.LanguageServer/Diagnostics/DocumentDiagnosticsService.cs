@@ -16,6 +16,19 @@ namespace RDCore.LanguageServer.Diagnostics;
 internal interface IDocumentDiagnosticsService
 {
     Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token);
+
+    /// <summary>
+    /// Analyzes source that is not a workspace document, through the same providers.
+    /// </summary>
+    /// <remarks>
+    /// There is no document to version, so there is no staleness gate and no result id: the caller
+    /// supplied the source, so the answer cannot have raced an edit to it.
+    /// </remarks>
+    /// <param name="documentUri">The URI the analysis is addressed under.</param>
+    /// <param name="source">The source to analyze.</param>
+    /// <param name="token">A token that cancels the fan-out.</param>
+    /// <returns>The diagnostics, and how many providers answered.</returns>
+    Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token);
 }
 
 /// <summary>
@@ -38,6 +51,21 @@ internal sealed class DocumentDiagnosticsService(
     IPlatformOrchestrationService orchestration,
     ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
 {
+    public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token)
+    {
+        var providers = DiagnosticsProviders();
+        if (providers.Length == 0)
+        {
+            return ([], 0);
+        }
+
+        var parseResult = await parsing.ParseFragmentAsync(documentUri, source, token);
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult));
+        var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));
+
+        return (Aggregate(reports), providers.Length);
+    }
+
     public async Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token)
     {
         var document = Resolve(documentUri);
@@ -49,11 +77,7 @@ internal sealed class DocumentDiagnosticsService(
                 : DocumentDiagnosticsResult.NotChanged(version);
         }
 
-        // registered capabilities decide who provides diagnostics; today that is only RDCore.Diagnostics.
-        var providers = orchestration.Extensions
-            .Where(extension => extension.ExtensionInfo?.Capabilities
-                .Any(capability => capability.Name == nameof(DiagnoseDocument) && capability.IsSupported) == true)
-            .ToArray();
+        var providers = DiagnosticsProviders();
         if (providers.Length == 0)
         {
             return DocumentDiagnosticsResult.Fresh(version, []);
@@ -73,14 +97,19 @@ internal sealed class DocumentDiagnosticsService(
             return DocumentDiagnosticsResult.Fresh(currentVersion, []);
         }
 
-        var aggregated = reports
-            .SelectMany(report => report)
-            .GroupBy(diagnostic => (diagnostic.Range, diagnostic.Code, diagnostic.Source, diagnostic.Message))
-            .Select(group => group.First())
-            .ToArray();
-
-        return DocumentDiagnosticsResult.Fresh(version, aggregated);
+        return DocumentDiagnosticsResult.Fresh(version, Aggregate(reports));
     }
+
+    // registered capabilities decide who provides diagnostics; today that is only RDCore.Diagnostics.
+    private IRDCoreClientApp[] DiagnosticsProviders() => [.. orchestration.Extensions
+        .Where(extension => extension.ExtensionInfo?.Capabilities
+            .Any(capability => capability.Name == nameof(DiagnoseDocument) && capability.IsSupported) == true)];
+
+    // the same finding from two providers is one finding.
+    private static IReadOnlyList<Diagnostic> Aggregate(IEnumerable<IReadOnlyList<Diagnostic>> reports) => [.. reports
+        .SelectMany(report => report)
+        .GroupBy(diagnostic => (diagnostic.Range, diagnostic.Code, diagnostic.Source, diagnostic.Message))
+        .Select(group => group.First())];
 
     private async Task<IReadOnlyList<Diagnostic>> AnalyzeAsync(
         IRDCoreClientApp provider, Uri documentUri, string payloadJson, CancellationToken token)

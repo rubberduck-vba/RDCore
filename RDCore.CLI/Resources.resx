@@ -289,5 +289,10 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
     <value>?UNDEFINED PROCEDURE ERROR</value>
+  </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
+    <value>NOTHING TO REPORT ({0} PROVIDER(S))</value>
+  </data>
+  <data name="Repl_Analyze_Count" xml:space="preserve">
+    <value>{0} DIAGNOSTIC(S)</value>
   </data>
 </root>

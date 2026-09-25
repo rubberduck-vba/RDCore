@@ -74,6 +74,14 @@ public interface IReplPlatformClient
     /// break at the keyboard turns into.
     /// </param>
     Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to analyze a module and report what its diagnostics providers found.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
 }
 
 /// <summary>
