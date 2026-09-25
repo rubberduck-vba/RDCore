@@ -5,11 +5,13 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
@@ -77,15 +79,12 @@ public record class VBObjectLetCoercionRuntimeSemantics(
         }
 
         // SymbolBuilder.BuildParameters synthesizes an implicit Me at slot 0 of every class-instance
-        // member (rdcore-me-implicit-parameter-design) - so a "0 declared parameters" default member
-        // still has Parameters.Length == 1 (Me alone), the only arity Invoke below can actually supply
-        // (arguments = [Me], no explicit args).
-        //
-        // TODO a default member declaring EXPLICIT parameters that are all Optional/ParamArray is still
-        // "compatible with an argument list containing 0 parameters" per MS-VBAL, but
-        // IProcedureInvoker.Invoke requires exact arity today (no default-argument filling) - only a
-        // member with no explicit parameters at all is actually callable here yet.
-        if (RuntimeProcedureInvoker.GetParameters(defaultMember).Length > 1)
+        // member (rdcore-me-implicit-parameter-design); anything beyond that is the member's own
+        // declared parameter list. MS-VBAL 5.5.1.2.13 only needs that declared list "compatible with an
+        // argument list containing 0 parameters" - every declared parameter is Optional or a ParamArray,
+        // not that there are none at all.
+        var parameters = RuntimeProcedureInvoker.GetParameters(defaultMember);
+        if (parameters.Length == 0 || parameters.Skip(1).Any(parameter => parameter is not ParamArrayParameterSymbol && !parameter.IsOptional))
         {
             return LetCoercionResult.Error(OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(expression, frame));
         }
@@ -96,7 +95,22 @@ public record class VBObjectLetCoercionRuntimeSemantics(
                 Exceptions.VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable));
         }
 
-        var invocation = invoker.Invoke(defaultMember, resolver, [value.RuntimeValue]);
+        // IProcedureInvoker.Invoke itself has no default-argument filling - the call site is expected to
+        // supply a full, parameters.Length-sized array (RuntimeExpressionEvaluator.InvokeProcedure's own
+        // MapArguments already does exactly this before calling Invoke) - so every omitted argument
+        // beyond Me is filled in here: a ParamArray gets a fresh zero-element array (MS-VBAL §5.3.1.11,
+        // same shape RuntimeExpressionEvaluator.CollectParamArrayArguments builds for zero elements), an
+        // Optional gets its own declared default, or its type's default when it declared none.
+        var arguments = new IRuntimeValue[parameters.Length];
+        arguments[0] = value.RuntimeValue;
+        for (var i = 1; i < parameters.Length; i++)
+        {
+            arguments[i] = parameters[i] is ParamArrayParameterSymbol
+                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([])))
+                : (parameters[i].DefaultValue ?? parameters[i].ResolvedType.DefaultValue).RuntimeValue;
+        }
+
+        var invocation = invoker.Invoke(defaultMember, resolver, arguments);
         return invocation.IsSuccess
             ? LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, frame with { SourceValue = invocation.Result! })
             : LetCoercionResult.Error(invocation.ErrorInfo!);

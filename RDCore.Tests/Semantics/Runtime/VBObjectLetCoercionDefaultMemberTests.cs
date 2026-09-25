@@ -148,6 +148,58 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
     }
 
     [TestMethod]
+    public void AClassWithADefaultMemberDeclaringAnOptionalParameter_UsesItsOwnDefaultValue()
+        // MS-VBAL 5.5.1.2.13: the default member only needs to be "compatible with an argument list
+        // containing 0 parameters" - an Optional parameter beyond Me still qualifies, and Invoke has no
+        // default-argument filling of its own, so GetObjectSimpleDataValue supplies it.
+    {
+        var getStub = new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Instance, "Value", R, R, AccessModifier.Public);
+        var me = new VBParameterSymbol(Root, getStub.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo);
+        var n = new VBParameterSymbol(Root, getStub.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: new VBLongValue(42));
+        var defaultMember = (VBTypeMemberSymbol)(getStub with { ResolvedType = VBLongType.TypeInfo, Parameters = [me, n] })
+            .With(SymbolProperties.UserMemId, WellKnownDispIds.Value);
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { Members = [defaultMember] };
+
+        var bodies = new Dictionary<SemanticId, InstructionList> { [defaultMember.SemanticId] = Lower("Value = n") };
+        var (letCoercion, session) = Compose(bodies, widget, defaultMember);
+
+        var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), widget);
+        var source = new VBObjectValue(instance.ObjectId);
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBLongType.TypeInfo));
+
+        var result = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, ThrowawayExpression, frame);
+
+        Assert.IsTrue(result.IsSuccess, $"unexpected error: {(result.ErrorInfo is null ? "none" : ((VBRuntimeErrorId)result.ErrorInfo.ErrorId).ToString())}");
+        Assert.AreEqual(42, ((VBLongValue)result.Result!).Value);
+    }
+
+    [TestMethod]
+    public void AClassWithADefaultMemberDeclaringARequiredParameter_ReportsObjectDoesntSupportThisPropertyOrMethod()
+        // a required (non-Optional, non-ParamArray) parameter beyond Me is NOT "compatible with an
+        // argument list containing 0 parameters" - MS-VBAL 5.5.1.2.13's own simple-data-value definition
+        // excludes it, same as having no default member at all.
+    {
+        var getStub = new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Instance, "Value", R, R, AccessModifier.Public);
+        var me = new VBParameterSymbol(Root, getStub.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo);
+        var n = new VBParameterSymbol(Root, getStub.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
+        var defaultMember = (VBTypeMemberSymbol)(getStub with { ResolvedType = VBLongType.TypeInfo, Parameters = [me, n] })
+            .With(SymbolProperties.UserMemId, WellKnownDispIds.Value);
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { Members = [defaultMember] };
+
+        var bodies = new Dictionary<SemanticId, InstructionList>();
+        var (letCoercion, session) = Compose(bodies, widget, defaultMember);
+
+        var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), widget);
+        var source = new VBObjectValue(instance.ObjectId);
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBLongType.TypeInfo));
+
+        var result = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, ThrowawayExpression, frame);
+
+        Assert.IsNotNull(result.ErrorInfo);
+        Assert.AreEqual(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, (VBRuntimeErrorId)result.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
     public void AClassWithNoDefaultMember_ReportsObjectDoesntSupportThisPropertyOrMethod()
     {
         var widget = new VBClassModuleSymbol(Root, Root, "Widget");
