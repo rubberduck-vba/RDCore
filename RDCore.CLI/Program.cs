@@ -32,6 +32,8 @@ using System.Runtime.CompilerServices;
 
 // platform capabilities provided by rdc.exe in environment-host mode:
 [assembly: ProvidesCorePlatformClientCapability<DefineSymbols>]
+// the environment host owns the runtime session, so it answers for its state:
+[assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 // native command-mode verbs provided by rdc.exe:
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
@@ -151,6 +153,17 @@ internal class RDCoreConsoleClientApp(
     : RDCoreClientApp(options, connectionFactory, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
+
+    // what rdc.exe asks the language server to serve beyond LSP. The language server records these
+    // and refuses a request family the client never advertised, so the negotiation is real in both
+    // directions: PlatformInfo tells us back what it actually provides.
+    protected override CorePlatformClientCapabilities GetExpectedCapabilities() => new()
+    {
+        LanguageServer = new LanguageServerCapabilities
+        {
+            SessionStatus = new SessionStatus(true),
+        },
+    };
 
     protected override void ConfigureServices(IServiceCollection services)
     {
@@ -291,7 +304,9 @@ internal class RDCoreConsoleEnvironmentHostApp(
     public override CoreServerComponent PlatformComponent => CoreServerComponent.EnvironmentHost;
 
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
-        => builder.WithHandler<DefineSymbolsHandler>();
+        => builder
+            .WithHandler<DefineSymbolsHandler>()
+            .WithHandler<HostSessionStatusHandler>();
 
     // bridge the outer-container singleton into the language-server handler container so a handler
     // resolves the same session provider the app composes on initialize.

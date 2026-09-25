@@ -275,6 +275,10 @@ public abstract class RDCoreServerApp(
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
             services.AddSingleton(new PlatformComponentContext(PlatformComponent));
 
+            // the other half of the platform handshake: what the connected client expects of us.
+            // A handler serving an optional, client-driven request family consults it.
+            services.AddSingleton<IPlatformClientCapabilitiesService, PlatformClientCapabilitiesService>();
+
             // OmniSharp's own AddOptions() hands handlers an unconfigured SdkServerOptions; bridge the
             // configured instance so a closed-type registration wins over the open generic.
             services.AddSingleton<IOptions<SdkServerOptions>>(Options.Create(options.Value.Server));
