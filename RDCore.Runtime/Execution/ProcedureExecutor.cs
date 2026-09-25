@@ -392,6 +392,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return RuntimeExecutionOutcome.InternalError;
         }
 
+        // a Variant selector's own TypeInfo mirrors its wrapped value's, but stays a VBVariantValue
+        // instance - unwrap it here (recursively) so a Null (or any other) selector held in a Variant
+        // is recognized the same way a directly-typed one would be.
+        while (selector is VBVariantValue { TypedValue: var wrapped })
+        {
+            selector = wrapped;
+        }
+
         if (selector is VBNullValue)
         {
             // MS-VBAL §5.4.2.10: "If select-expression is the data value Null, only the case-else-clause

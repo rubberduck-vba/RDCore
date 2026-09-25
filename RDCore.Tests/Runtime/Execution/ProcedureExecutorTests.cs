@@ -279,22 +279,19 @@ public sealed class ProcedureExecutorTests
     }
 
     [TestMethod]
-    [Ignore("Two separate, pre-existing gaps block this: the parser doesn't implement the Null literal " +
-        "keyword yet (so 'Select Case Null' can't come from real source), and CallStackFrame.Push silently " +
-        "drops a directly-pushed VBNullValue.Null (SymbolAddressTable.TryAllocate rejects its Size => 0). " +
-        "The ExecuteSelect/ExecuteCaseHeader short-circuit for a Null selector (MS-VBAL 5.4.2.10) is " +
-        "implemented and believed correct, just not exercisable by a test yet.")]
     public void SelectCase_ANullSelector_SkipsEveryClause_GoesStraightToCaseElse()
         // MS-VBAL 5.4.2.10: "If select-expression is the data value Null, only the case-else-clause is
         // executed" - a real "=" comparison against Null doesn't produce a plain Boolean result, so this
         // also proves the range clause is never actually evaluated for a Null selector, not just skipped
-        // after evaluating to False.
+        // after evaluating to False. Null can only ever reach a selector through a Variant (real MS-VBA
+        // never lets a Long hold Null), so n is Variant-typed, bound to a Variant wrapping Null -
+        // ExecuteCaseHeader's own Null check has to unwrap that box to recognize it.
     {
         var list = Lower("Select Case n", "Case 5", "x = 1", "Case Else", "x = 2", "End Select");
-        var n = Local("n", VBLongType.TypeInfo);
+        var n = Local("n", VBVariantType.TypeInfo);
         var x = Local("x", VBLongType.TypeInfo);
         var session = ComposeSession(n, x);
-        var frame = PushFrame(session, (n, VBNullValue.Null), (x, new VBLongValue(0)));
+        var frame = PushFrame(session, (n, new VBVariantValue(VBNullValue.Null)), (x, new VBLongValue(0)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
