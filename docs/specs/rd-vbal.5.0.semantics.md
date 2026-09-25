@@ -154,6 +154,18 @@ skips its own "already the right type" short-circuit for a `Variant` operand;
 `RuntimeExpressionEvaluator.EvaluateIndex`, `ProcedureExecutor.ExecuteForEachOpener`, and
 `BinaryConcatOperatorRuntimeSemantics.IsByteArray` each unwrap before matching a wrapped array.
 
+**`VarType` and COM interop shape (MS-VBAL §6.1.1.16).** A `Variant`'s own COM `VARENUM`-compatible
+tag — `VBVarType`, the same numeric values `VarType()` reports and OLE Automation marshals a
+`VARIANT` against — is computed from the wrapped value's declared type by `VBVarTypeExtensions.VarType`
+and carried on its `VBRuntimeVariantValue` box, so it round-trips through storage alongside the value
+itself. An array's own tag is `VBArray` combined with its element type's own tag, recursively. A
+`VBClassType` with a known class module defers to `VBClassModuleSymbol.AutomationKind` —
+`Dispatch` (`VT_DISPATCH`, true of every RD-VBA class module today) or `Unknown` (`VT_DISPATCH`'s
+`vbDataObject` sibling, `IUnknown`-only — groundwork for a future external/COM reference kind, not
+constructed anywhere yet); a generic `VBObjectType` reference — a live object's concrete class is only
+knowable by looking up the actual instance, which this mapping has no access to — defaults to
+`Dispatch`, the only sound default absent that lookup.
+
 ### 5.0.2.3 Statement Evaluation
 > [!NOTE]
 > The specification of this section is currently a work in progress.
