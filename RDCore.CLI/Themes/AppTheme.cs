@@ -1,3 +1,4 @@
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 using Spectre.Console;
 
@@ -58,11 +59,11 @@ public sealed class AppTheme(ThemeDocument document)
         return Resolve(raw);
     }
 
-    /// <summary>The shell background, as the nearest <see cref="ConsoleColor"/> (for the console frame).</summary>
-    public ConsoleColor ShellBackground => NearestConsoleColor(Resolve(document.Shell.Background));
+    /// <summary>The shell background, in 24-bit colour — what the console shell frame is painted with.</summary>
+    public ConsoleRgbColor ShellBackground => ToRgb(Resolve(document.Shell.Background));
 
-    /// <summary>The shell foreground, as the nearest <see cref="ConsoleColor"/> (for the console frame).</summary>
-    public ConsoleColor ShellForeground => NearestConsoleColor(Resolve(document.Shell.Foreground));
+    /// <summary>The shell foreground, in 24-bit colour — what the console shell frame is painted with.</summary>
+    public ConsoleRgbColor ShellForeground => ToRgb(Resolve(document.Shell.Foreground));
 
     /// <summary>The resolved style token for the splash logo art.</summary>
     public string SplashLogo => Resolve(document.Splash.Logo);
@@ -70,11 +71,11 @@ public sealed class AppTheme(ThemeDocument document)
     /// <summary>The resolved style token for the splash title.</summary>
     public string SplashTitle => Resolve(document.Splash.Title);
 
-    /// <summary>The splash logo colour as the nearest <see cref="ConsoleColor"/> (the art is printed raw, unwrapped).</summary>
-    public ConsoleColor SplashLogoColor => NearestConsoleColor(SplashLogo);
+    /// <summary>The splash logo colour, in 24-bit colour (the art is printed raw, unwrapped).</summary>
+    public ConsoleRgbColor SplashLogoColor => ToRgb(SplashLogo);
 
-    /// <summary>The splash title colour as the nearest <see cref="ConsoleColor"/>.</summary>
-    public ConsoleColor SplashTitleColor => NearestConsoleColor(SplashTitle);
+    /// <summary>The splash title colour, in 24-bit colour.</summary>
+    public ConsoleRgbColor SplashTitleColor => ToRgb(SplashTitle);
 
     /// <summary>The resolved syntax-highlight tokens for program-mode listings.</summary>
     public ThemeSyntaxStyles Syntax => new(
@@ -108,42 +109,18 @@ public sealed class AppTheme(ThemeDocument document)
         }
     }
 
-    private static readonly (ConsoleColor Color, byte R, byte G, byte B)[] _consolePalette =
-    [
-        (ConsoleColor.Black, 0, 0, 0), (ConsoleColor.DarkBlue, 0, 0, 128), (ConsoleColor.DarkGreen, 0, 128, 0),
-        (ConsoleColor.DarkCyan, 0, 128, 128), (ConsoleColor.DarkRed, 128, 0, 0), (ConsoleColor.DarkMagenta, 128, 0, 128),
-        (ConsoleColor.DarkYellow, 128, 128, 0), (ConsoleColor.Gray, 192, 192, 192), (ConsoleColor.DarkGray, 128, 128, 128),
-        (ConsoleColor.Blue, 0, 0, 255), (ConsoleColor.Green, 0, 255, 0), (ConsoleColor.Cyan, 0, 255, 255),
-        (ConsoleColor.Red, 255, 0, 0), (ConsoleColor.Magenta, 255, 0, 255), (ConsoleColor.Yellow, 255, 255, 0),
-        (ConsoleColor.White, 255, 255, 255),
-    ];
-
-    private static ConsoleColor NearestConsoleColor(string token)
+    // a resolved token is a Spectre style; its foreground carries the 24-bit value the frame needs,
+    // whether the theme wrote it as #rrggbb or as a named colour.
+    private static ConsoleRgbColor ToRgb(string token)
     {
-        Color rgb;
         try
         {
-            rgb = Style.Parse(token).Foreground;
+            var color = Style.Parse(token).Foreground;
+            return new ConsoleRgbColor(color.R, color.G, color.B);
         }
         catch (Exception)
         {
-            return ConsoleColor.Black;
+            return ConsoleRgbColor.Black;
         }
-
-        var best = ConsoleColor.Black;
-        var bestDistance = int.MaxValue;
-        foreach (var (color, r, g, b) in _consolePalette)
-        {
-            var dr = rgb.R - r;
-            var dg = rgb.G - g;
-            var db = rgb.B - b;
-            var distance = (dr * dr) + (dg * dg) + (db * db);
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                best = color;
-            }
-        }
-        return best;
     }
 }

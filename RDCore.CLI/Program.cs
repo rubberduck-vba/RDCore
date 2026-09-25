@@ -100,6 +100,7 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
+            .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
             .AddSingleton<ShowSplashCommand>();
     }
 
@@ -120,22 +121,25 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
     {
         var themes = provider.GetRequiredService<IAppThemeService>();
         await themes.InitializeAsync(CancellationToken.None);
-        ApplyShellFrame(themes.Theme);
+
+        // the C64-style deep-blue shell frame, in the theme's own 24-bit colours. Restored on the way
+        // out — including on Ctrl+C, which never reaches the host's own teardown.
+        var frame = provider.GetRequiredService<IConsoleShellFrame>();
+        frame.Apply(themes.Theme.ShellBackground, themes.Theme.ShellForeground);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => frame.Restore();
 
         provider.GetRequiredService<ShowSplashCommand>().Execute(new() { Show = true });
     }
 
-    // the C64-style deep-blue shell frame — nearest ConsoleColor of the theme's 24-bit shell colours.
-    private static void ApplyShellFrame(AppTheme theme)
+    protected override async Task AfterAppRunAsync(IServiceProvider provider)
     {
         try
         {
-            System.Console.BackgroundColor = theme.ShellBackground;
-            System.Console.ForegroundColor = theme.ShellForeground;
-            System.Console.Clear();
+            await base.AfterAppRunAsync(provider);
         }
-        catch (System.IO.IOException)
+        finally
         {
+            provider.GetRequiredService<IConsoleShellFrame>().Restore();
         }
     }
 }
