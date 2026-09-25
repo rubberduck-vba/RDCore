@@ -223,6 +223,31 @@ public sealed class WorkspaceSymbolResolverTests
     }
 
     [TestMethod]
+    public void AMemberDeclaringVB_UserMemIdZero_IsTheClassDefaultMember()
+        // MS-VBAL 6.1.1's own VB_UserMemId convention: 0 denotes the default member.
+    {
+        var target = ClassModule("Widget", "Public Property Get Value() As Long\r\nAttribute Value.VB_UserMemId = 0\r\nEnd Property\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
+        var defaultMember = VBClassType.FromClassModule(module).DefaultMember;
+
+        Assert.IsNotNull(defaultMember);
+        Assert.AreEqual("Value", defaultMember.Name);
+    }
+
+    [TestMethod]
+    public void AClassModuleWithNoVB_UserMemIdMember_HasNoDefaultMember()
+    {
+        var target = ClassModule("Widget", "Public Property Get Value() As Long\r\nEnd Property\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsNull(VBClassType.FromClassModule(module).DefaultMember);
+    }
+
+    [TestMethod]
     public void ADefaultInstance_CarriesTheInterfacesItsClassImplements()
     {
         var iface = ClassModule("IShape", "Public Sub Draw()\r\nEnd Sub\r\n");

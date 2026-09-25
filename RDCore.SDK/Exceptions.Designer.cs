@@ -169,6 +169,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Source value is an object with no public default Property Get or Function callable with no arguments, so it has no simple data value that can be let-coerced to the destination declared type..
+        /// </summary>
+        public static string LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose {
+            get {
+                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The source object's class does not match, and is not implemented by, the destination's declared class..
         /// </summary>
         public static string SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose {

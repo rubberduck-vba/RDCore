@@ -38,10 +38,6 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> Creatable = new(nameof(Creatable));
     /// <summary>
-    /// The value of the <c>VB_UserMemId</c> attribute of a <see cref="VBTypeMemberSymbol"/>
-    /// </summary>
-    public static readonly SymbolProperty<int> MemberId = new(nameof(MemberId));
-    /// <summary>
     /// A small documentation string about this symbol.
     /// </summary>
     /// <remarks>

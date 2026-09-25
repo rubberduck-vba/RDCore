@@ -180,6 +180,9 @@
   <data name="LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
     <value>La valeur source est à l'extérieur de la plage de codes d'erreur standards (0 et 65535, inclusivement) représentable par le type de destination de cette coercion.</value>
   </data>
+  <data name="LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose" xml:space="preserve">
+    <value>La valeur source est un objet sans Property Get ou Function publique par défaut pouvant être appelée sans argument; elle n'a donc aucune valeur de donnée simple pouvant être forcée (let-coerced) au type cible.</value>
+  </data>
   <data name="SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
     <value>La classe de l'objet source ne correspond pas à la classe déclarée de la destination, et n'est pas implémentée par celle-ci.</value>
   </data>

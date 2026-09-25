@@ -48,9 +48,19 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
                 .Where(interfaceModule => visited.Add(interfaceModule.Uri.AbsoluteUri))
                 .Select(interfaceModule => FromClassModule(interfaceModule, visited)),
         ];
+        // MS-VBAL §5.5.1.2.13's own "simple data value" definition: a public default Property Get or
+        // public default function, denoted by VB_UserMemId = 0 (WellKnownDispIds.Value). TryGetProperty,
+        // not GetProperty: 0 is also GetProperty's own "unset" default for an int property, so a plain
+        // equality check would wrongly treat every member as the default one.
+        var defaultMember = classModule.Members
+            .OfType<VBReturningMemberSymbol>()
+            .FirstOrDefault(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
+                && member.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
+
         return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)])
         {
             Supertypes = supertypes,
+            DefaultMember = defaultMember,
         };
     }
 

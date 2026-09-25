@@ -109,6 +109,41 @@ public static class ModuleNodeExtensions
     }
 
     /// <summary>
+    /// The value of a member's own <c>Attribute &lt;member&gt;.VB_UserMemId</c> directive, or
+    /// <c>null</c> when the module declares none for that member. RD-VBA's own use of the value:
+    /// <c>WellKnownDispIds.Value</c> (<c>0</c>) denotes the class's default member,
+    /// <c>WellKnownDispIds.NewEnum</c> (<c>-4</c>) its enumeration member.
+    /// </summary>
+    /// <remarks>
+    /// Unlike a module-level attribute (<c>VB_Name</c>, <c>VB_Creatable</c>, ...), a member-qualified
+    /// attribute statement is written lexically inside the member's own body — the parser attaches it
+    /// as a child of that member's own <see cref="MemberDeclarationNode"/>, not the module's — so this
+    /// searches the named member's <c>Children</c>, not <see cref="ModuleNode.Children"/> directly.
+    /// </remarks>
+    public static int? GetMemberUserMemId(this ModuleNode module, string memberName)
+    {
+        foreach (var member in module.Children.OfType<MemberDeclarationNode>())
+        {
+            if (!string.Equals(member.Name, memberName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            foreach (var attribute in member.Children.OfType<AttributeDirectiveNode>())
+            {
+                if (attribute.Binding is not null
+                    && string.Equals(attribute.Binding, memberName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(attribute.Name, Tokens.VB_UserMemId, StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(attribute.Value.Trim(), out var value))
+                {
+                    return value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The interface names named by this module's own <c>Implements</c> directives
     /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written — unresolved, in source order. A
     /// project-qualified name (<c>Implements Project.IFoo</c>) yields just <c>IFoo</c>: RDCore only

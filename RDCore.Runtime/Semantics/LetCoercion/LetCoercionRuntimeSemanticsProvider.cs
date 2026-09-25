@@ -184,7 +184,15 @@ public class LetCoercionRuntimeSemanticsProvider(
             frame = frame with { SourceValue = wrapped };
         }
 
-        if (!TryGetStrategy(frame.DestinationTypeDesc.Target, out var strategy))
+        // MS-VBAL §5.5.1.2.13's "Any class -> Any type" and "Nothing -> Any type" rules don't key off
+        // the destination at all - like the Variant unwrap above, destination-based dispatch alone
+        // would only ever reach VBObjectLetCoercionRuntimeSemantics when the destination itself is an
+        // object type, never for the (far more common) object-to-Long/String/etc. case.
+        var strategyFound = frame.SourceValue is VBObjectValue
+            ? TryGetStrategy(VBObjectType.TypeInfo, out var strategy)
+            : TryGetStrategy(frame.DestinationTypeDesc.Target, out strategy);
+
+        if (!strategyFound)
         {
             // in-and-out: no need to push the coercion frame for this
             return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), [.. _stack.Frames]);

@@ -8,8 +8,8 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// <summary>
 /// Characterization matrix for Object let-coercion (MS-VBAL §5.5.1.2.13): an unset object reference
 /// (<c>Nothing</c>) is a distinct runtime error from a non-object source. The default-member
-/// resolution path (<c>GetObjectSimpleDataValue</c>) is a genuine, acknowledged-in-code unimplemented
-/// gap (it unconditionally returns <c>default</c>) and is deliberately not exercised here.
+/// resolution path (<c>GetObjectSimpleDataValue</c>) needs a real session/object instance/invoker
+/// round trip, so it's covered separately, in <see cref="VBObjectLetCoercionDefaultMemberTests"/>.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §5.5.1.2.13 Let-coercion to and from Object")]

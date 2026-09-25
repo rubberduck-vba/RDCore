@@ -113,11 +113,31 @@ public abstract record class Symbol
     /// Gets the value of the specified <c>SymbolProperty</c>.
     /// </summary>
     /// <param name="key">The <c>SymbolProperty</c> to get the value for.</param>
-    /// <returns><c>null</c> if the specified property is undefined for this symbol.</returns>
-    /// <remarks>
-    /// Use <c>SymbolProperties</c> static members to 
-    /// </remarks>
+    /// <returns>
+    /// <c>default(T)</c> if the specified property is undefined for this symbol — for a value type,
+    /// this is indistinguishable from an explicitly-set default value (e.g. <c>0</c>, <c>false</c>);
+    /// use <see cref="TryGetProperty{T}"/> when that distinction matters.
+    /// </returns>
     public T? GetProperty<T>(SymbolProperty<T> key) => Properties.TryGetValue(key, out var value) ? (T)value : default;
+    /// <summary>
+    /// Gets the value of the specified <c>SymbolProperty</c>, and whether it was actually set —
+    /// distinguishes "unset" from an explicitly-set value that happens to equal <c>default(T)</c>,
+    /// which <see cref="GetProperty{T}"/> alone cannot.
+    /// </summary>
+    /// <param name="key">The <c>SymbolProperty</c> to get the value for.</param>
+    /// <param name="value">The property's own value, if set; <c>default(T)</c> otherwise.</param>
+    /// <returns><c>true</c> if <paramref name="key"/> is set on this symbol.</returns>
+    public bool TryGetProperty<T>(SymbolProperty<T> key, out T value)
+    {
+        if (Properties.TryGetValue(key, out var found))
+        {
+            value = (T)found;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
     /// <summary>
     /// Creates a copy of this symbol having the specified <c>SymbolProperty</c> value.
     /// </summary>
