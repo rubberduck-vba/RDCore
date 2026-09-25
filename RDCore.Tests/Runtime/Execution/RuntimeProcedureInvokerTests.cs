@@ -436,8 +436,7 @@ public sealed class RuntimeProcedureInvokerTests
 
     [TestMethod]
     public void NamedArguments_MapToTheCorrectParameterRegardlessOfSourceOrder()
-        // MS-VBAL §5.3.1.11: a named argument maps by name, not by its own position in the call -
-        // b:=2, a:=1 must still bind a=1/b=2, not the reverse a naive positional read would produce.
+        // b:=2, a:=1 must still bind a=1/b=2, not the reverse a positional read would produce.
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var a = new VBParameterSymbol(Root, calleeStub.Uri, "a", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
@@ -482,10 +481,7 @@ public sealed class RuntimeProcedureInvokerTests
 
     [TestMethod]
     public void OptionalParameter_WithNoSpecifiedDefault_FallsBackToItsDeclaredTypesOwnDefault()
-        // MS-VBAL §5.3.1.11's own third bullet: "If the parameter has no specified default value, the
-        // new local variable is initialized to the default value for its declared type" - y's own
-        // DefaultValue is null here (Optional with no "= ..." clause in source), so it must fall back
-        // to VBLongType's own zero, not error or leave it uninitialized.
+        // y.DefaultValue is null (Optional, no "= ..." clause) - must fall back to VBLongType's zero.
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
@@ -528,9 +524,7 @@ public sealed class RuntimeProcedureInvokerTests
 
     [TestMethod]
     public void MissingRequiredArgument_ReportsArgumentNotOptional()
-        // x has no argument mapped to it at all - not the same shape as Foo(, 2)'s own explicitly
-        // omitted value (a different, more specific error - see MissingArgumentNode's own handling in
-        // MapArguments), just genuinely too few positional arguments for a non-Optional parameter.
+        // Too few positional arguments, not an omitted-value comma - that's error 448, not 449.
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
