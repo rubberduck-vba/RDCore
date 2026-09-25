@@ -42,6 +42,22 @@ public sealed class VBVariantValueTests
     }
 
     [TestMethod]
+    public void Construction_ComputesItsOwnVarTypeTagFromTheWrappedValue()
+        // regression: the tag used to be hardcoded to Empty regardless of what was actually wrapped.
+        => Assert.AreEqual(VBVarType.VBLong, new VBVariantValue(new VBLongValue(5)).Value.ValueType);
+
+    [TestMethod]
+    public void CreateValue_PreservesTheVarTypeTag_ThroughTheStorageRoundTrip()
+    {
+        var stored = new VBVariantValue(new VBStringValue("x"));
+        var handle = new ValueBindingHandle(stored.RuntimeValue);
+
+        var recovered = (VBVariantValue)VBVariantType.TypeInfo.CreateValue(handle);
+
+        Assert.AreEqual(VBVarType.VBString, recovered.Value.ValueType);
+    }
+
+    [TestMethod]
     public void Construction_WrappingAnotherVariant_StillRoundTrips()
         // VBVariantValue's own ctor doc allows the wrapped value to itself be a Variant - the box/unbox
         // pair must not choke on that nesting.

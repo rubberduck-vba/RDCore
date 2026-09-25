@@ -53,4 +53,12 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// <c>Supertypes</c> array for free once this is resolved, with no other code to update.
     /// </remarks>
     public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces { get; init; } = [];
+
+    /// <summary>
+    /// Whether a live instance of this class is COM Automation-capable (<c>IDispatch</c>) or
+    /// <c>IUnknown</c>-only. Defaults to <see cref="VBAutomationKind.Dispatch"/> — true of every
+    /// RD-VBA class module today; <see cref="VBAutomationKind.Unknown"/> is groundwork for a future
+    /// external/COM reference kind, not constructed anywhere yet.
+    /// </summary>
+    public VBAutomationKind AutomationKind { get; init; } = VBAutomationKind.Dispatch;
 }

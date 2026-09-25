@@ -29,7 +29,7 @@ public record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValue,
     public VBVariantValue(VBTypedValue typedValue) : base(typedValue.TypeInfo)
     {
         TypedValue = typedValue;
-        Handle = new ValueBindingHandle(new VBRuntimeVariantValue(VBVariantValueType.Empty, typedValue));
+        Handle = new ValueBindingHandle(new VBRuntimeVariantValue(typedValue.TypeInfo.VarType(), typedValue));
     }
 
     /// <summary>
@@ -41,18 +41,14 @@ public record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValue,
         Handle = handle;
     }
 
-    public VBRuntimeVariantValue Value { get; init; } = new(VBVariantValueType.Empty, VBEmptyValue.Empty);
+    // computed, not independently settable: Handle is this value's own single source of truth (see the
+    // class remarks) - a separate, directly-settable Value property could silently drift out of sync
+    // with it, which is exactly the "poor handle handling" this whole type was rebuilt to eliminate.
+    public VBRuntimeVariantValue Value => (VBRuntimeVariantValue)RuntimeValue;
 
     public override int Size => sizeof(long); // the size of VBVariantInteropValue.ValuePtr... probably not what MS-VBA would report
 
-    public VBVariantValue WithValue(VBTypedValue value) => this with
-    {
-        TypedValue = value,
-        // ValueType stays Empty here - a real VT_* tag per value shape is future work (see
-        // VBVariantValueType's own remarks), nothing reads it yet.
-        Value = new VBRuntimeVariantValue(VBVariantValueType.Empty, value),
-        TypeInfo = VBVariantType.TypeInfo with { SubType = value.TypeInfo }
-    };
+    public VBVariantValue WithValue(VBTypedValue value) => new(value) { TypeInfo = VBVariantType.TypeInfo with { SubType = value.TypeInfo } };
 
     public bool Equals(IVBTypedValue<VBVariantValue, VBRuntimeVariantValue>? other) => Value == other?.Value;
 }

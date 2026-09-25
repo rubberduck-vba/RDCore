@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -79,7 +80,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
     private static IBindingHandle FreshBinding(VBTypedValue value) => value switch
     {
         VBArrayValue array => new ValueBindingHandle(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),
-        VBVariantValue variant => new ValueBindingHandle(new VBRuntimeVariantValue(variant.Value.ValueType, variant.TypedValue)),
+        VBVariantValue variant => new ValueBindingHandle(new VBRuntimeVariantValue(variant.TypedValue.TypeInfo.VarType(), variant.TypedValue)),
         _ => value.Handle switch
         {
             ValueBindingHandle => new ValueBindingHandle(value.Handle.Value),
