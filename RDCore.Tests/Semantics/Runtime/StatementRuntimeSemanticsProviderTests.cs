@@ -70,9 +70,11 @@ public sealed class StatementRuntimeSemanticsProviderTests
     private static StatementRuntimeSemanticsProvider Provider_()
     {
         var formatter = Substitute.For<IVerboseMessageBuilder>();
-        var letCoercion = new LetCoercionRuntimeSemanticsProvider([new VBNumericLetCoercionTypeRuntimeSemantics(formatter, new ProviderHandle())], formatter);
+        var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, new ProviderHandle());
+        var letCoercion = new LetCoercionRuntimeSemanticsProvider([numericCoercion], formatter);
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
-        return new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
+        var print = new PrintOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), numericCoercion);
+        return new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), print, formatter);
     }
 
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider

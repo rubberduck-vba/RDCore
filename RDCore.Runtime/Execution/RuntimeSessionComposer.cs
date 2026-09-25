@@ -26,10 +26,18 @@ public static class RuntimeSessionComposer
     /// is carried on the session in the order given (<strong>RD-VBAL §2.3.1.2</strong> priority
     /// order); the composer does not re-sort it.
     /// </summary>
+    /// <param name="environment">The host environment profile the session runs under.</param>
+    /// <param name="references">The workspace references, in declaration (priority) order.</param>
+    /// <param name="providers">The symbol providers to define into the session, in order.</param>
+    /// <param name="output">
+    /// Where the session's <c>Print</c> output goes. Omitted, it is discarded — correct for a session
+    /// nobody is watching, and for every caller that only defines and resolves symbols.
+    /// </param>
     public static IRuntimeSession Compose(
         IRuntimeEnvironmentProfile environment,
         IReadOnlyList<ReferencePriorityInfo> references,
-        IEnumerable<ISymbolProvider> providers)
+        IEnumerable<ISymbolProvider> providers,
+        IRuntimeOutput? output = null)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86);
         var callStack = new RuntimeCallStack();
@@ -44,6 +52,6 @@ public static class RuntimeSessionComposer
             }
         }
 
-        return new RuntimeSession(environment, memory, symbols, objects, callStack, references);
+        return new RuntimeSession(environment, memory, symbols, objects, callStack, references, output ?? NullRuntimeOutput.Instance);
     }
 }

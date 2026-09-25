@@ -37,15 +37,22 @@ public interface IStatementRuntimeSemanticsProvider
 /// <inheritdoc cref="IStatementRuntimeSemanticsProvider"/>
 public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanticsProvider
 {
+    /// <summary>
+    /// The name of the intrinsic object whose <c>Print</c> member writes to the session's output.
+    /// </summary>
+    private const string DebugObjectName = "Debug";
+
     private readonly RuntimeExpressionEvaluator _expressionEvaluator;
     private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment;
     private readonly ISetCoercionRuntimeSemantics _setCoercion;
+    private readonly PrintOutputEvaluator _printOutput;
 
-    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, IVerboseMessageBuilder formatterService)
+    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, IVerboseMessageBuilder formatterService)
     {
         _expressionEvaluator = expressionEvaluator;
         _letAssignment = new(letCoercionProvider, formatterService);
         _setCoercion = setCoercion;
+        _printOutput = printOutput;
     }
 
     /// <inheritdoc/>
@@ -54,6 +61,15 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         {
             AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment => ExecuteLetAssignment(session, context, assignment),
             AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
+            // MS-VBAL §5.6: an object-print expression reaches a statement through a CallStatementNode
+            // and prints rather than invoking anything nameable. Only the Debug object has a Print
+            // member to invoke here - every other owner is a host object this runtime has no model of.
+            CallStatementNode { Callee: ObjectPrintExpressionNode { Owner: SimpleNameExpressionNode owner } print }
+                when string.Equals(owner.IdentifierName, DebugObjectName, StringComparison.OrdinalIgnoreCase)
+                => _printOutput.Execute(session, context, print.Items),
+            // MS-VBAL §5.4.5.8: Print to a file channel. File I/O does not exist yet; the bare
+            // object-relative form needs an enclosing form or report, which does not either.
+            PrintStatementNode => RuntimeExecutionOutcome.InternalError,
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };

@@ -29,6 +29,13 @@ public interface IRuntimeSession
     ISessionMemoryAllocator Memory { get; }
 
     /// <summary>
+    /// Where this session's <c>Print</c> output goes (<strong>MS-VBAL §5.4.5.8</strong>) — the
+    /// <c>Immediate</c> window's analogue. <see cref="NullRuntimeOutput"/> when the session was
+    /// composed without one, so a <c>Debug.Print</c> is a no-op rather than an error.
+    /// </summary>
+    IRuntimeOutput Output { get; }
+
+    /// <summary>
     /// The session's symbol table.
     /// </summary>
     ISessionSymbols Symbols { get; }

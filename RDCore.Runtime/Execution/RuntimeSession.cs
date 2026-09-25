@@ -22,7 +22,8 @@ internal sealed class RuntimeSession(
     ISessionSymbols symbols,
     ISessionObjects objects,
     ICallStack callStack,
-    IReadOnlyList<ReferencePriorityInfo> references) : IRuntimeSession
+    IReadOnlyList<ReferencePriorityInfo> references,
+    IRuntimeOutput output) : IRuntimeSession
 {
     public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
@@ -30,6 +31,7 @@ internal sealed class RuntimeSession(
     public ISessionObjects Objects { get; init; } = objects;
     public ICallStack CallStack { get; init; } = callStack;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
+    public IRuntimeOutput Output { get; init; } = output;
 
     public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
         => Objects.RemoveRef(instance, handle) == 0
