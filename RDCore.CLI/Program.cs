@@ -9,6 +9,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
+using RDCore.CLI.App.Repl;
+using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
@@ -61,7 +63,17 @@ public class Program
                 return await commandHost.RunAsync(args);
             }
 
-            using var clientHost = new RDCoreConsoleClientHost();
+            // rdc.exe with no arguments: the interactive shell. It is an LSP client like any other,
+            // so it needs a workspace to attach to - it scaffolds a private, scratch one of its own.
+            ReplWorkspace? scratchWorkspace = null;
+            if (args.Length == 0)
+            {
+                var fileSystem = new FileSystem();
+                scratchWorkspace = await ReplWorkspace.CreateAsync(fileSystem, new ProjectFileWriter(fileSystem));
+                args = ["--workspace", scratchWorkspace.Root];
+            }
+
+            using var clientHost = new RDCoreConsoleClientHost(scratchWorkspace);
             return await clientHost.RunAsync(args);
         }
         catch (Exception exception)
@@ -72,22 +84,16 @@ public class Program
     }
 }
 
-internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsoleClientApp>()
+/// <summary>
+/// <c>rdc.exe</c> in client mode: brings the platform up against a workspace, then drops into the
+/// interactive RD-VBA shell (see <see cref="ReplShell"/>).
+/// </summary>
+/// <param name="scratchWorkspace">
+/// The private workspace the shell scaffolded for itself when it was given none, which this host then
+/// owns and deletes; <c>null</c> when the shell attached to a real workspace.
+/// </param>
+internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) : RDCoreLanguageClientHost<RDCoreConsoleClientApp>()
 {
-    protected async override Task BuildAndRunAsync(HostApplicationBuilder builder, string[] args)
-    {
-        if (args.Length == 0)
-        {
-            // TODO REPL / command/program mode
-            throw new NotSupportedException("This mode is not supported yet; workspace root uri argument is not optional.");
-        }
-        else
-        {
-            // we can only build and run the protocol client if we have a workspace.
-            await base.BuildAndRunAsync(builder, args);
-        }
-    }
-
     protected override IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs) 
         => [
             ("CLI:UnsafeDevMode", baseArgs.UnsafeDevMode?.ToString() ?? false.ToString()),
@@ -103,7 +109,20 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
-            .AddSingleton<ShowSplashCommand>();
+            .AddSingleton<ShowSplashCommand>()
+            // the interactive shell and everything it acts on:
+            .AddSingleton<ReplProgram>()
+            .AddSingleton<IReplConsole, ReplConsole>()
+            .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
+            .AddSingleton<IReplCommand, HelpReplCommand>()
+            .AddSingleton<IReplCommand, ListReplCommand>()
+            .AddSingleton<IReplCommand, NewReplCommand>()
+            .AddSingleton<IReplCommand, ExitReplCommand>()
+            .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
+            .AddSingleton<ReplShell>()
+            // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
+            // lifetime must not be listening for them too. EXIT is how a session ends.
+            .AddSingleton<IHostLifetime, ReplHostLifetime>();
     }
 
     // client mode renders its logs through the same Spectre-backed writer; framework lifetime
@@ -114,8 +133,12 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
         services.AddSingleton<ILoggerProvider, RDCoreConsoleLoggerProvider>();
         builder.AddFilter("Microsoft", LogLevel.Warning);
         // the CLI host's own bootstrap narration ("application resolved", "host started") is noise
-        // for an interactive shell; connection/platform logs (RDCore.SDK.Client.*) stay visible.
+        // for an interactive shell.
         builder.AddFilter("RDCore.CLI", LogLevel.Warning);
+        // so is the connection state machine narrating its own bring-up: an interactive shell shows a
+        // banner when the platform is up, not a running commentary on how it got there. A warning or
+        // an error still surfaces, and the language server keeps the full trace in its own log file.
+        builder.AddFilter("RDCore.SDK.Client", LogLevel.Warning);
         base.ConfigureExternalLogging(services, builder, configuration);
     }
 
@@ -133,16 +156,38 @@ internal class RDCoreConsoleClientHost() : RDCoreLanguageClientHost<RDCoreConsol
         provider.GetRequiredService<ShowSplashCommand>().Execute(new() { Show = true });
     }
 
+    /// <summary>
+    /// Runs the interactive shell for the lifetime of the connection.
+    /// </summary>
+    /// <remarks>
+    /// The base implementation parks until a Ctrl+C or a SIGTERM, which is what a client with no user
+    /// interface wants; the shell is that wait, with a prompt. It is not called: its own log line tells
+    /// the user to press Ctrl+C to exit, which is exactly what Ctrl+C no longer does here, and the
+    /// graceful LSP shutdown it performs afterwards is two lines this does itself.
+    /// </remarks>
     protected override async Task AfterAppRunAsync(IServiceProvider provider)
     {
+        var lifetime = provider.GetRequiredService<IHostApplicationLifetime>();
         try
         {
-            await base.AfterAppRunAsync(provider);
+            await provider.GetRequiredService<ReplShell>().RunAsync(lifetime.ApplicationStopping);
         }
         finally
         {
+            lifetime.StopApplication();
             provider.GetRequiredService<IConsoleShellFrame>().Restore();
+            // graceful LSP shutdown/exit of the language server before the host tears down.
+            await provider.GetRequiredService<RDCoreConsoleClientApp>().ShutdownAsync();
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            scratchWorkspace?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }
 

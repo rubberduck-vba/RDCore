@@ -63,6 +63,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     private readonly IChildConnectionFactory _connectionFactory;
     private readonly ILogger<RDCoreClientApp> _logger;
 
+    private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private ChildConnection? _connection;
     private IServiceProvider? _hostServices;
     private bool _disposed;
@@ -100,7 +102,15 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     public Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest
         => Connection.SendNotificationAsync(notification, token);
 
-    public Task WaitForReadyAsync(CancellationToken token) => Connection.WaitForReadyAsync(token);
+    /// <inheritdoc/>
+    public async Task WaitForReadyAsync(CancellationToken token)
+    {
+        // the connection object only exists once RunAsync has started the child. A caller can
+        // legitimately ask for readiness before that - a client request racing platform bring-up, say -
+        // and "not started yet" is a stage on the way to ready, not a reason to fault.
+        await _started.Task.WaitAsync(token);
+        await Connection.WaitForReadyAsync(token);
+    }
 
     public Task WaitForTerminalAsync() => Connection.WaitForTerminalAsync();
 
@@ -166,6 +176,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         var pipeDiscriminator = ExtensionInfo?.Title is { Length: > 0 } extensionTitle ? $".{extensionTitle}" : string.Empty;
 
         _connection = _connectionFactory.Create();
+        _started.TrySetResult();
         var startupToken = _hostServices?.GetService<IHostApplicationLifetime>()?.ApplicationStopping ?? CancellationToken.None;
 
         var server = _options.Value.Server;
@@ -213,6 +224,8 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         }
         _disposed = true;
 
+        // anyone parked in WaitForReadyAsync before the child was ever started never will be.
+        _started.TrySetCanceled();
         _connection?.Dispose();
 
         Dispose(true);

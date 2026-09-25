@@ -229,5 +229,55 @@
   </data>
   <data name="NewWorkspace_InvalidPath" xml:space="preserve">
     <value>Le chemin correspond à un fichier existant, pas à un dossier.</value>
+  </data>  <data name="Repl_Ready" xml:space="preserve">
+    <value>PRÊT.</value>
+  </data>
+  <data name="Repl_Memory" xml:space="preserve">
+    <value>{0} OCTETS RÉSERVÉS  {1} DISPONIBLES  {2} ALLOUÉS  {3} LIBRES</value>
+  </data>
+  <data name="Repl_NoSession" xml:space="preserve">
+    <value>AUCUNE SESSION D'EXÉCUTION</value>
+  </data>
+  <data name="Repl_SyntaxError" xml:space="preserve">
+    <value>?ERREUR DE SYNTAXE</value>
+  </data>
+  <data name="Repl_UndefinedLine" xml:space="preserve">
+    <value>?ERREUR: LIGNE NON DÉFINIE</value>
+  </data>
+  <data name="Repl_NotAvailable" xml:space="preserve">
+    <value>?ERREUR: NON DISPONIBLE</value>
+  </data>
+  <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
+    <value>Le serveur de langage ne fournit pas la capacité de plateforme « {0} ».</value>
+  </data>
+  <data name="Repl_Break" xml:space="preserve">
+    <value>INTERRUPTION</value>
+  </data>
+  <data name="Repl_HelpHint" xml:space="preserve">
+    <value>Tapez HELP pour la liste des commandes.</value>
+  </data>
+  <data name="Repl_Help_Summary" xml:space="preserve">
+    <value>Affiche la liste des commandes.</value>
+  </data>
+  <data name="Repl_List_Summary" xml:space="preserve">
+    <value>Affiche le programme, ou une plage de lignes (LIST 100-200).</value>
+  </data>
+  <data name="Repl_New_Summary" xml:space="preserve">
+    <value>Efface le programme.</value>
+  </data>
+  <data name="Repl_Exit_Summary" xml:space="preserve">
+    <value>Termine la session et quitte.</value>
+  </data>
+  <data name="Repl_Run_Summary" xml:space="preserve">
+    <value>Exécute le programme.</value>
+  </data>
+  <data name="Repl_Analyze_Summary" xml:space="preserve">
+    <value>Analyse le programme et rapporte les diagnostics.</value>
+  </data>
+  <data name="Repl_Peek_Summary" xml:space="preserve">
+    <value>Lit l'octet à une adresse mémoire de la session.</value>
+  </data>
+  <data name="Repl_Poke_Summary" xml:space="preserve">
+    <value>Écrit un octet à une adresse mémoire de la session.</value>
   </data>
 </root>

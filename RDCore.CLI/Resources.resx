@@ -231,5 +231,55 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="NewWorkspace_InvalidPath" xml:space="preserve">
     <value>The path points to an existing file, not a directory.</value>
+  </data>  <data name="Repl_Ready" xml:space="preserve">
+    <value>READY.</value>
+  </data>
+  <data name="Repl_Memory" xml:space="preserve">
+    <value>{0} BYTES RESERVED  {1} AVAILABLE  {2} ALLOCATED  {3} FREE</value>
+  </data>
+  <data name="Repl_NoSession" xml:space="preserve">
+    <value>NO RUNTIME SESSION</value>
+  </data>
+  <data name="Repl_SyntaxError" xml:space="preserve">
+    <value>?SYNTAX ERROR</value>
+  </data>
+  <data name="Repl_UndefinedLine" xml:space="preserve">
+    <value>?UNDEF'D LINE ERROR</value>
+  </data>
+  <data name="Repl_NotAvailable" xml:space="preserve">
+    <value>?NOT AVAILABLE ERROR</value>
+  </data>
+  <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
+    <value>The language server does not provide the '{0}' platform capability.</value>
+  </data>
+  <data name="Repl_Break" xml:space="preserve">
+    <value>BREAK</value>
+  </data>
+  <data name="Repl_HelpHint" xml:space="preserve">
+    <value>Type HELP for a list of commands.</value>
+  </data>
+  <data name="Repl_Help_Summary" xml:space="preserve">
+    <value>Lists the shell commands.</value>
+  </data>
+  <data name="Repl_List_Summary" xml:space="preserve">
+    <value>Lists the program, or a range of its lines (LIST 100-200).</value>
+  </data>
+  <data name="Repl_New_Summary" xml:space="preserve">
+    <value>Clears the program.</value>
+  </data>
+  <data name="Repl_Exit_Summary" xml:space="preserve">
+    <value>Ends the session and exits.</value>
+  </data>
+  <data name="Repl_Run_Summary" xml:space="preserve">
+    <value>Runs the program.</value>
+  </data>
+  <data name="Repl_Analyze_Summary" xml:space="preserve">
+    <value>Analyzes the program and reports diagnostics.</value>
+  </data>
+  <data name="Repl_Peek_Summary" xml:space="preserve">
+    <value>Reads the byte at a session memory address.</value>
+  </data>
+  <data name="Repl_Poke_Summary" xml:space="preserve">
+    <value>Writes a byte at a session memory address.</value>
   </data>
 </root>

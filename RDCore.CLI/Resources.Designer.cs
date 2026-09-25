@@ -330,5 +330,158 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("NewWorkspace_InvalidPath", resourceCulture);
             }
         }
+         
+        /// <summary>
+        ///   Looks up a localized string similar to READY..
+        /// </summary>
+        public static string Repl_Ready {
+            get {
+                return ResourceManager.GetString("Repl_Ready", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} BYTES RESERVED  {1} AVAILABLE  {2} ALLOCATED  {3} FREE.
+        /// </summary>
+        public static string Repl_Memory {
+            get {
+                return ResourceManager.GetString("Repl_Memory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to NO RUNTIME SESSION.
+        /// </summary>
+        public static string Repl_NoSession {
+            get {
+                return ResourceManager.GetString("Repl_NoSession", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?SYNTAX ERROR.
+        /// </summary>
+        public static string Repl_SyntaxError {
+            get {
+                return ResourceManager.GetString("Repl_SyntaxError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?UNDEF'D LINE ERROR.
+        /// </summary>
+        public static string Repl_UndefinedLine {
+            get {
+                return ResourceManager.GetString("Repl_UndefinedLine", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?NOT AVAILABLE ERROR.
+        /// </summary>
+        public static string Repl_NotAvailable {
+            get {
+                return ResourceManager.GetString("Repl_NotAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The language server does not provide the '{0}' platform capability..
+        /// </summary>
+        public static string Repl_NotAvailable_Verbose {
+            get {
+                return ResourceManager.GetString("Repl_NotAvailable_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to BREAK.
+        /// </summary>
+        public static string Repl_Break {
+            get {
+                return ResourceManager.GetString("Repl_Break", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type HELP for a list of commands..
+        /// </summary>
+        public static string Repl_HelpHint {
+            get {
+                return ResourceManager.GetString("Repl_HelpHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Lists the shell commands..
+        /// </summary>
+        public static string Repl_Help_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Help_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Lists the program, or a range of its lines (LIST 100-200)..
+        /// </summary>
+        public static string Repl_List_Summary {
+            get {
+                return ResourceManager.GetString("Repl_List_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clears the program..
+        /// </summary>
+        public static string Repl_New_Summary {
+            get {
+                return ResourceManager.GetString("Repl_New_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ends the session and exits..
+        /// </summary>
+        public static string Repl_Exit_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Exit_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Runs the program..
+        /// </summary>
+        public static string Repl_Run_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Run_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Analyzes the program and reports diagnostics..
+        /// </summary>
+        public static string Repl_Analyze_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Analyze_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reads the byte at a session memory address..
+        /// </summary>
+        public static string Repl_Peek_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Peek_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Writes a byte at a session memory address..
+        /// </summary>
+        public static string Repl_Poke_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Poke_Summary", resourceCulture);
+            }
+        }
     }
 }
