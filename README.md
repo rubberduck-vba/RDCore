@@ -14,12 +14,12 @@ This repository contains different projects **under active development** produci
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
-👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end, resolved across modules by a real MS-VBAL-ordered symbol resolver.
+👉 We're building a solid _language core_ foundation here. The [documentation site](https://rubberduck-vba.github.io/RDCore/index.html) remains the main reference, but the platform is now producing real deliverables: `rdc.exe` carries a workspace from load through parse to symbol definition, end to end, resolved across modules by a real MS-VBAL-ordered symbol resolver — and `rdc.exe` with no arguments is an interactive RD-VBA shell that runs what you type on it.
 
 <a id="projectstatus"/>
 
 ## 📊 Project Status
-RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols) but is not completed nor released yet.
+RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols → execution) but is not completed nor released yet.
 
 **Contributions**  
 
