@@ -76,6 +76,7 @@ internal sealed class CoreLanguageServerApp(
                             DefineSymbols = new DefineSymbols(true),
                             SessionStatus = new SessionStatus(true),
                             SessionExecute = new SessionExecute(true),
+                            SessionMemoryAccess = new SessionMemoryAccess(true),
                         }
                     }));
 
@@ -106,6 +107,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
+        builder.WithHandler<SessionPeekHandler>();
+        builder.WithHandler<SessionPokeHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)

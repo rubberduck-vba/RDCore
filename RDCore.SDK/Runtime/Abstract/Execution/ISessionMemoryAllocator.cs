@@ -25,6 +25,20 @@ public interface ISessionMemoryAllocator
     bool TryDeallocate(MemoryAddress address, out SessionMemoryBlock block);
 
     /// <summary>
+    /// Finds the allocated block that <paramref name="address"/> falls inside — the first byte of one,
+    /// or any byte within it.
+    /// </summary>
+    /// <remarks>
+    /// Allocation is the only thing that knows how big anything is, so it is the only thing that can
+    /// answer "what lives at this address". Direct byte-level access to a session's memory needs that
+    /// answer; nothing else does.
+    /// </remarks>
+    /// <param name="address">Any address, allocated or not.</param>
+    /// <param name="block">The block containing it.</param>
+    /// <returns><c>false</c> if nothing is allocated at that address.</returns>
+    bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block);
+
+    /// <summary>
     /// Current allocation and fragmentation statistics for this session's memory space.
     /// </summary>
     SessionMemoryInfo Info { get; }

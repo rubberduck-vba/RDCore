@@ -292,5 +292,10 @@
   </data>
   <data name="Repl_Analyze_Count" xml:space="preserve">
     <value>{0} DIAGNOSTIC(S)</value>
+  </data>  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
+    <value>?ERREUR: ADRESSE ILLÉGALE</value>
+  </data>
+  <data name="Repl_Memory_BadArguments" xml:space="preserve">
+    <value>?ERREUR: QUANTITÉ ILLÉGALE</value>
   </data>
 </root>

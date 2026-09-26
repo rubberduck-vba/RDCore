@@ -19,6 +19,7 @@ namespace RDCore.Runtime.Execution;
 internal sealed class RuntimeSession(
     IRuntimeEnvironmentProfile environment,
     ISessionMemoryAllocator memory,
+    ISessionStorage storage,
     ISessionSymbols symbols,
     ISessionObjects objects,
     ICallStack callStack,
@@ -27,6 +28,7 @@ internal sealed class RuntimeSession(
 {
     public IRuntimeEnvironmentProfile Environment { get; init; } = environment;
     public ISessionMemoryAllocator Memory { get; init; } = memory;
+    public ISessionStorage Storage { get; init; } = storage;
     public ISessionSymbols Symbols { get; init; } = symbols;
     public ISessionObjects Objects { get; init; } = objects;
     public ICallStack CallStack { get; init; } = callStack;

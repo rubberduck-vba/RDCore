@@ -28,4 +28,13 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token)
         => client.SendRequestAsync<AnalyzeSessionParams, AnalyzeSessionResult>(
             new AnalyzeSessionParams { Source = source, ModuleName = moduleName }, token);
+
+    /// <inheritdoc/>
+    public Task<PeekSessionResult> PeekAsync(int address, CancellationToken token)
+        => client.SendRequestAsync<PeekSessionParams, PeekSessionResult>(new PeekSessionParams { Address = address }, token);
+
+    /// <inheritdoc/>
+    public Task<PokeSessionResult> PokeAsync(int address, byte value, CancellationToken token)
+        => client.SendRequestAsync<PokeSessionParams, PokeSessionResult>(
+            new PokeSessionParams { Address = address, Value = value }, token);
 }

@@ -38,6 +38,7 @@ using System.Runtime.CompilerServices;
 // the environment host owns the runtime session, so it answers for its state:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
+[assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // native command-mode verbs provided by rdc.exe:
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
@@ -120,6 +121,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, ListReplCommand>()
             .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, AnalyzeReplCommand>()
+            .AddSingleton<IReplCommand, PeekReplCommand>()
+            .AddSingleton<IReplCommand, PokeReplCommand>()
             .AddSingleton<IReplCommand, NewReplCommand>()
             .AddSingleton<IReplCommand, ExitReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
@@ -213,6 +216,7 @@ internal class RDCoreConsoleClientApp(
             SessionStatus = new SessionStatus(true),
             SessionExecute = new SessionExecute(true),
             SessionAnalyze = new SessionAnalyze(true),
+            SessionMemoryAccess = new SessionMemoryAccess(true),
         },
     };
 
@@ -361,7 +365,9 @@ internal class RDCoreConsoleEnvironmentHostApp(
         => builder
             .WithHandler<DefineSymbolsHandler>()
             .WithHandler<HostSessionStatusHandler>()
-            .WithHandler<HostExecuteHandler>();
+            .WithHandler<HostExecuteHandler>()
+            .WithHandler<HostPeekHandler>()
+            .WithHandler<HostPokeHandler>();
 
     // bridge the outer-container singleton into the language-server handler container so a handler
     // resolves the same session provider the app composes on initialize.

@@ -65,6 +65,11 @@ public class EnvironmentHostCapabilities
     /// If supported, the environment host lowers and runs a parsed module in its runtime session.
     /// </summary>
     public SessionExecute SessionExecute { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the environment host reads and writes single bytes of the runtime session it owns.
+    /// </summary>
+    public SessionMemoryAccess SessionMemoryAccess { get; set; } = new();
 }
 
 /// <summary>
@@ -90,6 +95,12 @@ public class LanguageServerCapabilities
     /// <c>rdcore/session/analyze</c>, and reports the diagnostics its providers found.
     /// </summary>
     public SessionAnalyze SessionAnalyze { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server reads and writes single bytes of the runtime session's
+    /// memory, over <c>rdcore/session/memory/peek</c> and <c>.../poke</c>.
+    /// </summary>
+    public SessionMemoryAccess SessionMemoryAccess { get; set; } = new();
 }
 
 public static class RDCorePlatformProtocol
@@ -122,6 +133,26 @@ public static class RDCorePlatformProtocol
     public const string SessionAnalyze = "rdcore/session/analyze";
 
     /// <summary>
+    /// Reads one byte of the runtime session's memory.
+    /// </summary>
+    public const string SessionPeek = "rdcore/session/memory/peek";
+
+    /// <summary>
+    /// Writes one byte of the runtime session's memory.
+    /// </summary>
+    public const string SessionPoke = "rdcore/session/memory/poke";
+
+    /// <summary>
+    /// The language-server side of <see cref="SessionPeek"/>; never sent by a client.
+    /// </summary>
+    public const string HostPeek = "rdcore/host/memory/peek";
+
+    /// <summary>
+    /// The language-server side of <see cref="SessionPoke"/>; never sent by a client.
+    /// </summary>
+    public const string HostPoke = "rdcore/host/memory/poke";
+
+    /// <summary>
     /// Requests an AST from the parser for a full document.
     /// </summary>
     public const string ParseFullDocument = "rdcore/parser/document";
@@ -144,6 +175,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(SessionStatus))]
 [JsonDerivedType(typeof(SessionExecute))]
 [JsonDerivedType(typeof(SessionAnalyze))]
+[JsonDerivedType(typeof(SessionMemoryAccess))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -182,6 +214,12 @@ public record class SessionExecute(bool IsSupported = false) : CorePlatformClien
 /// <c>rdcore/session/analyze</c>, the editor-less counterpart to LSP's own diagnostics pull.
 /// </summary>
 public record class SessionAnalyze(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component reads and writes single bytes of a live runtime session's
+/// memory — <c>PEEK</c> and <c>POKE</c>, unchecked.
+/// </summary>
+public record class SessionMemoryAccess(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c> — it is a

@@ -528,5 +528,23 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Analyze_Count", resourceCulture);
             }
         }
+         
+        /// <summary>
+        ///   Looks up a localized string similar to ?ILLEGAL ADDRESS ERROR.
+        /// </summary>
+        public static string Repl_Memory_NotAllocated {
+            get {
+                return ResourceManager.GetString("Repl_Memory_NotAllocated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ?ILLEGAL QUANTITY ERROR.
+        /// </summary>
+        public static string Repl_Memory_BadArguments {
+            get {
+                return ResourceManager.GetString("Repl_Memory_BadArguments", resourceCulture);
+            }
+        }
     }
 }

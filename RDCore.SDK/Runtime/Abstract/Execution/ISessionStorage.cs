@@ -69,4 +69,33 @@ public interface ISessionStorage
     /// </summary>
     /// <returns><c>false</c> if <paramref name="address"/> is not a byte-backed allocation.</returns>
     bool TryWriteBytes(MemoryAddress address, ReadOnlySpan<byte> bytes);
+
+    /// <summary>
+    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation —
+    /// a raw byte buffer, or the byte image of a bound value.
+    /// </summary>
+    /// <remarks>
+    /// Direct, unchecked, byte-level access to the session's memory space: what a <c>PEEK</c> is.
+    /// Nothing about the address needs to be the start of anything, or to mean anything.
+    /// </remarks>
+    /// <param name="address">Any address in the session's memory space.</param>
+    /// <param name="value">The byte there.</param>
+    /// <returns><c>false</c> if nothing is allocated at that address, or what is has no byte image.</returns>
+    bool TryPeek(MemoryAddress address, out byte value);
+
+    /// <summary>
+    /// Writes a single byte at <paramref name="address"/>, wherever it falls inside an allocation.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart to <see cref="TryPeek"/>, and every bit as unchecked: writing one byte of a
+    /// bound value's image changes that value to whatever the new image says, valid or not. That is
+    /// what a <c>POKE</c> is for.
+    /// </remarks>
+    /// <param name="address">Any address in the session's memory space.</param>
+    /// <param name="value">The byte to write.</param>
+    /// <returns>
+    /// <c>false</c> if nothing is allocated at that address, or what is has no byte image, or the
+    /// mutated image is not a value of the same shape any more.
+    /// </returns>
+    bool TryPoke(MemoryAddress address, byte value);
 }

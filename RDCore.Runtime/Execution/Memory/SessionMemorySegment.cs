@@ -74,6 +74,28 @@ internal record class SessionMemorySegment : ISessionMemoryAllocator
         return block.Address;
     }
 
+    public bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block)
+    {
+        // an exact hit is the common case (a variable read by its own address); otherwise scan for the
+        // block the address falls inside, which is what makes a byte-level read of one possible.
+        if (_memoryMap.TryGetValue(address, out block))
+        {
+            return true;
+        }
+
+        foreach (var candidate in _memoryMap.Values)
+        {
+            if (candidate.Address.Value <= address.Value && address.Value < candidate.Address.Value + candidate.Size)
+            {
+                block = candidate;
+                return true;
+            }
+        }
+
+        block = default;
+        return false;
+    }
+
     public bool TryDeallocate(MemoryAddress address, out SessionMemoryBlock block)
     {
         if (_memoryMap.Remove(address, out block))

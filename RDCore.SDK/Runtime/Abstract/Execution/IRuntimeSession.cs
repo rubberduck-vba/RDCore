@@ -36,6 +36,16 @@ public interface IRuntimeSession
     IRuntimeOutput Output { get; }
 
     /// <summary>
+    /// The session's value storage — what is bound at each address its allocator handed out.
+    /// </summary>
+    /// <remarks>
+    /// Reachable from the session because direct, byte-level access to a session's memory is a
+    /// session-level operation: a debugger reading a variable's bytes, a <c>PEEK</c>, a <c>POKE</c>.
+    /// Ordinary name-based reads and writes go through <see cref="ISessionSymbols.Resolver"/> instead.
+    /// </remarks>
+    ISessionStorage Storage { get; }
+
+    /// <summary>
     /// The session's symbol table.
     /// </summary>
     ISessionSymbols Symbols { get; }

@@ -125,6 +125,17 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
         return result;
     }
 
+    public bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block)
+    {
+        if (TryFindSegment(address, out var segment))
+        {
+            return segment.TryFindBlock(address, out block);
+        }
+
+        block = default;
+        return false;
+    }
+
     public bool TryDeallocate(MemoryAddress address, out SessionMemoryBlock block)
     {
         // NOTE: deallocation does not check if the segment is left empty; this is intentional.

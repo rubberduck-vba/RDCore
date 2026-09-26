@@ -41,7 +41,8 @@ public static class RuntimeSessionComposer
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86);
         var callStack = new RuntimeCallStack();
-        var symbols = new SessionSymbols(new SessionStorage(memory), callStack);
+        var storage = new SessionStorage(memory);
+        var symbols = new SessionSymbols(storage, callStack);
         var objects = new SessionObjects();
 
         foreach (var provider in providers)
@@ -52,6 +53,6 @@ public static class RuntimeSessionComposer
             }
         }
 
-        return new RuntimeSession(environment, memory, symbols, objects, callStack, references, output ?? NullRuntimeOutput.Instance);
+        return new RuntimeSession(environment, memory, storage, symbols, objects, callStack, references, output ?? NullRuntimeOutput.Instance);
     }
 }

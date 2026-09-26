@@ -9,6 +9,7 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
 [assembly: ProvidesCorePlatformClientCapability<SessionAnalyze>]
+[assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 namespace RDCore.LanguageServer;
 
 public class Program

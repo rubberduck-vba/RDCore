@@ -82,6 +82,21 @@ public interface IReplPlatformClient
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
+
+    /// <summary>
+    /// Reads the byte at an address in the runtime session's memory.
+    /// </summary>
+    /// <param name="address">The address to read.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<PeekSessionResult> PeekAsync(int address, CancellationToken token);
+
+    /// <summary>
+    /// Writes a byte at an address in the runtime session's memory, unchecked.
+    /// </summary>
+    /// <param name="address">The address to write.</param>
+    /// <param name="value">The byte to write there.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<PokeSessionResult> PokeAsync(int address, byte value, CancellationToken token);
 }
 
 /// <summary>
