@@ -35,10 +35,12 @@ public sealed class StdLibSymbolReaderTests
 
     // a standard module's members are separate symbols parented to it, which is what promotes them to
     // the project scope; a class module's ride on the class, reachable only through an instance of it.
+    // Compared by AbsoluteUri: a scope path lives entirely in the fragment, and plain Uri equality
+    // ignores the fragment - so `ParentUri == module.Uri` matches every module's members alike.
     private static IReadOnlyList<Symbol> MembersOf(VBModuleSymbol module)
         => module is VBClassModuleSymbol @class
             ? [.. @class.Members]
-            : [.. Read().Where(symbol => symbol.ParentUri == module.Uri)];
+            : [.. Read().Where(symbol => symbol.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri)];
 
     [TestMethod]
     public void AModuleDeclaration_IsNamedByConvention()
@@ -180,6 +182,37 @@ public sealed class StdLibSymbolReaderTests
         CollectionAssert.AreEqual(
             new[] { "Red", "Green", "Blue" },
             rgb.Parameters.Select(parameter => parameter.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void TheMathModule_IsReadWithEveryMemberOfItsSpecification()
+    {
+        // MS-VBAL 6.1.2.10: eleven public functions and one public subroutine, and the Sub is a Sub
+        // because its declaration states no return type.
+        var members = MembersOf(Module("Math"));
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Abs", "Atn", "Cos", "Exp", "Log", "Rnd", "Round", "Sgn", "Sin", "Sqr", "Tan", "Randomize" },
+            members.Select(member => member.Name).ToArray());
+
+        Assert.IsInstanceOfType<VBProcedureMemberSymbol>(members.Single(member => member.Name == "Randomize"));
+        Assert.AreEqual(VBDoubleType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Sqr")).ResolvedType);
+        Assert.AreEqual(VBSingleType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Rnd")).ResolvedType);
+    }
+
+    [TestMethod]
+    public void AnOptionalParameterWithoutADefault_HasNoDefaultValueClause()
+    {
+        // MS-VBAL 6.1.2.10.1.7: Round(Number As Variant, Optional NumDigitsAfterDecimal As Long). The
+        // parameter is optional and has no <default-value> clause, so an unmapped argument falls back to
+        // the declared type's own default rather than to a stated constant (MS-VBAL 5.3.1.11).
+        var round = (VBFunctionMemberSymbol)MembersOf(Module("Math")).Single(member => member.Name == "Round");
+
+        var digits = round.Parameters.Last();
+        Assert.AreEqual("NumDigitsAfterDecimal", digits.Name);
+        Assert.IsTrue(digits.IsOptional);
+        Assert.IsNull(digits.DefaultValue);
+        Assert.AreEqual(VBLongType.TypeInfo, digits.ResolvedType);
     }
 
     [TestMethod]
