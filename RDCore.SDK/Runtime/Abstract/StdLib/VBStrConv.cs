@@ -6,6 +6,7 @@
 /// <remarks>
 /// These values encode the possible values for <c>Conversion</c> parameter of the <c>IStdStringsModule.StdStrings__StrConv</c> function.
 /// </remarks>
+[StdLibEnum]
 public enum VBStrConv
 {
     VBUpperCase = 1,

@@ -11,6 +11,7 @@ namespace RDCore.SDK.Runtime.Shared;
 public readonly record struct RuntimeSemanticsEvaluationResult(
     VBTypedValue? Result, 
     VBRuntimeErrorInfo? ErrorInfo) 
+    : IRuntimeSemanticsEvaluationResult
 {
     /// <summary>
     /// <c>true</c> if the evaluation was successfully completed.

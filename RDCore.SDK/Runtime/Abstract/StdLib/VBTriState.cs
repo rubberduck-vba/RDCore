@@ -3,6 +3,7 @@
 /// <summary>
 /// <strong>MS-VBAL 6.1.1.15 VbTriState</strong>
 /// </summary>
+[StdLibEnum]
 public enum VBTriState
 {
     VBFalse = 0,

@@ -6,6 +6,7 @@
 /// <remarks>
 /// These values encode the possible values of the <c>CloseMode</c> parameter of the <c>UserForm.QueryClose</c> event.
 /// </remarks>
+[StdLibEnum]
 public enum VBQueryClose
 {
     VBFormControlMenu = 0,

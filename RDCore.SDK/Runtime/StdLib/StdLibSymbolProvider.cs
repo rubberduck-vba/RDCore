@@ -20,11 +20,15 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// would quietly declare a local called <c>Debug</c>. Resolution is what stops that, which is why this
 /// exists before anything here is callable.
 /// <para>
-/// <c>Debug</c> is <em>synthesized</em> rather than reflected, because nothing declares it: it is not in
+/// The standard library itself is read off the declarations that define it, by
+/// <see cref="StdLibSymbolReader"/>, and is provided unconditionally: every VBA project has it whether
+/// or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>), so there is nothing to opt into
+/// and nothing to reference.
+/// </para>
+/// <para>
+/// <c>Debug</c> is <em>synthesized</em> here instead, because nothing declares it: it is not in
 /// MS-VBAL's standard library at all (§6.1 has no <c>Debug</c>), it is provided by the host's own
-/// development environment, and it has exactly two members. The <c>IStd*</c> interfaces in
-/// <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> are the source for the rest, and are not read here
-/// yet.
+/// development environment, and it has exactly two members.
 /// </para>
 /// </remarks>
 public sealed class StdLibSymbolProvider : ISymbolProvider
@@ -99,6 +103,14 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         // what `Debug` resolves to in the default binding context (MS-VBAL §5.2.4.1.2 — the same shape
         // as a VB_PredeclaredId class module's default instance).
         yield return new VBPredeclaredInstanceSymbol(debugClass);
+
+        // MS-VBAL §6.1: the standard library, read off the SDK declarations that define it. The
+        // declaring assembly is this one, and is found through a type of it rather than named, so that
+        // a component with no reference to the concrete library still gets the symbols.
+        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot).Read(typeof(StdLibSymbolProvider).Assembly))
+        {
+            yield return symbol;
+        }
     }
 
     private VBClassModuleSymbol DebugClass(Uri globalModuleUri)

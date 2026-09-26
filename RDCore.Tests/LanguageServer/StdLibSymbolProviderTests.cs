@@ -106,6 +106,47 @@ public sealed class StdLibSymbolProviderTests
             $"declared: [{string.Join(", ", locals.Select(local => local.Name))}]");
     }
 
+    [TestMethod]
+    public void AcrossTheWorkspaceResolver_AStandardLibraryFunctionResolvesUnqualified()
+    {
+        // MS-VBAL §6.1.2.7's Information is a standard module, so its members are promoted to the project
+        // scope: `IsNumeric(x)` binds without naming the module. Nothing references the library — every
+        // VBA project has it (RD-VBAL §6.1) — so the provider is unconditional and this needs no setup.
+        var resolver = WorkspaceSymbolResolver.Compose(Root, [Module("Sub Foo()\r\nEnd Sub\r\n")], new IntrinsicSymbolResolver());
+
+        var resolved = resolver.ResolveValue("IsNumeric", ScopeKind.Local, new UriBuilder(Root) { Fragment = "Mod1.Foo" }.Uri);
+
+        Assert.IsTrue(resolved.IsResolved);
+        Assert.IsInstanceOfType<VBFunctionMemberSymbol>(resolved.Symbol);
+    }
+
+    [TestMethod]
+    public void AcrossTheWorkspaceResolver_ErrResolvesToAFunctionReturningTheErrObject()
+    {
+        // MS-VBAL §6.1.3.2's error object is reached through the Err function of Information, which is
+        // what makes a bare `Err` bind (and `Err.Number` resolve through the class it returns).
+        var resolver = WorkspaceSymbolResolver.Compose(Root, [Module("Sub Foo()\r\nEnd Sub\r\n")], new IntrinsicSymbolResolver());
+
+        var resolved = resolver.ResolveValue("Err", ScopeKind.Local, new UriBuilder(Root) { Fragment = "Mod1.Foo" }.Uri);
+
+        Assert.IsTrue(resolved.IsResolved);
+        var err = (VBFunctionMemberSymbol)resolved.Symbol!;
+        Assert.AreEqual("ErrObject", err.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void AcrossTheWorkspaceResolver_ErrObjectResolvesAsAType()
+    {
+        // `Dim e As ErrObject` — which is the other half of modelling the error object as MS-VBA does,
+        // rather than as a class module whose name its own default instance would shadow.
+        var resolver = WorkspaceSymbolResolver.Compose(Root, [Module("Sub Foo()\r\nEnd Sub\r\n")], new IntrinsicSymbolResolver());
+
+        var resolved = resolver.ResolveType("ErrObject", ScopeKind.Local, new UriBuilder(Root) { Fragment = "Mod1.Foo" }.Uri);
+
+        Assert.IsTrue(resolved.IsResolved);
+        Assert.IsInstanceOfType<VBClassModuleSymbol>(resolved.Symbol);
+    }
+
     private static (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Module(string body)
         => (new UriBuilder(Root) { Fragment = "Mod1" }.Uri, ModuleType.StdModule,
             new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Attribute VB_Name = \"Mod1\"\r\n{body}"));
