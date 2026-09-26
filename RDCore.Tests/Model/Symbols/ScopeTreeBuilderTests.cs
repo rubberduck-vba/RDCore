@@ -132,19 +132,108 @@ public sealed class ScopeTreeBuilderTests
         Assert.AreSame(field, tree.ScopeFor(module.Uri).DeclaredAs("tOtAl").Single());
     }
 
+    // this test used to assert that an enum's members are placed in no scope at all, on the grounds that
+    // they are reached by member access. MS-VBAL §5.2.3.4 says otherwise: "the Enum type *and its Enum
+    // members* are accessible within the enclosing project" (public) or "within the enclosing module"
+    // (private) — which is why `vbSunday` is a name on its own in every VBA project. They parent to the
+    // enum rather than to a scope, so the placement is resolved through it.
     [TestMethod]
-    public void EnumMembers_AreNotPlacedInAnyLexicalScope()
+    public void EnumMembers_ArePlacedInTheScopeThatDeclaresTheEnum()
     {
         var module = Module("Mod1");
-        var @enum = new VBEnumMemberSymbol(
-            Root, module.Uri, "Colours", ScopeKind.Module, SymbolKindExt.Enum, VBUnknownType.TypeInfo, R, R, AccessModifier.Implicit);
-        var member = new VBEnumConstMemberSymbol(Root, @enum.Uri, "Red", ScopeKind.Module, SymbolKindExt.EnumMember, R, R);
+        var (@enum, red) = Enum(module.Uri, "Colours", "Red");
 
-        var tree = ScopeTreeBuilder.Build([module, @enum, member]);
+        var tree = ScopeTreeBuilder.Build([module, @enum, red]);
 
         Assert.AreSame(@enum, tree.ScopeFor(module.Uri).DeclaredAs("Colours").Single(), "the Enum itself is a module member");
-        Assert.IsEmpty(tree.ScopeFor(module.Uri).DeclaredAs("Red"), "its members are reached by member access, not lexical scoping");
+        Assert.AreSame(red, tree.ScopeFor(module.Uri).DeclaredAs("Red").Single());
+    }
+
+    [TestMethod]
+    public void APublicEnumsMembers_ReachTheProjectScope()
+    {
+        var module = Module("Mod1");
+        var (@enum, red) = Enum(module.Uri, "Colours", "Red", AccessModifier.Public);
+
+        var tree = ScopeTreeBuilder.Build([module, @enum, red]);
+
+        Assert.AreSame(red, tree.ScopeFor(module.Uri).Parent!.DeclaredAs("Red").Single());
+    }
+
+    [TestMethod]
+    public void APrivateEnumsMembers_DoNotReachTheProjectScope()
+    {
+        var module = Module("Mod1");
+        var (@enum, red) = Enum(module.Uri, "Colours", "Red", AccessModifier.Private);
+
+        var tree = ScopeTreeBuilder.Build([module, @enum, red]);
+
+        Assert.AreSame(red, tree.ScopeFor(module.Uri).DeclaredAs("Red").Single(), "accessible within the enclosing module");
+        Assert.IsEmpty(tree.ScopeFor(module.Uri).Parent!.DeclaredAs("Red"));
+    }
+
+    [TestMethod]
+    public void APublicEnumOfAClassModule_ReachesTheProjectScope_TypeAndMembersAlike()
+    {
+        // the class's other members need an instance to be reached through; a declared type needs none,
+        // and §5.2.3.4 scopes a public Enum to the project wherever it is declared.
+        var classModule = ClassModule("Class1");
+        var (@enum, red) = Enum(classModule.Uri, "Colours", "Red", AccessModifier.Public);
+        var field = Field(classModule.Uri, "Total", AccessModifier.Public);
+
+        var project = ScopeTreeBuilder.Build([classModule, @enum, red, field]).ScopeFor(classModule.Uri).Parent!;
+
+        Assert.AreSame(@enum, project.DeclaredAs("Colours").Single());
+        Assert.AreSame(red, project.DeclaredAs("Red").Single());
+        Assert.IsEmpty(project.DeclaredAs("Total"), "an instance field is reached through an instance");
+    }
+
+    [TestMethod]
+    public void APublicUserDefinedTypeOfAClassModule_ReachesTheProjectScope()
+    {
+        // MS-VBAL §5.2.3.3, the same rule: "the UDT is accessible within the enclosing project".
+        var classModule = ClassModule("Class1");
+        var udt = new VBUserDefinedTypeMemberSymbol(Root, classModule.Uri, "Point", ScopeKind.Module, R, R, AccessModifier.Public);
+
+        var project = ScopeTreeBuilder.Build([classModule, udt]).ScopeFor(classModule.Uri).Parent!;
+
+        Assert.AreSame(udt, project.DeclaredAs("Point").Single());
+    }
+
+    [TestMethod]
+    public void AnEnumConstantWhoseEnumIsAbsent_IsNotPlaced()
+    {
+        // any subset of symbols is valid input, and a constant parents to its enum — with the enum
+        // missing there is no scope to resolve it through, and guessing the global one would make it
+        // resolve from everywhere.
+        var module = Module("Mod1");
+        var (_, red) = Enum(module.Uri, "Colours", "Red", AccessModifier.Public);
+
+        var tree = ScopeTreeBuilder.Build([module, red]);
+
+        Assert.IsEmpty(tree.ScopeFor(module.Uri).DeclaredAs("Red"));
         Assert.IsEmpty(tree.Global.DeclaredAs("Red"));
+    }
+
+    [TestMethod]
+    public void AnEnumDeclaredGlobally_PlacesItsMembersInTheGlobalScope()
+    {
+        // how the standard library's predefined enums (MS-VBAL §6.1.1) resolve: they belong to no module
+        // of the project, so `vbSunday` comes off the global scope.
+        var (@enum, sunday) = Enum(StaticSymbol.GlobalUri, "VbDayOfWeek", "vbSunday", AccessModifier.Public);
+
+        var tree = ScopeTreeBuilder.Build([Module("Mod1"), @enum, sunday]);
+
+        Assert.AreSame(sunday, tree.Global.DeclaredAs("vbSunday").Single());
+    }
+
+    private static (VBEnumMemberSymbol Enum, VBEnumConstMemberSymbol Constant) Enum(
+        Uri ownerUri, string name, string constantName, AccessModifier access = AccessModifier.Implicit)
+    {
+        var @enum = new VBEnumMemberSymbol(
+            Root, ownerUri, name, ScopeKind.Module, SymbolKindExt.Enum, VBUnknownType.TypeInfo, R, R, access);
+
+        return (@enum, new VBEnumConstMemberSymbol(Root, @enum.Uri, constantName, ScopeKind.Module, SymbolKindExt.EnumMember, R, R));
     }
 
     [TestMethod]

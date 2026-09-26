@@ -39,6 +39,7 @@ namespace RDCore.SDK.Runtime.StdLib;
 public sealed class StdLibSymbolReader
 {
     private readonly Uri _workspaceRoot;
+    private readonly Uri _globalsOwnerUri;
 
     /// <summary>
     /// Creates the reader.
@@ -47,9 +48,18 @@ public sealed class StdLibSymbolReader
     /// The workspace the symbols are addressed under. Standard-library symbols are not <em>of</em> the
     /// workspace, but every <see cref="Symbol"/> is addressed relative to one.
     /// </param>
-    public StdLibSymbolReader(Uri workspaceRoot)
+    /// <param name="globalsOwnerUri">
+    /// The standard module a predefined enum is declared in. The library's enums belong to no module of
+    /// MS-VBAL's own description, but a declaration has to be <em>somewhere</em> for both halves of it to
+    /// resolve: a standard module's public members reach the project scope, which is the tier a type
+    /// reference and an unqualified enum constant are both looked up in. Defaults to
+    /// <paramref name="workspaceRoot"/>, which leaves them in the global scope — where the constants
+    /// still resolve, but the enum's own name is not a type reference.
+    /// </param>
+    public StdLibSymbolReader(Uri workspaceRoot, Uri? globalsOwnerUri = null)
     {
         _workspaceRoot = workspaceRoot;
+        _globalsOwnerUri = globalsOwnerUri ?? workspaceRoot;
     }
 
     /// <summary>
@@ -125,10 +135,12 @@ public sealed class StdLibSymbolReader
     {
         var name = declaration.GetCustomAttribute<StdLibEnumAttribute>()!.Name ?? StdLibNames.EnumName(declaration.Name);
 
-        // global rather than of a module: a predefined enum belongs to the standard library, not to any
-        // one of its modules, and both its name and its constants resolve without a qualifier.
+        // Public, and of the module that owns the environment's globals rather than of any module the
+        // specification names: that is what puts both the enum's own name and its constants in the
+        // project scope (MS-VBAL §5.2.3.4), so `VbDayOfWeek` binds as a type and `vbSunday` as a value,
+        // neither of them needing a qualifier.
         var symbol = new VBEnumMemberSymbol(
-            _workspaceRoot, StaticSymbol.GlobalUri, name, ScopeKind.Module, SymbolKindExt.Enum,
+            _workspaceRoot, _globalsOwnerUri, name, ScopeKind.Module, SymbolKindExt.Enum,
             VBUnknownType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
 
         var constants = declaration.GetFields(BindingFlags.Public | BindingFlags.Static)

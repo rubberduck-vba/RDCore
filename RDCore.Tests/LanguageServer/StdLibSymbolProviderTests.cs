@@ -147,6 +147,19 @@ public sealed class StdLibSymbolProviderTests
         Assert.IsInstanceOfType<VBClassModuleSymbol>(resolved.Symbol);
     }
 
+    [TestMethod]
+    public void AcrossTheWorkspaceResolver_APredefinedEnumConstantResolvesUnqualified()
+    {
+        // MS-VBAL §6.1.1's predefined enums are the library's rather than any module's, and §5.2.3.4
+        // makes an enum's members accessible wherever its type is — which is what makes `vbSunday` a
+        // name on its own, without `VbDayOfWeek.vbSunday`.
+        var resolver = WorkspaceSymbolResolver.Compose(Root, [Module("Sub Foo()\r\nEnd Sub\r\n")], new IntrinsicSymbolResolver());
+        var procedure = new UriBuilder(Root) { Fragment = "Mod1.Foo" }.Uri;
+
+        Assert.IsTrue(resolver.ResolveValue("vbSunday", ScopeKind.Local, procedure).IsResolved);
+        Assert.IsTrue(resolver.ResolveType("VbDayOfWeek", ScopeKind.Local, procedure).IsResolved);
+    }
+
     private static (Uri Uri, ModuleType ModuleType, ModuleParseResult Parse) Module(string body)
         => (new UriBuilder(Root) { Fragment = "Mod1" }.Uri, ModuleType.StdModule,
             new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Attribute VB_Name = \"Mod1\"\r\n{body}"));

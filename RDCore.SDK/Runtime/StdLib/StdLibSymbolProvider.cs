@@ -107,7 +107,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         // MS-VBAL §6.1: the standard library, read off the SDK declarations that define it. The
         // declaring assembly is this one, and is found through a type of it rather than named, so that
         // a component with no reference to the concrete library still gets the symbols.
-        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot).Read(typeof(StdLibSymbolProvider).Assembly))
+        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot, globalModule.Uri).Read(typeof(StdLibSymbolProvider).Assembly))
         {
             yield return symbol;
         }
