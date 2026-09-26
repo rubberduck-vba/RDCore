@@ -92,7 +92,7 @@ public sealed class EnvironmentSessionProvider(
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
-        var stdLib = new StdLibSymbolProvider(workspaceRoot);
+        var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
 
         _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, modules], Output);
         ProjectName = project.Name;

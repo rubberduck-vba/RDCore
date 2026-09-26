@@ -40,6 +40,7 @@ public sealed class StdLibSymbolReader
 {
     private readonly Uri _workspaceRoot;
     private readonly Uri _globalsOwnerUri;
+    private readonly bool _is64Bit;
 
     /// <summary>
     /// Creates the reader.
@@ -56,10 +57,19 @@ public sealed class StdLibSymbolReader
     /// <paramref name="workspaceRoot"/>, which leaves them in the global scope — where the constants
     /// still resolve, but the enum's own name is not a type reference.
     /// </param>
-    public StdLibSymbolReader(Uri workspaceRoot, Uri? globalsOwnerUri = null)
+    /// <param name="is64Bit">
+    /// The pointer width of the environment the symbols are for, which is the one thing a declaration
+    /// cannot state: <c>LongPtr</c> is a different type in each (<strong>MS-VBAL §3.3.2</strong>), so
+    /// <c>Conversion.CLngPtr</c>'s return type is not knowable from its signature alone. Defaults to
+    /// <c>true</c>, matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default — the one configured
+    /// value both the language server and the environment host derive their profile from, so this is
+    /// that setting rather than a second opinion about it.
+    /// </param>
+    public StdLibSymbolReader(Uri workspaceRoot, Uri? globalsOwnerUri = null, bool is64Bit = true)
     {
         _workspaceRoot = workspaceRoot;
         _globalsOwnerUri = globalsOwnerUri ?? workspaceRoot;
+        _is64Bit = is64Bit;
     }
 
     /// <summary>
@@ -266,7 +276,7 @@ public sealed class StdLibSymbolReader
         return builder.ToImmutable();
     }
 
-    private static VBType ReturnTypeOf(
+    private VBType ReturnTypeOf(
         MethodInfo method, StdLibMemberAttribute? attribute,
         Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes)
     {
@@ -285,7 +295,7 @@ public sealed class StdLibSymbolReader
             : VBVoidType.TypeInfo;
     }
 
-    private static VBType DeclaredTypeOf(
+    private VBType DeclaredTypeOf(
         Type declared, MethodInfo method,
         Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes)
     {
@@ -297,6 +307,14 @@ public sealed class StdLibSymbolReader
         if (classTypes.TryGetValue(declared, out var classType))
         {
             return classType;
+        }
+
+        // LongPtr is the one intrinsic IntrinsicVBTypes deliberately does not resolve, because it is a
+        // different type in each pointer width — and the width is the environment's, not the
+        // declaration's, which is why the reader is told it rather than reading it off a signature.
+        if (declared == typeof(VBLongPtrValue))
+        {
+            return _is64Bit ? VBLongPtrType_x64.TypeInfo : VBLongPtrType_x86.TypeInfo;
         }
 
         if (IntrinsicVBTypes.TryResolveValueType(Nullable.GetUnderlyingType(declared) ?? declared, out var intrinsic))

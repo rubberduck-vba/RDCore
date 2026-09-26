@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
@@ -198,6 +199,34 @@ public sealed class StdLibSymbolReaderTests
         Assert.IsInstanceOfType<VBProcedureMemberSymbol>(members.Single(member => member.Name == "Randomize"));
         Assert.AreEqual(VBDoubleType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Sqr")).ResolvedType);
         Assert.AreEqual(VBSingleType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Rnd")).ResolvedType);
+    }
+
+    [TestMethod]
+    public void TheDollarSuffixedPairs_AreTwoMembers_DifferingOnlyInReturnType()
+    {
+        // MS-VBAL 6.1.2.3.1.16: Function Hex(Number As Variant) / Function Hex$(Number As Variant) As
+        // String. They take the same argument and differ only in what they return, so C# cannot overload
+        // them - which is the one case StdLibMemberAttribute's name really earns.
+        var members = MembersOf(Module("Conversion"));
+
+        Assert.AreEqual(VBVariantType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Hex")).ResolvedType);
+        Assert.AreEqual(VBStringType.TypeInfo, ((VBFunctionMemberSymbol)members.Single(member => member.Name == "Hex$")).ResolvedType);
+    }
+
+    [TestMethod]
+    public void CLngPtrsReturnType_FollowsThePointerWidthOfTheEnvironment()
+    {
+        // MS-VBAL 3.3.2: LongPtr is a different type in each pointer width, so its width is the one thing
+        // about a declaration that its signature cannot state - it belongs to the environment, not to the
+        // library.
+        static VBType ReturnTypeOfCLngPtr(bool is64Bit)
+            => ((VBFunctionMemberSymbol)new StdLibSymbolReader(Root, null, is64Bit)
+                .Read([typeof(IStdConversionModule)])
+                .OfType<VBFunctionMemberSymbol>()
+                .Single(member => member.Name == "CLngPtr")).ResolvedType;
+
+        Assert.AreEqual(VBLongPtrType_x64.TypeInfo, ReturnTypeOfCLngPtr(is64Bit: true));
+        Assert.AreEqual(VBLongPtrType_x86.TypeInfo, ReturnTypeOfCLngPtr(is64Bit: false));
     }
 
     [TestMethod]

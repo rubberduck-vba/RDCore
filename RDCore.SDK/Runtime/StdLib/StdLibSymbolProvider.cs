@@ -67,6 +67,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     public const string AssertMemberName = "Assert";
 
     private readonly Uri _workspaceRoot;
+    private readonly bool _is64Bit;
 
     /// <summary>
     /// Creates the provider.
@@ -76,9 +77,15 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// workspace, but every <see cref="Symbol"/> is addressed relative to one, so they share its root
     /// and hang off the global scope rather than off a module.
     /// </param>
-    public StdLibSymbolProvider(Uri workspaceRoot)
+    /// <param name="is64Bit">
+    /// The pointer width of the environment these symbols are for — <c>LongPtr</c> is a different type
+    /// in each, so <c>Conversion.CLngPtr</c>'s return type depends on it. Defaults to <c>true</c>,
+    /// matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default.
+    /// </param>
+    public StdLibSymbolProvider(Uri workspaceRoot, bool is64Bit = true)
     {
         _workspaceRoot = workspaceRoot;
+        _is64Bit = is64Bit;
     }
 
     /// <inheritdoc/>
@@ -107,7 +114,7 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         // MS-VBAL §6.1: the standard library, read off the SDK declarations that define it. The
         // declaring assembly is this one, and is found through a type of it rather than named, so that
         // a component with no reference to the concrete library still gets the symbols.
-        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot, globalModule.Uri).Read(typeof(StdLibSymbolProvider).Assembly))
+        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot, globalModule.Uri, _is64Bit).Read(typeof(StdLibSymbolProvider).Assembly))
         {
             yield return symbol;
         }
