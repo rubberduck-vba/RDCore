@@ -28,6 +28,8 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
 
     ICallStackFrame? ICallStack.Current => Current;
 
+    IEnumerable<ICallStackFrame> ICallStack.Frames => Frames;
+
     bool ICallStack.TryPush(ICallStackFrame frame)
         => frame is CallStackFrame concrete && TryPush(concrete);
 

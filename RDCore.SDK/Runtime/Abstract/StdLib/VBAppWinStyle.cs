@@ -3,6 +3,7 @@
 /// <summary>
 /// <strong>MS-VBAL 6.1.1.2 VbAppWinStyle</strong>
 /// </summary>
+[StdLibEnum]
 public enum VBAppWinStyle
 {
     VBHide = 0,

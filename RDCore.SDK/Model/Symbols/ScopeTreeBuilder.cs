@@ -19,9 +19,11 @@ namespace RDCore.SDK.Model.Symbols;
 /// <item>a procedure's parameters and its procedure-local <c>Dim</c> / <c>Static</c> / <c>Const</c>
 ///   (and the dynamic array a bare <c>ReDim</c> introduces) → that procedure's scope.</item>
 /// </list>
-/// Enum members and user-defined-type fields are reached through member access, not lexical scoping,
-/// so they are not placed in the tree. Unqualified enum-member visibility, and ordering referenced
-/// libraries by their <c>.rdproj</c> priority within the global scope, are later work.
+/// An enum constant is placed in the scope that declares its <c>Enum</c>, since that is where
+/// <strong>MS-VBAL §5.2.3.4</strong> makes it accessible — it parents to the enum, not to a scope, so
+/// its placement is resolved through the enum. A user-defined type's fields are reached through member
+/// access rather than lexical scoping, and are not placed at all. Ordering referenced libraries by
+/// their <c>.rdproj</c> priority within the global scope is later work.
 /// </summary>
 public static class ScopeTreeBuilder
 {
@@ -39,6 +41,7 @@ public static class ScopeTreeBuilder
         var modules = new Dictionary<string, Symbol>(StringComparer.Ordinal);
         var standardModuleUris = new HashSet<string>(StringComparer.Ordinal);
         var procedures = new Dictionary<string, Symbol>(StringComparer.Ordinal);
+        var enums = new Dictionary<string, VBEnumMemberSymbol>(StringComparer.Ordinal);
         foreach (var symbol in all)
         {
             if (symbol is VBModuleSymbol)
@@ -48,6 +51,10 @@ public static class ScopeTreeBuilder
                 {
                     standardModuleUris.Add(symbol.Uri.AbsoluteUri);
                 }
+            }
+            else if (symbol is VBEnumMemberSymbol declaredEnum)
+            {
+                enums[symbol.Uri.AbsoluteUri] = declaredEnum;
             }
             else if (DefinesProcedureScope(symbol))
             {
@@ -79,9 +86,38 @@ public static class ScopeTreeBuilder
             }
             else if (symbol is not (VBEnumConstMemberSymbol or VBUserDefinedTypeFieldSymbol))
             {
-                // enum members / udt fields are reached by member access, not lexical scoping; any
-                // other unplaced symbol falls back to the global scope.
+                // a udt field is reached by member access, not lexical scoping, and an enum constant
+                // parents to its enum rather than to a scope — pass 2b places those. Any other
+                // unplaced symbol falls back to the global scope.
                 globalDeclarations.Add(symbol);
+            }
+        }
+
+        // pass 2b — MS-VBAL §5.2.3.4: "the Enum type and its Enum members are accessible within the
+        // enclosing project" (public) or "within the enclosing module" (private). An enum constant is
+        // lexically scoped exactly as its enum is, so it goes in the scope that declares the enum. A
+        // constant whose enum is not in this set has no scope to hang off, and is dropped.
+        var projectEnumConstants = new List<Symbol>();
+        foreach (var constant in all.OfType<VBEnumConstMemberSymbol>())
+        {
+            if (!enums.TryGetValue(constant.ParentUri.AbsoluteUri, out var declaringEnum))
+            {
+                continue;
+            }
+
+            if (moduleDeclarations.TryGetValue(declaringEnum.ParentUri.AbsoluteUri, out var inModule))
+            {
+                inModule.Add(constant);
+                if (IsProjectVisible(declaringEnum))
+                {
+                    projectEnumConstants.Add(constant);
+                }
+            }
+            else
+            {
+                // an enum the standard library declares parents to the global scope rather than to a
+                // module of the project, and its constants resolve from there.
+                globalDeclarations.Add(constant);
             }
         }
 
@@ -108,7 +144,18 @@ public static class ScopeTreeBuilder
             var workspaceRoot = modules.Values.First().WorkspaceRoot;
             var projectDeclarations = standardModuleUris
                 .SelectMany(uri => moduleDeclarations[uri])
-                .Where(IsProjectVisible)
+                // an enum constant has no access modifier of its own — its enum's is what decides, and
+                // projectEnumConstants already carries the ones that reach here.
+                .Where(symbol => symbol is not VBEnumConstMemberSymbol && IsProjectVisible(symbol))
+                // a public Enum or user-defined type is accessible within the project wherever it is
+                // declared (MS-VBAL §5.2.3.4 / §5.2.3.3) — a class module's other members would need
+                // an instance, but a declared type needs none.
+                .Concat(modules.Keys
+                    .Where(uri => !standardModuleUris.Contains(uri))
+                    .SelectMany(uri => moduleDeclarations[uri])
+                    .Where(symbol => symbol is VBEnumMemberSymbol or VBUserDefinedTypeMemberSymbol)
+                    .Where(IsProjectVisible))
+                .Concat(projectEnumConstants)
                 .ToList();
             var project = new LexicalScope(workspaceRoot, LexicalScopeKind.Project, global, projectDeclarations);
             scopeByUri[workspaceRoot.AbsoluteUri] = project;

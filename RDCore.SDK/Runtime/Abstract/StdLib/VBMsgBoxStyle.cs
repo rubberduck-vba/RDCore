@@ -6,6 +6,7 @@
 /// <remarks>
 /// These values encode the rendered appearance and possible return values of the <see cref="IStdInteractionModule.StdInteraction__MsgBox"/> function.
 /// </remarks>
+[StdLibEnum]
 public enum VBMsgBoxStyle
 {
     VBDefaultButton1 = 0,

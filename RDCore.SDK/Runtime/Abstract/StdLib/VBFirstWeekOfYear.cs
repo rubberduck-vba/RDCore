@@ -3,6 +3,7 @@
 /// <summary>
 /// <strong>MS-VBAL 6.1.1.9 VbFirstWeekOfYear</strong>
 /// </summary>
+[StdLibEnum]
 public enum VBFirstWeekOfYear
 {
     VBUseSystem = 0,

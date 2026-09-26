@@ -1,3 +1,5 @@
+using RDCore.SDK.Runtime.Abstract.StdLib;
+
 namespace RDCore.SDK.Model.Values.Runtime;
 
 /// <summary>
@@ -7,6 +9,7 @@ namespace RDCore.SDK.Model.Values.Runtime;
 /// <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> stays shaped correctly for COM
 /// interop even where a real host/marshalling layer doesn't exist yet.
 /// </summary>
+[StdLibEnum]
 public enum VBVarType
 {
     /// <summary>

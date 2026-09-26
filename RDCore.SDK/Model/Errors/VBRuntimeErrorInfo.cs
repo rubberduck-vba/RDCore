@@ -13,8 +13,18 @@ namespace RDCore.SDK.Model.Errors;
 /// <param name="Location">The document location of the faulted AST node.</param>
 /// <param name="Description">The error message.</param>
 /// <param name="Verbose">A detailed message identifying the faulted AST node and detailing its semantics.</param>
-public record class VBRuntimeErrorInfo : VBErrorInfo
+public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
 {
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <c>VBR</c> (<strong>RD-VBAL 2.6.3</strong>): the numeric portion matches the corresponding MS-VBA
+    /// run-time error code.
+    /// </remarks>
+    public string ToDiagnosticCode() => $"VBR{ErrorId:00000}";
+
+    /// <inheritdoc/>
+    public VBErrorInfo AsErrorInfo => this;
+
     private VBRuntimeErrorInfo(VBRuntimeErrorId vbRuntimeErrorId, SourceLocation location, string description, string verbose)
         : base((int)vbRuntimeErrorId, location, description, verbose) { }
 
@@ -27,7 +37,6 @@ public record class VBRuntimeErrorInfo : VBErrorInfo
     /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
     public static VBRuntimeErrorInfo For(VBRuntimeErrorId vbCompileErrorId, SourceLocation location, string verbose)
         => new(vbCompileErrorId, location, GetErrorString(vbCompileErrorId), verbose);
-
     /// <summary>
     /// Gets the standard (localied) error message for the specified <c>errorId</c>.
     /// </summary>

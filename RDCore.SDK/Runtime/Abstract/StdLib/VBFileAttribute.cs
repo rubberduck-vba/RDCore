@@ -8,6 +8,7 @@
 /// 👉 The values of this enum are powers of 2, suggesting they are intended to be combined and used with bitwise logic.
 /// </remarks>
 [Flags]
+[StdLibEnum]
 public enum VBFileAttribute
 {
     /// <summary>

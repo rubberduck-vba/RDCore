@@ -6,6 +6,7 @@
 /// <remarks>
 /// These values encode the return value of the <see cref="IStdInteractionModule.StdInteraction__MsgBox"/> function.
 /// </remarks>
+[StdLibEnum]
 public enum VBMsgBoxResult
 {
     VBOk = 1,

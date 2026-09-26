@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -10,7 +11,8 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <param name="ErrorInfo">The error metadata for the <em>run-time</em> error to be reported, if applicable.</param>
 public readonly record struct RuntimeSemanticsEvaluationResult(
     VBTypedValue? Result, 
-    VBRuntimeErrorInfo? ErrorInfo) 
+    IVBRaisableError? ErrorInfo) 
+    : IRuntimeSemanticsEvaluationResult
 {
     /// <summary>
     /// <c>true</c> if the evaluation was successfully completed.
@@ -41,14 +43,14 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// <remarks>✅ Use this method <em>only</em> to signal a <strong>successully</strong> evaluated expression result.</remarks>
     public static RuntimeSemanticsEvaluationResult Success(VBTypedValue result) => new(result, null);
     /// <summary>
-    /// Creates a new (failed) <see cref="RuntimeSemanticsEvaluationResult"/> with the specified <see cref="VBRuntimeErrorInfo"/> error information metadata.
+    /// Creates a new (failed) <see cref="RuntimeSemanticsEvaluationResult"/> with the specified <see cref="IVBRaisableError"/> error information metadata.
     /// </summary>
     /// <param name="error">The runtime error metadata describing the evaluation failure.</param>
     /// <remarks>❌ Use this method <em>only</em> to signal a <strong>failed</strong> expression evaluation. A result value may still have been assigned.</remarks>
-    public static RuntimeSemanticsEvaluationResult Error(VBRuntimeErrorInfo error, VBTypedValue? result = null) => new(result, error);
+    public static RuntimeSemanticsEvaluationResult Error(IVBRaisableError error, VBTypedValue? result = null) => new(result, error);
 
     /// <summary>
-    /// Creates a new <c>RuntimeSemanticsEvalutationResult</c> without a result, and without any <c>VBRuntimeErrorInfo</c> error metadata.
+    /// Creates a new <c>RuntimeSemanticsEvalutationResult</c> without a result, and without any <c>IVBRaisableError</c> error metadata.
     /// </summary>
     /// <remarks>
     /// 💥 This results signals a <c>InternalError</c> run-time error to the evaluation pipeline.

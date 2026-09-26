@@ -3,6 +3,7 @@
 /// <summary>
 /// <strong>MS-VBAL 6.1.1.10 VbIMEStatus</strong>
 /// </summary>
+[StdLibEnum]
 public enum VBIMEStatus
 {
     VBIMENoOp = 0,

@@ -1,4 +1,6 @@
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
@@ -58,4 +60,48 @@ public static class IntrinsicVBTypes
     /// </summary>
     public static bool TryResolveTypeHint(string typeHint, [NotNullWhen(true)] out VBType? type)
         => _byTypeHint.TryGetValue(typeHint, out type);
+
+    private static readonly ImmutableDictionary<Type, VBType> _byValueType = new Dictionary<Type, VBType>
+    {
+        [typeof(VBBooleanValue)] = VBBooleanType.TypeInfo,
+        [typeof(VBByteValue)] = VBByteType.TypeInfo,
+        [typeof(VBCurrencyValue)] = VBCurrencyType.TypeInfo,
+        [typeof(VBDateValue)] = VBDateType.TypeInfo,
+        [typeof(VBDecimalValue)] = VBDecimalType.TypeInfo,
+        [typeof(VBDoubleValue)] = VBDoubleType.TypeInfo,
+        [typeof(VBIntegerValue)] = VBIntegerType.TypeInfo,
+        [typeof(VBLongValue)] = VBLongType.TypeInfo,
+        [typeof(VBLongLongValue)] = VBLongLongType.TypeInfo,
+        [typeof(VBObjectValue)] = VBObjectType.TypeInfo,
+        [typeof(VBSingleValue)] = VBSingleType.TypeInfo,
+        [typeof(VBStringValue)] = VBStringType.TypeInfo,
+        [typeof(VBVariantValue)] = VBVariantType.TypeInfo,
+        // `Variant()` - an array parameter declared with empty parentheses and no bounds
+        // (MS-VBAL 5.3.1.5), as `Strings.Join(SourceArray() As Variant, ...)` takes. An array of any other
+        // element type has no single value implementation to name it by, and is declared by building the
+        // VBResizableArrayType for that element type instead.
+        [typeof(VBResizableArrayValue)] = VBResizableArrayType.TypeInfo,
+    }.ToImmutableDictionary();
+
+    /// <summary>
+    /// Resolves the intrinsic type whose run-time values are of the given <see cref="VBTypedValue"/>
+    /// implementation - the reverse of <see cref="VBType.CreateValue"/>.
+    /// </summary>
+    /// <remarks>
+    /// This is how a declaration written in C# states an intrinsic VBA type: naming the value a member
+    /// produces or a parameter accepts names the type, without restating it. The standard-library
+    /// interfaces in <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> are declared that way.
+    /// <para>
+    /// The mapping covers exactly the intrinsics a declaration can name, which is the same set
+    /// <see cref="TryResolve"/> resolves by name. The values that have no declarable type - a
+    /// <see cref="VBEmptyValue"/>, a <see cref="VBMissingValue"/>, a <see cref="VBErrorValue"/> - are
+    /// subtypes a <c>Variant</c> holds rather than types anything is declared as, and resolve here no
+    /// more than <c>Dim x As Empty</c> compiles. <c>LongPtr</c> is absent for the same reason it is
+    /// absent by name: its width depends on the host bitness.
+    /// </para>
+    /// </remarks>
+    /// <param name="valueType">The <see cref="VBTypedValue"/> implementation to resolve the type of.</param>
+    /// <param name="type">The intrinsic type whose values are of that implementation.</param>
+    public static bool TryResolveValueType(Type valueType, [NotNullWhen(true)] out VBType? type)
+        => _byValueType.TryGetValue(valueType, out type);
 }

@@ -1,3 +1,5 @@
+using RDCore.SDK.Model.Errors.Abstract;
+
 ﻿namespace RDCore.SDK.Model.Errors;
 
 /// <summary>
@@ -8,11 +10,11 @@
 /// 👉 The semantics that evaluate expressions and statements never throw; they return the error in their result. This exception
 /// is the way an error crosses an interface that has no result to return it in.
 /// </remarks>
-/// <param name="error">The run-time error that was raised.</param>
-public sealed class VBRuntimeErrorException(VBRuntimeErrorInfo error) : Exception(error.Description)
+/// <param name="error">The run-time error that was raised - one the runtime semantics reported, or one the workspace raised for itself.</param>
+public sealed class VBRuntimeErrorException(IVBRaisableError error) : Exception(error.Description)
 {
     /// <summary>
     /// Gets the run-time error that was raised.
     /// </summary>
-    public VBRuntimeErrorInfo Error { get; } = error;
+    public IVBRaisableError Error { get; } = error;
 }

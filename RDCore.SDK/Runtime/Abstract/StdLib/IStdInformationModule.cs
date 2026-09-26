@@ -1,6 +1,7 @@
-﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
@@ -11,6 +12,7 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// <remarks>
 /// Formalizes the public interface of the standard library <c>VBA.Information</c> module.
 /// </remarks>
+[StdLibModule]
 public interface IStdInformationModule
 {
     /// <summary>
@@ -58,7 +60,7 @@ public interface IStdInformationModule
             [StdInformationQBColor.BrightWhite] = BrightWhite
         };
 
-        public static bool TryGetQBColorRGBValue(StdInformationQBColor qbColorValue, out int rgbColorValue) 
+        public static bool TryGetQBColorRGBValue(StdInformationQBColor qbColorValue, out int rgbColorValue)
             => QBColorRGBValues.TryGetValue(qbColorValue, out rgbColorValue);
     }
 
@@ -88,15 +90,31 @@ public interface IStdInformationModule
     #region 6.1.2.7.1 StdInformation: Public Functions
 
     /// <summary>
+    /// <strong>MS-VBAL 6.1.3.2 Err Class</strong> Gets the <em>error object</em>: the single
+    /// <c>ErrObject</c> instance reflecting the error state of the active VBA environment.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Not a member MS-VBAL lists under this module: <strong>§6.1.3.2</strong> describes the error
+    /// object as the default instance of a global class module named <c>Err</c>, while MS-VBA exposes it
+    /// as this zero-argument function of <c>Information</c>, returning an instance of a class named
+    /// <c>ErrObject</c>. The two are the same thing seen from source — a bare <c>Err</c> yields the error
+    /// object either way, because a standard module's members are promoted to the project scope — and
+    /// this is the arrangement that also makes <c>ErrObject</c> nameable in an <c>As</c> clause.
+    /// </remarks>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(ReturnType = typeof(IStdErrClass))]
+    RuntimeSemanticsEvaluationResult<VBObjectValue> Err();
+
+    /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.1 IMEStatus</strong>
     /// </summary>
     /// <remarks>
-    /// Returns a <see cref="VBIMEStatus"/> value representing the current implementation-dependant <em>Input Method Editor</em> (IME) mode.<br/>
-    /// The valid <c>interval</c> parameter values are defined in <see cref="IStdDateTimeModule.StdDateIntervals"/>.
+    /// Returns a <see cref="VBIMEStatus"/> value representing the current implementation-dependant <em>Input Method Editor</em> (IME) mode.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IMEStatus();
-    
+    [StdLibMember(ReturnType = typeof(VBIMEStatus))]
+    RuntimeSemanticsEvaluationResult<VBLongValue> IMEStatus();
+
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.2 IsArray</strong>
     /// </summary>
@@ -105,7 +123,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsArray(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsArray(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.3 IsDate</strong>
@@ -115,7 +133,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsDate(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsDate(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.4 IsEmpty</strong>
@@ -125,7 +143,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsEmpty(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsEmpty(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.5 IsError</strong>
@@ -135,18 +153,18 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsError(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsError(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.6 IsMissing</strong>
     /// </summary>
     /// <remarks>
     /// Tests a provided value to check if it is a <see cref="VBMissingValue"/>.<br/>
-    /// 👉 The value can only be a <see cref="VBMissingValue"/> if it is the <see cref="VBVariantValue"/> of an <strong>optional parameter that was not supplied</strong>. 
+    /// 👉 The value can only be a <see cref="VBMissingValue"/> if it is the <see cref="VBVariantValue"/> of an <strong>optional parameter that was not supplied</strong>.
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsMissing(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsMissing(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.7 IsNull</strong>
@@ -156,7 +174,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsNull(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNull(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.8 IsNumeric</strong>
@@ -166,7 +184,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsNumeric(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNumeric(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.9 IsObject</strong>
@@ -176,7 +194,7 @@ public interface IStdInformationModule
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__IsObject(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBBooleanValue> IsObject(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.10 QBColor</strong>
@@ -184,9 +202,9 @@ public interface IStdInformationModule
     /// <remarks>
     /// Gets the RGB color value for a specified color value used by earlier versions of Visual Basic.
     /// </remarks>
-    /// <param name="arg">The data value to be tested</param>
+    /// <param name="color">A value in the 0-15 range naming one of the <em>legacy</em> 16-bit colors.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__QBColor(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBLongValue> QBColor(VBIntegerValue color);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.11 RGB</strong>
@@ -198,7 +216,7 @@ public interface IStdInformationModule
     /// <param name="green">A value in the <see cref="VBByteValue"/> range (0-255) representing the <strong>green</strong> component of the color.</param>
     /// <param name="blue">A value in the <see cref="VBByteValue"/> range (0-255) representing the <strong>blue</strong> component of the color.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__RGB(VBIntegerValue red, VBIntegerValue green, VBIntegerValue blue);
+    RuntimeSemanticsEvaluationResult<VBLongValue> RGB(VBIntegerValue red, VBIntegerValue green, VBIntegerValue blue);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.12 TypeName</strong>
@@ -207,17 +225,20 @@ public interface IStdInformationModule
     /// Gets the name of the <em>data type</em> of the specified value.<br/>
     /// 👉 If the provided value is a <see cref="VBArrayValue"/>, the returned string contains the <em>item data type</em> of the array appended with a pair of empty parentheses, e.g. <c>"Byte()"</c> for an array of <see cref="VBByteValue"/> items.
     /// </remarks>
+    /// <param name="arg">The data value to name the type of.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__TypeName(VBVariantValue arg);
+    RuntimeSemanticsEvaluationResult<VBStringValue> TypeName(VBVariantValue arg);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.13 VarType</strong>
     /// </summary>
     /// <remarks>
     /// Gets the <em>subtype</em> of the specified <see cref="VBVariantValue"/>.<br/>
-    /// 👉 If the provided value is a <see cref="VBArrayValue"/>, the returned string contains the <em>item data type</em> of the array appended with a pair of empty parentheses, e.g. <c>"Byte()"</c> for an array of <see cref="VBByteValue"/> items.
+    /// 👉 An array's subtype is <see cref="VBVarType.VBArray"/> combined with the <em>item data type</em> of the array, e.g. <c>8209</c> for an array of <see cref="VBByteValue"/> items.
     /// </remarks>
+    /// <param name="varName">The data value to report the subtype of.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInformation__VarType(VBVariantValue arg);
+    [StdLibMember(ReturnType = typeof(VBVarType))]
+    RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName);
     #endregion
 }

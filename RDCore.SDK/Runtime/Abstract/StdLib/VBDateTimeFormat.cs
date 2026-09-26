@@ -3,6 +3,7 @@
 /// <summary>
 /// <strong>MS-VBAL 6.1.1.6 VbDateTimeFormat</strong>
 /// </summary>
+[StdLibEnum]
 public enum VBDateTimeFormat
 {
     VBGeneralDate = 0,
