@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
@@ -26,7 +27,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
     public RuntimeSemanticsEvaluationResult Clear()
     {
         State.Clear();
-        return RuntimeSemanticsEvaluationResult.Success(VBEmptyValue.Empty);
+        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
     public RuntimeSemanticsEvaluationResult Raise(
@@ -57,7 +58,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // every run-time error reaches the session's error state, and where the stack trace is captured.
         return RuntimeSemanticsEvaluationResult.Error(
             VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised),
-            VBEmptyValue.Empty);
+            VBVoidValue.Void);
     }
 
     public RuntimeSemanticsEvaluationResult<VBStringValue> Description()
@@ -96,11 +97,13 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
     public RuntimeSemanticsEvaluationResult<VBStringValue> StackTrace()
         => RuntimeSemanticsEvaluationResult<VBStringValue>.Success(new VBStringValue(State.StackTrace.ToString()));
 
-    // a Property Let yields no value, and Empty is what "no value" is in this model.
+    // a Property Let yields no value at all, which is Void rather than Empty: Empty is a real Variant
+    // subtype source can see (IsEmpty, VarType, a Let-coercion to 0), and the result of an assignment is
+    // not a value source can see anything about. Under Void is the HRESULT every call really has.
     private static RuntimeSemanticsEvaluationResult Set(Action assign)
     {
         assign();
-        return RuntimeSemanticsEvaluationResult.Success(VBEmptyValue.Empty);
+        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
     private static string Text(VBStringValue value) => value.Handle.Value.BoxedValue as string ?? string.Empty;

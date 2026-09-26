@@ -19,7 +19,12 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <para>
 /// A member returning nothing - a VBA <c>Sub</c>, or a <c>Property Let</c>/<c>Set</c> - is declared
 /// with the non-generic <see cref="RuntimeSemanticsEvaluationResult"/> instead, so the presence of a
-/// return type is itself part of the declaration.
+/// return type is itself part of the declaration. Its declared type is
+/// <see cref="Model.Types.Complex.VBVoidType"/> and the value it yields is
+/// <see cref="Model.Values.VBVoidValue.Void"/> - <em>not</em>
+/// <see cref="Model.Values.Intrinsic.VBEmptyValue"/>, which is a real <c>Variant</c> subtype source can
+/// see (<c>IsEmpty</c>, <c>VarType</c>, a Let-coercion to <c>0</c>); the result of a <c>Sub</c> is
+/// nothing source can see anything about at all.
 /// </para>
 /// <para>
 /// 👉 An enumeration or a class is <em>not</em> expressible as a <typeparamref name="TValue"/>: every

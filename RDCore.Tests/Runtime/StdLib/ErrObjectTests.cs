@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -93,6 +94,19 @@ public sealed class ErrObjectTests
         Assert.AreEqual((int)VBRuntimeErrorId.DivisionByZero, IntOf(err.Number()));
         Assert.AreEqual("Division by zero", StringOf(err.Description()));
     }
+    [TestMethod]
+    public void AMemberThatYieldsNoValue_YieldsVoid_NotEmpty()
+    {
+        // Void is the model's "not a real value" for a Sub or a Property Let, with an HRESULT under it.
+        // Empty is something else entirely: a real Variant subtype that source can see (IsEmpty, VarType,
+        // a Let-coercion to 0), and no assignment or Clear yields a value source can see anything about.
+        var err = new ErrObject(Session());
+
+        Assert.IsInstanceOfType<VBVoidValue>(err.Clear().Result);
+        Assert.IsInstanceOfType<VBVoidValue>(err.Number(new VBLongValue(5)).Result);
+        Assert.IsInstanceOfType<VBVoidValue>(err.Raise(new VBLongValue(513)).Result, "an error still yields no value");
+    }
+
 
     [TestMethod]
     public void Clear_ResetsEveryProperty()
