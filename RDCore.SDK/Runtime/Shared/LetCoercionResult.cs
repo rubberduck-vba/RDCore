@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 ﻿using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
@@ -14,7 +15,7 @@ namespace RDCore.SDK.Runtime.Shared;
 public readonly record struct LetCoercionResult(
     bool IsApplicable, 
     VBTypedValue? Result, 
-    VBRuntimeErrorInfo? ErrorInfo, 
+    IVBRaisableError? ErrorInfo, 
     ImmutableArray<LetCoercionStackFrame> Frames)
 {
     /// <summary>
@@ -33,11 +34,11 @@ public readonly record struct LetCoercionResult(
     /// <param name="result">The successfully let-coerced result value.</param>
     public static LetCoercionResult Success(VBTypedValue result, params LetCoercionStackFrame[] frames) => new(true, result, null, [.. frames]);
     /// <summary>
-    /// Creates a new (failed) <c>LetCoercionResult</c> with the specified <c>VBRuntimeErrorInfo</c> error information metadata.
+    /// Creates a new (failed) <c>LetCoercionResult</c> with the specified <c>IVBRaisableError</c> error information metadata.
     /// </summary>
     /// <param name="info">The runtime error metadata describing the let-coercion failure.</param>
     /// <param name="frames">All the <see cref="LetCoercionStackFrame"/> frames in the let-coercion evaluation stack.</param>
-    public static LetCoercionResult Error(VBRuntimeErrorInfo info, params LetCoercionStackFrame[] frames) => new(true, null, info, [.. frames]);
+    public static LetCoercionResult Error(IVBRaisableError info, params LetCoercionStackFrame[] frames) => new(true, null, info, [.. frames]);
     /// <summary>
     /// Creates a new (not applicable) <c>LetCoercionResult</c> indicating that a let-coercion strategy is not applicable in the context of the evaluated expression.
     /// </summary>

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -33,7 +34,7 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <param name="ErrorInfo">The error metadata for the <em>run-time</em> error to be reported, if applicable.</param>
 public readonly record struct RuntimeSemanticsEvaluationResult<TValue>(
     TValue? Result,
-    VBRuntimeErrorInfo? ErrorInfo)
+    IVBRaisableError? ErrorInfo)
     : IRuntimeSemanticsEvaluationResult
     where TValue : VBTypedValue
 {
@@ -52,10 +53,10 @@ public readonly record struct RuntimeSemanticsEvaluationResult<TValue>(
     /// <param name="result">The successfully evaluated <em>runtime semantics evaluation</em> result.</param>
     public static RuntimeSemanticsEvaluationResult<TValue> Success(TValue result) => new(result, null);
 
-    /// <inheritdoc cref="RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo, VBTypedValue?)"/>
+    /// <inheritdoc cref="RuntimeSemanticsEvaluationResult.Error(IVBRaisableError, VBTypedValue?)"/>
     /// <param name="error">The runtime error metadata describing the evaluation failure.</param>
     /// <param name="result">The result value assigned before the failure, if any.</param>
-    public static RuntimeSemanticsEvaluationResult<TValue> Error(VBRuntimeErrorInfo error, TValue? result = null) => new(result, error);
+    public static RuntimeSemanticsEvaluationResult<TValue> Error(IVBRaisableError error, TValue? result = null) => new(result, error);
 
     /// <inheritdoc cref="RuntimeSemanticsEvaluationResult.InternalError"/>
     public static RuntimeSemanticsEvaluationResult<TValue> InternalError() => new(null, null);

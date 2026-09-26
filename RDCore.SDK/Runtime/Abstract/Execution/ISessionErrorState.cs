@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
@@ -27,7 +28,7 @@ public interface ISessionErrorState
     /// The most recent run-time error, or <c>null</c> when there is none — the state <c>Err.Number</c>
     /// reports as <c>0</c>.
     /// </summary>
-    VBRuntimeErrorInfo? Current { get; }
+    IVBRaisableError? Current { get; }
 
     /// <summary>
     /// Whether an error is current. <c>Err.Number &lt;&gt; 0</c>, in source terms — and exactly that, so
@@ -104,7 +105,7 @@ public interface ISessionErrorState
     /// source had set them to — a new error is a new error.
     /// </remarks>
     /// <param name="error">The error that was raised.</param>
-    void Raise(VBRuntimeErrorInfo error);
+    void Raise(IVBRaisableError error);
 
     /// <summary>
     /// Clears the current error.

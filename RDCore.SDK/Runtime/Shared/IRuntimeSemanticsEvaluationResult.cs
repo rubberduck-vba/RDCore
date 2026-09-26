@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 
@@ -25,7 +26,7 @@ public interface IRuntimeSemanticsEvaluationResult
     /// <summary>
     /// The error metadata for the <em>run-time</em> error to be reported, if applicable.
     /// </summary>
-    VBRuntimeErrorInfo? ErrorInfo { get; }
+    IVBRaisableError? ErrorInfo { get; }
 
     /// <summary>
     /// <c>true</c> if the evaluation was successfully completed.

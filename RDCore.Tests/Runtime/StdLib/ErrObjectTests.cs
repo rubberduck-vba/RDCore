@@ -162,6 +162,18 @@ public sealed class ErrObjectTests
     }
 
     [TestMethod]
+    public void Raise_YieldsAnApplicationError_NotARuntimeSemanticsOne()
+    {
+        // RD-VBAL 2.6.3: Err.Raise is where workspace source raises its own error, so it carries the VBA
+        // family. The family follows who raised it and nothing else - Err.Raise 11 is VBA00011, not the
+        // VBR00011 the evaluator would report for a division by zero it actually hit.
+        var result = new ErrObject(Session()).Raise(new VBLongValue((int)VBRuntimeErrorId.DivisionByZero));
+
+        Assert.IsInstanceOfType<VBApplicationErrorInfo>(result.ErrorInfo);
+        Assert.AreEqual("VBA00011", result.ErrorInfo!.ToDiagnosticCode());
+    }
+
+    [TestMethod]
     public void Raise_WithNoDescription_UsesTheStandardMessageForTheNumber()
     {
         // MS-VBAL 6.1.3.2.1.2: "If unspecified, the value in Number is examined... the String that would

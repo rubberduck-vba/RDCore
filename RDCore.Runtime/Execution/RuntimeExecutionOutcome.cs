@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 
 namespace RDCore.Runtime.Execution;
@@ -32,7 +33,7 @@ public enum RuntimeExecutionOutcomeKind
 /// The result of executing one instruction — see <see cref="RuntimeExecutionOutcomeKind"/> for what
 /// each <see cref="Kind"/> means to the executor loop.
 /// </summary>
-public readonly record struct RuntimeExecutionOutcome(RuntimeExecutionOutcomeKind Kind, int? Target = null, VBRuntimeErrorInfo? ErrorInfo = null)
+public readonly record struct RuntimeExecutionOutcome(RuntimeExecutionOutcomeKind Kind, int? Target = null, IVBRaisableError? ErrorInfo = null)
 {
     /// <summary>Fall through to the next offset.</summary>
     public static readonly RuntimeExecutionOutcome Next = new(RuntimeExecutionOutcomeKind.Next);
@@ -50,7 +51,7 @@ public readonly record struct RuntimeExecutionOutcome(RuntimeExecutionOutcomeKin
     public static readonly RuntimeExecutionOutcome Break = new(RuntimeExecutionOutcomeKind.Break);
 
     /// <summary>A real MS-VBA runtime error was raised.</summary>
-    public static RuntimeExecutionOutcome Error(VBRuntimeErrorInfo errorInfo) => new(RuntimeExecutionOutcomeKind.Error, ErrorInfo: errorInfo);
+    public static RuntimeExecutionOutcome Error(IVBRaisableError errorInfo) => new(RuntimeExecutionOutcomeKind.Error, ErrorInfo: errorInfo);
 
     /// <summary>The instruction, or the statement it carries, is not wired yet.</summary>
     public static readonly RuntimeExecutionOutcome InternalError = new(RuntimeExecutionOutcomeKind.InternalError);

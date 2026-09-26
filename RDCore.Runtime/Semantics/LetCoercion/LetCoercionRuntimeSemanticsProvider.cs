@@ -126,7 +126,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             coercionResult = strategy.EvaluateLetCoercion(resolver, expression, frame);
 
             // 2. add any error to the semantic context so they become unmistakable error diagnostics in analyzers:
-            builder.AddOnError(coercionResult.ErrorInfo);
+            builder.AddOnError(coercionResult.ErrorInfo?.AsErrorInfo);
 
             // 3. add flags about the basic facts of the coercion operation:
             AnalyzeConversionOperation(builder, expression, frame);

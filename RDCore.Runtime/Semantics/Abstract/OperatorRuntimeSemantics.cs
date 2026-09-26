@@ -121,7 +121,7 @@ where TFlags : struct, Enum
         //    effective type (evaluating the raw operands would hand a Double operation a Long), and which reports the
         //    error, if there is one, that stopped the operation: no effective type, a failed coercion, or the evaluation.
         var evaluationResult = EvaluateForAnalysis(resolver, initialContext, expression, frame);
-        builder.AddOnError(evaluationResult.ErrorInfo);
+        builder.AddOnError(evaluationResult.ErrorInfo?.AsErrorInfo);
 
         // 4. ...profit:
         var analysisContext = CreateAnalysisContext(expression, effectiveTypeResult, coercionResult, evaluationResult, initialContext.Flags)

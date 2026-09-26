@@ -56,7 +56,7 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
         // the error is returned rather than recorded: the executor's own error interception is where
         // every run-time error reaches the session's error state, and where the stack trace is captured.
         return RuntimeSemanticsEvaluationResult.Error(
-            VBRuntimeErrorInfo.Raised(errorNumber, raiseLocation, raised, $"Err.Raise {errorNumber}"),
+            VBApplicationErrorInfo.Raised(errorNumber, raiseLocation, $"Err.Raise {errorNumber}", raised),
             VBEmptyValue.Empty);
     }
 

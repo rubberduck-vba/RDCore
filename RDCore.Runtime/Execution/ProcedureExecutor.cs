@@ -881,9 +881,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ToFailureOutcome(numberResult);
         }
 
+        // an *application* error (RD-VBAL §2.6.3, the VBA family) rather than one the runtime semantics
+        // reported: the family follows who raised it, and workspace source raised this one. `Error 11` is
+        // VBA00011, not VBR00011, even though 11 is a code MS-VBA defines.
         var number = ((VBIntegerValue)numberResult.Result!).Value;
-        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For((VBRuntimeErrorId)number,
-            errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
+        return RuntimeExecutionOutcome.Error(VBApplicationErrorInfo.Raised(
+            number, errorStatement.NumberExpression.Location, Exceptions.VBErrorStatement_Raised_Verbose));
     }
 
     // Structural recognition only - the member's own body is never called (no procedure invocation

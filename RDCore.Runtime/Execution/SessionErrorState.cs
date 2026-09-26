@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -7,7 +8,7 @@ namespace RDCore.Runtime.Execution;
 internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorState
 {
     /// <inheritdoc/>
-    public VBRuntimeErrorInfo? Current { get; private set; }
+    public IVBRaisableError? Current { get; private set; }
 
     /// <inheritdoc/>
     public bool HasError => Number != 0;
@@ -36,7 +37,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     public VBStackTrace StackTrace { get; private set; } = VBStackTrace.Empty;
 
     /// <inheritdoc/>
-    public void Raise(VBRuntimeErrorInfo error)
+    public void Raise(IVBRaisableError error)
     {
         Current = error;
         Number = error.ErrorId;
@@ -62,7 +63,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
 
     // the faulting statement's location belongs to the innermost activation and only to it: a caller's
     // activation record does not say where in itself it is suspended.
-    private VBStackTrace Capture(VBRuntimeErrorInfo error)
+    private VBStackTrace Capture(IVBRaisableError error)
         => new(
         [
             .. callStack.Frames.Select((frame, depth)

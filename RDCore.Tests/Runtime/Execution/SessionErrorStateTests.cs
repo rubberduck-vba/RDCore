@@ -143,6 +143,29 @@ public sealed class SessionErrorStateTests
     }
 
     [TestMethod]
+    public void AnErrorStatement_RaisesAnApplicationError()
+    {
+        // RD-VBAL §2.6.3: an application error is one "explicitly raised from workspace source code with
+        // Error or Err.Raise", and it carries the VBA family rather than VBR. The family follows *who
+        // raised it*, not what the number means - so `Error 11` is VBA00011, even though 11 is the code
+        // MS-VBA gives division by zero.
+        var session = Run("10 Error 11");
+
+        Assert.IsInstanceOfType<VBApplicationErrorInfo>(session.Errors.Current);
+        Assert.AreEqual("VBA00011", session.Errors.Current!.ToDiagnosticCode());
+    }
+
+    [TestMethod]
+    public void AnErrorTheRuntimeSemanticsReport_IsNotAnApplicationError()
+    {
+        // the other half of the same rule: a division by zero the evaluator actually hit is VBR00011.
+        var session = Run("10 Debug.Print 1 / 0");
+
+        Assert.IsInstanceOfType<VBRuntimeErrorInfo>(session.Errors.Current);
+        Assert.AreEqual("VBR00011", session.Errors.Current!.ToDiagnosticCode());
+    }
+
+    [TestMethod]
     public void ASecondError_ReplacesTheFirst()
     {
         var session = Run(

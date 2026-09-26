@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 
 namespace RDCore.SDK.Runtime.Shared;
@@ -47,7 +48,7 @@ public enum ErrorHandlingMode
 /// The offset of the instruction whose execution raised <see cref="ActiveError"/> — what a bare
 /// <c>Resume</c> re-executes, and what <c>Resume Next</c> continues past.
 /// </param>
-public readonly record struct ErrorHandlerState(ErrorHandlingMode Mode, int? HandlerTarget, VBRuntimeErrorInfo? ActiveError, int? FaultStatementOffset)
+public readonly record struct ErrorHandlerState(ErrorHandlingMode Mode, int? HandlerTarget, IVBRaisableError? ActiveError, int? FaultStatementOffset)
 {
     /// <summary>
     /// The state every activation starts with: no handler active, no active error.
