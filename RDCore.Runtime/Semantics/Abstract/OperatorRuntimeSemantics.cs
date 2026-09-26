@@ -91,7 +91,6 @@ where TFlags : struct, Enum
         var frame = new OperatorEvaluationFrame
         {
             NodeId = expression.Identity,
-            //OperatorSymbol = expression.Symbol,
             Operands = [.. operands],
             EffectiveType = VBUnknownType.TypeInfo,
             Comparison = comparison,
