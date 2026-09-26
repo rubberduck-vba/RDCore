@@ -19,10 +19,12 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// through the same <see cref="IFileChannels"/> this one opens against.
 /// </remarks>
 /// <param name="Expressions">Evaluates the path, file-number and record-length expressions.</param>
+/// <param name="Printing">Applies <strong>§5.4.5.8</strong>'s output rules, whichever target they are aimed at.</param>
 /// <param name="Numbers">Coerces them to the types the statement's own clauses declare.</param>
 /// <param name="Strings">Coerces the path expression to <c>String</c>, which the specification requires of it.</param>
 public sealed record class FileStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
+    PrintOutputEvaluator Printing,
     VBNumericLetCoercionTypeRuntimeSemantics Numbers,
     VBStringLetCoercionRuntimeSemantics Strings)
 {
@@ -59,6 +61,64 @@ public sealed record class FileStatementRuntimeSemantics(
         return session.Files.TryOpen(fileNumber, path, mode, access, @lock, recordLength) is { } error
             ? Failed(error, open, $"Open \"{path}\" For {mode} As #{fileNumber}")
             : RuntimeExecutionOutcome.Next;
+    }
+
+    /// <summary>
+    /// Executes a <c>Print #</c> statement (<strong>MS-VBAL §5.4.5.8</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The output rules are <see cref="PrintOutputEvaluator"/>'s, unchanged - the print zones, the leading
+    /// space on a positive number, <c>Spc</c>, <c>Tab</c>, and a trailing <c>;</c> holding the line open. Only
+    /// where the characters go differs, so only that is passed.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement writes to.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="print">The statement.</param>
+    public RuntimeExecutionOutcome ExecutePrint(
+        IRuntimeSession session, RuntimeEvaluationContext context, PrintStatementNode print)
+    {
+        if (print.FileNumber is null)
+        {
+            // the object-relative bare form invokes the enclosing form or report's own Print member, and
+            // neither forms nor reports exist. TODO when a document module can be a Print target.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryResolveChannel(session, context, print.FileNumber, print.Token, print, out var channel, out var failure))
+        {
+            return failure;
+        }
+
+        return Printing.Execute(session, context, print.Items, channel!.Output);
+    }
+
+    // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a
+    // currently-open file number", and a statement the channel's own mode and access do not permit is
+    // error 54 - which MS-VBAL 5.4.5.1 states once, as a table, for every file statement.
+    private bool TryResolveChannel(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode fileNumber, string statement,
+        StatementNode node, out IFileChannel? channel, out RuntimeExecutionOutcome failure)
+    {
+        channel = null;
+        if (!TryEvaluateInteger(session, context, fileNumber, out var number, out failure))
+        {
+            return false;
+        }
+
+        if (!session.Files.TryGet(number, out channel))
+        {
+            failure = Failed(VBRuntimeErrorId.BadFileNameOrNumber, node, $"#{number} is not open");
+            return false;
+        }
+
+        if (!FileStatementAccess.IsValid(statement, channel!.Mode, channel.Access))
+        {
+            failure = Failed(VBRuntimeErrorId.BadFileMode, node,
+                $"{statement} is not valid on #{number}, opened For {channel.Mode} Access {channel.Access}");
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

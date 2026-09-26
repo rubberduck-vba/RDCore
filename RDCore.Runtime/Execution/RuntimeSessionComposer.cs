@@ -1,3 +1,4 @@
+using System.Text;
 using System.IO.Abstractions;
 using RDCore.Runtime.Execution.Files;
 ﻿using RDCore.Runtime.Execution.Frames;
@@ -54,7 +55,9 @@ public static class RuntimeSessionComposer
         var errors = new SessionErrorState(callStack);
         // the file system is already abstracted platform-wide, so a session composed with a fake one does real
         // VBA file I/O against nothing on disk - which is what a test and a CI run both want.
-        var files = new SessionFileChannels(fileSystem ?? new FileSystem());
+        // text written to a file is in the environment's own ANSI code page, the same one Byte() <-> String uses.
+        var files = new SessionFileChannels(
+            fileSystem ?? new FileSystem(), CodePagesEncodingProvider.Instance.GetEncoding(environment.AnsiCodePage) ?? Encoding.Latin1);
 
         foreach (var provider in providers)
         {

@@ -1,3 +1,4 @@
+using System.Text;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -16,7 +17,7 @@ namespace RDCore.Runtime.Execution.Files;
 /// </para>
 /// </remarks>
 /// <param name="fileSystem">The file system the channels are opened on.</param>
-internal sealed class SessionFileChannels(IFileSystem fileSystem) : IFileChannels, IDisposable
+internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encoding) : IFileChannels, IDisposable
 {
     private sealed record class Channel(
         int FileNumber,
@@ -25,7 +26,40 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem) : IFileChannel
         VBFileAccessMode Access,
         VBFileLockMode Lock,
         int RecordLength,
-        Stream Stream) : IFileChannel;
+        Stream Stream,
+        IRuntimeOutput Output) : IFileChannel;
+
+    // a channel counts its own line position, because MS-VBAL 5.4.5.8's print zones and Spc/Tab clauses are
+    // relative to the line of the file being written, not to anything the session is doing elsewhere.
+    private sealed class ChannelOutput(Stream stream, Encoding encoding) : IRuntimeOutput
+    {
+        // the implementation-defined line termination sequence (MS-VBAL §5.4.5.9). CrLf, because that is what
+        // every VBA that has ever written a text file produced, and a file this writes is read by those too.
+        private const string LineTerminator = "\r\n";
+
+        public int LinePosition { get; private set; } = 1;
+
+        public void Write(string text)
+        {
+            Emit(text);
+            LinePosition += text.Length;
+        }
+
+        public void WriteLine()
+        {
+            Emit(LineTerminator);
+            LinePosition = 1;
+        }
+
+        private void Emit(string text)
+        {
+            var bytes = encoding.GetBytes(text);
+            stream.Write(bytes, 0, bytes.Length);
+            // flushed per write: a VBA program that writes and then reads the same file with another channel
+            // expects to see what it wrote, and nothing here knows when the next read is coming.
+            stream.Flush();
+        }
+    }
 
     private readonly Dictionary<int, Channel> _channels = [];
 
@@ -70,8 +104,9 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem) : IFileChannel
 
         try
         {
+            var stream = OpenStream(path, mode, access, @lock);
             _channels[fileNumber] = new Channel(
-                fileNumber, path, mode, access, @lock, recordLength, OpenStream(path, mode, access, @lock));
+                fileNumber, path, mode, access, @lock, recordLength, stream, new ChannelOutput(stream, encoding));
             return null;
         }
         catch (UnauthorizedAccessException)
@@ -124,14 +159,17 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem) : IFileChannel
     public void Dispose() => CloseAll();
 
     private Stream OpenStream(string path, VBFileMode mode, VBFileAccessMode access, VBFileLockMode @lock)
-        => fileSystem.FileStream.New(
+    {
+        var stream = fileSystem.FileStream.New(
             path,
             mode switch
             {
-                // Output "truncates" in VBA terms: data can only be written, from the start.
+                    // Output "truncates" in VBA terms: data can only be written, from the start.
                 VBFileMode.Output => FileMode.Create,
-                VBFileMode.Append => FileMode.Append,
                 VBFileMode.Input => FileMode.Open,
+                // *not* FileMode.Append, which .NET allows only write-only: VBA's Append says "data can be
+                // read from the file, and any data written to the file is added at the end", so it is opened
+                // like any other read-write channel and positioned at the end below.
                 _ => FileMode.OpenOrCreate,
             },
             access switch
@@ -149,6 +187,14 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem) : IFileChannel
                 VBFileLockMode.ReadWrite => FileShare.None,
                 _ => FileShare.ReadWrite,
             });
+
+        if (mode is VBFileMode.Append)
+        {
+            stream.Seek(0, SeekOrigin.End);
+        }
+
+        return stream;
+    }
 
     // the same external file reached by two spellings is the same file. Case-insensitively on Windows, and
     // the platform runs on Linux too, so this compares the way the file system it was given does.

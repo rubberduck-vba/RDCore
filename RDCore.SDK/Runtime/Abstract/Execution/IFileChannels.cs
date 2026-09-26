@@ -46,6 +46,22 @@ public interface IFileChannel
     /// <see cref="VBFileMode.Binary"/>, which the specification says to disregard it for.
     /// </summary>
     int RecordLength { get; }
+
+    /// <summary>
+    /// The channel as a character-output target, for <c>Print #</c> and <c>Write #</c>.
+    /// </summary>
+    /// <remarks>
+    /// The same <see cref="IRuntimeOutput"/> the session's own output is, so <strong>MS-VBAL
+    /// §5.4.5.8</strong>'s output rules - print zones, the numeric space, <c>Spc</c>, <c>Tab</c>, a trailing
+    /// <c>;</c> - are evaluated once and written wherever they are aimed. A channel counts its own line
+    /// position, which is what those rules are relative to.
+    /// <para>
+    /// 👉 A caller is expected to have asked <see cref="FileStatementAccess"/> whether the statement is valid
+    /// on this channel first. Writing to one opened for reading fails rather than corrupting it, but reporting
+    /// <em>which</em> statement was wrong is the caller's job, not this one's.
+    /// </para>
+    /// </remarks>
+    IRuntimeOutput Output { get; }
 }
 
 /// <summary>

@@ -45,9 +45,13 @@ public sealed class PrintOutputEvaluator(
     /// <param name="session">The session whose output is written to.</param>
     /// <param name="context">The runtime context each output expression is evaluated against.</param>
     /// <param name="items">The output list, in source order; empty writes a blank line.</param>
-    public RuntimeExecutionOutcome Execute(IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<PrintOutputItemNode> items)
+    public RuntimeExecutionOutcome Execute(
+        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<PrintOutputItemNode> items,
+        IRuntimeOutput? target = null)
     {
-        var output = session.Output;
+        // MS-VBAL 5.4.5.8's rules are the same wherever the output is aimed - the session's own for
+        // Debug.Print, a file channel for Print #. Only the target differs, so only the target is a parameter.
+        var output = target ?? session.Output;
         if (items.IsEmpty)
         {
             // "If <output-list> is not present, the line termination sequence ... is written".

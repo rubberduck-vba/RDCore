@@ -184,6 +184,99 @@ public sealed class FileStatementTests
     }
 
     [TestMethod]
+    public void Print_WritesToTheChannel()
+    {
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Print #1, \"hello\"",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual("hello\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Print_AppliesTheSameOutputRulesAsDebugPrint()
+    {
+        // MS-VBAL 5.4.5.8 is one set of rules whichever target they are aimed at: a positive number carries a
+        // leading space, and a comma advances to the next 14-character print zone.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Print #1, 1; 2",
+            "Close #1");
+
+        Assert.AreEqual(" 1  2 \r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Print_WithATrailingSemicolon_HoldsTheLineOpen()
+    {
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Print #1, \"a\";",
+            "Print #1, \"b\"",
+            "Close #1");
+
+        Assert.AreEqual("ab\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Print_ToAFileNumberThatIsNotOpen_IsBadFileNameOrNumber()
+    {
+        var (_, outcome) = Run(new MockFileSystem(), "Print #1, \"hello\"");
+
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileNameOrNumber, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void Print_ToAChannelOpenedForInput_IsBadFileMode()
+    {
+        // MS-VBAL 5.4.5.1's table: Print # is valid only in Append and Output. Encoded once, so every file
+        // statement answers this the same way.
+        var (_, outcome) = Run(
+            WithFile($"{Root}/a.txt"),
+            $"Open \"{Root}/a.txt\" For Input As #1",
+            "Print #1, \"nope\"");
+
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileMode, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void Print_ToAnAppendChannel_AddsAtTheEnd()
+    {
+        var fileSystem = WithFile($"{Root}/log.txt", "first\r\n");
+
+        Run(fileSystem,
+            $"Open \"{Root}/log.txt\" For Append As #1",
+            "Print #1, \"second\"",
+            "Close #1");
+
+        Assert.AreEqual("first\r\nsecond\r\n", fileSystem.File.ReadAllText($"{Root}/log.txt"));
+    }
+
+    [TestMethod]
+    public void Print_CountsItsOwnLinePosition_NotTheSessions()
+    {
+        // print zones are relative to the line of the file being written. A channel that shared the session's
+        // line position would put the zones in the wrong place the moment anything else had printed.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        Run(fileSystem,
+            "Debug.Print \"a long line of session output\";",
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Print #1, \"x\", \"y\"",
+            "Close #1");
+
+        Assert.AreEqual($"x{new string(' ', 13)}y\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
     public void Close_DisassociatesTheFileNumber()
     {
         var (session, outcome) = Run(
