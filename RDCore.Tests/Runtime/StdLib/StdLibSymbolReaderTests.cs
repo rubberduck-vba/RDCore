@@ -214,6 +214,52 @@ public sealed class StdLibSymbolReaderTests
     }
 
     [TestMethod]
+    public void TheStringsModule_IsReadWithEveryFunctionOfItsSpecification()
+    {
+        // MS-VBAL 6.1.2.11.1 lists 43 numbered subsections, several of which declare more than one
+        // function - the B-suffixed byte variants and the LTrim/RTrim/Trim group - for 50 members.
+        var members = MembersOf(Module("Strings")).Select(member => member.Name).ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "Asc", "AscB", "AscW", "Chr", "Chr$", "ChrB", "ChrB$", "ChrW", "ChrW$", "Filter",
+                "Format", "Format$", "FormatCurrency", "FormatDateTime", "FormatNumber", "FormatPercent",
+                "InStr", "InStrB", "InStrRev", "Join", "LCase", "LCase$", "Left", "LeftB", "Left$",
+                "LeftB$", "Len", "LenB", "LTrim", "LTrim$", "RTrim", "RTrim$", "Trim", "Trim$", "Mid",
+                "MidB", "Mid$", "MidB$", "MonthName", "Replace", "Right", "RightB", "Right$", "RightB$",
+                "Space", "Space$", "Split", "StrComp", "StrConv", "String", "String$", "StrReverse",
+                "UCase", "UCase$", "WeekdayName",
+            },
+            members);
+    }
+
+    [TestMethod]
+    public void AnEnumTypedParameter_KeepsItsDefaultConstant()
+    {
+        // MS-VBAL 6.1.2.11.1.36: StrComp(..., Optional Compare As VbCompareMethod = vbBinaryCompare).
+        // The declared type is the enum, and the <default-value> clause is the constant's own value -
+        // which is what an unmapped argument at a call site takes (MS-VBAL 5.3.1.7).
+        var strComp = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(member => member.Name == "StrComp");
+
+        var compare = strComp.Parameters.Last();
+        Assert.AreEqual("Compare", compare.Name);
+        Assert.IsTrue(compare.IsOptional);
+        Assert.AreEqual("VbCompareMethod", compare.ResolvedType.Name);
+        Assert.AreEqual((int)VBCompareMethod.VBBinaryCompare, Convert.ToInt32(compare.DefaultValue!.Handle.Value.BoxedValue));
+    }
+
+    [TestMethod]
+    public void AnArrayParameter_IsDeclaredAsAVariantArray()
+    {
+        // MS-VBAL 6.1.2.11.1.16: Join(SourceArray() As Variant, ...) - an array parameter declared with
+        // empty parentheses and no bounds (MS-VBAL 5.3.1.5).
+        var join = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(member => member.Name == "Join");
+
+        Assert.IsInstanceOfType<VBResizableArrayType>(join.Parameters.First().ResolvedType);
+    }
+
+    [TestMethod]
     public void CLngPtrsReturnType_FollowsThePointerWidthOfTheEnvironment()
     {
         // MS-VBAL 3.3.2: LongPtr is a different type in each pointer width, so its width is the one thing

@@ -76,6 +76,11 @@ public static class IntrinsicVBTypes
         [typeof(VBSingleValue)] = VBSingleType.TypeInfo,
         [typeof(VBStringValue)] = VBStringType.TypeInfo,
         [typeof(VBVariantValue)] = VBVariantType.TypeInfo,
+        // `Variant()` - an array parameter declared with empty parentheses and no bounds
+        // (MS-VBAL 5.3.1.5), as `Strings.Join(SourceArray() As Variant, ...)` takes. An array of any other
+        // element type has no single value implementation to name it by, and is declared by building the
+        // VBResizableArrayType for that element type instead.
+        [typeof(VBResizableArrayValue)] = VBResizableArrayType.TypeInfo,
     }.ToImmutableDictionary();
 
     /// <summary>
