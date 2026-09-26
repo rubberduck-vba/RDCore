@@ -50,6 +50,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         => new(new Dictionary<Type, object>
         {
             [typeof(IStdInformationModule)] = new StdInformation(session),
+            [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
         });
 
     /// <summary>

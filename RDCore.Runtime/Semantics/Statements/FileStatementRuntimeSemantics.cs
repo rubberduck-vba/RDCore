@@ -29,6 +29,16 @@ public sealed record class FileStatementRuntimeSemantics(
     VBStringLetCoercionRuntimeSemantics Strings)
 {
     /// <summary>
+    /// The lowest file number a file number may take (<strong>MS-VBAL §5.4.5</strong>).
+    /// </summary>
+    public const int MinFileNumber = 1;
+
+    /// <summary>
+    /// The highest file number a file number may take (<strong>MS-VBAL §5.4.5</strong>).
+    /// </summary>
+    public const int MaxFileNumber = 511;
+
+    /// <summary>
     /// Executes an <c>Open</c> statement (<strong>MS-VBAL §5.4.5.1</strong>).
     /// </summary>
     /// <param name="session">The session whose channels the statement opens against.</param>
@@ -42,7 +52,7 @@ public sealed record class FileStatementRuntimeSemantics(
             return pathFailure;
         }
 
-        if (!TryEvaluateInteger(session, context, open.FileNumber, out var fileNumber, out var numberFailure))
+        if (!TryEvaluateFileNumber(session, context, open.FileNumber, open, out var fileNumber, out var numberFailure))
         {
             return numberFailure;
         }
@@ -100,7 +110,7 @@ public sealed record class FileStatementRuntimeSemantics(
         StatementNode node, out IFileChannel? channel, out RuntimeExecutionOutcome failure)
     {
         channel = null;
-        if (!TryEvaluateInteger(session, context, fileNumber, out var number, out failure))
+        if (!TryEvaluateFileNumber(session, context, fileNumber, node, out var number, out failure))
         {
             return false;
         }
@@ -144,7 +154,7 @@ public sealed record class FileStatementRuntimeSemantics(
 
         foreach (var input in statement.Inputs.OfType<ExpressionNode>())
         {
-            if (!TryEvaluateInteger(session, context, input, out var fileNumber, out var failure))
+            if (!TryEvaluateFileNumber(session, context, input, statement, out var fileNumber, out var failure))
             {
                 return failure;
             }
@@ -210,6 +220,31 @@ public sealed record class FileStatementRuntimeSemantics(
         }
 
         value = coerced.Result!.Handle.Value.BoxedValue as string ?? string.Empty;
+        failure = RuntimeExecutionOutcome.Next;
+        return true;
+    }
+
+    // MS-VBAL 5.4.5.1.1: a file number is the result of Let-coercing the expression to Integer, and "if the
+    // file number value is not in the inclusive range 1 to 511 error number 52 is raised" - as is an expression
+    // that will not coerce at all. Every file statement's file number goes through this, not just Open's: the
+    // specification states the rule once, about file numbers, rather than per statement.
+    private bool TryEvaluateFileNumber(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, StatementNode node,
+        out int fileNumber, out RuntimeExecutionOutcome failure)
+    {
+        if (!TryEvaluateInteger(session, context, expression, out fileNumber, out _))
+        {
+            failure = Failed(VBRuntimeErrorId.BadFileNameOrNumber, node, "the file number is not a number");
+            return false;
+        }
+
+        if (fileNumber is < MinFileNumber or > MaxFileNumber)
+        {
+            failure = Failed(VBRuntimeErrorId.BadFileNameOrNumber, node,
+                $"#{fileNumber} is outside the {MinFileNumber}-{MaxFileNumber} range a file number may take");
+            return false;
+        }
+
         failure = RuntimeExecutionOutcome.Next;
         return true;
     }

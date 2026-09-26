@@ -277,6 +277,51 @@ public sealed class FileStatementTests
     }
 
     [TestMethod]
+    public void AFileNumberOutsideItsRange_IsBadFileNameOrNumber()
+    {
+        // "A file number is an integer in the inclusive range of 1 to 511" (MS-VBAL 5.4.5), and 5.4.5.1.1 says
+        // anything outside it is error 52 - stated once, about file numbers, so it holds for every statement
+        // that takes one rather than only for Open.
+        var fileSystem = WithFile($"{Root}/a.txt");
+
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileNameOrNumber,
+            Run(fileSystem, $"Open \"{Root}/a.txt\" For Input As #0").Outcome.ErrorInfo!.ErrorId);
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileNameOrNumber,
+            Run(fileSystem, $"Open \"{Root}/a.txt\" For Input As #512").Outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void TheLastAndFirstFileNumbersOfTheRange_AreValid()
+    {
+        var (session, outcome) = Run(
+            WithFile($"{Root}/a.txt"),
+            $"Open \"{Root}/a.txt\" For Input As #1",
+            $"Open \"{Root}/a.txt\" For Input As #511");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.HasCount(2, session.Files.Open);
+    }
+
+    [TestMethod]
+    public void EachFileNumber_MapsToItsOwnFile()
+    {
+        // nothing says only one file may be open, so a statement's file number is what decides which file it
+        // acts on - the whole reason FreeFile exists rather than everyone writing #1.
+        var fileSystem = new MockFileSystem();
+        fileSystem.Directory.CreateDirectory(Root);
+
+        Run(fileSystem,
+            $"Open \"{Root}/one.txt\" For Output As #1",
+            $"Open \"{Root}/two.txt\" For Output As #2",
+            "Print #2, \"to two\"",
+            "Print #1, \"to one\"",
+            "Close");
+
+        Assert.AreEqual("to one\r\n", fileSystem.File.ReadAllText($"{Root}/one.txt"));
+        Assert.AreEqual("to two\r\n", fileSystem.File.ReadAllText($"{Root}/two.txt"));
+    }
+
+    [TestMethod]
     public void Close_DisassociatesTheFileNumber()
     {
         var (session, outcome) = Run(
