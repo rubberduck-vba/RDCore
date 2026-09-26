@@ -1,7 +1,10 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.CLI.Host;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
@@ -11,8 +14,8 @@ namespace RDCore.CLI.Host.Handlers;
 /// <summary>
 /// Handles <c>rdcore/host/symbols/define</c>: reconstructs the runtime member symbols one module
 /// declares from the language server's descriptors and defines them in the runtime session. Declared
-/// type names are resolved against the intrinsic types only for now (Slice 4); a name that does not
-/// resolve stays <c>VBUnknownType</c> and is reported back.
+/// type names are resolved against the intrinsic types and the standard library's own declared types; a
+/// name that does not resolve stays <c>VBUnknownType</c> and is reported back.
 /// </summary>
 internal sealed class DefineSymbolsHandler(
     IEnvironmentSessionProvider sessionProvider,
@@ -36,6 +39,22 @@ internal sealed class DefineSymbolsHandler(
             if (IntrinsicVBTypes.TryResolve(typeName, out var type))
             {
                 return type;
+            }
+
+            // the standard library's own declared types are in this session too — the host injects them
+            // into every project whether or not a .rdproj mentions the library (RD-VBAL §6.1) — so
+            // `As VbDayOfWeek` and `As ErrObject` bind here instead of being reported unresolved. A
+            // workspace type may still not be defined yet, since this defines one module at a time, and
+            // stays unresolved exactly as it did before.
+            // resolved as seen from the module being defined, not from the global scope: a standard
+            // module's members reach the project scope, and the project scope is only an ancestor of a
+            // module's own. A request that names no module has no such vantage point, and resolves
+            // intrinsics only.
+            if (request.ModuleUri is { } moduleUri
+                && session.Symbols.Resolver.ResolveType(typeName, ScopeKind.Module, moduleUri) is { IsResolved: true } resolved
+                && DeclaredTypeOf(resolved.Symbol) is { } declared)
+            {
+                return declared;
             }
 
             unresolvedTypeNames.Add(typeName);
@@ -91,4 +110,14 @@ internal sealed class DefineSymbolsHandler(
             MergedDefinitions = merged,
         });
     }
+
+    // an `As` clause names a symbol; this is the type that symbol declares. A user-defined type is not
+    // here yet: TODO reconstruct its VBUserDefinedType, which needs the field layout the descriptors do
+    // not carry.
+    private static VBType? DeclaredTypeOf(Symbol? symbol) => symbol switch
+    {
+        VBClassModuleSymbol classModule => VBClassType.FromClassModule(classModule),
+        VBEnumMemberSymbol { ResolvedType: VBEnumType enumType } => enumType,
+        _ => null,
+    };
 }
