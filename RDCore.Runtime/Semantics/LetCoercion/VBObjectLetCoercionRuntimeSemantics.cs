@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Values.Bindings;
 ﻿using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK;
@@ -42,6 +43,13 @@ public record class VBObjectLetCoercionRuntimeSemantics(
     /// rather than throwing.
     /// </summary>
     public IProcedureInvoker? ProcedureInvoker { get; set; }
+
+    /// <summary>
+    /// Binds the default member to whatever runs it. A default member is not always the workspace's own code -
+    /// an <c>ErrObject</c> Let-coerced to a <c>Long</c> reads <c>Err.Number</c>, which is the standard
+    /// library's. Settable for the same construction-order reason as <see cref="ProcedureInvoker"/>.
+    /// </summary>
+    public ICallableBindingFactory? Bindings { get; set; }
 
     /// <summary>
     /// The session a default member is looked up against. Settable for the same construction-order
@@ -110,7 +118,10 @@ public record class VBObjectLetCoercionRuntimeSemantics(
                 : (parameters[i].DefaultValue ?? parameters[i].ResolvedType.DefaultValue).RuntimeValue;
         }
 
-        var invocation = invoker.Invoke(defaultMember, resolver, arguments);
+        // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
+        var invocation = Bindings is { } bindings
+            ? bindings.ForMember(defaultMember).Call(resolver, arguments)
+            : invoker.Invoke(defaultMember, resolver, arguments);
         return invocation.IsSuccess
             ? LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, frame with { SourceValue = invocation.Result! })
             : LetCoercionResult.Error(invocation.ErrorInfo!);

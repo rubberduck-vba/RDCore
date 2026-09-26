@@ -47,6 +47,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     {
         if (!Bodies.TryGetValue(procedure.SemanticId, out var body))
         {
+            // a member with no body is a real gap in the platform. A member whose code is not the workspace's
+            // never reaches here at all: ICallableBindingFactory binds it to an IExternalDispatcher instead,
+            // which is where that decision belongs - at the binding, not inside the thing that runs one kind.
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 

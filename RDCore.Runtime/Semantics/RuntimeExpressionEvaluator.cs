@@ -79,6 +79,12 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     public IProcedureInvoker? ProcedureInvoker { get; set; }
 
     /// <summary>
+    /// Binds a member to whatever runs it - the workspace's own invoker, or the dispatcher that reaches
+    /// outside it. Settable for the same construction-order reason as <see cref="ProcedureInvoker"/>.
+    /// </summary>
+    public ICallableBindingFactory? Bindings { get; set; }
+
+    /// <summary>
     /// Let-coerces each argument of a bare <c>Sub</c> call to its own parameter's declared type
     /// (<strong>MS-VBAL §5.5.1.2</strong>) before passing it to <see cref="ProcedureInvoker"/> - ByVal
     /// parameter passing is itself a Let-target, the same as any other. Settable for the same
@@ -382,7 +388,11 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             arguments[i] = coercionResult.Result!.RuntimeValue;
         }
 
-        return ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, arguments);
+        // through a binding rather than straight to the invoker: whether this member's code is the workspace's
+        // is the factory's decision, and a call site has no business knowing.
+        return Bindings is { } bindings
+            ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, arguments)
+            : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, arguments);
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);

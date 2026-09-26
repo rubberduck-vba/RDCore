@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.Runtime.Semantics.SetCoercion;
@@ -80,6 +81,7 @@ public sealed class RuntimeExecutionPipeline
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, messages);
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle);
         var stringCoercion = new VBStringLetCoercionRuntimeSemantics(messages);
+        var objectCoercion = new VBObjectLetCoercionRuntimeSemantics(handle, messages);
 
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
             [
@@ -92,7 +94,7 @@ public sealed class RuntimeExecutionPipeline
                 new VBEmptyTypeLetCoercionRuntimeSemantics(messages),
                 new VBNullTypeLetCoercionRuntimeSemantics(messages),
                 new VBErrorTypeLetCoercionRuntimeSemantics(handle, messages),
-                new VBObjectLetCoercionRuntimeSemantics(handle, messages),
+                objectCoercion,
                 new VBUserDefinedTypeLetCoercionRuntimeSemantics(handle, messages),
                 new VBResizableByteArrayLetCoercionRuntimeSemantics(handle, messages),
                 new VBResizableArrayLetCoercionRuntimeSemantics(handle, messages),
@@ -119,8 +121,18 @@ public sealed class RuntimeExecutionPipeline
 
         // the evaluator needs the invoker, which needs the executor, which needs the evaluator: the
         // last edge of the cycle is closed by assignment rather than by construction.
+        // the standard library is part of every session (RD-VBAL 6.1), so the dispatcher that reaches it is
+        // composed here with the rest of the pipeline rather than being something a caller opts into.
         var invoker = new RuntimeProcedureInvoker(session, bodies, executor);
+        // the standard library is part of every session (RD-VBAL 6.1), so the dispatcher that reaches it is
+        // composed here with the rest of the pipeline rather than being something a caller opts into.
+        var bindings = new RuntimeCallableBindingFactory(invoker, StdLibDispatcher.For(session));
         expressions.ProcedureInvoker = invoker;
+        expressions.Bindings = bindings;
+        // a default member is invoked the same way any member is, and it was reaching neither engine before:
+        // nothing assigned these, so every default-member Let-coercion reported an internal error.
+        objectCoercion.ProcedureInvoker = invoker;
+        objectCoercion.Bindings = bindings;
         expressions.LetCoercionProvider = letCoercion;
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);

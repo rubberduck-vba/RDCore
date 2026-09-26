@@ -37,10 +37,13 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// The object a member of a class is bound to, <see langword="null"/> for a procedure of a standard module. It is the <c>Me</c> of
 /// the call: passed as the first argument (<strong>RD-VBAL</strong>: <c>Me</c> is the implicit parameter at index <c>0</c> of every member).
 /// </param>
-public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedureInvoker Invoker, IRuntimeValue? Receiver = null) : IBindingHandle
+public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedureInvoker Invoker, IRuntimeValue? Receiver = null) : ICallableBinding
 {
     /// <inheritdoc/>
     public BindingCapabilities BindingCapabilities => BindingCapabilities.Invoke;
+
+    /// <inheritdoc/>
+    VBTypeMemberSymbol ICallableBinding.Member => Procedure;
 
     /// <summary>
     /// Invokes the procedure and returns the outcome of the call as a result, the way the semantics of the language do:

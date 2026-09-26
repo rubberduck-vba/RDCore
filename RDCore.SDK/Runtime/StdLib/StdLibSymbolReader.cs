@@ -80,6 +80,26 @@ public sealed class StdLibSymbolReader
     /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>)
     /// — so the set is whatever carries the markers.
     /// </param>
+    /// <summary>
+    /// The key that says which declaration a standard-library symbol was read off, carried on the symbol as
+    /// <see cref="SymbolProperties.ExternalTarget"/> so that a dispatcher can find the method again.
+    /// </summary>
+    /// <remarks>
+    /// The reader is what defines the format, because the reader is what stamps it - a dispatcher that built
+    /// its own key format could disagree with this one and nothing would say so until a call went to the
+    /// wrong member.
+    /// <para>
+    /// Arity is part of the key because a property's two accessors are C# overloads of one name -
+    /// <c>Description()</c> and <c>Description(value)</c> - and nothing else about them differs. Two members
+    /// of one interface sharing a name <em>and</em> an arity would collide, which a dispatcher building its
+    /// table is expected to detect rather than dispatch one of them to the other.
+    /// </para>
+    /// </remarks>
+    /// <param name="declaringType">The <c>IStd*</c> interface declaring the member.</param>
+    /// <param name="method">The method declaring the member.</param>
+    public static string ExternalTargetOf(Type declaringType, MethodInfo method)
+        => $"{declaringType.Name}.{method.Name}/{method.GetParameters().Length}";
+
     public ImmutableArray<Symbol> Read(Assembly assembly) => Read(assembly.GetExportedTypes());
 
     /// <summary>
@@ -230,12 +250,17 @@ public sealed class StdLibSymbolReader
         };
 
         var parameters = ReadParameters(method, member.Uri, scope, enumTypes, classTypes);
-        return member switch
+        member = member switch
         {
             VBReturningMemberSymbol returning => returning with { Parameters = parameters },
             VBProcedureMemberSymbol procedure => procedure with { Parameters = parameters },
             _ => member,
         };
+
+        // the declaration this was read off, carried on the symbol: the code that runs for this member is
+        // not the workspace's, so there is no instruction list for it, and this is what an
+        // IExternalDispatcher finds the implementation by. Nothing downstream could reconstruct it.
+        return member.With(SymbolProperties.ExternalTarget, ExternalTargetOf(method.DeclaringType!, method));
     }
 
     private ImmutableArray<VBParameterSymbol> ReadParameters(

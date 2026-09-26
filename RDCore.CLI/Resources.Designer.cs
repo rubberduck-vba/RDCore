@@ -359,7 +359,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?SYNTAX ERROR.
+        ///   Looks up a localized string similar to SYNTAX ERROR.
         /// </summary>
         public static string Repl_SyntaxError {
             get {
@@ -368,7 +368,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?UNDEF'D LINE ERROR.
+        ///   Looks up a localized string similar to UNDEF'D LINE ERROR.
         /// </summary>
         public static string Repl_UndefinedLine {
             get {
@@ -377,7 +377,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?NOT AVAILABLE ERROR.
+        ///   Looks up a localized string similar to NOT AVAILABLE ERROR.
         /// </summary>
         public static string Repl_NotAvailable {
             get {
@@ -485,7 +485,7 @@ namespace RDCore.CLI {
         }
          
         /// <summary>
-        ///   Looks up a localized string similar to ?{0} ERROR.
+        ///   Looks up a localized string similar to {0} ERROR.
         /// </summary>
         public static string Repl_RuntimeError {
             get {
@@ -494,7 +494,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?{0} ERROR IN {1}.
+        ///   Looks up a localized string similar to {0} ERROR IN {1}.
         /// </summary>
         public static string Repl_RuntimeError_InLine {
             get {
@@ -521,7 +521,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?NOT IMPLEMENTED ERROR.
+        ///   Looks up a localized string similar to NOT IMPLEMENTED ERROR.
         /// </summary>
         public static string Repl_NotImplemented {
             get {
@@ -530,7 +530,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?UNDEFINED PROCEDURE ERROR.
+        ///   Looks up a localized string similar to UNDEFINED PROCEDURE ERROR.
         /// </summary>
         public static string Repl_NotFound {
             get {
@@ -557,7 +557,7 @@ namespace RDCore.CLI {
         }
          
         /// <summary>
-        ///   Looks up a localized string similar to ?ILLEGAL ADDRESS ERROR.
+        ///   Looks up a localized string similar to ILLEGAL ADDRESS ERROR.
         /// </summary>
         public static string Repl_Memory_NotAllocated {
             get {
@@ -566,7 +566,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ?ILLEGAL QUANTITY ERROR.
+        ///   Looks up a localized string similar to ILLEGAL QUANTITY ERROR.
         /// </summary>
         public static string Repl_Memory_BadArguments {
             get {

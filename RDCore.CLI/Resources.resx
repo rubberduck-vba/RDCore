@@ -241,13 +241,13 @@ Long Live the Cucumber (Latin)</comment>
     <value>NO RUNTIME SESSION</value>
   </data>
   <data name="Repl_SyntaxError" xml:space="preserve">
-    <value>?SYNTAX ERROR</value>
+    <value>SYNTAX ERROR</value>
   </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
-    <value>?UNDEF'D LINE ERROR</value>
+    <value>UNDEF'D LINE ERROR</value>
   </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
-    <value>?NOT AVAILABLE ERROR</value>
+    <value>NOT AVAILABLE ERROR</value>
   </data>
   <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
     <value>The language server does not provide the '{0}' platform capability.</value>
@@ -282,10 +282,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Writes a byte at a session memory address.</value>
   </data>  <data name="Repl_RuntimeError" xml:space="preserve">
-    <value>?{0}</value>
+    <value>{0}</value>
   </data>
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
-    <value>?{0} IN {1}</value>
+    <value>{0} IN {1}</value>
   </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
     <value>SOURCE: {0}</value>
@@ -294,19 +294,19 @@ Long Live the Cucumber (Latin)</comment>
     <value>STACK TRACE:</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
-    <value>?NOT IMPLEMENTED ERROR</value>
+    <value>NOT IMPLEMENTED ERROR</value>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
-    <value>?UNDEFINED PROCEDURE ERROR</value>
+    <value>UNDEFINED PROCEDURE ERROR</value>
   </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>NOTHING TO REPORT ({0} PROVIDER(S))</value>
   </data>
   <data name="Repl_Analyze_Count" xml:space="preserve">
     <value>{0} DIAGNOSTIC(S)</value>
   </data>  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
-    <value>?ILLEGAL ADDRESS ERROR</value>
+    <value>ILLEGAL ADDRESS ERROR</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
-    <value>?ILLEGAL QUANTITY ERROR</value>
+    <value>ILLEGAL QUANTITY ERROR</value>
   </data>
 </root>

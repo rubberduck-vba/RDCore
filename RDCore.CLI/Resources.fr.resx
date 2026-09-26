@@ -239,13 +239,13 @@
     <value>AUCUNE SESSION D'EXÉCUTION</value>
   </data>
   <data name="Repl_SyntaxError" xml:space="preserve">
-    <value>?ERREUR DE SYNTAXE</value>
+    <value>ERREUR DE SYNTAXE</value>
   </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
-    <value>?ERREUR: LIGNE NON DÉFINIE</value>
+    <value>ERREUR: LIGNE NON DÉFINIE</value>
   </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
-    <value>?ERREUR: NON DISPONIBLE</value>
+    <value>ERREUR: NON DISPONIBLE</value>
   </data>
   <data name="Repl_NotAvailable_Verbose" xml:space="preserve">
     <value>Le serveur de langage ne fournit pas la capacité de plateforme « {0} ».</value>
@@ -280,10 +280,10 @@
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Écrit un octet à une adresse mémoire de la session.</value>
   </data>  <data name="Repl_RuntimeError" xml:space="preserve">
-    <value>?{0}</value>
+    <value>{0}</value>
   </data>
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
-    <value>?{0} À LA LIGNE {1}</value>
+    <value>{0} À LA LIGNE {1}</value>
   </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
     <value>SOURCE: {0}</value>
@@ -292,19 +292,19 @@
     <value>PILE D'APPELS:</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
-    <value>?ERREUR: NON IMPLÉMENTÉ</value>
+    <value>ERREUR: NON IMPLÉMENTÉ</value>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
-    <value>?ERREUR: PROCÉDURE NON DÉFINIE</value>
+    <value>ERREUR: PROCÉDURE NON DÉFINIE</value>
   </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>RIEN À SIGNALER ({0} FOURNISSEUR(S))</value>
   </data>
   <data name="Repl_Analyze_Count" xml:space="preserve">
     <value>{0} DIAGNOSTIC(S)</value>
   </data>  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
-    <value>?ERREUR: ADRESSE ILLÉGALE</value>
+    <value>ERREUR: ADRESSE ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
-    <value>?ERREUR: QUANTITÉ ILLÉGALE</value>
+    <value>ERREUR: QUANTITÉ ILLÉGALE</value>
   </data>
 </root>

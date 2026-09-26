@@ -58,4 +58,16 @@ public static class SymbolProperties
     /// Provided via <c>VB_MemberFlags</c> attributes, with a handful of useful "magic" values.
     /// </remarks>
     public static readonly SymbolProperty<int> MemberFlags = new(nameof(MemberFlags));
+    /// <summary>
+    /// 🎯 The key identifying the <em>external</em> implementation a member dispatches to: a member whose
+    /// code is not the workspace's, so no instruction list exists for it and
+    /// <c>IExternalDispatcher</c> runs it instead.
+    /// </summary>
+    /// <remarks>
+    /// Set by whatever contributed the symbol, because only that knows what the symbol stands for - the
+    /// standard library's reader knows the declaration it read the member off, and nothing downstream could
+    /// reconstruct it from a name. Absent on every symbol a workspace declares, which is what tells the two
+    /// apart at the point of invocation.
+    /// </remarks>
+    public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
 }
