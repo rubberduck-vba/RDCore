@@ -25,7 +25,24 @@ The `Err` _function_ (**MS-VBAL §6.1.3.2**) illustrates one deliberate shape. M
 - Only the activation the error was raised in carries a _location_; a caller's activation record does not say where in itself it is suspended.
 - It is empty when no error is current, and when source made one current by assigning `Err.Number` rather than by raising one.
 
-### 6.1.3 Modules
+### 6.1.3 `Information.Erl`
+
+🎯 **RD-VBA widens a member MS-VBA got wrong.** `Erl` reports the _line number_ the most recent run-time error was raised at — a member MS-VBAL does not document at all, and that MS-VBA hides, while nonetheless exposing it from `Information`.
+
+**MS-VBA's own answer is not a useful one**, in two separate ways, and RD-VBA departs from both.
+
+**It counts the wrong thing.** MS-VBA reports the last _line-number label_ it passed. Hardly any code numbers every line, so a fault in an unnumbered statement is reported at whichever numbered line came before it — however far back that is — and a program that numbers nothing is told every error happened at line `0`. The number is truthful only where every single line is numbered, which is to say a BASIC program. So what `Erl` counts is a setting of the _environment_ (`ErlLineNumbering`, bound from `appsettings.json` like the rest of the runtime profile):
+
+|Mode|`Erl` reports|
+|---|---|
+|`DocumentLine` (default)|the line the faulting statement is really on, counted from `1` as an editor counts it|
+|`LineLabel`|the last line-number label at or before it, or `0` when none precedes it — bug for bug with MS-VBA|
+
+A _named_ label never sets it in either mode; only a label spelled as decimal digits does. `LineLabel` is the right answer for a numbered BASIC program, where it _is_ the document line, and is there for a workspace whose own code depends on MS-VBA's behaviour.
+
+**And it reports it too narrowly.** MS-VBA reports `Erl` with `ushort` resolution and wraps around on any line number that does not fit, so a program numbered past `65535` is told it faulted at a line it has not got. **RD-VBA returns a `Long`**, so every legal line number is representable.
+
+### 6.1.4 Modules
 
 The SDK defines all the interfaces for the _internal representation_ of each module - the _environment host_ exposes the symbols provided by the library to the _workspace_:
 

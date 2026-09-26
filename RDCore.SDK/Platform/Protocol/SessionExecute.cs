@@ -137,4 +137,70 @@ public record class ExecuteSessionResult
     /// The run-time error's description, or a short explanation of any other non-<see cref="ExecutionOutcome.Completed"/> outcome.
     /// </summary>
     public string ErrorMessage { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The run-time error's <strong>RD-VBAL §2.6.3</strong> diagnostic code — <c>VBR</c> for one the
+    /// runtime semantics reported, <c>VBA</c> for one the program raised itself with <c>Error</c> or
+    /// <c>Err.Raise</c>. Empty for any other outcome.
+    /// </summary>
+    public string ErrorCode { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The error's <em>category</em>, as a reader sees it in a title: which of <strong>RD-VBAL §2.6</strong>'s
+    /// families raised it - "Run-time error" or "Application error" for a run, localized. What it *was* is
+    /// <see cref="ErrorMessage"/>. Empty for any other outcome.
+    /// </summary>
+    public string ErrorTitle { get; init; } = string.Empty;
+
+    /// <summary>
+    /// What <c>Err.Source</c> reports: the object or application that generated the error, defaulting to
+    /// the project's own name (<strong>MS-VBAL §6.1.3.2.2.6</strong>). Empty for any other outcome.
+    /// </summary>
+    public string ErrorSource { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Where in the submitted <see cref="ExecuteSessionParams.Source"/> the error was raised, zero-based
+    /// as every position in the platform is: the line, and <see cref="ErrorCharacter"/> within it. Both
+    /// <c>-1</c> when the outcome is not a run-time error, or when nothing located it.
+    /// </summary>
+    /// <remarks>
+    /// A position in the source the <em>caller sent</em>, which is the one document both ends of the
+    /// protocol agree on. A client whose program does not live in a file — an interactive shell's buffer —
+    /// maps it back to whatever it calls a line itself.
+    /// </remarks>
+    public int ErrorLine { get; init; } = -1;
+
+    /// <inheritdoc cref="ErrorLine"/>
+    public int ErrorCharacter { get; init; } = -1;
+
+    /// <summary>
+    /// 🎯 The <em>line number</em> the error was raised at - what <c>Erl</c> reports: the nearest line-number
+    /// label at or before the faulting statement, or <c>0</c> when none precedes it. Also <c>0</c> for any
+    /// other outcome.
+    /// </summary>
+    public long ErrorLineNumber { get; init; }
+
+    /// <summary>
+    /// 🎯 The call stack the error was raised on, innermost activation first - what <c>Err.StackTrace</c>
+    /// reports. Empty for any other outcome.
+    /// </summary>
+    public IReadOnlyList<ExecuteStackFrame> StackTrace { get; init; } = [];
 }
+
+/// <summary>
+/// One activation of the call stack a run-time error was raised on.
+/// </summary>
+/// <remarks>
+/// Structured rather than pre-formatted, because a position only means something to the client: the
+/// source both ends agree on is the one the client sent, and a client whose program does not live in a
+/// file has its own idea of what a line is called. Formatting it here would force the shell to display a
+/// line number its user never typed.
+/// </remarks>
+/// <param name="Procedure">The name of the procedure the activation is of.</param>
+/// <param name="Line">
+/// Zero-based line in the submitted source, or <c>-1</c> when the activation carries no location — true
+/// of every activation but the one the error was raised in, since an activation record does not say
+/// where in itself it is suspended.
+/// </param>
+/// <param name="Character">Zero-based character within <paramref name="Line"/>, or <c>-1</c>.</param>
+public record class ExecuteStackFrame(string Procedure, int Line = -1, int Character = -1);

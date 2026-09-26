@@ -104,6 +104,29 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// The program line number that <paramref name="sourceLine"/> of <see cref="ToModuleSource"/>'s output
+    /// came from, or <c>null</c> when that line is not one of the program's.
+    /// </summary>
+    /// <remarks>
+    /// What a run-time error's position means to the person who typed the program. The platform locates an
+    /// error in the source it was handed, which for a shell is generated - so the line it reports is a line
+    /// nobody typed, and only the buffer can say which of its own lines that was.
+    /// <para>
+    /// The mapping is positional: <see cref="ToModuleSource"/> writes the procedure header first and then one
+    /// line per numbered line, in order. An immediate-mode statement is past the end of them, since
+    /// <see cref="ToImmediateModuleSource"/> appends it as a second procedure - hence <c>null</c> rather than
+    /// a wrong answer.
+    /// </para>
+    /// </remarks>
+    /// <param name="sourceLine">A zero-based line index in the generated module source.</param>
+    public int? LineNumberAt(int sourceLine)
+    {
+        var lines = Lines().ToArray();
+        var index = sourceLine - 1;
+        return index >= 0 && index < lines.Length ? lines[index].Number : null;
+    }
+
+    /// <summary>
     /// The buffer as a VBA standard module with <paramref name="statement"/> appended as a second,
     /// parameterless procedure — how an immediate-mode line is compiled, so that it sees the same
     /// module scope the program itself runs in.

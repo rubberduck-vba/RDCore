@@ -200,6 +200,13 @@ public record class SdkEnvironmentOptions
     /// case-sensitive; that is the default.
     /// </summary>
     public Model.Symbols.OptionCompare DatabaseCompare { get; set; } = Model.Symbols.OptionCompare.Text;
+
+    /// <summary>
+    /// 🎯 What <c>Erl</c> counts as the line a run-time error was raised at: <c>DocumentLine</c> (the
+    /// default - the line the faulting statement is really on) or <c>LineLabel</c> (the last line-number
+    /// label before it, bug for bug with MS-VBA).
+    /// </summary>
+    public Runtime.Abstract.Execution.VBErlLineNumbering ErlLineNumbering { get; set; }
 }
 
 public record class SdkServerAppOptions

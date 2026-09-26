@@ -164,6 +164,45 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
+    public void ALineNumber_IsInEffectForEveryStatementAfterIt()
+    {
+        // what Erl reports. A line number is sticky - it labels every statement after it until the next one -
+        // so a statement carrying no label of its own still faults "at" the last number before it.
+        var result = Lower("10 x = 1", "x = 2", "20 x = 3");
+
+        AssertNoErrors(result);
+        Assert.IsTrue(result.InstructionList.TryGetLineNumber(0, out var first));
+        Assert.AreEqual(10L, first);
+        Assert.IsTrue(result.InstructionList.TryGetLineNumber(1, out var sticky));
+        Assert.AreEqual(10L, sticky, "the unlabelled statement is still within line 10");
+        Assert.IsTrue(result.InstructionList.TryGetLineNumber(2, out var second));
+        Assert.AreEqual(20L, second);
+    }
+
+    [TestMethod]
+    public void ANamedLabel_IsNotALineNumber()
+    {
+        // Erl reports line *numbers*; a named label leaves it at 0, the value that means "no line number".
+        var result = Lower("Top:", "x = 1");
+
+        AssertNoErrors(result);
+        Assert.IsFalse(result.InstructionList.TryGetLineNumber(0, out var lineNumber));
+        Assert.AreEqual(0L, lineNumber);
+    }
+
+    [TestMethod]
+    public void ALineNumberPastMSVBAsOwnResolution_IsReportedWhole()
+    {
+        // 🎯 the deliberate divergence: MS-VBA reports Erl with ushort resolution and wraps around, so it
+        // would answer 4464 here and name a line the program has not got. RD-VBA widens it to a Long.
+        var result = Lower("70000 x = 1");
+
+        AssertNoErrors(result);
+        Assert.IsTrue(result.InstructionList.TryGetLineNumber(0, out var lineNumber));
+        Assert.AreEqual(70000L, lineNumber);
+    }
+
+    [TestMethod]
     public void LabelNames_AreCaseInsensitive()
     {
         var result = Lower("done:", "x = 1");

@@ -280,7 +280,16 @@
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Écrit un octet à une adresse mémoire de la session.</value>
   </data>  <data name="Repl_RuntimeError" xml:space="preserve">
-    <value>?ERREUR: {0}</value>
+    <value>?{0}</value>
+  </data>
+  <data name="Repl_RuntimeError_InLine" xml:space="preserve">
+    <value>?{0} À LA LIGNE {1}</value>
+  </data>
+  <data name="Repl_RuntimeError_Source" xml:space="preserve">
+    <value>SOURCE: {0}</value>
+  </data>
+  <data name="Repl_RuntimeError_StackTrace" xml:space="preserve">
+    <value>PILE D'APPELS:</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
     <value>?ERREUR: NON IMPLÉMENTÉ</value>

@@ -35,10 +35,13 @@ public sealed class SessionErrorStateTests
     }
 
     /// <summary>Runs a procedure body and returns the session it ran in.</summary>
-    private static IRuntimeSession Run(params string[] body)
+    private static IRuntimeSession Run(params string[] body) => Run(VBErlLineNumbering.DocumentLine, body);
+
+    /// <summary>Runs a procedure body in an environment that counts Erl's line the given way.</summary>
+    private static IRuntimeSession Run(VBErlLineNumbering numbering, params string[] body)
     {
         var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider([]));
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, ErlLineNumbering: numbering), new Provider([]));
 
         var pipeline = RuntimeExecutionPipeline.Create(
             session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
@@ -163,6 +166,60 @@ public sealed class SessionErrorStateTests
 
         Assert.IsInstanceOfType<VBRuntimeErrorInfo>(session.Errors.Current);
         Assert.AreEqual("VBR00011", session.Errors.Current!.ToDiagnosticCode());
+    }
+
+    [TestMethod]
+    public void AnError_RecordsTheLineItWasRaisedAt()
+    {
+        // 🎯 what Erl reports - RD-VBAL's own, undocumented in MS-VBAL and hidden in MS-VBA. The body is
+        // wrapped in a Sub, so the faulting statement is on the second line of the document, counted from 1.
+        var session = Run("10 Error 11");
+
+        Assert.AreEqual(2L, session.Errors.LineNumber);
+    }
+
+    [TestMethod]
+    public void AnUnnumberedStatement_IsStillLocated()
+    {
+        // the whole point of counting document lines: nothing has to number its lines to be locatable.
+        var session = Run("On Error Resume Next", "Error 11");
+
+        Assert.AreEqual(3L, session.Errors.LineNumber);
+    }
+
+    [TestMethod]
+    public void WithMSVBACompatibleNumbering_TheLineIsTheLastLabel()
+    {
+        var session = Run(VBErlLineNumbering.LineLabel, "10 Error 11");
+
+        Assert.AreEqual(10L, session.Errors.LineNumber);
+    }
+
+    [TestMethod]
+    public void WithMSVBACompatibleNumbering_AnUnnumberedStatement_ReportsAStaleLabel()
+    {
+        // this is the behaviour that makes MS-VBA's Erl worth a dial rather than a faithful copy: the fault
+        // is two statements past line 10 and it is reported as line 10 regardless.
+        var session = Run(VBErlLineNumbering.LineLabel, "10 On Error Resume Next", "Error 11");
+
+        Assert.AreEqual(10L, session.Errors.LineNumber);
+    }
+
+    [TestMethod]
+    public void WithMSVBACompatibleNumbering_AProgramThatNumbersNothing_ReportsZero()
+    {
+        // ...and the same behaviour says every error in unnumbered code happened at line 0.
+        var session = Run(VBErlLineNumbering.LineLabel, "Error 11");
+
+        Assert.AreEqual(0L, session.Errors.LineNumber);
+    }
+
+    [TestMethod]
+    public void ClearingTheError_ClearsItsLineNumber()
+    {
+        var session = Run("10 On Error Resume Next", "20 Error 11", "30 On Error GoTo 0");
+
+        Assert.AreEqual(0L, session.Errors.LineNumber);
     }
 
     [TestMethod]

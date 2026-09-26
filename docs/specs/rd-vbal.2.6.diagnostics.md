@@ -8,12 +8,18 @@ stable **code**, a **help URL** for that code, and, for error diagnostics, struc
 
 Diagnostic codes are grouped into four families by the layer that raises them:
 
-|Family|Prefix|Raised by|Section|
-|---|---|---|---|
-|Syntax errors|`VBC`|the parser (concrete syntax tree)|[§2.6.1](#261-syntax-errors)|
-|Semantic compilation errors|`VBC`|the static semantics layer (abstract syntax tree)|[§2.6.2](#262-semantic-compilation-errors)|
-|Runtime errors|`VBR` / `VBA`|the runtime semantics layer / workspace `Err.Raise`|[§2.6.3](#263-runtime-errors)|
-|Rubberduck Core diagnostics|`RDC`|the `RDCore.Diagnostics` analyzers|[§2.6.4](#264-rubberduck-core-diagnostics)|
+|Family|Prefix|Title|Raised by|Section|
+|---|---|---|---|---|
+|Syntax errors|`VBC`|_Syntax error_|the parser (concrete syntax tree)|[§2.6.1](#261-syntax-errors)|
+|Semantic compilation errors|`VBC`|_Compile error_|the static semantics layer (abstract syntax tree)|[§2.6.2](#262-semantic-compilation-errors)|
+|Runtime errors|`VBR` / `VBA`|_Run-time error_ / _Application error_|the runtime semantics layer / workspace `Err.Raise`|[§2.6.3](#263-runtime-errors)|
+|Rubberduck Core diagnostics|`RDC`|_(per finding)_|the `RDCore.Diagnostics` analyzers|[§2.6.4](#264-rubberduck-core-diagnostics)|
+
+The **title** is an error's _category_ — what kind of thing went wrong — as distinct from its
+_description_, which is what went wrong: a title of "Run-time error" over a description of "Division by
+zero". It is localized, and it is derived rather than stored, because the two `VBC` categories share one
+family and nothing but the numeric portion separates them: `VBCompileErrorId` reserves `[9300..]` for the
+semantic ones, and everything below it is the parser's.
 
 The numeric portion is a five-digit zero-padded code (`VBC00001`, `VBR00009`, `RDC01001`). Each code
 is documented on its own page under [Diagnostics](../diagnostics/index.html)

@@ -19,11 +19,24 @@ public sealed class InstructionList
     private readonly IReadOnlyDictionary<string, int> _labels;
     private readonly IReadOnlyDictionary<SyntaxNodeId, int> _byNode;
 
+    private readonly ImmutableArray<(int Offset, long LineNumber)> _lineNumbers;
+
     internal InstructionList(ImmutableArray<Instruction> items, IReadOnlyDictionary<string, int> labels, IReadOnlyDictionary<SyntaxNodeId, int> byNode)
     {
         Items = items;
         _labels = labels;
         _byNode = byNode;
+
+        // a line *number* label is one whose name is decimal digits, which is what Erl reports and a named
+        // label never sets. Ordered by offset so the one in effect at a given offset is a search away.
+        _lineNumbers =
+        [
+            .. labels
+                .Select(label => (label.Value, Parsed: long.TryParse(label.Key, out var number), Number: number))
+                .Where(label => label.Parsed)
+                .Select(label => (Offset: label.Value, LineNumber: label.Number))
+                .OrderBy(label => label.Offset),
+        ];
     }
 
     /// <summary>
@@ -46,4 +59,37 @@ public sealed class InstructionList
     /// </summary>
     /// <returns><c>false</c> when <paramref name="nodeId"/> is not a statement of this body.</returns>
     public bool TryGetOffset(SyntaxNodeId nodeId, out int offset) => _byNode.TryGetValue(nodeId, out offset);
+
+    /// <summary>
+    /// The <em>line number</em> in effect at <paramref name="offset"/>: the nearest line-number label at or
+    /// before it. This is what <c>Erl</c> reports for an error raised there.
+    /// </summary>
+    /// <remarks>
+    /// A line number is sticky - it labels every statement after it until the next one - which is why this
+    /// searches backwards rather than requiring the faulting statement to carry a label of its own. A
+    /// <em>named</em> label never sets it; only a label spelled as decimal digits does.
+    /// <para>
+    /// 🎯 <c>long</c>, deliberately. MS-VBA reports <c>Erl</c> with <c>ushort</c> resolution and wraps
+    /// around on anything that does not fit, so a program numbered past 65535 is told it faulted somewhere
+    /// it did not. RD-VBA widens it instead, so every legal line number label is representable.
+    /// </para>
+    /// </remarks>
+    /// <param name="offset">A program-counter offset into <see cref="Items"/>.</param>
+    /// <param name="lineNumber">The line number in effect there, or <c>0</c> when no line number precedes it.</param>
+    /// <returns><c>false</c> when no line number is in effect at <paramref name="offset"/>.</returns>
+    public bool TryGetLineNumber(int offset, out long lineNumber)
+    {
+        lineNumber = 0;
+        foreach (var candidate in _lineNumbers)
+        {
+            if (candidate.Offset > offset)
+            {
+                break;
+            }
+
+            lineNumber = candidate.LineNumber;
+        }
+
+        return lineNumber != 0;
+    }
 }

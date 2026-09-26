@@ -37,11 +37,15 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     public VBStackTrace StackTrace { get; private set; } = VBStackTrace.Empty;
 
     /// <inheritdoc/>
-    public void Raise(IVBRaisableError error)
+    public long LineNumber { get; private set; }
+
+    /// <inheritdoc/>
+    public void Raise(IVBRaisableError error, long lineNumber = 0)
     {
         Current = error;
         Number = error.ErrorId;
         Description = error.Description;
+        LineNumber = lineNumber;
         StackTrace = Capture(error);
     }
 
@@ -56,6 +60,7 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
         Source = string.Empty;
         HelpFile = string.Empty;
         HelpContext = 0;
+        LineNumber = 0;
         StackTrace = VBStackTrace.Empty;
 
         return had;

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
@@ -116,7 +117,7 @@ internal sealed class HostExecuteHandler(
         try
         {
             var pipeline = RuntimeExecutionPipeline.Create(session, bodies, messages, token);
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), output, token);
+            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
         }
         finally
         {
@@ -127,7 +128,8 @@ internal sealed class HostExecuteHandler(
     // What the invoker answered, as the caller sees it. An internal error means the interpreter met
     // something it has no implementation for - unless the run was cancelled, in which case that is
     // exactly what an interrupted run looks like from here.
-    private static ExecuteSessionResult Report(RuntimeSemanticsEvaluationResult invocation, RuntimeOutputBuffer output, CancellationToken token)
+    private ExecuteSessionResult Report(
+        RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
     {
         if (invocation.IsSuccess)
         {
@@ -146,12 +148,30 @@ internal sealed class HostExecuteHandler(
             };
         }
 
+        // the error itself says what and where; the session's own error state says the rest, because that is
+        // where Err lives - its Source, and the stack trace captured when the error was raised.
+        var error = invocation.ErrorInfo!;
         return new ExecuteSessionResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             Output = output.Lines,
-            ErrorNumber = invocation.ErrorInfo!.ErrorId,
-            ErrorMessage = invocation.ErrorInfo!.Description,
+            ErrorNumber = error.ErrorId,
+            ErrorMessage = error.Description,
+            ErrorCode = error.ToDiagnosticCode(),
+            ErrorTitle = error.AsErrorInfo.ToDiagnosticTitle(),
+            ErrorLineNumber = session.Errors.LineNumber,
+            // MS-VBAL 6.1.3.2.2.6: unspecified, Source is the current project name - which the session
+            // does not know and this does.
+            ErrorSource = session.Errors.Source is { Length: > 0 } source ? source : sessionProvider.ProjectName,
+            ErrorLine = error.Location.Range.Start.Line,
+            ErrorCharacter = error.Location.Range.Start.Character,
+            StackTrace =
+            [
+                .. session.Errors.StackTrace.Frames.Select(frame => new ExecuteStackFrame(
+                    frame.ProcedureName,
+                    frame.Location?.Range.Start.Line ?? -1,
+                    frame.Location?.Range.Start.Character ?? -1)),
+            ],
         };
     }
 

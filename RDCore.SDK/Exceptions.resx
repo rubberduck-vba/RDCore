@@ -366,4 +366,16 @@
   <data name="VBWrongNumberOfArguments_Verbose" xml:space="preserve">
     <value>This call supplies more positional arguments than the called procedure declares parameters for.</value>
   </data>
+  <data name="ErrorTitle_Syntax" xml:space="preserve">
+    <value>Syntax error</value>
+  </data>
+  <data name="ErrorTitle_Compile" xml:space="preserve">
+    <value>Compile error</value>
+  </data>
+  <data name="ErrorTitle_Runtime" xml:space="preserve">
+    <value>Run-time error</value>
+  </data>
+  <data name="ErrorTitle_Application" xml:space="preserve">
+    <value>Application error</value>
+  </data>
 </root>

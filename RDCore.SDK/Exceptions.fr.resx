@@ -366,4 +366,16 @@
   <data name="VBWrongNumberOfArguments_Verbose" xml:space="preserve">
     <value>Cet appel fournit plus d'arguments positionnels que la procédure appelée ne déclare de paramètres.</value>
   </data>
+  <data name="ErrorTitle_Syntax" xml:space="preserve">
+    <value>Erreur de syntaxe</value>
+  </data>
+  <data name="ErrorTitle_Compile" xml:space="preserve">
+    <value>Erreur de compilation</value>
+  </data>
+  <data name="ErrorTitle_Runtime" xml:space="preserve">
+    <value>Erreur d'exécution</value>
+  </data>
+  <data name="ErrorTitle_Application" xml:space="preserve">
+    <value>Erreur applicative</value>
+  </data>
 </root>

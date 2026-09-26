@@ -103,6 +103,20 @@ public sealed class ReplProgramTests
     }
 
     [TestMethod]
+    public void LineNumberAt_MapsAGeneratedSourceLineBackToTheProgramsOwn()
+    {
+        // what a run-time error's position means to whoever typed the program: the platform locates an error
+        // in the source it was handed, which here is generated, so its line is one nobody typed.
+        var sut = WithLines((20, "Debug.Print X"), (10, "X = 5"));
+
+        Assert.IsNull(sut.LineNumberAt(0), "the procedure header is not one of the program's lines");
+        Assert.AreEqual(10, sut.LineNumberAt(1));
+        Assert.AreEqual(20, sut.LineNumberAt(2));
+        Assert.IsNull(sut.LineNumberAt(3), "End Sub, and anything an immediate-mode statement appends after it");
+        Assert.IsNull(sut.LineNumberAt(-1), "a frame that carries no position at all");
+    }
+
+    [TestMethod]
     public void ToModuleSource_OfAnEmptyBuffer_IsStillAValidEmptyProcedure()
         => Assert.AreEqual("Public Sub Main()\r\nEnd Sub\r\n", new ReplProgram().ToModuleSource());
 

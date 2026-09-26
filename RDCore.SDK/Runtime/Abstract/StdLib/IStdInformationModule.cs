@@ -106,6 +106,24 @@ public interface IStdInformationModule
     RuntimeSemanticsEvaluationResult<VBObjectValue> Err();
 
     /// <summary>
+    /// Gets the <em>line number</em> the most recent run-time error was raised at — the nearest
+    /// line-number label at or before the faulting statement, or <c>0</c> when none precedes it.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Not a member MS-VBAL documents at all, and hidden in MS-VBA, which nonetheless exposes it from
+    /// this module. A line number is sticky: it labels every statement after it until the next one, so this
+    /// answers for a statement that carries no label of its own. A <em>named</em> label never sets it.
+    /// <para>
+    /// 🎯 <strong>RD-VBA returns a <c>Long</c> where MS-VBA returns <c>ushort</c> resolution.</strong> A
+    /// deliberate divergence: MS-VBA wraps <c>Erl</c> around on any line number that does not fit, so a
+    /// program numbered past 65535 is told it faulted at a line it has not got. Widening it costs nothing
+    /// and makes every legal line number label representable.
+    /// </para>
+    /// </remarks>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBLongValue> Erl();
+
+    /// <summary>
     /// <strong>MS-VBAL 6.1.2.7.1.1 IMEStatus</strong>
     /// </summary>
     /// <remarks>

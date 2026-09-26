@@ -48,4 +48,10 @@ public interface IRuntimeEnvironmentProfile
     /// 👉 MS-VBAL leaves <c>Option Compare Database</c> unspecified (§5.2.1.1); a module that declares it compares strings as this says.
     /// </remarks>
     Model.Symbols.OptionCompare DatabaseCompare { get; }
+
+    /// <summary>
+    /// 🎯 What <c>Erl</c> counts as the line a run-time error was raised at. <c>DocumentLine</c> unless a
+    /// workspace asks for MS-VBA's own behaviour.
+    /// </summary>
+    VBErlLineNumbering ErlLineNumbering { get; }
 }

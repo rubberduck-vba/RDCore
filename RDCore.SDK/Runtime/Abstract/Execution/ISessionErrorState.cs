@@ -83,6 +83,19 @@ public interface ISessionErrorState
     int LastDllError { get; }
 
     /// <summary>
+    /// 🎯 <strong>RD-VBAL</strong> The <em>line number</em> the current error was raised at - the nearest
+    /// line-number label at or before the faulting statement, or <c>0</c> when none precedes it. What
+    /// <c>Erl</c> reports.
+    /// </summary>
+    /// <remarks>
+    /// 🎯 <c>long</c> rather than MS-VBA's own resolution, deliberately: MS-VBA reports <c>Erl</c> as a
+    /// <c>ushort</c> and wraps around on anything that does not fit, so a program numbered past 65535 is told
+    /// it faulted somewhere it did not. RD-VBA widens it so that every legal line number label is
+    /// representable. A <em>named</em> label never sets it; only a label spelled as decimal digits does.
+    /// </remarks>
+    long LineNumber { get; }
+
+    /// <summary>
     /// 🎯 The call stack the current error was raised on, captured at the raise.
     /// <see cref="VBStackTrace.Empty"/> when no error is current, or when source made one current by
     /// assigning <see cref="Number"/> rather than by raising it.
@@ -105,7 +118,11 @@ public interface ISessionErrorState
     /// source had set them to — a new error is a new error.
     /// </remarks>
     /// <param name="error">The error that was raised.</param>
-    void Raise(IVBRaisableError error);
+    /// <param name="lineNumber">
+    /// The <see cref="LineNumber"/> to report for it: the line number in effect where it was raised, or
+    /// <c>0</c> when no line-number label precedes that statement.
+    /// </param>
+    void Raise(IVBRaisableError error, long lineNumber = 0);
 
     /// <summary>
     /// Clears the current error.

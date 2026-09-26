@@ -807,5 +807,41 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBWrongNumberOfArguments_Verbose", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Syntax error.
+        /// </summary>
+        public static string ErrorTitle_Syntax {
+            get {
+                return ResourceManager.GetString("ErrorTitle_Syntax", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Compile error.
+        /// </summary>
+        public static string ErrorTitle_Compile {
+            get {
+                return ResourceManager.GetString("ErrorTitle_Compile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Run-time error.
+        /// </summary>
+        public static string ErrorTitle_Runtime {
+            get {
+                return ResourceManager.GetString("ErrorTitle_Runtime", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Application error.
+        /// </summary>
+        public static string ErrorTitle_Application {
+            get {
+                return ResourceManager.GetString("ErrorTitle_Application", resourceCulture);
+            }
+        }
     }
 }

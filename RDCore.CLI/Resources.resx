@@ -282,7 +282,16 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Writes a byte at a session memory address.</value>
   </data>  <data name="Repl_RuntimeError" xml:space="preserve">
-    <value>?{0} ERROR</value>
+    <value>?{0}</value>
+  </data>
+  <data name="Repl_RuntimeError_InLine" xml:space="preserve">
+    <value>?{0} IN {1}</value>
+  </data>
+  <data name="Repl_RuntimeError_Source" xml:space="preserve">
+    <value>SOURCE: {0}</value>
+  </data>
+  <data name="Repl_RuntimeError_StackTrace" xml:space="preserve">
+    <value>STACK TRACE:</value>
   </data>
   <data name="Repl_NotImplemented" xml:space="preserve">
     <value>?NOT IMPLEMENTED ERROR</value>

@@ -7,6 +7,33 @@ namespace RDCore.SDK.Model.Errors.Abstract;
 /// </summary>
 public static class VBErrorExtensions
 {
+    // VBCompileErrorId reserves [9300..] for the formalized MS-VBA compilation errors, which is what
+    // separates a semantic compile error from a parser syntax error - they share the VBC family, so the id
+    // is the only thing that tells them apart.
+    private const int SemanticCompileErrorFloor = 9300;
+
+    extension(VBErrorInfo info)
+    {
+        /// <summary>
+        /// Gets the <em>category</em> of this error, as a reader sees it in the title of a message about it:
+        /// which of <strong>RD-VBAL §2.6</strong>'s four families raised it.
+        /// </summary>
+        /// <remarks>
+        /// The title says what kind of thing went wrong - "Run-time error" - and the error's own
+        /// <see cref="VBErrorInfo.Description"/> says what it was: "Division by zero". Localized.
+        /// <para>
+        /// 👉 Switches on the error's runtime type rather than being one member per type, so that it cannot
+        /// be reached through a carrier declared as something more general and answer for the wrong family.
+        /// </para>
+        /// </remarks>
+        public string ToDiagnosticTitle() => info switch
+        {
+            VBRuntimeErrorInfo => Exceptions.ErrorTitle_Runtime,
+            VBApplicationErrorInfo => Exceptions.ErrorTitle_Application,
+            _ => info.ErrorId >= SemanticCompileErrorFloor ? Exceptions.ErrorTitle_Compile : Exceptions.ErrorTitle_Syntax,
+        };
+    }
+
     extension(RDCoreDiagnosticId id)
     {
         /// <summary>

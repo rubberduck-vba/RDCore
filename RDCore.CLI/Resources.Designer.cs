@@ -494,6 +494,33 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ?{0} ERROR IN {1}.
+        /// </summary>
+        public static string Repl_RuntimeError_InLine {
+            get {
+                return ResourceManager.GetString("Repl_RuntimeError_InLine", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SOURCE: {0}.
+        /// </summary>
+        public static string Repl_RuntimeError_Source {
+            get {
+                return ResourceManager.GetString("Repl_RuntimeError_Source", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to STACK TRACE:.
+        /// </summary>
+        public static string Repl_RuntimeError_StackTrace {
+            get {
+                return ResourceManager.GetString("Repl_RuntimeError_StackTrace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ?NOT IMPLEMENTED ERROR.
         /// </summary>
         public static string Repl_NotImplemented {
