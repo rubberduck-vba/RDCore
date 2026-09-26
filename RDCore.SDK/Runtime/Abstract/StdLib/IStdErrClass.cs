@@ -160,5 +160,21 @@ public interface IStdErrClass
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember(Kind = StdLibMemberKind.PropertyLet)]
     RuntimeSemanticsEvaluationResult Source(VBStringValue value);
+
+    /// <summary>
+    /// 🎯 <strong>RD-VBAL</strong> Gets the call stack the current error was raised on, innermost activation first — one indented line per activation, separated by <c>vbCrLf</c>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Not an MS-VBAL member: VBA has never been able to say <em>where</em> an error came from, only
+    /// what it was, which is what makes an <c>Err.Description</c> from deep in a call chain so
+    /// uninformative. Read-only, and empty when no error is current.
+    /// <para>
+    /// The trace is captured at the moment the error is raised rather than derived when it is read: by
+    /// the time a handler reads it, the activations it names have been unwound.
+    /// </para>
+    /// </remarks>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBStringValue> StackTrace();
     #endregion
 }

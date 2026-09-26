@@ -29,6 +29,24 @@ public record class VBRuntimeErrorInfo : VBErrorInfo
         => new(vbCompileErrorId, location, GetErrorString(vbCompileErrorId), verbose);
 
     /// <summary>
+    /// Creates a new <see cref="VBRuntimeErrorInfo"/> for an error that <c>Err.Raise</c> generates
+    /// (<strong>MS-VBAL §6.1.3.2.1.2</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Two things separate a raised error from one the runtime semantics report. Its number is any
+    /// <c>Long</c> in the 0-65535 range and need not be one RD-VBA knows, 513-65535 being reserved for
+    /// user-defined errors; and its description is whatever the raising code says it is, which is the
+    /// whole reason <c>Err.Raise</c> exists alongside the <c>Error</c> statement.
+    /// </remarks>
+    /// <param name="errorNumber">The error code, as <c>Err.Raise</c>'s <c>Number</c> argument gave it.</param>
+    /// <param name="location">The document location of the <c>Err.Raise</c> invocation.</param>
+    /// <param name="description">The description of the error.</param>
+    /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
+    /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> encapsulating the specified error metadata.</returns>
+    public static VBRuntimeErrorInfo Raised(int errorNumber, SourceLocation location, string description, string verbose)
+        => new((VBRuntimeErrorId)errorNumber, location, description, verbose);
+
+    /// <summary>
     /// Gets the standard (localied) error message for the specified <c>errorId</c>.
     /// </summary>
     /// <param name="errorId">The formal <see cref="VBRuntimeErrorId"/> value for this error.</param>

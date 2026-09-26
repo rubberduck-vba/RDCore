@@ -22,6 +22,16 @@ public interface ICallStack
     ICallStackFrame? Current { get; }
 
     /// <summary>
+    /// Every frame on the stack, top-most (current) first.
+    /// </summary>
+    /// <remarks>
+    /// A read-only view, for the things that need the whole chain rather than its top: capturing the
+    /// <see cref="Model.Errors.VBStackTrace"/> of a run-time error, chiefly. Enumerating pops nothing —
+    /// every frame is still the stack's, and its storage is still live.
+    /// </remarks>
+    IEnumerable<ICallStackFrame> Frames { get; }
+
+    /// <summary>
     /// Pushes <paramref name="frame"/> onto the call stack, making it the current frame.
     /// </summary>
     bool TryPush(ICallStackFrame frame);

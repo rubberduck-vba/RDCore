@@ -30,16 +30,78 @@ public interface ISessionErrorState
     VBRuntimeErrorInfo? Current { get; }
 
     /// <summary>
-    /// Whether an error is current. <c>Err.Number &lt;&gt; 0</c>, in source terms.
+    /// Whether an error is current. <c>Err.Number &lt;&gt; 0</c>, in source terms — and exactly that, so
+    /// source assigning <see cref="Number"/> makes an error current the same way raising one does.
     /// </summary>
     bool HasError { get; }
 
     /// <summary>
-    /// Records <paramref name="error"/> as the session's current error, replacing any earlier one.
+    /// <strong>MS-VBAL §6.1.3.2.2.5</strong> <c>Err.Number</c>: the code of the current error, <c>0</c>
+    /// when there is none.
+    /// </summary>
+    int Number { get; set; }
+
+    /// <summary>
+    /// <strong>MS-VBAL §6.1.3.2.2.1</strong> <c>Err.Description</c>: what went wrong, in words.
+    /// </summary>
+    /// <remarks>
+    /// A raise sets it to the raised error's own description. Source sets it both before an
+    /// <c>Err.Raise</c> that omits one, and from inside a handler.
+    /// </remarks>
+    string Description { get; set; }
+
+    /// <summary>
+    /// <strong>MS-VBAL §6.1.3.2.2.6</strong> <c>Err.Source</c>: the object or application that
+    /// originally generated the error.
+    /// </summary>
+    string Source { get; set; }
+
+    /// <summary>
+    /// <strong>MS-VBAL §6.1.3.2.2.3</strong> <c>Err.HelpFile</c>.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ Carried so that source can round-trip what it sets. The help system it names is a legacy
+    /// proprietary one, and is out of scope of this implementation.
+    /// </remarks>
+    string HelpFile { get; set; }
+
+    /// <summary>
+    /// <strong>MS-VBAL §6.1.3.2.2.2</strong> <c>Err.HelpContext</c>.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ Carried so that source can round-trip what it sets. The help system it indexes is a legacy
+    /// proprietary one, and is out of scope of this implementation.
+    /// </remarks>
+    int HelpContext { get; set; }
+
+    /// <summary>
+    /// <strong>MS-VBAL §6.1.3.2.2.4</strong> <c>Err.LastDllError</c>: the system error code of the last
+    /// call into a dynamic-link library. Read-only, and <c>0</c> for as long as a <c>Declare</c>d
+    /// procedure cannot be executed at all.
+    /// </summary>
+    int LastDllError { get; }
+
+    /// <summary>
+    /// 🎯 The call stack the current error was raised on, captured at the raise.
+    /// <see cref="VBStackTrace.Empty"/> when no error is current, or when source made one current by
+    /// assigning <see cref="Number"/> rather than by raising it.
+    /// </summary>
+    /// <remarks>
+    /// RDCore's own, not MS-VBAL's — VBA can say what an error was but never where it came from. It has
+    /// to be captured rather than derived on demand: by the time a handler reads it, the activations it
+    /// describes have been unwound.
+    /// </remarks>
+    VBStackTrace StackTrace { get; }
+
+    /// <summary>
+    /// Records <paramref name="error"/> as the session's current error, replacing any earlier one, and
+    /// captures the call stack it was raised on.
     /// </summary>
     /// <remarks>
     /// Called for every run-time error the interpreter raises, whether or not anything goes on to
-    /// handle it: <c>Err</c> is set by the error, not by the handling of it.
+    /// handle it: <c>Err</c> is set by the error, not by the handling of it. The error's own number and
+    /// description become <see cref="Number"/> and <see cref="Description"/>, overwriting whatever
+    /// source had set them to — a new error is a new error.
     /// </remarks>
     /// <param name="error">The error that was raised.</param>
     void Raise(VBRuntimeErrorInfo error);
