@@ -28,7 +28,7 @@ namespace RDCore.Runtime.StdLib;
 /// so that a blocked <c>Declare</c> and a mocked <c>MsgBox</c> are the same mechanism.
 /// </para>
 /// </remarks>
-public sealed class StdLibDispatcher : IExternalDispatcher
+public sealed class StdLibDispatcher : IExternalCallProvider
 {
     private readonly ImmutableDictionary<string, MethodInfo> _methods;
     private readonly ImmutableDictionary<Type, object> _implementations;
@@ -88,15 +88,17 @@ public sealed class StdLibDispatcher : IExternalDispatcher
     }
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
-    {
-        if (request.Member.GetProperty(SymbolProperties.ExternalTarget) is not { Length: > 0 } target)
-        {
-            // not an external member at all: whoever routed it here was wrong about it, and saying so is
-            // better than guessing which member was meant.
-            return NotImplemented(request, "it is not a standard-library member");
-        }
+    /// <remarks>
+    /// A member the standard library declares — which is exactly a member carrying the key the reader stamped
+    /// on it. A member of some other external target carries no such key, and is some other provider's.
+    /// </remarks>
+    public bool CanDispatch(ExternalCallRequest request)
+        => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 };
 
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    {
+        var target = request.Member.GetProperty(SymbolProperties.ExternalTarget)!;
         if (!_methods.TryGetValue(target, out var method)
             || !_implementations.TryGetValue(method.DeclaringType!, out var implementation))
         {

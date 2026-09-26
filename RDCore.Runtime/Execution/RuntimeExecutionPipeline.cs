@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
@@ -126,7 +127,10 @@ public sealed class RuntimeExecutionPipeline
         var invoker = new RuntimeProcedureInvoker(session, bodies, executor);
         // the standard library is part of every session (RD-VBAL 6.1), so the dispatcher that reaches it is
         // composed here with the rest of the pipeline rather than being something a caller opts into.
-        var bindings = new RuntimeCallableBindingFactory(invoker, StdLibDispatcher.For(session));
+        // every external call goes through the pipeline: the interceptors see it and may refuse it, then
+        // whichever provider can reach it runs it.
+        var external = ExternalCallPipeline.For(session, [StdLibDispatcher.For(session)]);
+        var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;
         // a default member is invoked the same way any member is, and it was reaching neither engine before:

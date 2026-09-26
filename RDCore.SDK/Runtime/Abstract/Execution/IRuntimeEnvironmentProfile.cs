@@ -54,4 +54,10 @@ public interface IRuntimeEnvironmentProfile
     /// workspace asks for MS-VBA's own behaviour.
     /// </summary>
     VBErlLineNumbering ErlLineNumbering { get; }
+
+    /// <summary>
+    /// 🎯 Whether a <c>Declare</c>'d library import may actually be called. <c>true</c> unless an
+    /// administrator said otherwise.
+    /// </summary>
+    bool AllowDllImports { get; }
 }

@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
 
@@ -30,7 +31,55 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 public sealed record class ExternalCallRequest(
     VBTypeMemberSymbol Member,
     IRuntimeValue[] Arguments,
-    SourceLocation CallSite = default);
+    SourceLocation CallSite = default)
+{
+    /// <summary>
+    /// Whether this call is to a native library a <c>Declare</c> named — the calls an administrator most
+    /// wants a say over, since a library call is a way to run arbitrary code.
+    /// </summary>
+    public bool IsLibraryImport => Member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
+
+    /// <summary>
+    /// The library a <c>Declare</c> named, or <see langword="null"/> for a call that is not one.
+    /// </summary>
+    public string? Library => Member switch
+    {
+        VBExternalFunctionMemberSymbol function => function.Lib,
+        VBExternalSubMemberSymbol procedure => procedure.Lib,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The call as one line, arguments included: what an interceptor logs, and what the verbose half of a
+    /// refusal has to say so that a reader can tell which call was refused.
+    /// </summary>
+    /// <remarks>
+    /// Names the library and the entry point a <c>Declare</c> actually reaches — its <c>Alias</c> when it has
+    /// one, since that is the exported name and the VBA name may be nothing like it.
+    /// </remarks>
+    public string Describe()
+    {
+        var entryPoint = Member switch
+        {
+            VBExternalFunctionMemberSymbol { Alias: { Length: > 0 } alias } => alias,
+            VBExternalSubMemberSymbol { Alias: { Length: > 0 } alias } => alias,
+            _ => Member.Name,
+        };
+
+        var qualified = Library is { Length: > 0 } library ? $"{library}!{entryPoint}" : entryPoint;
+        return $"{qualified}({string.Join(", ", Arguments.Select(Format))})";
+    }
+
+    // an argument as a reader of a log needs to see it: a string quoted so an empty one is visible, anything
+    // else in the invariant culture so the record does not depend on where it was written.
+    private static string Format(IRuntimeValue argument) => argument.BoxedValue switch
+    {
+        null => "Nothing",
+        string text => $"\"{text}\"",
+        IFormattable formattable => formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+        var other => other.ToString() ?? string.Empty,
+    };
+}
 
 /// <summary>
 /// Runs a call to something outside the workspace.

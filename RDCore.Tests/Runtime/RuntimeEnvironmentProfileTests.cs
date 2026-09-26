@@ -31,6 +31,8 @@ public sealed class RuntimeEnvironmentProfileTests
             Lcid = 1036, // fr-FR
             AnsiCodePage = 1250,
             SupportsOptionCompareDatabase = true,
+            ErlLineNumbering = VBErlLineNumbering.LineLabel,
+            AllowDllImports = false,
         };
 
         IRuntimeEnvironmentProfile sut = RuntimeEnvironmentProfile.From(options);
@@ -40,6 +42,8 @@ public sealed class RuntimeEnvironmentProfileTests
         Assert.AreEqual(1250, sut.AnsiCodePage);
         Assert.IsTrue(sut.SupportsOptionCompareDatabase);
         Assert.AreEqual("fr-FR", sut.Culture.Name);
+        Assert.AreEqual(VBErlLineNumbering.LineLabel, sut.ErlLineNumbering);
+        Assert.IsFalse(sut.AllowDllImports, "the switch an administrator sets, which nothing else may override");
     }
 
     [TestMethod]

@@ -25,9 +25,13 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// <c>true</c> if the evaluation semantically yields a <em>runtime error</em>.
     /// </summary>
     /// <remarks>
-    /// 👉 This value represents a <strong>specified, consistent state</strong> where program execution resumes in a controlled error state.
+    /// 👉 This value represents a <strong>specified, consistent state</strong> where program execution resumes in a controlled error state.<br/>
+    /// A result value may or may not have been assigned before the failure: most errors carry none, which is why
+    /// this asks only whether there is an error. It used to require a value too, and so answered <c>false</c> for
+    /// every error raised without one - which is what <see cref="Error(VBRuntimeErrorInfo, VBTypedValue?)"/>'s
+    /// own default produces.
     /// </remarks>
-    public bool IsError => Result is not null && ErrorInfo is not null;
+    public bool IsError => ErrorInfo is not null;
     /// <summary>
     /// <c>true</c> if an evaluation strategy could not be determined.
     /// </summary>

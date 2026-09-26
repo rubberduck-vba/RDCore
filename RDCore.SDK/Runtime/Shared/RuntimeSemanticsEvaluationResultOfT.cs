@@ -47,7 +47,7 @@ public readonly record struct RuntimeSemanticsEvaluationResult<TValue>(
     public bool IsSuccess => Result is not null && ErrorInfo is null;
 
     /// <inheritdoc cref="RuntimeSemanticsEvaluationResult.IsError"/>
-    public bool IsError => Result is not null && ErrorInfo is not null;
+    public bool IsError => ErrorInfo is not null;
 
     /// <inheritdoc cref="RuntimeSemanticsEvaluationResult.IsInternalError"/>
     public bool IsInternalError => Result is null && ErrorInfo is null;

@@ -207,6 +207,19 @@ public record class SdkEnvironmentOptions
     /// label before it, bug for bug with MS-VBA).
     /// </summary>
     public Runtime.Abstract.Execution.VBErlLineNumbering ErlLineNumbering { get; set; }
+
+    /// <summary>
+    /// 🎯 Whether a <c>Declare</c>'d library import may actually be called. <c>true</c> by default; set it
+    /// <c>false</c> to refuse every one of them.
+    /// </summary>
+    /// <remarks>
+    /// The blunt instrument, and deliberately platform-wide: a VBA environment that can call into native
+    /// libraries is a way to run arbitrary code, and this is the switch an administrator has that needs no
+    /// extension installed to work. Finer-grained answers - per library, per entry point, per caller - are an
+    /// <c>IExternalCallInterceptor</c>'s job, and this is the one policy the platform ships with so that the
+    /// refusal path is exercised whether or not anybody wrote one.
+    /// </remarks>
+    public bool AllowDllImports { get; set; } = true;
 }
 
 public record class SdkServerAppOptions
