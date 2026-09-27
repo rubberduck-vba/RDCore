@@ -1,4 +1,6 @@
 using System.Text;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -108,6 +110,12 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
             // number. If is not the case, an error is raised."
             return _locks.Remove(requested) ? null : VBRuntimeErrorId.BadRecordNumber;
         }
+
+        public bool TryWriteRecord(VBTypedValue value, bool isVariant, out int written)
+            => RecordDataFormat.TryWrite(Stream, value, Mode, isVariant, out written);
+
+        public bool TryReadRecord(VBType declaredType, int currentLength, out VBTypedValue? value)
+            => RecordDataFormat.TryRead(Stream, declaredType, Mode, currentLength, out value);
 
         // "If the file number value was opened with <mode> Input, Output, or Append, the effect is as if no
         // <record-range> was present and the entire file is locked" - stated for Lock and repeated for Unlock,

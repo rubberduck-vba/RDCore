@@ -135,6 +135,34 @@ public interface IFileChannel
     /// statement or the <c>Unlock</c> statement designating the same currently open file number".
     /// </returns>
     Model.Errors.VBRuntimeErrorId? UnlockRange(FileRecordRange range);
+
+    /// <summary>
+    /// Writes one record at the current <em>file-pointer-position</em>, in the byte format
+    /// <strong>MS-VBAL §5.4.5.11</strong>'s tables define — what a <c>Put</c> statement does.
+    /// </summary>
+    /// <remarks>
+    /// Record I/O is bytes rather than characters, so it does not go through <see cref="Output"/>: a record's
+    /// width comes from the value's declared type and not from how it prints, and nothing about it is relative
+    /// to a line.
+    /// </remarks>
+    /// <param name="value">The value to write.</param>
+    /// <param name="isVariant">Whether the <c>data</c> expression's declared type is <c>Variant</c>, which the
+    /// format precedes with a two-byte type descriptor.</param>
+    /// <param name="written">How many bytes reached the file, which <c>Put</c> checks against a record length.</param>
+    /// <returns><c>false</c> for a value the format has no row for — an object, or a UDT.</returns>
+    bool TryWriteRecord(Model.Values.Abstract.VBTypedValue value, bool isVariant, out int written);
+
+    /// <summary>
+    /// Reads one record at the current <em>file-pointer-position</em> — what a <c>Get</c> statement does
+    /// (<strong>MS-VBAL §5.4.5.12</strong>).
+    /// </summary>
+    /// <param name="declaredType">The declared type of the variable being read into, which decides how many
+    /// bytes the record occupies — except for a <c>Variant</c>, where the record's own descriptor decides.</param>
+    /// <param name="currentLength">The length of the variable's current value, which is how many bytes a
+    /// <c>String</c> read from a <see cref="VBFileMode.Binary"/> channel takes.</param>
+    /// <param name="value">The value read.</param>
+    /// <returns><c>false</c> at end of file, or for a declared type the format has no row for.</returns>
+    bool TryReadRecord(Model.Types.Abstract.VBType declaredType, int currentLength, out Model.Values.Abstract.VBTypedValue? value);
 }
 
 /// <summary>
@@ -193,8 +221,9 @@ public interface IFileChannelOutput : IRuntimeOutput
 /// values, so the bytes-to-characters step belongs to the channel — the only thing that knows its own
 /// encoding — and the statements above it see characters.
 /// <para>
-/// 🚧 Binary- and random-mode reading (<c>Get</c>) addresses <em>records</em> rather than characters, and
-/// wants a surface of its own beside this one.
+/// 👉 Binary- and random-mode record I/O addresses <em>records</em> rather than characters, so it has a
+/// surface of its own beside this one: <see cref="IFileChannel.TryReadRecord"/> and
+/// <see cref="IFileChannel.TryWriteRecord"/>.
 /// </para>
 /// </remarks>
 public interface IFileChannelInput

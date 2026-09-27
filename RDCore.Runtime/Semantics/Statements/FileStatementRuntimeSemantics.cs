@@ -4,6 +4,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -16,10 +17,15 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// and the ones that move data through one.
 /// </summary>
 /// <remarks>
-/// 🚧 <c>Open</c>, <c>Close</c>, <c>Reset</c>, <c>Print #</c>, <c>Write #</c> and <c>Line Input #</c>. The
-/// statements still to come — <c>Input #</c>, <c>Put</c>, <c>Get</c>, and the ones that position or lock a
-/// channel, <c>Seek</c>, <c>Width</c>, <c>Lock</c>, <c>Unlock</c> — all go through the same
-/// <see cref="IFileChannels"/> this one opens against.
+/// Every statement of the section, all of them through the same <see cref="IFileChannels"/> this one opens
+/// against: <c>Open</c>, <c>Close</c> and <c>Reset</c>, which associate a file number and disassociate it;
+/// <c>Print #</c>, <c>Write #</c>, <c>Line Input #</c> and <c>Input #</c>, which move characters;
+/// <c>Put</c> and <c>Get</c>, which move records of bytes; and <c>Seek</c>, <c>Width</c>, <c>Lock</c> and
+/// <c>Unlock</c>, which position a channel or restrict it.
+/// <para>
+/// 🚧 The one thing still missing is a <c>Put</c> or <c>Get</c> whose data is a UDT — see
+/// <see cref="RDCore.Runtime.Execution.Files.RecordDataFormat"/>'s own note.
+/// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates the path, file-number and record-length expressions.</param>
 /// <param name="Printing">Applies <strong>§5.4.5.8</strong>'s output rules, whichever target they are aimed at.</param>
@@ -322,6 +328,141 @@ public sealed record class FileStatementRuntimeSemantics(
         return error is { } raised
             ? Failed(raised, statement, $"{statement.Token} #{channel.FileNumber}, {range.Start} To {range.End}")
             : RuntimeExecutionOutcome.Next;
+    }
+
+    /// <summary>
+    /// Executes a <c>Put</c> statement (<strong>MS-VBAL §5.4.5.11</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The record format is <see cref="RecordDataFormat"/>'s. What this adds is the positioning — an absent
+    /// record number means "the current file-pointer-position" — and the record-length check a
+    /// <see cref="VBFileMode.Random"/> channel makes afterwards.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement writes to.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the file number, the record number if it
+    /// declared one, and the data expression.</param>
+    public RuntimeExecutionOutcome ExecutePut(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (!TryResolveRecord(session, context, statement, Tokens.Put, out var record, out var failure))
+        {
+            return failure;
+        }
+
+        var evaluated = Expressions.Evaluate(session, record.Data, context);
+        if (!evaluated.IsSuccess)
+        {
+            return ToFailure(evaluated);
+        }
+
+        var isVariant = evaluated.Result! is VBVariantValue;
+        if (!record.Channel.TryWriteRecord(evaluated.Result!, isVariant, out var written))
+        {
+            // the format's ERROR rows: an object, a UDT, or a Variant holding one. A UDT is the case that is
+            // specified and not implemented, and RecordDataFormat's own TODO names it.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        // "If the number of bytes written is more than the specified <rec-length>, an error is generated (#59,
+        // 'Bad record length')" - and if it is less, "the remaining bytes are written to the file are
+        // undefined", so nothing pads them.
+        return record.Channel.Mode is VBFileMode.Random && record.Channel.RecordLength > 0 && written > record.Channel.RecordLength
+            ? Failed(VBRuntimeErrorId.BadRecordLength, statement, $"{written} bytes into a {record.Channel.RecordLength}-byte record")
+            : RuntimeExecutionOutcome.Next;
+    }
+
+    /// <summary>
+    /// Executes a <c>Get</c> statement (<strong>MS-VBAL §5.4.5.12</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="ExecutePut"/>: how many bytes to read follows from the declared type of the
+    /// variable being read into, or — for a <c>Variant</c> — from the type descriptor the record itself
+    /// carries.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement reads from.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the file number, the record number if it
+    /// declared one, and the variable to assign.</param>
+    public RuntimeExecutionOutcome ExecuteGet(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (!TryResolveRecord(session, context, statement, Tokens.Get, out var record, out var failure))
+        {
+            return failure;
+        }
+
+        if (!Assignments.TryResolveTarget(session, context, record.Data, out var symbol))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var declaredType = symbol is ITypedSymbol { ResolvedType: var resolved } ? resolved : VBVariantType.TypeInfo;
+
+        // a Binary-mode String is as long as the variable already is, so what it currently holds is part of
+        // deciding how much of the file to read.
+        var currentLength = session.Symbols.Resolver.GetValue(symbol!).Value.BoxedValue is string text ? text.Length : 0;
+
+        if (!record.Channel.TryReadRecord(declaredType, currentLength, out var value))
+        {
+            return Failed(VBRuntimeErrorId.InputPastEndOfFile, statement, $"reading into {symbol!.Name}");
+        }
+
+        return Assignments.Assign(session, context, statement, symbol!, record.Data, record.Data, value!);
+    }
+
+    // Put and Get share their whole preamble: the channel, then the position. "If no <record-number> is
+    // specified, the effect is as if <record-number> is the current file-pointer-position", which is to say
+    // the channel is already where it should be and nothing seeks.
+    private bool TryResolveRecord(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement,
+        string token, out (IFileChannel Channel, ExpressionNode Data) record, out RuntimeExecutionOutcome failure)
+    {
+        record = default;
+        if (statement.Inputs is not [ExpressionNode fileNumber, .. var rest]
+            || rest is not ([ExpressionNode] or [ExpressionNode, ExpressionNode]))
+        {
+            failure = RuntimeExecutionOutcome.InternalError;
+            return false;
+        }
+
+        if (!TryResolveChannel(session, context, fileNumber, token, statement, out var channel, out failure))
+        {
+            return false;
+        }
+
+        // the record number is present only when the statement gave both it and the data; with one input left
+        // it is the data, and the position stands.
+        if (rest is [ExpressionNode recordNumber, _]
+            && !SeekToRecord(session, context, channel!, recordNumber, statement, out failure))
+        {
+            return false;
+        }
+
+        record = (channel!, (ExpressionNode)rest[^1]);
+        return true;
+    }
+
+    // "The file-pointer-position is updated to be exactly <record-number> number of bytes from the start of the
+    // file" for Binary, and "(<record-number> * <rec-length>) number of bytes" for Random. Both go through the
+    // channel's own Seek, because a record number and a file-pointer-position are the same quantity - the
+    // statement says so itself when it defaults one to the other - and MS-VBAL 5.4.5.3 counts that from 1.
+    private bool SeekToRecord(
+        IRuntimeSession session, RuntimeEvaluationContext context, IFileChannel channel,
+        ExpressionNode recordNumber, StatementNode statement, out RuntimeExecutionOutcome failure)
+    {
+        if (!TryEvaluateLong(session, context, recordNumber, out var position, out failure))
+        {
+            return false;
+        }
+
+        if (channel.Seek(position) is { } error)
+        {
+            failure = Failed(error, statement, $"record {position} of #{channel.FileNumber}");
+            return false;
+        }
+
+        return true;
     }
 
     // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a
