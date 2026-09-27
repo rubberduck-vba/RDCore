@@ -236,8 +236,54 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     {
         // recovery can leave Parent.Parent not pointing at the redimStmt that carries `Preserve`.
         var isPreserve = (context.Parent?.Parent as VBAParser.RedimStmtContext)?.PRESERVE() is not null;
-        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve));
+
+        // the bounds are captured here rather than inside the builder because a ReDim's are ordinary
+        // run-time expressions (MS-VBAL §5.4.3.3) and only the listener can walk a subtree into nodes. This
+        // runs before the redim's own builder is popped, over a subtree this Exit has already passed.
+        var bounds = CaptureRedimBounds(context);
+        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve, bounds));
     }
+
+    // `dynamic-dim-spec = [dynamic-lower-bound "To"] dynamic-upper-bound`, one per dimension. They arrive as
+    // an index expression's argument list, `x(1 To n)` being indistinguishable from a call until the ReDim
+    // keyword says otherwise.
+    private ImmutableArray<RedimDimensionNode> CaptureRedimBounds(VBAParser.RedimVariableDeclarationContext context)
+    {
+        if (IndexedArguments(context.expression()) is not { } arguments)
+        {
+            return [];
+        }
+
+        var dimensions = ImmutableArray.CreateBuilder<RedimDimensionNode>();
+        foreach (var argument in arguments)
+        {
+            if (argument.positionalArgument()?.argumentExpression() is not { } expression)
+            {
+                continue;
+            }
+
+            var lower = CaptureIsolatedExpression(expression.lowerBoundArgumentExpression()?.expression());
+            var upper = CaptureIsolatedExpression(
+                expression.upperBoundArgumentExpression()?.expression() ?? expression.expression());
+
+            if (upper is not null)
+            {
+                dimensions.Add(new RedimDimensionNode(
+                    GetCurrentNodeId(), argument.GetSourceLocation(_rootUri), lower, upper));
+            }
+        }
+
+        return dimensions.ToImmutable();
+    }
+
+    // the argument list of an `x(...)` index expression, whichever of the two index shapes it took.
+    private static VBAParser.ArgumentContext[]? IndexedArguments(VBAParser.ExpressionContext? expression)
+        => ((expression as VBAParser.LExprContext)?.lExpression() switch
+        {
+            VBAParser.IndexExprContext index => index.argumentList(),
+            VBAParser.WhitespaceIndexExprContext index => index.argumentList(),
+            _ => null,
+        })?.argument();
 
     // `If`/`ElseIf`/`Else` (MS-VBAL §5.4.2.8) — each branch's own scope collects its condition (when
     // it has one) followed by whatever the branch body captures today (declarations only; the general

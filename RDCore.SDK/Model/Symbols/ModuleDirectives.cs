@@ -26,7 +26,13 @@
 /// The comparison mode of the module (<strong>MS-VBAL §5.2.1.1</strong>): how the relational operators compare <c>String</c> values in it.
 /// <see cref="OptionCompare.Binary"/> unless the module declares an <c>Option Compare</c> directive.
 /// </param>
-public readonly record struct ModuleDirectives(bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary)
+/// <param name="Base">
+/// The lower bound an array dimension declared without one takes (<strong>MS-VBAL §5.2.1.2</strong>):
+/// <c>0</c> unless the module declares <c>Option Base 1</c>. It is what <c>Dim a(10)</c> and
+/// <c>ReDim a(10)</c> mean by their absent lower bound, so it is a run-time dial and not only a static one.
+/// </param>
+public readonly record struct ModuleDirectives(
+    bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary, int Base = 0)
 {
     /// <summary>
     /// The directives of a module that declares none of them explicitly.

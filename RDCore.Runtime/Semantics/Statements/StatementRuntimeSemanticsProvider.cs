@@ -3,6 +3,7 @@ using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
@@ -41,8 +42,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     private readonly ConditionEvaluator _conditions;
     private readonly FileStatementRuntimeSemantics _files;
     private readonly FixedAssignmentRuntimeSemantics _fixedAssignment;
+    private readonly ArrayStatementRuntimeSemantics _arrays;
 
-    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, LetAssignmentEvaluator assignments, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, FixedAssignmentRuntimeSemantics fixedAssignment)
+    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, LetAssignmentEvaluator assignments, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, FixedAssignmentRuntimeSemantics fixedAssignment, ArrayStatementRuntimeSemantics arrays)
     {
         _expressionEvaluator = expressionEvaluator;
         _assignments = assignments;
@@ -51,6 +53,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         _conditions = conditions;
         _files = files;
         _fixedAssignment = fixedAssignment;
+        _arrays = arrays;
     }
 
     /// <inheritdoc/>
@@ -61,6 +64,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
             // MS-VBAL §5.4.3.6-7: LSet and RSet fit a value into the target's own current width.
             AssignmentStatementNode { Kind: AssignmentKind.LSet or AssignmentKind.RSet } assignment => _fixedAssignment.Execute(session, context, assignment),
+            // MS-VBAL §5.4.3.3-4: the statements that change an array's shape.
+            RedimDeclarationNode redim => _arrays.ExecuteRedim(session, context, redim),
+            KeywordStatementNode { Token: Tokens.Erase } erase => _arrays.ExecuteErase(session, context, erase),
             // Debug.Print: MS-VBAL §5.4.5.8's output rules, against the session's output rather than a
             // file. The parser gives these a node of their own, so this is a type test rather than a
             // match on the spelling of a call's owner - and a build that lowers them away never gets

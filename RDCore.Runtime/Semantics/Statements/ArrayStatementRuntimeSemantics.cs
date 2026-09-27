@@ -1,0 +1,329 @@
+using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Abstract.Execution;
+
+namespace RDCore.Runtime.Semantics.Statements;
+
+/// <summary>
+/// <strong>MS-VBAL §5.4.3.3-4</strong> the <c>ReDim</c> and <c>Erase</c> statements — the two that change an
+/// array's shape rather than its elements.
+/// </summary>
+/// <remarks>
+/// A pair because they are each other's opposite: <c>ReDim</c> gives a resizable array dimensions, and
+/// <c>Erase</c> takes them away again — "removes the dimensions and data of a resizable array (setting it
+/// back to its initial state)". On a <em>fixed-size</em> array <c>Erase</c> keeps the dimensions and resets
+/// the elements instead, which is the one thing the two spellings of it do differently.
+/// </remarks>
+/// <param name="Expressions">Evaluates the bound expressions, which are ordinary run-time expressions.</param>
+/// <param name="Numbers">Let-coerces each bound to <c>Integer</c>, the type a subscript is.</param>
+public sealed record class ArrayStatementRuntimeSemantics(
+    RuntimeExpressionEvaluator Expressions,
+    VBNumericLetCoercionTypeRuntimeSemantics Numbers)
+{
+    /// <summary>
+    /// Executes a <c>ReDim</c> statement (<strong>MS-VBAL §5.4.3.3</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The bounds are evaluated here, at the statement, which is the whole reason a <c>ReDim</c> is a
+    /// statement: <c>ReDim Grid(1 To n)</c> cannot be known before it runs.
+    /// </remarks>
+    /// <param name="session">The session whose storage the array is re-allocated in.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="redim">The statement — one node per comma-separated target.</param>
+    public RuntimeExecutionOutcome ExecuteRedim(
+        IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim)
+    {
+        if (redim.QualifierName is not null)
+        {
+            // TODO re-dimension a member-access target (`obj.Buffer`, `.Buffer`). It needs the owner
+            // evaluated and written back through, which is the same machinery a member-access assignment
+            // target needs; a simple name is every other case.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var resolved = session.Symbols.Resolver.ResolveValue(redim.Name, ScopeKind.Local, context.Scope);
+        if (resolved.Symbol is not { } symbol)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryEvaluateBounds(session, context, redim, out var bounds, out var failure))
+        {
+            return failure;
+        }
+
+        var current = symbol is ITypedSymbol { ResolvedType: { } declared }
+            ? declared.CreateValue(session.Symbols.Resolver.GetValue(symbol))
+            : null;
+
+        if (Unwrapped(current) is not VBArrayValue array)
+        {
+            // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
+            // value type is not an array" - which cannot be read as covering the Empty a Variant starts as,
+            // since the static rule admits a Variant target precisely so that it can become an array, and
+            // `Dim v As Variant: ReDim v(5)` would otherwise be impossible to write.
+            return current is null or VBVariantValue or VBEmptyValue
+                ? Allocate(session, symbol, new VBResizableArrayValue(bounds, ItemTypeOf(current)))
+                : Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
+        }
+
+        return redim.IsPreserve
+            ? Preserved(session, symbol, redim, array, bounds)
+            : Allocate(session, symbol, new VBResizableArrayValue(bounds, array.ItemType));
+    }
+
+    /// <summary>
+    /// Executes an <c>Erase</c> statement (<strong>MS-VBAL §5.4.3.4</strong>).
+    /// </summary>
+    /// <remarks>
+    /// "Reinitializes the elements of a fixed-size array to their default values, and removes the dimensions
+    /// and data of a resizable array" — one statement with two behaviours, chosen by which kind of array it
+    /// was given, because a fixed-size array has no dimensions it is allowed to lose.
+    /// </remarks>
+    /// <param name="session">The session whose storage the arrays live in.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the <c>erase-list</c>.</param>
+    public RuntimeExecutionOutcome ExecuteErase(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        foreach (var element in statement.Inputs.OfType<ExpressionNode>())
+        {
+            if (element is not SimpleNameExpressionNode simpleName)
+            {
+                // TODO erase a member-access or indexed element. §5.4.3.4 allows any l-expression classified
+                // as a variable, property, function or unbound member; a simple name is the rest of them.
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            var resolved = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+            if (resolved.Symbol is not { } symbol)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            var current = symbol is ITypedSymbol { ResolvedType: { } declared }
+                ? declared.CreateValue(session.Symbols.Resolver.GetValue(symbol))
+                : null;
+
+            if (Unwrapped(current) is not VBArrayValue array)
+            {
+                // "Runtime error 13 (Type mismatch) is raised if the declared type of an <erase-element> is
+                // Variant and its value type is not an array."
+                return Failed(statement, VBRuntimeErrorId.TypeMismatch, $"{simpleName.IdentifierName} is not an array");
+            }
+
+            // "If the declared type is fixed size array every dependent variable ... is reset to standard
+            // initial value of the declared array element type" - the dimensions stay, since a fixed-size
+            // array's bounds are part of its declaration and nothing at run time may change them.
+            var outcome = array is VBFixedSizeArrayValue fixedSize
+                ? Reset(fixedSize)
+                // "this data value is set to be an empty array with the same element type" - dimensions gone.
+                : Allocate(session, symbol, new VBResizableArrayValue([], array.ItemType));
+
+            if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
+            {
+                return outcome;
+            }
+        }
+
+        return RuntimeExecutionOutcome.Next;
+    }
+
+    // "Each element in the array is reset to the default value for its data type" - in place, the array
+    // itself keeping the identity and the bounds its declaration gave it.
+    private static RuntimeExecutionOutcome Reset(VBFixedSizeArrayValue array)
+    {
+        foreach (var subscripts in Subscripts(array))
+        {
+            array.TrySetElement(array.ItemType.DefaultValue.Handle, subscripts);
+        }
+
+        return RuntimeExecutionOutcome.Next;
+    }
+
+    // "If the Preserve keyword is present, a <redim-statement> can only change the upper bound of the last
+    // dimension of an array and the number of dimensions might not be changed. Attempting to change the lower
+    // bound of any dimension, the upper bound of any dimension other than the last dimension or the number of
+    // dimensions will result in Error 9."
+    private static RuntimeExecutionOutcome Preserved(
+        IRuntimeSession session, Symbol symbol, RedimDeclarationNode redim,
+        VBArrayValue array, (int LBound, int UBound)[] bounds)
+    {
+        if (array.Rank != bounds.Length)
+        {
+            return Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange, "Preserve cannot change the number of dimensions");
+        }
+
+        for (var dimension = 0; dimension < bounds.Length; dimension++)
+        {
+            var changedLower = array.Dimensions[dimension].LowerBound != bounds[dimension].LBound;
+            var changedUpper = array.Dimensions[dimension].UpperBound != bounds[dimension].UBound;
+
+            if (changedLower || (changedUpper && dimension != bounds.Length - 1))
+            {
+                return Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange,
+                    "Preserve can only change the upper bound of the last dimension");
+            }
+        }
+
+        var resized = new VBResizableArrayValue(bounds, array.ItemType);
+
+        // "If a <redim-statement> containing the keyword Preserve results in more elements in a dimension,
+        // each of the extra elements is set to its default data value" - which they already are; and an element
+        // now outside the bounds is simply not copied, its data value discarded.
+        foreach (var subscripts in Subscripts(resized))
+        {
+            if (array.GetElementHandle(subscripts) is { } held)
+            {
+                resized.TrySetElement(held, subscripts);
+            }
+        }
+
+        return Allocate(session, symbol, resized);
+    }
+
+    // every subscript tuple of an array, outermost dimension varying slowest - the order does not matter to
+    // either caller, only that each element is visited exactly once.
+    private static IEnumerable<int[]> Subscripts(VBArrayValue array)
+    {
+        if (array.Length == 0)
+        {
+            yield break;
+        }
+
+        var subscripts = array.Dimensions.Select(dimension => dimension.LowerBound).ToArray();
+        while (true)
+        {
+            yield return [.. subscripts];
+
+            var dimension = subscripts.Length - 1;
+            while (dimension >= 0 && ++subscripts[dimension] > array.Dimensions[dimension].UpperBound)
+            {
+                subscripts[dimension] = array.Dimensions[dimension].LowerBound;
+                dimension--;
+            }
+
+            if (dimension < 0)
+            {
+                yield break;
+            }
+        }
+    }
+
+    private static RuntimeExecutionOutcome Allocate(IRuntimeSession session, Symbol symbol, VBArrayValue array)
+        // TODO raise error 10 ("This array is fixed or temporarily locked") when the variable is currently
+        // aliased by a ByRef parameter, which MS-VBAL §5.4.3.3 requires. Nothing models that lock yet.
+        => session.Symbols.Resolver.TryAllocate(symbol, array, out _)
+            ? RuntimeExecutionOutcome.Next
+            : RuntimeExecutionOutcome.InternalError;
+
+    private bool TryEvaluateBounds(
+        IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim,
+        out (int LBound, int UBound)[] bounds, out RuntimeExecutionOutcome failure)
+    {
+        bounds = [];
+        failure = RuntimeExecutionOutcome.Next;
+
+        if (redim.Bounds is not { Dimensions.IsDefaultOrEmpty: false } declared)
+        {
+            // `ReDim a()` gives no dimensions at all, which leaves the array uninitialized - the same state
+            // Erase puts a resizable one back into.
+            return true;
+        }
+
+        // an omitted lower bound is the module's own Option Base (MS-VBAL §5.2.1.2), which rides on the
+        // executing frame's directives along with the other module dials.
+        var optionBase = session.CallStack.Current?.Directives.Base ?? 0;
+
+        var evaluated = new (int, int)[declared.Dimensions.Length];
+        for (var dimension = 0; dimension < declared.Dimensions.Length; dimension++)
+        {
+            var spec = declared.Dimensions[dimension];
+
+            var lower = optionBase;
+            if (spec.LowerBound is { } lowerBound
+                && !TryEvaluateSubscript(session, context, lowerBound, out lower, out failure))
+            {
+                return false;
+            }
+
+            if (!TryEvaluateSubscript(session, context, spec.UpperBound, out var upper, out failure))
+            {
+                return false;
+            }
+
+            if (upper < lower)
+            {
+                failure = Failed(redim, VBRuntimeErrorId.SubscriptOutOfRange, $"{lower} To {upper}");
+                return false;
+            }
+
+            evaluated[dimension] = (lower, upper);
+        }
+
+        bounds = evaluated;
+        return true;
+    }
+
+    private bool TryEvaluateSubscript(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression,
+        out int value, out RuntimeExecutionOutcome failure)
+    {
+        value = 0;
+        var evaluated = Expressions.Evaluate(session, expression, context);
+        if (!evaluated.IsSuccess)
+        {
+            failure = evaluated.IsInternalError
+                ? RuntimeExecutionOutcome.InternalError
+                : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+            return false;
+        }
+
+        // "dynamic-lower-bound = integer-expression" - a bound is Let-coerced to Integer like any other
+        // subscript, so a Double bound rounds rather than being refused.
+        var coerced = Numbers.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        {
+            NodeId = expression.Identity,
+            SourceValue = evaluated.Result!,
+            DestinationTypeDesc = new(VBIntegerType.TypeInfo),
+        });
+
+        if (!coerced.IsSuccess)
+        {
+            failure = RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+            return false;
+        }
+
+        value = Convert.ToInt32(coerced.Result!.Handle.Value.BoxedValue);
+        failure = RuntimeExecutionOutcome.Next;
+        return true;
+    }
+
+    // a ReDim of a Variant that held nothing keeps Variant elements, which is what a Variant array is.
+    private static VBType ItemTypeOf(VBTypedValue? current)
+        => Unwrapped(current) is VBArrayValue array ? array.ItemType : VBVariantType.TypeInfo;
+
+    private static VBTypedValue? Unwrapped(VBTypedValue? value)
+    {
+        while (value is VBVariantValue { TypedValue: { } wrapped })
+        {
+            value = wrapped;
+        }
+
+        return value;
+    }
+
+    private static RuntimeExecutionOutcome Failed(StatementNode statement, VBRuntimeErrorId error, string detail)
+        => RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(error, statement.SourceLocation, detail));
+}

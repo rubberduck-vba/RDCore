@@ -246,7 +246,11 @@ End Sub
         var redim = member.Children.OfType<RedimDeclarationNode>().Single();
         Assert.AreEqual("Grid", redim.Name);
         Assert.IsTrue(redim.IsPreserve);
-        Assert.AreEqual(new ArrayDimensionBound("1", "10"), redim.Children.OfType<ArrayBoundsNode>().Single().Bounds.Single());
+
+        // a ReDim's bounds are run-time expressions, not the verbatim text a Dim's constant bounds keep.
+        var dimension = redim.Bounds!.Dimensions.Single();
+        Assert.AreEqual(1L, IntValue(dimension.LowerBound!));
+        Assert.AreEqual(10L, IntValue(dimension.UpperBound));
     }
 
     [TestMethod]
@@ -1077,10 +1081,14 @@ End Sub
         Assert.IsNull(redim.QualifierName);
         Assert.IsTrue(redim.IsPreserve);
 
-        var bounds = redim.Children.OfType<ArrayBoundsNode>().Single();
+        // a ReDim's bounds are ordinary run-time expressions, so they are expression nodes rather than the
+        // verbatim text a Dim's constant bounds keep: `n` is a name to resolve when the statement runs.
+        var bounds = redim.Bounds!;
         Assert.AreEqual(2, bounds.Rank);
-        Assert.AreEqual(new ArrayDimensionBound("1", "10"), bounds.Bounds[0]);
-        Assert.AreEqual(new ArrayDimensionBound("0", "n"), bounds.Bounds[1]);
+        Assert.AreEqual(1L, IntValue(bounds.Dimensions[0].LowerBound!));
+        Assert.AreEqual(10L, IntValue(bounds.Dimensions[0].UpperBound));
+        Assert.AreEqual(0L, IntValue(bounds.Dimensions[1].LowerBound!));
+        Assert.AreEqual("n", ((SimpleNameExpressionNode)bounds.Dimensions[1].UpperBound).IdentifierName);
     }
 
     [TestMethod]
@@ -1099,7 +1107,12 @@ End Sub
             .Children.OfType<RedimDeclarationNode>().Single();
 
         Assert.IsFalse(redim.IsPreserve);
-        Assert.AreEqual(new ArrayDimensionBound(null, "10"), redim.Children.OfType<ArrayBoundsNode>().Single().Bounds.Single());
+
+        // no To clause means no lower bound node at all - the effective one is the module's Option Base,
+        // which is a run-time dial and not something the statement wrote.
+        var dimension = redim.Bounds!.Dimensions.Single();
+        Assert.IsNull(dimension.LowerBound);
+        Assert.AreEqual(10L, IntValue(dimension.UpperBound));
     }
 
     [TestMethod]

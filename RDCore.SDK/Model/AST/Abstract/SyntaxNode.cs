@@ -76,6 +76,8 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(PrintSpcClauseNode), "PrintSpcClause")]
 [JsonDerivedType(typeof(PrintStatementNode), "PrintStatement")]
 [JsonDerivedType(typeof(PrintTabClauseNode), "PrintTabClause")]
+[JsonDerivedType(typeof(RedimBoundsNode), "RedimBounds")]
+[JsonDerivedType(typeof(RedimDimensionNode), "RedimDimension")]
 [JsonDerivedType(typeof(RedimDeclarationNode), "Redim")]
 [JsonDerivedType(typeof(ResumeNextStatementNode), "ResumeNextStatement")]
 [JsonDerivedType(typeof(ResumeStatementNode), "ResumeStatement")]

@@ -113,7 +113,8 @@ public sealed class RuntimeExecutionPipeline
             assignments, new InputListEvaluator(assignments));
         var statements = new StatementRuntimeSemanticsProvider(
             expressions, assignments, setCoercion, print, conditions, files,
-            new FixedAssignmentRuntimeSemantics(expressions, stringCoercion, assignments));
+            new FixedAssignmentRuntimeSemantics(expressions, stringCoercion, assignments),
+            new ArrayStatementRuntimeSemantics(expressions, numericCoercion));
 
         var executor = new ProcedureExecutor(
             statements,

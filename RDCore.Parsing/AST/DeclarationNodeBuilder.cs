@@ -249,13 +249,16 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new ArrayBoundsNode(identity, location, [.. bounds]);
     }
 
-    public SyntaxNode BuildRedimDeclaration(VBAParser.RedimVariableDeclarationContext context, bool isPreserve)
+    public SyntaxNode BuildRedimDeclaration(
+        VBAParser.RedimVariableDeclarationContext context, bool isPreserve, ImmutableArray<RedimDimensionNode> bounds)
     {
         var (name, qualifier, typeHint) = RedimTarget(context.expression());
 
-        // ExitAsTypeClause has already put the optional `As` clause node in _children.
+        // ExitAsTypeClause has already put the optional `As` clause node in _children. The bounds were
+        // captured by the listener, which is the only thing that can turn a subtree into expression nodes.
         var children = _children.ToList();
-        children.Add(BuildRedimBounds(context, children.Count));
+        children.Add(new RedimBoundsNode(
+            NodeId.Add(children.Count), context.GetSourceLocation(_rootUri), bounds));
 
         return new RedimDeclarationNode(
             NodeId,
@@ -282,39 +285,6 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             _ => (expression?.GetText() ?? string.Empty, null, null),
         };
 
-    // `ReDim x(1 To 10, n)` — one bound per argument: `lower To upper`, or a bare upper. These are
-    // ordinary run-time expressions kept verbatim; the declaration pass does not evaluate them.
-    private ArrayBoundsNode BuildRedimBounds(VBAParser.RedimVariableDeclarationContext context, int childIndex)
-    {
-        var identity = NodeId.Add(childIndex);
-        var location = context.GetSourceLocation(_rootUri);
-
-        var arguments = Indexed(context.expression()).Arguments?.argument();
-        if (arguments is null || arguments.Length == 0)
-        {
-            return new ArrayBoundsNode(identity, location, []);
-        }
-
-        var bounds = new List<ArrayDimensionBound>();
-        foreach (var argument in arguments)
-        {
-            if (argument.positionalArgument()?.argumentExpression() is not { } expression)
-            {
-                continue;
-            }
-
-            if (expression.lowerBoundArgumentExpression() is { } lower && expression.upperBoundArgumentExpression() is { } upper)
-            {
-                bounds.Add(new ArrayDimensionBound(lower.GetText().Trim(), upper.GetText().Trim()));
-            }
-            else if (expression.expression() is { } bound)
-            {
-                bounds.Add(new ArrayDimensionBound(null, bound.GetText().Trim()));
-            }
-        }
-
-        return new ArrayBoundsNode(identity, location, [.. bounds]);
-    }
 
     // the callee `lExpression` and argument list of an `x(...)` index expression, or (null, null).
     private static (VBAParser.LExpressionContext? Callee, VBAParser.ArgumentListContext? Arguments) Indexed(VBAParser.ExpressionContext? expression)
