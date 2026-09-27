@@ -41,6 +41,30 @@ public sealed class LetAssignmentEvaluator(ILetCoercionRuntimeSemanticsProvider 
     private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment = new(coercions, formatter);
 
     /// <summary>
+    /// Resolves the symbol <paramref name="target"/> names.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Assign(IRuntimeSession, RuntimeEvaluationContext, StatementNode, Symbol, ExpressionNode, ExpressionNode, VBTypedValue)"/>
+    /// because <c>Input #</c> (<strong>MS-VBAL §5.4.5.10</strong>) reads a <em>different number of characters</em>
+    /// depending on the declared type of the variable it is about to assign — so it has to know the target
+    /// before it has a value for it.
+    /// </remarks>
+    /// <param name="session">The session whose symbols the target is resolved against.</param>
+    /// <param name="context">The evaluation context, whose scope the target is resolved in.</param>
+    /// <param name="target">The variable expression.</param>
+    /// <param name="symbol">The symbol it names.</param>
+    /// <returns><c>false</c> when the expression is not a shape this can resolve, or names nothing.</returns>
+    public bool TryResolveTarget(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target, out Symbol? symbol)
+    {
+        symbol = target is SimpleNameExpressionNode simpleName
+            ? session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope).Symbol
+            : null;
+
+        return symbol is not null;
+    }
+
+    /// <summary>
     /// Let-assigns <paramref name="value"/> into <paramref name="target"/>.
     /// </summary>
     /// <param name="session">The session whose symbols the target is resolved against.</param>
@@ -58,17 +82,28 @@ public sealed class LetAssignmentEvaluator(ILetCoercionRuntimeSemanticsProvider 
         ExpressionNode target,
         ExpressionNode source,
         VBTypedValue value)
-    {
-        if (target is not SimpleNameExpressionNode simpleName)
-        {
-            return RuntimeExecutionOutcome.InternalError;
-        }
+        => TryResolveTarget(session, context, target, out var symbol)
+            ? Assign(session, context, statement, symbol!, target, source, value)
+            : RuntimeExecutionOutcome.InternalError;
 
-        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
-        if (targetResult.Symbol is not { } symbol)
-        {
-            return RuntimeExecutionOutcome.InternalError;
-        }
+    /// <inheritdoc cref="Assign(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue)"/>
+    /// <param name="session">The session whose call stack a function result variable is assigned on.</param>
+    /// <param name="context">The evaluation context, whose scope decides whether the target is the enclosing
+    /// procedure's own result variable.</param>
+    /// <param name="statement">The statement doing the assigning.</param>
+    /// <param name="symbol">The already-resolved symbol <paramref name="target"/> names.</param>
+    /// <param name="target">The variable expression being assigned into.</param>
+    /// <param name="source">The expression the value came from, for the location of a coercion error.</param>
+    /// <param name="value">The value to assign, already evaluated.</param>
+    public RuntimeExecutionOutcome Assign(
+        IRuntimeSession session,
+        RuntimeEvaluationContext context,
+        StatementNode statement,
+        Symbol symbol,
+        ExpressionNode target,
+        ExpressionNode source,
+        VBTypedValue value)
+    {
 
         if (symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
             && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)

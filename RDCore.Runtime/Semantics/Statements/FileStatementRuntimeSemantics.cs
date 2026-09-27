@@ -26,13 +26,15 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// <param name="Numbers">Coerces them to the types the statement's own clauses declare.</param>
 /// <param name="Strings">Coerces the path expression to <c>String</c>, which the specification requires of it.</param>
 /// <param name="Assignments">Let-assigns what a reading statement read into the variable it names.</param>
+/// <param name="Reading">Applies <strong>§5.4.5.10</strong>'s input-list rules to the fields of a record.</param>
 public sealed record class FileStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     PrintOutputEvaluator Printing,
     WriteOutputEvaluator Writing,
     VBNumericLetCoercionTypeRuntimeSemantics Numbers,
     VBStringLetCoercionRuntimeSemantics Strings,
-    LetAssignmentEvaluator Assignments)
+    LetAssignmentEvaluator Assignments,
+    InputListEvaluator Reading)
 {
     /// <summary>
     /// The lowest file number a file number may take (<strong>MS-VBAL §5.4.5</strong>).
@@ -147,6 +149,38 @@ public sealed record class FileStatementRuntimeSemantics(
         // "The String data value is Let-assigned into <variable-name>". The variable is also where a coercion
         // error is reported, there being no source expression in this statement to report one at.
         return Assignments.Assign(session, context, statement, variable, variable, new VBStringValue(line));
+    }
+
+    /// <summary>
+    /// Executes an <c>Input #</c> statement (<strong>MS-VBAL §5.4.5.10</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The rules are <see cref="InputListEvaluator"/>'s; this resolves the channel they read from, which is
+    /// the one thing every file statement does the same way.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement reads from.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the file number and then the input list.</param>
+    public RuntimeExecutionOutcome ExecuteInput(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (statement.Inputs is not [ExpressionNode fileNumber, .. var rest] || rest.Length == 0)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var variables = rest.OfType<ExpressionNode>().ToArray();
+        if (variables.Length != rest.Length)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryResolveChannel(session, context, fileNumber, Tokens.Input, statement, out var channel, out var failure))
+        {
+            return failure;
+        }
+
+        return Reading.Execute(session, context, statement, variables, channel!.Input);
     }
 
     // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a

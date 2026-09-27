@@ -73,6 +73,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             PrintStatementNode print => _files.ExecutePrint(session, context, print),
             // MS-VBAL §5.4.5.6: Line Input # reads one line and Let-assigns it.
             KeywordStatementNode { Token: Tokens.LineInput } lineInput => _files.ExecuteLineInput(session, context, lineInput),
+            // MS-VBAL §5.4.5.10: Input # reads a field per variable and Let-assigns each.
+            KeywordStatementNode { Token: Tokens.Input } input => _files.ExecuteInput(session, context, input),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
