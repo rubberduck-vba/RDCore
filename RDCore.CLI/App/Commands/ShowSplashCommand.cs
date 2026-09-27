@@ -8,6 +8,9 @@ internal readonly record struct SplashArgs(
 
 internal record class ShowSplashCommand : CLICommand<SplashArgs>
 {
+    /// <summary>How far in the background art sits, so the title art overlays it where it is meant to.</summary>
+    private const int SplashIndent = 15;
+
     private readonly IConsoleMessageWriter _writer;
     private readonly IAppThemeService _themes;
     private readonly IConsoleShellFrame _frame;
@@ -27,9 +30,14 @@ internal record class ShowSplashCommand : CLICommand<SplashArgs>
         }
 
         var theme = _themes.Theme;
-        var logo = string.Join(Environment.NewLine, Resources.RDCoreSplash_Background
-            .Split(Environment.NewLine)
-            .Select(line => $"{new string(' ', 15)}{line}"));
+
+        // split on '\n' rather than on Environment.NewLine: a .resx value carries LF line endings whatever
+        // the platform, because XML normalises them - so splitting on CRLF found nothing to split, and only
+        // the first line of the art ever got the indent, which is what made the top of it drift. WriteArt
+        // splits the same way, so the two now agree about where a line ends.
+        var logo = string.Join('\n', Resources.RDCoreSplash_Background
+            .Split('\n')
+            .Select(line => $"{new string(' ', SplashIndent)}{line.TrimEnd('\r')}"));
 
         _writer.WriteAssemblyInfo().WriteLegalNotice();
 

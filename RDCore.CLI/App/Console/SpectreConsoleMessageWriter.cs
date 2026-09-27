@@ -51,15 +51,30 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
             head.Add($"[{theme.GetStyle(kind, MessagePart.Timestamp)}]{Markup.Escape(timestamp.Value)}[/]");
         }
         head.Add($"[{theme.GetStyle(kind, MessagePart.Title)}]{Markup.Escape(icon)}[/]");
-        if (title is { Value.Length: > 0 })
+
+        var hasTitle = title is { Value.Length: > 0 };
+        if (hasTitle)
         {
-            head.Add($"[bold {theme.GetStyle(kind, MessagePart.Title)}]{Markup.Escape(title.Value)}[/]");
+            head.Add($"[bold {theme.GetStyle(kind, MessagePart.Title)}]{Markup.Escape(title!.Value)}[/]");
         }
+
+        var bodyMarkup = body is { Body.Length: > 0 }
+            ? $"[{theme.GetStyle(kind, MessagePart.Body)}]{Substitute(kind, theme, body.Body, placeholders)}[/]"
+            : null;
+
+        // the head line names the message and the indented lines under it are its detail. A message with no
+        // title has nothing else to name it, so its body belongs on the head line: an icon written alone on a
+        // line of its own is a stray glyph above every such message, which is what the banner looked like.
+        if (!hasTitle && bodyMarkup is not null)
+        {
+            head.Add(bodyMarkup);
+        }
+
         console.MarkupLine(string.Join(' ', head));
 
-        if (body is { Body.Length: > 0 })
+        if (hasTitle && bodyMarkup is not null)
         {
-            console.MarkupLine($"  [{theme.GetStyle(kind, MessagePart.Body)}]{Substitute(kind, theme, body.Body, placeholders)}[/]");
+            console.MarkupLine($"  {bodyMarkup}");
         }
 
         foreach (var verbose in builder.Parts.OfType<ConsoleMessageVerbosePart>().Where(part => part.Value.Length > 0))
