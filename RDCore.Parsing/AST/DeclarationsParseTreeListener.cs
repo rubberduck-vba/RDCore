@@ -1266,6 +1266,14 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             {
                 OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, VBEmptyValue.Empty));
             }
+            else if (variantLiteralContext.NULL() is not null)
+            {
+                // the grammar has always had it — `variantLiteralIdentifier : EMPTY | NULL` — and this branch
+                // did not, so `Null` parsed to no node at all and then evaluated to an internal error. It is a
+                // Variant subtype rather than an object, which is why it belongs here and not beside Nothing:
+                // Nothing is the absent *reference*, Null the absent *value*.
+                OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, VBNullValue.Null));
+            }
         }
     }
     public override void ExitNumberLiteral([NotNull] VBAParser.NumberLiteralContext context)

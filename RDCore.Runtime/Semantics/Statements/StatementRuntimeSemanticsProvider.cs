@@ -72,9 +72,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.Close or Tokens.Reset } close => _files.ExecuteClose(session, context, close),
             // MS-VBAL §5.4.5.8: Print to a file channel. The channel exists now; writing to one does not yet,
             // and the bare object-relative form needs an enclosing form or report, which does not either.
-            PrintStatementNode { Token: Tokens.Print } print => _files.ExecutePrint(session, context, print),
-            // MS-VBAL §5.4.5.9 Write #: its own value formatting (quoted strings, #TRUE#, #NULL#), not Print's.
-            PrintStatementNode => RuntimeExecutionOutcome.InternalError,
+            // MS-VBAL §5.4.5.8-9. The bare object-relative form needs an enclosing form or report, which does
+            // not exist; ExecutePrint reports that itself.
+            PrintStatementNode print => _files.ExecutePrint(session, context, print),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };

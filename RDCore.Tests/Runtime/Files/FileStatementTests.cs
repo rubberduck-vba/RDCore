@@ -184,6 +184,95 @@ public sealed class FileStatementTests
     }
 
     [TestMethod]
+    public void Write_QuotesStringsAndSeparatesWithCommas()
+    {
+        // MS-VBAL 5.4.5.9 is a *record* format, not a layout: a string is quoted so a comma inside one is not
+        // mistaken for a separator, which is what lets Input # read the record back.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, \"a,b\", \"c\"",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("\"a,b\",\"c\"\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_SpellsBooleansWithHashes()
+    {
+        // #TRUE# and #FALSE# are not VBA source syntax - 3.3's boolean-literal-identifier is only true/false.
+        // They exist for this record format, and for the coercion that reads them back case-sensitively.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, True, False",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("#TRUE#,#FALSE#\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_SpellsNullWithHashes()
+    {
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, Null",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("#NULL#\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_UsesADotForTheDecimalSeparatorWhateverTheLocale()
+    {
+        // "ignoring any implementation dependent locale setting and using '.' as the decimal separator" - a
+        // record written under one set of regional settings has to read under another. And unlike Print, no
+        // leading space for the sign column: the space would come back as part of the value.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, 1.5, 2",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("1.5,2\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_WithATrailingSeparator_HoldsTheRecordOpen()
+    {
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, \"a\",",
+            "Write #1, \"b\"",
+            "Close #1");
+
+        Assert.AreEqual("\"a\",\"b\"\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_ToAChannelOpenedForInput_IsBadFileMode()
+    {
+        // the same 5.4.5.1 table Print # is checked against: Write # is valid only in Append and Output.
+        var (_, outcome) = Run(
+            WithFile($"{Root}/a.txt"),
+            $"Open \"{Root}/a.txt\" For Input As #1",
+            "Write #1, \"nope\"");
+
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileMode, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
     public void Print_WritesToTheChannel()
     {
         var fileSystem = WithFile($"{Root}/out.txt");

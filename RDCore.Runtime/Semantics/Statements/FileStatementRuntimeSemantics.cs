@@ -25,6 +25,7 @@ namespace RDCore.Runtime.Semantics.Statements;
 public sealed record class FileStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     PrintOutputEvaluator Printing,
+    WriteOutputEvaluator Writing,
     VBNumericLetCoercionTypeRuntimeSemantics Numbers,
     VBStringLetCoercionRuntimeSemantics Strings)
 {
@@ -74,7 +75,7 @@ public sealed record class FileStatementRuntimeSemantics(
     }
 
     /// <summary>
-    /// Executes a <c>Print #</c> statement (<strong>MS-VBAL §5.4.5.8</strong>).
+    /// Executes a <c>Print #</c> or <c>Write #</c> statement (<strong>MS-VBAL §5.4.5.8-9</strong>).
     /// </summary>
     /// <remarks>
     /// The output rules are <see cref="PrintOutputEvaluator"/>'s, unchanged - the print zones, the leading
@@ -99,7 +100,9 @@ public sealed record class FileStatementRuntimeSemantics(
             return failure;
         }
 
-        return Printing.Execute(session, context, print.Items, channel!.Output);
+        return print.Token.Equals(Tokens.Write, StringComparison.OrdinalIgnoreCase)
+            ? Writing.Execute(session, context, print.Items, channel!.Output)
+            : Printing.Execute(session, context, print.Items, channel!.Output);
     }
 
     // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a
