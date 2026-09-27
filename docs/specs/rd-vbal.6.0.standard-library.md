@@ -42,7 +42,23 @@ A _named_ label never sets it in either mode; only a label spelled as decimal di
 
 **And it reports it too narrowly.** MS-VBA reports `Erl` with `ushort` resolution and wraps around on any line number that does not fit, so a program numbered past `65535` is told it faulted at a line it has not got. **RD-VBA returns a `Long`**, so every legal line number is representable.
 
-### 6.1.4 Modules
+### 6.1.4 `Strings.Len` / `Strings.LenB`
+
+**MS-VBAL §6.1.2.11.1.22.** The pair returns "the number of characters in a string or the number of bytes required to store a variable on the current platform", and `LenB` "will return the same value as `Len`, except for strings or UDTs" — one function with two exceptions, rather than two functions.
+
+|Expression|`Len`|`LenB`|
+|---|---|---|
+|A `String`|its characters|two bytes per character|
+|A fixed-length `String`|its declared length|twice its declared length|
+|`Null`|`Null`|`Null`|
+|Any other scalar|the bytes it occupies|the same|
+|A **UDT**|"the size as it will be written to the file"|"the in-memory size, including any implementation-specific padding between elements"|
+
+The UDT row is the one that needs the platform to know two different sizes for the same value; [§2.5.2.1.3](rd-vbal.2.5.runtime-values.md) defines both and holds the padding rule. A record whose members include a variable-length `String` is the case MS-VBAL warns cannot be predicted — `Len` counts the characters the member currently holds, and `LenB` counts the pointer, so the two move independently of each other.
+
+> 👉 An external call carries _runtime_ values rather than _typed_ ones, so the declared type a member was called with is recovered at the dispatch seam. It survives because each intrinsic stores its own exact managed type — a `short` for `Integer` and an `int` for `Long`, not one integer type for both — which is what lets `Len` answer for the variable it was given rather than guess. `Date` and `Double` are indistinguishable there and need not be: they are the same width.
+
+### 6.1.5 Modules
 
 The SDK defines all the interfaces for the _internal representation_ of each module - the _environment host_ exposes the symbols provided by the library to the _workspace_:
 

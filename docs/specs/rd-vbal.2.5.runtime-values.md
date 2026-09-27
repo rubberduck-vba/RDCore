@@ -162,6 +162,23 @@ heap); a UDT has location identity and is never copied by value at that level.
 
 > 👉 UDT values **MUST** be passed by reference (`ByRef`).
 
+A UDT value carries a **field store**: one cell per declared field, in **declaration order**, exactly as an _array value_ carries its element block and for the same reason — a UDT's real data is its fields, which a scalar managed value has nowhere to hold. Declaration order is normative rather than incidental: it is the order MS-VBAL §5.4.5.11 writes a record in, and the order [VBUserDefinedTypeLayout](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html) assigns offsets in. Each cell starts at its field's declared type's own default value, VBA giving a UDT no initializer.
+
+Like an array, a UDT value is therefore **location-identified** and is boxed into the handle a symbol's storage allocation reserves, via `VBRuntimeUserDefinedTypeValue`; `VBUserDefinedType.CreateValue(IBindingHandle)` unboxes it back out unchanged, rather than reconstructing one — which would hand back a UDT with default fields however much had been assigned to it. `VBRuntimeUserDefinedTypeValue` is a plain (non-`record`) wrapper for the same reason `VBRuntimeArrayValue` is. A copy of a UDT value gets a field store of its own, deep through a nested UDT, because VBA copies a UDT on assignment.
+
+A UDT has **two sizes**, and MS-VBAL §6.1.2.11 distinguishes them where it defines `Len` and `LenB`:
+
+|Size|Reported by|Definition|
+|---|---|---|
+|In-memory|`LenB`, `VBUserDefinedTypeValue.Size`|"the in-memory size, including any implementation-specific padding between elements" — each field aligned to its own natural boundary, the type padded up to the strictest boundary any field asked for|
+|Serialized|`Len`, and what `Put`/`Get` move|"the size as it will be written to the file" — the fields concatenated, with no padding at all|
+
+The padding is "implementation-specific" by the specification's own word, and RD-VBA chooses MS-VBA's, because the in-memory size of a UDT is precisely the kind of thing a program measures with `LenB` and then relies on. `VBUserDefinedTypeLayout` holds that rule in one place, along with each field's offset.
+
+> 👉 Memory widths are not file widths. A variable-length `String` field is a pointer in memory and its characters in a record; a fixed-length `String` field is Unicode in memory and ANSI in a record. That is the whole reason the two sizes disagree, and why MS-VBAL warns that "`Len` might not be able to determine the actual number of storage bytes required when used with variable-length strings in user-defined data types".
+
+> 🚧 The layout assumes a 32-bit pointer, which is the width every MS-VBA UDT is laid out for and therefore the one a file or a `LenB` from MS-VBA agrees with. A 64-bit host widens a pointer field and `LongPtr`; threading the environment's own width through is a named follow-up.
+
 
 #### 2.5.2.1.4 Object Values
 An instance of a [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html) is always a [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).
