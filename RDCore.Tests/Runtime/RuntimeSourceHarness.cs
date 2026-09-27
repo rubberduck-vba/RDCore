@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Services.VerboseMessages;
 using System.IO.Abstractions;
@@ -57,6 +58,20 @@ internal static class RuntimeSourceHarness
     /// <param name="body">The statements, one per line.</param>
     public static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
         IFileSystem? fileSystem, IEnumerable<Symbol> symbols, params string[] body)
+        => Run(fileSystem, symbols, output: null, standardLibrary: false, body);
+
+    /// <summary>
+    /// <inheritdoc cref="Run(IFileSystem?, IEnumerable{Symbol}, string[])" path="/summary"/>
+    /// </summary>
+    /// <param name="fileSystem">The file system the session's file channels open against.</param>
+    /// <param name="symbols">The symbols the source refers to.</param>
+    /// <param name="output">Where the body's <c>Debug.Print</c> output goes, or <c>null</c> to discard it.</param>
+    /// <param name="standardLibrary">Whether the library's own symbols are defined too, which a body calling
+    /// one of its functions needs.</param>
+    /// <param name="body">The statements, one per line.</param>
+    public static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
+        IFileSystem? fileSystem, IEnumerable<Symbol> symbols, IRuntimeOutput? output, bool standardLibrary,
+        params string[] body)
     {
         // resolution walks the scope tree, so the module and the procedure have to be in it as symbols and
         // not only as a call frame: a name resolved from a procedure Uri no node exists for resolves to
@@ -67,10 +82,15 @@ internal static class RuntimeSourceHarness
             workspace, module.Uri, ProcedureName, ScopeKind.Module, SymbolKindExt.Procedure,
             VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
 
+        // the library's provider goes first, the way the platform composes it: a project always has these
+        // symbols whether or not anything asked for them.
+        ISymbolProvider[] providers = standardLibrary
+            ? [new StdLibSymbolProvider(workspace), new Provider([module, procedure, .. symbols])]
+            : [new Provider([module, procedure, .. symbols])];
+
         var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
-            [new Provider([module, procedure, .. symbols])],
-            output: null, fileSystem: fileSystem);
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [], providers,
+            output: output, fileSystem: fileSystem);
 
         var pipeline = RuntimeExecutionPipeline.Create(
             session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());

@@ -41,7 +41,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// list somebody can read. An interface absent from it is a module nothing implements yet, and every
     /// member of it says so when called.
     /// <para>
-    /// 🚧 TODO as each module lands: <c>Conversion</c>, <c>Strings</c>, <c>Math</c>, <c>DateTime</c>,
+    /// 🚧 TODO as each module lands: <c>Conversion</c>, <c>Math</c>, <c>DateTime</c>,
     /// <c>Interaction</c>, <c>Collection</c>, <c>RegExp</c>, and the constant modules.
     /// </para>
     /// </remarks>
@@ -51,6 +51,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         {
             [typeof(IStdInformationModule)] = new StdInformation(session),
             [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
+            [typeof(IStdStringsModule)] = new StdStrings(),
         });
 
     /// <summary>
@@ -181,7 +182,59 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     // a runtime value that is not itself a VBTypedValue still has to reach a typed parameter, and the type
     // the signature names is the one that knows how to hold it.
     private static VBTypedValue? WrappedValue(IRuntimeValue argument, Type parameterType)
-        => parameterType == typeof(VBStringValue) && argument.BoxedValue is string text ? new VBStringValue(text)
+        => parameterType == typeof(VBVariantValue) ? Variant(argument)
+            : parameterType == typeof(VBStringValue) && argument.BoxedValue is string text ? new VBStringValue(text)
             : parameterType == typeof(VBLongValue) && argument.BoxedValue is not null ? new VBLongValue(Convert.ToInt32(argument.BoxedValue))
             : null;
+
+    // a Variant parameter takes anything, that being what a Variant is - MS-VBAL 5.5.1.2.2's Let-coercion to
+    // Variant has no failing case. Most of the library declares its parameters that way, so a Variant that
+    // rejected an argument would leave most of the library uncallable.
+    private static VBVariantValue? Variant(IRuntimeValue argument)
+        => TypedValue(argument) is { } typed ? new VBVariantValue(typed) : null;
+
+    /// <summary>
+    /// The typed value a runtime value is the storage of.
+    /// </summary>
+    /// <remarks>
+    /// An external call carries <see cref="IRuntimeValue"/> arguments rather than typed ones, so the declared
+    /// type a member was called with has to be recovered here. It survives: each intrinsic stores its own exact
+    /// managed type — <c>short</c> for <c>Integer</c> and <c>int</c> for <c>Long</c>, not one integer type for
+    /// both — which is what lets <c>Len</c> answer "the number of bytes required to store a variable" instead
+    /// of guessing. <c>Date</c> and <c>Double</c> both store a <c>double</c> and are indistinguishable here,
+    /// which costs nothing: they are the same width, and nothing else about them is asked at this seam.
+    /// </remarks>
+    private static VBTypedValue? TypedValue(IRuntimeValue argument) => argument switch
+    {
+        // a Variant carries the whole typed value it wraps, and this is the only way to reach it: its own
+        // BoxedValue unwraps all the way down to the managed value, which is exactly what must not happen here
+        // - and every library member declaring a Variant parameter gets its argument coerced to one on the way
+        // in, so this is the case nearly every call arrives as.
+        VBRuntimeVariantValue variant => variant.WrappedValue,
+        // the runtime values that are a kind rather than a managed value, and could not be told apart by one:
+        // Null's and Empty's own boxed values say nothing, and a Boolean's is an integer.
+        VBRuntimeNullValue => VBNullValue.Null,
+        VBRuntimeEmptyValue => VBEmptyValue.Empty,
+        VBRuntimeBooleanValue boolean => new VBBooleanValue(Convert.ToInt32(boolean.BoxedValue) != 0),
+        VBRuntimeCurrencyValue currency => new VBCurrencyValue(Convert.ToDecimal(currency.BoxedValue)),
+        VBRuntimeDecimalValue @decimal => new VBDecimalValue(Convert.ToDecimal(@decimal.BoxedValue)),
+        VBRuntimeHResult error => new VBErrorValue(Convert.ToInt32(error.BoxedValue)),
+        _ => argument.BoxedValue switch
+        {
+            // a Variant stores the whole typed value it wraps, and an array and a UDT are each boxed around
+            // their own storage - so all three already are the value that was passed.
+            VBTypedValue typed => typed,
+            VBRuntimeArrayValue array => array.Array,
+            VBRuntimeUserDefinedTypeValue udt => udt.UserDefinedType,
+            byte value => new VBByteValue(value),
+            short value => new VBIntegerValue(value),
+            int value => new VBLongValue(value),
+            long value => new VBLongLongValue(value),
+            float value => new VBSingleValue(value),
+            double value => new VBDoubleValue(value),
+            decimal value => new VBCurrencyValue(value),
+            string value => new VBStringValue(value),
+            _ => null,
+        },
+    };
 }
