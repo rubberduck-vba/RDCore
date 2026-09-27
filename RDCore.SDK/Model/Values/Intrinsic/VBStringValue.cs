@@ -63,14 +63,25 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     /// </summary>
     public static VBStringValue ZeroLengthString => _zeroString.Value;
 
-    public string Value => RuntimeValue.BoxedValue.ToString() ?? string.Empty;
-    public virtual int Length => Value?.Length ?? 0;
-    public override int Size => Value is null ? 0 : 2 * Length + 2;
+    /// <summary>
+    /// Whether this is <c>vbNullString</c> — a <c>String</c> bound to a null pointer rather than to a
+    /// zero-length string.
+    /// </summary>
+    /// <remarks>
+    /// The only observable difference between the two in MS-VBA is the pointer: <c>vbNullString = ""</c> is
+    /// <c>True</c> and <c>Len(vbNullString)</c> is <c>0</c>, but a null pointer occupies no string storage,
+    /// which is what <see cref="Size"/> reports and this tells it.
+    /// </remarks>
+    public bool IsNullString => RuntimeValue.BoxedValue is null;
+
+    public string Value => RuntimeValue.BoxedValue?.ToString() ?? string.Empty;
+    public virtual int Length => Value.Length;
+    public override int Size => IsNullString ? 0 : 2 * Length + 2;
 
 
     public virtual VBStringValue WithValue(string? value) => this with { Handle = new ValueBindingHandle(new VBRuntimeValue<string>(value ?? string.Empty)) };
 
-    public override string ToString() => Value ?? VBNullString.Value;
+    public override string ToString() => Value;
 
     public bool Equals(IVBTypedValue<VBStringValue, string>? other) => Value == other?.Value;
 }
