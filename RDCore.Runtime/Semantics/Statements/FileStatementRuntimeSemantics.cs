@@ -378,7 +378,8 @@ public sealed record class FileStatementRuntimeSemantics(
     /// <remarks>
     /// The mirror of <see cref="ExecutePut"/>: how many bytes to read follows from the declared type of the
     /// variable being read into, or — for a <c>Variant</c> — from the type descriptor the record itself
-    /// carries.
+    /// carries. A UDT variable is filled in place rather than assigned, which is what gives
+    /// <c>Get #1, , myRecord</c> its whole point.
     /// </remarks>
     /// <param name="session">The session whose channel the statement reads from.</param>
     /// <param name="context">The evaluation context of the statement.</param>
@@ -398,10 +399,21 @@ public sealed record class FileStatementRuntimeSemantics(
         }
 
         var declaredType = symbol is ITypedSymbol { ResolvedType: var resolved } ? resolved : VBVariantType.TypeInfo;
+        var bound = session.Symbols.Resolver.GetValue(symbol!);
+
+        // a UDT variable has location identity, so the statement fills the variable the program already has
+        // instead of replacing it - which is also what lets this sidestep assigning a UDT, an assignment whose
+        // own coercion rules are a separate piece of work.
+        if (declaredType is VBUserDefinedType udtType)
+        {
+            return udtType.CreateValue(bound) is VBUserDefinedTypeValue udt && record.Channel.TryReadRecordInto(udt)
+                ? RuntimeExecutionOutcome.Next
+                : Failed(VBRuntimeErrorId.InputPastEndOfFile, statement, $"reading into {symbol!.Name}");
+        }
 
         // a Binary-mode String is as long as the variable already is, so what it currently holds is part of
         // deciding how much of the file to read.
-        var currentLength = session.Symbols.Resolver.GetValue(symbol!).Value.BoxedValue is string text ? text.Length : 0;
+        var currentLength = bound.Value.BoxedValue is string text ? text.Length : 0;
 
         if (!record.Channel.TryReadRecord(declaredType, currentLength, out var value))
         {

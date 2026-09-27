@@ -224,6 +224,17 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     // invocations, not reads - only a Field/Variable-kind member is readable this way.
     private static RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, VBTypedValue owner, string memberName)
     {
+        // a UDT field is not reached through an instance the session knows about: a UDT has location identity
+        // but no instance record, and its fields live on the value itself (MS-VBAL §2.1 - a UDT data value is
+        // "a linear concatenation of the aggregated data values"). The value in hand is already everything
+        // needed to read one, whether it arrived declared or wrapped in a Variant.
+        if (UnwrappedOwner(owner) is VBUserDefinedTypeValue udt)
+        {
+            return udt[memberName] is { } field
+                ? RuntimeSemanticsEvaluationResult.Success(field)
+                : RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
         if (owner is not VBObjectValue objectValue || objectValue.IsNothing()
             || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
         {
@@ -236,6 +247,19 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         return member is { Kind: SymbolKindExt.Field or SymbolKindExt.Variable }
             ? RuntimeSemanticsEvaluationResult.Success(member.ResolvedType.CreateValue(instance.GetValue(member)))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // a Variant's own TypeInfo mirrors what it wraps while the instance stays a VBVariantValue, so a member
+    // access on a Variant holding a UDT has to see past the wrapper - the same unwrapping EvaluateIndex does
+    // for a Variant holding an array.
+    private static VBTypedValue UnwrappedOwner(VBTypedValue owner)
+    {
+        while (owner is VBVariantValue { TypedValue: var wrapped } && wrapped is not null)
+        {
+            owner = wrapped;
+        }
+
+        return owner;
     }
 
     private RuntimeSemanticsEvaluationResult EvaluateIndex(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression)

@@ -163,6 +163,20 @@ public interface IFileChannel
     /// <param name="value">The value read.</param>
     /// <returns><c>false</c> at end of file, or for a declared type the format has no row for.</returns>
     bool TryReadRecord(Model.Types.Abstract.VBType declaredType, int currentLength, out Model.Values.Abstract.VBTypedValue? value);
+
+    /// <summary>
+    /// Reads one record into the fields of <paramref name="userDefinedType"/>, in declaration order — what a
+    /// <c>Get</c> whose variable is a UDT does (<strong>MS-VBAL §5.4.5.12</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Reads <em>into</em> the value rather than producing a new one, because that is what the statement
+    /// describes and what a UDT variable is: it has location identity, so a <c>Get</c> fills the variable the
+    /// program already has rather than replacing it. Each field is read by its own row of the format, so a
+    /// record written by a <c>Put</c> of the same type reads straight back.
+    /// </remarks>
+    /// <param name="userDefinedType">The UDT value whose fields are filled.</param>
+    /// <returns><c>false</c> at end of file, or for a field whose type the format has no row for.</returns>
+    bool TryReadRecordInto(Model.Values.Intrinsic.VBUserDefinedTypeValue userDefinedType);
 }
 
 /// <summary>

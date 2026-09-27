@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using System.Collections.Immutable;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
@@ -22,9 +23,39 @@ public record class VBUserDefinedType(Symbol Symbol, ImmutableArray<VBTypeMember
 {
     public override VBTypedValue DefaultValue => new VBUserDefinedTypeValue(this);
 
+    /// <remarks>
+    /// A UDT's field cells live on the value itself, so the value is handed back out of its own binding rather
+    /// than rebuilt from it — the same way <see cref="VBArrayType.CreateValue"/> hands back its element cells.
+    /// Rebuilding would silently return a UDT with default fields however much had been assigned to it.
+    /// </remarks>
+    public override VBTypedValue CreateValue(Values.Bindings.IBindingHandle handle)
+        => handle.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> boxed
+            ? boxed.StoredValue.UserDefinedType
+            // a binding that is not one of this type's own values is one nothing has stored a UDT in yet: a
+            // freshly allocated slot, whose value is a UDT with every field at its declared default.
+            : new VBUserDefinedTypeValue(handle, this);
+
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
+
+    /// <summary>
+    /// This type's fields, in declaration order.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Members"/> is typed for members in general and a <c>Type … End Type</c> declares nothing
+    /// but fields, so every caller that wanted them was narrowing the same way. The <em>order</em> is the
+    /// part that matters: it is the order <strong>MS-VBAL §5.4.5.11</strong> writes a record in, and the order
+    /// <see cref="VBUserDefinedTypeLayout"/> assigns offsets in.
+    /// </remarks>
+    public IEnumerable<VBUserDefinedTypeFieldSymbol> Fields() => Members.OfType<VBUserDefinedTypeFieldSymbol>();
+
+    /// <summary>
+    /// The field named <paramref name="name"/>, or <c>null</c> when this type has no such field.
+    /// </summary>
+    /// <param name="name">The field name, compared case-insensitively as VBA compares identifiers.</param>
+    public VBUserDefinedTypeFieldSymbol? Field(string name)
+        => Fields().FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
     /// <remarks>
     /// Compares by the declaring symbol's <c>Uri</c> instead of the compiler-generated deep

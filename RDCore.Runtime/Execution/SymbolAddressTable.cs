@@ -75,11 +75,17 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
     /// same instance — cells intact — on every subsequent read. A <see cref="VBVariantValue"/> has the
     /// same problem one level up: its own wrapped <see cref="VBVariantValue.TypedValue"/> is a whole
     /// <c>VBTypedValue</c>, not a bare <c>IRuntimeValue</c> a scalar handle could hold, so it gets the
-    /// same treatment, boxed as a fresh <see cref="VBRuntimeVariantValue"/>.
+    /// same treatment, boxed as a fresh <see cref="VBRuntimeVariantValue"/>. A
+    /// <see cref="VBUserDefinedTypeValue"/> is the third of the same kind: its real content is the field
+    /// cells on the UDT itself, so it is boxed as a <see cref="VBRuntimeUserDefinedTypeValue"/> for
+    /// <see cref="RDCore.SDK.Model.Types.VBUserDefinedType.CreateValue"/> to hand back intact — without
+    /// which reading a UDT variable would return one with every field at its default, whatever had been
+    /// assigned to it.
     /// </remarks>
     private static IBindingHandle FreshBinding(VBTypedValue value) => value switch
     {
         VBArrayValue array => new ValueBindingHandle(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),
+        VBUserDefinedTypeValue udt => new ValueBindingHandle(new VBRuntimeValue<VBRuntimeUserDefinedTypeValue>(new VBRuntimeUserDefinedTypeValue(udt))),
         VBVariantValue variant => new ValueBindingHandle(new VBRuntimeVariantValue(variant.TypedValue.TypeInfo.VarType(), variant.TypedValue)),
         _ => value.Handle switch
         {

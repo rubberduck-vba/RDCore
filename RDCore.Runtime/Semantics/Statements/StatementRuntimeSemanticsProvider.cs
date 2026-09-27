@@ -44,7 +44,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, IVerboseMessageBuilder formatterService)
     {
         _expressionEvaluator = expressionEvaluator;
-        _assignments = new(letCoercionProvider, formatterService);
+        _assignments = new(letCoercionProvider, formatterService, expressionEvaluator);
         _setCoercion = setCoercion;
         _printOutput = printOutput;
         _conditions = conditions;

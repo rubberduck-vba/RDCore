@@ -68,20 +68,27 @@ internal static class RecordDataFormat
     /// <param name="isVariantTarget">Whether the <c>data</c> expression's declared type is <c>Variant</c>, in
     /// which case a type descriptor precedes the value.</param>
     /// <param name="written">How many bytes went to the file, which <c>Put</c> checks against a record length.</param>
-    /// <returns><c>false</c> for a value this format has no row for — an object, or a UDT.</returns>
+    /// <returns><c>false</c> for a value this format has no row for — an object.</returns>
     public static bool TryWrite(
         Stream stream, VBTypedValue value, VBFileMode mode, bool isVariantTarget, out int written)
     {
         written = 0;
         var unwrapped = Unwrapped(value);
 
-        // TODO write a UDT member by member, per MS-VBAL 5.4.5.11's "the value of each member of the UDT is
-        // written to the file... in the order in which the members are declared". A UDT value is a
-        // MemoryAddress, so this needs to read each field out of the session's storage - which means the
-        // session has to be threaded in here, and the member offsets have to be agreed with VBUserDefinedType.
-        if (unwrapped is VBUserDefinedTypeValue or VBObjectValue)
+        // the descriptor table's Object row is ERROR, and so is its User Defined Type row - but the latter is
+        // about a UDT inside a *Variant*, not about a UDT as the data, which the statement itself covers.
+        if (unwrapped is VBObjectValue)
         {
             return false;
+        }
+
+        // "If <data> is a UDT, then the value of each member of the UDT is written to the file at the current
+        // file-pointer-position... in the order in which the members are declared in the UDT" - each by its own
+        // row of the format, and with no padding between them, which is what makes Len of a UDT "the size as it
+        // will be written to the file" rather than its in-memory size.
+        if (unwrapped is VBUserDefinedTypeValue udt)
+        {
+            return TryWriteFields(stream, udt, mode, out written);
         }
 
         if (isVariantTarget)
@@ -130,6 +137,68 @@ internal static class RecordDataFormat
         }
 
         return TryReadTyped(stream, declaredType, mode, currentLength, out value);
+    }
+
+    /// <summary>
+    /// Reads one record into <paramref name="udt"/>'s fields, in declaration order, replacing each
+    /// (<strong>MS-VBAL §5.4.5.12</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Reads <em>into</em> the value rather than returning a new one, which is what a <c>Get</c> of a UDT
+    /// does: the variable keeps its identity, and its fields take the record's values. A field this cannot
+    /// read leaves the whole call <c>false</c> — with the fields before it already replaced, because the
+    /// bytes before it have already been consumed and there is no meaningful way to put either back.
+    /// </remarks>
+    /// <param name="stream">The channel's stream, already positioned.</param>
+    /// <param name="udt">The UDT value whose fields are replaced.</param>
+    /// <param name="mode">The channel's mode, which decides how a <c>String</c> field is framed.</param>
+    /// <returns><c>false</c> at end of file, or for a field whose type the format has no row for.</returns>
+    public static bool TryReadInto(Stream stream, VBUserDefinedTypeValue udt, VBFileMode mode)
+    {
+        for (var index = 0; index < udt.Fields.Length; index++)
+        {
+            var field = udt.Fields[index];
+
+            // a nested UDT is read into in place too, so its own fields keep their identity the way the
+            // outer ones do - and so a String field nested two deep still measures its own current length.
+            if (udt.FieldAt(index) is VBUserDefinedTypeValue nested)
+            {
+                if (!TryReadInto(stream, nested, mode))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            var currentLength = udt.FieldAt(index) is VBStringValue text ? text.Length : 0;
+            if (!TryRead(stream, field.ResolvedType ?? VBVariantType.TypeInfo, mode, currentLength, out var value)
+                || !udt.TrySetFieldAt(index, value!))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // the write side of the same walk. A field is written by its own row of the format, so a String field
+    // carries a length prefix in Random mode and none in Binary, exactly as a String variable would.
+    private static bool TryWriteFields(Stream stream, VBUserDefinedTypeValue udt, VBFileMode mode, out int written)
+    {
+        written = 0;
+        for (var index = 0; index < udt.Fields.Length; index++)
+        {
+            if (udt.FieldAt(index) is not { } field
+                || !TryWrite(stream, field, mode, isVariantTarget: field is VBVariantValue, out var fieldBytes))
+            {
+                return false;
+            }
+
+            written += fieldBytes;
+        }
+
+        return true;
     }
 
     private static int WriteValue(Stream stream, VBTypedValue value, VBFileMode mode) => value switch

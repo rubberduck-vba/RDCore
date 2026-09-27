@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.AST.Abstract;
@@ -9,6 +10,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -36,7 +38,12 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// </remarks>
 /// <param name="coercions">The Let-coercion rules the assignment applies to its source value.</param>
 /// <param name="formatter">Formats the verbose message of an error the coercion raises.</param>
-public sealed class LetAssignmentEvaluator(ILetCoercionRuntimeSemanticsProvider coercions, IVerboseMessageBuilder formatter)
+/// <param name="expressions">Evaluates the owner of a member-access target, which has to be in hand before
+/// the field being assigned can be.</param>
+public sealed class LetAssignmentEvaluator(
+    ILetCoercionRuntimeSemanticsProvider coercions,
+    IVerboseMessageBuilder formatter,
+    RuntimeExpressionEvaluator expressions)
 {
     private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment = new(coercions, formatter);
 
@@ -82,9 +89,96 @@ public sealed class LetAssignmentEvaluator(ILetCoercionRuntimeSemanticsProvider 
         ExpressionNode target,
         ExpressionNode source,
         VBTypedValue value)
-        => TryResolveTarget(session, context, target, out var symbol)
-            ? Assign(session, context, statement, symbol!, target, source, value)
+        => target is MemberAccessExpressionNode memberAccess
+            ? AssignField(session, context, statement, memberAccess, source, value)
+            : TryResolveTarget(session, context, target, out var symbol)
+                ? Assign(session, context, statement, symbol!, target, source, value)
+                : RuntimeExecutionOutcome.InternalError;
+
+    // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a UDT. A UDT field is not an
+    // addressable Symbol the way a variable is - it lives on the value, which is what makes it reachable at
+    // all - so the assignment is the coercion plus a write to the cell, rather than the "__let_op" operator
+    // every Symbol-targeted assignment goes through. A class instance's field is still the operator's, since
+    // it does have real storage; this only takes the UDT case.
+    private RuntimeExecutionOutcome AssignField(
+        IRuntimeSession session,
+        RuntimeEvaluationContext context,
+        StatementNode statement,
+        MemberAccessExpressionNode memberAccess,
+        ExpressionNode source,
+        VBTypedValue value)
+    {
+        if (!TryEvaluateOwner(session, context, memberAccess, out var owner, out var failure))
+        {
+            return failure;
+        }
+
+        if (owner is not VBUserDefinedTypeValue udt)
+        {
+            // an Object/class field target, or a Property Let: neither is this method's, and neither is wired.
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var name = memberAccess.Member.IdentifierName;
+        if (udt.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            is not { ResolvedType: { } fieldType } declared)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
+        // the coercion is the same one an assignment to a variable of that type would apply.
+        var frame = new LetCoercionStackFrame(
+            statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(fieldType));
+        var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
+        if (!coerced.IsApplicable)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!coerced.IsSuccess)
+        {
+            return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+        }
+
+        return udt.TrySetField(declared.Name, coerced.Result!)
+            ? RuntimeExecutionOutcome.Next
             : RuntimeExecutionOutcome.InternalError;
+    }
+
+    // the owner of a member-access target, which is an expression in its own right: `a.b.c = 1` assigns a
+    // field of whatever `a.b` is, so the owner is evaluated rather than resolved.
+    private bool TryEvaluateOwner(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess,
+        out VBTypedValue? owner, out RuntimeExecutionOutcome failure)
+    {
+        owner = null;
+        failure = RuntimeExecutionOutcome.Next;
+
+        if (memberAccess.Owner is null)
+        {
+            // the With-relative form, whose owner is the enclosing With block's target.
+            owner = context.EnclosingWithTarget;
+            return owner is not null;
+        }
+
+        var evaluated = expressions.Evaluate(session, memberAccess.Owner, context);
+        if (!evaluated.IsSuccess)
+        {
+            failure = evaluated.IsInternalError
+                ? RuntimeExecutionOutcome.InternalError
+                : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+            return false;
+        }
+
+        owner = evaluated.Result;
+        while (owner is VBVariantValue { TypedValue: { } wrapped })
+        {
+            owner = wrapped;
+        }
+
+        return owner is not null;
+    }
 
     /// <inheritdoc cref="Assign(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue)"/>
     /// <param name="session">The session whose call stack a function result variable is assigned on.</param>
