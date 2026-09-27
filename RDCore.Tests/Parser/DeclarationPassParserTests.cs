@@ -1796,32 +1796,51 @@ End Sub
     }
 
     [TestMethod]
-    public void LockStatement_WithJustAStartRecord_CapturesOneRecordNumber()
+    public void LockStatement_WithNoRecordRange_CapturesNeitherBound()
     {
-        var result = ParseInProcedure("Lock #1, 5");
-        var statement = KeywordStatement(result, Tokens.Lock);
+        var statement = FileLockStatement(ParseInProcedure("Lock #1"), Tokens.Lock);
 
-        Assert.HasCount(2, statement.Inputs);
-        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
+        Assert.AreEqual(1L, IntValue(statement.FileNumber));
+        Assert.IsTrue(statement.IsEntireFile);
+    }
+
+    [TestMethod]
+    public void LockStatement_WithJustAStartRecord_CapturesOnlyTheStart()
+    {
+        var statement = FileLockStatement(ParseInProcedure("Lock #1, 5"), Tokens.Lock);
+
+        Assert.AreEqual(5L, IntValue(statement.StartRecord!));
+        Assert.IsNull(statement.EndRecord, "there is no To clause, so there is no end record");
     }
 
     [TestMethod]
     public void LockStatement_WithARecordRange_CapturesBothBounds()
     {
-        var result = ParseInProcedure("Lock #1, 5 To 10");
-        var statement = KeywordStatement(result, Tokens.Lock);
+        var statement = FileLockStatement(ParseInProcedure("Lock #1, 5 To 10"), Tokens.Lock);
 
-        Assert.HasCount(3, statement.Inputs);
-        Assert.AreEqual(5L, IntValue(statement.Inputs[1]));
-        Assert.AreEqual(10L, IntValue(statement.Inputs[2]));
+        Assert.AreEqual(5L, IntValue(statement.StartRecord!));
+        Assert.AreEqual(10L, IntValue(statement.EndRecord!));
+    }
+
+    [TestMethod]
+    public void LockStatement_WithAToAndNoStart_CapturesOnlyTheEnd()
+    {
+        // the distinction a flat input list could not carry: this and `Lock #1, 5` each have one expression,
+        // and they are different ranges - records 1 through 5 against record 5 alone.
+        var statement = FileLockStatement(ParseInProcedure("Lock #1, To 5"), Tokens.Lock);
+
+        Assert.IsNull(statement.StartRecord);
+        Assert.AreEqual(5L, IntValue(statement.EndRecord!));
     }
 
     [TestMethod]
     public void UnlockStatement_CapturesFileNumberAndRecordRange()
     {
-        var result = ParseInProcedure("Unlock #1, 5 To 10");
-        var statement = KeywordStatement(result, Tokens.Unlock);
-        Assert.HasCount(3, statement.Inputs);
+        var statement = FileLockStatement(ParseInProcedure("Unlock #1, 5 To 10"), Tokens.Unlock);
+
+        Assert.AreEqual(1L, IntValue(statement.FileNumber));
+        Assert.AreEqual(5L, IntValue(statement.StartRecord!));
+        Assert.AreEqual(10L, IntValue(statement.EndRecord!));
     }
 
     [TestMethod]
@@ -1895,6 +1914,12 @@ End Sub
     {
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         return member.Children.OfType<KeywordStatementNode>().Single(k => k.Token == token);
+    }
+
+    private static FileLockStatementNode FileLockStatement(ModuleParseResult result, string token)
+    {
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        return member.Children.OfType<FileLockStatementNode>().Single(statement => statement.Token == token);
     }
 
     [TestMethod]

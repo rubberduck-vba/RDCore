@@ -55,6 +55,7 @@ public static class FileStatementAccess
         [Tokens.Seek] = EveryMode(),
         [Tokens.Width] = EveryMode(),
         [Tokens.Lock] = EveryMode(),
+        [Tokens.Unlock] = EveryMode(),
     };
 
     /// <summary>

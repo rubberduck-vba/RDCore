@@ -98,6 +98,67 @@ public interface IFileChannel
     /// says "an error is raised" without naming it, and MS-VBA raises <c>63</c>, <c>Bad record number</c>.
     /// </returns>
     Model.Errors.VBRuntimeErrorId? Seek(long position);
+
+    /// <summary>
+    /// The ranges of this channel's file currently locked against other agents
+    /// (<strong>MS-VBAL §5.4.5.4</strong>), in no particular order.
+    /// </summary>
+    /// <remarks>
+    /// "Multiple lock ranges established by multiple lock statements can be simultaneously active", and each
+    /// "remains in effect until it is removed by an <c>Unlock</c> statement... or specifies a record range
+    /// that evaluates to the same start record and end record" — so which ranges are held is not bookkeeping,
+    /// it is what decides whether the next <c>Unlock</c> is legal.
+    /// </remarks>
+    IEnumerable<FileRecordRange> Locks { get; }
+
+    /// <summary>
+    /// Locks <paramref name="range"/> of the file against other agents (<strong>MS-VBAL §5.4.5.4</strong>).
+    /// </summary>
+    /// <param name="range">The range to lock, or <see cref="FileRecordRange.EntireFile"/>. A channel opened
+    /// <see cref="VBFileMode.Input"/>, <see cref="VBFileMode.Output"/> or <see cref="VBFileMode.Append"/>
+    /// locks the entire file whatever is asked for, which the specification states outright.</param>
+    /// <returns>
+    /// The error that stopped it, or <c>null</c>. "Start record MUST be greater than or equal to 1, and less
+    /// than or equal to end record. If not, an error is raised" — unnamed there, and MS-VBA raises <c>63</c>.
+    /// </returns>
+    Model.Errors.VBRuntimeErrorId? LockRange(FileRecordRange range);
+
+    /// <summary>
+    /// Releases a lock this channel holds (<strong>MS-VBAL §5.4.5.5</strong>).
+    /// </summary>
+    /// <param name="range">The range to release, which "MUST designate a range that is identical to a start
+    /// record to end record range of a previously executed <c>Lock</c> statement", or
+    /// <see cref="FileRecordRange.EntireFile"/>.</param>
+    /// <returns>
+    /// The error that stopped it, or <c>null</c>. Asking for a range no <c>Lock</c> established is one, and so
+    /// is the mismatch the specification names last: "if a record range is provided for only the <c>Lock</c>
+    /// statement or the <c>Unlock</c> statement designating the same currently open file number".
+    /// </returns>
+    Model.Errors.VBRuntimeErrorId? UnlockRange(FileRecordRange range);
+}
+
+/// <summary>
+/// A span of an open file, in records or in bytes depending on the channel's mode — a <c>Lock</c> or
+/// <c>Unlock</c> statement's <c>record-range</c> (<strong>MS-VBAL §5.4.5.4</strong>).
+/// </summary>
+/// <remarks>
+/// Both ends are inclusive, and both are one-based, so <see cref="Start"/> is never <c>0</c> in a range a
+/// program asked for — which is what lets <c>0 To 0</c> mean <see cref="EntireFile"/> rather than being a
+/// range at all.
+/// </remarks>
+/// <param name="Start">The first record or byte in the span.</param>
+/// <param name="End">The last record or byte in the span, inclusive.</param>
+public readonly record struct FileRecordRange(long Start, long End)
+{
+    /// <summary>
+    /// The whole file — what a <c>Lock</c> or <c>Unlock</c> with no <c>record-range</c> applies to.
+    /// </summary>
+    public static FileRecordRange EntireFile => new(0, 0);
+
+    /// <summary>
+    /// Whether this is the whole file rather than a span within it.
+    /// </summary>
+    public bool IsEntireFile => Start is 0 && End is 0;
 }
 
 /// <summary>

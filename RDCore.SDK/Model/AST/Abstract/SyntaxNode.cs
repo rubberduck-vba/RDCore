@@ -46,6 +46,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(ElseBlockStatementNode), "ElseBlockStatement")]
 [JsonDerivedType(typeof(ErrorStatementNode), "ErrorStatement")]
 [JsonDerivedType(typeof(ExternalMemberDeclarationNode), "DeclareStatement")]
+[JsonDerivedType(typeof(FileLockStatementNode), "FileLockStatement")]
 [JsonDerivedType(typeof(ForEachStatementNode), "ForEachStatement")]
 [JsonDerivedType(typeof(ForStatementNode), "ForNextStatement")]
 [JsonDerivedType(typeof(GoSubStatementNode), "GoSubStatement")]

@@ -78,6 +78,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             // MS-VBAL §5.4.5.3/.7: the statements that reposition a channel and set its line width.
             KeywordStatementNode { Token: Tokens.Seek } seek => _files.ExecuteSeek(session, context, seek),
             KeywordStatementNode { Token: Tokens.Width } width => _files.ExecuteWidth(session, context, width),
+            // MS-VBAL §5.4.5.4-5: Lock and Unlock, which share a node because they share a record range.
+            FileLockStatementNode fileLock => _files.ExecuteLock(session, context, fileLock),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };

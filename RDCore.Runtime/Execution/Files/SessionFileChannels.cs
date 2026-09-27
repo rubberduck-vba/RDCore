@@ -48,7 +48,74 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
             ? RecordLength is > 0 ? RecordLength : DefaultRandomRecordLength
             : 1;
 
+        // "Multiple lock ranges established by multiple lock statements can be simultaneously active for an
+        // external data file", and an Unlock has to name one of them exactly - so the set of them is state the
+        // channel keeps, not something derivable from the stream.
+        private readonly List<FileRecordRange> _locks = [];
+
+        public IEnumerable<FileRecordRange> Locks => _locks;
+
         public long Position => Stream.Position / PositionUnit + 1;
+
+        public VBRuntimeErrorId? LockRange(FileRecordRange range)
+        {
+            var requested = Requested(range);
+            if (!requested.IsEntireFile && (requested.Start < 1 || requested.Start > requested.End))
+            {
+                // "Start record MUST be greater than or equal to 1, and less than or equal to end record. If
+                // not, an error is raised" - which the specification does not name, and MS-VBA raises 63 for.
+                return VBRuntimeErrorId.BadRecordNumber;
+            }
+
+            // TODO apply a real lock to the external file. "The mechanism for actually implementing such locks
+            // and whether or not a lock can be applied to any specific external file is implementation
+            // defined", and holding one across every platform the runtime targets is its own piece of work -
+            // so for now a lock is recorded and honoured between channels of this session, and no more.
+            if (!_locks.Contains(requested))
+            {
+                _locks.Add(requested);
+            }
+
+            return null;
+        }
+
+        public VBRuntimeErrorId? UnlockRange(FileRecordRange range)
+        {
+            var requested = Requested(range);
+            if (requested.IsEntireFile)
+            {
+                // "If a <record-range> is provided for only the <lock-statement> or the <unlock-statement>
+                // designating the same currently open file number an error is generated" - this is that
+                // mismatch seen from the Unlock side: the file was locked in ranges, and this asks for all of
+                // it. Unlocking a file nothing locked is not an error, which is what makes Unlock safe in an
+                // error handler the way Close is.
+                if (_locks.Any(held => !held.IsEntireFile))
+                {
+                    return VBRuntimeErrorId.BadRecordNumber;
+                }
+
+                _locks.Clear();
+                return null;
+            }
+
+            if (requested.Start < 1 || requested.Start > requested.End)
+            {
+                return VBRuntimeErrorId.BadRecordNumber;
+            }
+
+            // "its start record and end record MUST designate a range that is identical to a start record to
+            // end record range of a previously executed <lock-statement> for the same currently-open file
+            // number. If is not the case, an error is raised."
+            return _locks.Remove(requested) ? null : VBRuntimeErrorId.BadRecordNumber;
+        }
+
+        // "If the file number value was opened with <mode> Input, Output, or Append, the effect is as if no
+        // <record-range> was present and the entire file is locked" - stated for Lock and repeated for Unlock,
+        // so both go through this and a ranged Unlock of such a channel matches its whole-file lock.
+        private FileRecordRange Requested(FileRecordRange range)
+            => Mode is VBFileMode.Input or VBFileMode.Output or VBFileMode.Append
+                ? FileRecordRange.EntireFile
+                : range;
 
         public VBRuntimeErrorId? Seek(long position)
         {

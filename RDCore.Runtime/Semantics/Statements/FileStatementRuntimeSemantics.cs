@@ -269,6 +269,61 @@ public sealed record class FileStatementRuntimeSemantics(
         return RuntimeExecutionOutcome.Next;
     }
 
+    /// <summary>
+    /// Executes a <c>Lock</c> or <c>Unlock</c> statement (<strong>MS-VBAL §5.4.5.4-5</strong>).
+    /// </summary>
+    /// <remarks>
+    /// One method for both because the specification gives <c>Unlock</c> "the static semantics for
+    /// <c>lock-statement</c>" and then the same runtime rules about its range — only what happens to the lock
+    /// at the end differs, which is the channel's business rather than this one's.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement locks or unlocks.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose range is <c>null</c> at either end it did not declare.</param>
+    public RuntimeExecutionOutcome ExecuteLock(
+        IRuntimeSession session, RuntimeEvaluationContext context, FileLockStatementNode statement)
+    {
+        var isUnlock = statement.Token.Equals(Tokens.Unlock, StringComparison.OrdinalIgnoreCase);
+        if (!TryResolveChannel(session, context, statement.FileNumber, statement.Token, statement, out var channel, out var failure))
+        {
+            return failure;
+        }
+
+        if (statement.IsEntireFile)
+        {
+            return Applied(channel!, FileRecordRange.EntireFile, isUnlock, statement);
+        }
+
+        // "If there is no <start-record-number> the effect is as if <start-record-number> consisted of the
+        // integer number token 1" - which is why the node leaves it absent rather than synthesizing one.
+        var start = 1L;
+        if (statement.StartRecord is { } startExpression
+            && !TryEvaluateLong(session, context, startExpression, out start, out var startFailure))
+        {
+            return startFailure;
+        }
+
+        // no <end-record-number> means the range is the start record alone: `Lock #1, 5` locks record 5, where
+        // `Lock #1, To 5` locks records 1 through 5.
+        var end = start;
+        if (statement.EndRecord is { } endExpression
+            && !TryEvaluateLong(session, context, endExpression, out end, out var endFailure))
+        {
+            return endFailure;
+        }
+
+        return Applied(channel!, new FileRecordRange(start, end), isUnlock, statement);
+    }
+
+    private static RuntimeExecutionOutcome Applied(
+        IFileChannel channel, FileRecordRange range, bool isUnlock, FileLockStatementNode statement)
+    {
+        var error = isUnlock ? channel.UnlockRange(range) : channel.LockRange(range);
+        return error is { } raised
+            ? Failed(raised, statement, $"{statement.Token} #{channel.FileNumber}, {range.Start} To {range.End}")
+            : RuntimeExecutionOutcome.Next;
+    }
+
     // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a
     // currently-open file number", and a statement the channel's own mode and access do not permit is
     // error 54 - which MS-VBAL 5.4.5.1 states once, as a table, for every file statement.
