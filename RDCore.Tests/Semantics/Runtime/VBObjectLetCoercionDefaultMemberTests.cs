@@ -94,8 +94,9 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
         var print = new PrintOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), numericCoercion);
         var assignments = new LetAssignmentEvaluator(letCoercion, formatter, expressionEvaluator);
-        var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, booleanCoercion),
-            new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter)), numericCoercion, new VBStringLetCoercionRuntimeSemantics(formatter), assignments, new InputListEvaluator(assignments)), formatter);
+        var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, booleanCoercion),
+            new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter)), numericCoercion, new VBStringLetCoercionRuntimeSemantics(formatter), assignments, new InputListEvaluator(assignments)),
+            new FixedAssignmentRuntimeSemantics(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), assignments));
         var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);

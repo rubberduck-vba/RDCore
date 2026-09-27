@@ -40,15 +40,17 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     private readonly PrintOutputEvaluator _printOutput;
     private readonly ConditionEvaluator _conditions;
     private readonly FileStatementRuntimeSemantics _files;
+    private readonly FixedAssignmentRuntimeSemantics _fixedAssignment;
 
-    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, IVerboseMessageBuilder formatterService)
+    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, LetAssignmentEvaluator assignments, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, FixedAssignmentRuntimeSemantics fixedAssignment)
     {
         _expressionEvaluator = expressionEvaluator;
-        _assignments = new(letCoercionProvider, formatterService, expressionEvaluator);
+        _assignments = assignments;
         _setCoercion = setCoercion;
         _printOutput = printOutput;
         _conditions = conditions;
         _files = files;
+        _fixedAssignment = fixedAssignment;
     }
 
     /// <inheritdoc/>
@@ -57,6 +59,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         {
             AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment => ExecuteLetAssignment(session, context, assignment),
             AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
+            // MS-VBAL §5.4.3.6-7: LSet and RSet fit a value into the target's own current width.
+            AssignmentStatementNode { Kind: AssignmentKind.LSet or AssignmentKind.RSet } assignment => _fixedAssignment.Execute(session, context, assignment),
             // Debug.Print: MS-VBAL §5.4.5.8's output rules, against the session's output rather than a
             // file. The parser gives these a node of their own, so this is a type test rather than a
             // match on the spelling of a call's owner - and a build that lowers them away never gets
