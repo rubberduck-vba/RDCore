@@ -56,8 +56,8 @@ e.g. `Case Is > 5`), or an inclusive range
 |`Call` / bare call|[CallStatementNode](../api/RDCore.SDK.Model.AST.Statements.CallStatementNode.html)|§5.4.2.1|
 |`Let` assignment (`[Let] lExpression = expression`)|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `ImplicitLet`/`ExplicitLet`)|§5.4.3.8|
 |`Set` assignment|`AssignmentStatementNode` (`Kind`: `Set`)|§5.4.3.9|
-|`LSet`|`AssignmentStatementNode` (`Kind`: `LSet`) — same shape as `Let`/`Set`, only the coercion semantics differ|§5.4.3.6|
-|`RSet`|`AssignmentStatementNode` (`Kind`: `RSet`)|§5.4.3.7|
+|`LSet`|`AssignmentStatementNode` (`Kind`: `LSet`) — same shape as `Let`/`Set`; it fits a value into the width the target already has, or copies one UDT over another as bytes|§5.4.3.6|
+|`RSet`|`AssignmentStatementNode` (`Kind`: `RSet`) — the same, right-aligned, and with no UDT form|§5.4.3.7|
 |`Mid`/`Mid$`/`MidB`/`MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html) — `IsByteMode` (`MidB`/`MidB$` vs. `Mid`/`Mid$`) and `IsStringInput` (the `$` suffix) are independent flags; MS-VBAL's own replacement-span mechanics only ever split on the former, but the latter still mirrors the `Mid`/`Mid$` function overloads' `VBVariant`/`VBString` split for static semantics, so it's preserved too|§5.4.3.5|
 |`ReDim` [Preserve]|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html) — modeled as a declaration, not a statement, since it declares/resizes storage|§5.4.3.3|
 |`Erase`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|§5.4.3.4|
