@@ -98,7 +98,7 @@ MS-VBAL groups file I/O under one umbrella, §5.4.5 File Statements.
 |`Open`|[OpenStatementNode](../api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html) — `Mode`/`Access`/`Lock` are keyword choices ([VBFileMode](../api/RDCore.SDK.Model.AST.Statements.VBFileMode.html), [VBFileAccessMode](../api/RDCore.SDK.Model.AST.Statements.VBFileAccessMode.html), [VBFileLockMode](../api/RDCore.SDK.Model.AST.Statements.VBFileLockMode.html)), not expressions|§5.4.5.1|
 |`Close`, `Reset`|`KeywordStatementNode` (`Token`: `Close`/`Reset`)|§5.4.5.2|
 |`Seek`|`KeywordStatementNode` (`Token`: `Seek`)|§5.4.5.3|
-|`Lock`, `Unlock`|`KeywordStatementNode` (`Token`: `Lock`/`Unlock`)|§5.4.5.4/.5|
+|`Lock`, `Unlock`|[FileLockStatementNode](../api/RDCore.SDK.Model.AST.Statements.FileLockStatementNode.html) (`Token`: `Lock`/`Unlock`) — `StartRecord` and `EndRecord` are named rather than positional, because `Lock #1, 5` and `Lock #1, To 5` are different ranges carrying one expression each|§5.4.5.4/.5|
 |`Line Input #`|`KeywordStatementNode` (`Token`: `LineInput`)|§5.4.5.6|
 |`Width #`|`KeywordStatementNode` (`Token`: `Width`)|§5.4.5.7|
 |`Print #`, `Debug.Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html) (`Token`: `Print`) for the file-number form, [ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html) for the object-qualified form (`Owner.Print`, e.g. `Debug.Print`)|§5.4.5.8|
