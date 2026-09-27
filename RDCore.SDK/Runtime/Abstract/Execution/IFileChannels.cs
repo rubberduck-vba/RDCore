@@ -61,7 +61,7 @@ public interface IFileChannel
     /// <em>which</em> statement was wrong is the caller's job, not this one's.
     /// </para>
     /// </remarks>
-    IRuntimeOutput Output { get; }
+    IFileChannelOutput Output { get; }
 
     /// <summary>
     /// The channel as a character-input source, for <c>Line Input #</c> and <c>Input #</c>.
@@ -76,6 +76,50 @@ public interface IFileChannel
     /// </para>
     /// </remarks>
     IFileChannelInput Input { get; }
+
+    /// <summary>
+    /// The current <em>file-pointer-position</em>, one-based — counted in <em>records</em> when the channel
+    /// was opened <see cref="VBFileMode.Random"/> and in bytes otherwise (<strong>MS-VBAL §5.4.5.3</strong>).
+    /// </summary>
+    long Position { get; }
+
+    /// <summary>
+    /// Repositions the channel so the next operation happens at <paramref name="position"/>
+    /// (<strong>MS-VBAL §5.4.5.3</strong>).
+    /// </summary>
+    /// <remarks>
+    /// A position past the end of the file extends it — "the extended content of the file is implementation
+    /// defined and can be undefined" — except on a channel whose access is
+    /// <see cref="VBFileAccessMode.Read"/>, which the specification exempts.
+    /// </remarks>
+    /// <param name="position">The new position, in the same units <see cref="Position"/> is counted in.</param>
+    /// <returns>
+    /// The error that stopped it, or <c>null</c>. A position of <c>0</c> or less is one — the specification
+    /// says "an error is raised" without naming it, and MS-VBA raises <c>63</c>, <c>Bad record number</c>.
+    /// </returns>
+    Model.Errors.VBRuntimeErrorId? Seek(long position);
+}
+
+/// <summary>
+/// The writing side of an <see cref="IFileChannel"/> — an <see cref="IRuntimeOutput"/> that also has the
+/// <em>maximum line length</em> a <c>Width</c> statement sets (<strong>MS-VBAL §5.4.5.7</strong>).
+/// </summary>
+/// <remarks>
+/// The only thing a file's output has that the session's own output does not, and the reason it is here
+/// rather than on <see cref="IRuntimeOutput"/>: a line length is a property of a <em>file</em> being written,
+/// and the <c>Immediate</c> window has no such limit to set.
+/// </remarks>
+public interface IFileChannelOutput : IRuntimeOutput
+{
+    /// <summary>
+    /// The most characters a line of this file may hold, or <c>0</c> for no maximum — which is what a channel
+    /// has until a <c>Width</c> statement says otherwise, and what <c>Width #n, 0</c> returns it to.
+    /// </summary>
+    /// <remarks>
+    /// Reaching it while writing "immediately" writes the line termination sequence and continues on the next
+    /// line (<strong>§5.4.5.8</strong>), so it wraps output rather than truncating it.
+    /// </remarks>
+    int MaxLineLength { get; set; }
 }
 
 /// <summary>

@@ -19,6 +19,17 @@ namespace RDCore.Runtime.Execution.Files;
 /// <param name="fileSystem">The file system the channels are opened on.</param>
 internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encoding) : IFileChannels, IDisposable
 {
+    /// <summary>
+    /// The record length a <see cref="VBFileMode.Random"/> channel counts positions in when its <c>Open</c>
+    /// declared no <c>Len</c> clause.
+    /// </summary>
+    /// <remarks>
+    /// The specification requires a <c>Len</c> clause to be in 1..32,767 but never says what an absent one
+    /// means, so this is implementation-defined — and it is what MS-VBA uses, which is the only answer a
+    /// program written against MS-VBA would agree with.
+    /// </remarks>
+    private const int DefaultRandomRecordLength = 128;
+
     private sealed record class Channel(
         int FileNumber,
         string Path,
@@ -27,12 +38,45 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
         VBFileLockMode Lock,
         int RecordLength,
         Stream Stream,
-        IRuntimeOutput Output,
-        IFileChannelInput Input) : IFileChannel;
+        IFileChannelOutput Output,
+        IFileChannelInput Input) : IFileChannel
+    {
+        // "If the <open-statement> ... had <mode> Random, then the file-pointer-position's location refers to a
+        // record; otherwise, it refers to a byte" (MS-VBAL 5.4.5.3). Both are one-based, so a fresh channel is
+        // at 1 rather than at 0.
+        private int PositionUnit => Mode is VBFileMode.Random
+            ? RecordLength is > 0 ? RecordLength : DefaultRandomRecordLength
+            : 1;
+
+        public long Position => Stream.Position / PositionUnit + 1;
+
+        public VBRuntimeErrorId? Seek(long position)
+        {
+            // "An error is raised if the new file position is 0 or negative."
+            if (position < 1)
+            {
+                return VBRuntimeErrorId.BadRecordNumber;
+            }
+
+            var offset = (position - 1) * PositionUnit;
+
+            // "If new file position is greater than the current size of the file ... the size of the file is
+            // extended such that its size is the value new file position. This does not occur for files whose
+            // currently-open <access> is Read." Seeking past the end of a Read channel leaves the file alone;
+            // the position still moves, and a read there finds nothing.
+            if (offset > Stream.Length && Access is not VBFileAccessMode.Read)
+            {
+                Stream.SetLength(offset);
+            }
+
+            Stream.Seek(offset, SeekOrigin.Begin);
+            return null;
+        }
+    }
 
     // a channel counts its own line position, because MS-VBAL 5.4.5.8's print zones and Spc/Tab clauses are
     // relative to the line of the file being written, not to anything the session is doing elsewhere.
-    private sealed class ChannelOutput(Stream stream, Encoding encoding) : IRuntimeOutput
+    private sealed class ChannelOutput(Stream stream, Encoding encoding) : IFileChannelOutput
     {
         // the implementation-defined line termination sequence (MS-VBAL §5.4.5.9). CrLf, because that is what
         // every VBA that has ever written a text file produced, and a file this writes is read by those too.
@@ -40,10 +84,36 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
 
         public int LinePosition { get; private set; } = 1;
 
+        public int MaxLineLength { get; set; }
+
         public void Write(string text)
         {
-            Emit(text);
-            LinePosition += text.Length;
+            if (MaxLineLength <= 0)
+            {
+                Emit(text);
+                LinePosition += text.Length;
+                return;
+            }
+
+            // "If while performing any of these steps the number of characters in the current line reaches the
+            // maximum line length the line termination sequence is immediately written and output continues on
+            // the next line" (MS-VBAL 5.4.5.8) - so a long value wraps across lines rather than being
+            // truncated, and the wrap can happen more than once within one Write.
+            var remaining = text.AsSpan();
+            while (!remaining.IsEmpty)
+            {
+                var room = MaxLineLength - (LinePosition - 1);
+                if (room <= 0)
+                {
+                    WriteLine();
+                    continue;
+                }
+
+                var take = Math.Min(room, remaining.Length);
+                Emit(remaining[..take].ToString());
+                LinePosition += take;
+                remaining = remaining[take..];
+            }
         }
 
         public void WriteLine()

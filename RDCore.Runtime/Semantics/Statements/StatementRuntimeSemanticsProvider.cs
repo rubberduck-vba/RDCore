@@ -75,6 +75,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.LineInput } lineInput => _files.ExecuteLineInput(session, context, lineInput),
             // MS-VBAL §5.4.5.10: Input # reads a field per variable and Let-assigns each.
             KeywordStatementNode { Token: Tokens.Input } input => _files.ExecuteInput(session, context, input),
+            // MS-VBAL §5.4.5.3/.7: the statements that reposition a channel and set its line width.
+            KeywordStatementNode { Token: Tokens.Seek } seek => _files.ExecuteSeek(session, context, seek),
+            KeywordStatementNode { Token: Tokens.Width } width => _files.ExecuteWidth(session, context, width),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };

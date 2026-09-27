@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -45,6 +46,11 @@ public sealed record class FileStatementRuntimeSemantics(
     /// The highest file number a file number may take (<strong>MS-VBAL §5.4.5</strong>).
     /// </summary>
     public const int MaxFileNumber = 511;
+
+    /// <summary>
+    /// The widest line a <c>Width</c> statement may ask for (<strong>MS-VBAL §5.4.5.7</strong>).
+    /// </summary>
+    public const int MaxLineWidth = 255;
 
     /// <summary>
     /// Executes an <c>Open</c> statement (<strong>MS-VBAL §5.4.5.1</strong>).
@@ -181,6 +187,86 @@ public sealed record class FileStatementRuntimeSemantics(
         }
 
         return Reading.Execute(session, context, statement, variables, channel!.Input);
+    }
+
+    /// <summary>
+    /// Executes a <c>Seek</c> statement (<strong>MS-VBAL §5.4.5.3</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The position is in records on a <see cref="VBFileMode.Random"/> channel and in bytes otherwise, which
+    /// is the channel's own business — this evaluates the expression and hands the number over.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement repositions.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the file number and the position.</param>
+    public RuntimeExecutionOutcome ExecuteSeek(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (statement.Inputs is not [ExpressionNode fileNumber, ExpressionNode position])
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryResolveChannel(session, context, fileNumber, Tokens.Seek, statement, out var channel, out var failure))
+        {
+            return failure;
+        }
+
+        // "The new file position is the evaluated value of <position> Let-coerced to declared type Long."
+        if (!TryEvaluateLong(session, context, position, out var newPosition, out var positionFailure))
+        {
+            return positionFailure;
+        }
+
+        return channel!.Seek(newPosition) is { } error
+            ? Failed(error, statement, $"Seek #{channel.FileNumber}, {newPosition}")
+            : RuntimeExecutionOutcome.Next;
+    }
+
+    /// <summary>
+    /// Executes a <c>Width</c> statement (<strong>MS-VBAL §5.4.5.7</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Sets the channel's maximum line length, which <c>Print #</c> and <c>Write #</c> wrap at.
+    /// <c>Width #n, 0</c> returns it to having no maximum, and on a <see cref="VBFileMode.Binary"/> or
+    /// <see cref="VBFileMode.Random"/> channel the statement "has no effect upon the file" — it is still valid
+    /// there, so this is a no-op and not an error.
+    /// </remarks>
+    /// <param name="session">The session whose channel the statement sets the width of.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the file number and the line width.</param>
+    public RuntimeExecutionOutcome ExecuteWidth(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (statement.Inputs is not [ExpressionNode fileNumber, ExpressionNode lineWidth])
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryResolveChannel(session, context, fileNumber, Tokens.Width, statement, out var channel, out var failure))
+        {
+            return failure;
+        }
+
+        // "The line width is the evaluated value of <line-width> Let-coerced to declared type Integer."
+        if (!TryEvaluateInteger(session, context, lineWidth, out var width, out var widthFailure))
+        {
+            return widthFailure;
+        }
+
+        // "If Line width is less than 0 or greater than 255 an error (number 5, 'Invalid procedure call or
+        // argument') is raised."
+        if (width is < 0 or > MaxLineWidth)
+        {
+            return Failed(VBRuntimeErrorId.InvalidProcedureCallOrArgument, statement, $"Width #{channel!.FileNumber}, {width}");
+        }
+
+        if (channel!.Mode is not (VBFileMode.Binary or VBFileMode.Random))
+        {
+            channel.Output.MaxLineLength = width;
+        }
+
+        return RuntimeExecutionOutcome.Next;
     }
 
     // "An error (number 52, 'Bad file name or number') is raised if the file number value... is not a
@@ -330,11 +416,41 @@ public sealed record class FileStatementRuntimeSemantics(
         return true;
     }
 
+    private bool TryEvaluateLong(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression,
+        out long value, out RuntimeExecutionOutcome failure)
+    {
+        value = 0;
+        if (!TryEvaluateNumber(session, context, expression, VBLongType.TypeInfo, out var number, out failure))
+        {
+            return false;
+        }
+
+        value = Convert.ToInt64(number);
+        return true;
+    }
+
     private bool TryEvaluateInteger(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression,
         out int value, out RuntimeExecutionOutcome failure)
     {
         value = 0;
+        if (!TryEvaluateNumber(session, context, expression, VBIntegerType.TypeInfo, out var number, out failure))
+        {
+            return false;
+        }
+
+        value = Convert.ToInt32(number);
+        return true;
+    }
+
+    // every numeric clause of a file statement is "the evaluated value of <x> Let-coerced to declared type
+    // <T>", differing only in T - a file number and a line width are Integer, a Seek position is Long.
+    private bool TryEvaluateNumber(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression,
+        VBType destinationType, out object? value, out RuntimeExecutionOutcome failure)
+    {
+        value = null;
         var evaluated = Expressions.Evaluate(session, expression, context);
         if (!evaluated.IsSuccess)
         {
@@ -346,7 +462,7 @@ public sealed record class FileStatementRuntimeSemantics(
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,
-            DestinationTypeDesc = new(VBIntegerType.TypeInfo),
+            DestinationTypeDesc = new(destinationType),
         });
 
         if (!coerced.IsSuccess)
@@ -355,7 +471,7 @@ public sealed record class FileStatementRuntimeSemantics(
             return false;
         }
 
-        value = Convert.ToInt32(coerced.Result!.Handle.Value.BoxedValue);
+        value = coerced.Result!.Handle.Value.BoxedValue;
         failure = RuntimeExecutionOutcome.Next;
         return true;
     }
