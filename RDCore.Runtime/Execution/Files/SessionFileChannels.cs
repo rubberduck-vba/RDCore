@@ -27,7 +27,8 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
         VBFileLockMode Lock,
         int RecordLength,
         Stream Stream,
-        IRuntimeOutput Output) : IFileChannel;
+        IRuntimeOutput Output,
+        IFileChannelInput Input) : IFileChannel;
 
     // a channel counts its own line position, because MS-VBAL 5.4.5.8's print zones and Spc/Tab clauses are
     // relative to the line of the file being written, not to anything the session is doing elsewhere.
@@ -58,6 +59,99 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
             // flushed per write: a VBA program that writes and then reads the same file with another channel
             // expects to see what it wrote, and nothing here knows when the next read is coming.
             stream.Flush();
+        }
+    }
+
+    // reads at the same stream position the output writes at, because a VBA channel has one
+    // file-pointer-position and not one per direction (MS-VBAL 5.4.5).
+    private sealed class ChannelInput(Stream stream, Encoding encoding) : IFileChannelInput
+    {
+        private const char CarriageReturn = '\r';
+        private const char LineFeed = '\n';
+
+        private readonly Decoder _decoder = encoding.GetDecoder();
+
+        // a character Peek decoded but Read has not taken yet. The stream is already past its bytes, so
+        // holding the character here is what keeps Peek from consuming - a stream is not seekable in general
+        // (a Byte-order-marked or shared one especially), so rewinding it is not an option.
+        private int _peeked = -1;
+
+        public bool IsEndOfFile => _peeked < 0 && stream.Position >= stream.Length;
+
+        public int Peek() => _peeked >= 0 ? _peeked : _peeked = Decode();
+
+        public int Read()
+        {
+            if (_peeked < 0)
+            {
+                return Decode();
+            }
+
+            var peeked = _peeked;
+            _peeked = -1;
+            return peeked;
+        }
+
+        public string? ReadLine()
+        {
+            // "If the file is empty or there are no characters after file-pointer-position, then runtime
+            // error 62 is raised" - which is the caller's to raise, so this reports it rather than an empty
+            // line, a real reading of which the specification requires be told apart from it.
+            if (IsEndOfFile)
+            {
+                return null;
+            }
+
+            var line = new StringBuilder();
+            while (true)
+            {
+                var next = Read();
+                if (next < 0)
+                {
+                    // "If the end of file is reach before finding a line termination sequence, the data value
+                    // is the String data value converted from the byte sequence up to the end of the file."
+                    break;
+                }
+
+                if (next == CarriageReturn)
+                {
+                    // CrLf is one termination sequence and not two, so the LineFeed goes with it. A lone Cr
+                    // and a lone Lf each terminate a line too: the sequence is "implementation dependent"
+                    // (MS-VBAL 5.4.5) and a file this reads was as likely written somewhere else as here.
+                    if (Peek() == LineFeed)
+                    {
+                        Read();
+                    }
+
+                    break;
+                }
+
+                if (next == LineFeed)
+                {
+                    break;
+                }
+
+                line.Append((char)next);
+            }
+
+            return line.ToString();
+        }
+
+        // feeds the stream one byte at a time until the decoder yields a character: a character spans an
+        // encoding-dependent number of bytes, and nothing here knows how many until the decoder says so.
+        private int Decode()
+        {
+            var input = new byte[1];
+            var output = new char[2];
+            while (stream.Read(input, 0, 1) == 1)
+            {
+                if (_decoder.GetChars(input, 0, 1, output, 0) > 0)
+                {
+                    return output[0];
+                }
+            }
+
+            return -1;
         }
     }
 
@@ -106,7 +200,8 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
         {
             var stream = OpenStream(path, mode, access, @lock);
             _channels[fileNumber] = new Channel(
-                fileNumber, path, mode, access, @lock, recordLength, stream, new ChannelOutput(stream, encoding));
+                fileNumber, path, mode, access, @lock, recordLength, stream,
+                new ChannelOutput(stream, encoding), new ChannelInput(stream, encoding));
             return null;
         }
         catch (UnauthorizedAccessException)

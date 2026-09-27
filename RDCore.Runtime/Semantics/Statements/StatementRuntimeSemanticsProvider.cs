@@ -1,7 +1,5 @@
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
-using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
@@ -9,11 +7,9 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -39,7 +35,7 @@ public interface IStatementRuntimeSemanticsProvider
 public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanticsProvider
 {
     private readonly RuntimeExpressionEvaluator _expressionEvaluator;
-    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment;
+    private readonly LetAssignmentEvaluator _assignments;
     private readonly ISetCoercionRuntimeSemantics _setCoercion;
     private readonly PrintOutputEvaluator _printOutput;
     private readonly ConditionEvaluator _conditions;
@@ -48,7 +44,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, IVerboseMessageBuilder formatterService)
     {
         _expressionEvaluator = expressionEvaluator;
-        _letAssignment = new(letCoercionProvider, formatterService);
+        _assignments = new(letCoercionProvider, formatterService);
         _setCoercion = setCoercion;
         _printOutput = printOutput;
         _conditions = conditions;
@@ -75,6 +71,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             // MS-VBAL §5.4.5.8-9. The bare object-relative form needs an enclosing form or report, which does
             // not exist; ExecutePrint reports that itself.
             PrintStatementNode print => _files.ExecutePrint(session, context, print),
+            // MS-VBAL §5.4.5.6: Line Input # reads one line and Let-assigns it.
+            KeywordStatementNode { Token: Tokens.LineInput } lineInput => _files.ExecuteLineInput(session, context, lineInput),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
@@ -113,64 +111,18 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
     }
 
-    // MS-VBAL §5.4.3.8. Scoped to a target that already resolves to a plain Symbol, same as
-    // BinaryLetAssignmentOperatorRuntimeSemantics itself documents - a member-access or indexed target
-    // needs procedure-invocation machinery that doesn't exist yet.
+    // MS-VBAL §5.4.3.8. Evaluating the source expression is this statement's own business; assigning the
+    // result into the target is LetAssignmentEvaluator's, which the file statements that Let-assign what
+    // they read share with it.
     private RuntimeExecutionOutcome ExecuteLetAssignment(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
-        if (assignment.Target is not SimpleNameExpressionNode simpleName)
-        {
-            return RuntimeExecutionOutcome.InternalError;
-        }
-
-        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
-        if (targetResult.Symbol is not { } target)
-        {
-            return RuntimeExecutionOutcome.InternalError;
-        }
-
         var valueResult = _expressionEvaluator.Evaluate(session, assignment.Value, context);
         if (!valueResult.IsSuccess)
         {
             return valueResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(valueResult.ErrorInfo!);
         }
 
-        if (target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
-            && target.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
-        {
-            // MS-VBAL §5.3.1: "Foo = value" inside Foo's own body Let-assigns its function result
-            // variable, not the general symbol table - the read-side mirror of this check is
-            // RuntimeExpressionEvaluator.EvaluateSimpleName's own self-reference check. The function
-            // result variable isn't a real addressable Symbol, so this can't go through the same
-            // "__let_op" operator every other target does (it needs a real IBindingHandle) - Let-coerce
-            // directly instead, the same lower-level call ByVal/ByRef-fallback parameter passing already
-            // makes for the identical reason.
-            var returnCoercionFrame = new LetCoercionStackFrame(assignment.Identity, InputIndex.CoercionSourceValue,
-                valueResult.Result!, new VBTypeDescValue(((ITypedSymbol)target).ResolvedType));
-            var returnCoercionResult = _letAssignment.LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, assignment.Value, returnCoercionFrame);
-            if (!returnCoercionResult.IsApplicable)
-            {
-                return RuntimeExecutionOutcome.InternalError;
-            }
-            if (!returnCoercionResult.IsSuccess)
-            {
-                return RuntimeExecutionOutcome.Error(returnCoercionResult.ErrorInfo!);
-            }
-
-            ((CallStackFrame)enclosing).ReturnValue = returnCoercionResult.Result!;
-            return RuntimeExecutionOutcome.Next;
-        }
-
-        // the reserved synthetic "__let_op" binary operator - the same shape its own test suite
-        // exercises it with: a throwaway node carrying this statement's own identity/location, operands
-        // passed directly rather than read back off the node's Children.
-        var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, assignment.Identity, assignment.SourceLocation,
-            assignment.Target, assignment.Value);
-        var result = _letAssignment.Evaluate(session, new(), syntheticOperator, new VBSymbolDescValue(target), valueResult.Result!);
-
-        return result.IsSuccess ? RuntimeExecutionOutcome.Next
-            : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
-            : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+        return _assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, valueResult.Result!);
     }
 
     // MS-VBAL §5.4.3.9. Same target scope limitation as Let: a member-access or indexed target needs

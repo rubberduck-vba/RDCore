@@ -37,7 +37,7 @@ public static class FileStatementAccess
             [VBFileMode.Binary] = [VBFileAccessMode.Read, VBFileAccessMode.ReadWrite],
             [VBFileMode.Input] = [VBFileAccessMode.Read],
         },
-        [LineInput] = new()
+        [Tokens.LineInput] = new()
         {
             [VBFileMode.Binary] = [VBFileAccessMode.Read, VBFileAccessMode.ReadWrite],
             [VBFileMode.Input] = [VBFileAccessMode.Read],
@@ -58,11 +58,6 @@ public static class FileStatementAccess
     };
 
     /// <summary>
-    /// The <c>Line Input</c> statement's name in this table. Two keywords in source, one statement.
-    /// </summary>
-    public const string LineInput = "Line Input";
-
-    /// <summary>
     /// Whether <paramref name="statement"/> may be used on a channel opened under <paramref name="mode"/>
     /// and <paramref name="access"/>.
     /// </summary>
@@ -70,7 +65,8 @@ public static class FileStatementAccess
     /// A statement this table says nothing about is not restricted by it — <c>Close</c> and <c>Reset</c> are
     /// valid on any channel, and the table does not list them.
     /// </remarks>
-    /// <param name="statement">The statement's keyword — <see cref="Tokens"/>, or <see cref="LineInput"/>.</param>
+    /// <param name="statement">The statement's keyword — a <see cref="Tokens"/> constant, including the
+    /// two-keyword <see cref="Tokens.LineInput"/>.</param>
     /// <param name="mode">The mode the channel was opened under.</param>
     /// <param name="access">The access the channel was opened under.</param>
     public static bool IsValid(string statement, VBFileMode mode, VBFileAccessMode access)

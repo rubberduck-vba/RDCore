@@ -108,7 +108,8 @@ public sealed class RuntimeExecutionPipeline
         var print = new PrintOutputEvaluator(expressions, stringCoercion, numericCoercion);
         var conditions = new ConditionEvaluator(expressions, booleanCoercion);
         var files = new FileStatementRuntimeSemantics(
-            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), numericCoercion, stringCoercion);
+            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), numericCoercion, stringCoercion,
+            new LetAssignmentEvaluator(letCoercion, messages));
         var statements = new StatementRuntimeSemanticsProvider(expressions, letCoercion, setCoercion, print, conditions, files, messages);
 
         var executor = new ProcedureExecutor(

@@ -1,26 +1,16 @@
-using NSubstitute;
-using RDCore.Parsing;
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Semantics;
-using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Source;
-using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Runtime;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Runtime.Files;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.5.1/.2</strong> the <c>Open</c>, <c>Close</c> and <c>Reset</c> statements — the ones
-/// that associate a file number with an external file and disassociate it again.
+/// <strong>MS-VBAL §5.4.5.1/.2/.8/.9</strong> the <c>Open</c>, <c>Close</c> and <c>Reset</c> statements — the
+/// ones that associate a file number with an external file and disassociate it again — and the <c>Print #</c>
+/// and <c>Write #</c> statements that write through one.
 /// </summary>
 /// <remarks>
 /// Against a fake file system, which is the point of the shim: real VBA file semantics, nothing on disk.
@@ -30,38 +20,10 @@ namespace RDCore.Tests.Runtime.Files;
 public sealed class FileStatementTests
 {
     private const string Root = "/ws";
-    private static readonly Uri ProcedureUri = TestUri.TestSubProcUri();
-    private static readonly SyntaxNodeId NodeId = new(ProcedureUri.AbsolutePath, [1]);
-
-    private sealed class Provider : ISymbolProvider
-    {
-        public IEnumerable<Symbol> ProvideSymbols() => [];
-    }
 
     private static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
         MockFileSystem fileSystem, params string[] body)
-    {
-        var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [], [new Provider()],
-            output: null, fileSystem: fileSystem);
-
-        var pipeline = RuntimeExecutionPipeline.Create(
-            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
-
-        var frame = session.Symbols.CreateFrame(NodeId, new StaticSymbol("Foo", SymbolKindExt.Procedure, VBVoidType.TypeInfo));
-        session.CallStack.TryPush(frame);
-
-        var source = $"Sub Foo()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
-
-        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        var lowering = InstructionListLowering.Lower(new StatementBlock([.. member.Children]));
-        Assert.IsEmpty(lowering.Errors, string.Join("; ", lowering.Errors.Select(error => error.Verbose)));
-
-        var outcome = pipeline.Executor.Run(session, frame, lowering.InstructionList, new RuntimeEvaluationContext(ProcedureUri));
-        return (session, outcome);
-    }
+        => RuntimeSourceHarness.Run(fileSystem, [], body);
 
     private static MockFileSystem WithFile(string path, string content = "")
         => new(new Dictionary<string, MockFileData> { [path] = new(content) });

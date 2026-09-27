@@ -62,6 +62,67 @@ public interface IFileChannel
     /// </para>
     /// </remarks>
     IRuntimeOutput Output { get; }
+
+    /// <summary>
+    /// The channel as a character-input source, for <c>Line Input #</c> and <c>Input #</c>.
+    /// </summary>
+    /// <remarks>
+    /// Reads at the same <em>file-pointer-position</em> <see cref="Output"/> writes at: <strong>MS-VBAL
+    /// §5.4.5</strong> gives a channel one position and not one per direction, which is what makes an
+    /// <c>Append</c> channel able to read back what it appended.
+    /// <para>
+    /// 👉 As with <see cref="Output"/>, a caller is expected to have asked <see cref="FileStatementAccess"/>
+    /// whether the statement is valid on this channel first.
+    /// </para>
+    /// </remarks>
+    IFileChannelInput Input { get; }
+}
+
+/// <summary>
+/// The reading side of an <see cref="IFileChannel"/> — the characters at and after its current
+/// <em>file-pointer-position</em> (<strong>MS-VBAL §5.4.5</strong>).
+/// </summary>
+/// <remarks>
+/// Character-mode reading, which is what <c>Line Input #</c> and <c>Input #</c> do: the specification
+/// describes both as consuming bytes that are "converted in an implementation dependent manner" into data
+/// values, so the bytes-to-characters step belongs to the channel — the only thing that knows its own
+/// encoding — and the statements above it see characters.
+/// <para>
+/// 🚧 Binary- and random-mode reading (<c>Get</c>) addresses <em>records</em> rather than characters, and
+/// wants a surface of its own beside this one.
+/// </para>
+/// </remarks>
+public interface IFileChannelInput
+{
+    /// <summary>
+    /// Whether there are no characters at or after the current <em>file-pointer-position</em> — which is
+    /// what <c>EOF</c> reports, and what makes a character-mode read raise error <c>62</c>.
+    /// </summary>
+    bool IsEndOfFile { get; }
+
+    /// <summary>
+    /// The character at the current <em>file-pointer-position</em>, without consuming it.
+    /// </summary>
+    /// <returns>The character, or <c>-1</c> at end of file.</returns>
+    int Peek();
+
+    /// <summary>
+    /// The character at the current <em>file-pointer-position</em>, advancing past it.
+    /// </summary>
+    /// <returns>The character, or <c>-1</c> at end of file.</returns>
+    int Read();
+
+    /// <summary>
+    /// Reads from the current <em>file-pointer-position</em> through the end of the current line
+    /// (<strong>MS-VBAL §5.4.5.6</strong>), leaving the position after the line termination sequence.
+    /// </summary>
+    /// <remarks>
+    /// The line termination sequence is not part of the result. A line ended by the end of the file rather
+    /// than by a terminator still reads as a line — the specification says so outright — so an empty string
+    /// and <c>null</c> mean different things here.
+    /// </remarks>
+    /// <returns>The line, or <c>null</c> when <see cref="IsEndOfFile"/> already was <c>true</c>.</returns>
+    string? ReadLine();
 }
 
 /// <summary>
