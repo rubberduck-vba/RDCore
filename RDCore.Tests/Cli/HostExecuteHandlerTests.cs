@@ -187,6 +187,52 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    // MS-VBAL 5.2.3.3 / 5.4.3.2: a Const statically evaluates to a value and is substituted at each of
+    // its use sites, so the session allocates it no storage. Nothing ever reduced the declaration's
+    // expression to that value, so reading a module Const by name threw "no runtime binding exists yet"
+    // out of the session, and a procedure-local Const never reached the host at all — its declaration
+    // node was built without the expression, since the declarations listener stops capturing
+    // expressions inside a procedure body.
+    [DataRow("Public Const K As Long = 5\r\n", "Debug.Print \"k=\" & K", "k=5", DisplayName = "module Const")]
+    [DataRow("", "Const K As Long = 5\r\nDebug.Print \"k=\" & K", "k=5", DisplayName = "local Const")]
+    [DataRow("Public Const K As Long = -1\r\n", "Debug.Print \"k=\" & K", "k=-1", DisplayName = "negative literal")]
+    [DataRow("Public Const K As String = \"abc\"\r\n", "Debug.Print \"k=\" & K", "k=abc", DisplayName = "String Const")]
+    // a constant expression is not always a literal, which is why the declaration's expression travels
+    // rather than a value the language server could have computed on its own.
+    [DataRow("Public Const K As Long = 3 * 5\r\n", "Debug.Print \"k=\" & K", "k=15", DisplayName = "operator over literals")]
+    [DataRow("Public Const A As Long = 3\r\nPublic Const B As Long = 5\r\n", "Debug.Print \"k=\" & (A * B)", "k=15", DisplayName = "two Consts in one expression")]
+    [DataRow("Public Const A As Long = 3\r\nPublic Const K As Long = A * 5\r\n", "Debug.Print \"k=\" & K", "k=15", DisplayName = "Const declared from another")]
+    public async Task AConstant_ReadsAsItsDeclaredValue(string declarations, string body, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + declarations
+            + "Public Sub Main()\r\n"
+            + body + "\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CircularConstants_FailWithoutExhaustingTheStack()
+    {
+        // folding one constant can fold another, so a cycle between them would recurse forever. VBA
+        // rejects this at compile time and nothing here does yet, so the guard is what keeps a bad
+        // declaration from taking the whole host down with it.
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Const A As Long = B\r\n"
+            + "Public Const B As Long = A\r\n"
+            + "Public Sub Main()\r\n"
+            + "Debug.Print \"k=\" & A\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.NotImplemented, result.Outcome);
+    }
+
+    [TestMethod]
     public async Task ADeadIfBranch_DoesNotRun()
     {
         // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language

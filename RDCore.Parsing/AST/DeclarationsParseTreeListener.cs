@@ -81,8 +81,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // can't itself contain a block-bearing construct). EnterBlock only ever decrements what one of
     // these constructs incremented; a procedure body's own `block` never touches this counter.
     private int _isCapturingLoopHeaderExpression = 0;
+    // a Const's value is part of its declaration wherever the declaration is, so a procedure-local one
+    // needs the same capture window a condition expression gets: without it the declaration node came
+    // out carrying only its As-type clause, and the constant had no value anywhere in the AST at all.
+    private int _isCapturingConstantExpression = 0;
     private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList
-        || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0;
+        || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0
+        || _isCapturingConstantExpression > 0;
 
     public override void EnterBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
         => _isCapturingConditionExpression++;
@@ -214,9 +219,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     }
 
     public override void EnterConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
-        => OnEnterParent();
+    {
+        _isCapturingConstantExpression++;
+        OnEnterParent();
+    }
     public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
     {
+        _isCapturingConstantExpression--;
         var parent = context.Parent as VBAParser.ConstStmtContext;
         var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));

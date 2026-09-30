@@ -2,6 +2,7 @@ using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -171,6 +172,19 @@ public record class SymbolDescriptor
     public ImmutableArray<LocalDescriptor> Locals { get; init; } = [];
 
     /// <summary>
+    /// The procedure-local <c>Const</c> declarations the member owns, for the procedure, function and
+    /// property kinds — and, for a <see cref="SymbolDescriptorKind.ModuleConstant"/> descriptor, the
+    /// single entry that is the module-level constant's own value.
+    /// </summary>
+    /// <remarks>
+    /// A constant is not a variable: it has no storage, so it cannot ride on <see cref="Locals"/>, whose
+    /// every entry an activation allocates frame storage for. It travels instead because it has no
+    /// storage — with nowhere to read a value back from, the host can only substitute the declaration's
+    /// own expression at each use site, and needs that expression to do it.
+    /// </remarks>
+    public ImmutableArray<ConstantDescriptor> Constants { get; init; } = [];
+
+    /// <summary>
     /// Members parented to this descriptor rather than the module: <c>Enum</c> constants and
     /// user-defined-<c>Type</c> fields.
     /// </summary>
@@ -240,6 +254,43 @@ public record class LocalDescriptor
 
     /// <summary>
     /// The source span to select when navigating to the variable.
+    /// </summary>
+    public SourceRange SelectionRange { get; init; }
+}
+
+/// <summary>
+/// A transport-friendly projection of a <c>Const</c> declaration — a module-level
+/// <c>VBConstantMemberSymbol</c> or a procedure-local <c>VBLocalConstantSymbol</c>.
+/// </summary>
+public record class ConstantDescriptor
+{
+    /// <summary>
+    /// The constant's identifier name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The declared type's name, or <c>null</c> — resolved host-side like a member's.
+    /// </summary>
+    public string? DeclaredTypeName { get; init; }
+
+    /// <summary>
+    /// The declaration's own constant expression, or <c>null</c> when it carried none.
+    /// </summary>
+    /// <remarks>
+    /// The expression, not a value: a constant expression is not always a literal (<c>Const K = 3 * 5</c>,
+    /// or one constant written in terms of another), and the host is where the evaluator that can reduce
+    /// it lives.
+    /// </remarks>
+    public ExpressionNode? Value { get; init; }
+
+    /// <summary>
+    /// The source span of the declaration.
+    /// </summary>
+    public SourceRange Range { get; init; }
+
+    /// <summary>
+    /// The source span to select when navigating to the constant.
     /// </summary>
     public SourceRange SelectionRange { get; init; }
 }

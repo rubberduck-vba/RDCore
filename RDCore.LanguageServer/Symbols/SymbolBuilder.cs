@@ -174,8 +174,16 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
         return new VBConstantMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier,
+            ConstantValueOf(node));
     }
+
+    // MS-VBAL 5.4.3.2: a constant statically evaluates to a value, and has no storage anywhere to read
+    // one back from — so the declaration's own expression travels with the symbol and is substituted at
+    // each use site. The As-type clause is the declaration's other expression-shaped child; everything
+    // else under it is the constant expression.
+    private static ExpressionNode? ConstantValueOf(ConstantDeclarationNode node)
+        => node.Children.OfType<ExpressionNode>().FirstOrDefault(child => child is not AsTypeExpressionNode);
 
     // A UDT field parents to the enclosing user-defined-type symbol, not the module.
     public Symbol BuildUserDefinedTypeField(MemberDeclarationNode node, Uri userDefinedTypeUri)
@@ -622,7 +630,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, procedureUri);
-        return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type);
+        return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type, ConstantValueOf(node));
     }
 
     /// <summary>

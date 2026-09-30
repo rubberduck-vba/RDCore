@@ -155,11 +155,88 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                 : InvokeProcedure(session, context, returningMember, []);
         }
 
+        // MS-VBAL 5.4.3.2 / 5.2.3.3: a Const statically evaluates to a value and is substituted at each
+        // of its use sites, so the session allocates it no storage at all - reading one through
+        // GetValue below threw "no runtime binding exists yet" for a module Const, and a local Const
+        // never even reached the host. Its folded value stands in here instead.
+        if (ConstantValueOf(result.Symbol) is { } constantValue)
+        {
+            return FoldConstant(session, context, result.Symbol!, constantValue);
+        }
+
         // static semantics should already have rejected an unresolved, ambiguous, or duplicate name;
         // reaching here means that check was skipped.
         return result.Symbol is ITypedSymbol typed
             ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(result.Symbol)))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // null for anything that is not a workspace Const, and for a Const whose declaration carried no
+    // expression - a library constant has a real binding to read instead, so it takes the path below.
+    private static ExpressionNode? ConstantValueOf(Symbol? symbol) => symbol switch
+    {
+        VBConstantMemberSymbol { Value: { } value } => value,
+        VBLocalConstantSymbol { Value: { } value } => value,
+        _ => null,
+    };
+
+    private readonly Dictionary<SemanticId, VBTypedValue> _foldedConstants = [];
+    private readonly HashSet<SemanticId> _foldingConstants = [];
+
+    /// <summary>
+    /// Reduces every <c>Const</c> in <paramref name="constants"/> to its value, once, ahead of the run.
+    /// </summary>
+    /// <remarks>
+    /// A constant expression is constant: reducing it again at each of its use sites would give the
+    /// same answer for more work every time. This is the fold, and <c>EvaluateSimpleName</c> reads its
+    /// result. A constant this is never called for is still folded — once — the first time a use site
+    /// asks for it, which is what reaches a constant declared by a module other than the one being run.
+    /// </remarks>
+    /// <param name="session">The session the constant expressions resolve their own names against.</param>
+    /// <param name="constants">The constant symbols to fold. Anything else is ignored.</param>
+    public void FoldConstants(IRuntimeSession session, IEnumerable<Symbol> constants)
+    {
+        foreach (var constant in constants)
+        {
+            if (ConstantValueOf(constant) is { } value)
+            {
+                // the declaring scope, not the run's: a constant's expression is written where the
+                // constant is, and a name in it binds from there.
+                FoldConstant(session, new RuntimeEvaluationContext(constant.ParentUri), constant, value);
+            }
+        }
+    }
+
+    private RuntimeSemanticsEvaluationResult FoldConstant(IRuntimeSession session, RuntimeEvaluationContext context, Symbol constant, ExpressionNode value)
+    {
+        var id = constant.SemanticId;
+        if (_foldedConstants.TryGetValue(id, out var folded))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(folded);
+        }
+
+        // a constant expression may name another constant, so folding one can fold others; a cycle
+        // between them is a compile error MS-VBA reports and nothing here reports yet, so without this
+        // guard it would recurse until the stack ran out.
+        // 🚧 TODO: report circular constant declarations as a compile-time diagnostic instead.
+        if (!_foldingConstants.Add(id))
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        try
+        {
+            var result = Evaluate(session, value, context);
+            if (result.IsSuccess)
+            {
+                _foldedConstants[id] = result.Result!;
+            }
+            return result;
+        }
+        finally
+        {
+            _foldingConstants.Remove(id);
+        }
     }
 
     // MS-VBAL §5.6.16.2: a conditional-compilation constant that names nothing is the value 0 - not a

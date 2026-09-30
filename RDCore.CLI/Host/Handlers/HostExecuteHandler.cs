@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -74,6 +75,12 @@ internal sealed class HostExecuteHandler(
         // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant), not the module being lowered.
         var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), payload.ParseResult.PrecompilerTrivia);
+
+        // MS-VBAL 5.2.3.3 / 5.4.3.2: a Const statically evaluates to a value and is substituted at its
+        // use sites, so the session gives it no storage - reducing its expression is this step's job,
+        // and lowering is where it belongs: a constant expression yields the same value however many
+        // times it is written, so it is reduced once here rather than at every use.
+        pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module));
 
         VBTypeMemberSymbol? entryPoint = null;
         foreach (var member in syntaxTree.Children.OfType<MemberDeclarationNode>())
@@ -194,6 +201,41 @@ internal sealed class HostExecuteHandler(
     }
 
     // the module symbol is defined in the session from the .rdproj, under the global scope.
+    // every Const this module declares, module-level and procedure-local, as the session knows them.
+    // The AST names them; the session symbols are what carry the expression to reduce and the identity
+    // the folded value is keyed by. A constant declared by another module is not here — it is folded on
+    // first use instead, and still only once.
+    private static IEnumerable<Symbol> ConstantsOf(IRuntimeSession session, ModuleNode syntaxTree, Symbol module)
+    {
+        foreach (var declaration in syntaxTree.Children.OfType<ConstantDeclarationNode>())
+        {
+            if (session.Symbols.TryResolveValue(declaration.Name, module, out var constant) && constant is not null)
+            {
+                yield return constant;
+            }
+        }
+
+        foreach (var member in syntaxTree.Children.OfType<MemberDeclarationNode>())
+        {
+            if (member.Name is not { Length: > 0 } name
+                || !session.Symbols.TryResolveValue(name, module, out var symbol))
+            {
+                continue;
+            }
+
+            var locals = symbol switch
+            {
+                VBReturningMemberSymbol returning => returning.Locals,
+                VBProcedureMemberSymbol procedure => procedure.Locals,
+                _ => [],
+            };
+            foreach (var local in locals.OfType<VBLocalConstantSymbol>())
+            {
+                yield return local;
+            }
+        }
+    }
+
     private static bool TryResolveModule(IRuntimeSession session, string moduleName, out Symbol module)
     {
         if (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var resolved) && resolved is not null)
