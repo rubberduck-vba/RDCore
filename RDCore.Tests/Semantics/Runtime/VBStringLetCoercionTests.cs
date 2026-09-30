@@ -45,6 +45,19 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(0.1 + 0.2), VBStringType.TypeInfo), "0.3");
 
     [TestMethod]
+    // fixed 2026-09-30: the 15-digit cap was applied by slicing the digits of a wider "E16" format,
+    // which truncates where VBA rounds. Every value whose binary representation sits just below its
+    // decimal one lost its last significant digit instead of carrying into it: 0.3 is stored as
+    // 0.29999999999999998..., so it printed as "0.299999999999999". These sources reach the cap from
+    // below, which the 0.1 + 0.2 case above (which reaches it from above) never exercised.
+    [DataRow(0.3d, "0.3")]
+    [DataRow(7d / 10d, "0.7")]
+    [DataRow(-0.3d, "-0.3")]
+    [DataRow(19.99d, "19.99")]
+    public void NumericSource_FifteenthSignificantDigit_IsRoundedNotTruncated(double source, string expected)
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(source), VBStringType.TypeInfo), expected);
+
+    [TestMethod]
     public void NumericSource_PositiveInfinity_IsTheInfinityToken()
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDoubleValue(double.PositiveInfinity), VBStringType.TypeInfo), VBStringValue.PositiveInfinity);
 
@@ -72,13 +85,13 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
     public void NumericSource_SingleExceedingSevenDigits_UsesScientificNotation()
         // Single's significant-digit threshold (7) is lower than Double's (15), so a value that's
         // still normal notation for a Double must go scientific when the source is a Single.
-        // 12345678f itself isn't exactly representable in a float's ~7 digits of precision, hence
-        // "...567" rather than "...568" — this pins the real rounded value, not the source literal.
-        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo), "1.234567E+7");
+        // The expectation was "1.234567E+7" until 2026-09-30: 12345678 is below 2^24 and so is exact
+        // in a float, and the 8th digit is dropped by the 7-digit cap — which rounds, not truncates.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(12345678f), VBStringType.TypeInfo), "1.234568E+7");
 
     [TestMethod]
     public void NumericSource_NegativeSingleExceedingSevenDigits_UsesScientificNotationWithNegativeSign()
-        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(-12345678f), VBStringType.TypeInfo), "-1.234567E+7");
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBSingleValue(-12345678f), VBStringType.TypeInfo), "-1.234568E+7");
 
     [TestMethod]
     [DataRow(true, "True")]

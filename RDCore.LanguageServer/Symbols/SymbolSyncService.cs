@@ -151,6 +151,7 @@ internal sealed class SymbolSyncService(
                 ModuleUri = moduleUri,
                 ModuleName = moduleName,
                 Symbols = descriptors,
+                Directives = parseResult.SyntaxTree.GetModuleDirectives(),
                 Replace = replace,
             }, token);
 

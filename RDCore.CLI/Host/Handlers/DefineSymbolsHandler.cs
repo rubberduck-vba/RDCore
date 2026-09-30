@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.CLI.Host.Handlers;
 
@@ -61,6 +62,8 @@ internal sealed class DefineSymbolsHandler(
             return null;
         }
 
+        ApplyDirectives(session, request);
+
         var defined = 0;
         var replaced = 0;
         var merged = 0;
@@ -109,6 +112,29 @@ internal sealed class DefineSymbolsHandler(
             UnresolvedTypeNames = [.. unresolvedTypeNames],
             MergedDefinitions = merged,
         });
+    }
+
+    // MS-VBAL 5.2.1: the module symbol is composed from the .rdproj without parsing anything, so its
+    // Option directives are not known until the language server sends them here. They are what an
+    // activation of one of the module's procedures runs under - Option Compare decides how its
+    // relational operators compare Strings, Option Base what `Dim a(10)` means - and both were read off
+    // a frame that was never given any, so both silently took their default.
+    private static void ApplyDirectives(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (!session.Symbols.TryResolveValue(request.ModuleName, GlobalSymbols.UnresolvedSymbol, out var resolved)
+            || resolved is not VBModuleSymbol module
+            || module.Directives == request.Directives)
+        {
+            return;
+        }
+
+        // the same undefine/define the Replace path uses: a module symbol allocates no storage of its
+        // own, and its members are keyed by their own Uris rather than held by it.
+        var updated = module with { Directives = request.Directives };
+        if (session.Symbols.TryUndefine(module, module.ScopeKind))
+        {
+            session.Symbols.TryDefine(updated, updated.ScopeKind);
+        }
     }
 
     // an `As` clause names a symbol; this is the type that symbol declares. A user-defined type is not

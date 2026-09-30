@@ -89,6 +89,7 @@ public sealed class HostExecuteHandlerTests
                 ModuleUri = moduleUri,
                 ModuleName = ModuleName,
                 Symbols = SymbolDescriptorProjector.Project(symbols, moduleUri),
+                Directives = parse.SyntaxTree.GetModuleDirectives(),
                 Replace = true,
             }, CancellationToken.None);
         Assert.IsGreaterThan(0, defined.Defined + defined.Replaced, "no symbols were defined in the session");
@@ -184,6 +185,247 @@ public sealed class HostExecuteHandlerTests
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "landed" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.3.3 / 5.4.3.2: a Const statically evaluates to a value and is substituted at each of
+    // its use sites, so the session allocates it no storage. Nothing ever reduced the declaration's
+    // expression to that value, so reading a module Const by name threw "no runtime binding exists yet"
+    // out of the session, and a procedure-local Const never reached the host at all — its declaration
+    // node was built without the expression, since the declarations listener stops capturing
+    // expressions inside a procedure body.
+    [DataRow("Public Const K As Long = 5\r\n", "Debug.Print \"k=\" & K", "k=5", DisplayName = "module Const")]
+    [DataRow("", "Const K As Long = 5\r\nDebug.Print \"k=\" & K", "k=5", DisplayName = "local Const")]
+    [DataRow("Public Const K As Long = -1\r\n", "Debug.Print \"k=\" & K", "k=-1", DisplayName = "negative literal")]
+    [DataRow("Public Const K As String = \"abc\"\r\n", "Debug.Print \"k=\" & K", "k=abc", DisplayName = "String Const")]
+    // a constant expression is not always a literal, which is why the declaration's expression travels
+    // rather than a value the language server could have computed on its own.
+    [DataRow("Public Const K As Long = 3 * 5\r\n", "Debug.Print \"k=\" & K", "k=15", DisplayName = "operator over literals")]
+    [DataRow("Public Const A As Long = 3\r\nPublic Const B As Long = 5\r\n", "Debug.Print \"k=\" & (A * B)", "k=15", DisplayName = "two Consts in one expression")]
+    [DataRow("Public Const A As Long = 3\r\nPublic Const K As Long = A * 5\r\n", "Debug.Print \"k=\" & K", "k=15", DisplayName = "Const declared from another")]
+    public async Task AConstant_ReadsAsItsDeclaredValue(string declarations, string body, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + declarations
+            + "Public Sub Main()\r\n"
+            + body + "\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CircularConstants_FailWithoutExhaustingTheStack()
+    {
+        // folding one constant can fold another, so a cycle between them would recurse forever. VBA
+        // rejects this at compile time and nothing here does yet, so the guard is what keeps a bad
+        // declaration from taking the whole host down with it.
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Const A As Long = B\r\n"
+            + "Public Const B As Long = A\r\n"
+            + "Public Sub Main()\r\n"
+            + "Debug.Print \"k=\" & A\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.NotImplemented, result.Outcome);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.1: a procedure's code runs under the Option directives of the module declaring it.
+    // The runtime reads them off the activation's own call-stack frame, and the invoker never gave the
+    // frame any: the module symbol is composed from the .rdproj without parsing, and nothing carried
+    // the parsed module's directives to the host afterwards. So every dial silently took its default.
+    [DataRow("Option Compare Text\r\n", "Debug.Print (\"a\" = \"A\")", "True", DisplayName = "Option Compare Text")]
+    [DataRow("", "Debug.Print (\"a\" = \"A\")", "False", DisplayName = "Option Compare Binary is the default")]
+    [DataRow("Option Compare Binary\r\n", "Debug.Print (\"a\" = \"A\")", "False", DisplayName = "Option Compare Binary")]
+    [DataRow("Option Compare Text\r\n", "Debug.Print (\"ABC\" Like \"abc\")", "True", DisplayName = "Option Compare Text governs Like")]
+    public async Task AModuleOptionDirective_ReachesTheRunningCode(string options, string body, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + options
+            + "Public Sub Main()\r\n"
+            + body + "\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ADeadIfBranch_DoesNotRun()
+    {
+        // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
+        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly since #315 but
+        // had no production caller, so lowering kept both branches and ran them in source order.
+        var result = await ExecuteAsync(Module(
+            "#If False Then",
+            "Debug.Print \"dead\"",
+            "#Else",
+            "Debug.Print \"live\"",
+            "#End If"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "live" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnAssignmentInADeadIfBranch_DoesNotWin()
+    {
+        // the dead branch ran *after* the live one, so its assignment was the value that survived.
+        var result = await ExecuteAsync(Module(
+            "#If True Then",
+            "x = 1",
+            "#Else",
+            "x = 99",
+            "#End If",
+            "Debug.Print \"x=\" & x"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "x=1" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AFaultingStatementInADeadIfBranch_DoesNotRaise()
+    {
+        // the sharpest form of the same defect: code that never compiled raised error 11 at run time.
+        var result = await ExecuteAsync(Module(
+            "#If False Then",
+            "x = 1 / 0",
+            "#End If",
+            "Debug.Print \"survived\""));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "survived" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnOmittedOptionalArgument_GetsItsDeclaredDefault_NotTheTypeDefault()
+    {
+        // MS-VBAL 5.3.1.5: a `default-value` clause specifies the parameter's default value, and only a
+        // parameter declaring none falls back to its declared type's. The value was dropped at the very
+        // first stage — SymbolBuilder built the parameter symbol without it — so `Optional k As Long = 5`
+        // arrived as 0 and `Optional t As String = "abc"` as "", all the way across the wire.
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "Call Foo(7)\r\n"
+            + "Bar\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long = 5)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Bar(Optional ByVal t As String = \"abc\")\r\n"
+            + "Debug.Print \"t=\" & t\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "k=5", "k=7", "t=abc" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.3.1.5 defines a `default-value` as a constant expression, which is not always a single
+    // literal. The symbol carried a value read off a literal node, so a default that was anything else —
+    // an operator over literals, or a Const — silently fell back to the declared type's default. It now
+    // carries the expression, and is reduced by the same fold a Const's own is.
+    [DataRow("Optional ByVal k As Long = 3 * 5", "k=15", DisplayName = "operator over literals")]
+    [DataRow("Optional ByVal k As Long = -1", "k=-1", DisplayName = "negative literal")]
+    [DataRow("Optional ByVal k As Long = MaxItems", "k=10", DisplayName = "a Const")]
+    [DataRow("Optional ByVal k As Long = MaxItems * 2", "k=20", DisplayName = "operator over a Const")]
+    public async Task AnOmittedOptionalArgument_ReducesADefaultThatIsNotALiteral(string parameter, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Const MaxItems As Long = 10\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "End Sub\r\n"
+            + $"Private Sub Foo({parameter})\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.6.6: a parenthesized expression is a value expression — it "evaluates to the simple data
+    // value of its enclosed expression". The parser erased the parentheses, so `Inc (x)` and `Inc x`
+    // built the same tree, and an argument written to be passed by value was aliased to the ByRef
+    // parameter and mutated the caller's variable.
+    //
+    // Nothing implements "forced ByVal": the parentheses are an operator whose result is a value bound
+    // to nothing, so there is no variable for a reference parameter to alias, and argument passing
+    // already copies in that case.
+    [DataRow("Inc x", "x=2", DisplayName = "ByRef, no parentheses: the variable itself")]
+    [DataRow("Call Inc(x)", "x=2", DisplayName = "ByRef through Call: still the variable itself")]
+    [DataRow("Inc (x)", "x=1", DisplayName = "a parenthesized argument is a value")]
+    [DataRow("Call Inc((x))", "x=1", DisplayName = "a parenthesized argument inside Call's own parentheses")]
+    [DataRow("Inc ((x))", "x=1", DisplayName = "twice parenthesized")]
+    [DataRow("Inc x + 0", "x=1", DisplayName = "any other expression is a value too")]
+    public async Task AParenthesizedArgument_IsAValue_NotTheVariable(string call, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Dim x As Long\r\n"
+            + "x = 1\r\n"
+            + call + "\r\n"
+            + "Debug.Print \"x=\" & x\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Inc(ByRef n As Long)\r\n"
+            + "n = n + 1\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.4.2.1: the bare call statement, whose argument list is the statement's own because the
+    // grammar grants it no parenthesized lExpression equivalent. It is the ordinary VBA call form, and
+    // the one shape ExecuteCall refused — S9a wired the parenthesized and no-argument ones only.
+    [DataRow("Foo 7", "k=7|n=0", DisplayName = "one argument")]
+    [DataRow("Foo 7, 8", "k=7|n=8", DisplayName = "two arguments")]
+    [DataRow("Foo n:=8, k:=7", "k=7|n=8", DisplayName = "named arguments, out of order")]
+    [DataRow("Call Foo(7, 8)", "k=7|n=8", DisplayName = "the parenthesized form still works")]
+    [DataRow("Foo", "k=5|n=0", DisplayName = "no arguments at all still works")]
+    public async Task ABareCallStatement_PassesItsOwnArguments(string call, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + call + "\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long = 5, Optional ByVal n As Long)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "Debug.Print \"n=\" & n\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(expected.Split('|'), result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnOmittedOptionalArgumentWithNoDeclaredDefault_GetsItsTypeDefault()
+    {
+        // the other half of the same MS-VBAL 5.3.1.5 rule, so carrying a declared default across cannot
+        // quietly become "carry something either way".
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "k=0" }, result.Output.ToArray());
     }
 
     [TestMethod]

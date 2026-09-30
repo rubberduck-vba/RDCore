@@ -1,3 +1,5 @@
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -314,7 +316,7 @@ public sealed class StdLibSymbolReader
                 array is not null
                     ? ArrayTypeOf(DeclaredTypeOf(array.ElementType, method, enumTypes, classTypes))
                     : DeclaredTypeOf(declared, method, enumTypes, classTypes),
-                parameter.IsOptional, DefaultValueOf(parameter)));
+                parameter.IsOptional, DefaultValueOf(parameter, memberUri)));
         }
 
         return builder.ToImmutable();
@@ -378,8 +380,16 @@ public sealed class StdLibSymbolReader
     // only an enumeration constant is expressible as a C# default, and it is the only kind of
     // <default-value> clause the standard library has. Everything else optional is `= default`, which
     // is no clause at all: an unmapped argument then takes the declared type's own default value.
-    private static VBTypedValue? DefaultValueOf(ParameterInfo parameter)
+    //
+    // MS-VBAL 5.3.1.5 defines a default as a constant expression, which is what the symbol carries; a
+    // library parameter's is written in C# rather than in VBA source, and a literal node over the value
+    // it already is says exactly that — with the member's own uri for a location, there being no source
+    // position to point at.
+    private static ExpressionNode? DefaultValueOf(ParameterInfo parameter, Uri memberUri)
         => parameter is { IsOptional: true, DefaultValue: { } value } && parameter.ParameterType.IsEnum
-            ? new VBLongValue(Convert.ToInt32(value))
+            ? new LiteralExpressionNode(
+                new SyntaxNodeId(memberUri.AbsolutePath, []),
+                new SourceLocation(memberUri, SourceRange.Empty),
+                new VBLongValue(Convert.ToInt32(value)))
             : null;
 }

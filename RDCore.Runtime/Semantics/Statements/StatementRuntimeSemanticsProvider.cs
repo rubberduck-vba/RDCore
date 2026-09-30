@@ -113,19 +113,20 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             : RuntimeExecutionOutcome.Next;
     }
 
-    // MS-VBAL §5.4.2.1: both the explicit Call Foo(...) form and the bare Foo(...)/Foo form evaluate
-    // Callee (its own argument list, if any, already part of its tree - see CallStatementNode's own
-    // doc) and discard whatever it returns; a Sub's own Void result discards just as cleanly as a real
-    // one would. The bare, unparenthesized multi-argument form (Foo 1, 2, populating Arguments directly
-    // instead) isn't wired yet - S9a's own scope is the parenthesized/no-argument shapes only.
+    // MS-VBAL §5.4.2.1, and whatever the call returns is discarded - a Sub's own Void result discards
+    // just as cleanly as a real one would.
+    //
+    // The two shapes differ in where the arguments are. `Call Foo(1, 2)` carries them inside the
+    // Callee's own IndexExpressionNode, so evaluating the Callee is the whole call. The bare
+    // `Foo 1, 2` has no parenthesized lExpression equivalent in the grammar, so its arguments are the
+    // statement's own (see CallStatementNode) and the call is made from here - which is what S9a left
+    // undone, on the ordinary VBA call form.
     private RuntimeExecutionOutcome ExecuteCall(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
     {
-        if (!call.Arguments.IsEmpty)
-        {
-            return RuntimeExecutionOutcome.InternalError;
-        }
+        var result = call.Arguments.IsEmpty
+            ? _expressionEvaluator.Evaluate(session, call.Callee, context)
+            : _expressionEvaluator.Invoke(session, context, call.Callee, call.Arguments);
 
-        var result = _expressionEvaluator.Evaluate(session, call.Callee, context);
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);

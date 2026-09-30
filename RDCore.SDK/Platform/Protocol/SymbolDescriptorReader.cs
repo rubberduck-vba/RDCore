@@ -192,9 +192,12 @@ public static class SymbolDescriptorReader
                 break;
 
             case SymbolDescriptorKind.ModuleConstant:
+                // the constant's own value is its single Constants entry - it has no storage to read one
+                // back from, so the expression is what a use site substitutes.
                 yield return new VBConstantMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, Declared(node.DeclaredTypeName),
-                    node.Range, node.SelectionRange, node.AccessModifier);
+                    node.Range, node.SelectionRange, node.AccessModifier,
+                    node.Constants.FirstOrDefault()?.Value);
                 break;
         }
     }
@@ -211,20 +214,31 @@ public static class SymbolDescriptorReader
     }
 
     /// <summary>
-    /// Reconstructs a procedure's <c>Dim</c>/<c>Static</c> variables. An invocation allocates frame
-    /// storage from these (<strong>MS-VBAL §5.4.3</strong> step 4), so a procedure reconstructed
-    /// without them has a body that cannot assign to any of its own locals.
+    /// Reconstructs a procedure's <c>Dim</c>/<c>Static</c> variables and its <c>Const</c> declarations.
+    /// An invocation allocates frame storage from the variables (<strong>MS-VBAL §5.4.3</strong> step 4),
+    /// so a procedure reconstructed without them has a body that cannot assign to any of its own locals;
+    /// a constant is allocated nothing and travels so that its name resolves at all.
     /// </summary>
     private static ImmutableArray<BoundTypedSymbol> ReadLocals(
         SymbolDescriptor member, Uri workspaceRoot, Uri memberUri, Func<string, VBType?> resolveType)
     {
-        if (member.Locals.IsDefaultOrEmpty)
+        if (member.Locals.IsDefaultOrEmpty && member.Constants.IsDefaultOrEmpty)
         {
             return [];
         }
 
-        var builder = ImmutableArray.CreateBuilder<BoundTypedSymbol>(member.Locals.Length);
-        foreach (var local in member.Locals)
+        var builder = ImmutableArray.CreateBuilder<BoundTypedSymbol>(
+            member.Locals.IsDefault ? 0 : member.Locals.Length);
+        foreach (var constant in member.Constants.IsDefault ? [] : member.Constants)
+        {
+            builder.Add(new VBLocalConstantSymbol(
+                workspaceRoot, memberUri, constant.Name, constant.Range, constant.SelectionRange,
+                constant.DeclaredTypeName is not null && resolveType(constant.DeclaredTypeName) is { } constantType
+                    ? constantType
+                    : VBUnknownType.TypeInfo,
+                constant.Value));
+        }
+        foreach (var local in member.Locals.IsDefault ? [] : member.Locals)
         {
             builder.Add(new VBLocalVariableSymbol(
                 workspaceRoot, memberUri, local.Name, ScopeKind.Local, local.Range, local.SelectionRange,
@@ -256,7 +270,8 @@ public static class SymbolDescriptorReader
                     parameter.DeclaredTypeName is not null && resolveType(parameter.DeclaredTypeName) is { } type
                         ? type
                         : VBUnknownType.TypeInfo,
-                    parameter.IsOptional));
+                    parameter.IsOptional,
+                    parameter.DefaultValue));
         }
         return builder.ToImmutable();
     }

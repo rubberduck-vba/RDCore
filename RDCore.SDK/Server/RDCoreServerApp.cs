@@ -368,9 +368,10 @@ public abstract class RDCoreServerApp(
         LogIfEnabled(LogLevel.Information, "Received LSP/Initialize request.");
         ServerStateProvider.OnInitialize();
         
-        if (options.Value.Server.ClientProcessId != 0)
+        var clientProcessId = ResolveClientProcessId(request);
+        if (clientProcessId != 0)
         {
-            healthCheckService.Start(options.Value.Server.ClientProcessId, HandleUnhealthyClient);
+            healthCheckService.Start(clientProcessId, HandleUnhealthyClient);
         }
         else
         {
@@ -384,6 +385,43 @@ public abstract class RDCoreServerApp(
 
         await OnLanguageServerInitializeAsync(server, request, token);
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerInitialize_HandlerCompleted);
+    }
+
+    private int ResolveClientProcessId(InitializeParams request)
+    {
+        var resolved = ClientProcessId(request.ProcessId, options.Value.Server.ClientProcessId, out var outOfRange);
+        if (outOfRange)
+        {
+            LogIfEnabled(LogLevel.Warning, TraceMessages.InitializeClientProcessIdOutOfRange);
+        }
+
+        return resolved;
+    }
+
+    /// <summary>
+    /// Which process this server should outlive: the one the client named in its <c>initialize</c>
+    /// request, or the one the <c>-p</c> argument named when the request named none.
+    /// </summary>
+    /// <param name="requested">The <c>processId</c> of the <c>initialize</c> request.</param>
+    /// <param name="configured">The <c>Server:ClientProcessId</c> setting, from the <c>-p</c> argument.</param>
+    /// <param name="outOfRange">Whether <paramref name="requested"/> named a process id no process can have.</param>
+    /// <returns>The process id to watch, or <c>0</c> when neither source named one.</returns>
+    /// <remarks>
+    /// The request wins: it is LSP's own way for a client to say which process owns this server, and
+    /// only a client that spawned the server itself could have passed <c>-p</c>. Nothing read the
+    /// request at all, so a client that sent a <c>processId</c> was told in the log that it had sent
+    /// none — and nothing watched it, leaving the whole platform running after the client that owned it
+    /// was gone. A <c>null</c> <c>processId</c> is LSP's "the parent is not a process I can name".
+    /// </remarks>
+    internal static int ClientProcessId(long? requested, int configured, out bool outOfRange)
+    {
+        outOfRange = requested is < 0 or > int.MaxValue;
+        if (outOfRange)
+        {
+            return configured;
+        }
+
+        return requested is { } processId && processId != 0 ? (int)processId : configured;
     }
 
     /// <summary>

@@ -132,6 +132,16 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
+    public void ABareCallOnTheErrorObject_RaisesTheErrorItIsGiven()
+    {
+        // the unparenthesized form carries its arguments on the statement, not on the callee.
+        var output = Run("10 On Error Resume Next", "20 Err.Raise 5", "30 Debug.Print Err.Number");
+
+        Assert.HasCount(1, output, string.Join(" / ", output));
+        Assert.Contains("5", output[0]);
+    }
+
+    [TestMethod]
     public void ACallOnTheErrorObject_WithNoArguments_ClearsTheError()
     {
         var output = Run(

@@ -155,6 +155,16 @@ public abstract class AppHost<TApp>() : IDisposable
         {
         }
 
+        // a command line that asked a question (--help, --version) or that the parser could not make
+        // sense of is answered here, before any of the host exists: nothing built, nothing started. Both
+        // used to fall through into configuration, where the parser's default instance failed the
+        // client's "a client cannot start without a workspace" guard - so `rdc --help` printed a
+        // NullReferenceException stack trace underneath the help it had just been asked for.
+        if (SdkCommandLine.TryAnswer(args, out var answeredExitCode))
+        {
+            return answeredExitCode;
+        }
+
         try
         {
             var builder = Host.CreateApplicationBuilder();

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
@@ -18,5 +19,10 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="ResolvedType">The resolved <see cref="VBType"/> of the constant, if available. <see cref="VBUnknownType"/> unless specified otherwise.</param>
-public record class VBLocalConstantSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, VBType? ResolvedType = default)
+/// <param name="Value">
+/// The declaration's own constant expression, or <c>null</c> when there is none. A constant has no
+/// storage to read a value from — it is substituted at each of its use sites (MS-VBAL &#167;5.4.3.2:
+/// "a constant statically evaluates to a value") — so this expression <em>is</em> the symbol's value.
+/// </param>
+public record class VBLocalConstantSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, VBType? ResolvedType = default, ExpressionNode? Value = null)
     : BoundTypedSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Local, SymbolKindExt.Constant, Range, SelectionRange, ResolvedType ?? VBUnknownType.TypeInfo);

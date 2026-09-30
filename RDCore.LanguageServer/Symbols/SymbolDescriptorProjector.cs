@@ -61,6 +61,7 @@ internal static class SymbolDescriptorProjector
             Definitions = DefinitionsOf(symbol),
             Parameters = ParametersOf(symbol),
             Locals = LocalsOf(symbol, children),
+            Constants = ConstantsOf(symbol, children),
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
             External = ExternalOf(symbol),
         };
@@ -156,6 +157,54 @@ internal static class SymbolDescriptorProjector
         return builder.ToImmutable();
     }
 
+    // a procedure's Const declarations, and a module-level constant's own value. Neither has storage,
+    // so neither belongs on Locals: what the host needs is the declaration's expression, to substitute
+    // at each use site. A local Const never travelled at all before this, so a procedure that declared
+    // one could not resolve its own name.
+    private static ImmutableArray<ConstantDescriptor> ConstantsOf(Symbol symbol, IEnumerable<Symbol> children)
+    {
+        // a module-level constant is the descriptor, not a child of one; a local constant reaches here
+        // the same two ways a local variable does (see LocalsOf).
+        var declared = symbol switch
+        {
+            VBConstantMemberSymbol moduleConstant => [moduleConstant],
+            VBReturningMemberSymbol returning => returning.Locals.OfType<Symbol>(),
+            VBProcedureMemberSymbol procedure => procedure.Locals.OfType<Symbol>(),
+            _ => [],
+        };
+
+        var constants = declared.Concat(symbol is VBConstantMemberSymbol ? [] : children)
+            .Where(constant => constant is VBConstantMemberSymbol or VBLocalConstantSymbol)
+            .DistinctBy(constant => constant.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (constants.Length == 0)
+        {
+            return [];
+        }
+
+        var builder = ImmutableArray.CreateBuilder<ConstantDescriptor>(constants.Length);
+        foreach (var constant in constants)
+        {
+            var (type, value) = constant switch
+            {
+                VBConstantMemberSymbol moduleConstant => (moduleConstant.ResolvedType, moduleConstant.Value),
+                VBLocalConstantSymbol local => (local.ResolvedType, local.Value),
+                _ => (VBUnknownType.TypeInfo, null),
+            };
+
+            builder.Add(new ConstantDescriptor
+            {
+                Name = constant.Name,
+                DeclaredTypeName = type is VBUnknownType or VBVoidType ? null : type.Name,
+                Value = value,
+                Range = (constant as BoundSymbol)?.Range ?? default,
+                SelectionRange = (constant as BoundSymbol)?.SelectionRange ?? default,
+            });
+        }
+        return builder.ToImmutable();
+    }
+
     private static ImmutableArray<ParameterDescriptor> ParametersOf(Symbol symbol)
     {
         var parameters = symbol switch
@@ -179,6 +228,7 @@ internal static class SymbolDescriptorProjector
                 ParameterKind = parameter.ParameterKind,
                 IsOptional = parameter.IsOptional,
                 IsParamArray = parameter is ParamArrayParameterSymbol,
+                DefaultValue = parameter.DefaultValue,
                 DeclaredTypeName = parameter.ResolvedType is VBUnknownType or VBVoidType ? null : parameter.ResolvedType.Name,
                 Range = parameter.Range,
             });

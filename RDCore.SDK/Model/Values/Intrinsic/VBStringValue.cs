@@ -50,6 +50,41 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     /// </remarks>
     public const string NaN = "1.#IND";
 
+    /// <summary>
+    /// Creates a <c>VBStringValue</c> from the source text of a MS-VBAL 3.3.4 <c>&lt;STRING&gt;</c> token —
+    /// the literal as it is spelled in source, delimiters included.
+    /// </summary>
+    /// <param name="token">
+    /// The token's source text. Leading and trailing double-quote delimiters are removed when present;
+    /// text carrying none is taken as-is, so a caller holding an already-unquoted value can pass it
+    /// through without first having to tell the two apart.
+    /// </param>
+    /// <remarks>
+    /// MS-VBAL 3.3.4: "a sequence of two &lt;double-quote&gt; characters represents a single occurrence of
+    /// the character U+0022 within the data value" — a literal's data value is therefore never its source
+    /// text, and slicing off the delimiters alone leaves every embedded quote doubled.
+    /// </remarks>
+    public static VBStringValue FromLiteralToken(string token) => new(UnquoteLiteralToken(token));
+
+    /// <summary>
+    /// Gets the data value (MS-VBAL 2.1) of a MS-VBAL 3.3.4 <c>&lt;STRING&gt;</c> token from its source text.
+    /// </summary>
+    /// <param name="token">
+    /// The token's source text. Leading and trailing double-quote delimiters are removed when present;
+    /// text carrying none is taken as-is.
+    /// </param>
+    /// <remarks>
+    /// The <see cref="string"/> counterpart of <see cref="FromLiteralToken(string)"/>, for callers that
+    /// need the data value itself rather than a value bound to it.
+    /// </remarks>
+    public static string UnquoteLiteralToken(string token)
+    {
+        var unquoted = token.Length >= 2 && token[0] == '"' && token[^1] == '"'
+            ? token[1..^1]
+            : token;
+
+        return unquoted.Replace("\"\"", "\"");
+    }
 
     private static readonly Lazy<VBStringValue> _vbNullString = new(() => new VBStringValue((string)null!), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

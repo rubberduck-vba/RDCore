@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.Runtime.Semantics.Operators.Logical;
@@ -61,6 +62,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
     private readonly BinaryImpLogicalOperatorRuntimeSemantics _imp;
     private readonly UnaryNegationOperatorRuntimeSemantics _negation;
     private readonly UnaryNotOperatorRuntimeSemantics _not;
+    private readonly UnaryLetCoerceOperatorRuntimeSemantics _letCoerce;
 
     public OperatorRuntimeSemanticsProvider(ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IVerboseMessageBuilder formatterService)
     {
@@ -87,6 +89,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         _imp = new(letCoercionProvider, formatterService);
         _negation = new(letCoercionProvider, formatterService);
         _not = new(letCoercionProvider, formatterService);
+        _letCoerce = new(letCoercionProvider, formatterService);
     }
 
     /// <inheritdoc/>
@@ -123,6 +126,8 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         {
             Tokens.NegationOp => _negation.Evaluate(session, new(), expression, operand),
             Tokens.LogicalNotOp => _not.Evaluate(session, new(), expression, operand),
+            // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator, and this is it.
+            OperatorSymbolNames.UnaryLetCoerceOp => _letCoerce.Evaluate(session, new(), expression, operand),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 }

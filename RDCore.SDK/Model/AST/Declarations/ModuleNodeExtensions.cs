@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST.Declarations;
@@ -33,6 +34,26 @@ public static class ModuleNodeExtensions
 
         return null;
     }
+
+    /// <summary>
+    /// The <see cref="ModuleDirectives"/> a module declares, read from its <c>Option</c> directives.
+    /// </summary>
+    /// <param name="module">The module, or <c>null</c> for a module that did not parse.</param>
+    /// <returns>
+    /// The module's directives, or <see cref="ModuleDirectives.None"/> when <paramref name="module"/> is
+    /// <c>null</c> — a module nobody could read declares nothing, which is also what every default says.
+    /// </returns>
+    /// <remarks>
+    /// Every consumer that needs the whole set reads it here rather than assembling its own, so a
+    /// directive added to <see cref="ModuleDirectives"/> reaches all of them at once. <c>Strict</c> is
+    /// not among them: it comes from an RD-VBA annotation rather than an <c>Option</c> directive.
+    /// </remarks>
+    public static ModuleDirectives GetModuleDirectives(this ModuleNode? module) => module is null
+        ? ModuleDirectives.None
+        : new ModuleDirectives(
+            Explicit: module.HasOptionExplicit(),
+            Compare: module.GetOptionCompare(),
+            Base: module.GetOptionBase());
 
     /// <summary>
     /// Whether the module declares <c>Option Explicit</c> (<strong>MS-VBAL §5.2.1.3</strong>).
@@ -70,6 +91,27 @@ public static class ModuleNodeExtensions
         }
 
         return OptionCompare.Binary;
+    }
+
+    /// <summary>
+    /// The lower bound an array dimension declared without one takes in this module
+    /// (<strong>MS-VBAL §5.2.1.2</strong>): <c>1</c> when the module declares <c>Option Base 1</c>,
+    /// and <c>0</c> when it declares <c>Option Base 0</c> or no <c>Option Base</c> at all.
+    /// </summary>
+    public static int GetOptionBase(this ModuleNode module)
+    {
+        foreach (var child in module.Children.OfType<ModuleOptionDirectiveNode>())
+        {
+            switch (child.ModuleOption)
+            {
+                case ModuleOptions.OptionBase1:
+                    return 1;
+                case ModuleOptions.OptionBase0:
+                    return 0;
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -175,7 +217,7 @@ public static class ModuleNodeExtensions
         var trimmed = value.Trim();
         if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
         {
-            return trimmed[1..^1].Replace("\"\"", "\"");
+            return VBStringValue.UnquoteLiteralToken(trimmed);
         }
 
         return trimmed.Length == 0 ? null : trimmed;

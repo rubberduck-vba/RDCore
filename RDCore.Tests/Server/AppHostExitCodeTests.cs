@@ -35,6 +35,38 @@ public class AppHostExitCodeTests
         Assert.AreEqual(0, exitCode);
     }
 
+    [TestMethod]
+    [DataRow("--help")]
+    [DataRow("--version")]
+    public async Task RunAsync_WhenTheCommandLineOnlyAskedForText_SucceedsWithoutBuildingTheHost(string arg)
+    {
+        // `rdc --help` printed its help text, then an ArgumentNullException stack trace underneath it,
+        // and exited -1: the parser answers --help and --version itself and hands back a default
+        // instance, which the client host's "a client cannot start without a workspace" guard rejected.
+        // A command line that only asked a question is a successful run, not a startup failure — and
+        // there is nothing to configure or start, which is what UnreachableFakeApp is here to prove.
+        var host = new TextOnlyCommandLineTestAppHost();
+
+        var exitCode = await host.RunAsync([arg]);
+
+        Assert.AreEqual(0, exitCode);
+    }
+
+    private sealed class TextOnlyCommandLineTestAppHost : AppHost<TextOnlyCommandLineTestAppHost.UnreachableFakeApp>
+    {
+        protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
+            => throw new InvalidOperationException("nothing should be configured when the command line only asked for text");
+
+        internal sealed class UnreachableFakeApp : IRDCoreApp
+        {
+            public CoreServerComponent PlatformComponent => CoreServerComponent.LanguageServer;
+            public Task RunAsync(IServiceProvider provider, string[] args)
+                => throw new InvalidOperationException("nothing should be run when the command line only asked for text");
+            public void LogIfEnabled(LogLevel logLevel, string message) { }
+            public void Dispose() { }
+        }
+    }
+
     private sealed class FaultingTestAppHost : AppHost<FaultingTestAppHost.FaultingFakeApp>
     {
         protected override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args) { }
