@@ -1633,10 +1633,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         else if (context.STRINGLITERAL() is ITerminalNode stringLiteral)
         {
+            // MS-VBAL 3.3.4: a doubled double-quote stands for one U+0022 in the data value. Slicing the
+            // delimiters off the token text alone left every embedded quote doubled in the literal's
+            // value, which is then what every consumer of the node downstream printed and compared.
             OnExpression(new LiteralExpressionNode(
-                GetCurrentNodeId(), 
+                GetCurrentNodeId(),
                 location,
-                new VBStringValue(stringLiteral.Symbol.Text[1..^1])));
+                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)));
         }
     }
 

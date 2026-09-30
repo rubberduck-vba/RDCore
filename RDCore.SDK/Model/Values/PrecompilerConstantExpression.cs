@@ -34,7 +34,7 @@ public static class PrecompilerConstantExpression
 
         if (text.Length >= 2 && text[0] == '"' && text[^1] == '"')
         {
-            value = new VBStringValue(text[1..^1].Replace("\"\"", "\""));
+            value = VBStringValue.FromLiteralToken(text);
             return true;
         }
 

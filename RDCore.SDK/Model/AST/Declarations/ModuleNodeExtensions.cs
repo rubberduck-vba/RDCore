@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST.Declarations;
@@ -175,7 +176,7 @@ public static class ModuleNodeExtensions
         var trimmed = value.Trim();
         if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
         {
-            return trimmed[1..^1].Replace("\"\"", "\"");
+            return VBStringValue.UnquoteLiteralToken(trimmed);
         }
 
         return trimmed.Length == 0 ? null : trimmed;
