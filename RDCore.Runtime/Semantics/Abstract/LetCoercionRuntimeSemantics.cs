@@ -127,6 +127,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
             { IsApplicable: false } => LetCoercionResult.NotApplicable(frame),
             { Error: VBRuntimeErrorId.Overflow } => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
             { Error: VBRuntimeErrorId.TypeMismatch } => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
+            { Error: VBRuntimeErrorId.InvalidUseOfNull } => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
             { Error: not null } => throw new InvalidOperationException(
                 $"A conversion raised {conversion.Error}, which no let-coercion reports."),
             { Value: { } value } => LetCoercionResult.Success(value),

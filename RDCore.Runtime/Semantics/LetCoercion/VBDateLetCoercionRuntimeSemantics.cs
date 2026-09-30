@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Meta;
@@ -14,7 +15,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Globalization;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -36,62 +36,9 @@ public record class VBDateLetCoercionRuntimeSemantics(
         ISymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) =>
-        frame.SourceValue switch
-        {
-            VBDateValue sourceDateValue when frame.DestinationTypeDesc.Target is VBDateType
-                // result is a copy of the source date (no implicit DateSerial semantic flag should be issued here)
-                => LetCoercionResult.Success(
-                    frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(sourceDateValue.RuntimeValue))),
-
-            // NOTE: "Date -> Numeric/Boolean" is NOT handled here — the provider dispatches by
-            // destination type, so that direction is unreachable from this VBDateType-registered
-            // class. It's implemented in VBNumericLetCoercionTypeRuntimeSemantics (VBDateType source
-            // case) and VBBooleanLetCoercionRuntimeSemantics (VBDateValue source case) instead.
-
-            VBNumericTypedValue or VBBooleanValue when frame.DestinationTypeDesc.Target is VBDateType
-                // result is the source value let-coerced to Double, then the Double is interpreted as a standard SerialValue.
-                => LetCoercionResult.Success(frame.DestinationTypeDesc.Target.CreateValue(new ValueBindingHandle(
-                    ((VBDoubleValue)Provider.EvaluateLetCoercionSemantics(resolver, expression,
-                        // we must first create the VBDoubleValue for the managed SerialValue:
-                        frame with {
-                            DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo)
-                        }).Result!).RuntimeValue))),
-
-            VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBDateType
-                => CoerceStringToDate(resolver, expression, frame, stringSourceValue),
-
-            // MS-VBAL 5.5.1.2.11: "The result is 12/30/1899 00:00:00."
-            VBEmptyValue when frame.DestinationTypeDesc.Target is VBDateType
-                => LetCoercionResult.Success(VBDateType.TypeInfo.CreateValue(new ValueBindingHandle(VBDateType.Zero.RuntimeValue))),
-
-            _ => LetCoercionResult.NotApplicable(frame)
-        };
-
-    // MS-VBAL 5.5.1.2.4: try date/time/time/date interpretation first; otherwise, if the string can be
-    // interpreted as a number or currency value within Double's magnitude range, let-coerce that Double
-    // to Date. A Double-conversion overflow is reported as Type mismatch (13), not Overflow (6).
-    private LetCoercionResult CoerceStringToDate(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame, VBStringValue source)
-    {
-        if (DateTime.TryParse(source.Value, CultureInfo.InvariantCulture, out var dateValue))
-        {
-            return LetCoercionResult.Success(new VBDateValue(dateValue.ToOADate()));
-        }
-
-        var doubleCoercion = Provider.EvaluateLetCoercionSemantics(resolver, expression,
-            frame with { DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo) });
-
-        if (doubleCoercion.Result is not VBDoubleValue coerced)
-        {
-            // unparseable, or the string-to-Double step overflowed: MS-VBAL 5.5.1.2.4 reports both as
-            // Type mismatch (13) here, not the Overflow (6) that the Double coercion itself would raise.
-            return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame));
-        }
-
-        var serialValue = (double)coerced.RuntimeValue.BoxedValue;
-        return serialValue >= VBDateType.MinSerial && serialValue <= VBDateType.MaxSerial
-            ? LetCoercionResult.Success(new VBDateValue(serialValue))
-            : LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame));
-    }
+        frame.DestinationTypeDesc.Target is VBDateType
+            ? FromConversion(ValueConversions.ToDate(frame.SourceValue), expression, frame)
+            : LetCoercionResult.NotApplicable(frame);
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder, 

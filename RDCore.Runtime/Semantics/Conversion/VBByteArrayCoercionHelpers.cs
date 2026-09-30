@@ -2,12 +2,12 @@
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
-namespace RDCore.Runtime.Semantics.LetCoercion;
+namespace RDCore.Runtime.Semantics.Conversion;
 
 /// <summary>
 /// Shared mechanics for MS-VBAL 5.5.1.2.6 (Let-coercion to and from a resizable Byte array), used by
-/// both directions of the Byte()/String coercion (<see cref="VBResizableByteArrayLetCoercionRuntimeSemantics"/>
-/// and <see cref="VBStringLetCoercionRuntimeSemantics"/>).
+/// both directions of the Byte()/String coercion (<c>VBResizableByteArrayLetCoercionRuntimeSemantics</c>
+/// and <c>VBStringLetCoercionRuntimeSemantics</c>).
 /// </summary>
 internal static class VBByteArrayCoercionHelpers
 {

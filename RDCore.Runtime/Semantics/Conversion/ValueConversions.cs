@@ -50,8 +50,10 @@ public readonly record struct ValueConversionResult(VBTypedValue? Value, VBRunti
 /// All of it is pure, so it is static — the same as <c>VBNumericType.BankersRounding</c>, which it uses.
 /// </para>
 /// <para>
-/// 🚧 Only the conversions to a numeric type are here. TODO the conversions to <c>String</c>,
-/// <c>Boolean</c> and <c>Date</c>, which still live in their let-coercion strategies.
+/// 👉 A <c>Null</c> converts to no type that cannot hold it (<strong>MS-VBAL §5.5.1.2.10</strong>), so every
+/// conversion here raises error 94 for one. Let-coercion dispatches on the destination type, and so never
+/// reached a rule keyed on a <c>Null</c> <em>source</em>: a <c>Null</c> assigned to a <c>Long</c> was an
+/// internal error instead.
 /// </para>
 /// </remarks>
 public static partial class ValueConversions
@@ -105,6 +107,9 @@ public static partial class ValueConversions
 
         // MS-VBAL 5.5.1.2.11: "The result is 0."
         VBEmptyType => ValueConversionResult.Success(destination.CreateValue(0d)),
+
+        // MS-VBAL 5.5.1.2.10: Null converts to no type that cannot hold it.
+        VBNullType => ValueConversionResult.Failure(VBRuntimeErrorId.InvalidUseOfNull),
 
         _ => ValueConversionResult.NotApplicable,
     };
