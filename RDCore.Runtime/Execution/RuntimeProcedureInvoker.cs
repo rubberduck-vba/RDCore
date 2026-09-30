@@ -141,7 +141,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // already allocated just gets a fresh, independent copy of the same default value - see its own
     // xmldoc), but only the FIRST call should actually happen: every later call must see whatever the
     // previous call's own body last wrote, not get reset back to the default.
-    private static void HoistLocals(IRuntimeSession session, CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
+    internal static void HoistLocals(IRuntimeSession session, CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
     {
         foreach (var local in locals)
         {

@@ -37,54 +37,23 @@ public sealed class StdLibDispatchTests
 {
     private static readonly Uri Root = TestUri.WorkspaceRoot();
 
-    private sealed class Provider(Symbol[] symbols) : ISymbolProvider
-    {
-        public IEnumerable<Symbol> ProvideSymbols() => symbols;
-    }
-
-    // the executing procedure has to really be a member of a module of the workspace, or the scope it resolves
-    // names from has no project tier above it - and a standard module's members reach exactly that tier, which
-    // is what makes `Erl` a name at all. The symbols derive their own Uris from their parents, so the
-    // procedure's is taken from it rather than assembled here, where it could differ by a separator and
-    // silently resolve nothing.
-    private static (VBStandardModuleSymbol Module, VBProcedureMemberSymbol Procedure) Workspace()
-    {
-        var module = new VBStandardModuleSymbol(Root, Root, "TestModule1");
-        return (module, new VBProcedureMemberSymbol(
-            Root, module.Uri, "TestMethod1", ScopeKind.Module, SymbolKindExt.Procedure,
-            VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public));
-    }
-
     /// <summary>Runs a procedure body against a session that has the standard library, capturing its output.</summary>
     private static IReadOnlyList<string> Run(params string[] body)
     {
         var output = new RuntimeOutputBuffer();
-        var (module, procedure) = Workspace();
-        var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
-            [],
-            [new StdLibSymbolProvider(Root), new Provider([module, procedure])],
-            output);
-
-        var pipeline = RuntimeExecutionPipeline.Create(
-            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
-
-        var procedureUri = procedure.Uri;
-        var nodeId = new SyntaxNodeId(procedureUri.AbsolutePath, [1]);
-        var frame = session.Symbols.CreateFrame(
-            nodeId, new StaticSymbol(procedure.Name, SymbolKindExt.Procedure, VBVoidType.TypeInfo));
-        session.CallStack.TryPush(frame);
-
-        var source = $"Sub Foo()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
-
-        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        var lowering = InstructionListLowering.Lower(new StatementBlock([.. member.Children]));
-        Assert.IsEmpty(lowering.Errors, string.Join("; ", lowering.Errors.Select(error => error.Verbose)));
-
-        pipeline.Executor.Run(session, frame, lowering.InstructionList, new RuntimeEvaluationContext(procedureUri));
+        RuntimeSourceHarness.Run(fileSystem: null, [], output, standardLibrary: true, body);
         return output.Lines;
+    }
+
+    [TestMethod]
+    public void AProcedureLocal_IsDeclaredAssignedAndRead()
+    {
+        // a Dim has procedure extent: it starts at its declared type's default, and is the body's to assign.
+        var output = Run("10 Dim n As Long", "20 Debug.Print n", "30 n = 13", "40 Debug.Print n");
+
+        Assert.HasCount(2, output, string.Join(" / ", output));
+        Assert.Contains("0", output[0]);
+        Assert.Contains("13", output[1]);
     }
 
     [TestMethod]
@@ -184,10 +153,6 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
-    [Ignore("A procedure-local variable does not work in this harness yet: `Dim n As Long` / `n = 13` / `Debug.Print n` " +
-        "is an internal error before the call under test is reached. Un-ignore when local variables land " +
-        "(feature/implicit-locals); the argument under test is a variable, which is what makes it a parenthesized " +
-        "variable rather than a parenthesized expression.")]
     public void ACallOnTheErrorObject_WithAParenthesizedVariable_RaisesTheErrorItHolds()
     {
         var output = Run("10 On Error Resume Next", "15 Dim n As Long", "20 n = 13", "30 Err.Raise (n)", "40 Debug.Print Err.Number");
