@@ -287,8 +287,10 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         // ANTLR's line is 1-based; SourcePosition is documented zero-based (charPositionInLine already
         // is), matching the same -1 conversion VBABaseParserRuleContext applies to node locations. Also
         // anchored, same as node locations, so a fragment's syntax errors land at an absolute position
-        // in the larger document rather than one local to the fragment.
-        var position = anchorOffset + new SourcePosition(line - 1, charPositionInLine);
+        // in the larger document rather than one local to the fragment - through AnchoredAt rather than a
+        // plain addition, so an error past the fragment's first line is not pushed to the right by the
+        // anchor's own column.
+        var position = new SourcePosition(line - 1, charPositionInLine).AnchoredAt(anchorOffset);
         var location = new SourceLocation(_uri, new(position, position));
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
