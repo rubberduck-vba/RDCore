@@ -1,4 +1,6 @@
+using NSubstitute;
 using RDCore.Runtime.StdLib;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -15,7 +17,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.3 Conversion")]
 public sealed class NumericConversionFunctionTests
 {
-    private static readonly StdConversion Conversion = new();
+    private static StdConversion Conversion => new(Substitute.For<IRuntimeSession>());
 
     private static VBVariantValue Variant(VBTypedValue value) => new(value);
 
@@ -105,5 +107,5 @@ public sealed class NumericConversionFunctionTests
     public void TheMembersNothingImplementsYetSayTheyAreNotImplemented()
         => Assert.AreEqual(
             VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
-            ErrorOf(Conversion.CStr(Variant(new VBLongValue(1)))));
+            ErrorOf(Conversion.CLngPtr(Variant(new VBLongValue(1)))));
 }
