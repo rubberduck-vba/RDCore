@@ -415,7 +415,7 @@ public sealed class OperatorAnalysisFlagsTests : LetCoercionRuntimeSemanticsTest
 
     [TestMethod]
     public void AnExplicitLetCoercion_IsFlaggedExplicit()
-        => Assert.IsTrue(FlagsOf(new BinaryLetCoerceOperatorRuntimeSemantics(Provider(), Formatter()), new VBLongValue(1), new RDCore.SDK.Model.Values.Meta.VBTypeDescValue(VBDoubleType.TypeInfo))
+        => Assert.IsTrue(FlagsOf(new UnaryLetCoerceOperatorRuntimeSemantics(Provider(), Formatter()), new VBLongValue(1))
             .HasFlag(ConversionSemanticFlags.Explicit));
 
     #endregion

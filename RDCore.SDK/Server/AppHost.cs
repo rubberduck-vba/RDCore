@@ -155,14 +155,14 @@ public abstract class AppHost<TApp>() : IDisposable
         {
         }
 
-        // --help and --version are answered here, before any of the host exists: the command line asked
-        // a question rather than configuring a run, and the answer has now been written. Nothing built,
-        // nothing started, nothing wrong. This used to fall through into configuration, where the
-        // parser's default instance failed the client's "a client cannot start without a workspace"
-        // guard, so `rdc --help` printed a stack trace underneath its help and exited -1.
-        if (SdkCommandLine.TryAnswerTextOnlyRequest(args))
+        // a command line that asked a question (--help, --version) or that the parser could not make
+        // sense of is answered here, before any of the host exists: nothing built, nothing started. Both
+        // used to fall through into configuration, where the parser's default instance failed the
+        // client's "a client cannot start without a workspace" guard - so `rdc --help` printed a
+        // NullReferenceException stack trace underneath the help it had just been asked for.
+        if (SdkCommandLine.TryAnswer(args, out var answeredExitCode))
         {
-            return 0;
+            return answeredExitCode;
         }
 
         try
