@@ -113,6 +113,9 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
         expressionEvaluator.LetCoercionProvider = letCoercion;
         objectCoercion.ProcedureInvoker = invoker;
         objectCoercion.Session = session;
+        // what RuntimeExecutionPipeline.Create assigns: an omitted Optional argument's default is a
+        // constant expression, and this is what reduces it to a value.
+        objectCoercion.Expressions = expressionEvaluator;
 
         return (letCoercion, session);
     }
@@ -160,7 +163,7 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
     {
         var getStub = new VBPropertyGetMemberSymbol(Root, Root, ScopeKind.Instance, "Value", R, R, AccessModifier.Public);
         var me = new VBParameterSymbol(Root, getStub.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo);
-        var n = new VBParameterSymbol(Root, getStub.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: new VBLongValue(42));
+        var n = new VBParameterSymbol(Root, getStub.Uri, "n", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: TestExpressions.Literal(new VBLongValue(42)));
         var defaultMember = (VBTypeMemberSymbol)(getStub with { ResolvedType = VBLongType.TypeInfo, Parameters = [me, n] })
             .With(SymbolProperties.UserMemId, WellKnownDispIds.Value);
         var widget = new VBClassModuleSymbol(Root, Root, "Widget") { Members = [defaultMember] };

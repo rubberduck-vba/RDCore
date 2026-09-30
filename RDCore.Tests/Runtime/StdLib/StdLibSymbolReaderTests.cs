@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols;
@@ -282,7 +283,7 @@ public sealed class StdLibSymbolReaderTests
         Assert.AreEqual("Compare", compare.Name);
         Assert.IsTrue(compare.IsOptional);
         Assert.AreEqual("VbCompareMethod", compare.ResolvedType.Name);
-        Assert.AreEqual((int)VBCompareMethod.VBBinaryCompare, Convert.ToInt32(compare.DefaultValue!.Handle.Value.BoxedValue));
+        Assert.AreEqual((int)VBCompareMethod.VBBinaryCompare, Convert.ToInt32(((LiteralExpressionNode)compare.DefaultValue!).StaticValue.Handle.Value.BoxedValue));
     }
 
     [TestMethod]

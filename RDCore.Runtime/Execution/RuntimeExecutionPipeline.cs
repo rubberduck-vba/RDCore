@@ -144,6 +144,7 @@ public sealed class RuntimeExecutionPipeline
         // nothing assigned these, so every default-member Let-coercion reported an internal error.
         objectCoercion.ProcedureInvoker = invoker;
         objectCoercion.Bindings = bindings;
+        objectCoercion.Expressions = expressions;
         expressions.LetCoercionProvider = letCoercion;
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);

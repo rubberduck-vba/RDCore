@@ -184,6 +184,26 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     private readonly HashSet<SemanticId> _foldingConstants = [];
 
     /// <summary>
+    /// Reduces <paramref name="constantExpression"/> — the constant expression declared by
+    /// <paramref name="owner"/> — to its value, once for the whole run.
+    /// </summary>
+    /// <param name="session">The session the expression resolves its own names against.</param>
+    /// <param name="owner">The symbol that declares it: a <c>Const</c>, or a parameter with a default.</param>
+    /// <param name="constantExpression">The expression to reduce.</param>
+    /// <returns>Its value, or <c>null</c> when it could not be reduced.</returns>
+    /// <remarks>
+    /// For a caller that holds a declared constant expression but has no evaluation of its own to fold
+    /// it into — an omitted <c>Optional</c> argument on a default-member call, which
+    /// <c>VBObjectLetCoercionRuntimeSemantics</c> fills in itself. It shares this evaluator's memo, so a
+    /// constant expression is reduced once however many callers ask for it.
+    /// </remarks>
+    public VBTypedValue? Fold(IRuntimeSession session, Symbol owner, ExpressionNode constantExpression)
+    {
+        var result = FoldConstant(session, new RuntimeEvaluationContext(owner.ParentUri), owner, constantExpression);
+        return result.IsSuccess ? result.Result : null;
+    }
+
+    /// <summary>
     /// Reduces every <c>Const</c> in <paramref name="constants"/> to its value, once, ahead of the run.
     /// </summary>
     /// <remarks>
@@ -409,6 +429,30 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             : null;
     }
 
+    /// <summary>
+    /// Invokes the procedure <paramref name="callee"/> names, with <paramref name="argumentNodes"/> as
+    /// its arguments (<strong>MS-VBAL §5.4.2.1</strong>).
+    /// </summary>
+    /// <param name="session">The session the call runs in.</param>
+    /// <param name="context">The scope the callee and its arguments resolve from.</param>
+    /// <param name="callee">The call target.</param>
+    /// <param name="argumentNodes">The call's arguments.</param>
+    /// <returns>
+    /// What the callee returned, or an internal error when <paramref name="callee"/> does not name a
+    /// procedure this evaluator can call.
+    /// </returns>
+    /// <remarks>
+    /// For the bare call statement, whose argument list belongs to the statement rather than to any
+    /// expression under it — <c>Foo 1, 2</c>, which MS-VBAL grants no parenthesized <c>lExpression</c>
+    /// equivalent. Every parenthesized shape carries its arguments inside the callee's own
+    /// <c>IndexExpressionNode</c> and reaches the same invocation through <c>Evaluate</c> instead.
+    /// </remarks>
+    public RuntimeSemanticsEvaluationResult Invoke(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> argumentNodes)
+        => TryResolveCallableSub(session, context, callee) is { } procedure
+            ? InvokeProcedure(session, context, procedure, argumentNodes)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+
     private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
@@ -446,8 +490,22 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             if (argumentNode is null or MissingArgumentNode)
             {
                 // Unmapped, always Optional here (MapArguments already errored otherwise) - no caller
-                // expression to Let-coerce or alias, so just the parameter's own default.
-                arguments[i] = (parameter.DefaultValue ?? parameter.ResolvedType.DefaultValue).RuntimeValue;
+                // expression to Let-coerce or alias, so just the parameter's own default. That default is
+                // a constant expression (MS-VBAL 5.3.1.5), reduced by the same fold a Const's own is and
+                // therefore reduced once however many times the procedure is called without it.
+                if (parameter.DefaultValue is { } declaredDefault)
+                {
+                    var foldResult = FoldConstant(session, new RuntimeEvaluationContext(parameter.ParentUri), parameter, declaredDefault);
+                    if (!foldResult.IsSuccess)
+                    {
+                        return foldResult;
+                    }
+
+                    arguments[i] = foldResult.Result!.RuntimeValue;
+                    continue;
+                }
+
+                arguments[i] = parameter.ResolvedType.DefaultValue.RuntimeValue;
                 continue;
             }
 

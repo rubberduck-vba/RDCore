@@ -337,10 +337,12 @@ public record class ParameterDescriptor
     /// declaration has none — the host then falls back to the declared type's own default value.
     /// </summary>
     /// <remarks>
-    /// A <c>default-value</c> is a constant expression, so what crosses the wire is always the scalar or
-    /// sentinel a literal resolves to, which is exactly what <c>VBTypedValueJsonConverter</c> admits.
+    /// The expression, not a value: a constant expression is not always a literal (<c>Optional k As
+    /// Long = 3 * 5</c>, or one written in terms of a <c>Const</c>), and the host is where the evaluator
+    /// that can reduce it lives — the same reason <see cref="ConstantDescriptor.Value"/> travels
+    /// unreduced, and it is reduced by the same fold.
     /// </remarks>
-    public VBTypedValue? DefaultValue { get; init; }
+    public ExpressionNode? DefaultValue { get; init; }
 
     /// <summary>
     /// The declared type's name, or <c>null</c> — resolved host-side like a member's.

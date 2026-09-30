@@ -328,6 +328,56 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    // MS-VBAL 5.3.1.5 defines a `default-value` as a constant expression, which is not always a single
+    // literal. The symbol carried a value read off a literal node, so a default that was anything else —
+    // an operator over literals, or a Const — silently fell back to the declared type's default. It now
+    // carries the expression, and is reduced by the same fold a Const's own is.
+    [DataRow("Optional ByVal k As Long = 3 * 5", "k=15", DisplayName = "operator over literals")]
+    [DataRow("Optional ByVal k As Long = -1", "k=-1", DisplayName = "negative literal")]
+    [DataRow("Optional ByVal k As Long = MaxItems", "k=10", DisplayName = "a Const")]
+    [DataRow("Optional ByVal k As Long = MaxItems * 2", "k=20", DisplayName = "operator over a Const")]
+    public async Task AnOmittedOptionalArgument_ReducesADefaultThatIsNotALiteral(string parameter, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Const MaxItems As Long = 10\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "End Sub\r\n"
+            + $"Private Sub Foo({parameter})\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.4.2.1: the bare call statement, whose argument list is the statement's own because the
+    // grammar grants it no parenthesized lExpression equivalent. It is the ordinary VBA call form, and
+    // the one shape ExecuteCall refused — S9a wired the parenthesized and no-argument ones only.
+    [DataRow("Foo 7", "k=7|n=0", DisplayName = "one argument")]
+    [DataRow("Foo 7, 8", "k=7|n=8", DisplayName = "two arguments")]
+    [DataRow("Foo n:=8, k:=7", "k=7|n=8", DisplayName = "named arguments, out of order")]
+    [DataRow("Call Foo(7, 8)", "k=7|n=8", DisplayName = "the parenthesized form still works")]
+    [DataRow("Foo", "k=5|n=0", DisplayName = "no arguments at all still works")]
+    public async Task ABareCallStatement_PassesItsOwnArguments(string call, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + call + "\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long = 5, Optional ByVal n As Long)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "Debug.Print \"n=\" & n\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(expected.Split('|'), result.Output.ToArray());
+    }
+
+    [TestMethod]
     public async Task AnOmittedOptionalArgumentWithNoDeclaredDefault_GetsItsTypeDefault()
     {
         // the other half of the same MS-VBAL 5.3.1.5 rule, so carrying a declared default across cannot

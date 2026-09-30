@@ -52,6 +52,15 @@ public record class VBObjectLetCoercionRuntimeSemantics(
     public ICallableBindingFactory? Bindings { get; set; }
 
     /// <summary>
+    /// Reduces an omitted optional parameter's <c>default-value</c> expression (<strong>MS-VBAL
+    /// §5.3.1.5</strong>) to a value. Settable for the same construction-order reason as
+    /// <see cref="ProcedureInvoker"/>. <c>null</c> until composed, in which case a parameter that
+    /// declares a default falls back to its declared type's, as every one of them did before defaults
+    /// travelled at all.
+    /// </summary>
+    public RuntimeExpressionEvaluator? Expressions { get; set; }
+
+    /// <summary>
     /// The session a default member is looked up against. Settable for the same construction-order
     /// reason as <see cref="ProcedureInvoker"/> — needed because, per
     /// <c>SetCoercionRuntimeSemantics</c>'s own remarks, a <see cref="VBObjectValue"/>'s own
@@ -115,7 +124,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
         {
             arguments[i] = parameters[i] is ParamArrayParameterSymbol
                 ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([])))
-                : (parameters[i].DefaultValue ?? parameters[i].ResolvedType.DefaultValue).RuntimeValue;
+                : DefaultValueOf(parameters[i]).RuntimeValue;
         }
 
         // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
@@ -125,6 +134,24 @@ public record class VBObjectLetCoercionRuntimeSemantics(
         return invocation.IsSuccess
             ? LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression, frame with { SourceValue = invocation.Result! })
             : LetCoercionResult.Error(invocation.ErrorInfo!);
+    }
+
+    // MS-VBAL 5.3.1.5: a parameter's <default-value> is a constant expression, reduced by the same fold
+    // a Const's own is. A default that cannot be reduced - nothing composed to reduce it with, or an
+    // expression the fold could not evaluate - falls back to the declared type's default, which is what
+    // every optional parameter got before declared defaults travelled at all.
+    private VBTypedValue DefaultValueOf(VBParameterSymbol parameter)
+    {
+        if (parameter.DefaultValue is { } declared && Expressions is { } expressions && Session is { } session)
+        {
+            var folded = expressions.Fold(session, parameter, declared);
+            if (folded is not null)
+            {
+                return folded;
+            }
+        }
+
+        return parameter.ResolvedType.DefaultValue;
     }
 
     /// <summary>
