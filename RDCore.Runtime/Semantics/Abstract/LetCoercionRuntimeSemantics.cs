@@ -1,4 +1,5 @@
-﻿using RDCore.Runtime.Semantics.LetCoercion;
+﻿using RDCore.Runtime.Semantics.Conversion;
+using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
@@ -115,6 +116,23 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     protected VBRuntimeErrorInfo OnLetCoercionTypeMismatch(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
+
+    /// <summary>
+    /// Reports the outcome of a <see cref="ValueConversions"/> conversion as the outcome of this coercion: the
+    /// conversion knows what the value becomes or which error it raises, and only the coercion knows where.
+    /// </summary>
+    protected LetCoercionResult FromConversion(ValueConversionResult conversion, ExpressionNode expression, LetCoercionStackFrame frame)
+        => conversion switch
+        {
+            { IsApplicable: false } => LetCoercionResult.NotApplicable(frame),
+            { Error: VBRuntimeErrorId.Overflow } => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
+            { Error: VBRuntimeErrorId.TypeMismatch } => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
+            { Error: VBRuntimeErrorId.InvalidUseOfNull } => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
+            { Error: not null } => throw new InvalidOperationException(
+                $"A conversion raised {conversion.Error}, which no let-coercion reports."),
+            { Value: { } value } => LetCoercionResult.Success(value),
+            _ => throw new InvalidOperationException("A conversion neither succeeded nor failed."),
+        };
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.

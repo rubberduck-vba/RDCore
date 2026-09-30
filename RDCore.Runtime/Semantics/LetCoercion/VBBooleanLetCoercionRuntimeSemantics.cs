@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Semantics.Abstract;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -35,52 +36,9 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBBooleanType>(FormatterService)
 {
     public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
-        frame.SourceValue switch
-        {
-            VBBooleanValue booleanSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => LetCoercionResult.Success(new VBBooleanValue((bool)booleanSourceValue.Value)),
-
-            // MS-VBAL 5.5.1.2.2: "If the source value is 0, the result is False. Otherwise, the result is True."
-            VBNumericTypedValue numericSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => LetCoercionResult.Success(new VBBooleanValue(numericSourceValue.AsDouble != 0)),
-
-            // MS-VBAL 5.5.1.2.3: a Date source coerces via its standard Double (serial value) representation.
-            VBDateValue dateSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => LetCoercionResult.Success(new VBBooleanValue(dateSourceValue.SerialValue != 0)),
-
-            VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => CoerceStringToBoolean(resolver, expression, frame, stringSourceValue),
-
-            // MS-VBAL 5.5.1.2.11: "The result is False."
-            VBEmptyValue when frame.DestinationTypeDesc.Target is VBBooleanType
-                => LetCoercionResult.Success(VBBooleanValue.False),
-
-            _ => LetCoercionResult.NotApplicable(frame)
-        };
-
-    // MS-VBAL 5.5.1.2.4: "True"/"False" are matched case-insensitive; "#TRUE#"/"#FALSE#" case-sensitive.
-    // Otherwise, the result is the source string let-coerced to Double, then let-coerced to Boolean.
-    private LetCoercionResult CoerceStringToBoolean(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame, VBStringValue source)
-    {
-        if (string.Equals(source.Value, Tokens.True, StringComparison.InvariantCultureIgnoreCase)
-            || string.Equals(source.Value, "#TRUE#", StringComparison.InvariantCulture))
-        {
-            return LetCoercionResult.Success(VBBooleanValue.True, [frame]);
-        }
-
-        if (string.Equals(source.Value, Tokens.False, StringComparison.InvariantCultureIgnoreCase)
-            || string.Equals(source.Value, "#FALSE#", StringComparison.InvariantCulture))
-        {
-            return LetCoercionResult.Success(VBBooleanValue.False, [frame]);
-        }
-
-        var doubleCoercion = Provider.EvaluateLetCoercionSemantics(resolver, expression,
-            frame with { DestinationTypeDesc = new VBTypeDescValue(VBDoubleType.TypeInfo) });
-
-        return doubleCoercion.Result is VBDoubleValue coerced
-            ? LetCoercionResult.Success(new VBBooleanValue((double)coerced.RuntimeValue.BoxedValue != 0), [frame])
-            : doubleCoercion;
-    }
+        frame.DestinationTypeDesc.Target is VBBooleanType
+            ? FromConversion(ValueConversions.ToBoolean(frame.SourceValue), expression, frame)
+            : LetCoercionResult.NotApplicable(frame);
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {
