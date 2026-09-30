@@ -142,6 +142,33 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
+    [DataRow("Err.Raise (13 + 1)", "14", DisplayName = "a parenthesized expression")]
+    [DataRow("Err.Raise (5)", "5", DisplayName = "a parenthesized literal")]
+    [DataRow("Err.Raise(13 + 1)", "14", DisplayName = "an argument list, no space")]
+    public void ACallOnTheErrorObject_WithAParenthesizedArgument_RaisesTheErrorItIsGiven(string call, string expected)
+    {
+        // `Err.Raise (13 + 1)` is a bare call whose one argument is a parenthesized expression, and
+        // `Err.Raise(13 + 1)` is a call whose parentheses are the argument list; both raise error 14.
+        var output = Run("10 On Error Resume Next", $"20 {call}", "30 Debug.Print Err.Number");
+
+        Assert.HasCount(1, output, string.Join(" / ", output));
+        Assert.Contains(expected, output[0]);
+    }
+
+    [TestMethod]
+    [Ignore("A procedure-local variable does not work in this harness yet: `Dim n As Long` / `n = 13` / `Debug.Print n` " +
+        "is an internal error before the call under test is reached. Un-ignore when local variables land " +
+        "(feature/implicit-locals); the argument under test is a variable, which is what makes it a parenthesized " +
+        "variable rather than a parenthesized expression.")]
+    public void ACallOnTheErrorObject_WithAParenthesizedVariable_RaisesTheErrorItHolds()
+    {
+        var output = Run("10 On Error Resume Next", "15 Dim n As Long", "20 n = 13", "30 Err.Raise (n)", "40 Debug.Print Err.Number");
+
+        Assert.HasCount(1, output, string.Join(" / ", output));
+        Assert.Contains("13", output[0]);
+    }
+
+    [TestMethod]
     public void ACallOnTheErrorObject_WithNoArguments_ClearsTheError()
     {
         var output = Run(
