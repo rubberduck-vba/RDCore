@@ -51,6 +51,18 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public ImmutableArray<SymbolDescriptor> Symbols { get; init; } = [];
 
     /// <summary>
+    /// The module's own <c>Option</c> directives (<strong>MS-VBAL §5.2.1</strong>), which the host
+    /// applies to its module symbol.
+    /// </summary>
+    /// <remarks>
+    /// These are run-time dials, not only static ones: <c>Option Compare</c> decides how the relational
+    /// operators compare <c>String</c> values in the module's code, and <c>Option Base</c> decides what
+    /// an array dimension declared without a lower bound means. Both are read off the activation's own
+    /// call-stack frame, which gets them from the module symbol the procedure is declared in.
+    /// </remarks>
+    public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
+
+    /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
     /// skipped.
     /// </summary>

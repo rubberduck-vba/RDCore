@@ -89,6 +89,7 @@ public sealed class HostExecuteHandlerTests
                 ModuleUri = moduleUri,
                 ModuleName = ModuleName,
                 Symbols = SymbolDescriptorProjector.Project(symbols, moduleUri),
+                Directives = parse.SyntaxTree.GetModuleDirectives(),
                 Replace = true,
             }, CancellationToken.None);
         Assert.IsGreaterThan(0, defined.Defined + defined.Replaced, "no symbols were defined in the session");
@@ -230,6 +231,28 @@ public sealed class HostExecuteHandlerTests
             + "End Sub\r\n");
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, result.Outcome);
+    }
+
+    [TestMethod]
+    // MS-VBAL 5.2.1: a procedure's code runs under the Option directives of the module declaring it.
+    // The runtime reads them off the activation's own call-stack frame, and the invoker never gave the
+    // frame any: the module symbol is composed from the .rdproj without parsing, and nothing carried
+    // the parsed module's directives to the host afterwards. So every dial silently took its default.
+    [DataRow("Option Compare Text\r\n", "Debug.Print (\"a\" = \"A\")", "True", DisplayName = "Option Compare Text")]
+    [DataRow("", "Debug.Print (\"a\" = \"A\")", "False", DisplayName = "Option Compare Binary is the default")]
+    [DataRow("Option Compare Binary\r\n", "Debug.Print (\"a\" = \"A\")", "False", DisplayName = "Option Compare Binary")]
+    [DataRow("Option Compare Text\r\n", "Debug.Print (\"ABC\" Like \"abc\")", "True", DisplayName = "Option Compare Text governs Like")]
+    public async Task AModuleOptionDirective_ReachesTheRunningCode(string options, string body, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + options
+            + "Public Sub Main()\r\n"
+            + body + "\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
     }
 
     [TestMethod]
