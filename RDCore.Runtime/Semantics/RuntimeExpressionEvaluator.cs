@@ -196,28 +196,59 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     private RuntimeSemanticsEvaluationResult EvaluateMemberAccess(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
     {
-        VBTypedValue owner;
-        if (memberAccess.Owner is { } ownerExpression)
+        var ownerResult = EvaluateOwner(session, context, memberAccess);
+        if (!ownerResult.IsSuccess)
         {
-            var ownerResult = Evaluate(session, ownerExpression, context);
-            if (!ownerResult.IsSuccess)
-            {
-                return ownerResult;
-            }
-            owner = ownerResult.Result!;
-        }
-        else if (context.EnclosingWithTarget is { } withTarget)
-        {
-            owner = withTarget;
-        }
-        else
-        {
-            // MS-VBAL §5.6.15: invalid with no enclosing With block - static semantics should already
-            // have rejected this.
-            return RuntimeSemanticsEvaluationResult.InternalError();
+            return ownerResult;
         }
 
-        return EvaluateInstanceField(session, owner, memberAccess.Member.IdentifierName);
+        var owner = ownerResult.Result!;
+        var memberName = memberAccess.Member.IdentifierName;
+
+        // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
+        return TryResolveInvocableMember(session, owner, memberName) is { } found
+            ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
+            : EvaluateInstanceField(session, owner, memberName);
+    }
+
+    // the value a member is accessed on: the expression written before the dot, or the enclosing With block's target.
+    private RuntimeSemanticsEvaluationResult EvaluateOwner(IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess)
+    {
+        if (memberAccess.Owner is { } ownerExpression)
+        {
+            return Evaluate(session, ownerExpression, context);
+        }
+
+        // MS-VBAL §5.6.15: invalid with no enclosing With block - static semantics should already
+        // have rejected this.
+        return context.EnclosingWithTarget is { } withTarget
+            ? RuntimeSemanticsEvaluationResult.Success(withTarget)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    /// <summary>
+    /// The member of an object that a qualified call invokes, and the object it is invoked on.
+    /// </summary>
+    /// <remarks>
+    /// Any object the session has an instance record for has one, whether the class is the workspace's or the
+    /// library's: the error object is an instance of the library's <c>ErrObject</c>, and finds its members here the
+    /// same way. A Property Let or Set of the same name is an assignment's business, not a read's, and is not
+    /// considered.
+    /// </remarks>
+    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveInvocableMember(
+        IRuntimeSession session, VBTypedValue owner, string memberName)
+    {
+        if (UnwrappedOwner(owner) is not VBObjectValue { } objectValue || objectValue.IsNothing()
+            || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
+        {
+            return null;
+        }
+
+        var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol
+            && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
+
+        return member is null ? null : (objectValue.RuntimeValue, member);
     }
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
@@ -276,7 +307,30 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return InvokeProcedure(session, context, sub, indexExpression.Arguments);
         }
 
-        var calleeResult = Evaluate(session, indexExpression.Callee, context);
+        // a call written on an object - Err.Raise 5, obj.Item(1) - invokes the member the object's class has by that
+        // name. The owner is evaluated once, here, because evaluating it again to read the member as an array would
+        // repeat whatever it does.
+        RuntimeSemanticsEvaluationResult calleeResult;
+        if (indexExpression.Callee is MemberAccessExpressionNode qualified)
+        {
+            var ownerResult = EvaluateOwner(session, context, qualified);
+            if (!ownerResult.IsSuccess)
+            {
+                return ownerResult;
+            }
+
+            if (TryResolveInvocableMember(session, ownerResult.Result!, qualified.Member.IdentifierName) is { } found)
+            {
+                return InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver);
+            }
+
+            calleeResult = EvaluateInstanceField(session, ownerResult.Result!, qualified.Member.IdentifierName);
+        }
+        else
+        {
+            calleeResult = Evaluate(session, indexExpression.Callee, context);
+        }
+
         if (!calleeResult.IsSuccess)
         {
             return calleeResult;
@@ -332,9 +386,12 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             : null;
     }
 
-    private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes)
+    private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null)
     {
-        var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
+        var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
+        // a call made on an object supplies its own implicit Me (parameter 0), so the arguments written at the call
+        // site map onto the parameters after it.
+        var parameters = receiver is not null && allParameters is [{ Name: "Me" }, ..] ? allParameters.RemoveAt(0) : allParameters;
         if (ProcedureInvoker is null || LetCoercionProvider is null)
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
@@ -422,11 +479,13 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                 : coercionResult.Result!.RuntimeValue;
         }
 
+        IRuntimeValue[] callArguments = receiver is null ? arguments : [receiver, .. arguments];
+
         // through a binding rather than straight to the invoker: whether this member's code is the workspace's
         // is the factory's decision, and a call site has no business knowing.
         return Bindings is { } bindings
-            ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, arguments)
-            : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, arguments);
+            ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, callArguments)
+            : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, callArguments);
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);

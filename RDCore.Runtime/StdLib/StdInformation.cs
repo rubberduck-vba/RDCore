@@ -1,6 +1,10 @@
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
@@ -17,6 +21,9 @@ namespace RDCore.Runtime.StdLib;
 /// <param name="session">The session whose state these members report on.</param>
 public sealed class StdInformation(IRuntimeSession session) : IStdInformationModule
 {
+    // the error object is one object for the life of the session (MS-VBAL 6.1.3.2), so it has one identity.
+    private readonly VBRuntimeObjectId _errorObject = session.Objects.CreateObject();
+
     /// <summary>
     /// The error every member that is declared but not written yet returns.
     /// </summary>
@@ -31,7 +38,26 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, default,
             $"'{member}' is declared but not implemented yet."));
 
-    public RuntimeSemanticsEvaluationResult<VBObjectValue> Err() => NotImplemented<VBObjectValue>(nameof(Err));
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.3.2</strong> The error object: one object for the life of the session, registered as an
+    /// instance of the library's <c>ErrObject</c> class so that a member access on it finds that class's members
+    /// the same way it finds a workspace class's.
+    /// </summary>
+    public RuntimeSemanticsEvaluationResult<VBObjectValue> Err()
+    {
+        if (!session.Symbols.TryGetInstance(_errorObject, out _))
+        {
+            var declared = session.Symbols.Resolver.ResolveType("ErrObject", ScopeKind.Global, StaticSymbol.GlobalUri).Symbol;
+            if (declared is not VBClassModuleSymbol errorClass)
+            {
+                return NotImplemented<VBObjectValue>(nameof(Err));
+            }
+
+            session.Symbols.CreateInstance(_errorObject, errorClass);
+        }
+
+        return RuntimeSemanticsEvaluationResult<VBObjectValue>.Success(new VBObjectValue(_errorObject));
+    }
 
     /// <summary>
     /// The line the session's most recent run-time error was raised at, counted the way the environment says

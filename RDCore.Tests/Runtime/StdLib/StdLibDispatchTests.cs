@@ -106,6 +106,45 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
+    public void TheErrorObject_ReportsTheErrorThatWasRaised()
+    {
+        var output = Run("10 On Error Resume Next", "20 Error 11", "30 Debug.Print Err.Number", "40 Debug.Print Err.Description");
+
+        Assert.HasCount(2, output, string.Join(" / ", output));
+        Assert.Contains("11", output[0]);
+        Assert.Contains("Division by zero", output[1]);
+    }
+
+    [TestMethod]
+    public void ACallOnTheErrorObject_RaisesTheErrorItIsGiven()
+    {
+        // MS-VBAL 6.1.3.2.1.2: Raise is a Sub of the error object, called with arguments, and the error it raises is
+        // the one a handler sees. Erl is the statement that raised it.
+        var output = Run(
+            "10 On Error Resume Next",
+            "20 Err.Raise(5)",
+            "30 Debug.Print Err.Number",
+            "40 Debug.Print Err.Description");
+
+        Assert.HasCount(2, output, string.Join(" / ", output));
+        Assert.Contains("5", output[0]);
+        Assert.Contains("Invalid procedure call or argument", output[1]);
+    }
+
+    [TestMethod]
+    public void ACallOnTheErrorObject_WithNoArguments_ClearsTheError()
+    {
+        var output = Run(
+            "10 On Error Resume Next",
+            "20 Error 11",
+            "30 Err.Clear",
+            "40 Debug.Print Err.Number");
+
+        Assert.HasCount(1, output, string.Join(" / ", output));
+        Assert.Contains("0", output[0]);
+    }
+
+    [TestMethod]
     public void AMemberNothingImplementsYet_IsARunTimeError_NotAnInternalOne()
     {
         // most of the library, today. The symbol resolves and the call is well-formed; the platform has not

@@ -1,3 +1,5 @@
+using RDCore.Runtime.Execution;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -53,6 +55,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
             [typeof(IStdStringsModule)] = new StdStrings(),
             [typeof(IStdFinancialModule)] = new StdFinancial(),
+            [typeof(IStdErrClass)] = new ErrObject(session),
         });
 
     /// <summary>
@@ -139,12 +142,17 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         var parameters = method.GetParameters();
         arguments = new object?[parameters.Length];
 
+        // a member of a class is called on an object, which arrives as the implicit Me at parameter 0. The
+        // library's classes keep no state in the receiver - the error object is a view of the session's - so the
+        // implementation is written without it, and it is the arguments after it that marshal.
+        var supplied = HasReceiver(request.Member) ? request.Arguments[1..] : request.Arguments;
+
         // an argument the caller did not supply is an omitted Optional: the implementation's own default
         // stands in, which for a VBTypedValue parameter is null - the "Missing" its signature declares. The
         // interpreter itself never leaves one out: it fills an omitted Optional with the parameter's default
         // value - Empty for a Variant, and a typed one's own type's default, such as False, never null - so an
         // implementation reads null and Empty alike as omitted, and cannot tell a typed one from its default.
-        if (request.Arguments.Length > parameters.Length)
+        if (supplied.Length > parameters.Length)
         {
             return false;
         }
@@ -152,13 +160,13 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         for (var index = 0; index < parameters.Length; index++)
         {
             var parameter = parameters[index];
-            if (index >= request.Arguments.Length)
+            if (index >= supplied.Length)
             {
                 arguments[index] = parameter.HasDefaultValue ? parameter.DefaultValue : null;
                 continue;
             }
 
-            if (!TryMarshal(request.Arguments[index], parameter.ParameterType, out arguments[index]))
+            if (!TryMarshal(supplied[index], parameter.ParameterType, out arguments[index]))
             {
                 return false;
             }
@@ -166,6 +174,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
         return true;
     }
+
+    // the reader gives an instance member an implicit Me at parameter 0, exactly as a workspace class's members have.
+    private static bool HasReceiver(VBTypeMemberSymbol member)
+        => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: "Me", ParameterKind: ParameterKind.ImplicitByRef }, ..];
 
     private static bool TryMarshal(IRuntimeValue argument, Type parameterType, out object? marshalled)
     {

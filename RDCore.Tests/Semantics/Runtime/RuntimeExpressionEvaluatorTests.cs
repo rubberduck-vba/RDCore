@@ -171,8 +171,9 @@ public sealed class RuntimeExpressionEvaluatorTests
     }
 
     [TestMethod]
-    public void MemberAccess_APropertyOrMethodMember_DefersAsInternalError()
-        // a call is not a field read, and must never be silently (and wrongly) treated as one.
+    public void MemberAccess_AMethodMember_WithNoInvokerComposed_IsAnInternalError()
+        // a call is not a field read, and must never be silently (and wrongly) treated as one: it is invoked, and an
+        // evaluator with no invoker to invoke it with says so.
     {
         var classModule = new VBClassModuleSymbol(Root, Root, "Class1");
         var method = new VBProcedureMemberSymbol(Root, classModule.Uri, "DoSomething", ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Implicit);
