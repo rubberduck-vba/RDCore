@@ -256,7 +256,8 @@ public static class SymbolDescriptorReader
                     parameter.DeclaredTypeName is not null && resolveType(parameter.DeclaredTypeName) is { } type
                         ? type
                         : VBUnknownType.TypeInfo,
-                    parameter.IsOptional));
+                    parameter.IsOptional,
+                    parameter.DefaultValue));
         }
         return builder.ToImmutable();
     }

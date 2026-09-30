@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -267,6 +268,16 @@ public record class ParameterDescriptor
     /// Whether the parameter is a <c>ParamArray</c>.
     /// </summary>
     public bool IsParamArray { get; init; }
+
+    /// <summary>
+    /// The value of the parameter's <c>default-value</c> clause (MS-VBAL 5.3.1.5), or <c>null</c> when the
+    /// declaration has none — the host then falls back to the declared type's own default value.
+    /// </summary>
+    /// <remarks>
+    /// A <c>default-value</c> is a constant expression, so what crosses the wire is always the scalar or
+    /// sentinel a literal resolves to, which is exactly what <c>VBTypedValueJsonConverter</c> admits.
+    /// </remarks>
+    public VBTypedValue? DefaultValue { get; init; }
 
     /// <summary>
     /// The declared type's name, or <c>null</c> — resolved host-side like a member's.

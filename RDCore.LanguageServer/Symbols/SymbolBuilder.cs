@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
@@ -216,10 +217,21 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind)
                 : new VBParameterSymbol(
                     workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind,
-                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional));
+                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional,
+                    DefaultValueOf(parameter)));
         }
         return builder.ToImmutable();
     }
+
+    // MS-VBAL 5.3.1.5: `default-value = "=" constant-expression`, and 5.3.1.10 Let-assigns that value to
+    // an unmapped optional parameter's own local. The argDefaultValue expression is built as a trailing
+    // child of the parameter node (the As-type clause being the other one), so the symbol carries it
+    // across to the host instead of leaving the invoker with only the declared type's default - which is
+    // what `Optional k As Long = 5` was invoked with, arriving as 0.
+    // 🚧 TODO: a constant expression that is not a single literal - a Const name, or an operator over
+    // literals - carries no static value on its node yet, and still falls back to the type's default.
+    private static VBTypedValue? DefaultValueOf(ParameterDeclarationNode parameter)
+        => parameter.Children.OfType<LiteralExpressionNode>().LastOrDefault()?.StaticValue;
 
     private VBType ReturnType(MemberDeclarationNode member, Uri memberUri)
         => ImplicitOrDeclaredType(member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault(), typeHint: null, memberUri);

@@ -179,6 +179,7 @@ internal static class SymbolDescriptorProjector
                 ParameterKind = parameter.ParameterKind,
                 IsOptional = parameter.IsOptional,
                 IsParamArray = parameter is ParamArrayParameterSymbol,
+                DefaultValue = parameter.DefaultValue,
                 DeclaredTypeName = parameter.ResolvedType is VBUnknownType or VBVoidType ? null : parameter.ResolvedType.Name,
                 Range = parameter.Range,
             });

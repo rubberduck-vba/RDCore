@@ -187,6 +187,49 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    public async Task AnOmittedOptionalArgument_GetsItsDeclaredDefault_NotTheTypeDefault()
+    {
+        // MS-VBAL 5.3.1.5: a `default-value` clause specifies the parameter's default value, and only a
+        // parameter declaring none falls back to its declared type's. The value was dropped at the very
+        // first stage — SymbolBuilder built the parameter symbol without it — so `Optional k As Long = 5`
+        // arrived as 0 and `Optional t As String = "abc"` as "", all the way across the wire.
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "Call Foo(7)\r\n"
+            + "Bar\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long = 5)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Bar(Optional ByVal t As String = \"abc\")\r\n"
+            + "Debug.Print \"t=\" & t\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "k=5", "k=7", "t=abc" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnOmittedOptionalArgumentWithNoDeclaredDefault_GetsItsTypeDefault()
+    {
+        // the other half of the same MS-VBAL 5.3.1.5 rule, so carrying a declared default across cannot
+        // quietly become "carry something either way".
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Foo\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Foo(Optional ByVal k As Long)\r\n"
+            + "Debug.Print \"k=\" & k\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "k=0" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
     public async Task AnEntryPointThatIsNotThere_IsReportedAsNotFound()
     {
         var result = await ExecuteAsync(Module("10 Debug.Print 1"), entryPoint: "Nowhere");
