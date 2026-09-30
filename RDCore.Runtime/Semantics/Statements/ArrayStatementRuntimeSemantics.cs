@@ -67,13 +67,16 @@ public sealed record class ArrayStatementRuntimeSemantics(
             ? declared.CreateValue(session.Symbols.Resolver.GetValue(symbol))
             : null;
 
-        if (Unwrapped(current) is not VBArrayValue array)
+        var held = Unwrapped(current);
+        if (held is not VBArrayValue array)
         {
             // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
             // value type is not an array" - which cannot be read as covering the Empty a Variant starts as,
             // since the static rule admits a Variant target precisely so that it can become an array, and
-            // `Dim v As Variant: ReDim v(5)` would otherwise be impossible to write.
-            return current is null or VBVariantValue or VBEmptyValue
+            // `Dim v As Variant: ReDim v(5)` would otherwise be impossible to write. What the Variant holds
+            // is what the rule is about, so it is the unwrapped value that decides: a Variant holding a
+            // number is the error, and one holding nothing yet is not.
+            return held is null or VBEmptyValue
                 ? Allocate(session, symbol, new VBResizableArrayValue(bounds, ItemTypeOf(current)))
                 : Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
         }
@@ -221,12 +224,21 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
     }
 
+    // TODO raise error 10 ("This array is fixed or temporarily locked") when the variable is currently
+    // aliased by a ByRef parameter, which MS-VBAL §5.4.3.3 requires. Nothing models that lock yet.
     private static RuntimeExecutionOutcome Allocate(IRuntimeSession session, Symbol symbol, VBArrayValue array)
-        // TODO raise error 10 ("This array is fixed or temporarily locked") when the variable is currently
-        // aliased by a ByRef parameter, which MS-VBAL §5.4.3.3 requires. Nothing models that lock yet.
-        => session.Symbols.Resolver.TryAllocate(symbol, array, out _)
+    {
+        // a Variant-declared variable stores a Variant, whatever it holds: its declared type is what reads
+        // the value back, and VBVariantType can only read a Variant. Storing the bare array would make the
+        // very next read of the variable throw.
+        var stored = symbol is ITypedSymbol { ResolvedType: VBVariantType }
+            ? new VBVariantValue(array)
+            : (VBTypedValue)array;
+
+        return session.Symbols.Resolver.TryAllocate(symbol, stored, out _)
             ? RuntimeExecutionOutcome.Next
             : RuntimeExecutionOutcome.InternalError;
+    }
 
     private bool TryEvaluateBounds(
         IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim,

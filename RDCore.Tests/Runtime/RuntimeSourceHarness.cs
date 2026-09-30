@@ -87,6 +87,22 @@ internal static class RuntimeSourceHarness
     public static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
         IFileSystem? fileSystem, IEnumerable<Symbol> symbols, IRuntimeOutput? output, bool standardLibrary,
         Action<IRuntimeSession>? arrange, params string[] body)
+        => Run(fileSystem, symbols, output, standardLibrary, arrange, ModuleDirectives.None, body);
+
+    /// <summary>
+    /// <inheritdoc cref="Run(IFileSystem?, IEnumerable{Symbol}, string[])" path="/summary"/>
+    /// </summary>
+    /// <param name="fileSystem">The file system the session's file channels open against.</param>
+    /// <param name="symbols">The symbols the source refers to.</param>
+    /// <param name="output">Where the body's <c>Debug.Print</c> output goes, or <c>null</c> to discard it.</param>
+    /// <param name="standardLibrary">Whether the library's own symbols are defined too.</param>
+    /// <param name="arrange">What to do to the composed session before the body runs.</param>
+    /// <param name="directives">The module dials the body runs under - <c>Option Base</c> and the rest, which
+    /// ride on the executing frame rather than on anything the body can say.</param>
+    /// <param name="body">The statements, one per line.</param>
+    public static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
+        IFileSystem? fileSystem, IEnumerable<Symbol> symbols, IRuntimeOutput? output, bool standardLibrary,
+        Action<IRuntimeSession>? arrange, ModuleDirectives directives, params string[] body)
     {
         // resolution walks the scope tree, so the module and the procedure have to be in it as symbols and
         // not only as a call frame: a name resolved from a procedure Uri no node exists for resolves to
@@ -112,7 +128,8 @@ internal static class RuntimeSourceHarness
 
         var procedureUri = procedure.Uri;
         var nodeId = new SyntaxNodeId(procedureUri.AbsolutePath, [1]);
-        var frame = session.Symbols.CreateFrame(nodeId, new StaticSymbol(ProcedureName, SymbolKindExt.Procedure, VBVoidType.TypeInfo));
+        var frame = session.Symbols.CreateFrame(
+            nodeId, new StaticSymbol(ProcedureName, SymbolKindExt.Procedure, VBVoidType.TypeInfo), directives);
         session.CallStack.TryPush(frame);
         arrange?.Invoke(session);
 
