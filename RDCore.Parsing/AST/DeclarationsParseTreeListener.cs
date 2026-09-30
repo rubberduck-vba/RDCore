@@ -1029,8 +1029,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var value = context.identifier().untypedIdentifier()?.GetText()
-            ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
+        // every link of this chain is optional on a recovered parse — `x = a$b` and `Foo Left$x` both
+        // reach here with a typedIdentifier carrying no untypedIdentifier. An NRE here is not contained
+        // to the expression: it unwinds the whole walk, and the module comes back with none of its
+        // members at all, the valid procedures after the bad line included.
+        var identifier = context.identifier();
+        var value = identifier?.untypedIdentifier()?.GetText()
+            ?? identifier?.typedIdentifier()?.untypedIdentifier()?.GetText();
+        if (value is null)
+        {
+            // no readable name, so there is no name to build a node around. The parse has already
+            // recorded a syntax error here, which is what makes this a non-event rather than silence.
+            return;
+        }
+
         var location = context.GetSourceLocation(_rootUri);
         OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value));
     }

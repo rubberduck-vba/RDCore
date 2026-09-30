@@ -148,6 +148,24 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
+    // a type-declaration character in the middle of a name — `a$b`, or `Left$x` as a bare argument —
+    // recovers into a typedIdentifier carrying no untypedIdentifier. ExitSimpleNameExpr walked that
+    // chain unguarded, and the NullReferenceException unwound the whole walk: the module came back with
+    // no members at all, the valid procedures after the bad line included.
+    [DataRow("x = a$b", DisplayName = "type character inside a name")]
+    [DataRow("Foo Left$x", DisplayName = "type character between a name and an argument")]
+    public void AnUnreadableSimpleName_CostsItsOwnExpression_NotEveryMemberOfTheModule(string badLine)
+    {
+        var result = Parse($"Public Sub Broken()\r\n{badLine}\r\nEnd Sub\r\nPublic Sub After()\r\nEnd Sub\r\n");
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.SyntaxTree);
+        var members = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Select(member => member.Name).ToArray();
+        CollectionAssert.Contains(members, "Broken");
+        CollectionAssert.Contains(members, "After");
+    }
+
+    [TestMethod]
     // adversarial review #208-224, item 1's own measured repro: a truncated operator expression mid-body
     // (`a = 1 +`) threw inside PopLastChildren under recovery, and ModuleParser's outer catch salvaged
     // whatever had been built *before* the throw — silently dropping every member and local that hadn't
