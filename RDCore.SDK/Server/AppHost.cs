@@ -155,6 +155,16 @@ public abstract class AppHost<TApp>() : IDisposable
         {
         }
 
+        // --help and --version are answered here, before any of the host exists: the command line asked
+        // a question rather than configuring a run, and the answer has now been written. Nothing built,
+        // nothing started, nothing wrong. This used to fall through into configuration, where the
+        // parser's default instance failed the client's "a client cannot start without a workspace"
+        // guard, so `rdc --help` printed a stack trace underneath its help and exited -1.
+        if (SdkCommandLine.TryAnswerTextOnlyRequest(args))
+        {
+            return 0;
+        }
+
         try
         {
             var builder = Host.CreateApplicationBuilder();
