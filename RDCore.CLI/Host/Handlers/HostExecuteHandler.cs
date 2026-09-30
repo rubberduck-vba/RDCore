@@ -2,6 +2,8 @@ using RDCore.SDK.Model.Errors.Abstract;
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
@@ -56,6 +58,23 @@ internal sealed class HostExecuteHandler(
         // every procedure of the module, lowered and keyed by the session symbol it belongs to, so a
         // call from one to another resolves through the invoker like any other call would.
         var bodies = new Dictionary<SemanticId, InstructionList>();
+
+        // composed before anything is lowered, because lowering needs its expression evaluator to decide
+        // which #If branches are live. The invoker looks a body up at call time, so the dictionary it
+        // holds here is this same one, still being filled below.
+        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, messages, token);
+
+        // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
+        // ever sees it. The parser leaves both branches' statements in the body AST as plain siblings
+        // and records the directives separately, so the only thing correlating a statement to its own
+        // branch is source position - which is what a dead range is. Until this call existed, both
+        // branches of every #If ran: an assignment in the dead branch won, and a division by zero
+        // inside `#If False` raised error 11.
+        // The scope is the global one because that is where a #Const is bound and resolved from
+        // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant), not the module being lowered.
+        var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(
+            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), payload.ParseResult.PrecompilerTrivia);
+
         VBTypeMemberSymbol? entryPoint = null;
         foreach (var member in syntaxTree.Children.OfType<MemberDeclarationNode>())
         {
@@ -70,7 +89,7 @@ internal sealed class HostExecuteHandler(
             // conditional compilation constant says it is.
             var lowering = InstructionListLowering.Lower(
                 new StatementBlock([.. member.Children]),
-                new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild()));
+                new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild()));
             if (lowering.Errors.Length > 0)
             {
                 return Task.FromResult(new ExecuteSessionResult
@@ -93,7 +112,7 @@ internal sealed class HostExecuteHandler(
         }
 
         var output = new RuntimeOutputBuffer();
-        var result = Run(session, bodies, entryPoint, output, token);
+        var result = Run(session, pipeline, entryPoint, output, token);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -106,7 +125,7 @@ internal sealed class HostExecuteHandler(
 
     private ExecuteSessionResult Run(
         IRuntimeSession session,
-        IReadOnlyDictionary<SemanticId, InstructionList> bodies,
+        RuntimeExecutionPipeline pipeline,
         VBTypeMemberSymbol entryPoint,
         RuntimeOutputBuffer output,
         CancellationToken token)
@@ -116,7 +135,6 @@ internal sealed class HostExecuteHandler(
         sessionProvider.Output.Target = output;
         try
         {
-            var pipeline = RuntimeExecutionPipeline.Create(session, bodies, messages, token);
             return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
         }
         finally

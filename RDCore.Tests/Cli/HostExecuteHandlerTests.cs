@@ -187,6 +187,53 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    public async Task ADeadIfBranch_DoesNotRun()
+    {
+        // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
+        // sees it. PrecompilerLiveBranchEvaluator has computed the dead ranges correctly since #315 but
+        // had no production caller, so lowering kept both branches and ran them in source order.
+        var result = await ExecuteAsync(Module(
+            "#If False Then",
+            "Debug.Print \"dead\"",
+            "#Else",
+            "Debug.Print \"live\"",
+            "#End If"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "live" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnAssignmentInADeadIfBranch_DoesNotWin()
+    {
+        // the dead branch ran *after* the live one, so its assignment was the value that survived.
+        var result = await ExecuteAsync(Module(
+            "#If True Then",
+            "x = 1",
+            "#Else",
+            "x = 99",
+            "#End If",
+            "Debug.Print \"x=\" & x"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "x=1" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AFaultingStatementInADeadIfBranch_DoesNotRaise()
+    {
+        // the sharpest form of the same defect: code that never compiled raised error 11 at run time.
+        var result = await ExecuteAsync(Module(
+            "#If False Then",
+            "x = 1 / 0",
+            "#End If",
+            "Debug.Print \"survived\""));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "survived" }, result.Output.ToArray());
+    }
+
+    [TestMethod]
     public async Task AnOmittedOptionalArgument_GetsItsDeclaredDefault_NotTheTypeDefault()
     {
         // MS-VBAL 5.3.1.5: a `default-value` clause specifies the parameter's default value, and only a
