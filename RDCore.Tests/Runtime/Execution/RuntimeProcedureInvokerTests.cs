@@ -240,6 +240,76 @@ public sealed class RuntimeProcedureInvokerTests
         Assert.AreEqual(999, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
     }
 
+    // the bare call statement takes its arguments without parentheses - `Callee x` - and a parenthesized argument
+    // is then an expression in its own right (MS-VBAL 5.6.6), whose value is a copy even of a variable. The pair
+    // of tests below is that difference: the same call, the same ByRef parameter, written two ways.
+    private static (RuntimeExecutionOutcome Outcome, IRuntimeSession Session, VBParameterSymbol Y) RunBareCallOfAByRefCallee(
+        string call, ParameterKind parameterKind = ParameterKind.ImplicitByRef)
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var n = new VBParameterSymbol(Root, calleeStub.Uri, "n", R, R, parameterKind, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [n] };
+
+        var calleeBody = Lower("n = 999");
+        var callerList = Lower("x = 1", call, "y = x");
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = calleeBody };
+
+        var x = new VBParameterSymbol(Root, ProcedureUri, "x", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
+        var y = new VBParameterSymbol(Root, ProcedureUri, "y", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
+        var (executor, session) = Compose(bodies, callee, x, y);
+        var frame = PushCallerFrame(session);
+        frame.Push(x, new VBLongValue(0));
+        frame.Push(y, new VBLongValue(0));
+
+        return (executor.Run(session, frame, callerList, new RuntimeEvaluationContext(ProcedureUri)), session, y);
+    }
+
+    [TestMethod]
+    public void BareCall_ByRef_WithAPlainVariable_WritesBackToTheCaller()
+    {
+        var (outcome, session, y) = RunBareCallOfAByRefCallee("Callee x");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(999, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void BareCall_ByRef_WithAParenthesizedVariable_PassesACopy()
+    {
+        // the classic VBA rule: `Callee (x)` evaluates x and passes the value, so the callee cannot reach x.
+        var (outcome, session, y) = RunBareCallOfAByRefCallee("Callee (x)");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void BareCall_ByVal_WithAParenthesizedVariable_PassesItsValue()
+    {
+        var (outcome, session, y) = RunBareCallOfAByRefCallee("Callee (x)", ParameterKind.ExplicitByVal);
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(1, session.Symbols.Resolver.GetValue(y).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void BareCall_ByRef_WithAParenthesizedExpression_PassesItsValue()
+    {
+        var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var counter = new VBModuleFieldVariableMemberSymbol(Root, ModuleUri, "counter", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var n = new VBParameterSymbol(Root, calleeStub.Uri, "n", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo);
+        var callee = calleeStub with { Parameters = [n] };
+
+        var bodies = new Dictionary<SemanticId, InstructionList> { [callee.SemanticId] = Lower("counter = n") };
+        var (executor, session) = Compose(bodies, counter, callee);
+        var frame = PushCallerFrame(session);
+
+        var outcome = executor.Run(session, frame, Lower("Callee (2 + 3)"), new RuntimeEvaluationContext(ProcedureUri));
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
+        Assert.AreEqual(5, session.Symbols.Resolver.GetValue(counter).Value.BoxedValue);
+    }
+
     [TestMethod]
     public void CallStatement_ByRef_WithANonVariableArgument_FallsBackToACopyAndDoesNotCrash()
         // MS-VBAL §5.3.1.11's own "otherwise" case: a ByRef parameter whose mapped argument isn't a

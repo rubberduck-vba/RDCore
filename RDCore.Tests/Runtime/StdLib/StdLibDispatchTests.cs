@@ -106,6 +106,34 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
+    public void AConversionFunction_IsCalledFromSource()
+    {
+        var output = Run("10 Debug.Print CInt(\"7\") + 1", "20 Debug.Print CStr(2.5) & \"!\"", "30 Debug.Print Hex(255)");
+
+        Assert.HasCount(3, output);
+        Assert.Contains("8", output[0]);
+        Assert.Contains("2.5!", output[1]);
+        Assert.Contains("FF", output[2]);
+    }
+
+    [TestMethod]
+    public void TheErrorFunction_AndTheErrorStatement_AreDifferentThingsThatShareAName()
+    {
+        // MS-VBAL 5.4.4.3 is a statement, run by the interpreter as if by Err.Raise; 6.1.2.3.1.15 is a function of
+        // the Conversion module that answers with the text of a code. Both are in the language, and one line of
+        // source can use both.
+        var output = Run(
+            "10 On Error Resume Next",
+            "20 Error 5",
+            "30 Debug.Print Erl",
+            "40 Debug.Print Error(5)");
+
+        Assert.HasCount(2, output, string.Join(" / ", output));
+        Assert.Contains("3", output[0], "the document line of the faulting Error statement");
+        Assert.Contains("Invalid procedure call or argument", output[1]);
+    }
+
+    [TestMethod]
     public void TheErrorObject_ReportsTheErrorThatWasRaised()
     {
         var output = Run("10 On Error Resume Next", "20 Error 11", "30 Debug.Print Err.Number", "40 Debug.Print Err.Description");

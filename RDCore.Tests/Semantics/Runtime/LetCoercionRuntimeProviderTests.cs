@@ -60,6 +60,16 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     }
 
     [TestMethod]
+    public void Dispatch_ANullSource_IsInvalidUseOfNull_NotAnInternalError()
+    {
+        // MS-VBAL 5.5.1.2.10: the provider dispatches on the DESTINATION, so the Null strategy (keyed on a Null
+        // destination) was never reached for a Null source, which fell through as an internal error.
+        var result = Coerce(new VBNullValue(), VBLongType.TypeInfo);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, result.ErrorInfo?.ErrorId);
+    }
+
+    [TestMethod]
     public void Dispatch_ResolvesTheNumericStrategyForAConcreteNumericDestination()
     {
         // regression: the provider keyed on frame.DestinationTypeDesc.GetType() (always VBTypeDescValue),
