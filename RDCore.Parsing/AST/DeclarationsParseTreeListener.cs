@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols.Operators;
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
@@ -1472,6 +1473,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
+    }
+
+    // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
+    // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
+    // argument written to be passed by value was aliased to a ByRef parameter and mutated the caller's
+    // variable. What this operator yields is a value bound to nothing, which is what there being nothing
+    // to alias means; no rule anywhere says "forced ByVal".
+    public override void ExitParenthesizedExpr([NotNull] VBAParser.ParenthesizedExprContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        AddIfBuilt(BuildUnary(OperatorSymbolNames.UnaryLetCoerceOp, context));
     }
 
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)

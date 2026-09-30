@@ -353,6 +353,39 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    // MS-VBAL 5.6.6: a parenthesized expression is a value expression — it "evaluates to the simple data
+    // value of its enclosed expression". The parser erased the parentheses, so `Inc (x)` and `Inc x`
+    // built the same tree, and an argument written to be passed by value was aliased to the ByRef
+    // parameter and mutated the caller's variable.
+    //
+    // Nothing implements "forced ByVal": the parentheses are an operator whose result is a value bound
+    // to nothing, so there is no variable for a reference parameter to alias, and argument passing
+    // already copies in that case.
+    [DataRow("Inc x", "x=2", DisplayName = "ByRef, no parentheses: the variable itself")]
+    [DataRow("Call Inc(x)", "x=2", DisplayName = "ByRef through Call: still the variable itself")]
+    [DataRow("Inc (x)", "x=1", DisplayName = "a parenthesized argument is a value")]
+    [DataRow("Call Inc((x))", "x=1", DisplayName = "a parenthesized argument inside Call's own parentheses")]
+    [DataRow("Inc ((x))", "x=1", DisplayName = "twice parenthesized")]
+    [DataRow("Inc x + 0", "x=1", DisplayName = "any other expression is a value too")]
+    public async Task AParenthesizedArgument_IsAValue_NotTheVariable(string call, string expected)
+    {
+        var result = await ExecuteAsync(
+            $"Attribute VB_Name = \"{ModuleName}\"\r\n"
+            + "Public Sub Main()\r\n"
+            + "Dim x As Long\r\n"
+            + "x = 1\r\n"
+            + call + "\r\n"
+            + "Debug.Print \"x=\" & x\r\n"
+            + "End Sub\r\n"
+            + "Private Sub Inc(ByRef n As Long)\r\n"
+            + "n = n + 1\r\n"
+            + "End Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { expected }, result.Output.ToArray());
+    }
+
+    [TestMethod]
     // MS-VBAL 5.4.2.1: the bare call statement, whose argument list is the statement's own because the
     // grammar grants it no parenthesized lExpression equivalent. It is the ordinary VBA call form, and
     // the one shape ExecuteCall refused — S9a wired the parenthesized and no-argument ones only.
