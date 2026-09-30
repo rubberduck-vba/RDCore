@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
@@ -173,8 +174,19 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
         return new VBConstantMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier);
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier,
+            ConstantExpressionOf(node));
     }
+
+    // MS-VBAL 5.4.3.2: a constant statically evaluates to a value, and has no storage anywhere to read
+    // one back from — so the declaration's own expression travels with the symbol and is reduced at the
+    // host, where the operators that can reduce it live. The As-type clause is the declaration's other
+    // expression-shaped child; everything else under it is the constant expression.
+    //
+    // Shared with an Optional parameter's `default-value`, which MS-VBAL 5.3.1.5 defines as a constant
+    // expression in exactly the same way, on a node of exactly the same shape.
+    private static ExpressionNode? ConstantExpressionOf(SyntaxNode node)
+        => node.Children.OfType<ExpressionNode>().FirstOrDefault(child => child is not AsTypeExpressionNode);
 
     // A UDT field parents to the enclosing user-defined-type symbol, not the module.
     public Symbol BuildUserDefinedTypeField(MemberDeclarationNode node, Uri userDefinedTypeUri)
@@ -216,10 +228,19 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind)
                 : new VBParameterSymbol(
                     workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind,
-                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional));
+                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional,
+                    DefaultValueOf(parameter)));
         }
         return builder.ToImmutable();
     }
+
+    // MS-VBAL 5.3.1.5: `default-value = "=" constant-expression`, and 5.3.1.10 Let-assigns that value to
+    // an unmapped optional parameter's own local. The same shape a Const declaration has, and the same
+    // kind of expression, so it travels the same way and the host reduces it the same way: the symbol
+    // carries it across instead of leaving the invoker with only the declared type's default, which is
+    // what `Optional k As Long = 5` was invoked with, arriving as 0.
+    private static ExpressionNode? DefaultValueOf(ParameterDeclarationNode parameter)
+        => ConstantExpressionOf(parameter);
 
     private VBType ReturnType(MemberDeclarationNode member, Uri memberUri)
         => ImplicitOrDeclaredType(member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault(), typeHint: null, memberUri);
@@ -610,7 +631,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = DeclaredType(AsTypeOf(node), node.TypeHint, procedureUri);
-        return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type);
+        return new VBLocalConstantSymbol(workspaceRoot, procedureUri, node.Name, range, range, type, ConstantExpressionOf(node));
     }
 
     /// <summary>

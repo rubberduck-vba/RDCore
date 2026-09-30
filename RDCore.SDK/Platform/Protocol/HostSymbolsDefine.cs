@@ -2,10 +2,12 @@ using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -47,6 +49,18 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// The member symbol descriptors, in declaration order.
     /// </summary>
     public ImmutableArray<SymbolDescriptor> Symbols { get; init; } = [];
+
+    /// <summary>
+    /// The module's own <c>Option</c> directives (<strong>MS-VBAL §5.2.1</strong>), which the host
+    /// applies to its module symbol.
+    /// </summary>
+    /// <remarks>
+    /// These are run-time dials, not only static ones: <c>Option Compare</c> decides how the relational
+    /// operators compare <c>String</c> values in the module's code, and <c>Option Base</c> decides what
+    /// an array dimension declared without a lower bound means. Both are read off the activation's own
+    /// call-stack frame, which gets them from the module symbol the procedure is declared in.
+    /// </remarks>
+    public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
 
     /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
@@ -170,6 +184,19 @@ public record class SymbolDescriptor
     public ImmutableArray<LocalDescriptor> Locals { get; init; } = [];
 
     /// <summary>
+    /// The procedure-local <c>Const</c> declarations the member owns, for the procedure, function and
+    /// property kinds — and, for a <see cref="SymbolDescriptorKind.ModuleConstant"/> descriptor, the
+    /// single entry that is the module-level constant's own value.
+    /// </summary>
+    /// <remarks>
+    /// A constant is not a variable: it has no storage, so it cannot ride on <see cref="Locals"/>, whose
+    /// every entry an activation allocates frame storage for. It travels instead because it has no
+    /// storage — with nowhere to read a value back from, the host can only substitute the declaration's
+    /// own expression at each use site, and needs that expression to do it.
+    /// </remarks>
+    public ImmutableArray<ConstantDescriptor> Constants { get; init; } = [];
+
+    /// <summary>
     /// Members parented to this descriptor rather than the module: <c>Enum</c> constants and
     /// user-defined-<c>Type</c> fields.
     /// </summary>
@@ -244,6 +271,43 @@ public record class LocalDescriptor
 }
 
 /// <summary>
+/// A transport-friendly projection of a <c>Const</c> declaration — a module-level
+/// <c>VBConstantMemberSymbol</c> or a procedure-local <c>VBLocalConstantSymbol</c>.
+/// </summary>
+public record class ConstantDescriptor
+{
+    /// <summary>
+    /// The constant's identifier name.
+    /// </summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The declared type's name, or <c>null</c> — resolved host-side like a member's.
+    /// </summary>
+    public string? DeclaredTypeName { get; init; }
+
+    /// <summary>
+    /// The declaration's own constant expression, or <c>null</c> when it carried none.
+    /// </summary>
+    /// <remarks>
+    /// The expression, not a value: a constant expression is not always a literal (<c>Const K = 3 * 5</c>,
+    /// or one constant written in terms of another), and the host is where the evaluator that can reduce
+    /// it lives.
+    /// </remarks>
+    public ExpressionNode? Value { get; init; }
+
+    /// <summary>
+    /// The source span of the declaration.
+    /// </summary>
+    public SourceRange Range { get; init; }
+
+    /// <summary>
+    /// The source span to select when navigating to the constant.
+    /// </summary>
+    public SourceRange SelectionRange { get; init; }
+}
+
+/// <summary>
 /// A transport-friendly projection of a <c>VBParameterSymbol</c>.
 /// </summary>
 public record class ParameterDescriptor
@@ -267,6 +331,18 @@ public record class ParameterDescriptor
     /// Whether the parameter is a <c>ParamArray</c>.
     /// </summary>
     public bool IsParamArray { get; init; }
+
+    /// <summary>
+    /// The value of the parameter's <c>default-value</c> clause (MS-VBAL 5.3.1.5), or <c>null</c> when the
+    /// declaration has none — the host then falls back to the declared type's own default value.
+    /// </summary>
+    /// <remarks>
+    /// The expression, not a value: a constant expression is not always a literal (<c>Optional k As
+    /// Long = 3 * 5</c>, or one written in terms of a <c>Const</c>), and the host is where the evaluator
+    /// that can reduce it lives — the same reason <see cref="ConstantDescriptor.Value"/> travels
+    /// unreduced, and it is reduced by the same fold.
+    /// </remarks>
+    public ExpressionNode? DefaultValue { get; init; }
 
     /// <summary>
     /// The declared type's name, or <c>null</c> — resolved host-side like a member's.

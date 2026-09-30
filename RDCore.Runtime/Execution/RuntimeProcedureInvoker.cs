@@ -62,7 +62,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
 
         var staticSymbol = new StaticSymbol(procedure.Name, procedure.Kind, procedure.ResolvedType);
-        var frame = (CallStackFrame)Session.Symbols.CreateFrame(new SyntaxNodeId(procedure.Uri.AbsolutePath, []), staticSymbol);
+
+        // MS-VBAL 5.2.1: a procedure's code runs under the Option directives of the module declaring it,
+        // whichever module called it. A StaticSymbol has no link back to its module, so the frame is what
+        // carries them - and it was never given any, so Option Compare Text and Option Base 1 both read
+        // back as their defaults everywhere the runtime consults them.
+        var frame = (CallStackFrame)Session.Symbols.CreateFrame(
+            new SyntaxNodeId(procedure.Uri.AbsolutePath, []), staticSymbol, DeclaringModuleDirectives(procedure));
 
         if (!Session.CallStack.TryPush(frame))
         {
@@ -162,6 +168,15 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             }
         }
     }
+
+    // the module a procedure is declared in is its symbol's parent. A procedure whose parent is not a
+    // module symbol — one the session has no module for — runs under the defaults, which is what every
+    // activation used to do.
+    private ModuleDirectives DeclaringModuleDirectives(VBTypeMemberSymbol procedure)
+        => Session.Symbols.TryResolveValue(procedure.ParentUri.Fragment.TrimStart('#'), GlobalSymbols.UnresolvedSymbol, out var parent)
+            && parent is VBModuleSymbol module
+                ? module.Directives
+                : ModuleDirectives.None;
 
     internal static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 

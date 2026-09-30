@@ -18,7 +18,10 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     /// </summary>
     /// <param name="offset">The line/character position offset in the source document</param>
     /// <remarks>
-    /// The Line and Character positions are added to both <c>Start</c> and <c>Stop</c> Line and Column positions (respectively) to compute the <c>SourceRange</c>.
+    /// The offset's Line is added to both the <c>Start</c> and <c>Stop</c> Line positions. Its Character
+    /// is added only to a position on the fragment's <em>first</em> line, which is the only line the
+    /// fragment shares with whatever precedes it in the document: every later line of the fragment begins
+    /// at document column 0, exactly where it begins in the fragment.
     /// </remarks>
     public void AnchorAt(SourcePosition offset) => _offset = offset;
     private SourcePosition _offset;
@@ -32,8 +35,12 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     /// for a <em>source code fragment</em> or partial document; other positional members' values 
     /// would only be safe to surface in the context of a full-document parse.
     /// </remarks>
+    // SourcePosition.AnchoredAt, not a plain addition: the anchor's column belongs to the fragment's own
+    // first line alone. Adding it to every line pushed every line after the first that many columns to
+    // the right - with an anchor of L5C4, a member ending at the start of the fragment's second line
+    // reported 7:4 instead of 7:0.
     public SourceRange SourceRange => new(
-            _offset + new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0),
-            _offset + new SourcePosition(Stop?.Line - 1 ?? 0, Stop?.Column ?? 0));
+            new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0).AnchoredAt(_offset),
+            new SourcePosition(Stop?.Line - 1 ?? 0, Stop?.Column ?? 0).AnchoredAt(_offset));
     public SourceLocation GetSourceLocation(Uri documentUri) => new(documentUri, SourceRange);
 }

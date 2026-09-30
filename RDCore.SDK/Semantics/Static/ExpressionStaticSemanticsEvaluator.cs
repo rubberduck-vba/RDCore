@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols.Operators;
 ﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -216,6 +217,10 @@ public static class ExpressionStaticSemanticsEvaluator
     {
         Tokens.NegationOp => new UnaryNegationOperatorStaticSemantics(),
         Tokens.LogicalNotOp => new UnaryLogicalOperatorStaticSemantics(),
+        // MS-VBAL 5.6.6: a pair of parentheses is an operator, and it leaves the declared type alone.
+        // Without a rule it falls through to the VBUnknownType above, which would lose the type of
+        // everything anyone ever wrote parentheses around.
+        OperatorSymbolNames.UnaryLetCoerceOp => new UnaryLetCoerceOperatorStaticSemantics(),
         _ => null,
     };
 }

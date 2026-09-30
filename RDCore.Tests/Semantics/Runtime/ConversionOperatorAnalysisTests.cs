@@ -63,11 +63,15 @@ public sealed class ConversionOperatorAnalysisTests : LetCoercionRuntimeSemantic
         return builder.Build();
     }
 
-    private static ConversionOperationSemanticContext Coerce(VBTypedValue source, VBType target)
+    // MS-VBAL 5.6.6: the let-coercion operator is the parentheses around an expression, so it takes one
+    // operand and coerces it to that operand's own type. Widening, narrowing and rounding cannot arise
+    // from it at all — those are conversions between two different types, and the let-assignment region
+    // above is what covers them.
+    private static ConversionOperationSemanticContext Coerce(VBTypedValue source)
     {
         var builder = Builder();
-        new BinaryLetCoerceOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(), Formatter())
-            .Analyze(SessionWithField(VBLongType.TypeInfo).Session, new ConversionOperationSemanticContext(), builder, ThrowawayExpression, source, new VBTypeDescValue(target));
+        new UnaryLetCoerceOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(), Formatter())
+            .Analyze(SessionWithField(VBLongType.TypeInfo).Session, new ConversionOperationSemanticContext(), builder, ThrowawayExpression, source);
         return builder.Build();
     }
 
@@ -187,25 +191,20 @@ public sealed class ConversionOperatorAnalysisTests : LetCoercionRuntimeSemantic
     #region explicit let-coercion
 
     [TestMethod]
-    public void AnExplicitLetCoercion_IsExplicit_AndItsOperandIsCoercedExplicitly()
-        => Assert.AreEqual(
-            Coerced | ConversionSemanticFlags.Explicit | ConversionSemanticFlags.Widening | ConversionSemanticFlags.BinaryLeftOperand,
-            Coerce(new VBLongValue(5), VBDoubleType.TypeInfo).Flags);
+    public void AnExplicitLetCoercion_IsExplicit()
+        // what the operator records: the program asked for this coercion, in so many parentheses.
+        => Assert.IsTrue(Coerce(new VBLongValue(5)).Flags.HasFlag(ConversionSemanticFlags.Explicit));
 
     [TestMethod]
     public void AnExplicitLetCoercion_IsNeverImplicit()
-        => Assert.IsFalse(Coerce(new VBLongValue(5), VBDoubleType.TypeInfo).Flags.HasFlag(ConversionSemanticFlags.Implicit));
+        => Assert.IsFalse(Coerce(new VBLongValue(5)).Flags.HasFlag(ConversionSemanticFlags.Implicit));
 
     [TestMethod]
-    public void ARedundantExplicitLetCoercion_IsStillExplicit_AndConvertsNothing()
-        => Assert.AreEqual(
-            Coerced | ConversionSemanticFlags.Explicit | ConversionSemanticFlags.BinaryLeftOperand,
-            Coerce(new VBLongValue(5), VBLongType.TypeInfo).Flags);
-
-    [TestMethod]
-    public void AnExplicitLetCoercionOfAFraction_ToAnIntegral_Rounds()
-        => Assert.IsTrue(Coerce(new VBDoubleValue(2.67), VBLongType.TypeInfo).Flags
-            .HasFlag(ConversionSemanticFlags.Explicit | ConversionSemanticFlags.Narrowing | ConversionSemanticFlags.BankersRounding));
+    public void AnExplicitLetCoercion_ConvertsNothing()
+        // it coerces its operand to that operand's own type, so it is always the redundant case — and a
+        // redundant coercion is a fact worth recording, which is the whole reason the operator exists.
+        => Assert.IsFalse(Coerce(new VBLongValue(5)).Flags
+            .HasFlag(ConversionSemanticFlags.Widening | ConversionSemanticFlags.Narrowing));
 
     #endregion
 }

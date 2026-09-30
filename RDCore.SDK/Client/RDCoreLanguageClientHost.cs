@@ -24,7 +24,13 @@ public abstract class RDCoreLanguageClientHost<TApp>() : AppHost<TApp>()
 {
     protected sealed override void Configure(IConfigurationBuilder configuration, IServiceCollection services, string[] args)
     {
-        var parsed = CommandLine.Parser.Default.ParseArguments<SdkAppCommandLineArgs>(args).Value;
+        // a --help or --version command line never reaches here: AppHost.RunAsync answers it and returns
+        // before any of this runs, because the parser's answer to one is a default instance that would
+        // fail the workspace guard below.
+        // 🚧 TODO: a bare `-h` is not one of those — it parses, and leaves the declared Help flag null
+        // rather than true, because it is declared `bool?` where a flag wants `bool`. So it still falls
+        // into the guard below and exits -1.
+        var parsed = SdkCommandLine.Parse(args);
 
         // a client app cannot start without a workspace:
         _ = parsed.WorkspaceUri ?? throw new ArgumentNullException(nameof(SdkAppCommandLineArgs.WorkspaceUri));

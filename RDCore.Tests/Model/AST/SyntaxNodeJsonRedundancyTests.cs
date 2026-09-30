@@ -2,6 +2,8 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Platform.Protocol;
+using System.Text;
 using System.Text.Json;
 
 namespace RDCore.Tests.Model.AST;
@@ -158,6 +160,38 @@ public sealed class SyntaxNodeJsonRedundancyTests
         var verboseRehydrated = JsonSerializer.Serialize<SyntaxNode>(rehydrated!, VerboseOptions);
 
         Assert.AreEqual(verboseOriginal, verboseRehydrated);
+    }
+
+    [TestMethod]
+    [DataRow(40)]
+    [DataRow(120)]
+    public void DeeplyNestedBlockStatements_RoundTripThroughTheWireFormat(int depth)
+    {
+        // System.Text.Json's default MaxDepth is 64, and an AST still spends a JSON level or two on
+        // every nested block statement with the spine omitted — so valid code failed serialization on
+        // the parse-server wire, and the client got a bogus L0C0 diagnostic for it. 40 is a depth that
+        // fails without the fix; 18, which the 2026-09-27 assessment reported as the threshold, does
+        // not any more, so it would not guard anything.
+        var body = new StringBuilder();
+        for (var i = 0; i < depth; i++)
+        {
+            body.Append("If x = ").Append(i).Append(" Then\r\n");
+        }
+        body.Append("x = 1\r\n");
+        for (var i = 0; i < depth; i++)
+        {
+            body.Append("End If\r\n");
+        }
+
+        var module = ParseSuccessfully($"Sub Test()\r\n{body}End Sub\r\n");
+
+        var json = PlatformJson.Serialize<SyntaxNode>(module);
+        var rehydrated = PlatformJson.Deserialize<SyntaxNode>(json);
+
+        // compared in the wire format rather than against VerboseOptions the way this file's other
+        // round-trip test does: writing the redundant spine back in is exponential in depth, so the
+        // comparison itself would exceed its own MaxDepth long before the payload under test does.
+        Assert.AreEqual(json, PlatformJson.Serialize(rehydrated));
     }
 
     private static ModuleNode ParseSuccessfully(string source)

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Symbols.Operators;
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
@@ -81,8 +82,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // can't itself contain a block-bearing construct). EnterBlock only ever decrements what one of
     // these constructs incremented; a procedure body's own `block` never touches this counter.
     private int _isCapturingLoopHeaderExpression = 0;
+    // a Const's value is part of its declaration wherever the declaration is, so a procedure-local one
+    // needs the same capture window a condition expression gets: without it the declaration node came
+    // out carrying only its As-type clause, and the constant had no value anywhere in the AST at all.
+    private int _isCapturingConstantExpression = 0;
     private bool IsDeclarationPassExpression => !_isInsideProcedure || !_isAfterArgsList
-        || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0;
+        || _isCapturingConditionExpression > 0 || _isCapturingLoopHeaderExpression > 0
+        || _isCapturingConstantExpression > 0;
 
     public override void EnterBooleanExpression([NotNull] VBAParser.BooleanExpressionContext context)
         => _isCapturingConditionExpression++;
@@ -214,9 +220,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     }
 
     public override void EnterConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
-        => OnEnterParent();
+    {
+        _isCapturingConstantExpression++;
+        OnEnterParent();
+    }
     public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)
     {
+        _isCapturingConstantExpression--;
         var parent = context.Parent as VBAParser.ConstStmtContext;
         var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
         OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));
@@ -1020,8 +1030,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var value = context.identifier().untypedIdentifier()?.GetText()
-            ?? context.identifier().typedIdentifier().untypedIdentifier().GetText();
+        // every link of this chain is optional on a recovered parse — `x = a$b` and `Foo Left$x` both
+        // reach here with a typedIdentifier carrying no untypedIdentifier. An NRE here is not contained
+        // to the expression: it unwinds the whole walk, and the module comes back with none of its
+        // members at all, the valid procedures after the bad line included.
+        var identifier = context.identifier();
+        var value = identifier?.untypedIdentifier()?.GetText()
+            ?? identifier?.typedIdentifier()?.untypedIdentifier()?.GetText();
+        if (value is null)
+        {
+            // no readable name, so there is no name to build a node around. The parse has already
+            // recorded a syntax error here, which is what makes this a non-event rather than silence.
+            return;
+        }
+
         var location = context.GetSourceLocation(_rootUri);
         OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value));
     }
@@ -1453,6 +1475,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
     }
 
+    // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
+    // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
+    // argument written to be passed by value was aliased to a ByRef parameter and mutated the caller's
+    // variable. What this operator yields is a value bound to nothing, which is what there being nothing
+    // to alias means; no rule anywhere says "forced ByVal".
+    public override void ExitParenthesizedExpr([NotNull] VBAParser.ParenthesizedExprContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        AddIfBuilt(BuildUnary(OperatorSymbolNames.UnaryLetCoerceOp, context));
+    }
+
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
     {
         if (!IsDeclarationPassExpression)
@@ -1633,10 +1669,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         else if (context.STRINGLITERAL() is ITerminalNode stringLiteral)
         {
+            // MS-VBAL 3.3.4: a doubled double-quote stands for one U+0022 in the data value. Slicing the
+            // delimiters off the token text alone left every embedded quote doubled in the literal's
+            // value, which is then what every consumer of the node downstream printed and compared.
             OnExpression(new LiteralExpressionNode(
-                GetCurrentNodeId(), 
+                GetCurrentNodeId(),
                 location,
-                new VBStringValue(stringLiteral.Symbol.Text[1..^1])));
+                VBStringValue.FromLiteralToken(stringLiteral.Symbol.Text)));
         }
     }
 

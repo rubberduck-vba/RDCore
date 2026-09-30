@@ -468,7 +468,7 @@ public sealed class RuntimeProcedureInvokerTests
     {
         var calleeStub = new VBProcedureMemberSymbol(Root, ModuleUri, "Callee", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var x = new VBParameterSymbol(Root, calleeStub.Uri, "x", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo);
-        var y = new VBParameterSymbol(Root, calleeStub.Uri, "y", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: new VBLongValue(99));
+        var y = new VBParameterSymbol(Root, calleeStub.Uri, "y", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true, DefaultValue: TestExpressions.Literal(new VBLongValue(99)));
         var callee = calleeStub with { Parameters = [x, y] };
 
         var calleeBody = Lower("counter = x + y");

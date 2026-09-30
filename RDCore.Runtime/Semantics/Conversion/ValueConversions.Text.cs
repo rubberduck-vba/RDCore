@@ -123,17 +123,12 @@ public static partial class ValueConversions
 
         // decompose into a rounded significand + decimal exponent the same way ToScientificNotation
         // does (same total-digit cap), then reassemble as fixed-point instead of "dEe" notation.
-        var scientific = absoluteValue.ToString("E16", CultureInfo.InvariantCulture);
+        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
+        var scientific = absoluteValue.ToString($"E{maxFractionalDigits}", CultureInfo.InvariantCulture);
         var eIndex = scientific.IndexOf('E');
         var exponent = int.Parse(scientific[(eIndex + 1)..], CultureInfo.InvariantCulture);
         var leadingDigit = scientific[0];
         var fractionalDigits = scientific[2..eIndex];
-        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
-        if (fractionalDigits.Length > maxFractionalDigits)
-        {
-            fractionalDigits = fractionalDigits[..maxFractionalDigits];
-        }
-
         var digits = $"{leadingDigit}{fractionalDigits}".TrimEnd('0');
         if (digits.Length == 0)
         {
@@ -173,21 +168,22 @@ public static partial class ValueConversions
         // regardless of the source's magnitude or whether it has a fractional part — reliably giving
         // the significand and exponent without needing to first locate a decimal separator that may
         // not even be present (a whole-number source) or that .NET's default ToString() may already
-        // have collapsed into its own scientific notation. 16 fractional digits comfortably covers a
-        // double's ~15-17 significant decimal digits of precision.
-        var scientific = absoluteValue.ToString("E16", CultureInfo.InvariantCulture);
+        // have collapsed into its own scientific notation.
+        //
+        // MS-VBAL 5.5.1.2.4: "a maximum of 15 [7 for Single] integer and significand digits are
+        // printed total with trailing zeros removed" — the leading digit `s` counts as one of them, so
+        // the format asks for one fewer fractional digit. Asking "E" for exactly the capped count
+        // *rounds* the significand there; slicing the digits of a wider "E16" truncates instead, and
+        // the two differ for every value whose binary representation sits just below its decimal one
+        // (0.3 is stored as 0.29999999999999998..., whose leading 15 significant digits are
+        // "299999999999999" where VBA prints "0.3").
+        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
+        var scientific = absoluteValue.ToString($"E{maxFractionalDigits}", CultureInfo.InvariantCulture);
         var eIndex = scientific.IndexOf('E');
         var exponent = int.Parse(scientific[(eIndex + 1)..], CultureInfo.InvariantCulture);
         var s = scientific[0];
 
-        // MS-VBAL 5.5.1.2.4: "a maximum of 15 [7 for Single] integer and significand digits are
-        // printed total with trailing zeros removed" — the leading digit `s` counts as one of them.
         var fractionalDigits = scientific[2..eIndex].TrimEnd('0');
-        var maxFractionalDigits = Math.Max(0, significantIntegerDigits - 1);
-        if (fractionalDigits.Length > maxFractionalDigits)
-        {
-            fractionalDigits = fractionalDigits[..maxFractionalDigits];
-        }
 
         // MS-VBAL 5.5.1.2.4: the exponent is always signed ("+" or "-"), unlike a bare C# int.ToString().
         var exponentSign = exponent < 0 ? "-" : "+";

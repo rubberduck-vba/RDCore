@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
@@ -18,7 +19,12 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <see cref="AccessModifier.Implicit"/> if none is specified.</param>
-public sealed record class VBConstantMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier)
+/// <param name="Value">
+/// The declaration's own constant expression, or <c>null</c> when there is none. A constant has no
+/// storage to read a value from — it is substituted at each of its use sites — so this expression
+/// <em>is</em> the symbol's value.
+/// </param>
+public sealed record class VBConstantMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier, ExpressionNode? Value = null)
     : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.Constant, ResolvedType, Range, SelectionRange, AccessModifier) { }
 
 /// <summary>
