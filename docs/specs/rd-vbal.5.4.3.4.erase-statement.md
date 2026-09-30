@@ -11,13 +11,34 @@
 
 ## Static Semantics
 
-> [!NOTE]
-> Reserved. This section has no content yet.
+The declared type of each `erase-element` must be an array or a `Variant`.
 
 ## Runtime Semantics
 
+`Erase` is `ReDim`'s opposite: `ReDim` gives a resizable array its dimensions, and `Erase` takes them away
+again ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). What it does depends on
+which kind of array it was given, because a fixed-size array's bounds are part of its declaration and nothing
+at run time may change them.
+
+|Element|Effect|
+|---|---|
+|A resizable array|Set to an empty array of the same element type. The dimensions and the data are gone.|
+|A `Variant` holding an array|The same. The variable keeps storing a `Variant`.|
+|A fixed-size array|The dimensions stay. Every element is reset to its element type's default value.|
+|Anything else|Runtime error 13, `Type mismatch`.|
+
+An `Erase` statement erases each element of its `erase-list`, in source order.
+
 > [!NOTE]
-> Reserved. This section has no content yet.
+> **Not implemented.** An `erase-element` that is not a simple name is not executed. **MS-VBAL §5.4.3.4**
+> admits any `l-expression` classified as a variable, property, function or unbound member.
+
+## Implementation
+
+|Type or member|Role|
+|---|---|
+|`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Erases each element; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
+|[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html), [VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|The two kinds of array the statement tells apart (**RDCore.SDK**).|
 
 ---
 > ⏮️ [**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md) | ⏭️ [**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)
