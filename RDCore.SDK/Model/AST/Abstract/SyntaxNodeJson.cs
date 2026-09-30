@@ -42,8 +42,26 @@ public static class SyntaxNodeJson
     public static JsonSerializerOptions Options { get; } = new()
     {
         PropertyNameCaseInsensitive = true,
+
+        // System.Text.Json defaults to 64, which an AST reaches on source a person could have written:
+        // a nested block statement still costs a JSON level or two with the spine omitted, so the parse
+        // server answered a bogus L0C0 diagnostic for perfectly valid code (measured on this shape: 40
+        // nested `If`s failed to serialize, 18 still fit).
+        MaxDepth = MaxNodeDepth,
+
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine } },
     };
+
+    /// <summary>
+    /// The maximum nesting depth an AST payload may reach, in JSON levels.
+    /// </summary>
+    /// <remarks>
+    /// A guard against a cyclic or hostile payload, not a language limit — VBA imposes no nesting depth
+    /// of its own, so this is set well past anything anyone writes by hand rather than to a number
+    /// derived from the language. At roughly three or four levels per nested source construct it admits
+    /// a couple of hundred levels of nested statements.
+    /// </remarks>
+    public const int MaxNodeDepth = 1024;
 
     private static readonly ConcurrentDictionary<Type, Func<object, IEnumerable<SyntaxNode>>[]> _alternateAccessorsByType = new();
 
