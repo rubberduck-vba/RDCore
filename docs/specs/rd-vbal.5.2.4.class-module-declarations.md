@@ -133,8 +133,12 @@ in the class type's `SuperTypes` array
 
 This section corresponds to [**MS-VBAL §5.2.4.3** Event Declaration](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/ff9d44a9-7a89-474e-9546-a1b169d38a26).
 
+An `Event` declaration defines an event member of the class module. It is a `VBEventMemberSymbol`: its name, and its parameters, which describe the arguments a `RaiseEvent` ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)) must give and the parameter list a handler must have ([**RD-VBAL §5.3.1.8**](rd-vbal.5.3.1.8.event-handler-declarations.md)); it defines no variable. An `Event` without an access modifier is `Public`. `VBClassModuleSymbol.Events` lists them, and `FindEvent` finds one by name, without regard to case.
+
+The event symbols and their parameters are among the member descriptors the environment host receives, so a class's events are known where `RaiseEvent` runs.
+
 > [!NOTE]
-> Reserved. This section has no content yet.
+> **Not implemented.** The remaining static semantics of **MS-VBAL §5.2.4.3** are not checked: an event name must be unique within the class module, and must not contain an underscore, which is what separates a handler's variable from its event.
 
 ---
 > ⏮️ [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md) | ⏭️ [**RD-VBAL §5.3** Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md)

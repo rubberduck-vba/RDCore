@@ -36,8 +36,12 @@ The default instance variable of a predeclared class is created as if declared `
 
 This section corresponds to [**MS-VBAL §5.2.3.1.2** WithEvents Variable Declarations](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f41f8ec5-7a2d-4797-8ba9-0e3b52113b9e).
 
+A `WithEvents` variable is a variable of a class module whose declared type is a class with events. The symbol of such a variable has the `WithEvents` property (`SymbolProperties.WithEvents`), which the language server sets from the `WithEvents` keyword and sends to the environment host in its descriptor (`SymbolDescriptor.IsWithEvents`). The procedures of the module named `VariableName_EventName` handle that event of the object the variable holds ([**RD-VBAL §5.3.1.8**](rd-vbal.5.3.1.8.event-handler-declarations.md)).
+
+Assigning the variable with `Set` attaches its handlers to the object it is given, and detaches them from the object it held ([**RD-VBAL §5.4.3.9**](rd-vbal.5.4.3.9.set-statement.md)).
+
 > [!NOTE]
-> Reserved. This section has no content yet.
+> **Not implemented.** The declaration-level validity of `WithEvents` (**MS-VBAL §5.2.3.1.2**) is not checked: the declared type must be a specific class with at least one event, and must not be the class of the module containing the declaration.
 
 ### 5.2.3.1.3 Array Dimensions and Bounds
 

@@ -475,6 +475,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Event not defined.
+        /// </summary>
+        public static string VBCompileError_EventNotDefined {
+            get {
+                return ResourceManager.GetString("VBCompileError_EventNotDefined", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Wrong number of arguments or invalid argument for event.
+        /// </summary>
+        public static string VBCompileError_EventArgumentsIncompatible {
+            get {
+                return ResourceManager.GetString("VBCompileError_EventArgumentsIncompatible", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

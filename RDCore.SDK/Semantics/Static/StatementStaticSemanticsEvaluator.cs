@@ -1,9 +1,14 @@
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -125,6 +130,14 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
+        // the first operand of RaiseEvent names an event, which is not a value either: evaluated as an expression, a
+        // bare `Changed` would come back as an undefined variable.
+        if (statement is KeywordStatementNode { Token: Tokens.RaiseEvent } raiseEvent)
+        {
+            EvaluateRaiseEvent(context, raiseEvent, walk);
+            return;
+        }
+
         foreach (var input in statement.Inputs)
         {
             if (input is ExpressionNode expression)
@@ -203,6 +216,61 @@ public static class StatementStaticSemanticsEvaluator
             case CaseElseClauseStatementNode caseElseClauseStatement:
                 EvaluateBlock(context, caseElseClauseStatement.Body, walk);
                 break;
+        }
+    }
+
+    // MS-VBAL §5.4.2.20: the event is one the enclosing class module declares - a standard module has none, so a
+    // RaiseEvent in one names no event - and the arguments are compatible with its parameter list under the rules of
+    // procedure invocation, all treated as positional.
+    // 🚧 TODO a ByRef parameter whose type does not exactly match that of a variable passed to it is incompatible
+    // (§5.3.1.11), and an object argument is not checked against a parameter declared as a class.
+    private static void EvaluateRaiseEvent(StaticEvaluationContext context, KeywordStatementNode statement, Walk walk)
+    {
+        if (statement.Inputs is not [SimpleNameExpressionNode eventName, .. var inputs])
+        {
+            // a RaiseEvent with no name is a syntax error, which the parser has already reported.
+            return;
+        }
+
+        var arguments = inputs.OfType<ExpressionNode>().ToArray();
+        var argumentTypes = new VBType?[arguments.Length];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, arguments[i]);
+            CollectError(result, walk);
+            argumentTypes[i] = result.IsSuccess ? result.Result : null;
+        }
+
+        var declared = context.Scope.SelfAndAncestors()
+            .FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?
+            .DeclaredAs(eventName.IdentifierName).OfType<VBEventMemberSymbol>().FirstOrDefault();
+        if (declared is null)
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventNotDefined, eventName.Location,
+                $"'{eventName.IdentifierName}' is not an event of the class module this RaiseEvent is written in."));
+            return;
+        }
+
+        var parameters = declared.Parameters;
+        var acceptsExtra = parameters.Length > 0 && parameters[^1] is ParamArrayParameterSymbol;
+        var required = parameters.Count(parameter => !parameter.IsOptional && parameter is not ParamArrayParameterSymbol);
+        if (arguments.Length < required || (arguments.Length > parameters.Length && !acceptsExtra))
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventArgumentsIncompatible, statement.SourceLocation,
+                $"Event '{declared.Name}' takes {(required == parameters.Length ? required.ToString() : $"{required} to {parameters.Length}")} argument(s), and {arguments.Length} were given."));
+            return;
+        }
+
+        // a ByVal parameter of a type other than a class or Object takes the argument by Let-coercion (§5.3.1.11).
+        for (var i = 0; i < Math.Min(arguments.Length, parameters.Length); i++)
+        {
+            var parameter = parameters[i];
+            if (argumentTypes[i] is { } argumentType
+                && parameter.ParameterKind is ParameterKind.ExplicitByVal or ParameterKind.ImplicitByVal
+                && parameter.ResolvedType is not (VBClassType or VBObjectType or VBUnknownType))
+            {
+                CollectError(LetCoercionStaticSemantics.Instance.DetermineDeclaredType(context, arguments[i], argumentType, parameter.ResolvedType), walk);
+            }
         }
     }
 

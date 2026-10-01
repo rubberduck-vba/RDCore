@@ -12,3 +12,7 @@
   href: vbc09320.md
 - name: VBC09321 — Argument required for Property Let or Property Set
   href: vbc09321.md
+- name: VBC09322 — Event not defined
+  href: vbc09322.md
+- name: VBC09323 — Wrong number of arguments or invalid argument for event
+  href: vbc09323.md

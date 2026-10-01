@@ -37,6 +37,14 @@ statement kinds the `Simple` statement provider handles
    [**RD-VBAL §5.5.2.2** Runtime semantics](rd-vbal.5.5.2.2.runtime-semantics.md)).
 3. The Set-coerced value is assigned to the target.
 
+Two things happen around the assignment of an object to a variable.
+
+- **References.** The variable holds a reference to the object it is given, and the object it held loses one. An object that loses its last reference is destroyed, and its `Class_Terminate` handler runs
+  ([**RD-VBAL §5.3.1.10**](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)).
+- **`WithEvents`.** When the variable is declared `WithEvents`
+  ([**RD-VBAL §5.2.3.1.2**](rd-vbal.5.2.3.module-declarations.md)), its event handlers are detached from the object it holds before the assignment, and attached to the object it is given after it. They handle the events that object raises with `RaiseEvent`
+  ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)); an object that is destroyed handles no more.
+
 The `Set` statement performs Set-coercion through the same direct entry point that
 `RDCore.Runtime.Semantics.Statements.WithStatementRuntimeSemantics` uses for its own `With`-target coercion, not
 through the operator pipeline. Set-coercion does not select a strategy per destination type, so it does not need

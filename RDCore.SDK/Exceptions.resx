@@ -354,6 +354,12 @@
   <data name="VBCompileError_ArgumentRequiredForPropertyLetOrSet" xml:space="preserve">
     <value>Argument required for Property Let or Property Set</value>
   </data>
+  <data name="VBCompileError_EventNotDefined" xml:space="preserve">
+    <value>Event not defined</value>
+  </data>
+  <data name="VBCompileError_EventArgumentsIncompatible" xml:space="preserve">
+    <value>Wrong number of arguments or invalid argument for event</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>

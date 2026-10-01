@@ -41,6 +41,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09319](vbc09319.md)|Duplicate label definition — a procedure defines the same line label or line number more than once|
 |[VBC09320](vbc09320.md)|Inconsistent property accessors — a property's Get/Let/Set do not together describe one valid property|
 |[VBC09321](vbc09321.md)|Argument required for Property Let or Property Set — a Let/Set declares no parameters at all|
+|[VBC09322](vbc09322.md)|Event not defined — a RaiseEvent names an event the class module does not declare|
+|[VBC09323](vbc09323.md)|Wrong number of arguments or invalid argument for event — a RaiseEvent's arguments do not match the event's parameters|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

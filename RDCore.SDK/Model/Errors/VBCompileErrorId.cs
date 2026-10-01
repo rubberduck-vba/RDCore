@@ -228,6 +228,18 @@ public enum VBCompileErrorId
     /// ℹ️ Unable to find an official <c>learn.microsoft.com</c> documentation link for this error.
     /// </remarks>
     ArgumentRequiredForPropertyLetOrSet = 9321,
+    /// <summary>
+    /// A <c>RaiseEvent</c> statement names an event that the class module it is written in does not declare, or is not
+    /// written in a class module at all.<br/>
+    /// <strong>MS-VBAL §5.4.2.20</strong> RaiseEvent Statement.
+    /// </summary>
+    EventNotDefined = 9322,
+    /// <summary>
+    /// The arguments of a <c>RaiseEvent</c> statement are not compatible with the parameter list of the event it
+    /// raises: there are too many or too few, or one cannot be passed to its parameter.<br/>
+    /// <strong>MS-VBAL §5.4.2.20</strong> RaiseEvent Statement.
+    /// </summary>
+    EventArgumentsIncompatible = 9323,
 
 
     /***********************************************************************************************

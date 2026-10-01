@@ -34,8 +34,10 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09319`](../diagnostics/vbc09319.md)|Duplicate label definition|a procedure defines the same line label or line number more than once|
 |[`VBC09320`](../diagnostics/vbc09320.md)|Inconsistent property accessors|a property's Get/Let/Set sharing a name do not together describe one valid property|
 |[`VBC09321`](../diagnostics/vbc09321.md)|Argument required for Property Let or Property Set|a Property Let or Property Set declares no parameters at all|
+|[`VBC09322`](../diagnostics/vbc09322.md)|Event not defined|a RaiseEvent names an event the class module it is written in does not declare|
+|[`VBC09323`](../diagnostics/vbc09323.md)|Wrong number of arguments or invalid argument for event|a RaiseEvent's arguments are not compatible with the parameter list of its event|
 
-Instruction-list lowering reports `VBC09309` for a `Jump`/`JumpTable` label operand that does not resolve, and `VBC09319` for a repeated label definition; see [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md). `VBC09320` and `VBC09321` are raised by [ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html); see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
+Instruction-list lowering reports `VBC09309` for a `Jump`/`JumpTable` label operand that does not resolve, and `VBC09319` for a repeated label definition; see [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md). `VBC09320` and `VBC09321` are raised by [ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html); see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md). `VBC09322` and `VBC09323` are raised by [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html); see [**RD-VBAL §5.4.2.20** RaiseEvent Statement](rd-vbal.5.4.2.20.raiseevent-statement.md).
 
 ## Other Compilation Errors
 
