@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
@@ -211,8 +212,17 @@ public static class ModuleNodeExtensions
     /// project. A half-typed <c>Implements</c> with no name at all is skipped.
     /// </summary>
     public static ImmutableArray<string> GetImplementedInterfaceNames(this ModuleNode module)
+        => [.. ImplementsDirectivesOf(module).Select(directive => directive.Name)];
+
+    /// <summary>
+    /// Where each of <see cref="GetImplementedInterfaceNames"/> is written: the source range of its <c>Implements</c> directive,
+    /// one for each name and in the same order.
+    /// </summary>
+    public static ImmutableArray<SourceRange> GetImplementedInterfaceRanges(this ModuleNode module)
+        => [.. ImplementsDirectivesOf(module).Select(directive => directive.Range)];
+
+    private static IEnumerable<(string Name, SourceRange Range)> ImplementsDirectivesOf(ModuleNode module)
     {
-        var names = ImmutableArray.CreateBuilder<string>();
         foreach (var directive in module.Children.OfType<ImplementsDirectiveNode>())
         {
             var name = directive.NameExpression switch
@@ -223,10 +233,9 @@ public static class ModuleNodeExtensions
             };
             if (name is not null)
             {
-                names.Add(name);
+                yield return (name, directive.Location.Range);
             }
         }
-        return names.ToImmutable();
     }
 
     // AttributeDirectiveNode.Value is the raw parse-tree text; a VB_Name value is a string literal.

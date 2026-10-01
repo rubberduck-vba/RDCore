@@ -58,7 +58,7 @@ public static class ImplementsSemantics
         // are is extensible, and a directive there would extend the very module the host reaches into.
         if (module.GetProperty(SymbolProperties.Extensible) && !module.ImplementedInterfaceNames.IsEmpty)
         {
-            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, 0),
                 $"'{module.Name}' is an extensible module (Attribute VB_Extensible), which cannot have an Implements directive (MS-VBAL §5.2.4.2)."));
             return errors.ToImmutable();
         }
@@ -81,6 +81,16 @@ public static class ImplementsSemantics
     private static SourceLocation LocationOf(VBTypeMemberSymbol member) => new(member.ParentUri, member.SelectionRange);
 
     private static SourceLocation LocationOf(VBClassModuleSymbol module) => new(module.Uri, SourceRange.Empty);
+
+    // where the directive that names the interface is written, which a symbol that was not read from source does not know.
+    private static SourceLocation LocationOfDirective(VBClassModuleSymbol module, int index)
+        => index >= 0 && index < module.ImplementedInterfaceRanges.Length && module.ImplementedInterfaceRanges.Length == module.ImplementedInterfaceNames.Length
+            ? new(module.Uri, module.ImplementedInterfaceRanges[index])
+            : LocationOf(module);
+
+    private static SourceLocation LocationOfDirective(VBClassModuleSymbol module, VBClassModuleSymbol implemented)
+        => LocationOfDirective(module, module.ImplementedInterfaceNames.ToList().FindIndex(
+            name => string.Equals(name, implemented.Name, StringComparison.OrdinalIgnoreCase)));
 
     // Property Let, Property Set and Property Get derive from the subroutine's and the function's symbols, and are the
     // kinds of declaration they derive from only by inheritance.
@@ -111,11 +121,12 @@ public static class ImplementsSemantics
         var valid = new List<VBClassModuleSymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var name in module.ImplementedInterfaceNames)
+        for (var index = 0; index < module.ImplementedInterfaceNames.Length; index++)
         {
+            var name = module.ImplementedInterfaceNames[index];
             if (resolver.ResolveType(name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is not VBClassModuleSymbol named)
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, LocationOf(module),
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, LocationOfDirective(module, index),
                     $"'Implements {name}' names no class (MS-VBAL §5.2.4.2)."));
                 continue;
             }
@@ -123,21 +134,21 @@ public static class ImplementsSemantics
             // a Uri's fragment is where a symbol's identity lives, and Uri equality ignores it.
             if (named.Uri.AbsoluteUri == module.Uri.AbsoluteUri)
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, index),
                     $"'Implements {name}': the interface class cannot be the class of the module that has the directive (MS-VBAL §5.2.4.2)."));
                 continue;
             }
 
             if (!seen.Add(named.Uri.AbsoluteUri))
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, index),
                     $"'{name}' is the interface class of more than one Implements directive of this module (MS-VBAL §5.2.4.2)."));
                 continue;
             }
 
             if (InterfaceMembersOf(named).FirstOrDefault(member => member.Name.Contains('_')) is { } underscored)
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, index),
                     $"'{name}' cannot be an interface class: its public member '{underscored.Name}' has an underscore in its name (MS-VBAL §5.2.4.2)."));
                 continue;
             }
@@ -152,7 +163,7 @@ public static class ImplementsSemantics
             {
                 if (i != j && $"{valid[j].Name}_".StartsWith($"{valid[i].Name}_", StringComparison.OrdinalIgnoreCase))
                 {
-                    errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+                    errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOfDirective(module, valid[j]),
                         $"the implemented interface name prefix '{valid[i].Name}_' begins the prefix '{valid[j].Name}_' of another interface (MS-VBAL §5.2.4.2)."));
                 }
             }
@@ -197,7 +208,7 @@ public static class ImplementsSemantics
                 continue;
             }
 
-            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InterfaceMemberNotImplemented, LocationOf(module),
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InterfaceMemberNotImplemented, LocationOfDirective(module, implemented),
                 $"'{module.Name}' implements '{implemented.Name}' and needs to implement '{implemented.Name}.{member.Name}' with a {Describe(shape)} named '{name}' (MS-VBAL §5.2.4.2)."));
         }
     }

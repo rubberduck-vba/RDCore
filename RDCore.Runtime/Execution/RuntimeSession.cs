@@ -326,7 +326,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return true;
     }
 
-    public bool TryComposeClassModule(string moduleName, ImmutableArray<string> implementedInterfaceNames)
+    public bool TryComposeClassModule(
+        string moduleName, ImmutableArray<string> implementedInterfaceNames, ImmutableArray<SourceRange> implementedInterfaceRanges = default)
     {
         var module = AllSymbols().OfType<VBClassModuleSymbol>()
             .FirstOrDefault(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase));
@@ -336,7 +337,9 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
 
         // what the class declares: every member defined under its identity.
-        var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames };
+        var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames,
+            ImplementedInterfaceRanges = implementedInterfaceRanges.IsDefault ? [] : implementedInterfaceRanges,
+        };
         Replace(module, composed with { DefaultInterfaceMembers = VBClassType.FromClassModule(composed).Members });
 
         // every class that names an interface is resolved again, whichever it is that has just been composed: it may be the

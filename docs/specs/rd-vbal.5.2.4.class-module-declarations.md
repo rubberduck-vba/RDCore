@@ -139,8 +139,9 @@ require of it.
 
 What an implemented name declaration must be is [**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md).
 
-> [!NOTE]
-> **Not implemented.** The directive's own location is not on the symbol, so what is reported of it is located at the module.
+What is wrong with a directive is reported where the directive is written: the class module symbol carries the range of each directive
+(`VBClassModuleSymbol.ImplementedInterfaceRanges`, one for each of the `ImplementedInterfaceNames`), and an interface the module does not
+implement completely is reported at the directive that names it. A symbol that was not read from source has no ranges, and is reported at the module.
 
 A directive in an extensible module (`VB_Extensible = True`, [**RD-VBAL §3.1.1.8**](rd-vbal.3.1.1.attributes.md)) is invalid:
 [VBC09328](../diagnostics/vbc09328.md).

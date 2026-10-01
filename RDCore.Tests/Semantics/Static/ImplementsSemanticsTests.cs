@@ -250,4 +250,44 @@ public sealed class ImplementsSemanticsTests
             .Any(error => error.VBCompileErrorId == VBCompileErrorId.InvalidImplementsDirective));
 
     #endregion
+
+    #region Where it is reported
+
+    // line 0 of the module is its Attribute VB_Name; the body starts on line 1.
+    private static int LineOf(VBCompileErrorInfo error) => error.Location.Range.Start.Line;
+
+    [TestMethod]
+    public void AnInterfaceThatIsNotFullyImplemented_IsReportedAtItsDirective()
+    {
+        var errors = Check("Implements IShape\r\n" + FullDisc.Replace("Implements IShape\r\n", string.Empty)
+            .Replace("Private Sub IShape_Draw()\r\nEnd Sub\r\n", string.Empty));
+
+        Assert.AreEqual(1, LineOf(errors.Single()));
+    }
+
+    [TestMethod]
+    public void ADirectiveThatRepeatsAnother_IsReportedAtTheRepeat()
+    {
+        var errors = Check("Implements IShape\r\nImplements IShape\r\n" + FullDisc.Replace("Implements IShape\r\n", string.Empty));
+
+        Assert.AreEqual(2, LineOf(errors.Single(error => error.VBCompileErrorId == VBCompileErrorId.InvalidImplementsDirective)));
+    }
+
+    [TestMethod]
+    public void ADirectiveThatNamesTheClassItself_IsReportedAtItsDirective()
+    {
+        var errors = Check("Implements Disc\r\n");
+
+        Assert.AreEqual(1, LineOf(errors.Single()));
+    }
+
+    [TestMethod]
+    public void ADirectiveThatNamesNoClass_IsReportedAtItsDirective()
+    {
+        var errors = Check("Implements IShape\r\nImplements INothing\r\n" + FullDisc.Replace("Implements IShape\r\n", string.Empty));
+
+        Assert.AreEqual(2, LineOf(errors.Single(error => error.VBCompileErrorId == VBCompileErrorId.UserDefinedTypeNotDefined)));
+    }
+
+    #endregion
 }

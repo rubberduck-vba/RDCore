@@ -178,7 +178,10 @@ public interface ISessionSymbols
     /// <param name="moduleName">The name of the class module, which has been defined with its members.</param>
     /// <param name="implementedInterfaceNames">The names of the interfaces its <c>Implements</c> directives name, as written.</param>
     /// <returns><c>false</c> if the session has no class module of that name.</returns>
-    bool TryComposeClassModule(string moduleName, System.Collections.Immutable.ImmutableArray<string> implementedInterfaceNames);
+    /// <param name="implementedInterfaceRanges">Where each directive is written, one for each name, or empty when that is not known.</param>
+    bool TryComposeClassModule(
+        string moduleName, System.Collections.Immutable.ImmutableArray<string> implementedInterfaceNames,
+        System.Collections.Immutable.ImmutableArray<RDCore.SDK.Model.Source.SourceRange> implementedInterfaceRanges = default);
 
     /// <summary>
     /// The members the session has defined for a module, in no particular order: every procedure, property accessor,

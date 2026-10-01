@@ -77,6 +77,12 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public ImmutableArray<string> ImplementedInterfaceNames { get; init; } = [];
 
     /// <summary>
+    /// Where each of <see cref="ImplementedInterfaceNames"/> is written in the module: the range of its <c>Implements</c> directive,
+    /// one for each name and in the same order, or empty when they are not known.
+    /// </summary>
+    public ImmutableArray<SourceRange> ImplementedInterfaceRanges { get; init; } = [];
+
+    /// <summary>
     /// The <see cref="System.Text.Json"/> representation of the module's <see cref="RDCore.SDK.Model.AST.ModuleParseResult"/>
     /// (see <see cref="PlatformJson"/>), or empty when the module is defined for its symbols alone.
     /// </summary>

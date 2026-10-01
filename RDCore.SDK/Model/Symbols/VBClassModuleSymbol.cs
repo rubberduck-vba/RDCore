@@ -58,6 +58,13 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     public ImmutableArray<string> ImplementedInterfaceNames { get; init; } = [];
 
     /// <summary>
+    /// Where each of <see cref="ImplementedInterfaceNames"/> is written in the source: the range of its <c>Implements</c> directive,
+    /// one for each name and in the same order. Empty for a symbol that was not read from source, whose directives have no
+    /// location; what is reported of one is then reported at the module.
+    /// </summary>
+    public ImmutableArray<SourceRange> ImplementedInterfaceRanges { get; init; } = [];
+
+    /// <summary>
     /// <see cref="ImplementedInterfaceNames"/>, resolved to the sibling <see cref="VBClassModuleSymbol"/>
     /// each name refers to — populated by a third pass in <c>WorkspaceSymbolResolver.Compose</c>, once
     /// every module in the composition has its own symbol built. A name that doesn't resolve to a

@@ -99,7 +99,11 @@ internal static class WorkspaceSymbolResolver
             var implementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [];
             VBModuleSymbol module = moduleType == ModuleType.ClassModule
                 ? (VBModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, moduleName)
-                    { Directives = directives, ImplementedInterfaceNames = implementedInterfaceNames }
+                    {
+                        Directives = directives,
+                        ImplementedInterfaceNames = implementedInterfaceNames,
+                        ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
+                    }
                     .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
                     .With(SymbolProperties.PredeclaredId, parseResult.SyntaxTree?.IsPredeclared() ?? false)
                     .With(SymbolProperties.Extensible, parseResult.SyntaxTree?.IsExtensible() ?? false)

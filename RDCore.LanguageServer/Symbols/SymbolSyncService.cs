@@ -166,6 +166,7 @@ internal sealed class SymbolSyncService(
                 Symbols = descriptors,
                 Directives = parseResult.SyntaxTree.GetModuleDirectives(),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
+                ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
                 ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
                 Replace = replace,
             }, token);
