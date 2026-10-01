@@ -46,6 +46,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09324](vbc09324.md)|Invalid type for WithEvents variable — not a specific class with events, or the class of its own module|
 |[VBC09325](vbc09325.md)|Invalid event name — an Event declaration whose name has an underscore|
 |[VBC09326](vbc09326.md)|Invalid event handler — a procedure named for an event is not a subroutine with a compatible parameter list|
+|[VBC09327](vbc09327.md)|ByVal argument not allowed here — a ByVal argument in an argument list that is not an external procedure's|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

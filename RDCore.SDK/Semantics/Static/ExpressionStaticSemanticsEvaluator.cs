@@ -4,11 +4,13 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 using RDCore.SDK.Semantics.Static.Operators;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Static;
 
@@ -55,6 +57,8 @@ public static class ExpressionStaticSemanticsEvaluator
             ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(context, arrayBound),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(context, expression, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
+            // ByVal flags how an argument is passed; the argument is the expression it is written before.
+            ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
         };
 
@@ -133,6 +137,14 @@ public static class ExpressionStaticSemanticsEvaluator
             return calleeResult;
         }
 
+        // MS-VBAL §5.6.13.1: "It is invalid for an argument list to contain a ByVal argument unless it is the argument
+        // list for an invocation of an external procedure." Only the callee says which it is.
+        if (ByValArgumentIn(indexExpression.Arguments) is { } byValArgument && !IsExternalProcedure(context, indexExpression.Callee))
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ByValArgumentNotAllowed, byValArgument.Location,
+                "ByVal can only be written before an argument of an external procedure's invocation (MS-VBAL §5.6.13.1)."));
+        }
+
         foreach (var argument in indexExpression.Arguments)
         {
             var argumentResult = EvaluateIndexArgument(context, argument);
@@ -145,6 +157,26 @@ public static class ExpressionStaticSemanticsEvaluator
         return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
     }
 
+    // an argument written with ByVal, whether it is positional or named.
+    private static ExpressionNode? ByValArgumentIn(ImmutableArray<ExpressionNode> arguments)
+        => arguments.FirstOrDefault(argument => argument is ByValArgumentExpressionNode
+            || argument is NamedArgumentNode { Value: ByValArgumentExpressionNode });
+
+    // whether the expression a call is written on names an external procedure, a Declare: by its bare name, or qualified
+    // by the project or module that declares it (MS-VBAL §5.6.12).
+    private static bool IsExternalProcedure(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        var symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope.Uri).Symbol,
+            _ => null,
+        };
+
+        return symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
+    }
+
     // MissingArgumentNode is a placeholder, not a value - nothing to evaluate. NamedArgumentNode and
     // AddressOfExpressionNode wrap the expression actually worth checking for errors; neither has a
     // declared type IndexExpressionStaticSemantics needs, so only the callee's type feeds it.
@@ -153,6 +185,7 @@ public static class ExpressionStaticSemanticsEvaluator
         {
             MissingArgumentNode => null,
             NamedArgumentNode named => Evaluate(context, named.Value),
+            ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
             AddressOfExpressionNode addressOf => Evaluate(context, addressOf.Target),
             _ => Evaluate(context, argument),
         };

@@ -27,6 +27,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(ArrayBoundsNode), "ArrayBounds")]
 [JsonDerivedType(typeof(AssignmentStatementNode), "AssignmentStatement")]
 [JsonDerivedType(typeof(AttributeDirectiveNode), "AttributeDirective")]
+[JsonDerivedType(typeof(ByValArgumentExpressionNode), "ByValArgumentExpression")]
 [JsonDerivedType(typeof(CallStatementNode), "CallStatement")]
 [JsonDerivedType(typeof(DebugPrintStatementNode), "DebugPrintStatement")]
 [JsonDerivedType(typeof(DebugAssertStatementNode), "DebugAssertStatement")]

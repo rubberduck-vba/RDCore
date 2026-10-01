@@ -18,6 +18,11 @@
 
 The event name is not a variable and is never resolved as one: it is not an undefined name under `Option Explicit`. Each argument is an expression like any other, and is evaluated by the expression rules.
 
+The grammar of the statement is `event-argument = expression`: an argument cannot be written with `ByVal`. The keyword is valid
+only in the argument list of an external procedure's invocation ([**RD-VBAL §5.6.13.1**](rd-vbal.5.6.13.index-expressions.md)),
+which a `RaiseEvent` never is, so it is a syntax error ([VBC00001](../diagnostics/vbc00001.md)) at the parser, and not a
+compile error. The tree keeps it all the same, as a `ByValArgumentExpressionNode`.
+
 > [!NOTE]
 > **Not implemented.** A `ByRef` parameter whose declared type does not exactly match the variable passed to it, and an object argument for a parameter declared as a class, are not checked.
 

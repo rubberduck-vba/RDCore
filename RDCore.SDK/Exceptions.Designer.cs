@@ -520,6 +520,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to ByVal argument not allowed here.
+        /// </summary>
+        public static string VBCompileError_ByValArgumentNotAllowed {
+            get {
+                return ResourceManager.GetString("VBCompileError_ByValArgumentNotAllowed", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

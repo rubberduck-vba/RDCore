@@ -369,6 +369,9 @@
   <data name="VBCompileError_InvalidEventHandler" xml:space="preserve">
     <value>Invalid event handler</value>
   </data>
+  <data name="VBCompileError_ByValArgumentNotAllowed" xml:space="preserve">
+    <value>ByVal argument not allowed here</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>

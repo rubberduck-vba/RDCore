@@ -43,8 +43,17 @@ array the same as a declared array. See
 
 This section corresponds to [**MS-VBAL §5.6.13.1** Argument Lists](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5b35d806-1305-4427-a120-d25a71c45c02).
 
-> [!NOTE]
-> Reserved. This section has no content yet.
+The `ByVal` keyword (`argument-expression = ["byval"] expression`) flags one argument as passed by value, whatever mechanism
+its parameter declares. It is a token of the source and stays one in the tree: a
+[ByValArgumentExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ByValArgumentExpressionNode.html) wraps the argument
+it is written before, in an argument list of a call and of a named argument alike. Such an argument is a value bound to nothing, so
+it is never aliased to a `ByRef` parameter ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
+
+It is invalid for an argument list to have a `ByVal` argument unless it is that of an invocation of an external procedure. The
+parser cannot tell what is invoked, so this is a compile error where the callee is known,
+[VBC09327](../diagnostics/vbc09327.md), not a syntax error: `Foo ByVal x` parses, and is valid when `Foo` is a `Declare`. The
+argument list of a `RaiseEvent` is the exception, being known not to be that of an external procedure: there it is a syntax
+error ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)).
 
 See [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#argument-mapping).
 

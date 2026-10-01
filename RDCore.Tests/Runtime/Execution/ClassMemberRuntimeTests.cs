@@ -77,17 +77,27 @@ public sealed class ClassMemberRuntimeTests
         box = box with { Members = [size, grow, show] };
         var boxType = VBClassType.FromClassModule(box);
         var copy = Sub("Copy", ["Size = Other.Size"], ("Other", boxType));
-        box = box with { Members = [size, grow, show, copy], DefaultInterfaceMembers = [size, grow, show, copy] };
+        var bump = new VBProcedureMemberSymbol(Root, box.Uri, "Bump", ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        bump = bump with
+        {
+            Parameters = [new VBParameterSymbol(Root, bump.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo),
+                new VBParameterSymbol(Root, bump.Uri, "n", R, R, ParameterKind.ExplicitByRef, VBLongType.TypeInfo)],
+        };
+        bodies[bump.SemanticId] = Lower("n = n + 1");
+        box = box with { Members = [size, grow, show, copy, bump], DefaultInterfaceMembers = [size, grow, show, copy, bump] };
 
         var module = new VBStandardModuleSymbol(Root, Root, "Module1");
         var main = new VBProcedureMemberSymbol(Root, module.Uri, "Main", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         BoundTypedSymbol Local(string name) => new VBLocalVariableSymbol(main.Uri, main.Uri, name, ScopeKind.Local, R, R, ResolvedType: VBClassType.FromClassModule(box));
-        main = main with { Locals = [Local("p"), Local("q")] };
+        main = main with
+        {
+            Locals = [Local("p"), Local("q"), new VBLocalVariableSymbol(main.Uri, main.Uri, "v", ScopeKind.Local, R, R, ResolvedType: VBLongType.TypeInfo)],
+        };
 
         var output = new RuntimeOutputBuffer();
         var session = RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
-            [new StdLibSymbolProvider(Root), new Provider([module, box, size, grow, show, copy, main])], output: output);
+            [new StdLibSymbolProvider(Root), new Provider([module, box, size, grow, show, copy, bump, main])], output: output);
         var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
         bodies[main.SemanticId] = Lower(body);
 
@@ -107,6 +117,17 @@ public sealed class ClassMemberRuntimeTests
     [TestMethod]
     public void AnObjectPassedToAClassParameter_IsTheObject_NotItsDefaultMember()
         => CollectionAssert.AreEqual(new[] { "9" }, Run("Set p = New Box", "Set q = New Box", "p.Grow 9", "q.Copy p", "q.Show"));
+
+    [TestMethod]
+    public void AVariablePassedToAByRefParameter_IsAliased()
+        => CollectionAssert.AreEqual(new[] { "2" }, Run("Set p = New Box", "v = 1", "p.Bump v", "Debug.Print v"));
+
+    [TestMethod]
+    public void AnArgumentWrittenWithByVal_IsNotAliasedToAByRefParameter()
+        // MS-VBAL §5.6.13.1: ByVal flags the one argument as passed by value, whatever its parameter declares. Written
+        // before an argument of anything but an external procedure it is invalid, which static semantics says; what is
+        // run is what was written, and it is not the variable.
+        => CollectionAssert.AreEqual(new[] { "1" }, Run("Set p = New Box", "v = 1", "p.Bump ByVal v", "Debug.Print v"));
 
     [TestMethod]
     public void ASecondVariableSetToAnObject_IsTheSameObject_NotACopy()

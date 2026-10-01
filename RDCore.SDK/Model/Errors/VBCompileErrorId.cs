@@ -258,6 +258,12 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.3.1.8</strong> Event Handler Declarations.
     /// </summary>
     InvalidEventHandler = 9326,
+    /// <summary>
+    /// An argument is written with the <c>ByVal</c> keyword in an argument list that is not that of an invocation of an
+    /// external procedure.<br/>
+    /// <strong>MS-VBAL §5.6.13.1</strong> Argument Lists.
+    /// </summary>
+    ByValArgumentNotAllowed = 9327,
 
 
     /***********************************************************************************************

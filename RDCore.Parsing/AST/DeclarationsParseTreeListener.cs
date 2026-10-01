@@ -538,9 +538,25 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         var id = GetCurrentNodeId();
         var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
-        var arguments = context.eventArgumentList()?.eventArgument().Select(argument => CaptureIsolatedExpression(argument.expression())) ?? [];
+        var arguments = context.eventArgumentList()?.eventArgument().Select((argument, index) => CaptureEventArgument(id.Add(0).Add(index), argument)) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
+    }
+
+    // MS-VBAL §5.4.2.20: `event-argument = expression` - there is no ByVal in it, and RaiseEvent is never the invocation of
+    // an external procedure, the only argument list §5.6.13.1 lets one into. So the keyword is a token the grammar of
+    // this statement cannot place: a syntax error. It stays in the tree all the same, as it does anywhere it is written.
+    private ExpressionNode? CaptureEventArgument(SyntaxNodeId id, VBAParser.EventArgumentContext argument)
+    {
+        var expression = CaptureIsolatedExpression(argument.expression());
+        if (argument.BYVAL() is null)
+        {
+            return expression;
+        }
+
+        _errors.Report(argument.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError,
+            "A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).");
+        return expression is null ? null : new ByValArgumentExpressionNode(id, argument.GetSourceLocation(_rootUri), expression);
     }
 
     public override void ExitCloseStmt([NotNull] VBAParser.CloseStmtContext context)
@@ -1223,6 +1239,24 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         CurrentBuilder.AddChild(new NamedArgumentNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.unrestrictedIdentifier().Name(), value));
+    }
+
+    // MS-VBAL §5.6.13.1: `ByVal` flags the one argument as passed by value. It is a token of the source and stays one
+    // in the tree: dropped, `Foo ByVal x` was `Foo x`, an argument aliased to a ByRef parameter where it was written
+    // not to be. Whether it is valid is the callee's to say (only an external procedure's argument list may have it).
+    public override void ExitArgumentExpression([NotNull] VBAParser.ArgumentExpressionContext context)
+    {
+        if (!IsDeclarationPassExpression || context.BYVAL() is null)
+        {
+            return;
+        }
+        if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode operand])
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, 1));
+            return;
+        }
+        CurrentBuilder.PopLastChildren(1);
+        CurrentBuilder.AddChild(new ByValArgumentExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), operand));
     }
 
     public override void ExitMissingArgument([NotNull] VBAParser.MissingArgumentContext context)

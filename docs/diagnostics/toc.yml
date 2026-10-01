@@ -22,3 +22,5 @@
   href: vbc09325.md
 - name: VBC09326 — Invalid event handler
   href: vbc09326.md
+- name: VBC09327 — ByVal argument not allowed here
+  href: vbc09327.md

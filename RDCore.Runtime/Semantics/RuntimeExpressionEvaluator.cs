@@ -132,6 +132,9 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(session, context, arrayBound),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, unaryOperator),
+            // ByVal flags how the argument is passed, which is what a node that is not a variable is: a value, never
+            // aliased to a ByRef parameter (see TryResolveByRefArgument).
+            ByValArgumentExpressionNode byVal => Evaluate(session, byVal.Operand, context),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 

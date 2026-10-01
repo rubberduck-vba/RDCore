@@ -85,5 +85,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.InvalidWithEventsType] = Exceptions.VBCompileError_InvalidWithEventsType,
         [VBCompileErrorId.InvalidEventName] = Exceptions.VBCompileError_InvalidEventName,
         [VBCompileErrorId.InvalidEventHandler] = Exceptions.VBCompileError_InvalidEventHandler,
+        [VBCompileErrorId.ByValArgumentNotAllowed] = Exceptions.VBCompileError_ByValArgumentNotAllowed,
     };
 }

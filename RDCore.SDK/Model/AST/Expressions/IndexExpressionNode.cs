@@ -53,3 +53,20 @@ public sealed record class MissingArgumentNode(SyntaxNodeId Identity, SourceLoca
 /// <param name="Target">The procedure or function being referenced.</param>
 public sealed record class AddressOfExpressionNode(SyntaxNodeId Identity, SourceLocation Location, ExpressionNode Target)
     : ExpressionNode(Identity, Location, [Target]);
+
+/// <summary>
+/// <strong>MS-VBAL 5.6.13.1</strong> an argument written with the <c>ByVal</c> keyword
+/// (<c>argument-expression = ["byval"] expression</c>), which flags that one argument as being passed by value whatever
+/// the mechanism its parameter declares.
+/// </summary>
+/// <remarks>
+/// The keyword is valid only in the argument list of an invocation of an external procedure: anywhere else the
+/// argument list is invalid. That is something only the callee can say, so the node keeps the keyword in the tree, for
+/// whatever is able to say it. An argument written this way is a value bound to nothing, which is what there being
+/// nothing to alias means: it is never aliased to a <c>ByRef</c> parameter.
+/// </remarks>
+/// <param name="Identity">A unique identifier for this specific syntax node.</param>
+/// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>
+/// <param name="Operand">The argument's expression.</param>
+public sealed record class ByValArgumentExpressionNode(SyntaxNodeId Identity, SourceLocation Location, ExpressionNode Operand)
+    : ExpressionNode(Identity, Location, [Operand]);
