@@ -24,3 +24,9 @@
   href: vbc09326.md
 - name: VBC09327 — ByVal argument not allowed here
   href: vbc09327.md
+- name: VBC09328 — Invalid Implements directive
+  href: vbc09328.md
+- name: VBC09329 — Object module needs to implement all members of its interface
+  href: vbc09329.md
+- name: VBC09330 — Invalid implemented member
+  href: vbc09330.md

@@ -47,6 +47,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09325](vbc09325.md)|Invalid event name — an Event declaration whose name has an underscore|
 |[VBC09326](vbc09326.md)|Invalid event handler — a procedure named for an event is not a subroutine with a compatible parameter list|
 |[VBC09327](vbc09327.md)|ByVal argument not allowed here — a ByVal argument in an argument list that is not an external procedure's|
+|[VBC09328](vbc09328.md)|Invalid Implements directive — the class itself, a repeat, an underscore in a public member, or overlapping interface prefixes|
+|[VBC09329](vbc09329.md)|Object module needs to implement all members of its interface — a public member of the interface has no implemented name declaration|
+|[VBC09330](vbc09330.md)|Invalid implemented member — an implemented name declaration of another kind, parameters or type than its member|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

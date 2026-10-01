@@ -119,6 +119,30 @@ in the class type's `SuperTypes` array
 ([VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html);
 [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
+A class module also implements `Class` implicitly, which is among its implemented interfaces without a directive
+([**RD-VBAL §5.3.1.10**](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)). The directives below are the ones the source writes:
+its `ImplementedInterfaceNames`.
+
+### Static Semantics
+
+[ImplementsSemantics](../api/RDCore.SDK.Semantics.Static.ImplementsSemantics.html) checks the directives of a class module and what they
+require of it.
+
+- The class a directive names must exist (`VBC09311` otherwise, as for any type that does not), cannot be the class of the
+  module itself, and cannot be named by more than one directive of the module. A class whose public variables or methods
+  have an underscore in their names cannot be an interface class, and the implemented interface name prefix of an
+  interface, its name and an underscore, cannot begin that of another: [VBC09328](../diagnostics/vbc09328.md).
+- The module must declare an implemented name declaration, `InterfaceName_MemberName`, for each public method of the interface class,
+  of the same kind, and for each public variable the property accessors its declared type calls for: a `Property Get` and a `Property Let`, a
+  `Property Set` in place of the `Let` when the variable is an `Object` or a class, and all three when it is a `Variant`:
+  [VBC09329](../diagnostics/vbc09329.md). The `Private` members of the interface class are not part of its interface.
+
+What an implemented name declaration must be is [**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md).
+
+> [!NOTE]
+> **Not implemented.** The directive's own location is not on the symbol, so what is reported of it is located at the module. A directive
+> in an extension module is invalid; there is no kind of module that says so.
+
 > [!WARNING]
 > Extensible ("document") modules cannot specify any `Implements` directives.
 >
