@@ -194,6 +194,33 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         return true;
     }
 
+    public bool TryRedefine(Symbol symbol, ScopeKind scope)
+    {
+        var table = TableFor(scope);
+        var identity = SymbolIdentity.Of(symbol);
+        if (!table.TryGetValue(identity, out var existing))
+        {
+            return false;
+        }
+
+        // the same declaration, written again: a variable that holds storage and is declared as the type it was.
+        // Anything else is a different variable - or no variable - and is replaced the long way.
+        var sameDeclaration = existing is ITypedSymbol { ResolvedType: var before }
+            && symbol is ITypedSymbol { ResolvedType: var after }
+            && Equals(before, after)
+            && SessionBindings.TryGetAddress(existing, out _);
+        if (!sameDeclaration)
+        {
+            return TryUndefine(existing, scope) && TryDefine(symbol, scope);
+        }
+
+        // storage is keyed by the symbol's semantic identity, which the newest definition shares, so replacing the
+        // symbol itself leaves what it holds where it is.
+        table[identity] = symbol;
+        _scopeTree = null;
+        return true;
+    }
+
     public ISymbolResolver Resolver => Bindings;
 
     public bool TryResolveValue(string name, Symbol scope, out Symbol? symbol)

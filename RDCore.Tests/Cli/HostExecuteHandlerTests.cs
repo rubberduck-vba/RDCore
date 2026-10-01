@@ -163,6 +163,25 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    public async Task AModuleLevelVariable_KeepsItsValue_WhenTheModuleIsDefinedAgain()
+    {
+        // what the shell needs of a variable it wants to outlive a line: each line is the whole module defined
+        // again, with its statement as one more procedure, and the value set by one line is read by the next.
+        const string Declared = "Attribute VB_Name = \"Program\"\r\nPublic A As Variant\r\n";
+        var composed = Compose(Declared);
+
+        var first = await ExecuteAsync(
+            composed, $"{Declared}Public Sub Immediate()\r\nA = 42\r\nEnd Sub\r\n", entryPoint: "Immediate");
+        Assert.AreEqual(ExecutionOutcome.Completed, first.Outcome, first.ErrorMessage);
+
+        var second = await ExecuteAsync(
+            composed, $"{Declared}Public Sub Immediate()\r\nDebug.Print A\r\nEnd Sub\r\n", entryPoint: "Immediate");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, second.Outcome, second.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { " 42 " }, second.Output.ToArray(), $"printed: [{string.Join("|", second.Output)}]");
+    }
+
+    [TestMethod]
     public async Task AnImplicitLocalThatIsOnlyEverRead_IsEmpty()
     {
         // an implicit declaration is a declaration with no initializer, so its value is its type's

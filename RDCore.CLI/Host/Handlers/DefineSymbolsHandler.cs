@@ -83,12 +83,13 @@ internal sealed class DefineSymbolsHandler(
             {
                 defined++;
             }
-            else if (request.Replace && session.Symbols.TryUndefine(symbol, symbol.ScopeKind)
-                && session.Symbols.TryDefine(symbol, symbol.ScopeKind))
+            else if (request.Replace && session.Symbols.TryRedefine(symbol, symbol.ScopeKind))
             {
                 // the caller says this module has been re-read, so the newest definition wins: the
                 // previous one may have had different locals, a different declared type, or a body
-                // this one no longer has.
+                // this one no longer has. A variable declared as it was keeps what it holds - a shell
+                // re-reads the whole module for every line, and a value that did not survive that would
+                // not survive to the next line.
                 replaced++;
             }
             else

@@ -130,6 +130,28 @@ public interface ISessionSymbols
     bool TryUndefine(Symbol symbol, ScopeKind scope);
 
     /// <summary>
+    /// Replaces the definition of a symbol that is already defined in <paramref name="scope"/> with
+    /// <paramref name="symbol"/>, and keeps the value its storage holds when that value is still the
+    /// declaration's own.
+    /// </summary>
+    /// <remarks>
+    /// What a live session needs when a module is read again but a variable in it was not touched:
+    /// a module-level variable, or a <c>Static</c> local, is the same declaration before and after, so what it
+    /// held is still what it holds. Redefining it with <see cref="TryUndefine"/> and <see cref="TryDefine"/>
+    /// instead would hand back its type's default every time anything else in the module changed.
+    /// <para>
+    /// The value is kept only when the declared type is identical. A variable redeclared as another type is not
+    /// the same variable, and its storage — sized for the old type — is freed and allocated again, as it would
+    /// be by <see cref="TryUndefine"/> followed by <see cref="TryDefine"/>. A symbol that holds no storage is
+    /// simply replaced.
+    /// </para>
+    /// </remarks>
+    /// <param name="symbol">The newest definition, which takes the place of the one with the same identity.</param>
+    /// <param name="scope">The scope it was defined in.</param>
+    /// <returns><c>false</c> if no symbol with that identity was defined in that scope.</returns>
+    bool TryRedefine(Symbol symbol, ScopeKind scope);
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>
