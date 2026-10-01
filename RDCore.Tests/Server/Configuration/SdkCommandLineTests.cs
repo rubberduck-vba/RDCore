@@ -49,22 +49,26 @@ public sealed class SdkCommandLineTests
         => Assert.AreEqual("C:/ws", SdkCommandLine.Parse(["--workspace", "C:/ws"]).WorkspaceUri);
 
     [TestMethod]
-    [DataRow("Module", ImplicitDeclarationScope.Module)]
-    [DataRow("module", ImplicitDeclarationScope.Module, DisplayName = "case does not matter")]
-    [DataRow("Procedure", ImplicitDeclarationScope.Procedure)]
-    public void TheImplicitDeclarationScope_Parses_AndBecomesAConfigurationOverride(string argument, ImplicitDeclarationScope expected)
+    [DataRow("basic")]
+    [DataRow("vb6")]
+    public void TheLanguage_Parses_AndBecomesAConfigurationOverride(string argument)
     {
-        var parsed = SdkCommandLine.Parse(["--workspace", "C:/ws", "--implicit-declaration-scope", argument]);
+        var parsed = SdkCommandLine.Parse(["--workspace", "C:/ws", "--language", argument]);
 
-        Assert.AreEqual(expected, parsed.ImplicitDeclarationScope);
+        Assert.AreEqual(argument, parsed.Language);
         CollectionAssert.Contains(
             parsed.ToConfigurationOverrides().ToList(),
-            new KeyValuePair<string, string?>("Configuration:Workspace:ImplicitDeclarationScope", expected.ToString()));
+            new KeyValuePair<string, string?>("Configuration:Workspace:Language", argument));
     }
 
     [TestMethod]
-    public void AnImplicitDeclarationScopeThatWasNotGiven_OverridesNothing()
+    public void ALanguageThatWasNotGiven_OverridesNothing()
         // so a server's own appsettings win unless a client said otherwise.
         => Assert.IsFalse(SdkCommandLine.Parse(["--workspace", "C:/ws"]).ToConfigurationOverrides()
-            .Any(entry => entry.Key.EndsWith("ImplicitDeclarationScope", StringComparison.Ordinal)));
+            .Any(entry => entry.Key.EndsWith("Language", StringComparison.Ordinal)));
+
+    [TestMethod]
+    public void TheImplicitDeclarationScope_IsNoLongerASetting_BecauseTheLanguageDecidesIt()
+        // BASIC was not a dialect the platform defined when the setting was made; it is now.
+        => Assert.IsFalse(SdkCommandLine.TryAnswer(["--workspace", "C:/ws", "--language", "basic"], out _));
 }

@@ -52,7 +52,7 @@ internal sealed class SymbolSyncService(
 {
     // where the variable an undeclared name declares lives is the environment's to say, and every extraction pass
     // - the resolver's own two, and the one that defines the symbols - has to agree on it.
-    private ImplicitDeclarationScope ImplicitScope => options.Value.Workspace.ImplicitDeclarationScope;
+    private ImplicitDeclarationScope ImplicitScope => options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
 
     // and so is the name of the standard library, which is the language the workspace is written in to say.
     private string StandardLibraryName => options.Value.Workspace.SupportedLanguage.StandardLibraryName;

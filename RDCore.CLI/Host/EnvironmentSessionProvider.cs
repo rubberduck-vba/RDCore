@@ -72,8 +72,16 @@ public sealed class EnvironmentSessionProvider(
     IRuntimeEnvironmentProfile environment,
     IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger,
-    string standardLibraryName = StdLibSymbolProvider.DefaultLibraryName) : IEnvironmentSessionProvider
+    Func<string> standardLibraryNameSource) : IEnvironmentSessionProvider
 {
+    /// <summary>
+    /// Creates the provider for an environment whose standard library has a name that is already known.
+    /// </summary>
+    public EnvironmentSessionProvider(
+        IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, ILogger<EnvironmentSessionProvider> logger,
+        string standardLibraryName = StdLibSymbolProvider.DefaultLibraryName)
+        : this(environment, fileSystem, logger, () => standardLibraryName) { }
+
     private IRuntimeSession? _session;
 
     /// <inheritdoc/>
@@ -102,9 +110,12 @@ public sealed class EnvironmentSessionProvider(
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
+        // the library is called what the language it is the library of calls it, which the client says when it initializes the server
+        // that started this one: asked for now, when the session is composed, and not when this was created.
+        var standardLibraryName = standardLibraryNameSource();
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit, standardLibraryName);
 
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, modules], Output);
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, standardLibraryName), [configuration, stdLib, modules], Output);
         Image = new ProgramImage();
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;
@@ -121,7 +132,7 @@ public sealed class EnvironmentSessionProvider(
 
     // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank. The reference to the
     // standard library is called what the language calls its library, which is the name its symbols say they belong to.
-    private IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
+    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references, string standardLibraryName)
         => [.. references.Select((reference, rank) => new ReferencePriorityInfo(
             reference == RDCoreReference.VBStandardLibrary ? standardLibraryName : reference.Name, rank))];
 }

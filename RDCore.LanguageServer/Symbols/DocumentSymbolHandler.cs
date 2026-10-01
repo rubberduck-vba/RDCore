@@ -57,7 +57,7 @@ internal sealed class DocumentSymbolHandler(
 
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, resolver,
-            withImplicitDeclarations: true, options.Value.Workspace.ImplicitDeclarationScope).ProvideSymbols();
+            withImplicitDeclarations: true, options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope).ProvideSymbols();
         var (moduleRange, moduleSelectionRange) = ModuleRangesOf(module);
 
         var documentSymbol = DocumentSymbolProjector.Project(moduleUri, moduleName, moduleKind, moduleRange, moduleSelectionRange, symbols);

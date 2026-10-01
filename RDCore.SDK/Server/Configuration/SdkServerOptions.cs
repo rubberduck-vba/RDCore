@@ -93,12 +93,6 @@ public record class SdkAppCommandLineArgs
     public string? WorkspaceUri { get; set; }
 
     /// <summary>
-    /// A <em>command-line argument</em> that overrides the <see cref="SdkWorkspaceOptions.ImplicitDeclarationScope"/> setting.
-    /// </summary>
-    [Option("implicit-declaration-scope")]
-    public ImplicitDeclarationScope? ImplicitDeclarationScope { get; set; }
-
-    /// <summary>
     /// A <em>command-line argument</em> that overrides the <see cref="SdkWorkspaceOptions.Language"/> setting.
     /// </summary>
     [Option("language")]
@@ -147,7 +141,6 @@ public record class SdkAppCommandLineArgs
         if (UnsafeDevMode is bool unsafeDevMode) yield return new("Configuration:Server:UnsafeDevMode", unsafeDevMode.ToString());
         if (WorkspaceUri is string workspaceUri) yield return new("Configuration:Workspace:WorkspaceUri", workspaceUri);
         if (DefaultLocation is string defaultLocation) yield return new("Configuration:Workspace:DefaultLocation", defaultLocation);
-        if (ImplicitDeclarationScope is ImplicitDeclarationScope implicitScope) yield return new("Configuration:Workspace:ImplicitDeclarationScope", implicitScope.ToString());
         if (Language is string language) yield return new("Configuration:Workspace:Language", language);
         if (Type is ServerTransportLayerMode transportType) yield return new("Configuration:Platform:Transport:Type", transportType.ToString());
         if (PipeName is string pipeName) yield return new("Configuration:Platform:Transport:PipeConfig:PipeName", pipeName);
@@ -346,23 +339,15 @@ public record class SdkWorkspaceOptions
     public string WorkspaceUri { get; set; } = _defaultWorkspaceUri;
 
     /// <summary>
-    /// Where the variable a reference to an undeclared name declares lives (<strong>MS-VBAL §5.6.10</strong>).
-    /// </summary>
-    /// <remarks>
-    /// <see cref="ImplicitDeclarationScope.Procedure"/> — a local of the procedure — is VBA's, and the default.
-    /// <see cref="ImplicitDeclarationScope.Module"/> is a BASIC's: a variable of the module, so that what one line
-    /// assigns the next one reads. A client that serves an interactive shell asks for it of the server it starts.
-    /// </remarks>
-    public ImplicitDeclarationScope ImplicitDeclarationScope { get; set; } = ImplicitDeclarationScope.Procedure;
-
-    /// <summary>
     /// The identifier of the language the workspace is written in (<see cref="Workspace.SupportedLanguage.Id"/>): <c>vba</c> (RD-VBA, the
     /// default), <c>vb6</c> or <c>basic</c>.
     /// </summary>
     /// <remarks>
-    /// The language is what the platform's components agree on about the dialect, so a client that serves one says so of the servers it
-    /// starts, as it does <see cref="ImplicitDeclarationScope"/>. What it decides today is the name of the standard library
-    /// (<see cref="Workspace.SupportedLanguage.StandardLibraryName"/>): <c>VBA</c>, <c>VB</c> or <c>RDC</c>.
+    /// The language is what the platform's components agree on about the dialect, so a client says it of the servers it starts - and of the
+    /// server it connects to, in the <c>initializationOptions</c> of its <c>initialize</c> request
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions"/>). It decides what is built from the workspace: the name of the standard
+    /// library (<see cref="Workspace.SupportedLanguage.StandardLibraryName"/>: <c>VBA</c>, <c>VB</c> or <c>RDC</c>), where the variable an
+    /// undeclared name declares lives (<see cref="Workspace.SupportedLanguage.ImplicitDeclarationScope"/>), and which statements exist.
     /// </remarks>
     public string Language { get; set; } = Workspace.SupportedLanguages.RDVBA.Id;
 

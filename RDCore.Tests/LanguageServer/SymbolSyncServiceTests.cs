@@ -4,6 +4,7 @@ using NSubstitute;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
+using RDCore.SDK.Workspace;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
@@ -63,10 +64,14 @@ public sealed class SymbolSyncServiceTests
         return (sut, host);
     }
 
+    // where an undeclared name declares its variable is the language's to say: a BASIC's is the module, and the other languages' the procedure.
     private static IOptions<SdkAppOptions> Options(ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
         => Microsoft.Extensions.Options.Options.Create(new SdkAppOptions
         {
-            Workspace = new SdkWorkspaceOptions { ImplicitDeclarationScope = implicitScope },
+            Workspace = new SdkWorkspaceOptions
+            {
+                Language = SupportedLanguages.All.First(language => language.ImplicitDeclarationScope == implicitScope).Id,
+            },
         });
 
     [TestMethod]

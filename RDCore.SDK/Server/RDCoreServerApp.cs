@@ -367,7 +367,11 @@ public abstract class RDCoreServerApp(
     {
         LogIfEnabled(LogLevel.Information, "Received LSP/Initialize request.");
         ServerStateProvider.OnInitialize();
-        
+
+        // what the client says of itself comes before everything that is built from it: the capabilities below, and whatever an
+        // application brings up in its own handler.
+        ApplyInitializationOptions(request);
+
         var clientProcessId = ResolveClientProcessId(request);
         if (clientProcessId != 0)
         {
@@ -385,6 +389,49 @@ public abstract class RDCoreServerApp(
 
         await OnLanguageServerInitializeAsync(server, request, token);
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerInitialize_HandlerCompleted);
+    }
+
+    // the language the client says the workspace is written in wins over the server's own setting (the command line a client started it
+    // with): the request is LSP's own way for a client to say so, and the setting is only what a client that spawned the server could.
+    private void ApplyInitializationOptions(InitializeParams request)
+    {
+        var language = ReadInitializationOptions(request.InitializationOptions)?.Language;
+        if (language is null)
+        {
+            return;
+        }
+
+        if (!Workspace.SupportedLanguages.TryGet(language, out var supported))
+        {
+            LogIfEnabled(LogLevel.Warning, $"The client's initializationOptions name the language '{language}', which the platform does not serve; the server's own '{options.Value.Workspace.Language}' stands.");
+            return;
+        }
+
+        options.Value.Workspace.Language = supported.Id;
+        LogIfEnabled(LogLevel.Information, $"The workspace is written in {supported.Name} ('{supported.Id}'), as the client's initializationOptions say.");
+    }
+
+    /// <summary>
+    /// Reads the <c>initializationOptions</c> of an <c>initialize</c> request, which the protocol leaves a client free to put anything in.
+    /// </summary>
+    /// <param name="initializationOptions">What the request carried.</param>
+    /// <returns>The options, or <see langword="null"/> when the client sent none or sent something that is not them.</returns>
+    internal static Platform.Protocol.RDCoreInitializationOptions? ReadInitializationOptions(object? initializationOptions)
+    {
+        try
+        {
+            return initializationOptions switch
+            {
+                null => null,
+                Platform.Protocol.RDCoreInitializationOptions typed => typed,
+                Newtonsoft.Json.Linq.JToken token => token.ToObject<Platform.Protocol.RDCoreInitializationOptions>(),
+                _ => Newtonsoft.Json.Linq.JToken.FromObject(initializationOptions).ToObject<Platform.Protocol.RDCoreInitializationOptions>(),
+            };
+        }
+        catch (Newtonsoft.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     private int ResolveClientProcessId(InitializeParams request)

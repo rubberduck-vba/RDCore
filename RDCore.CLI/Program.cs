@@ -102,12 +102,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
     protected override IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs) 
         => [
             ("CLI:UnsafeDevMode", baseArgs.UnsafeDevMode?.ToString() ?? false.ToString()),
-            // an interactive shell is a BASIC: a variable that a line assigns is the same one the next line reads, and
-            // a program's variables can be looked at once it has run. The server is told, when it is started, and
-            // declares an undeclared name at module level instead of in the procedure.
-            // TODO say so by advertising it as a client capability, which is what this stands in for: a dial.
-            ("Configuration:Workspace:ImplicitDeclarationScope", nameof(ImplicitDeclarationScope.Module)),
-            // and the language it is a BASIC of: its standard library is the platform's own, RDC, rather than VBA's.
+            // an interactive shell is written in the platform's BASIC, and the language is what decides the rest: a variable that a line
+            // assigns is the one the next line reads, the standard library is RDC rather than VBA, and a bare Print is a statement. The
+            // servers are told, when they are started and in the initializationOptions of the initialize request.
             ("Configuration:Workspace:Language", SupportedLanguages.BASIC.Id),
         ];
 
@@ -359,7 +356,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
                 provider.GetRequiredService<IRuntimeEnvironmentProfile>(),
                 provider.GetRequiredService<IFileSystem>(),
                 provider.GetRequiredService<ILogger<EnvironmentSessionProvider>>(),
-                provider.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage.StandardLibraryName));
+                () => provider.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage.StandardLibraryName));
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

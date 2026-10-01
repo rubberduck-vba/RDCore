@@ -243,7 +243,15 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         Locale = Thread.CurrentThread.CurrentUICulture.Name,
         Trace = _options.Value.Server.TraceLevel == LogLevel.None ? InitializeTrace.Off
             : _options.Value.Server.Verbose ? InitializeTrace.Verbose : InitializeTrace.Messages,
+        InitializationOptions = CreateInitializationOptions(),
     };
+
+    /// <summary>
+    /// What this client says of itself in the <c>initializationOptions</c> of the <c>initialize</c> request: the language the workspace is
+    /// written in, which only the client knows, and which the server needs to know before it builds anything.
+    /// </summary>
+    protected virtual RDCoreInitializationOptions CreateInitializationOptions()
+        => new() { Language = _options.Value.Workspace.Language };
 
     /// <summary>
     /// Applies the app-specific parts of the language client configuration. The transport (input/output)
@@ -258,6 +266,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             .WithClientInfo(initialization.ClientInfo ?? GetClientInfo())
             .WithClientCapabilities(GetClientCapabilities())
             .WithTrace(initialization.Trace)
+            .WithInitializationOptions(initialization.InitializationOptions!)
             // wire-up lifecycle delegates:
             .OnStarted(OnLanguageClientStartedAsync)
             .OnInitialize(HandleLanguageClientInitializeAsync)

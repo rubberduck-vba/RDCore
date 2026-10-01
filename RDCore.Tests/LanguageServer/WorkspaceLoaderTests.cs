@@ -54,7 +54,7 @@ public sealed class WorkspaceLoaderTests
         return new WorkspaceService(
             new Version(99, 0, 0), state ?? InitializingState(), NullLogger<WorkspaceService>.Instance,
             fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            [ProtocolSupportedLanguage.VBA]);
+            () => ProtocolSupportedLanguage.VBA);
     }
 
     [TestMethod]
@@ -89,7 +89,7 @@ public sealed class WorkspaceLoaderTests
         var sut = new WorkspaceService(
             new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
             fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            [ProtocolSupportedLanguage.VBA]);
+            () => ProtocolSupportedLanguage.VBA);
 
         await sut.LoadAsync(Root);
 
@@ -110,7 +110,7 @@ public sealed class WorkspaceLoaderTests
         var sut = new WorkspaceService(
             new Version(99, 0, 0), InitializingState(), NullLogger<WorkspaceService>.Instance,
             fs.Path, fs.File, fs.Directory, ProjectService(fs), documents, documentStates,
-            [ProtocolSupportedLanguage.VBA]);
+            () => ProtocolSupportedLanguage.VBA);
         await sut.LoadAsync(Root);
 
         var loaded = documents.GetAllDocuments().Single();

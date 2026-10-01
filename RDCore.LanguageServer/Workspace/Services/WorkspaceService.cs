@@ -64,10 +64,14 @@ internal class WorkspaceService(Version serverVersion, IServerStateProvider serv
     IProjectFileService projectFileService,
     IWorkspaceDocumentService documentService,
     States.IDocumentStateProvider documentStateProvider,
-    IEnumerable<SupportedLanguage> supportedLanguages) : IWorkspaceService
+    Func<SupportedLanguage> language) : IWorkspaceService
 {
     private RDCoreProject ProjectInfo => projectFileService.Project.ProjectInfo!;
-    private HashSet<string> SourceExtensions { get; } = [.. supportedLanguages.SelectMany(language => language.FileTypes.Select(ext => ext[1..].ToLowerInvariant()))];
+
+    // the files of the language the workspace is written in, which the client says when it initializes: this is not asked before then.
+    private HashSet<string>? _sourceExtensions;
+    private HashSet<string> SourceExtensions
+        => _sourceExtensions ??= [.. language().FileTypes.Select(ext => ext[1..].ToLowerInvariant())];
 
     public async Task SaveAsync()
     {

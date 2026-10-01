@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RDCore.SDK.Server.Configuration;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Server;
@@ -35,8 +37,9 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
         // abstractions, so project them here.
         services
             .AddSingleton(Info.Version ?? new Version(0, 0, 0))
-            // the language the workspace is written in, which the client chose when it started the server.
-            .AddSingleton(SupportedLanguages.Get(configuration["Configuration:Workspace:Language"] ?? SupportedLanguages.RDVBA.Id))
+            // the language the workspace is written in, which the client says when it starts the server and again when it initializes it:
+            // asked for when it is needed, never kept from before.
+            .AddSingleton<Func<SupportedLanguage>>(sp => () => sp.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage)
             .AddSingleton<IPath>(sp => sp.GetRequiredService<IFileSystem>().Path)
             .AddSingleton<IFile>(sp => sp.GetRequiredService<IFileSystem>().File)
             .AddSingleton<IDirectory>(sp => sp.GetRequiredService<IFileSystem>().Directory)

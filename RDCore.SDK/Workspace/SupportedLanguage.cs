@@ -1,4 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.SDK.Model;
 using RDCore.SDK.Runtime.StdLib;
 
 namespace RDCore.SDK.Workspace;
@@ -45,6 +46,24 @@ public class SupportedLanguage
     /// </remarks>
     public string StandardLibraryName { get; init; } = StdLibSymbolProvider.DefaultLibraryName;
 
+    /// <summary>
+    /// Where the variable that a reference to an undeclared name declares lives (<strong>MS-VBAL §5.6.10</strong>).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ImplicitDeclarationScope.Procedure"/> - a local of the procedure - is VBA's and VB6's. <see cref="ImplicitDeclarationScope.Module"/>
+    /// is a BASIC's: a variable of the module, so that what one line assigns the next one reads.
+    /// </remarks>
+    public ImplicitDeclarationScope ImplicitDeclarationScope { get; init; } = ImplicitDeclarationScope.Procedure;
+
+    /// <summary>
+    /// Whether a <c>Print</c> statement with no file number - <c>Print "x"</c> - is a statement of the language.
+    /// </summary>
+    /// <remarks>
+    /// In VB6 it is the <c>Print</c> member of the form or report it is written in, so it exists only where there is one; and VBA has no such
+    /// statement at all, which is why a call of it is undefined. A BASIC has it as its own: it writes to the output of the program.
+    /// </remarks>
+    public bool HasBarePrint { get; init; }
+
     /// <summary>The patterns of the files written in the language, as a document filter pattern.</summary>
     public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
 
@@ -85,6 +104,8 @@ public static class SupportedLanguages
     public static SupportedLanguage BASIC { get; } = new("basic", "RDCore BASIC", "*.bas")
     {
         StandardLibraryName = "RDC",
+        ImplicitDeclarationScope = ImplicitDeclarationScope.Module,
+        HasBarePrint = true,
     };
 
     /// <summary>Every language the platform serves.</summary>
