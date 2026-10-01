@@ -3,8 +3,10 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
+using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
@@ -91,9 +93,142 @@ public sealed class LetAssignmentEvaluator(
         VBTypedValue value)
         => target is MemberAccessExpressionNode memberAccess
             ? AssignField(session, context, statement, memberAccess, source, value)
-            : TryResolveTarget(session, context, target, out var symbol)
-                ? Assign(session, context, statement, symbol!, target, source, value)
-                : RuntimeExecutionOutcome.InternalError;
+            : IsMemberOfObject(target)
+                ? AssignObjectMember(session, context, statement, target, source, value, isSet: false)
+                : TryResolveTarget(session, context, target, out var symbol)
+                    ? Assign(session, context, statement, symbol!, target, source, value)
+                    : RuntimeExecutionOutcome.InternalError;
+
+    // `owner.Property(index) = value`: an index expression whose callee is a member access.
+    private static bool IsMemberOfObject(ExpressionNode target) => target is IndexExpressionNode { Callee: MemberAccessExpressionNode };
+
+    /// <summary>
+    /// Assigns <paramref name="value"/> to a member of an object (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>):
+    /// a public variable of its class, which is its storage, or a property, which the assignment invokes - its
+    /// <c>Property Let</c>, or its <c>Property Set</c> in a <c>Set</c> assignment.
+    /// </summary>
+    /// <remarks>
+    /// The target is <c>owner.Member</c>, or <c>owner.Member(index, ...)</c> for a property that is indexed. The member is
+    /// looked up the way a read of it would be: through the interface the owner is declared as, when it is declared as
+    /// one the object's class implements (<strong>§5.3.1.9</strong>). A <c>Set</c> of a variable also lets go of the
+    /// object it held and takes a reference to the one it is given, and attaches the handlers of a <c>WithEvents</c>
+    /// variable to it, as a <c>Set</c> of a variable of the code's own does.
+    /// <para>
+    /// 🚧 TODO an element of an array a variable holds, <c>owner.Items(1) = value</c>, is not assigned.
+    /// </para>
+    /// </remarks>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="statement">The statement doing the assigning.</param>
+    /// <param name="target">The member access, or the index expression on one.</param>
+    /// <param name="source">The expression the value came from, for the location of an error.</param>
+    /// <param name="value">The value to assign, already evaluated.</param>
+    /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
+    public RuntimeExecutionOutcome AssignObjectMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target,
+        ExpressionNode source, VBTypedValue value, bool isSet)
+    {
+        var (memberAccess, indexArguments) = target switch
+        {
+            MemberAccessExpressionNode access => (access, []),
+            IndexExpressionNode { Callee: MemberAccessExpressionNode access } index => (access, index.Arguments),
+            _ => (null, System.Collections.Immutable.ImmutableArray<ExpressionNode>.Empty),
+        };
+
+        if (memberAccess is null)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryEvaluateOwner(session, context, memberAccess, out var owner, out var failure))
+        {
+            return failure;
+        }
+
+        return owner is VBObjectValue objectOwner
+            ? AssignObjectMember(session, context, statement, memberAccess, indexArguments, objectOwner, source, value, isSet)
+            : RuntimeExecutionOutcome.InternalError;
+    }
+
+    private RuntimeExecutionOutcome AssignObjectMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess,
+        System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source,
+        VBTypedValue value, bool isSet)
+    {
+        // an object variable that holds no object has no member to assign: error 91.
+        if (owner.IsNothing())
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, memberAccess.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
+        }
+
+        if (expressions.ResolveAssignableMember(session, context, memberAccess.Owner, owner, memberAccess.Member.IdentifierName, isSet) is not { } member)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
+        }
+
+        if (member.Accessor is { } accessor)
+        {
+            var invocation = expressions.InvokeAssignment(session, context, accessor, member.Receiver!, indexArguments, value, source, isSet);
+            return invocation.IsSuccess ? RuntimeExecutionOutcome.Next
+                : invocation.IsInternalError ? RuntimeExecutionOutcome.InternalError
+                : RuntimeExecutionOutcome.Error(invocation.ErrorInfo!);
+        }
+
+        // a public variable is the storage of the object it is a variable of; an index on it is an element of what it holds.
+        if (!indexArguments.IsEmpty || member.Field is not { } field || member.Instance is not { } instance)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var handle = instance.GetValue(field);
+        if (!isSet)
+        {
+            var frame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(field.ResolvedType));
+            var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
+            if (!coerced.IsApplicable)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            if (!coerced.IsSuccess)
+            {
+                return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+            }
+
+            handle.SetValue(session.Symbols.Resolver, coerced.Result!.RuntimeValue);
+            return RuntimeExecutionOutcome.Next;
+        }
+
+        if (expressions.SetCoercion is not { } setCoercion)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var setResult = setCoercion.EvaluateSetCoercion(session, source, value, field.ResolvedType);
+        if (!setResult.IsSuccess)
+        {
+            return RuntimeExecutionOutcome.Error(setResult.ErrorInfo!);
+        }
+
+        // a value is a view of its handle, which is about to be written to: what the variable held is its object's identity as of now.
+        var previous = field.ResolvedType.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
+        var withEvents = field.GetProperty(SymbolProperties.WithEvents);
+        if (withEvents)
+        {
+            EventAttachments.Detach(session, owner.Value, field, previous);
+        }
+
+        handle.SetValue(session.Symbols.Resolver, setResult.Result!.RuntimeValue);
+        ObjectReferences.Rebind(session, handle, previous, setResult.Result as VBObjectValue);
+        if (withEvents)
+        {
+            EventAttachments.Attach(session, owner.Value, field, setResult.Result as VBObjectValue);
+        }
+
+        return RuntimeExecutionOutcome.Next;
+    }
 
     // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a UDT. A UDT field is not an
     // addressable Symbol the way a variable is - it lives on the value, which is what makes it reachable at
@@ -115,8 +250,10 @@ public sealed class LetAssignmentEvaluator(
 
         if (owner is not VBUserDefinedTypeValue udt)
         {
-            // an Object/class field target, or a Property Let: neither is this method's, and neither is wired.
-            return RuntimeExecutionOutcome.InternalError;
+            // a public variable of an object, or a Property Let of it.
+            return owner is VBObjectValue objectOwner
+                ? AssignObjectMember(session, context, statement, memberAccess, [], objectOwner, source, value, isSet: false)
+                : RuntimeExecutionOutcome.InternalError;
         }
 
         var name = memberAccess.Member.IdentifierName;

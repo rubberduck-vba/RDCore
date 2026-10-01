@@ -163,10 +163,18 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         return _assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, valueResult.Result!);
     }
 
-    // MS-VBAL §5.4.3.9. Same target scope limitation as Let: a member-access or indexed target needs
-    // procedure-invocation machinery (a Property Set call) that doesn't exist yet.
+    // MS-VBAL §5.4.3.9. The target is a variable, or a member of an object: a public variable of its class, or a property,
+    // which its Property Set is invoked for.
     private RuntimeExecutionOutcome ExecuteSetAssignment(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is MemberAccessExpressionNode or IndexExpressionNode { Callee: MemberAccessExpressionNode })
+        {
+            var memberValue = _expressionEvaluator.Evaluate(session, assignment.Value, context);
+            return memberValue.IsSuccess
+                ? _assignments.AssignObjectMember(session, context, assignment, assignment.Target, assignment.Value, memberValue.Result!, isSet: true)
+                : memberValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(memberValue.ErrorInfo!);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode simpleName)
         {
             return RuntimeExecutionOutcome.InternalError;

@@ -113,7 +113,7 @@ public sealed class EventRuntimeTests
             handler.Name.EndsWith("_Bump", StringComparison.Ordinal) ? [("Count", ParameterKind.ExplicitByRef, VBLongType.TypeInfo)]
             : handler.Name.EndsWith("_Changed", StringComparison.Ordinal) ? [("Value", ParameterKind.ExplicitByVal, VBLongType.TypeInfo)]
             : [])).ToArray();
-        sink = sink with { Members = [src, tag, attach, detach, .. handled], DefaultInterfaceMembers = [tag, attach, detach] };
+        sink = sink with { Members = [src, tag, attach, detach, .. handled], DefaultInterfaceMembers = [src, tag, attach, detach] };
 
         var module = new VBStandardModuleSymbol(Root, Root, "Module1");
         var output = new RuntimeOutputBuffer();
@@ -195,6 +195,17 @@ public sealed class EventRuntimeTests
             "x.Attach a, \"x\"", "y.Attach a, \"y\"", "x.Attach a, \"x\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "y got 7", "x got 7" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void AWithEventsVariable_SetThroughAMemberAccess_AttachesTheHandlersOfTheObjectItIsAVariableOf()
+    {
+        // `Set x.Src = a` assigns a variable of x, from code that is not x's: the handlers are x's, not Main's.
+        var world = Compose([ChangedHandler]);
+
+        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Tag = \"x\"", "Set x.Src = a", "a.Fire", "Set x.Src = Nothing", "a.Fire"));
+
+        CollectionAssert.AreEqual(new[] { "x got 7" }, Printed(world));
     }
 
     [TestMethod]

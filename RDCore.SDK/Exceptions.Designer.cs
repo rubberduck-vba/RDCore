@@ -664,6 +664,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The object has no public variable, and no Property Let or Property Set, of this name for the assignment to write to..
+        /// </summary>
+        public static string VBMemberAssignment_NotAssignable_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAssignment_NotAssignable_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member..
         /// </summary>
         public static string VBMemberAccess_ObjectVariableNotSet_Verbose {

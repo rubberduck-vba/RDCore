@@ -6,6 +6,22 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
+/// What is done to a public variable of an interface, which is implemented by property declarations
+/// (<strong>MS-VBAL §5.3.1.9</strong>).
+/// </summary>
+public enum ImplementationAccess
+{
+    /// <summary>The variable is read, which invokes its <c>Property Get</c>.</summary>
+    Get,
+
+    /// <summary>The variable is assigned, which invokes its <c>Property Let</c>.</summary>
+    Let,
+
+    /// <summary>The variable is <c>Set</c>-assigned, which invokes its <c>Property Set</c>.</summary>
+    Set,
+}
+
+/// <summary>
 /// An unbound symbol representing a <em>class module</em>.
 /// </summary>
 public record class VBClassModuleSymbol : VBModuleSymbol
@@ -96,22 +112,43 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// <param name="interfaceMember">A member of <paramref name="implemented"/>.</param>
     /// <returns>The implementing declaration, or <see langword="null"/> when this class does not implement the member.</returns>
     public VBTypeMemberSymbol? FindImplementation(VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember)
+        => FindImplementation(implemented, interfaceMember, ImplementationAccess.Get);
+
+    /// <summary>
+    /// <inheritdoc cref="FindImplementation(VBClassModuleSymbol, VBTypeMemberSymbol)" path="/summary"/>
+    /// </summary>
+    /// <remarks>
+    /// A public variable of the interface is implemented by property declarations, and which of them is
+    /// <paramref name="access"/>: reading the variable invokes the <c>Property Get</c>, assigning it the <c>Property Let</c>,
+    /// and <c>Set</c>-assigning it the <c>Property Set</c>. Any other member is implemented by one declaration, and
+    /// <paramref name="access"/> is not asked of it.
+    /// </remarks>
+    /// <param name="implemented">An interface this class implements, explicitly or implicitly.</param>
+    /// <param name="interfaceMember">A member of <paramref name="implemented"/>.</param>
+    /// <param name="access">What is done to <paramref name="interfaceMember"/>, when it is a variable.</param>
+    public VBTypeMemberSymbol? FindImplementation(
+        VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember, ImplementationAccess access)
     {
         var name = $"{implemented.Name}_{interfaceMember.Name}";
         return Members.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
-            && ImplementsKindOf(interfaceMember, member));
+            && ImplementsKindOf(interfaceMember, member, access));
     }
 
     // Property Get, Let and Set derive from the function's and the subroutine's symbols, and are not the kinds of
     // declaration they derive from.
-    private static bool ImplementsKindOf(VBTypeMemberSymbol interfaceMember, VBTypeMemberSymbol candidate) => interfaceMember switch
+    private static bool ImplementsKindOf(VBTypeMemberSymbol interfaceMember, VBTypeMemberSymbol candidate, ImplementationAccess access) => interfaceMember switch
     {
         VBPropertyGetMemberSymbol => candidate is VBPropertyGetMemberSymbol,
         VBPropertyLetMemberSymbol => candidate is VBPropertyLetMemberSymbol,
         VBPropertySetMemberSymbol => candidate is VBPropertySetMemberSymbol,
         VBFunctionMemberSymbol => candidate is VBFunctionMemberSymbol,
         VBProcedureMemberSymbol => candidate is VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol),
-        _ => candidate is VBPropertyGetMemberSymbol,
+        _ => access switch
+        {
+            ImplementationAccess.Let => candidate is VBPropertyLetMemberSymbol,
+            ImplementationAccess.Set => candidate is VBPropertySetMemberSymbol,
+            _ => candidate is VBPropertyGetMemberSymbol,
+        },
     };
 
     /// <summary>

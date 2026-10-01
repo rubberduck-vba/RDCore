@@ -48,7 +48,26 @@ internal static class EventAttachments
     /// <param name="held">The object it holds, or <see langword="null"/> when none.</param>
     public static void Detach(IRuntimeSession session, RuntimeEvaluationContext context, Symbol variable, VBObjectValue? held)
     {
-        if (held is { } source && !source.IsNothing() && MeOf(session, context) is { } owner)
+        if (MeOf(session, context) is { } owner)
+        {
+            Detach(session, owner, variable, held);
+        }
+    }
+
+    /// <summary>
+    /// Detaches the handlers of <paramref name="variable"/>, a variable of <paramref name="owner"/>, from the object it holds.
+    /// </summary>
+    /// <remarks>
+    /// The owner is the object whose variable it is, which is not the object whose code assigns it when the variable is
+    /// reached through a member access: <c>Set other.Source = x</c> assigns a variable of <c>other</c>.
+    /// </remarks>
+    /// <param name="session">The session the assignment runs in.</param>
+    /// <param name="owner">The object that owns the variable.</param>
+    /// <param name="variable">The <c>WithEvents</c> variable assigned.</param>
+    /// <param name="held">The object it holds, or <see langword="null"/> when none.</param>
+    public static void Detach(IRuntimeSession session, VBRuntimeObjectId owner, Symbol variable, VBObjectValue? held)
+    {
+        if (held is { } source && !source.IsNothing())
         {
             session.Objects.DetachEventHandlers(source.Value, owner, variable);
         }
@@ -63,7 +82,23 @@ internal static class EventAttachments
     /// <param name="assigned">The object it now holds, or <see langword="null"/> when none.</param>
     public static void Attach(IRuntimeSession session, RuntimeEvaluationContext context, Symbol variable, VBObjectValue? assigned)
     {
-        if (assigned is { } source && !source.IsNothing() && MeOf(session, context) is { } owner)
+        if (MeOf(session, context) is { } owner)
+        {
+            Attach(session, owner, variable, assigned);
+        }
+    }
+
+    /// <summary>
+    /// Attaches the handlers of <paramref name="variable"/>, a variable of <paramref name="owner"/>, to the object an
+    /// assignment stored in it.
+    /// </summary>
+    /// <param name="session">The session the assignment runs in.</param>
+    /// <param name="owner">The object that owns the variable.</param>
+    /// <param name="variable">The <c>WithEvents</c> variable assigned.</param>
+    /// <param name="assigned">The object it now holds, or <see langword="null"/> when none.</param>
+    public static void Attach(IRuntimeSession session, VBRuntimeObjectId owner, Symbol variable, VBObjectValue? assigned)
+    {
+        if (assigned is { } source && !source.IsNothing())
         {
             session.Objects.AttachEventHandlers(source.Value, owner, variable);
         }
