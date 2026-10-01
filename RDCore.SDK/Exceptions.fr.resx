@@ -384,6 +384,9 @@
   <data name="VBCompileError_InvalidImplementedMember" xml:space="preserve">
     <value>Membre implémenté non valide</value>
   </data>
+  <data name="VBCompileError_SubOrFunctionNotDefined" xml:space="preserve">
+    <value>Sub ou Function non définie</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>

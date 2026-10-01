@@ -247,7 +247,10 @@ public abstract class AppHost<TApp>() : IDisposable
 
         services
             .AddSingleton<IRuntimeEnvironmentProfile>(sp =>
-                RuntimeEnvironmentProfile.From(sp.GetRequiredService<IOptions<SdkAppOptions>>().Value.Environment))
+            {
+                var appOptions = sp.GetRequiredService<IOptions<SdkAppOptions>>().Value;
+                return RuntimeEnvironmentProfile.From(appOptions.Environment, appOptions.Workspace.SupportedLanguage);
+            })
             .AddSingleton<TApp>()
             // stateful: owns the lifecycle state and the process/shutdown token sources. The server app,
             // the LSP lifecycle handlers, and the health check must all observe the same instance.

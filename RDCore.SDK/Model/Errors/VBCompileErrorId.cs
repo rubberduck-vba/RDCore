@@ -284,6 +284,13 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.3.1.9</strong> Implemented Name Declarations.
     /// </summary>
     InvalidImplementedMember = 9330,
+    /// <summary>
+    /// The code calls a procedure, or uses a statement, that the language it is written in does not have: <c>Print "x"</c> in
+    /// a language where a bare <c>Print</c> is the member of a form there is none of, or a symbol only another language's library
+    /// declares.<br/>
+    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/sub-or-function-not-defined">learn.microsoft.com</a>
+    /// </summary>
+    SubOrFunctionNotDefined = 9331,
 
 
     /***********************************************************************************************

@@ -67,10 +67,12 @@ public sealed class StandardLibraryNameTests
     }
 
     // the whole path of a qualified call, as the platform makes it: the language server's composition over the workspace, the host's session, the run.
-    private static async Task<ExecuteSessionResult> RunAsync(string standardLibraryName, string expression)
+    // `statement` is the body of Main when it is not just a Debug.Print of the expression; `language` is the one the environment is a dialect of.
+    internal static async Task<ExecuteSessionResult> RunAsync(
+        string standardLibraryName, string expression, string? statement = null, SupportedLanguage? language = null)
     {
         const string ModuleName = "Program";
-        var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main()\r\nDebug.Print {expression}\r\nEnd Sub\r\n";
+        var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main()\r\n{statement ?? $"Debug.Print {expression}"}\r\nEnd Sub\r\n";
         var project = new ProjectFile(Root, new RDCoreProject { Name = ModuleName, Modules = [new RDCoreModule { RelativeUri = $"{ModuleName}.bas" }] });
         var fs = new MockFileSystem(new Dictionary<string, MockFileData>
         {
@@ -79,7 +81,7 @@ public sealed class StandardLibraryNameTests
         });
 
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), fs, NullLogger<EnvironmentSessionProvider>.Instance, standardLibraryName);
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language), fs, NullLogger<EnvironmentSessionProvider>.Instance, standardLibraryName);
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 

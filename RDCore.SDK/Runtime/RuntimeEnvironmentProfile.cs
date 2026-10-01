@@ -13,6 +13,7 @@ namespace RDCore.SDK.Runtime;
 /// <param name="DatabaseCompare">The comparison mode <c>Option Compare Database</c> stands for; <c>Text</c> unless said otherwise.</param>
 /// <param name="ErlLineNumbering">What <c>Erl</c> counts as a line; the document line unless said otherwise.</param>
 /// <param name="AllowDllImports">Whether a <c>Declare</c>'d library import may be called; <c>true</c> unless said otherwise.</param>
+/// <param name="SourceLanguage">The language the code is written in; RD-VBA unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,
@@ -20,8 +21,12 @@ public sealed record class RuntimeEnvironmentProfile(
     bool SupportsOptionCompareDatabase,
     Model.Symbols.OptionCompare DatabaseCompare = Model.Symbols.OptionCompare.Text,
     Abstract.Execution.VBErlLineNumbering ErlLineNumbering = Abstract.Execution.VBErlLineNumbering.DocumentLine,
-    bool AllowDllImports = true) : IRuntimeEnvironmentProfile
+    bool AllowDllImports = true,
+    Workspace.SupportedLanguage? SourceLanguage = null) : IRuntimeEnvironmentProfile
 {
+    /// <inheritdoc/>
+    public Workspace.SupportedLanguage Language => SourceLanguage ?? Workspace.SupportedLanguages.RDVBA;
+
     /// <summary>
     /// A 64-bit, current-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
     /// design-time and tests.
@@ -32,10 +37,10 @@ public sealed record class RuntimeEnvironmentProfile(
         AnsiCodePage: 1252,
         SupportsOptionCompareDatabase: false);
 
-    /// <summary>Builds a profile from bound <c>appsettings.json</c> options.</summary>
-    public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options)
+    /// <summary>Builds a profile from bound <c>appsettings.json</c> options, for code written in <paramref name="language"/>.</summary>
+    public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options, Workspace.SupportedLanguage? language = null)
         => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase, options.DatabaseCompare,
-            options.ErlLineNumbering, options.AllowDllImports);
+            options.ErlLineNumbering, options.AllowDllImports, language);
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);

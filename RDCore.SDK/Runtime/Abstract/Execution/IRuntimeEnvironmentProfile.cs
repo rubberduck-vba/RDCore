@@ -56,6 +56,14 @@ public interface IRuntimeEnvironmentProfile
     VBErlLineNumbering ErlLineNumbering { get; }
 
     /// <summary>
+    /// The language the code is written in: what the environment is a dialect of, and so which symbols and statements exist at all.
+    /// </summary>
+    /// <remarks>
+    /// 👉 RD-VBA unless the workspace says otherwise. It is not derivable from the source, which is why it is a fact of the environment.
+    /// </remarks>
+    Workspace.SupportedLanguage Language { get; }
+
+    /// <summary>
     /// 🎯 Whether a <c>Declare</c>'d library import may actually be called. <c>true</c> unless an
     /// administrator said otherwise.
     /// </summary>

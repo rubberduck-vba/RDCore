@@ -70,7 +70,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         SizeFixedSizeArrays(members);
 
-        var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild());
+        var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var errors = ImmutableArray.CreateBuilder<string>();
         foreach (var declaration in syntaxTree.Children.OfType<MemberDeclarationNode>())
@@ -81,7 +81,10 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             }
 
             var lowering = InstructionListLowering.Lower(new StatementBlock([.. declaration.Children]), options);
-            errors.AddRange(lowering.Errors.Select(error => error.Description));
+            // what the error is, and the detail that says which of the module's statements it is about.
+            errors.AddRange(lowering.Errors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
+                ? error.Description
+                : $"{error.Description}: {error.Verbose}"));
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));
         }
 

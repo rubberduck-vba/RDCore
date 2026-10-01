@@ -556,6 +556,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Sub or Function not defined.
+        /// </summary>
+        public static string VBCompileError_SubOrFunctionNotDefined {
+            get {
+                return ResourceManager.GetString("VBCompileError_SubOrFunctionNotDefined", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

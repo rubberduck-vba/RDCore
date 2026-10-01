@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Static;
+using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Instructions;
@@ -66,7 +67,7 @@ public static class InstructionListLowering
     /// </param>
     public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default)
     {
-        var state = new LoweringState(options.Dead, options.IncludeDebugStatements);
+        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.Language);
         LowerBlock(body, state, default);
 
         // Every label in the procedure is now known, however deeply nested its definition was, so every
@@ -131,6 +132,14 @@ public static class InstructionListLowering
             // at run time. Leaving them out means exactly that - no instruction, not a no-op one - so a
             // release build pays nothing at all for a Debug.Print left in the source.
             case DebugStatementNode when !state.IncludeDebugStatements:
+                break;
+
+            // a bare Print is the Print member of a form or a report in VB6, and VBA has no such statement at all: in a language that
+            // has none there is nothing for it to be, which is as undefined as any other name the language does not declare.
+            case PrintStatementNode { FileNumber: null } barePrint when state.Language is { HasBarePrint: false }:
+                state.Errors.Add(VBCompileErrorInfo.For(
+                    VBCompileErrorId.SubOrFunctionNotDefined, barePrint.SourceLocation,
+                    $"'{barePrint.Token}' is not a statement of {state.Language.Name}: a Print with no file number is the member of a form or a report, which a bare Print has no one to be a member of."));
                 break;
 
             case GoToStatementNode goTo:
@@ -485,8 +494,9 @@ public static class InstructionListLowering
     }
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements)
+    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, SupportedLanguage? language)
     {
+        public SupportedLanguage? Language { get; } = language;
         public List<Instruction> Items { get; } = [];
         public Dictionary<string, int> Labels { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<SyntaxNodeId, int> ByNode { get; } = [];

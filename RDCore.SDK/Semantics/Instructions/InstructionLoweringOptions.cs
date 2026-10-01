@@ -32,9 +32,15 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// the safe one, and the safe one is a debug build that keeps the statements.
 /// </para>
 /// </param>
+/// <param name="Language">
+/// The language the body is written in, which decides which statements exist at all - a bare <c>Print</c> is a statement of a BASIC and of
+/// no other language, so lowering one for another is an error. <see langword="null"/> - the default - states no language, and so applies
+/// no language's rules: the body is lowered as written.
+/// </param>
 public readonly record struct InstructionLoweringOptions(
     ImmutableArray<SourceRange> DeadRanges = default,
-    bool IsReleaseBuild = false)
+    bool IsReleaseBuild = false,
+    Workspace.SupportedLanguage? Language = null)
 {
     /// <summary>
     /// A debug build of a body with no conditional compilation in it.
