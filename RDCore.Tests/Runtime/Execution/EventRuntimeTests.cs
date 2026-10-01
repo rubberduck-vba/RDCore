@@ -231,6 +231,28 @@ public sealed class EventRuntimeTests
     }
 
     [TestMethod]
+    public void AByRefEventParameter_GivenAValueNotAVariable_StillChainsFromHandlerToHandler()
+    {
+        // `RaiseEvent Bump(5)` has no variable to leave a value in, but the second handler still starts with what the
+        // first left in the parameter (MS-VBAL §5.4.2.20).
+        var world = Compose([("Src_Bump", ["Count = Count + 10", "Debug.Print Tag & \" count \" & Count"])], fireBody: ["RaiseEvent Bump(5)"]);
+
+        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire"));
+
+        CollectionAssert.AreEqual(new[] { "x count 15", "y count 25" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void TheTemporaryAByRefValueIsGivenIsFreed_SoRaisingAgainStartsFromTheArgumentAgain()
+    {
+        var world = Compose([("Src_Bump", ["Count = Count + 10", "Debug.Print Tag & \" count \" & Count"])], fireBody: ["RaiseEvent Bump(5)", "RaiseEvent Bump(5)"]);
+
+        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire"));
+
+        CollectionAssert.AreEqual(new[] { "x count 15", "x count 15" }, Printed(world));
+    }
+
+    [TestMethod]
     public void AnErrorAHandlerLeavesUnhandled_IsTheErrorOfRaiseEvent_AndStopsTheLaterHandlers()
     {
         var world = Compose([("Src_Changed", ["Debug.Print Tag & \" before\"", "Debug.Print 1 / 0"])]);

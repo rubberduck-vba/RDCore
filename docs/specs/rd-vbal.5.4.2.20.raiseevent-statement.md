@@ -30,8 +30,10 @@ The event name is not a variable and is never resolved as one: it is not an unde
 - An event nothing handles, and a source nothing is attached to, is not an error: `RaiseEvent` does nothing.
 - An error a handler leaves unhandled stops the invocations, and is the error of the `RaiseEvent` statement.
 
-> [!NOTE]
-> **Not implemented.** A `ByRef` parameter whose argument is not a variable is a fresh local for each handler, so what one handler leaves in it is not the next one's argument.
+A `ByRef` parameter whose argument is not a variable (`RaiseEvent Bump(5)`) has no variable to leave a value in, so the raiser
+cannot see what a handler did to it. The handlers can: it is given a location of its own for the duration of the statement,
+so that what one handler leaves in the parameter is what the next starts with. The location is freed when the statement
+ends, and the next `RaiseEvent` starts from its argument again.
 
 ---
 > ⏮️ [**RD-VBAL §5.4.2.19** Exit Property Statement](rd-vbal.5.4.2.19.exit-property-statement.md) | ⏭️ [**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md)
