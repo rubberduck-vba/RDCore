@@ -135,6 +135,26 @@ public abstract class AppHost<TApp>() : IDisposable
     }
 
     /// <summary>
+    /// 🧩 Answers a command line that is not to be run with, before any of the host exists.
+    /// </summary>
+    /// <remarks>
+    /// The base implementation reads <paramref name="args"/> as the <em>platform's</em> command line
+    /// (<see cref="SdkAppCommandLineArgs"/>), which is what a client or a server application is started with, and
+    /// answers a request for help or version text and a command line it cannot make sense of.
+    /// <para>
+    /// 👉 An application whose arguments are not the platform's — a command-line tool that takes a verb and the
+    /// verb's own options — overrides this and answers <see langword="false"/>: every option of the verb is one the
+    /// platform's parser has never heard of, and would be rejected as a mistake before the verb was ever reached.
+    /// What is wrong with such a command line is for the verb to say.
+    /// </para>
+    /// </remarks>
+    /// <param name="args">The command-line arguments as received.</param>
+    /// <param name="exitCode">The process exit code, when this returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> if the command line has been answered and there is nothing to run.</returns>
+    protected internal virtual bool TryAnswerCommandLine(string[] args, out int exitCode)
+        => SdkCommandLine.TryAnswer(args, out exitCode);
+
+    /// <summary>
     /// Runs the <c>RDCore.SDK</c> client/server application.
     /// </summary>
     /// <remarks>
@@ -160,7 +180,7 @@ public abstract class AppHost<TApp>() : IDisposable
         // used to fall through into configuration, where the parser's default instance failed the
         // client's "a client cannot start without a workspace" guard - so `rdc --help` printed a
         // NullReferenceException stack trace underneath the help it had just been asked for.
-        if (SdkCommandLine.TryAnswer(args, out var answeredExitCode))
+        if (TryAnswerCommandLine(args, out var answeredExitCode))
         {
             return answeredExitCode;
         }
