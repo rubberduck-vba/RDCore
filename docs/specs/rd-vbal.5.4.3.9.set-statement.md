@@ -45,6 +45,10 @@ Two things happen around the assignment of an object to a variable.
   ([**RD-VBAL §5.2.3.1.2**](rd-vbal.5.2.3.module-declarations.md)), its event handlers are detached from the object it holds before the assignment, and attached to the object it is given after it. They handle the events that object raises with `RaiseEvent`
   ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)); an object that is destroyed handles no more.
 
+`Set obj.Member = value` assigns a member as `Let` does ([**RD-VBAL §5.4.3.8**](rd-vbal.5.4.3.8.let-statement.md)), through the
+`Property Set` or the public variable, and with the same two things around it: the references and the `WithEvents` handlers are those of
+the object the variable belongs to.
+
 The `Set` statement performs Set-coercion through the same direct entry point that
 `RDCore.Runtime.Semantics.Statements.WithStatementRuntimeSemantics` uses for its own `With`-target coercion, not
 through the operator pipeline. Set-coercion does not select a strategy per destination type, so it does not need

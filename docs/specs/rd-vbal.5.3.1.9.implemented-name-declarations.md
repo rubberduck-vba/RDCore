@@ -50,8 +50,9 @@ nothing of how it was declared. It is asked only of an object whose class implem
 reached any other way, through a `With` block for one, is found among the class's own members.
 
 > [!NOTE]
-> **Not implemented.** Assigning to a public variable of the interface, through the `Property Let` or `Property Set` that implements it, and a
-> member reached through a `With` block whose target is declared as an interface.
+Assigning to a public variable of the interface goes to the `Property Let` (or `Property Set`) that implements it, indexed or not.
+
+> **Not implemented.** A member reached through a `With` block whose target is declared as an interface.
 
 ---
 > ⏮️ [**RD-VBAL §5.3.1.8** Event Handler Declarations](rd-vbal.5.3.1.8.event-handler-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)

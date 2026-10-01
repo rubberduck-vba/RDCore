@@ -140,8 +140,15 @@ require of it.
 What an implemented name declaration must be is [**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md).
 
 > [!NOTE]
-> **Not implemented.** The directive's own location is not on the symbol, so what is reported of it is located at the module. A directive
-> in an extension module is invalid; there is no kind of module that says so.
+> **Not implemented.** The directive's own location is not on the symbol, so what is reported of it is located at the module.
+
+A directive in an extensible module (`VB_Extensible = True`, [**RD-VBAL §3.1.1.8**](rd-vbal.3.1.1.attributes.md)) is invalid:
+[VBC09328](../diagnostics/vbc09328.md).
+
+The environment host learns of the directives from the language server: `DefineSymbolsParams.ImplementedInterfaceNames` carries the
+interface names a module's directives name, and the host composes the module's class symbol from them and from the members it has been
+sent (`ISessionSymbols.TryComposeClassModule`), resolving the interfaces again over every class module it knows whenever one is
+composed, so the order the modules are defined in does not matter.
 
 > [!WARNING]
 > Extensible ("document") modules cannot specify any `Implements` directives.

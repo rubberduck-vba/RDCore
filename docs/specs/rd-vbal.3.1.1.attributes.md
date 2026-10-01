@@ -36,6 +36,7 @@ attribute semantics according to their original VB6 intent, because nothing in R
 |3.1.1.5|`VB_Customizable`|Whether a class, method or property is customizable in designer hosts.|
 |3.1.1.6|`VB_PredeclaredId`|Whether the environment host declares a global auto-object instance of the class.|
 |3.1.1.7|`VB_Description`|A short documentation string for IDE tooltips.|
+|3.1.1.8|`VB_Extensible`|Whether a class module is an extensible ("document") module, whose members a host extends.|
 
 Members of a class can also carry a `VB_UserMemId` attribute, which can specify a number of flags that modify the
 behavior of the member. A class can have exactly one member with a `VB_UserMemId` attribute value of `0`: that member
@@ -221,6 +222,14 @@ class `Widget`:
 Surfacing attributes does not necessarily make `@Description` annotations obsolete
 ([**RD-VBAL §3.0.1.1** Comment Annotations Syntax](rd-vbal.3.0.1.token-semantics.md#3011-comment-annotations-syntax)): hiding `Attribute`
 directives may or may not be a capability that an LSP client supports.
+
+## 3.1.1.8 VB_Extensible
+
+`VB_Extensible` marks a class module as _extensible_: a module of the kind a host extends, such as a document module.
+Its value is the symbol's `SymbolProperties.Extensible`, read off the module by `ModuleNodeExtensions.IsExtensible`.
+
+An extensible module cannot have an `Implements` directive
+([**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md)): [VBC09328](../diagnostics/vbc09328.md).
 
 ---
 > ⏮️ [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md) | ⏭️ [**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md)

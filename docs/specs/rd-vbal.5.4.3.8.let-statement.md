@@ -53,6 +53,16 @@ A Let-assignment to a bare reference to a procedure's own name, from within its 
   for the same reason: there is no addressable symbol. See
   [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).
 
+### Members of an object
+
+`obj.Member = value` assigns a member of the object `obj` holds (`LetAssignmentEvaluator.AssignObjectMember`). A `Nothing` reference
+raises error 91. The member is the `Property Let` declared for it (an indexed one takes the index arguments before the value) or else a
+public variable of the class, found through the declared interface when `obj` is declared as one its object's class implements
+([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)). A public variable is assigned by Let-coercing the value to
+its declared type; with no such member, error 438 is raised. A `With` block assigns the same way.
+
+> **Not implemented.** An element of an array held by a member: `obj.Items(1) = value`.
+
 ### UDT fields
 
 A Let statement assigns a UDT field by Let-coercing the value to the field's own declared type and writing the
