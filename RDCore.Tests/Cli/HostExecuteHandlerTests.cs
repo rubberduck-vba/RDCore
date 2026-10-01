@@ -174,6 +174,58 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
+    public async Task AnArrayAssignedToAResizableArrayVariable_IsCopiedToIt()
+    {
+        var result = await ExecuteAsync(ModuleWithDeclarations(
+            "Dim Cells(1 To 4) As Long",
+            "Dim r() As Long", "Cells(2) = 5", "r = Cells", "r(2) = 9", "Debug.Print UBound(r)", "Debug.Print r(2)", "Debug.Print Cells(2)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        // a copy: assigning to an element of the one does not change the other.
+        CollectionAssert.AreEqual(new[] { "4", "9", "5" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AParameterThatIsAnArray_IsAnArrayOfItsDeclaredType()
+    {
+        var result = await ExecuteAsync(
+            "Attribute VB_Name = \"Program\"\r\n" +
+            "Dim Cells(1 To 4) As Long\r\n" +
+            "Public Function Highest(Items() As Long) As Long\r\nHighest = UBound(Items)\r\nEnd Function\r\n" +
+            "Public Sub Main()\r\nDebug.Print Highest(Cells)\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "4" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AFunctionThatReturnsAnArray_ReturnsOneThatCanBeAssignedAndRead()
+    {
+        var result = await ExecuteAsync(
+            "Attribute VB_Name = \"Program\"\r\n" +
+            "Dim Cells(1 To 4) As Long\r\n" +
+            "Public Function Whole() As Long()\r\nWhole = Cells\r\nEnd Function\r\n" +
+            "Public Sub Main()\r\nDim r() As Long\r\nr = Whole()\r\nDebug.Print UBound(r)\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "4" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task TheArgumentOfUBound_MayBeAnExpressionThatYieldsAnArray()
+    {
+        // the pages call the argument the "name of the array variable", but a call of a function that returns an array is an array too.
+        var result = await ExecuteAsync(
+            "Attribute VB_Name = \"Program\"\r\n" +
+            "Dim Cells(1 To 4) As Long\r\n" +
+            "Public Function Whole() As Long()\r\nWhole = Cells\r\nEnd Function\r\n" +
+            "Public Sub Main()\r\nDebug.Print UBound(Whole())\r\nDebug.Print LBound(Whole())\r\nEnd Sub\r\n");
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "4", "1" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
     public async Task AnArrayElementOfAnArrayThatWasNeverSized_IsSubscriptOutOfRange()
     {
         var result = await ExecuteAsync(Module("Dim a() As Long", "a(1) = 1"));

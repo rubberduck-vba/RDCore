@@ -1,3 +1,4 @@
+using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
@@ -8,6 +9,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -149,7 +151,12 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        handle.SetValue(resolver, coercionResult.Result!.RuntimeValue);
+        // an array is identified by where it is, not by a value its own binding could hold: what a variable holds of one is the
+        // array boxed, as it is wherever else an array is stored. A coerced array - a fixed-size array let-coerced to a resizable
+        // one - has no binding of its own to read it from.
+        handle.SetValue(resolver, coercionResult.Result is VBArrayValue
+            ? SymbolAddressTable.BoxedValue(coercionResult.Result)
+            : coercionResult.Result!.RuntimeValue);
         return RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!);
     }
 }

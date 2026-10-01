@@ -238,7 +238,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 ? new ParamArrayParameterSymbol(workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind)
                 : new VBParameterSymbol(
                     workspaceRoot, memberUri, parameter.Name, range, range, parameter.ParameterKind,
-                    ImplicitOrDeclaredType(AsTypeOf(parameter), typeHint: null, memberUri), parameter.IsOptional,
+                    ParameterType(parameter, memberUri), parameter.IsOptional,
                     DefaultValueOf(parameter)));
         }
         return builder.ToImmutable();
@@ -252,8 +252,23 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     private static ExpressionNode? DefaultValueOf(ParameterDeclarationNode parameter)
         => ConstantExpressionOf(parameter);
 
+    // `Function F() As Long()` returns a resizable array of Long (MS-VBAL 5.3.1.6): the parentheses are on the As clause.
     private VBType ReturnType(MemberDeclarationNode member, Uri memberUri)
-        => ImplicitOrDeclaredType(member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault(), typeHint: null, memberUri);
+    {
+        var asType = member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
+        return asType is { IsArrayDef: true }
+            ? ResizableArrayType(ArrayElementType(asType, typeHint: null, memberUri))
+            : ImplicitOrDeclaredType(asType, typeHint: null, memberUri);
+    }
+
+    // `Items() As Long`: the parentheses are on the parameter, the element type is its As clause's.
+    private VBType ParameterType(ParameterDeclarationNode parameter, Uri memberUri)
+    {
+        var asType = AsTypeOf(parameter);
+        return parameter.IsArray || asType is { IsArrayDef: true }
+            ? ResizableArrayType(ArrayElementType(asType, typeHint: null, memberUri))
+            : ImplicitOrDeclaredType(asType, typeHint: null, memberUri);
+    }
 
     private static AsTypeExpressionNode? AsTypeOf(SyntaxNode node)
         => node.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();

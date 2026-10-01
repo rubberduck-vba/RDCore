@@ -127,7 +127,9 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
                     kind,
                     context.OPTIONAL() is not null,
                     context.PARAMARRAY() is not null,
-                    [.. _children]);
+                    [.. _children],
+                    // `Items() As Long`: the parentheses after the name make it an array.
+                    context.LPAREN() is not null);
     }
     public SyntaxNode BuildPropertyGetDeclaration(VBAParser.PropertyGetStmtContext context)
     {

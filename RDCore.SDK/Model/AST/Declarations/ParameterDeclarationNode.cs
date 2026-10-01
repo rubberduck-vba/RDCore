@@ -13,5 +13,10 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// <param name="ParameterKind">The kind (ByRef/ByVal) of parameter.</param>
 /// <param name="IsOptional">An indicator that is <c>true</c> if the parameter is optional.</param>
 /// <param name="IsParamArray">An indicator that is <c>true</c> if the parameter is a parameter array.</param>
-public record class ParameterDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ParameterKind ParameterKind = ParameterKind.ImplicitByRef, bool IsOptional = false, bool IsParamArray = false, ImmutableArray<SyntaxNode> Children = default)
+/// <param name="Children">The nodes the declaration is made of, among them its <c>As</c> clause.</param>
+/// <param name="IsArray">
+/// An indicator that is <c>true</c> if the parameter is an array, which the parentheses after its name say:
+/// <c>Items() As Long</c> (<strong>MS-VBAL §5.3.1.5</strong>). What the parameter is an array <em>of</em> is its <c>As</c> clause's.
+/// </param>
+public record class ParameterDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ParameterKind ParameterKind = ParameterKind.ImplicitByRef, bool IsOptional = false, bool IsParamArray = false, ImmutableArray<SyntaxNode> Children = default, bool IsArray = false)
     : SyntaxNode(Identity, Location, Children);

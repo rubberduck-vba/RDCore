@@ -54,8 +54,9 @@ public static class ArrayBoundRuntimeSemantics
         }
 
         // a dynamic array that has not been sized has no dimensions to ask about, and neither does an array the
-        // subscript is not a dimension of.
-        if (!held.IsInitialized || requested < 1 || requested > held.Rank || !held.Dimensions[requested - 1].IsInitialized)
+        // subscript is not a dimension of. A dimension with no elements is still a dimension: Array() is one, and its upper
+        // bound is the one below its lower.
+        if (!held.IsInitialized || requested < 1 || requested > held.Rank)
         {
             return Fail(node, VBRuntimeErrorId.SubscriptOutOfRange, held.IsInitialized
                 ? $"{keyword}: the array has {held.Rank} dimension(s), not {requested}."
