@@ -88,6 +88,7 @@ statements, among others, to their statement runtime semantics:
 |`Input #`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md)|
 |`Put`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md)|
 |`Get`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md)|
+|`Name`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.13** Name Statement](rd-vbal.5.4.5.13.name-statement.md)|
 
 A statement that the statement provider does not recognize reports `InternalError`, and the run stops.
 

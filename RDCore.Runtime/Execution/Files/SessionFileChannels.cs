@@ -369,6 +369,86 @@ internal sealed class SessionFileChannels(IFileSystem fileSystem, Encoding encod
     }
 
     /// <inheritdoc/>
+    public VBRuntimeErrorId? TryRename(string oldPath, string newPath)
+    {
+        // "Name arguments cannot include multiple-character (*) and single-character (?) wildcards."
+        if (HasWildcard(oldPath) || HasWildcard(newPath))
+        {
+            return VBRuntimeErrorId.BadFileNameOrNumber;
+        }
+
+        var isFile = fileSystem.File.Exists(oldPath);
+        var isDirectory = !isFile && fileSystem.Directory.Exists(oldPath);
+        if (!isFile && !isDirectory)
+        {
+            return ParentExists(oldPath) ? VBRuntimeErrorId.FileNotFound : VBRuntimeErrorId.PathNotFound;
+        }
+
+        // "Using Name on an open file produces an error. You must close an open file before renaming it." A directory
+        // is as good as open when a file under it is.
+        if (_channels.Values.Any(channel => isFile ? PathsMatch(channel.Path, oldPath) : IsUnder(channel.Path, oldPath)))
+        {
+            return VBRuntimeErrorId.FileAlreadyOpen;
+        }
+
+        // "The file name specified by newpathname can't already exist."
+        if (fileSystem.File.Exists(newPath) || fileSystem.Directory.Exists(newPath))
+        {
+            return VBRuntimeErrorId.FileAlreadyExists;
+        }
+
+        // "Name cannot create a new file, directory, or folder": the folder the new name is in is not made for it.
+        if (!ParentExists(newPath))
+        {
+            return VBRuntimeErrorId.PathNotFound;
+        }
+
+        // "Name can move a file across drives, but it can only rename an existing directory or folder when both
+        // newpathname and oldpathname are located on the same drive."
+        if (isDirectory && !PathsMatch(fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(oldPath)) ?? string.Empty,
+                fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(newPath)) ?? string.Empty))
+        {
+            return VBRuntimeErrorId.CantRenameWithDifferentDrive;
+        }
+
+        try
+        {
+            if (isFile)
+            {
+                fileSystem.File.Move(oldPath, newPath);
+            }
+            else
+            {
+                fileSystem.Directory.Move(oldPath, newPath);
+            }
+
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return VBRuntimeErrorId.PermissionDenied;
+        }
+        catch (IOException)
+        {
+            return VBRuntimeErrorId.PathOrFileAccessError;
+        }
+    }
+
+    private static bool HasWildcard(string path) => path.AsSpan().IndexOfAny('*', '?') >= 0;
+
+    // a path with no directory part is in the current directory, which exists.
+    private bool ParentExists(string path)
+        => fileSystem.Path.GetDirectoryName(fileSystem.Path.GetFullPath(path)) is not { } parent || fileSystem.Directory.Exists(parent);
+
+    private bool IsUnder(string path, string directory)
+    {
+        var root = fileSystem.Path.GetFullPath(directory).TrimEnd(fileSystem.Path.DirectorySeparatorChar, fileSystem.Path.AltDirectorySeparatorChar);
+        return fileSystem.Path.GetFullPath(path).StartsWith(
+            root + fileSystem.Path.DirectorySeparatorChar,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
+    /// <inheritdoc/>
     public bool Close(int fileNumber)
     {
         if (!_channels.Remove(fileNumber, out var channel))

@@ -51,4 +51,4 @@ one statement.
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the target: the same target resolution `Input #`, `Line Input #` and the Let assignment statement use.|
 
 ---
-> ⏮️ [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md) | ⏭️ [**RD-VBAL §5.5** Implicit coercion](rd-vbal.5.5.implicit-coercion.md)
+> ⏮️ [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md) | ⏭️ [**RD-VBAL §5.4.5.13** Name Statement](rd-vbal.5.4.5.13.name-statement.md)

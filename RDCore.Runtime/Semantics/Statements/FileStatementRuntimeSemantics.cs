@@ -233,6 +233,39 @@ public sealed record class FileStatementRuntimeSemantics(
     }
 
     /// <summary>
+    /// Executes a <c>Name … As …</c> statement (<strong>RD-VBAL §5.4.5.13</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Both operands are String expressions, Let-coerced to <c>String</c>. What is renamed, and the errors for what cannot be, are
+    /// <see cref="IFileChannels.TryRename"/>'s: the channels are what know that a file is open.
+    /// </remarks>
+    /// <param name="session">The session whose file system the statement renames in.</param>
+    /// <param name="context">The evaluation context of the statement.</param>
+    /// <param name="statement">The statement, whose inputs are the old path and the new one.</param>
+    public RuntimeExecutionOutcome ExecuteName(
+        IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode statement)
+    {
+        if (statement.Inputs is not [ExpressionNode oldPathName, ExpressionNode newPathName])
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!TryEvaluateString(session, context, oldPathName, out var oldPath, out var oldFailure))
+        {
+            return oldFailure;
+        }
+
+        if (!TryEvaluateString(session, context, newPathName, out var newPath, out var newFailure))
+        {
+            return newFailure;
+        }
+
+        return session.Files.TryRename(oldPath, newPath) is { } error
+            ? Failed(error, statement, $"Name \"{oldPath}\" As \"{newPath}\"")
+            : RuntimeExecutionOutcome.Next;
+    }
+
+    /// <summary>
     /// Executes a <c>Width</c> statement (<strong>MS-VBAL §5.4.5.7</strong>).
     /// </summary>
     /// <remarks>

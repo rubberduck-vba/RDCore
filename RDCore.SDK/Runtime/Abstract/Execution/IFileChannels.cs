@@ -340,6 +340,25 @@ public interface IFileChannels
     bool Close(int fileNumber);
 
     /// <summary>
+    /// Renames a file or a directory, moving it when the new path is somewhere else (<c>Name … As …</c>; see
+    /// <strong>RD-VBAL §5.4.5.13</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The channels are the ones that know which files are open, which is why this is theirs and not the file
+    /// system's: a file that has a file number association is not renamed. Neither path is a pattern.
+    /// </remarks>
+    /// <param name="oldPath">The path of the existing file or directory.</param>
+    /// <param name="newPath">The path it is to have, which must not exist.</param>
+    /// <returns>
+    /// The error that stopped it, or <c>null</c> when it was renamed: <c>52</c> when either path has a wildcard in it,
+    /// <c>53</c> when <paramref name="oldPath"/> names nothing, <c>55</c> when it is open, <c>58</c> when
+    /// <paramref name="newPath"/> exists, <c>74</c> when a directory would change drive, <c>76</c> when a directory
+    /// the paths name does not exist, <c>70</c> when access is refused, and <c>75</c> when anything else about
+    /// the path or the device stops it.
+    /// </returns>
+    Model.Errors.VBRuntimeErrorId? TryRename(string oldPath, string newPath);
+
+    /// <summary>
     /// Closes every open channel — what a <c>Close</c> with no file number, and a <c>Reset</c>, both do
     /// (<strong>MS-VBAL §5.4.5.2</strong>).
     /// </summary>

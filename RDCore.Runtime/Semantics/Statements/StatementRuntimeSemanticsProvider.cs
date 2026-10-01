@@ -92,6 +92,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             // MS-VBAL §5.4.5.3/.7: the statements that reposition a channel and set its line width.
             KeywordStatementNode { Token: Tokens.Seek } seek => _files.ExecuteSeek(session, context, seek),
             KeywordStatementNode { Token: Tokens.Width } width => _files.ExecuteWidth(session, context, width),
+            // RD-VBAL §5.4.5.13: Name renames a file or a directory; it is not in MS-VBAL.
+            KeywordStatementNode { Token: Tokens.Name } name => _files.ExecuteName(session, context, name),
             // MS-VBAL §5.4.5.11-12: the record statements, which move bytes rather than characters.
             KeywordStatementNode { Token: Tokens.Put } put => _files.ExecutePut(session, context, put),
             KeywordStatementNode { Token: Tokens.Get } get => _files.ExecuteGet(session, context, get),

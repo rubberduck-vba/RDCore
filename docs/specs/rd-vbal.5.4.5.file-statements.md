@@ -4,7 +4,8 @@
 > This section describes the implementation of [**MS-VBAL §5.4.5** File Statements](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2fd9c1be-0d9a-4b29-b5ac-c9d51ce483cf).
 
 MS-VBAL describes the file I/O statements in one section, **MS-VBAL §5.4.5**. RD-VBA executes every statement of
-that section.
+that section, and `Name`, which MS-VBAL does not specify and the
+[VBA language reference](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/name-statement) does.
 
 |Statement|MS-VBAL|RD-VBAL|
 |---|---|---|
@@ -20,6 +21,7 @@ that section.
 |`Input #`|[**MS-VBAL §5.4.5.10** Input Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f41b8636-a3f5-4501-b1a9-78058017c232)|[**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md)|
 |`Put`|[**MS-VBAL §5.4.5.11** Put Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/46eeacb8-7a06-4ec8-9736-eea42de4eeca)|[**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md)|
 |`Get`|[**MS-VBAL §5.4.5.12** Get Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/60c6f92b-d1fc-484b-91d1-6ba5246334b4)|[**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md)|
+|`Name`|_Not specified._|[**RD-VBAL §5.4.5.13** Name Statement](rd-vbal.5.4.5.13.name-statement.md)|
 
 The AST node of each file statement is catalogued in
 [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md). Every file statement lowers to a `Simple`

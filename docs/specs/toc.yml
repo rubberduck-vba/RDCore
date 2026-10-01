@@ -309,6 +309,8 @@
               href: rd-vbal.5.4.5.11.put-statement.md
             - name: "5.4.5.12 Get Statement"
               href: rd-vbal.5.4.5.12.get-statement.md
+            - name: "5.4.5.13 Name Statement"
+              href: rd-vbal.5.4.5.13.name-statement.md
     - name: "5.5 Implicit coercion"
       href: rd-vbal.5.5.implicit-coercion.md
       items:
