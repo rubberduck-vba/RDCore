@@ -21,6 +21,7 @@ using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Model;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -106,6 +107,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             // declares an undeclared name at module level instead of in the procedure.
             // TODO say so by advertising it as a client capability, which is what this stands in for: a dial.
             ("Configuration:Workspace:ImplicitDeclarationScope", nameof(ImplicitDeclarationScope.Module)),
+            // and the language it is a BASIC of: its standard library is the platform's own, RDC, rather than VBA's.
+            ("Configuration:Workspace:Language", SupportedLanguages.BASIC.Id),
         ];
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
@@ -351,7 +354,12 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
         services
             .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
             .AddVerboseMessages()
-            .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
+            // the name of the standard library is the language's to say, and the language is what the language server was started with.
+            .AddSingleton<IEnvironmentSessionProvider>(provider => new EnvironmentSessionProvider(
+                provider.GetRequiredService<IRuntimeEnvironmentProfile>(),
+                provider.GetRequiredService<IFileSystem>(),
+                provider.GetRequiredService<ILogger<EnvironmentSessionProvider>>(),
+                provider.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage.StandardLibraryName));
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

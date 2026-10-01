@@ -13,6 +13,7 @@ using System.IO.Abstractions;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Logging;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer;
 
@@ -34,7 +35,8 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
         // abstractions, so project them here.
         services
             .AddSingleton(Info.Version ?? new Version(0, 0, 0))
-            .AddSingleton(ProtocolSupportedLanguage.VBA)
+            // the language the workspace is written in, which the client chose when it started the server.
+            .AddSingleton(SupportedLanguages.Get(configuration["Configuration:Workspace:Language"] ?? SupportedLanguages.RDVBA.Id))
             .AddSingleton<IPath>(sp => sp.GetRequiredService<IFileSystem>().Path)
             .AddSingleton<IFile>(sp => sp.GetRequiredService<IFileSystem>().File)
             .AddSingleton<IDirectory>(sp => sp.GetRequiredService<IFileSystem>().Directory)

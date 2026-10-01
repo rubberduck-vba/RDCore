@@ -106,6 +106,28 @@ A project has the standard library's symbols whether or not its `.rdproj` mentio
 `rdcore/host/symbols/define` resolves a declared type name against the standard library's own types as well as the
 intrinsic types ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md)).
 
+### Library Name
+
+The standard library is a project of its own, and its name is the language's to choose
+([SupportedLanguage](../api/RDCore.SDK.Workspace.SupportedLanguage.html)): it is what a project-qualified reference to the library names
+(`VBA.Strings.LenB`, `VBA.LenB`; [**MS-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)), and what the library's members say they belong to
+(`SymbolProperties.Library`).
+
+|Language|Identifier|Library|
+|---|---|---|
+|RD-VBA (the default)|`vba`|`VBA`|
+|VB6|`vb6`|`VB`|
+|The platform's BASIC (an interactive shell)|`basic`|`RDC`|
+
+The language is the `Configuration:Workspace:Language` setting (`--language` on a server's command line), which a client says of the servers it starts as it
+does the implicit declaration scope - the interactive shell is the `basic` language - so that the language server (over the workspace) and the environment host
+(over its session) build the library's symbols under the same name. The default project reference to the standard library is named what the language calls it.
+The members of the library resolve unqualified whatever the library is called.
+
+> [!NOTE]
+> **Not implemented.** Nothing but the library's name differs between the languages yet: VB6 has `VBA`-only members the platform does not hide
+> from it, and BASIC's own members are not declared.
+
 ### Pointer Width
 
 `CLngPtr` needs the one thing a standard-library declaration cannot state: its `LongPtr` return type depends on the

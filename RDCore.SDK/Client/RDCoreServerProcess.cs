@@ -147,7 +147,8 @@ public class RDCoreServerProcess(
         var verbose = true; //Options.Value.Server.Verbose;
 
         var arguments = ServerArguments(
-            Environment.ProcessId, pipeName, workspace, trace, verbose, Options.Value.Workspace.ImplicitDeclarationScope);
+            Environment.ProcessId, pipeName, workspace, trace, verbose, Options.Value.Workspace.ImplicitDeclarationScope,
+            Options.Value.Workspace.Language);
         var info = CreateProcessStartInfo(fullPath, arguments);
         if (hostMode)
         {
@@ -176,21 +177,26 @@ public class RDCoreServerProcess(
     /// </summary>
     /// <remarks>
     /// The environment a client serves is its own to describe to the server it starts: an interactive shell works the
-    /// way a BASIC does, and says so here. The scope is left out when it is the default, so that a server's own
-    /// settings win.
+    /// way a BASIC does, and says so here - and says which language it is, because the servers have to agree on it. Each is left
+    /// out when it is the default, so that a server's own settings win.
     /// <para>
     /// 👉 <c>-v</c> goes last. It is a switch the argument parser only reads as one at the end of a command line; with
     /// anything after it, it takes the next argument for its value and the server never starts.
     /// </para>
     /// </remarks>
     internal static string ServerArguments(
-        int clientProcessId, string pipeName, string workspace, LogLevel trace, bool verbose, ImplicitDeclarationScope implicitScope)
+        int clientProcessId, string pipeName, string workspace, LogLevel trace, bool verbose, ImplicitDeclarationScope implicitScope,
+        string? language = null)
     {
         var implicitScopeArgument = implicitScope == ImplicitDeclarationScope.Procedure
             ? null
             : $"--implicit-declaration-scope {implicitScope} ";
 
-        return $"-p {clientProcessId} -n {pipeName} -w \"{workspace}\" {implicitScopeArgument}-t {trace} {(verbose ? "-v" : null)}";
+        var languageArgument = language is null || string.Equals(language, Workspace.SupportedLanguages.RDVBA.Id, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"--language {language} ";
+
+        return $"-p {clientProcessId} -n {pipeName} -w \"{workspace}\" {implicitScopeArgument}{languageArgument}-t {trace} {(verbose ? "-v" : null)}";
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()

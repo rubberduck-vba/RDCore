@@ -71,7 +71,8 @@ public interface IEnvironmentSessionProvider
 public sealed class EnvironmentSessionProvider(
     IRuntimeEnvironmentProfile environment,
     IFileSystem fileSystem,
-    ILogger<EnvironmentSessionProvider> logger) : IEnvironmentSessionProvider
+    ILogger<EnvironmentSessionProvider> logger,
+    string standardLibraryName = StdLibSymbolProvider.DefaultLibraryName) : IEnvironmentSessionProvider
 {
     private IRuntimeSession? _session;
 
@@ -101,7 +102,7 @@ public sealed class EnvironmentSessionProvider(
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
-        var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
+        var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit, standardLibraryName);
 
         _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, modules], Output);
         Image = new ProgramImage();
@@ -118,7 +119,9 @@ public sealed class EnvironmentSessionProvider(
         return _session;
     }
 
-    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank.
-    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
-        => [.. references.Select((reference, rank) => new ReferencePriorityInfo(reference.Name, rank))];
+    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank. The reference to the
+    // standard library is called what the language calls its library, which is the name its symbols say they belong to.
+    private IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
+        => [.. references.Select((reference, rank) => new ReferencePriorityInfo(
+            reference == RDCoreReference.VBStandardLibrary ? standardLibraryName : reference.Name, rank))];
 }

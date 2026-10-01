@@ -48,6 +48,34 @@ public sealed partial class ServerArgumentsTests
     public void TheDefaultScope_IsLeftOutSoTheServersOwnSettingsWin()
         => Assert.IsNull(ParsedBack(ImplicitDeclarationScope.Procedure).ImplicitDeclarationScope);
 
+    private static SdkAppCommandLineArgs ParsedBackWithLanguage(string? language)
+    {
+        var arguments = Split(RDCoreServerProcess.ServerArguments(
+            1234, "pipe", "C:/ws", LogLevel.Trace, verbose: true, ImplicitDeclarationScope.Procedure, language));
+
+        Assert.IsFalse(SdkCommandLine.TryAnswer(arguments, out var exitCode), $"the server's parser rejected it ({exitCode}): {string.Join(" ", arguments)}");
+        return SdkCommandLine.Parse(arguments);
+    }
+
+    [TestMethod]
+    [DataRow("basic")]
+    [DataRow("vb6")]
+    public void AClientsLanguage_ReachesTheServer(string language)
+        => Assert.AreEqual(language, ParsedBackWithLanguage(language).Language);
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("vba")]
+    [DataRow("VBA")]
+    public void TheDefaultLanguage_IsLeftOutSoTheServersOwnSettingsWin(string? language)
+        => Assert.IsNull(ParsedBackWithLanguage(language).Language);
+
+    [TestMethod]
+    public void TheLanguage_ReachesTheServersConfiguration()
+        => CollectionAssert.Contains(
+            ParsedBackWithLanguage("basic").ToConfigurationOverrides().ToList(),
+            new KeyValuePair<string, string?>("Configuration:Workspace:Language", "basic"));
+
     [TestMethod]
     public void TheVerboseSwitch_IsTheLastArgument()
         // a switch the parser only reads as one at the end of a command line.
