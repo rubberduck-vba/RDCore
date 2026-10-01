@@ -48,4 +48,9 @@ public sealed class StdLibMemberAttribute(string? name = null) : Attribute
     /// type is called. <c>null</c> - the default - takes the declared type from the signature.
     /// </remarks>
     public Type? ReturnType { get; init; }
+
+    /// <summary>
+    /// Whether the member is hidden: it resolves like any other, and is left out of a completion list.
+    /// </summary>
+    public bool IsHidden { get; init; }
 }

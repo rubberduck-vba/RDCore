@@ -57,6 +57,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdFinancialModule)] = new StdFinancial(),
             [typeof(IStdErrClass)] = new ErrObject(session),
             [typeof(IStdConversionModule)] = new StdConversion(session),
+            [typeof(IStdHiddenModule)] = new StdHidden(session),
         });
 
     /// <summary>
@@ -167,12 +168,45 @@ public sealed class StdLibDispatcher : IExternalCallProvider
                 continue;
             }
 
-            if (!TryMarshal(supplied[index], parameter.ParameterType, out arguments[index]))
+            if (!TryMarshal(supplied[index], parameter, out arguments[index]))
             {
                 return false;
             }
         }
 
+        return true;
+    }
+
+    // a ParamArray arrives as the one array the caller collected the rest of its arguments into, and is declared as `params`:
+    // what the implementation takes is an array of the element type, each element a Variant.
+    private static bool TryMarshal(IRuntimeValue argument, ParameterInfo parameter, out object? marshalled)
+    {
+        if (parameter.GetCustomAttribute<ParamArrayAttribute>() is null)
+        {
+            return TryMarshal(argument, parameter.ParameterType, out marshalled);
+        }
+
+        marshalled = null;
+        if (TypedValue(argument) is not VBArrayValue collected)
+        {
+            return false;
+        }
+
+        var elementType = parameter.ParameterType.GetElementType()!;
+        var elements = System.Array.CreateInstance(elementType, collected.Length);
+        for (var index = 0; index < collected.Length; index++)
+        {
+            if (collected.ElementAt(index) is not { } element
+                || (elementType == typeof(VBVariantValue) ? element as VBVariantValue ?? new VBVariantValue(element) : element) is not { } converted
+                || !elementType.IsInstanceOfType(converted))
+            {
+                return false;
+            }
+
+            elements.SetValue(converted, index);
+        }
+
+        marshalled = elements;
         return true;
     }
 
@@ -238,6 +272,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         VBRuntimeCurrencyValue currency => new VBCurrencyValue(Convert.ToDecimal(currency.BoxedValue)),
         VBRuntimeDecimalValue @decimal => new VBDecimalValue(Convert.ToDecimal(@decimal.BoxedValue)),
         VBRuntimeHResult error => new VBErrorValue(Convert.ToInt32(error.BoxedValue)),
+        // an object is the identity of one: what the argument is the storage of, as with the rest.
+        VBRuntimeValue<VBRuntimeObjectId> identity => new VBObjectValue(identity.StoredValue),
         _ => argument.BoxedValue switch
         {
             // a Variant stores the whole typed value it wraps, and an array and a UDT are each boxed around

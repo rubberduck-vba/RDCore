@@ -7,4 +7,4 @@ The `SystemColorConstants` module is represented in the SDK by the type
 [VBSystemColorConstants](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBSystemColorConstants.html).
 
 ---
-> ⏮️ [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)
+> ⏮️ [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) | ⏭️ [**RD-VBAL §6.1.2.13** Hidden Module](rd-vbal.6.1.2.13.hidden-module.md)

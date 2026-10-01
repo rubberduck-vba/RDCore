@@ -25,4 +25,13 @@ public sealed class StdLibModuleAttribute(string? name = null) : Attribute
     /// <c>IStdInformationModule</c> is <c>Information</c>.
     /// </summary>
     public string? Name { get; } = name;
+
+    /// <summary>
+    /// Whether the module is hidden: its members resolve like any other standard module's, and are left out of a completion list.
+    /// </summary>
+    /// <remarks>
+    /// What a library's type library calls <c>hidden</c> - the VBA library's own <c>_HiddenModule</c> is one - carried as the
+    /// <c>hidden</c> flag of <see cref="Model.Symbols.Abstract.SymbolProperties.MemberFlags"/> on each of the module's members.
+    /// </remarks>
+    public bool IsHidden { get; init; }
 }

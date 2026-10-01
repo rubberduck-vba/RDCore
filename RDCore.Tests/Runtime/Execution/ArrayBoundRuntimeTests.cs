@@ -145,14 +145,12 @@ public sealed class ArrayBoundRuntimeTests
     }
 
     [TestMethod]
-    [Ignore("Split is declared but not implemented yet, so there is no array-returning expression to ask. The pages " +
-        "call the argument the \"name of the array variable\", but UBound(Split(...)) is how the keyword is most used. " +
-        "Un-ignore when Split is written.")]
     public void TheArgument_MayBeAnExpressionThatYieldsAnArray()
     {
-        var output = Run("Debug.Print UBound(Split(\"a b c\"))");
+        // the pages call the argument the "name of the array variable", but a call that returns an array is one too.
+        var output = Run("Debug.Print LBound(Array(\"a\", \"b\", \"c\"))", "Debug.Print UBound(Array(\"a\", \"b\", \"c\"))");
 
-        CollectionAssert.AreEqual(new[] { "2" }, Trimmed(output), string.Join(" / ", output));
+        CollectionAssert.AreEqual(new[] { "0", "2" }, Trimmed(output), string.Join(" / ", output));
     }
 
     [TestMethod]

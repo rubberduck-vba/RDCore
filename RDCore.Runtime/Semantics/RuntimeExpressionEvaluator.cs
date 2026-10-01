@@ -132,6 +132,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(session, context, expression, dictionaryAccess),
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(session, context, expression, typeOfIs),
             ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(session, context, arrayBound),
+            ArrayExpressionNode array => EvaluateArray(session, context, array),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, unaryOperator),
             // ByVal flags how the argument is passed, which is what a node that is not a variable is: a value, never
@@ -139,6 +140,35 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             ByValArgumentExpressionNode byVal => Evaluate(session, byVal.Operand, context),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+
+    // The Array keyword: a Variant holding a resizable array of Variant, with an element for each argument. Its lower bound is the
+    // Option Base of the module the expression is written in, which rides on the executing frame; the library's own member of the
+    // same name is always zero-based, and is what a qualified call reaches instead.
+    private RuntimeSemanticsEvaluationResult EvaluateArray(
+        IRuntimeSession session, RuntimeEvaluationContext context, ArrayExpressionNode arrayExpression)
+    {
+        var lower = session.CallStack.Current?.Directives.Base ?? 0;
+        var array = new VBResizableArrayValue([(lower, lower + arrayExpression.Elements.Length - 1)], VBVariantType.TypeInfo);
+
+        for (var index = 0; index < arrayExpression.Elements.Length; index++)
+        {
+            var element = Evaluate(session, arrayExpression.Elements[index], context);
+            if (!element.IsSuccess)
+            {
+                return element;
+            }
+
+            // an element is a Variant holding what the argument came to; an object in it is referenced by the cell, as by any variable.
+            var value = element.Result is VBVariantValue variant ? variant : new VBVariantValue(element.Result!);
+            array.TrySetElement(new ValueBindingHandle(value.RuntimeValue), lower + index);
+            if (UnwrappedOwner(value) is VBObjectValue { } held && !held.IsNothing())
+            {
+                ObjectReferences.Rebind(session, array.GetElementHandle(lower + index)!, null, held);
+            }
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(array));
+    }
 
     // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it
     // holds (VBArrayType.CreateValue hands back the stored instance, not a copy) - and only its bounds are read.

@@ -211,13 +211,15 @@ public sealed class StdLibSymbolReader
     private (VBStandardModuleSymbol Module, IEnumerable<Symbol> Members) ReadModule(
         Type declaration, Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes)
     {
-        var name = declaration.GetCustomAttribute<StdLibModuleAttribute>()!.Name ?? StdLibNames.ModuleName(declaration.Name);
+        var attribute = declaration.GetCustomAttribute<StdLibModuleAttribute>()!;
+        var name = attribute.Name ?? StdLibNames.ModuleName(declaration.Name);
         var module = new VBStandardModuleSymbol(_workspaceRoot, _workspaceRoot, name);
 
         // a standard module's members are separate symbols parented to it, which is what promotes the
-        // non-Private ones to the project scope so that `IsNumeric(x)` resolves unqualified.
+        // non-Private ones to the project scope so that `IsNumeric(x)` resolves unqualified. A hidden module's
+        // are hidden, which is a flag of each member and leaves them resolving just the same.
         var members = MembersOf(declaration)
-            .Select(method => ReadMember(method, module.Uri, ScopeKind.Module, enumTypes, classTypes))
+            .Select(method => ReadMember(method, module.Uri, ScopeKind.Module, enumTypes, classTypes, attribute.IsHidden))
             .ToArray();
 
         return (module, members);
@@ -225,7 +227,7 @@ public sealed class StdLibSymbolReader
 
     private Symbol ReadMember(
         MethodInfo method, Uri ownerUri, ScopeKind scope,
-        Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes)
+        Dictionary<Type, VBEnumType> enumTypes, Dictionary<Type, VBClassType> classTypes, bool ownerIsHidden = false)
     {
         var attribute = method.GetCustomAttribute<StdLibMemberAttribute>();
         var name = attribute?.Name ?? method.Name;
@@ -263,7 +265,11 @@ public sealed class StdLibSymbolReader
         // the declaration this was read off, carried on the symbol: the code that runs for this member is
         // not the workspace's, so there is no instruction list for it, and this is what an
         // IExternalDispatcher finds the implementation by. Nothing downstream could reconstruct it.
-        return member.With(SymbolProperties.ExternalTarget, ExternalTargetOf(method.DeclaringType!, method));
+        member = member.With(SymbolProperties.ExternalTarget, ExternalTargetOf(method.DeclaringType!, method));
+
+        return ownerIsHidden || attribute?.IsHidden == true
+            ? member.With(SymbolProperties.MemberFlags, member.GetProperty(SymbolProperties.MemberFlags) | SymbolProperties.HiddenMemberFlag)
+            : member;
     }
 
     private ImmutableArray<VBParameterSymbol> ReadParameters(
