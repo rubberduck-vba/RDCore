@@ -145,7 +145,24 @@ public sealed class RaiseEventStaticSemanticsTests
         => AssertIncompatible(Raise("Bump", NameOf("anInteger")));
 
     [TestMethod]
-    public void AByRefParameter_TakesAValueOfAnotherType_ItBeingPassedAsANewLocal()
+    public void AByRefLongParameter_TakesAnIntegerLiteral()
+    {
+        // an Integer value, not a Long one: it is let-coerced to the parameter's type, which is not an error.
+        var integerLiteral = new LiteralExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [9]), TestLocations.TestLocation, new VBIntegerValue(5));
+
+        Assert.IsEmpty(Raise("Bump", integerLiteral));
+    }
+
+    [TestMethod]
+    public void AByValLongParameter_TakesAnIntegerLiteral()
+    {
+        var integerLiteral = new LiteralExpressionNode(new(TestUri.TestModuleUri().AbsolutePath, [9]), TestLocations.TestLocation, new VBIntegerValue(5));
+
+        Assert.IsEmpty(Raise("Changed", integerLiteral));
+    }
+
+    [TestMethod]
+    public void AByRefParameter_TakesAValueOfItsType_ItBeingPassedAsANewLocal()
         // §5.3.1.11 runtime semantics: an argument that is a value, not a variable, is Let-assigned to a local.
         => Assert.IsEmpty(Raise("Bump", LongOf(5)));
 
