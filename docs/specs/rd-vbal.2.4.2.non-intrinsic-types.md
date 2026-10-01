@@ -30,14 +30,14 @@ A standard module is defined by workspace source code, or imported from a _refer
 
 Class modules defined in workspace source code have no means to _inherit_ another class module, in the Object-Oriented Programming sense of inheritance; see also [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md).
 
-All VBA classes nevertheless inherit a _base class_ that exposes the `Initialize` and `Terminate` internal events:
+All VBA classes nevertheless implicitly implement a `Class` interface that exposes the `Initialize` and `Terminate` events:
 
-|Base-class event|Fired by the host upon|
+|`Class` member|Raised upon|
 |---|---|
 |`Initialize`|Instantiation of an instance (_object_) of a given class type|
 |`Terminate`|Destruction of an instance (_object_) of a given class type|
 
-See [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md).
+The interface is not an `Implements` directive of the class, is not included in the `SuperTypes` array, and cannot be referred to by name. See [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md).
 
 If a class module specifies any `Implements` directives ([**MS-VBAL §5.2.4.2** Implements Directive](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/da526020-9b41-44a6-a5f3-47a7ac255a9e)), the interfaces specified by those directives are included in the class type's `SuperTypes` array.
 
