@@ -183,7 +183,14 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return RuntimeExecutionOutcome.InternalError;
         }
 
+        // a value is a view of its handle, which is about to be written to: what the variable held is its object's
+        // identity as of now.
+        var previous = target.ResolvedType.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
         handle.SetValue(session.Symbols.Resolver, coercionResult.Result!.RuntimeValue);
+
+        // MS-VBAL §5.3.1.10: the object the variable held loses a reference, and Terminate runs when it was the last.
+        // The variable already holds the new one by now, so a handler that reads it sees what the program wrote.
+        ObjectReferences.Rebind(session, handle, previous, coercionResult.Result as VBObjectValue);
         return RuntimeExecutionOutcome.Next;
     }
 }

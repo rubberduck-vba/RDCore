@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -109,6 +110,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         HoistLocals(Session, frame, GetLocals(procedure));
 
         var outcome = Executor.Run(Session, frame, body, new RuntimeEvaluationContext(procedure.Uri));
+        ReleaseLocals(frame, GetLocals(procedure));
         Session.CallStack.TryPop(out _);
 
         return outcome.Kind switch
@@ -122,6 +124,24 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             // ProcedureExecutor.Run can observe, which doesn't exist yet - deferred, not mismodeled.
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+    }
+
+    // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was
+    // held by one of them only is destroyed with it - which is where its Terminate runs. What the function returns
+    // is taken by whoever called it, so it is not let go of here (see ObjectReferences). A Static local outlives the
+    // activation and is not in the frame.
+    private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
+    {
+        var returned = frame.ReturnValue as VBObjectValue;
+        foreach (var local in locals)
+        {
+            if (local is not VBLocalVariableSymbol { IsStatic: false } variable || !frame.TryResolve(variable, out var handle))
+            {
+                continue;
+            }
+
+            ObjectReferences.Release(Session, handle, variable.ResolvedType.CreateValue(handle) as VBObjectValue, returned);
+        }
     }
 
     // MS-VBAL §5.4.3: "Create the function result variable and any procedure extent local variables

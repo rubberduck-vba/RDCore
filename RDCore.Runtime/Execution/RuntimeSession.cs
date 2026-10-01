@@ -96,9 +96,19 @@ internal sealed class SessionObjects : ISessionObjects
             return 0;
         }
 
-        roots.Remove(handle);
+        // a handle is a root by identity: handles are records, and two variables holding the same object compare
+        // equal by value while being two references.
+        var held = roots.FindIndex(root => ReferenceEquals(root, handle));
+        if (held >= 0)
+        {
+            roots.RemoveAt(held);
+        }
+
         return roots.Count;
     }
+
+    public bool IsHeldBy(VBRuntimeObjectId instance, IBindingHandle handle)
+        => _roots.TryGetValue(instance, out var roots) && roots.Any(root => ReferenceEquals(root, handle));
 
     public int RefCount(VBRuntimeObjectId instance) => _roots.TryGetValue(instance, out var roots) ? roots.Count : 0;
 

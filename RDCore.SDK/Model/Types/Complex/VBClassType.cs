@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
@@ -87,6 +88,12 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     private readonly static Lazy<VBObjectValue> _defaultValue = new(() => VBObjectValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBObjectValue DefaultValue => _defaultValue.Value;
 
+    /// <summary>
+    /// A variable declared as a class holds an object reference like one declared <c>As Object</c>: what makes it a
+    /// reference to an instance of this class is the object, not the variable's value.
+    /// </summary>
+    public override VBTypedValue CreateValue(IBindingHandle handle) => new VBObjectValue(handle);
+
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];
 
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
@@ -96,4 +103,7 @@ public record class VBDeferredClassType(string Name, Uri Uri): VBDeferredType(Na
 {
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBNothingValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
+
+    /// <inheritdoc cref="VBClassType.CreateValue"/>
+    public override VBTypedValue CreateValue(IBindingHandle handle) => new VBObjectValue(handle);
 }

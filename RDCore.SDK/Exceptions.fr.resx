@@ -222,6 +222,9 @@
   <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'expression de collection de cette boucle For Each est Nothing. Son énumération requiert l'invocation de son membre _NewEnum, ce qui est impossible sur une référence d'objet non définie.</value>
   </data>
+  <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
+    <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
+  </data>
   <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
     <value>L'expression de collection de cette boucle For Each doit être un tableau, ou un objet exposant un membre d'énumération (VB_UserMemId = -4, communément nommé _NewEnum).</value>
   </data>

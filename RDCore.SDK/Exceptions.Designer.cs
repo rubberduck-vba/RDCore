@@ -583,6 +583,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member..
+        /// </summary>
+        public static string VBMemberAccess_ObjectVariableNotSet_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAccess_ObjectVariableNotSet_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to This For Each loop&apos;s collection expression must be an array, or an object exposing an enumeration member (VB_UserMemId = -4, commonly named _NewEnum)..
         /// </summary>
         public static string VBForEach_RequiresEnumerableCollection_Verbose {

@@ -44,7 +44,8 @@ public sealed class ClassLifecycleTests
     }
 
     private sealed record World(
-        IRuntimeSession Session, RuntimeExecutionPipeline Pipeline, RuntimeOutputBuffer Output, Uri ModuleUri, VBClassModuleSymbol Widget);
+        IRuntimeSession Session, RuntimeExecutionPipeline Pipeline, RuntimeOutputBuffer Output, Uri ModuleUri, VBClassModuleSymbol Widget,
+        Dictionary<SemanticId, InstructionList> Bodies);
 
     private static InstructionList Lower(params string[] procedureBody)
     {
@@ -58,8 +59,9 @@ public sealed class ClassLifecycleTests
         return result.InstructionList;
     }
 
-    // a class Widget whose members are the given handlers, each running the given source: the name is whatever the
-    // test calls it, so that a procedure which only looks like a handler can be told from one.
+    // a class Widget whose members are the given procedures, each running the given source: the name is whatever the
+    // test calls it, so that a procedure which only looks like a handler can be told from one. A name with an
+    // underscore is a handler's, Private as one is written; any other is a Public member of the class.
     private static World Compose(params (string Name, string[] Body)[] handlers)
     {
         var widget = new VBClassModuleSymbol(Root, Root, "Widget");
@@ -70,7 +72,8 @@ public sealed class ClassLifecycleTests
         foreach (var (name, body) in handlers)
         {
             var handler = new VBProcedureMemberSymbol(
-                Root, widget.Uri, name, ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Private);
+                Root, widget.Uri, name, ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R,
+                name.Contains('_') ? AccessModifier.Private : AccessModifier.Public);
             handler = handler with
             {
                 Parameters = [new VBParameterSymbol(Root, handler.Uri, "Me", R, R, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo)],
@@ -79,13 +82,34 @@ public sealed class ClassLifecycleTests
             members.Add(handler);
         }
 
-        widget = widget with { Members = [.. members] };
+        widget = widget with
+        {
+            Members = [.. members],
+            DefaultInterfaceMembers = [.. members.Where(member => member.AccessModifier is not AccessModifier.Private)],
+        };
         var output = new RuntimeOutputBuffer();
         var session = RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
             [new StdLibSymbolProvider(Root), new Provider([module, widget, .. members])], output: output);
         var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
-        return new World(session, pipeline, output, module.Uri, widget);
+        return new World(session, pipeline, output, module.Uri, widget, bodies);
+    }
+
+    // a procedure of the module, run through the invoker as a call would: its locals are hoisted, and let go of when it
+    // returns. A local named Thing is a variable of the class Widget, declared As New when asked to be.
+    private static RuntimeSemanticsEvaluationResult RunMain(World world, bool thingIsAsNew, params string[] body)
+    {
+        var main = new VBProcedureMemberSymbol(
+            Root, world.ModuleUri, "Main", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        Symbol thing = new VBLocalVariableSymbol(
+            main.Uri, main.Uri, "Thing", ScopeKind.Local, R, R, ResolvedType: VBClassType.FromClassModule(world.Widget));
+        thing = thingIsAsNew ? thing.With(SymbolProperties.AutoInstantiated, true) : thing;
+        main = main with { Locals = [(BoundTypedSymbol)thing] };
+        world.Bodies[main.SemanticId] = Lower(body);
+        // the local rides on its procedure, which is what makes it resolvable: defining it too would define it twice.
+        world.Session.Symbols.TryDefine(main, ScopeKind.Module);
+
+        return world.Pipeline.Invoker.Invoke(main, world.Session.Symbols.Resolver, []);
     }
 
     private static RuntimeSemanticsEvaluationResult New(World world)
@@ -253,6 +277,128 @@ public sealed class ClassLifecycleTests
 
         Assert.IsTrue(world.Session.ReleaseReference(id, holder));
         Assert.IsEmpty(Printed(world));
+    }
+
+    #endregion
+
+    #region What a program does to a variable
+
+    private static readonly (string, string[])[] Handlers =
+    [
+        ("Class_Initialize", ["Debug.Print \"init\""]),
+        ("Class_Terminate", ["Debug.Print \"term\""]),
+        ("Hello", ["Debug.Print \"hello\""]),
+    ];
+
+    [TestMethod]
+    public void SettingTheOnlyVariableToNothing_RaisesTerminate()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Set Thing = New Widget", "Debug.Print \"between\"", "Set Thing = Nothing", "Debug.Print \"after\"");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "init", "between", "term", "after" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void TheEndOfTheProcedure_ReleasesWhatItsVariablesHold()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Set Thing = New Widget", "Debug.Print \"last\"");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "init", "last", "term" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void SettingAVariableToAnotherObject_ReleasesTheOneItHeld()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Set Thing = New Widget", "Set Thing = New Widget");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        // the second is created before the first is let go of, and each is terminated once.
+        CollectionAssert.AreEqual(new[] { "init", "init", "term", "term" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void SettingAVariableToTheObjectItAlreadyHolds_ReleasesNothing()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Set Thing = New Widget", "Set Thing = Thing", "Debug.Print \"kept\"");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "init", "kept", "term" }, Printed(world));
+    }
+
+    #endregion
+
+    #region Automatic instantiation (MS-VBAL §5.2.3.1.4)
+
+    [TestMethod]
+    public void AnAsNewVariable_CreatesItsObjectWhenFirstReferred_NotWhenDeclared()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: true, "Debug.Print \"declared\"", "Thing.Hello");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "declared", "init", "hello", "term" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void AnAsNewVariable_IsNotCreatedAgainWhileItHoldsAnObject()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: true, "Thing.Hello", "Thing.Hello");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "init", "hello", "hello", "term" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void AnAsNewVariableSetToNothing_CreatesANewObjectTheNextTimeItIsReferred()
+    {
+        // a member call on a Nothing reference is error 91, and does not happen here: the reference is what creates
+        // the object it is about to call a member of.
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: true, "Thing.Hello", "Set Thing = Nothing", "Debug.Print \"gone\"", "Thing.Hello");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "init", "hello", "term", "gone", "init", "hello", "term" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void AVariableNotDeclaredAsNew_SetToNothing_IsError91OnAMemberCall()
+    {
+        var world = Compose(Handlers);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Set Thing = New Widget", "Set Thing = Nothing", "Thing.Hello");
+
+        Assert.IsTrue(outcome.IsError);
+        Assert.AreEqual((int)VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, outcome.ErrorInfo!.ErrorId);
+    }
+
+    #endregion
+
+    #region Default instances (MS-VBAL §5.2.4.1.2)
+
+    [TestMethod]
+    public void ThePredeclaredInstance_IsCreatedWhenTheClassNameIsFirstReferred_AndKept()
+    {
+        var world = Compose(Handlers);
+        world.Session.Symbols.TryDefine(new VBPredeclaredInstanceSymbol(world.Widget), ScopeKind.Global);
+
+        var outcome = RunMain(world, thingIsAsNew: false, "Debug.Print \"start\"", "Widget.Hello", "Widget.Hello");
+
+        Assert.IsTrue(outcome.IsSuccess, outcome.ErrorInfo?.Description);
+        CollectionAssert.AreEqual(new[] { "start", "init", "hello", "hello" }, Printed(world));
     }
 
     #endregion

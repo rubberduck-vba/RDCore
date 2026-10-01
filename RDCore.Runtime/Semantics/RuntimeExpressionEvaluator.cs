@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -208,9 +209,47 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
         // static semantics should already have rejected an unresolved, ambiguous, or duplicate name;
         // reaching here means that check was skipped.
-        return symbol is ITypedSymbol typed
-            ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(symbol)))
-            : RuntimeSemanticsEvaluationResult.InternalError();
+        if (symbol is not ITypedSymbol typed)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var handle = session.Symbols.Resolver.GetValue(symbol);
+        var value = typed.ResolvedType.CreateValue(handle);
+
+        // MS-VBAL §5.2.3.1.4 / §2.5.1: a variable declared As New - a class module's default instance among them - is
+        // never Nothing when it is referred to: the reference creates the object it was waiting for, which is also
+        // why `Is Nothing` of it can never be true.
+        return symbol.GetProperty(SymbolProperties.AutoInstantiated) && value is VBObjectValue { } held && held.IsNothing()
+            && typed.ResolvedType is VBClassType { Symbol: { } classModule }
+                ? AutoInstantiate(session, handle, classModule)
+                : RuntimeSemanticsEvaluationResult.Success(value);
+    }
+
+    private static RuntimeSemanticsEvaluationResult AutoInstantiate(IRuntimeSession session, IBindingHandle handle, VBClassModuleSymbol classModule)
+    {
+        // a declared type carries the class as it was when the type was built, and the class is what the instance is
+        // made from: its members at the moment of the reference.
+        if (session.Symbols.Resolver.ResolveType(classModule.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol current)
+        {
+            classModule = current;
+        }
+
+        var objectId = session.Objects.CreateObject();
+        session.Symbols.CreateInstance(objectId, classModule);
+        var created = new VBObjectValue(objectId);
+
+        // the variable holds the object before Initialize runs, as it holds one a Set stored: the handler can already
+        // reach it through the variable, and the reference must not be lost if it does.
+        handle.SetValue(session.Symbols.Resolver, created.RuntimeValue);
+        ObjectReferences.Rebind(session, handle, null, created);
+
+        if (session.Lifecycle?.Initialize(objectId) is { IsSuccess: false } failed)
+        {
+            return failed;
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(created);
     }
 
     // the project or procedural module an expression names, when it names one (MS-VBAL §5.6.12) - decided by the
@@ -379,11 +418,25 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         var owner = ownerResult.Result!;
         var memberName = memberAccess.Member.IdentifierName;
 
+        if (ObjectNotSet(memberAccess, owner) is { } notSet)
+        {
+            return notSet;
+        }
+
         // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
         return TryResolveInvocableMember(session, owner, memberName) is { } found
             ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
             : EvaluateInstanceField(session, owner, memberName);
     }
+
+    // a member of an object variable that holds no object - never set, or set to Nothing - is error 91: there is no
+    // object to find the member on. An As New variable is never in that state when it is referred to, which is what
+    // made it the object the member is on.
+    private static RuntimeSemanticsEvaluationResult? ObjectNotSet(MemberAccessExpressionNode memberAccess, VBTypedValue owner)
+        => UnwrappedOwner(owner) is VBObjectValue { } unset && unset.IsNothing()
+            ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, memberAccess.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose))
+            : null;
 
     // the value a member is accessed on: the expression written before the dot, or the enclosing With block's target.
     private RuntimeSemanticsEvaluationResult EvaluateOwner(IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess)
@@ -505,6 +558,11 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             if (!ownerResult.IsSuccess)
             {
                 return ownerResult;
+            }
+
+            if (ObjectNotSet(qualified, ownerResult.Result!) is { } notSet)
+            {
+                return notSet;
             }
 
             if (TryResolveInvocableMember(session, ownerResult.Result!, qualified.Member.IdentifierName) is { } found)

@@ -249,6 +249,9 @@ public interface ISessionObjects
     /// <summary>Drops a reference to an instance and returns the remaining reference count.</summary>
     int RemoveRef(VBRuntimeObjectId instance, IBindingHandle handle);
 
+    /// <summary>Whether <paramref name="handle"/> is one of the roots currently holding a reference to an instance.</summary>
+    bool IsHeldBy(VBRuntimeObjectId instance, IBindingHandle handle);
+
     /// <summary>The number of references currently held to an instance; <c>0</c> for one that is not live.</summary>
     int RefCount(VBRuntimeObjectId instance);
 
