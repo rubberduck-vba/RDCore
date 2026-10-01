@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols;
@@ -53,6 +54,36 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// <c>Supertypes</c> array for free once this is resolved, with no other code to update.
     /// </remarks>
     public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces { get; init; } = [];
+
+    private ImmutableArray<VBClassModuleSymbol>? _implicitInterfaces;
+
+    /// <summary>
+    /// The interfaces this class module implements without an <c>Implements</c> directive — for every class module,
+    /// <see cref="ClassLifecycleInterface"/>. Kept apart from <see cref="ImplementedInterfaces"/>, which is what the
+    /// source declares: these are not interfaces a name can refer to, and are not supertypes of the class.
+    /// </summary>
+    /// <remarks>
+    /// A host's own kinds of class module (a form, a document) will add theirs here.
+    /// </remarks>
+    public ImmutableArray<VBClassModuleSymbol> ImplicitInterfaces
+    {
+        get => _implicitInterfaces ?? ClassLifecycleInterface.Implicit;
+        init => _implicitInterfaces = value;
+    }
+
+    /// <summary>
+    /// The member of this class that implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>
+    /// (<strong>MS-VBAL §5.3.1.9</strong>): the procedure named <c>InterfaceName_MemberName</c>, whatever its access.
+    /// </summary>
+    /// <param name="implemented">An interface this class implements, explicitly or implicitly.</param>
+    /// <param name="interfaceMember">A member of <paramref name="implemented"/>.</param>
+    /// <returns>The implementing procedure, or <see langword="null"/> when this class does not implement the member.</returns>
+    public VBProcedureMemberSymbol? FindImplementation(VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember)
+    {
+        var name = $"{implemented.Name}_{interfaceMember.Name}";
+        return Members.OfType<VBProcedureMemberSymbol>()
+            .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Whether a live instance of this class is COM Automation-capable (<c>IDispatch</c>) or
