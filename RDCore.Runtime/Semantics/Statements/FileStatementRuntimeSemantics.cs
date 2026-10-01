@@ -94,7 +94,8 @@ public sealed record class FileStatementRuntimeSemantics(
     }
 
     /// <summary>
-    /// Executes a <c>Print #</c> or <c>Write #</c> statement (<strong>MS-VBAL §5.4.5.8-9</strong>).
+    /// Executes a <c>Print #</c> or <c>Write #</c> statement (<strong>MS-VBAL §5.4.5.8-9</strong>), or a bare <c>Print</c>,
+    /// which writes to the session's own output.
     /// </summary>
     /// <remarks>
     /// The output rules are <see cref="PrintOutputEvaluator"/>'s, unchanged - the print zones, the leading
@@ -109,9 +110,11 @@ public sealed record class FileStatementRuntimeSemantics(
     {
         if (print.FileNumber is null)
         {
-            // the object-relative bare form invokes the enclosing form or report's own Print member, and
-            // neither forms nor reports exist. TODO when a document module can be a Print target.
-            return RuntimeExecutionOutcome.InternalError;
+            // the bare form, `Print "x"`, has no file number: in VB6 it is the Print member of the form or report it is written in,
+            // and with neither it is the session's own output - what Debug.Print writes to, by the very same rules. Unlike
+            // Debug.Print it is not a debug statement, and is not left out of a release build.
+            // TODO a document module (a form, a report) that has a Print member of its own is the target when it is one.
+            return Printing.Execute(session, context, print.Items);
         }
 
         if (!TryResolveChannel(session, context, print.FileNumber, print.Token, print, out var channel, out var failure))

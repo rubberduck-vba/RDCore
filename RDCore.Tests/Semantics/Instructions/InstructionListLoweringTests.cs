@@ -79,6 +79,17 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
+    public void ABarePrint_InAReleaseBuild_IsStillLowered()
+    {
+        // Print writes to the session's output like Debug.Print does, but it is not a debug statement: a program that prints
+        // prints in whatever build it runs in.
+        var result = LowerForRelease("Print \"hello\"", "Debug.Print \"dropped\"");
+
+        AssertNoErrors(result);
+        Assert.HasCount(1, result.InstructionList.Items);
+    }
+
+    [TestMethod]
     public void DebugStatements_InAReleaseBuild_DoNotDisturbTheOffsetsAroundThem()
     {
         // whatever remains has to be a coherent program: a jump over a dropped Debug.Print still has

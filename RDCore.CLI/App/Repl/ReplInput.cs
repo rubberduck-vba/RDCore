@@ -51,8 +51,9 @@ public readonly record struct ReplInput(
 /// <item>Anything else is a statement to execute immediately.</item>
 /// </list>
 /// <para>
-/// <c>?</c> expands to <c>Debug.Print</c> wherever a statement can appear — the shorthand VBA itself
-/// has always had. The expansion happens here, on the way in, so the program buffer and every
+/// <c>?</c> expands to <c>Print</c> wherever a statement can appear — the shorthand the language itself
+/// has always had, and the statement a shell with no form to print to writes its output with. The
+/// expansion happens here, on the way in, so the program buffer and every
 /// listing hold real VBA rather than a shell-only spelling (and so the parser never has to grow a
 /// rule for a character the language's own grammar does not define).
 /// </para>
@@ -60,7 +61,7 @@ public readonly record struct ReplInput(
 public static class ReplInputParser
 {
     /// <summary>What <c>?</c> expands to.</summary>
-    public const string PrintShorthandExpansion = "Debug.Print";
+    public const string PrintShorthandExpansion = "Print";
 
     /// <summary>
     /// Classifies <paramref name="line"/>.
@@ -116,7 +117,7 @@ public static class ReplInputParser
     }
 
     /// <summary>
-    /// Rewrites a leading <c>?</c> as <c>Debug.Print</c>. Only a leading one: <c>?</c> anywhere else
+    /// Rewrites a leading <c>?</c> as <c>Print</c>. Only a leading one: <c>?</c> anywhere else
     /// in a line is not the shorthand.
     /// </summary>
     /// <param name="statement">The statement text as typed.</param>

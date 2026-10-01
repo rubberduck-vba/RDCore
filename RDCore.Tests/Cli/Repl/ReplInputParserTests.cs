@@ -77,27 +77,27 @@ public sealed class ReplInputParserTests
     }
 
     [TestMethod]
-    public void PrintShorthand_ExpandsToDebugPrint_InImmediateMode()
+    public void PrintShorthand_ExpandsToPrint_InImmediateMode()
     {
         var input = Parse("?2 + 2");
 
         Assert.AreEqual(ReplInputKind.Immediate, input.Kind);
-        Assert.AreEqual("Debug.Print 2 + 2", input.Text);
+        Assert.AreEqual("Print 2 + 2", input.Text);
     }
 
     [TestMethod]
-    public void PrintShorthand_ExpandsToDebugPrint_InANumberedLine()
+    public void PrintShorthand_ExpandsToPrint_InANumberedLine()
     {
         // the buffer holds real VBA, so a listing shows the expansion rather than a shell-only spelling.
         var input = Parse("20 ?X");
 
         Assert.AreEqual(ReplInputKind.StoreLine, input.Kind);
-        Assert.AreEqual("Debug.Print X", input.Text);
+        Assert.AreEqual("Print X", input.Text);
     }
 
     [TestMethod]
-    public void PrintShorthand_OnItsOwn_IsABareDebugPrint()
-        => Assert.AreEqual("Debug.Print", Parse("?").Text);
+    public void PrintShorthand_OnItsOwn_IsABarePrint()
+        => Assert.AreEqual("Print", Parse("?").Text);
 
     [TestMethod]
     public void AQuestionMarkThatIsNotLeading_IsNotTheShorthand()
