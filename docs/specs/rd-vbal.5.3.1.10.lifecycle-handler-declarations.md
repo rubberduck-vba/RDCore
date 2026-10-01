@@ -8,7 +8,9 @@ Every class module implicitly implements the `Class` interface, which has two me
 
 The interface is implicit: the class has no `Implements Class` directive, and the class module symbol's `ImplementedInterfaceNames` does not have it. It is nevertheless one of the `ImplementedInterfaces` of the class module symbol, the first, and one of the class type's `SuperTypes`, like any interface the class implements. Whatever lists the interfaces of a class module, such as an editor building the dropdowns of its code pane from the module's symbol, finds `Class` there, with its members, and needs no rule of its own for it.
 
-Two things set it apart. The interface symbol has the `OptionalImplementation` property: a class that implements it need not implement any of its members, which is what keeps the rules an `Implements` directive is held to ([**MS-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)) from faulting a class that handles neither event. And no name refers to it: it is not declared to the scope tree and is not a workspace symbol.
+The rule that a class implements every member of an interface it implements ([**MS-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)) holds for `Class` as for any interface, with no exception. Each member of the interface has an implementation of its own, which is empty (the `DefaultImplementation` symbol property), and a class that writes no handler implements the member with that one. A class that handles neither event is therefore in no breach, and dispatching the member to it runs nothing. Only the language gives an interface member an implementation; no source syntax does.
+
+The one thing that sets `Class` apart is that no name refers to it: it is not declared to the scope tree and is not a workspace symbol.
 
 A handler is never called by name. Raising an event dispatches the interface member to whatever the object's class implements it with ([**MS-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)), with the object as the target. A class that does not handle an event raises nothing.
 

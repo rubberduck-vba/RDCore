@@ -56,9 +56,10 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// What is assigned is what the source declares. What is read also has what the language implements for every
     /// class module, first: <see cref="ClassLifecycleInterface"/>, whose members are <c>Initialize</c> and
     /// <c>Terminate</c>. It is an interface of the module like any other, which is why whatever builds a list of the
-    /// interfaces a module implements — an editor's dropdown among them — finds it there, and its
-    /// <see cref="SymbolProperties.OptionalImplementation"/> is what tells that implementing none of its members is
-    /// not an error. It is still not a name workspace code can refer to.
+    /// interfaces a module implements — an editor's dropdown among them — finds it there. Its members have an
+    /// implementation of their own (<see cref="SymbolProperties.DefaultImplementation"/>), so a module that writes no
+    /// handler still implements every one of them, as <strong>MS-VBAL §5.3.1.9</strong> requires. It is still not a
+    /// name workspace code can refer to.
     /// </para>
     /// </remarks>
     public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces
@@ -94,6 +95,17 @@ public record class VBClassModuleSymbol : VBModuleSymbol
         return Members.OfType<VBProcedureMemberSymbol>()
             .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// Whether this class implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>
+    /// (<strong>MS-VBAL §5.3.1.9</strong>): it has the procedure for it (<see cref="FindImplementation"/>), or the
+    /// member has an implementation of its own (<see cref="SymbolProperties.DefaultImplementation"/>). What a check that
+    /// an <c>Implements</c> directive is complete asks, of each member of the interface.
+    /// </summary>
+    /// <param name="implemented">An interface this class implements, explicitly or implicitly.</param>
+    /// <param name="interfaceMember">A member of <paramref name="implemented"/>.</param>
+    public bool IsImplemented(VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember)
+        => FindImplementation(implemented, interfaceMember) is not null || interfaceMember.GetProperty(SymbolProperties.DefaultImplementation);
 
     /// <summary>
     /// Whether a live instance of this class is COM Automation-capable (<c>IDispatch</c>) or

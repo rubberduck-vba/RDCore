@@ -40,10 +40,16 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
         foreach (var implemented in live.ClassModule.ImplementedInterfaces)
         {
             // the member is the interface's own: a Uri's fragment is where a symbol's identity lives.
-            if (implemented.Uri.AbsoluteUri != interfaceMember.ParentUri.AbsoluteUri
-                || live.ClassModule.FindImplementation(implemented, interfaceMember) is not { } handler)
+            if (implemented.Uri.AbsoluteUri != interfaceMember.ParentUri.AbsoluteUri)
             {
                 continue;
+            }
+
+            if (live.ClassModule.FindImplementation(implemented, interfaceMember) is not { } handler)
+            {
+                // the class has no procedure for the member, so it is implemented by the member's own default, which is
+                // empty (SymbolProperties.DefaultImplementation): dispatching to it runs nothing.
+                break;
             }
 
             var target = new VBObjectValue(instance).RuntimeValue;

@@ -62,12 +62,38 @@ public sealed class ClassLifecycleInterfaceTests
         => Assert.IsEmpty(ClassLifecycleInterface.Interface.ImplementedInterfaces);
 
     [TestMethod]
-    public void TheInterface_SaysThatImplementingItIsOptional()
-        => Assert.IsTrue(ClassLifecycleInterface.Interface.GetProperty(SymbolProperties.OptionalImplementation));
+    public void EveryMemberOfTheInterface_HasAnImplementationOfItsOwn()
+    {
+        Assert.IsTrue(ClassLifecycleInterface.Initialize.GetProperty(SymbolProperties.DefaultImplementation));
+        Assert.IsTrue(ClassLifecycleInterface.Terminate.GetProperty(SymbolProperties.DefaultImplementation));
+    }
 
     [TestMethod]
-    public void AnInterfaceTheSourceDeclares_IsNotOptional()
-        => Assert.IsFalse(new VBClassModuleSymbol(Root, Root, "IShape").GetProperty(SymbolProperties.OptionalImplementation));
+    public void AClassWithNoHandlers_ImplementsEveryMemberOfTheInterface_AsImplementsRequires()
+    {
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget");
+
+        foreach (var member in ClassLifecycleInterface.Interface.Members)
+        {
+            Assert.IsNull(widget.FindImplementation(ClassLifecycleInterface.Interface, member));
+            Assert.IsTrue(widget.IsImplemented(ClassLifecycleInterface.Interface, member), member.Name);
+        }
+    }
+
+    [TestMethod]
+    public void AMemberOfAnInterfaceTheSourceDeclares_HasNoImplementationUnlessTheClassWritesOne()
+    {
+        // no source syntax gives an interface member an implementation, so a declared interface's rule is unchanged.
+        var iShape = new VBClassModuleSymbol(Root, Root, "IShape");
+        var draw = Sub(iShape.Uri, "Draw", AccessModifier.Public);
+        iShape = iShape with { Members = [draw], DefaultInterfaceMembers = [draw] };
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { ImplementedInterfaces = [iShape] };
+
+        Assert.IsFalse(widget.IsImplemented(iShape, draw));
+
+        widget = widget with { Members = [Sub(widget.Uri, "IShape_Draw")] };
+        Assert.IsTrue(widget.IsImplemented(iShape, draw));
+    }
 
     [TestMethod]
     public void TheInterface_IsASupertypeOfEveryClass_NotOfItself()

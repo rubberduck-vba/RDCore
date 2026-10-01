@@ -37,7 +37,7 @@ All VBA classes nevertheless implicitly implement a `Class` interface that expos
 |`Initialize`|Instantiation of an instance (_object_) of a given class type|
 |`Terminate`|Destruction of an instance (_object_) of a given class type|
 
-The class has no `Implements` directive for it, but the interface is included in the `SuperTypes` array like any interface the class implements, flagged `OptionalImplementation`; it cannot be referred to by name. See [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md).
+The class has no `Implements` directive for it, but the interface is included in the `SuperTypes` array like any interface the class implements, its members having an implementation of their own (`DefaultImplementation`); it cannot be referred to by name. See [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md).
 
 If a class module specifies any `Implements` directives ([**MS-VBAL §5.2.4.2** Implements Directive](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/da526020-9b41-44a6-a5f3-47a7ac255a9e)), the interfaces specified by those directives are included in the class type's `SuperTypes` array.
 

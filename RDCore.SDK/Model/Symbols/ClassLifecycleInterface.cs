@@ -15,14 +15,18 @@ namespace RDCore.SDK.Model.Symbols;
 /// <c>Class_Initialize</c> and <c>Class_Terminate</c> come from. The class never writes an <c>Implements Class</c>
 /// directive, but the interface is one of its <see cref="VBClassModuleSymbol.ImplementedInterfaces"/> like any other,
 /// so whatever lists the interfaces a module implements - an editor building its dropdowns from the module's symbol -
-/// finds it there, with its members, and nothing special-cases it. Two things set it apart. A class need not
-/// implement any of its members, which <see cref="SymbolProperties.OptionalImplementation"/> says, so that the rules
-/// an <c>Implements</c> directive is held to do not fault a class that handles neither. And it is not a name workspace
-/// code can refer to: nothing declares it to the scope tree, and it is no workspace symbol.
+/// finds it there, with its members, and nothing special-cases it.
 /// <para>
-/// The runtime does not call the handlers by name: it dispatches the interface's member to whatever the class
-/// implements it with (<see cref="VBClassModuleSymbol.FindImplementation"/>), or does nothing when the class does not
-/// handle it, which is the same dispatch an explicit <c>Implements</c> needs.
+/// The rule that a class implements every member of an interface it implements (<strong>MS-VBAL §5.3.1.9</strong>)
+/// holds for it as for any other, with no exception: each member has an implementation of its own, which is empty
+/// (<see cref="SymbolProperties.DefaultImplementation"/>), and a class that writes no handler implements the member
+/// with that one. A class that handles neither event, the common case, is therefore in no breach.
+/// </para>
+/// <para>
+/// The runtime does not call the handlers by name: it dispatches the interface's member to the implementation the
+/// class has for it (<see cref="VBClassModuleSymbol.FindImplementation"/>), the member's default when there is none,
+/// which is the same dispatch an explicit <c>Implements</c> needs. And the interface is not a name workspace code can
+/// refer to: nothing declares it to the scope tree, and it is no workspace symbol.
 /// </para>
 /// </remarks>
 public static class ClassLifecycleInterface
@@ -59,12 +63,12 @@ public static class ClassLifecycleInterface
     private static VBClassModuleSymbol Build()
     {
         // the interface does not implement itself: it is what every other class module implements.
-        var module = (VBClassModuleSymbol)new VBClassModuleSymbol(Root, Root, InterfaceName) { ImplementsLifecycle = false }
-            .With(SymbolProperties.OptionalImplementation, true);
+        var module = new VBClassModuleSymbol(Root, Root, InterfaceName) { ImplementsLifecycle = false };
 
-        VBTypeMemberSymbol Handler(string name) => new VBProcedureMemberSymbol(
+        VBTypeMemberSymbol Handler(string name) => (VBTypeMemberSymbol)new VBProcedureMemberSymbol(
             Root, module.Uri, name, ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo,
-            SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+            SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
+            .With(SymbolProperties.DefaultImplementation, true);
 
         ImmutableArray<VBTypeMemberSymbol> members = [Handler(InitializeName), Handler(TerminateName)];
         return module with { Members = members, DefaultInterfaceMembers = members };
