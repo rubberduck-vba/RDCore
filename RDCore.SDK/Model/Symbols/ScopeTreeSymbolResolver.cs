@@ -126,6 +126,79 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     }
 
     /// <summary>
+    /// Resolves <paramref name="name"/> as a member of <paramref name="owner"/>, a project or a procedural module
+    /// (<strong>MS-VBAL §5.6.12</strong>), as seen from the scope the symbol at <paramref name="handle"/> belongs to.
+    /// </summary>
+    /// <remarks>
+    /// A module's members are what its own scope declares, less any that are <c>Private</c> to a lookup that does not
+    /// originate inside the module. A project's are, in the specification's order: a project, when the owner is the
+    /// enclosing project; a procedural module of the project; then the project tier's one accessible member of that
+    /// name — which is a tier of exactly the members "exactly one of the procedural modules" may have, so two modules
+    /// declaring the name collide there as an ambiguous name, as they do unqualified. The project tier is shared by
+    /// every module of the tree, a library's included, so which project a candidate is in is read off its
+    /// <see cref="SymbolProperties.Library"/>.
+    /// </remarks>
+    public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle)
+    {
+        var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+        return owner switch
+        {
+            VBProjectSymbol project => ResolveProjectMember(project, name, origin),
+            VBStandardModuleSymbol module => ResolveModuleMember(module, name, origin),
+            _ => SymbolResolutionResult.Unbound,
+        };
+    }
+
+    private SymbolResolutionResult ResolveModuleMember(VBStandardModuleSymbol module, string name, LexicalScope[] origin)
+    {
+        var moduleScope = scopeTree.ScopeFor(module.Uri);
+        if (moduleScope.Kind != LexicalScopeKind.Module)
+        {
+            return SymbolResolutionResult.Unbound;
+        }
+
+        // a lookup from inside the module sees what is private to it, as an unqualified one does.
+        var fromWithin = origin.Any(scope => scope.Kind == LexicalScopeKind.Module && scope.Uri.AbsoluteUri == module.Uri.AbsoluteUri);
+
+        return SelectTier(
+            moduleScope,
+            moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate))))
+            ?? SymbolResolutionResult.Unbound;
+    }
+
+    private static SymbolResolutionResult ResolveProjectMember(VBProjectSymbol project, string name, LexicalScope[] origin)
+    {
+        var global = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Global);
+        var projectScope = origin.FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project);
+
+        // the tier shares its modules between the enclosing project and the library, so a candidate is the project's
+        // own only when it names the same library - or, for the enclosing project, none.
+        var library = project.GetProperty(SymbolProperties.Library);
+        bool InProject(Symbol symbol)
+            => string.Equals(symbol.GetProperty(SymbolProperties.Library) ?? string.Empty, library ?? string.Empty, StringComparison.Ordinal);
+
+        // 1. the enclosing project names the projects it can see.
+        if (library is null && global is not null
+            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBProjectSymbol)) is { } referenced)
+        {
+            return referenced;
+        }
+
+        // 2. a procedural module of the project.
+        if (global is not null
+            && SelectTier(global, global.DeclaredAs(name).Where(candidate => candidate is VBStandardModuleSymbol && InProject(candidate))) is { } module)
+        {
+            return module;
+        }
+
+        // 3. otherwise the member exactly one of its procedural modules has.
+        return projectScope is not null
+            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member
+                ? member
+                : SymbolResolutionResult.Unbound;
+    }
+
+    /// <summary>
     /// Resolves <paramref name="name"/> as a conditional compilation constant. The tiers are §3.4.1's own
     /// shadowing rule: the enclosing module's own <c>#Const</c> declarations, then the project-level ones,
     /// which the global scope carries. <paramref name="scope"/> is not consulted.

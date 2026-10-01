@@ -35,6 +35,19 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> ImplicitlyDeclared = new(nameof(ImplicitlyDeclared));
     /// <summary>
+    /// The name of the library project a symbol belongs to — <c>VBA</c> for the standard library of a VBA
+    /// environment — or unset for a symbol of the enclosing project.
+    /// </summary>
+    /// <remarks>
+    /// The standard library's modules sit at the same tier of the scope tree as the workspace's own, which is what lets
+    /// <c>Len</c> resolve unqualified. Which <em>project</em> a module is in is the one thing that tier cannot say, and
+    /// the thing a project-qualified reference (<c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>; <strong>MS-VBAL §5.6.12</strong>)
+    /// needs to know. A library project's own <see cref="VBProjectSymbol"/> carries the same name, and a qualifier
+    /// reaches the modules and members that carry it. The name is the environment's: a VB6 environment will call it
+    /// something else.
+    /// </remarks>
+    public static readonly SymbolProperty<string> Library = new(nameof(Library));
+    /// <summary>
     /// The value of the <c>VB_Exposed</c> attribute of a <see cref="VBClassModuleSymbol"/>
     /// </summary>
     public static readonly SymbolProperty<bool> Exposed = new(nameof(Exposed));

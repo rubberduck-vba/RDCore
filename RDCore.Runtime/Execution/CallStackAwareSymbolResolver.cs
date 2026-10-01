@@ -39,6 +39,9 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
         => inner.ResolveConditionalConstant(name, scope, handle);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle) => inner.ResolveMember(owner, name, handle);
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
         => symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryResolve(symbol, out var local)
             ? local

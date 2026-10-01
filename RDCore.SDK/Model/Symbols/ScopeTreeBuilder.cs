@@ -211,7 +211,7 @@ public static class ScopeTreeBuilder
     // MS-VBAL §5.2.3 project-level visibility: an explicit Public / Global / Friend member is visible
     // to sibling modules; a Private one is not; an implicit modifier makes a procedure-like member
     // Public but a module variable or constant Private.
-    private static bool IsProjectVisible(Symbol symbol)
+    internal static bool IsProjectVisible(Symbol symbol)
     {
         if (symbol is not AccessibleTypedSymbol accessible)
         {

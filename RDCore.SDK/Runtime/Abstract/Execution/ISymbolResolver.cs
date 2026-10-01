@@ -101,6 +101,35 @@ public interface ISymbolResolver
     SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle);
 
     /// <summary>
+    /// Resolves <paramref name="name"/> as a member of <paramref name="owner"/>, a project or a procedural module: the
+    /// right-hand side of a member access whose left-hand side is one of them (<strong>MS-VBAL §5.6.12</strong>) —
+    /// <c>Strings.LenB</c>, <c>VBA.Strings</c>, <c>VBA.LenB</c>.
+    /// </summary>
+    /// <remarks>
+    /// What the member of a <em>procedural module</em> can be is what the module declares and the lookup can reach:
+    /// a variable, property, function, subroutine or value, and not one declared <c>Private</c> unless the lookup
+    /// originates in the module itself.
+    /// <para>
+    /// What the member of a <em>project</em> can be is, in the order the specification gives them: a project, when
+    /// <paramref name="owner"/> is the enclosing project; a procedural module of the project of that name; and, only
+    /// when there is no such module, the one accessible member of that name that exactly one of the project's
+    /// procedural modules has — a name two of them declare is ambiguous, and the reference has to qualify it.
+    /// </para>
+    /// <para>
+    /// 👉 A class module is not an owner here: its members are reached through an instance of it, which is a member
+    /// access on a value and not on a namespace.
+    /// </para>
+    /// </remarks>
+    /// <param name="owner">The project or procedural module the member belongs to.</param>
+    /// <param name="name">The name of the member to resolve.</param>
+    /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from, which decides what is accessible.</param>
+    /// <returns>
+    /// A <see cref="SymbolResolutionResult"/> carrying the member, an unbound result when there is none, or an
+    /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// </returns>
+    SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle);
+
+    /// <summary>
     /// Gets the <see cref="IBindingHandle"/> currently associated with the specified <see cref="Symbol"/>.
     /// </summary>
     /// <param name="symbol">The <see cref="Symbol"/> to retrieve the currently associated binding for.</param>

@@ -36,6 +36,9 @@ public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage
         => names.ResolveConditionalConstant(name, scope, handle);
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle) => names.ResolveMember(owner, name, handle);
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol) => _addresses.GetValue(symbol);
 
     /// <inheritdoc/>

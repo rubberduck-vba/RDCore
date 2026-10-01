@@ -40,6 +40,10 @@ internal sealed class IntrinsicSymbolResolver : ISymbolResolver
         => SymbolResolutionResult.Unbound; // nor a conditional compilation constant
 
     /// <inheritdoc/>
+    public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle)
+        => SymbolResolutionResult.Unbound; // the intrinsic types are no project or module to have members
+
+    /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
         => throw new NotSupportedException("The intrinsic symbol resolver resolves type names only; it holds no runtime bindings.");
 
