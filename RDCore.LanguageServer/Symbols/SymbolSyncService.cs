@@ -163,6 +163,7 @@ internal sealed class SymbolSyncService(
                 ModuleName = moduleName,
                 Symbols = descriptors,
                 Directives = parseResult.SyntaxTree.GetModuleDirectives(),
+                ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
                 Replace = replace,
             }, token);
 

@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -323,6 +324,50 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         table[identity] = symbol;
         _scopeTree = null;
         return true;
+    }
+
+    public bool TryComposeClassModule(string moduleName, ImmutableArray<string> implementedInterfaceNames)
+    {
+        var module = AllSymbols().OfType<VBClassModuleSymbol>()
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, moduleName, StringComparison.OrdinalIgnoreCase));
+        if (module is null)
+        {
+            return false;
+        }
+
+        // what the class declares: every member defined under its identity.
+        ImmutableArray<VBTypeMemberSymbol> members =
+        [
+            .. AllSymbols().OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri),
+        ];
+        var composed = module with { Members = members, ImplementedInterfaceNames = implementedInterfaceNames };
+        Replace(module, composed with { DefaultInterfaceMembers = VBClassType.FromClassModule(composed).Members });
+
+        // every class that names an interface is resolved again, whichever it is that has just been composed: it may be the
+        // interface another holds, as it was.
+        var classModules = AllSymbols().OfType<VBClassModuleSymbol>().ToList();
+        var resolved = ImplementedInterfaceResolution.Resolve(classModules);
+        foreach (var classModule in classModules)
+        {
+            if (resolved.TryGetValue(classModule.Uri.AbsoluteUri, out var withInterfaces))
+            {
+                Replace(classModule, withInterfaces);
+            }
+        }
+
+        return true;
+    }
+
+    private IEnumerable<Symbol> AllSymbols()
+        => _globalSymbols.Values.Concat(_workspaceSymbols.Values).Concat(_instanceSymbols.Values).Concat(_localSymbols.Values).ToList();
+
+    // a class module symbol holds no storage and is keyed by its identity, which the newer one shares.
+    private void Replace(Symbol existing, Symbol replacement)
+    {
+        if (TryUndefine(existing, existing.ScopeKind))
+        {
+            TryDefine(replacement, replacement.ScopeKind);
+        }
     }
 
     public ISymbolResolver Resolver => Bindings;

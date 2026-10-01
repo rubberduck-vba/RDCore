@@ -98,6 +98,10 @@ internal sealed class DefineSymbolsHandler(
             }
         }
 
+        // a class module's symbol is composed from a project without being read; what makes it the class its members declare, and
+        // the one that implements the interfaces its directives name, is this. A module that is not a class has nothing to compose.
+        session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames);
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(

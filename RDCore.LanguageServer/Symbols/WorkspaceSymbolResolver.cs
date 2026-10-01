@@ -173,52 +173,13 @@ internal static class WorkspaceSymbolResolver
     /// </remarks>
     private static void ResolveImplementedInterfaces(List<Symbol> symbols)
     {
-        var classModulesByName = new Dictionary<string, VBClassModuleSymbol>(StringComparer.OrdinalIgnoreCase);
-        foreach (var classModule in symbols.OfType<VBClassModuleSymbol>())
-        {
-            classModulesByName.TryAdd(classModule.Name, classModule);
-        }
-
-        var resolved = new Dictionary<string, VBClassModuleSymbol>(StringComparer.Ordinal);
-        var resolving = new HashSet<string>(StringComparer.Ordinal);
-
-        VBClassModuleSymbol Resolve(VBClassModuleSymbol classModule)
-        {
-            var key = classModule.Uri.AbsoluteUri;
-            if (resolved.TryGetValue(key, out var already))
-            {
-                return already;
-            }
-            if (!resolving.Add(key))
-            {
-                // a cycle (MS-VBAL 5.2.3.6 disallows this, not yet validated) - stop recursing here
-                // rather than looping forever over a malformed workspace.
-                return classModule;
-            }
-
-            var implementedInterfaces = ImmutableArray.CreateBuilder<VBClassModuleSymbol>();
-            var seenUris = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var name in classModule.ImplementedInterfaceNames)
-            {
-                if (classModulesByName.TryGetValue(name, out var found)
-                    && !string.Equals(found.Uri.AbsoluteUri, key, StringComparison.Ordinal)
-                    && seenUris.Add(found.Uri.AbsoluteUri))
-                {
-                    implementedInterfaces.Add(Resolve(found));
-                }
-            }
-
-            var result = classModule with { ImplementedInterfaces = implementedInterfaces.ToImmutable() };
-            resolving.Remove(key);
-            resolved[key] = result;
-            return result;
-        }
-
+        // shared with the environment host, which composes class modules from what it is sent one at a time.
+        var resolved = ImplementedInterfaceResolution.Resolve(symbols.OfType<VBClassModuleSymbol>());
         for (var i = 0; i < symbols.Count; i++)
         {
-            if (symbols[i] is VBClassModuleSymbol classModule && !classModule.ImplementedInterfaceNames.IsEmpty)
+            if (symbols[i] is VBClassModuleSymbol classModule && resolved.TryGetValue(classModule.Uri.AbsoluteUri, out var composed))
             {
-                symbols[i] = Resolve(classModule);
+                symbols[i] = composed;
             }
         }
     }

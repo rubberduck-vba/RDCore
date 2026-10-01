@@ -63,6 +63,20 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public ModuleDirectives Directives { get; init; } = ModuleDirectives.None;
 
     /// <summary>
+    /// The names of the interfaces the module's <c>Implements</c> directives name
+    /// (<strong>MS-VBAL §5.2.4.2</strong>), as written and in source order; empty for a module that has none, and for one that
+    /// is not a class module.
+    /// </summary>
+    /// <remarks>
+    /// The host composes the class from them once its members are defined
+    /// (<see cref="RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.TryComposeClassModule"/>), resolving each to the class it
+    /// names among the class modules it has: an object of the class is then an object that implements the interface, which is
+    /// what a call through a variable declared as the interface is dispatched on (<strong>§5.3.1.9</strong>), and what a
+    /// <c>TypeOf ... Is</c> and a <c>Set</c> to such a variable are decided by.
+    /// </remarks>
+    public ImmutableArray<string> ImplementedInterfaceNames { get; init; } = [];
+
+    /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
     /// skipped.
     /// </summary>
