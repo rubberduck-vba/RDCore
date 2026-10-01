@@ -38,15 +38,6 @@ public class SupportedLanguage
     public string[] FileTypes { get; }
 
     /// <summary>
-    /// The name of the project the language's standard library is: what a project-qualified reference to it uses
-    /// (<c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>; <strong>MS-VBAL §5.6.12</strong>), and what its members say they belong to.
-    /// </summary>
-    /// <remarks>
-    /// <c>VBA</c> for RD-VBA, <c>VB</c> for VB6, and <c>RDC</c> for the platform's BASIC.
-    /// </remarks>
-    public string StandardLibraryName { get; init; } = StdLibSymbolProvider.DefaultLibraryName;
-
-    /// <summary>
     /// Where the variable that a reference to an undeclared name declares lives (<strong>MS-VBAL §5.6.10</strong>).
     /// </summary>
     /// <remarks>
@@ -85,25 +76,21 @@ public class SupportedLanguage
 public static class SupportedLanguages
 {
     /// <summary>
-    /// RD-VBA: the platform's own implementation of <strong>MS-VBAL</strong>, and the default. Its standard library is <c>VBA</c>.
+    /// RD-VBA: the platform's own implementation of <strong>MS-VBAL</strong>, and the default.
     /// </summary>
     public static SupportedLanguage RDVBA { get; } = new(
         "vba", "Microsoft Visual Basic for Applications", "*.bas", "*.cls", "*.frm", "*.doccls");
 
     /// <summary>
-    /// VB6. Its standard library is <c>VB</c>.
+    /// VB6.
     /// </summary>
-    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm")
-    {
-        StandardLibraryName = "VB",
-    };
+    public static SupportedLanguage VB6 { get; } = new("vb6", "Microsoft Visual Basic 6.0", "*.bas", "*.cls", "*.frm");
 
     /// <summary>
-    /// The platform's BASIC, which an interactive shell is written in. Its standard library is <c>RDC</c>.
+    /// The platform's BASIC, which an interactive shell is written in.
     /// </summary>
     public static SupportedLanguage BASIC { get; } = new("basic", "RDCore BASIC", "*.bas")
     {
-        StandardLibraryName = "RDC",
         ImplicitDeclarationScope = ImplicitDeclarationScope.Module,
         HasBarePrint = true,
     };

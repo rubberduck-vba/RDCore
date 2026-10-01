@@ -108,25 +108,19 @@ intrinsic types ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.
 
 ### Library Name
 
-The standard library is a project of its own, and its name is the language's to choose
-([SupportedLanguage](../api/RDCore.SDK.Workspace.SupportedLanguage.html)): it is what a project-qualified reference to the library names
+The standard library is a project of its own, named `VBA` in every language
+([StdLibSymbolProvider.LibraryName](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html)): it is what a project-qualified reference to the library names
 (`VBA.Strings.LenB`, `VBA.LenB`; [**MS-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)), and what the library's members say they belong to
 (`SymbolProperties.Library`).
 
-|Language|Identifier|Library|
-|---|---|---|
-|RD-VBA (the default)|`vba`|`VBA`|
-|VB6|`vb6`|`VB`|
-|The platform's BASIC (an interactive shell)|`basic`|`RDC`|
-
-The language is the `Configuration:Workspace:Language` setting (`--language` on a server's command line), which a client says of the servers it starts - and in
-the `initializationOptions` of its `initialize` request ([**RD-VBAL §2.0.2.1.1**](rd-vbal.2.0.2.client-server-capabilities.md)); the interactive shell is the `basic`
-language - so that the language server (over the workspace) and the environment host (over its session) build the library's symbols under the same name. The default project reference to the standard library is named what the language calls it.
-The members of the library resolve unqualified whatever the library is called.
+VB6 loads the very same `VBA` library. The `VB` library of VB6 is another thing: the runtime library of its ActiveX controls (`VB.Form`, `VB.TextBox`...),
+which the platform does not model.
 
 > [!NOTE]
-> **Not implemented.** Nothing but the library's name differs between the languages yet: VB6 has `VBA`-only members the platform does not hide
-> from it, and BASIC's own members are not declared.
+> **Not implemented.** The library is the same whole in every language ([SupportedLanguage](../api/RDCore.SDK.Workspace.SupportedLanguage.html)). Where a
+> language has more or fewer members than another - VB6 has `VBA`-only members the platform does not hide from it, and a BASIC has no library of its own to
+> speak of - the intent is for the members to say which languages they belong to, with an attribute on the declaration, and not for the library to change
+> its name.
 
 ### Pointer Width
 

@@ -17,31 +17,25 @@ using RDCore.SDK.Workspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The name of the standard library is the language's: <c>VBA</c> in RD-VBA, <c>VB</c> in VB6 and <c>RDC</c> in the platform's BASIC. It is what a
-/// project-qualified reference to the library names (<strong>MS-VBAL §5.6.12</strong>), and every component that builds the library's
-/// symbols - the language server over the workspace, the environment host over its session - has to agree on it.
+/// The languages the platform serves: how one is found by its identifier, which one a workspace is written in, and - through
+/// <see cref="RunAsync"/> - the whole path a program takes in the environment host, as the platform makes it.
 /// </summary>
 [TestClass]
-public sealed class StandardLibraryNameTests
+public sealed class SupportedLanguageTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-language-ws");
 
     [TestMethod]
-    [DataRow("vba", "VBA")]
-    [DataRow("vb6", "VB")]
-    [DataRow("basic", "RDC")]
-    [DataRow("BASIC", "RDC", DisplayName = "an identifier is compared without regard to case")]
-    public void EachLanguage_HasItsOwnStandardLibraryName(string id, string expected)
-        => Assert.AreEqual(expected, SupportedLanguages.Get(id).StandardLibraryName);
+    [DataRow("vba")]
+    [DataRow("vb6")]
+    [DataRow("basic")]
+    [DataRow("BASIC", DisplayName = "an identifier is compared without regard to case")]
+    public void EachLanguage_IsFoundByItsIdentifier(string id)
+        => Assert.AreEqual(id, SupportedLanguages.Get(id).Id, ignoreCase: true);
 
     [TestMethod]
-    public void TheDefaultLanguage_IsRDVBA_WhoseLibraryIsVBA()
-    {
-        var options = new SdkWorkspaceOptions();
-
-        Assert.AreSame(SupportedLanguages.RDVBA, options.SupportedLanguage);
-        Assert.AreEqual("VBA", options.SupportedLanguage.StandardLibraryName);
-    }
+    public void TheDefaultLanguage_IsRDVBA()
+        => Assert.AreSame(SupportedLanguages.RDVBA, new SdkWorkspaceOptions().SupportedLanguage);
 
     [TestMethod]
     public void AWorkspacesLanguage_IsTheLanguageItsOptionNames()
@@ -66,10 +60,9 @@ public sealed class StandardLibraryNameTests
         }
     }
 
-    // the whole path of a qualified call, as the platform makes it: the language server's composition over the workspace, the host's session, the run.
+    // the whole path of a program, as the platform makes it: the language server's composition over the workspace, the host's session, the run.
     // `statement` is the body of Main when it is not just a Debug.Print of the expression; `language` is the one the environment is a dialect of.
-    internal static async Task<ExecuteSessionResult> RunAsync(
-        string standardLibraryName, string expression, string? statement = null, SupportedLanguage? language = null)
+    internal static async Task<ExecuteSessionResult> RunAsync(string expression, string? statement = null, SupportedLanguage? language = null)
     {
         const string ModuleName = "Program";
         var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main()\r\n{statement ?? $"Debug.Print {expression}"}\r\nEnd Sub\r\n";
@@ -81,7 +74,7 @@ public sealed class StandardLibraryNameTests
         });
 
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language), fs, NullLogger<EnvironmentSessionProvider>.Instance, standardLibraryName);
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language), fs, NullLogger<EnvironmentSessionProvider>.Instance);
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
@@ -90,7 +83,7 @@ public sealed class StandardLibraryNameTests
         Assert.IsTrue(parse.IsSuccess);
 
         var resolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver(), standardLibraryName: standardLibraryName);
+            workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
 
         await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
@@ -114,32 +107,23 @@ public sealed class StandardLibraryNameTests
     }
 
     [TestMethod]
-    [DataRow("VBA")]
-    [DataRow("VB")]
-    [DataRow("RDC")]
-    public async Task AQualifiedCall_NamesTheLibraryOfTheLanguage(string library)
+    [DataRow("vba")]
+    [DataRow("vb6")]
+    [DataRow("basic")]
+    public async Task TheStandardLibrary_IsVBA_InEveryLanguage(string id)
     {
-        var result = await RunAsync(library, $"{library}.LenB(\"42\")");
+        var result = await RunAsync("VBA.LenB(\"42\")", language: SupportedLanguages.Get(id));
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "4" }, result.Output.Select(line => line.Trim()).ToArray());
     }
 
     [TestMethod]
-    public async Task TheNameOfAnotherLanguagesLibrary_IsNotTheLibrary()
+    public async Task VB_IsNotTheStandardLibrary()
     {
-        // in the platform's BASIC the library is RDC: `VBA` names nothing.
-        var result = await RunAsync("RDC", "VBA.LenB(\"42\")");
+        // `VB` is VB6's runtime library of ActiveX controls, which the platform does not model; the standard library is `VBA`.
+        var result = await RunAsync("VB.LenB(\"42\")");
 
         Assert.AreNotEqual(ExecutionOutcome.Completed, result.Outcome);
-    }
-
-    [TestMethod]
-    public async Task TheLibrarysMembers_StillResolveUnqualified_WhateverItIsCalled()
-    {
-        var result = await RunAsync("RDC", "LenB(\"42\")");
-
-        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
-        CollectionAssert.AreEqual(new[] { "4" }, result.Output.Select(line => line.Trim()).ToArray());
     }
 }

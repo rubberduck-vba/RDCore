@@ -73,7 +73,7 @@ public sealed class BarePrintLanguageTests
     [TestMethod]
     public async Task ABarePrint_RunsInTheBasicEnvironment()
     {
-        var result = await StandardLibraryNameTests.RunAsync("RDC", expression: "", statement: "Print \"hello\"", language: SupportedLanguages.BASIC);
+        var result = await SupportedLanguageTests.RunAsync(expression: "", statement: "Print \"hello\"", language: SupportedLanguages.BASIC);
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "hello" }, result.Output.ToArray());
@@ -82,7 +82,7 @@ public sealed class BarePrintLanguageTests
     [TestMethod]
     public async Task ABarePrint_IsACompileErrorInTheVBAEnvironment_AndNothingRuns()
     {
-        var result = await StandardLibraryNameTests.RunAsync("VBA", expression: "", statement: "Debug.Print \"before\"\r\nPrint \"hello\"", language: SupportedLanguages.RDVBA);
+        var result = await SupportedLanguageTests.RunAsync(expression: "", statement: "Debug.Print \"before\"\r\nPrint \"hello\"", language: SupportedLanguages.RDVBA);
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome);
         Assert.IsEmpty(result.Output, "a compile error is found before anything runs");

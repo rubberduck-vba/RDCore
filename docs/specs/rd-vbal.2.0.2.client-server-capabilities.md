@@ -50,9 +50,9 @@ The handshake is _informational_:
 ## 2.0.2.1.1 The language
 
 The platform serves several members of the BASIC family ([`SupportedLanguages`](../api/RDCore.SDK.Workspace.SupportedLanguages.html)): RD-VBA (`vba`, the
-default), VB6 (`vb6`) and the platform's BASIC (`basic`, which an interactive shell is written in). The language is what decides the dialect's table: the name
-of the standard library ([**RD-VBAL §6.0**](rd-vbal.6.0.standard-library.md)), where the variable an undeclared name declares lives
+default), VB6 (`vb6`) and the platform's BASIC (`basic`, which an interactive shell is written in). The language is what decides the dialect's table: where the variable an undeclared name declares lives
 ([**MS-VBAL §5.6.10**](rd-vbal.5.6.10.simple-name-expressions.md)), and which statements exist at all ([**RD-VBAL §5.4.5.8**](rd-vbal.5.4.5.8.print-statement.md)).
+The standard library is not part of the table: it is `VBA` whatever the language ([**RD-VBAL §6.0**](rd-vbal.6.0.standard-library.md)).
 
 A client says which one it is in the `initializationOptions` of its LSP `initialize` request - the part of the protocol that exists for a setting no standard
 capability describes ([RDCoreInitializationOptions](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)):

@@ -345,9 +345,9 @@ public record class SdkWorkspaceOptions
     /// <remarks>
     /// The language is what the platform's components agree on about the dialect, so a client says it of the servers it starts - and of the
     /// server it connects to, in the <c>initializationOptions</c> of its <c>initialize</c> request
-    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions"/>). It decides what is built from the workspace: the name of the standard
-    /// library (<see cref="Workspace.SupportedLanguage.StandardLibraryName"/>: <c>VBA</c>, <c>VB</c> or <c>RDC</c>), where the variable an
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions"/>). It decides what is built from the workspace: where the variable an
     /// undeclared name declares lives (<see cref="Workspace.SupportedLanguage.ImplicitDeclarationScope"/>), and which statements exist.
+    /// The standard library is not one of them: it is <c>VBA</c> whatever the language (<see cref="Runtime.StdLib.StdLibSymbolProvider.LibraryName"/>).
     /// </remarks>
     public string Language { get; set; } = Workspace.SupportedLanguages.RDVBA.Id;
 

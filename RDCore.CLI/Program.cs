@@ -351,12 +351,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
         services
             .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
             .AddVerboseMessages()
-            // the name of the standard library is the language's to say, and the language is what the language server was started with.
-            .AddSingleton<IEnvironmentSessionProvider>(provider => new EnvironmentSessionProvider(
-                provider.GetRequiredService<IRuntimeEnvironmentProfile>(),
-                provider.GetRequiredService<IFileSystem>(),
-                provider.GetRequiredService<ILogger<EnvironmentSessionProvider>>(),
-                () => provider.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage.StandardLibraryName));
+            .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

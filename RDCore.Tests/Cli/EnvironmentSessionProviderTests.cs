@@ -130,21 +130,4 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreEqual("VBA", session.References[0].Name);
         Assert.AreEqual(0, session.References[0].Priority);
     }
-
-    [TestMethod]
-    [DataRow("VB")]
-    [DataRow("RDC")]
-    public void Compose_NamesTheStandardLibraryReference_WhatTheLanguageCallsItsLibrary(string libraryName)
-    {
-        var provider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new MockFileSystem(),
-            NullLogger<EnvironmentSessionProvider>.Instance, libraryName);
-
-        var session = provider.Compose(
-            new RDCoreProject { References = [RDCoreReference.VBStandardLibrary, new RDCoreReference { Name = "Excel", Major = 1, Minor = 9 }] },
-            WorkspaceRoot);
-
-        Assert.AreEqual(libraryName, session.References[0].Name);
-        Assert.AreEqual("Excel", session.References[1].Name, "a reference to anything else is called what it is");
-    }
 }

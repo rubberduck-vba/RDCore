@@ -67,18 +67,18 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     public const string AssertMemberName = "Assert";
 
     /// <summary>
-    /// The name of the project the standard library belongs to in a VBA environment.
+    /// The name of the project the standard library is.
     /// </summary>
     /// <remarks>
     /// It is what a project-qualified reference to the library names — <c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>
-    /// (<strong>MS-VBAL §5.6.12</strong>). It is the environment's to choose: a VB6 environment will want to call it
-    /// <c>VB</c>.
+    /// (<strong>MS-VBAL §5.6.12</strong>). It is the same in every dialect: VB6 loads the very same <c>VBA</c> library, and what
+    /// it calls <c>VB</c> is the runtime library of its ActiveX controls, which is not this one. Where a dialect has more or fewer
+    /// members than another, the members are what say so, not the name of the library.
     /// </remarks>
-    public const string DefaultLibraryName = "VBA";
+    public const string LibraryName = "VBA";
 
     private readonly Uri _workspaceRoot;
     private readonly bool _is64Bit;
-    private readonly string _libraryName;
 
     /// <summary>
     /// Creates the provider.
@@ -93,15 +93,10 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// in each, so <c>Conversion.CLngPtr</c>'s return type depends on it. Defaults to <c>true</c>,
     /// matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default.
     /// </param>
-    /// <param name="libraryName">
-    /// The name of the project the library is, which a qualified reference to it uses. Defaults to
-    /// <see cref="DefaultLibraryName"/>.
-    /// </param>
-    public StdLibSymbolProvider(Uri workspaceRoot, bool is64Bit = true, string libraryName = DefaultLibraryName)
+    public StdLibSymbolProvider(Uri workspaceRoot, bool is64Bit = true)
     {
         _workspaceRoot = workspaceRoot;
         _is64Bit = is64Bit;
-        _libraryName = libraryName;
     }
 
     /// <inheritdoc/>
@@ -110,11 +105,11 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         // the library is a project of its own, named, so that `VBA.Strings.LenB` has a `VBA` to start from; and
         // everything it provides says which project it is in, because the scope tree keeps its modules at the same
         // tier as the workspace's and could not otherwise tell them apart.
-        yield return new VBProjectSymbol(_workspaceRoot, _libraryName).With(SymbolProperties.Library, _libraryName);
+        yield return new VBProjectSymbol(_workspaceRoot, LibraryName).With(SymbolProperties.Library, LibraryName);
 
         foreach (var symbol in LibrarySymbols())
         {
-            yield return symbol.With(SymbolProperties.Library, _libraryName);
+            yield return symbol.With(SymbolProperties.Library, LibraryName);
         }
     }
 
