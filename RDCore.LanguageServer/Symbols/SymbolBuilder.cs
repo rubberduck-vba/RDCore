@@ -160,8 +160,11 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var range = RangeOf(node);
         var type = ImplicitOrDeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
-        return AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
+        var field = AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
             workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier), AsTypeOf(node));
+
+        // MS-VBAL §5.2.3.1.2: what makes the procedures named for this variable event handlers.
+        return node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
     }
 
     // MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it declares - or,

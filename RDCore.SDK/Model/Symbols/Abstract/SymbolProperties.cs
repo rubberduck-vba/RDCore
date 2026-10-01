@@ -95,6 +95,12 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
     /// <summary>
+    /// Whether a variable is declared with the <c>WithEvents</c> modifier (<strong>MS-VBAL §5.2.3.1.2</strong>): its
+    /// declared type is a class with events, and the procedures of the module that are named for the variable and an
+    /// event of the class handle that event of whatever object the variable currently holds.
+    /// </summary>
+    public static readonly SymbolProperty<bool> WithEvents = new(nameof(WithEvents));
+    /// <summary>
     /// Whether a member of an interface has an implementation of its own, which is empty: a class that implements the
     /// interface and has no procedure for the member implements it with that one, and dispatching the member to such a
     /// class does nothing.

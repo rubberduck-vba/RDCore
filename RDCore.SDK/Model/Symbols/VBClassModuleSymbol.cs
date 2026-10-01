@@ -108,6 +108,42 @@ public record class VBClassModuleSymbol : VBModuleSymbol
         => FindImplementation(implemented, interfaceMember) is not null || interfaceMember.GetProperty(SymbolProperties.DefaultImplementation);
 
     /// <summary>
+    /// The events this class declares (<strong>MS-VBAL §5.2.4.3</strong>).
+    /// </summary>
+    public IEnumerable<VBEventMemberSymbol> Events => Members.OfType<VBEventMemberSymbol>();
+
+    /// <summary>
+    /// The event of this class named <paramref name="name"/>, or <see langword="null"/> when it declares none.
+    /// </summary>
+    /// <param name="name">The event name, compared without regard to case.</param>
+    public VBEventMemberSymbol? FindEvent(string name)
+        => Events.FirstOrDefault(declared => string.Equals(declared.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The WithEvents variables this class declares (<strong>MS-VBAL §5.2.3.1.2</strong>).
+    /// </summary>
+    public IEnumerable<VBTypeMemberSymbol> WithEventsVariables
+        => Members.Where(member => member.GetProperty(SymbolProperties.WithEvents));
+
+    /// <summary>
+    /// The procedure of this class that handles <paramref name="handled"/> for <paramref name="variable"/>
+    /// (<strong>MS-VBAL §5.3.1.8</strong>): the one named <c>VariableName_EventName</c>.
+    /// </summary>
+    /// <remarks>
+    /// Whether it is a valid handler - a subroutine, with a parameter list compatible with the event's - is not
+    /// decided here: this is only the procedure that is named like one.
+    /// </remarks>
+    /// <param name="variable">A WithEvents variable of this class.</param>
+    /// <param name="handled">An event of the class that is the variable's declared type.</param>
+    /// <returns>The handler, or <see langword="null"/> when this class does not handle the event.</returns>
+    public VBProcedureMemberSymbol? FindEventHandler(VBTypeMemberSymbol variable, VBEventMemberSymbol handled)
+    {
+        var name = $"{variable.Name}_{handled.Name}";
+        return Members.OfType<VBProcedureMemberSymbol>()
+            .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Whether a live instance of this class is COM Automation-capable (<c>IDispatch</c>) or
     /// <c>IUnknown</c>-only. Defaults to <see cref="VBAutomationKind.Dispatch"/> — true of every
     /// RD-VBA class module today; <see cref="VBAutomationKind.Unknown"/> is groundwork for a future
