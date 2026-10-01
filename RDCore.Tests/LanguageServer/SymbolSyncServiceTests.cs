@@ -84,6 +84,38 @@ public sealed class SymbolSyncServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    private const string UndeclaredName = "Public Sub Foo()\r\nA = 42\r\nEnd Sub";
+
+    [TestMethod]
+    public async Task AtModuleScope_AnUndeclaredName_IsSentAsAVariableOfTheModule_NotALocal()
+    {
+        // the symbols the host defines have to agree with the dial, however many extraction passes got them there:
+        // the third pass runs over a resolver that already holds the first two's variable, and has to declare it anyway.
+        var (sut, host) = Build(Parse(UndeclaredName), implicitScope: ImplicitDeclarationScope.Module);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p =>
+                p.Symbols.Any(symbol => symbol.Name == "A" && symbol.Kind == SymbolDescriptorKind.ModuleField)
+                && p.Symbols.Single(symbol => symbol.Name == "Foo").Locals.IsDefaultOrEmpty),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ByDefault_AnUndeclaredName_IsSentAsALocalOfItsProcedure()
+    {
+        var (sut, host) = Build(Parse(UndeclaredName));
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p =>
+                !p.Symbols.Any(symbol => symbol.Kind == SymbolDescriptorKind.ModuleField)
+                && p.Symbols.Single(symbol => symbol.Name == "Foo").Locals.Any(local => local.Name == "A")),
+            Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public async Task SkipsDocumentsWithNoCachedParseResult()
     {

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model;
 using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.Server.Configuration;
@@ -46,4 +47,24 @@ public sealed class SdkCommandLineTests
     [TestMethod]
     public void OrdinaryArguments_Parse()
         => Assert.AreEqual("C:/ws", SdkCommandLine.Parse(["--workspace", "C:/ws"]).WorkspaceUri);
+
+    [TestMethod]
+    [DataRow("Module", ImplicitDeclarationScope.Module)]
+    [DataRow("module", ImplicitDeclarationScope.Module, DisplayName = "case does not matter")]
+    [DataRow("Procedure", ImplicitDeclarationScope.Procedure)]
+    public void TheImplicitDeclarationScope_Parses_AndBecomesAConfigurationOverride(string argument, ImplicitDeclarationScope expected)
+    {
+        var parsed = SdkCommandLine.Parse(["--workspace", "C:/ws", "--implicit-declaration-scope", argument]);
+
+        Assert.AreEqual(expected, parsed.ImplicitDeclarationScope);
+        CollectionAssert.Contains(
+            parsed.ToConfigurationOverrides().ToList(),
+            new KeyValuePair<string, string?>("Configuration:Workspace:ImplicitDeclarationScope", expected.ToString()));
+    }
+
+    [TestMethod]
+    public void AnImplicitDeclarationScopeThatWasNotGiven_OverridesNothing()
+        // so a server's own appsettings win unless a client said otherwise.
+        => Assert.IsFalse(SdkCommandLine.Parse(["--workspace", "C:/ws"]).ToConfigurationOverrides()
+            .Any(entry => entry.Key.EndsWith("ImplicitDeclarationScope", StringComparison.Ordinal)));
 }

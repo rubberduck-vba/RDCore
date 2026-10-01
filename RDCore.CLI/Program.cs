@@ -19,6 +19,7 @@ using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Client.Connection;
+using RDCore.SDK.Model;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -100,7 +101,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
     protected override IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs) 
         => [
             ("CLI:UnsafeDevMode", baseArgs.UnsafeDevMode?.ToString() ?? false.ToString()),
-            // ...
+            // an interactive shell is a BASIC: a variable that a line assigns is the same one the next line reads, and
+            // a program's variables can be looked at once it has run. The server is told, when it is started, and
+            // declares an undeclared name at module level instead of in the procedure.
+            // TODO say so by advertising it as a client capability, which is what this stands in for: a dial.
+            ("Configuration:Workspace:ImplicitDeclarationScope", nameof(ImplicitDeclarationScope.Module)),
         ];
 
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)

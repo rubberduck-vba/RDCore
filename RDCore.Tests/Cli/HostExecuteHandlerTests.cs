@@ -6,6 +6,7 @@ using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
@@ -68,7 +69,8 @@ public sealed class HostExecuteHandlerTests
     /// </summary>
     private static async Task<ExecuteSessionResult> ExecuteAsync(
         (HostExecuteHandler Handler, EnvironmentSessionProvider Session, Uri WorkspaceRoot, Uri ModuleUri) composed,
-        string source, string entryPoint = "Main", CancellationToken token = default)
+        string source, string entryPoint = "Main", CancellationToken token = default,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
     {
         var (handler, sessionProvider, workspaceRoot, moduleUri) = composed;
 
@@ -78,9 +80,11 @@ public sealed class HostExecuteHandlerTests
         // the same resolver the language server composes, so the test sees what the platform sees -
         // including the standard library and the environment's own globals.
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+            workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver(),
+            implicitScope: implicitScope);
         var symbols = new SyntaxTreeSymbolProvider(
-            workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver).ProvideSymbols();
+            workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver,
+            withImplicitDeclarations: true, implicitScope).ProvideSymbols();
 
         var defined = await new DefineSymbolsHandler(sessionProvider, NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
@@ -179,6 +183,67 @@ public sealed class HostExecuteHandlerTests
 
         Assert.AreEqual(ExecutionOutcome.Completed, second.Outcome, second.ErrorMessage);
         CollectionAssert.AreEqual(new[] { " 42 " }, second.Output.ToArray(), $"printed: [{string.Join("|", second.Output)}]");
+    }
+
+    private const string Prelude = "Attribute VB_Name = \"Program\"\r\n";
+
+    private static string Immediate(string statement) => $"{Prelude}Public Sub Immediate()\r\n{statement}\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    public async Task AtModuleScope_AnUndeclaredName_OutlivesTheLineThatAssignedIt()
+    {
+        // the shell's own sequence - `A=42`, then `?A` - with nothing declared anywhere: each line is a module of its
+        // own, defined again over the last, and the variable is the same one in both.
+        var composed = Compose(Prelude);
+
+        var assigned = await ExecuteAsync(composed, Immediate("A = 42"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+        Assert.AreEqual(ExecutionOutcome.Completed, assigned.Outcome, assigned.ErrorMessage);
+
+        var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, printed.Outcome, printed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { " 42 " }, printed.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AtModuleScope_ALaterLineCanChangeIt()
+    {
+        var composed = Compose(Prelude);
+
+        await ExecuteAsync(composed, Immediate("A = 40"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+        await ExecuteAsync(composed, Immediate("A = A + 2"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+        var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+
+        CollectionAssert.AreEqual(new[] { " 42 " }, printed.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AtModuleScope_AProgramsVariableCanBeLookedAtAfterItHasRun()
+    {
+        // the point of a BASIC's global variables: RUN a program, then ask it what it left behind.
+        var composed = Compose(Prelude);
+        var program = $"{Prelude}Public Sub Main()\r\n10 Total = 6 * 7\r\nEnd Sub\r\n";
+
+        var ran = await ExecuteAsync(composed, program, "Main", implicitScope: ImplicitDeclarationScope.Module);
+        Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
+
+        var printed = await ExecuteAsync(
+            composed, $"{program}Public Sub Immediate()\r\nDebug.Print Total\r\nEnd Sub\r\n", "Immediate",
+            implicitScope: ImplicitDeclarationScope.Module);
+
+        CollectionAssert.AreEqual(new[] { " 42 " }, printed.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ByDefault_AnUndeclaredName_IsStillALocalAndDoesNotOutliveItsLine()
+    {
+        // the contrast: this is VBA's, and what the shell did before the dial.
+        var composed = Compose(Prelude);
+
+        await ExecuteAsync(composed, Immediate("A = 42"), "Immediate");
+        var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate");
+
+        CollectionAssert.AreEqual(new[] { string.Empty }, printed.Output.ToArray(), "an Empty Variant prints as nothing");
     }
 
     [TestMethod]
