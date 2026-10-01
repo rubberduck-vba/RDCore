@@ -151,19 +151,32 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     }
 
     private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
-    {
-        var result = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        => ReadSymbol(
+            session, context, session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope).Symbol,
+            nameOfEnclosingFunctionIsItsResult: true);
 
-        if (result.Symbol is VBProcedureMemberSymbol sub)
+    /// <summary>
+    /// What a name that resolved to <paramref name="symbol"/> evaluates to when nothing supplies arguments to it: a
+    /// call of a Sub, Function or Property Get with none, a constant's value, or a variable's.
+    /// </summary>
+    /// <remarks>
+    /// Shared by a bare name and a name qualified by a project or module (<strong>MS-VBAL §5.6.12</strong>), which
+    /// resolve differently and then mean the same thing. They differ in one rule only:
+    /// <paramref name="nameOfEnclosingFunctionIsItsResult"/>.
+    /// </remarks>
+    private RuntimeSemanticsEvaluationResult ReadSymbol(
+        IRuntimeSession session, RuntimeEvaluationContext context, Symbol? symbol, bool nameOfEnclosingFunctionIsItsResult)
+    {
+        if (symbol is VBProcedureMemberSymbol sub)
         {
             // a bare reference to a Sub, with no enclosing Index to supply arguments, is a call with
             // none (MS-VBAL §5.6.10) - "Foo" alone, or Call Foo's own Callee.
             return InvokeProcedure(session, context, sub, []);
         }
 
-        if (result.Symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+        if (symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
         {
-            var returningMember = (VBTypeMemberSymbol)result.Symbol;
+            var returningMember = (VBTypeMemberSymbol)symbol;
             // Deliberately NOT VBReturningMemberSymbol (its own base type): that also covers
             // Const/EnumConst/module-and-instance fields/UDT fields, every one of them a plain value to
             // read below, not a call - a pre-existing bug this fix surfaced (never reachable before,
@@ -176,27 +189,66 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             // recursing; Foo(args), even with zero args via Call Foo(), goes through EvaluateIndex's own
             // TryResolveCallableSub before ever reaching here, which is the only way to actually recurse.
             // A bare reference to any OTHER Function/Property Get is also an implicit call (§5.6.10), with
-            // none of its own arguments to supply.
-            return returningMember.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing
-                ? RuntimeSemanticsEvaluationResult.Success(enclosing.ReturnValue!)
-                : InvokeProcedure(session, context, returningMember, []);
+            // none of its own arguments to supply. Only a BARE name is the function's result variable: `Module1.Foo`
+            // names the function, from anywhere, and is a call.
+            return nameOfEnclosingFunctionIsItsResult
+                && returningMember.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing
+                    ? RuntimeSemanticsEvaluationResult.Success(enclosing.ReturnValue!)
+                    : InvokeProcedure(session, context, returningMember, []);
         }
 
         // MS-VBAL 5.4.3.2 / 5.2.3.3: a Const statically evaluates to a value and is substituted at each
         // of its use sites, so the session allocates it no storage at all - reading one through
         // GetValue below threw "no runtime binding exists yet" for a module Const, and a local Const
         // never even reached the host. Its folded value stands in here instead.
-        if (ConstantValueOf(result.Symbol) is { } constantValue)
+        if (ConstantValueOf(symbol) is { } constantValue)
         {
-            return FoldConstant(session, context, result.Symbol!, constantValue);
+            return FoldConstant(session, context, symbol!, constantValue);
         }
 
         // static semantics should already have rejected an unresolved, ambiguous, or duplicate name;
         // reaching here means that check was skipped.
-        return result.Symbol is ITypedSymbol typed
-            ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(result.Symbol)))
+        return symbol is ITypedSymbol typed
+            ? RuntimeSemanticsEvaluationResult.Success(typed.ResolvedType.CreateValue(session.Symbols.Resolver.GetValue(symbol)))
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
+
+    /// <summary>
+    /// The project or procedural module an expression names, when it names one: the left-hand side of a member
+    /// access that is a namespace rather than a value (<strong>MS-VBAL §5.6.12</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Classification is by what the name resolves to, from the scope it is written in, so whatever is nearer than a
+    /// module of that name — a local, a parameter, a module variable — is what the name means, as it is anywhere
+    /// else. A member access whose own left-hand side is a namespace is one too, when its member is a project or a
+    /// module: <c>VBA.Strings</c> in <c>VBA.Strings.LenB</c>.
+    /// </remarks>
+    /// <returns>The <see cref="VBProjectSymbol"/> or <see cref="VBStandardModuleSymbol"/> named, or <see langword="null"/>.</returns>
+    private static Symbol? TryClassifyNamespace(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
+    {
+        switch (expression)
+        {
+            case SimpleNameExpressionNode name:
+                return session.Symbols.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope).Symbol is { } named
+                    && IsNamespace(named) ? named : null;
+
+            case MemberAccessExpressionNode { Owner: { } owner } access when TryClassifyNamespace(session, context, owner) is { } parent:
+                return session.Symbols.Resolver.ResolveMember(parent, access.Member.IdentifierName, context.Scope).Symbol is { } member
+                    && IsNamespace(member) ? member : null;
+
+            default:
+                return null;
+        }
+    }
+
+    private static bool IsNamespace(Symbol symbol) => symbol is VBProjectSymbol or VBStandardModuleSymbol;
+
+    // the member of a namespace a qualified name refers to, or null when there is none to refer to - which static
+    // semantics should have rejected, as it should an unresolved bare name.
+    private static Symbol? ResolveNamespaceMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, Symbol qualifier, MemberAccessExpressionNode access)
+        => session.Symbols.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope).Symbol is { } member
+            && !IsNamespace(member) ? member : null;
 
     // null for anything that is not a workspace Const, and for a Const whose declaration carried no
     // expression - a library constant has a real binding to read instead, so it takes the path below.
@@ -320,6 +372,16 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     private RuntimeSemanticsEvaluationResult EvaluateMemberAccess(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
     {
+        // MS-VBAL §5.6.12: a member of a project or a procedural module is not a member of a value - there is
+        // no object to evaluate. `Strings.vbCrLf`, `Information.Erl`, `VBA.Strings.LenB`: the name is resolved
+        // in the namespace and means what it would unqualified.
+        if (memberAccess.Owner is { } namespaceExpression
+            && TryClassifyNamespace(session, context, namespaceExpression) is { } qualifier)
+        {
+            return ReadSymbol(
+                session, context, ResolveNamespaceMember(session, context, qualifier, memberAccess), nameOfEnclosingFunctionIsItsResult: false);
+        }
+
         var ownerResult = EvaluateOwner(session, context, memberAccess);
         if (!ownerResult.IsSuccess)
         {
@@ -435,7 +497,21 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         // name. The owner is evaluated once, here, because evaluating it again to read the member as an array would
         // repeat whatever it does.
         RuntimeSemanticsEvaluationResult calleeResult;
-        if (indexExpression.Callee is MemberAccessExpressionNode qualified)
+        if (indexExpression.Callee is MemberAccessExpressionNode { Owner: { } namespaceExpression } namespaced
+            && TryClassifyNamespace(session, context, namespaceExpression) is { } qualifier)
+        {
+            // MS-VBAL §5.6.12: a call of a member of a project or a procedural module - Strings.LenB("42"),
+            // VBA.LenB("42") - is a call of the procedure it names, with no object to evaluate and no receiver.
+            // Anything else it names is a value, which the arguments then index.
+            var member = ResolveNamespaceMember(session, context, qualifier, namespaced);
+            if (member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+            {
+                return InvokeProcedure(session, context, (VBTypeMemberSymbol)member, indexExpression.Arguments);
+            }
+
+            calleeResult = ReadSymbol(session, context, member, nameOfEnclosingFunctionIsItsResult: false);
+        }
+        else if (indexExpression.Callee is MemberAccessExpressionNode qualified)
         {
             var ownerResult = EvaluateOwner(session, context, qualified);
             if (!ownerResult.IsSuccess)

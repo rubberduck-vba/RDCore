@@ -57,6 +57,11 @@ public static class ExpressionStaticSemanticsEvaluator
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
         };
 
+    // 🚧 TODO MS-VBAL §5.6.12's other classifications: an owner that names a project or a procedural module
+    // (`Strings.LenB`, `VBA.LenB`) is a namespace, not a value, and the member it reaches has that member's own
+    // declared type (a variable, property, function or value) or none (a subroutine). The interpreter evaluates them
+    // - see RuntimeExpressionEvaluator.TryClassifyNamespace and ISymbolResolver.ResolveMember - but this rule only
+    // knows a value's members, so such a reference is typed Unknown rather than rejected.
     private static StaticSemanticsEvaluationResult EvaluateMemberAccess(
         StaticEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
     {
