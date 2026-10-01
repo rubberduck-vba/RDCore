@@ -8,14 +8,26 @@
 |Form|AST node|Instruction kind(s)|Notes|
 |---|---|---|---|
 |`Print #`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
+|`Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
 |`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|—|The object-qualified form.|
 |`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
 The output list these nodes carry is described in [5.4.5.8.1 Output Lists](#54581-output-lists) below. See
 [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
+### The bare `Print`
+
+In VB6 a `Print` with no file number is the `Print` member of the form or report it is written in. The platform has no forms, so the bare form writes to the
+session's own output - the one `Debug.Print` writes to - by the same output rules ([5.4.5.8.1](#54581-output-lists)). It differs from `Debug.Print` in one
+way: it is not a debug statement, and is lowered in a release build, where `Debug.Print` leaves no instruction at all
+([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)). It is what an interactive shell writes its output with: the shell's `?` shorthand expands
+to it.
+
 > [!NOTE]
-> **Not implemented.** The `?` shorthand for `Print` has no lexer or grammar token.
+> **Not implemented.** A document module (a form, a report) with a `Print` member of its own is not yet the target of a bare `Print` written in it. Whether a
+> module that is neither may use the bare form at all is a matter for the dialects - VB6 does not, BASIC does - which the language server does not tell apart yet.
+>
+> The `?` shorthand has no lexer or grammar token: the shell expands it before the line is parsed.
 
 ## Static Semantics
 
