@@ -15,6 +15,8 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values;
+using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -92,6 +94,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     /// construction-order reason as <see cref="ProcedureInvoker"/>.
     /// </summary>
     public ILetCoercionRuntimeSemanticsProvider? LetCoercionProvider { get; set; }
+
+    /// <summary>
+    /// Set-coerces an object argument to the declared class of its parameter (<strong>MS-VBAL §5.3.1.11</strong>:
+    /// "the argument's data value is Set-assigned to the new local variable"), where a Let-coercion would take the value
+    /// of the object's default member instead. Settable for the same construction-order reason as
+    /// <see cref="LetCoercionProvider"/>; without one, an object argument is Let-coerced as before.
+    /// </summary>
+    public ISetCoercionRuntimeSemantics? SetCoercion { get; set; }
 
     /// <summary>
     /// Evaluates <paramref name="expression"/>, recursively evaluating its children first wherever a
@@ -670,7 +680,100 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         // a call made on an object supplies its own implicit Me (parameter 0), so the arguments written at the call
         // site map onto the parameters after it.
         var parameters = receiver is not null && allParameters is [{ Name: "Me" }, ..] ? allParameters.RemoveAt(0) : allParameters;
-        if (ProcedureInvoker is null || LetCoercionProvider is null)
+        if (ProcedureInvoker is null)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        if (BindArguments(session, context, parameters, argumentNodes, out var arguments) is { } bindingError)
+        {
+            return bindingError;
+        }
+
+        IRuntimeValue[] callArguments = receiver is null ? arguments : [receiver, .. arguments];
+
+        // through a binding rather than straight to the invoker: whether this member's code is the workspace's
+        // is the factory's decision, and a call site has no business knowing.
+        return Bindings is { } bindings
+            ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, callArguments)
+            : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, callArguments);
+    }
+
+    /// <summary>
+    /// Raises <paramref name="eventName"/>, an event of the class of the object whose code this is, on that object
+    /// (<strong>MS-VBAL §5.4.2.20</strong>): the procedures that handle it are invoked, in the order their
+    /// <c>WithEvents</c> variables were assigned, with the arguments written after the event's name.
+    /// </summary>
+    /// <remarks>
+    /// The arguments are evaluated once, whatever the number of handlers. A <c>ByRef</c> event parameter whose argument
+    /// is a variable is aliased to it, which is what makes the value one handler leaves in it the one the next
+    /// handler starts with, and the one the raiser finds afterwards. An error a handler leaves unhandled stops the
+    /// invocations and is the error of the <c>RaiseEvent</c>.
+    /// <para>
+    /// 🚧 TODO a <c>ByRef</c> parameter whose argument is not a variable is a fresh local for each handler, so the
+    /// value one leaves in it is not the next one's argument.
+    /// </para>
+    /// </remarks>
+    /// <param name="session">The session the event is raised in.</param>
+    /// <param name="context">The scope of the <c>RaiseEvent</c> statement, from which <c>Me</c> is the source.</param>
+    /// <param name="eventName">The name of the event.</param>
+    /// <param name="argumentNodes">The event arguments, as written.</param>
+    public RuntimeSemanticsEvaluationResult RaiseEvent(
+        IRuntimeSession session, RuntimeEvaluationContext context, string eventName, ImmutableArray<ExpressionNode> argumentNodes)
+    {
+        if (ProcedureInvoker is null
+            || EventAttachments.MeOf(session, context) is not { } source
+            || !session.Symbols.TryGetInstance(source, out var live)
+            || live.ClassModule.FindEvent(eventName) is not { } raised)
+        {
+            // static semantics rejects a RaiseEvent outside a class module and one of an event it does not declare.
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        if (BindArguments(session, context, raised.Parameters, argumentNodes, out var arguments) is { } bindingError)
+        {
+            return bindingError;
+        }
+
+        foreach (var subscription in session.Objects.EventSubscribers(source))
+        {
+            if (!session.Symbols.TryGetInstance(subscription.Subscriber, out var subscriber)
+                || subscription.Variable is not VBTypeMemberSymbol variable
+                || subscriber.ClassModule.FindEventHandler(variable, raised) is not { } handler)
+            {
+                continue;
+            }
+
+            IRuntimeValue[] callArguments = [new VBObjectValue(subscription.Subscriber).RuntimeValue, .. arguments];
+            var handled = Bindings is { } bindings
+                ? bindings.ForMember(handler).Call(session.Symbols.Resolver, callArguments)
+                : ProcedureInvoker.Invoke(handler, session.Symbols.Resolver, callArguments);
+            if (!handled.IsSuccess)
+            {
+                return handled;
+            }
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+    }
+
+    /// <summary>
+    /// Binds the arguments written at a call site to <paramref name="parameters"/> (<strong>MS-VBAL §5.3.1.11</strong>):
+    /// each is evaluated, a <c>ByRef</c> one that names a variable is aliased to it, and any other is Let-coerced to the
+    /// parameter's declared type.
+    /// </summary>
+    /// <param name="session">The session the arguments are evaluated against.</param>
+    /// <param name="context">The scope the arguments are written in.</param>
+    /// <param name="parameters">The parameters of whatever is called, without its <c>Me</c>.</param>
+    /// <param name="argumentNodes">The arguments, as written.</param>
+    /// <param name="arguments">What the call is made with, one per parameter. Empty when binding failed.</param>
+    /// <returns>The error that stopped the binding, or <see langword="null"/> when every argument was bound.</returns>
+    private RuntimeSemanticsEvaluationResult? BindArguments(
+        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters,
+        ImmutableArray<ExpressionNode> argumentNodes, out IRuntimeValue[] arguments)
+    {
+        arguments = [];
+        if (LetCoercionProvider is null)
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
@@ -682,7 +785,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         }
 
         var mapped = mapResult.Mapped!;
-        var arguments = new IRuntimeValue[parameters.Length];
+        var bound = new IRuntimeValue[parameters.Length];
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
@@ -695,7 +798,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                     return collectError;
                 }
 
-                arguments[i] = collected.Value!;
+                bound[i] = collected.Value!;
                 continue;
             }
 
@@ -715,18 +818,18 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                         return foldResult;
                     }
 
-                    arguments[i] = foldResult.Result!.RuntimeValue;
+                    bound[i] = foldResult.Result!.RuntimeValue;
                     continue;
                 }
 
-                arguments[i] = parameter.ResolvedType.DefaultValue.RuntimeValue;
+                bound[i] = parameter.ResolvedType.DefaultValue.RuntimeValue;
                 continue;
             }
 
             if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)
                 && TryResolveByRefArgument(session, context, argumentNode, parameter, out var reference))
             {
-                arguments[i] = reference;
+                bound[i] = reference;
                 continue;
             }
 
@@ -738,6 +841,22 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             if (argumentResult is null)
             {
                 return RuntimeSemanticsEvaluationResult.InternalError();
+            }
+
+            // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
+            // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value.
+            if (SetCoercion is { } setCoercion
+                && argumentResult.Value.Result is VBObjectValue
+                && parameter.ResolvedType is VBClassType or VBObjectType)
+            {
+                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, argumentResult.Value.Result!, parameter.ResolvedType);
+                if (!setResult.IsSuccess)
+                {
+                    return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
+                }
+
+                bound[i] = setResult.Result!.RuntimeValue;
+                continue;
             }
 
             // ByVal parameter passing Let-coerces the argument to the parameter's own declared type
@@ -766,18 +885,13 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             // 🚧 TODO: that includes a fixed-size array passed to a ByRef dynamic array parameter, which VBA passes
             // by reference and this copies - TryResolveByRefArgument aliases only an argument of the parameter's
             // own declared type.
-            arguments[i] = coercionResult.Result is VBArrayValue array
+            bound[i] = coercionResult.Result is VBArrayValue array
                 ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
                 : coercionResult.Result!.RuntimeValue;
         }
 
-        IRuntimeValue[] callArguments = receiver is null ? arguments : [receiver, .. arguments];
-
-        // through a binding rather than straight to the invoker: whether this member's code is the workspace's
-        // is the factory's decision, and a call site has no business knowing.
-        return Bindings is { } bindings
-            ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, callArguments)
-            : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, callArguments);
+        arguments = bound;
+        return null;
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);

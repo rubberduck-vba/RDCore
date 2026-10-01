@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 
@@ -34,6 +35,13 @@ public interface ICallStackFrame : IStackFrame
     /// 👉 A <see cref="StaticSymbol"/> identifies a procedure by its name and type alone; it does not say which module it is in.
     /// </remarks>
     ModuleDirectives Directives { get; }
+
+    /// <summary>
+    /// The object this activation is a call on - the <c>Me</c> of a member of a class module - or <see langword="null"/>
+    /// for a procedure of a standard module. What an <see cref="ScopeKind.Instance"/> symbol, a field of a class, is
+    /// resolved against: it is the object's own storage, not the session's.
+    /// </summary>
+    VBRuntimeObjectId? Target { get; }
 
     /// <summary>
     /// The offset, into this activation's own <c>InstructionList</c>, of the next instruction to fetch

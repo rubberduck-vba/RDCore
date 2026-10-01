@@ -23,8 +23,22 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 /// <param name="callStack">The session's call stack.</param>
 /// <param name="inner">The session-wide resolver — module/global bindings.</param>
-public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolResolver inner) : ISymbolResolver
+/// <param name="instances">
+/// Where the session's live objects are found, for a field of a class: it lives on the object the current activation
+/// is a call on. A resolver with none resolves no instance symbol, which is what it did before there was one.
+/// </param>
+public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolResolver inner, ISessionSymbols? instances = null) : ISymbolResolver
 {
+    // a field of a class is not the session's: it is the storage of the object the current activation is a call on.
+    private bool TryInstanceOf(Symbol symbol, [NotNullWhen(true)] out IObjectInstance? instance)
+    {
+        instance = null;
+        return symbol.ScopeKind is ScopeKind.Instance
+            && callStack.Current?.Target is { } target
+            && instances is not null
+            && instances.TryGetInstance(target, out instance);
+    }
+
     /// <inheritdoc/>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle) => inner.ResolveValue(name, scope, handle);
 
@@ -45,7 +59,9 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
     public IBindingHandle GetValue(Symbol symbol)
         => symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryResolve(symbol, out var local)
             ? local
-            : inner.GetValue(symbol);
+            : TryInstanceOf(symbol, out var instance) && instance.TryResolve(symbol, out var field)
+                ? field
+                : inner.GetValue(symbol);
 
     /// <inheritdoc/>
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
@@ -55,6 +71,11 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
     {
         if (symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryGetAddress(symbol, out address))
+        {
+            return true;
+        }
+
+        if (TryInstanceOf(symbol, out var instance) && instance.TryGetAddress(symbol, out address))
         {
             return true;
         }

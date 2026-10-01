@@ -3,8 +3,12 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -57,9 +61,38 @@ internal sealed class RuntimeSession(
             _ = lifecycle.Terminate(instance);
         }
 
-        return Objects.RefCount(instance) == 0
-            && Objects.TryRemoveObject(instance)
-            && Symbols.DestroyInstance(instance);
+        if (Objects.RefCount(instance) != 0)
+        {
+            return false;
+        }
+
+        // the object is going away: what it held is let go of, which can be what destroys that in turn, and nothing
+        // of it handles an event any more.
+        ReleaseFieldsOf(instance);
+        Objects.DetachSubscriber(instance);
+
+        return Objects.TryRemoveObject(instance) && Symbols.DestroyInstance(instance);
+    }
+
+    // an object's variables hold the objects they were set to, and cease to when it does (MS-VBAL §2.3: the variables
+    // of an object have the extent of the object). A field that holds nothing it counted, or no object, releases nothing.
+    private void ReleaseFieldsOf(VBRuntimeObjectId instance)
+    {
+        if (!Symbols.TryGetInstance(instance, out var live))
+        {
+            return;
+        }
+
+        foreach (var field in live.ClassModule.Members.Where(member
+            => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
+            && member.ResolvedType is VBClassType or VBObjectType))
+        {
+            var handle = live.GetValue(field);
+            if (field.ResolvedType.CreateValue(handle) is VBObjectValue held)
+            {
+                ObjectReferences.Release(this, handle, new VBObjectValue(held.Value));
+            }
+        }
     }
 }
 
@@ -73,6 +106,7 @@ internal sealed class SessionObjects : ISessionObjects
 {
     private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
     private readonly HashSet<VBRuntimeObjectId> _terminating = [];
+    private readonly Dictionary<VBRuntimeObjectId, List<EventSubscription>> _subscribers = [];
 
     public VBRuntimeObjectId CreateObject()
     {
@@ -114,11 +148,47 @@ internal sealed class SessionObjects : ISessionObjects
 
     public bool TryBeginTerminate(VBRuntimeObjectId instance) => _roots.ContainsKey(instance) && _terminating.Add(instance);
 
+    public void AttachEventHandlers(VBRuntimeObjectId source, VBRuntimeObjectId subscriber, Symbol variable)
+    {
+        // an assignment moves the variable to the end of the order, so it is detached before it is attached again.
+        DetachEventHandlers(source, subscriber, variable);
+        if (!_subscribers.TryGetValue(source, out var subscriptions))
+        {
+            _subscribers[source] = subscriptions = [];
+        }
+
+        subscriptions.Add(new EventSubscription(subscriber, variable));
+    }
+
+    public void DetachEventHandlers(VBRuntimeObjectId source, VBRuntimeObjectId subscriber, Symbol variable)
+    {
+        if (_subscribers.TryGetValue(source, out var subscriptions))
+        {
+            subscriptions.RemoveAll(subscription => IsSubscription(subscription, subscriber, variable));
+        }
+    }
+
+    public void DetachSubscriber(VBRuntimeObjectId subscriber)
+    {
+        foreach (var subscriptions in _subscribers.Values)
+        {
+            subscriptions.RemoveAll(subscription => subscription.Subscriber.Equals(subscriber));
+        }
+    }
+
+    public IReadOnlyList<EventSubscription> EventSubscribers(VBRuntimeObjectId source)
+        => _subscribers.TryGetValue(source, out var subscriptions) ? [.. subscriptions] : [];
+
+    // a Uri's fragment is where a symbol's identity lives, so the variable is compared by its SemanticId.
+    private static bool IsSubscription(EventSubscription subscription, VBRuntimeObjectId subscriber, Symbol variable)
+        => subscription.Subscriber.Equals(subscriber) && subscription.Variable.SemanticId.Equals(variable.SemanticId);
+
     public bool TryRemoveObject(VBRuntimeObjectId instance)
     {
         if (_roots.TryGetValue(instance, out var roots) && roots.Count == 0)
         {
             _terminating.Remove(instance);
+            _subscribers.Remove(instance);
             return _roots.Remove(instance);
         }
         return false;
@@ -175,7 +245,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private RuntimeSymbolResolver SessionBindings => _sessionBindingsField ??= new RuntimeSymbolResolver(new LiveScopeResolver(this), storage);
 
     private CallStackAwareSymbolResolver? _bindingsField;
-    private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings);
+    private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings, this);
 
     private ScopeTree? _scopeTree;
 

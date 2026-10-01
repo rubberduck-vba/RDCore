@@ -93,9 +93,26 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             KeywordStatementNode { Token: Tokens.Get } get => _files.ExecuteGet(session, context, get),
             // MS-VBAL §5.4.5.4-5: Lock and Unlock, which share a node because they share a record range.
             FileLockStatementNode fileLock => _files.ExecuteLock(session, context, fileLock),
+            // MS-VBAL §5.4.2.20: invokes the procedures that handle an event of the object whose code this is.
+            KeywordStatementNode { Token: Tokens.RaiseEvent } raise => ExecuteRaiseEvent(session, context, raise),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
+
+    // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the
+    // arguments after it.
+    private RuntimeExecutionOutcome ExecuteRaiseEvent(IRuntimeSession session, RuntimeEvaluationContext context, KeywordStatementNode raise)
+    {
+        if (raise.Inputs is not [SimpleNameExpressionNode eventName, ..var arguments])
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        var result = _expressionEvaluator.RaiseEvent(session, context, eventName.IdentifierName, [.. arguments.OfType<ExpressionNode>()]);
+        return result.IsSuccess
+            ? RuntimeExecutionOutcome.Next
+            : result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+    }
 
     // Debug.Assert: suspends execution when its expression is False, which is what Break means here -
     // the same outcome a Stop statement produces. An expression that cannot be coerced to Boolean is a
@@ -186,11 +203,27 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         // a value is a view of its handle, which is about to be written to: what the variable held is its object's
         // identity as of now.
         var previous = target.ResolvedType.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
+
+        // MS-VBAL §5.4.3.9: a WithEvents variable's handlers are detached from the object it holds before the
+        // assignment, and attached to the object it is given after it.
+        var variable = (Symbol)target;
+        var withEvents = variable.GetProperty(SymbolProperties.WithEvents);
+        if (withEvents)
+        {
+            EventAttachments.Detach(session, context, variable, previous);
+        }
+
         handle.SetValue(session.Symbols.Resolver, coercionResult.Result!.RuntimeValue);
 
         // MS-VBAL §5.3.1.10: the object the variable held loses a reference, and Terminate runs when it was the last.
         // The variable already holds the new one by now, so a handler that reads it sees what the program wrote.
         ObjectReferences.Rebind(session, handle, previous, coercionResult.Result as VBObjectValue);
+
+        if (withEvents)
+        {
+            EventAttachments.Attach(session, context, variable, coercionResult.Result as VBObjectValue);
+        }
+
         return RuntimeExecutionOutcome.Next;
     }
 }

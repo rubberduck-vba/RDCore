@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
@@ -32,6 +33,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public int Pc { get; set; }
+
+    /// <inheritdoc/>
+    public VBRuntimeObjectId? Target { get; set; }
 
     /// <inheritdoc/>
     public ErrorHandlerState ErrorHandler { get; set; } = ErrorHandlerState.Disabled;

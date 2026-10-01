@@ -261,7 +261,42 @@ public interface ISessionObjects
     /// </summary>
     /// <returns><see langword="true"/> the first time it is asked of a live instance; otherwise <see langword="false"/>.</returns>
     bool TryBeginTerminate(VBRuntimeObjectId instance);
+
+    /// <summary>
+    /// Records that <paramref name="variable"/>, a <c>WithEvents</c> variable of <paramref name="subscriber"/>, now holds
+    /// <paramref name="source"/>, so that the procedures of the subscriber's class that handle events of the variable
+    /// handle those of the source (<strong>MS-VBAL §5.4.3.9</strong>).
+    /// </summary>
+    /// <remarks>
+    /// A source's handlers are in the order their variables were assigned, so one that is already attached is moved to
+    /// the end of that order: it is the last to handle an event raised from now on (<strong>MS-VBAL §5.4.2.20</strong>).
+    /// </remarks>
+    void AttachEventHandlers(VBRuntimeObjectId source, VBRuntimeObjectId subscriber, Symbol variable);
+
+    /// <summary>
+    /// Records that <paramref name="variable"/> of <paramref name="subscriber"/> no longer holds
+    /// <paramref name="source"/>: its handlers no longer handle the source's events.
+    /// </summary>
+    void DetachEventHandlers(VBRuntimeObjectId source, VBRuntimeObjectId subscriber, Symbol variable);
+
+    /// <summary>
+    /// Detaches every handler of <paramref name="subscriber"/>, from every source: it is being destroyed, and nothing
+    /// of it can handle an event any more.
+    /// </summary>
+    void DetachSubscriber(VBRuntimeObjectId subscriber);
+
+    /// <summary>
+    /// The subscriptions that handle the events of <paramref name="source"/>, in the order they were attached.
+    /// </summary>
+    IReadOnlyList<EventSubscription> EventSubscribers(VBRuntimeObjectId source);
 }
+
+/// <summary>
+/// One <c>WithEvents</c> variable of an object holding the source of the events it handles.
+/// </summary>
+/// <param name="Subscriber">The object whose class declares the variable, and the handlers.</param>
+/// <param name="Variable">The <c>WithEvents</c> variable, which names the handlers: <c>VariableName_EventName</c>.</param>
+public readonly record struct EventSubscription(VBRuntimeObjectId Subscriber, Symbol Variable);
 
 /// <summary>
 /// Raises the lifecycle events of a class instance (<strong>MS-VBAL §5.3.1.10</strong>) by dispatching the members of

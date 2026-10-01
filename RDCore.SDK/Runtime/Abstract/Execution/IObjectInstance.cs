@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
@@ -51,4 +52,10 @@ public interface IObjectInstance
     /// instance field <see cref="Symbol"/>, if any.
     /// </summary>
     bool TryResolve(Symbol field, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value);
+
+    /// <summary>
+    /// Gets the address this instance reserved for the specified instance field <see cref="Symbol"/>, if any: what a
+    /// <c>ByRef</c> argument that names the field is aliased to.
+    /// </summary>
+    bool TryGetAddress(Symbol field, out MemoryAddress address);
 }

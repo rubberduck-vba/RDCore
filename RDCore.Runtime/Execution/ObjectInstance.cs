@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Runtime.Execution;
@@ -40,6 +41,9 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
     /// <inheritdoc/>
     public bool TryResolve(Symbol field, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => _addresses.TryRead(field, out value);
+
+    /// <inheritdoc/>
+    public bool TryGetAddress(Symbol field, out MemoryAddress address) => _addresses.TryGetAddress(field, out address);
 
     /// <summary>
     /// Frees every field this instance allocated. Called once the instance's reference count reaches

@@ -71,6 +71,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         var frame = (CallStackFrame)Session.Symbols.CreateFrame(
             new SyntaxNodeId(procedure.Uri.AbsolutePath, []), staticSymbol, DeclaringModuleDirectives(procedure));
 
+        // the first parameter of a member of a class is its Me, and the object the member is a call on is what its
+        // fields are the storage of.
+        if (GetParameters(procedure) is [{ Name: "Me" }, ..] && arguments is [VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var target }, ..])
+        {
+            frame.Target = target;
+        }
+
         if (!Session.CallStack.TryPush(frame))
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace,
