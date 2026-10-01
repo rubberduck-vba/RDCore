@@ -269,7 +269,7 @@ public sealed class WorkspaceSymbolResolverTests
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
             resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
-        var implemented = module.ImplementedInterfaces.Single();
+        var implemented = Declared(module).Single();
         Assert.AreEqual("IWidget", implemented.Name);
     }
 
@@ -284,10 +284,14 @@ public sealed class WorkspaceSymbolResolverTests
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
             resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
-        Assert.HasCount(2, module.ImplementedInterfaces);
+        Assert.HasCount(2, Declared(module));
         Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IFoo"));
         Assert.IsTrue(module.ImplementedInterfaces.Any(i => i.Name == "IBar"));
     }
+
+    // what the source's Implements directives name: not the interface the language implements for every class.
+    private static VBClassModuleSymbol[] Declared(VBClassModuleSymbol module)
+        => [.. module.ImplementedInterfaces.Where(implemented => implemented.Uri.AbsoluteUri != ClassLifecycleInterface.Interface.Uri.AbsoluteUri)];
 
     [TestMethod]
     public void AnUnresolvableImplementsName_IsSilentlyDropped()
@@ -300,7 +304,7 @@ public sealed class WorkspaceSymbolResolverTests
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
             resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
-        Assert.IsEmpty(module.ImplementedInterfaces);
+        Assert.IsEmpty(Declared(module));
     }
 
     [TestMethod]
@@ -314,7 +318,7 @@ public sealed class WorkspaceSymbolResolverTests
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
             resolver.ResolveType("Widget", ScopeKind.Global, target.Uri).Symbol);
 
-        Assert.IsEmpty(module.ImplementedInterfaces);
+        Assert.IsEmpty(Declared(module));
     }
 
     [TestMethod]

@@ -61,12 +61,13 @@ public sealed class VBClassTypeTests
     }
 
     [TestMethod]
-    public void NoImplementedInterfaces_SupertypesIsJustObject()
+    public void NoDeclaredInterfaces_SupertypesAreObjectAndTheLifecycleInterface()
     {
         var classType = VBClassType.FromClassModule(ClassModule());
 
-        var supertype = classType.Supertypes.Single();
-        Assert.IsInstanceOfType<VBObjectType>(supertype);
+        Assert.HasCount(2, classType.Supertypes);
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
+        Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBClassType { Name: "Class" }));
     }
 
     [TestMethod]
@@ -77,7 +78,7 @@ public sealed class VBClassTypeTests
 
         var classType = VBClassType.FromClassModule(classModule);
 
-        Assert.HasCount(2, classType.Supertypes);
+        Assert.HasCount(3, classType.Supertypes);
         Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBObjectType));
         Assert.IsTrue(classType.Supertypes.Any(supertype => supertype is VBClassType { Name: "IWidget" }));
     }

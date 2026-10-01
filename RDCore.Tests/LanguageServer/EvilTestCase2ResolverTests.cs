@@ -389,7 +389,9 @@ public sealed class EvilTestCase2ResolverTests
         var module = Assert.IsInstanceOfType<VBClassModuleSymbol>(
             Composed().Resolver.ResolveType("Class", ScopeKind.Global, StaticSymbol.GlobalUri).Symbol);
 
-        Assert.AreEqual("Interface", module.ImplementedInterfaces.Single().Name);
+        // this module is itself called Class, which is no relation of the interface the language implements for every
+        // class: that one is listed first, by its own identity.
+        Assert.AreEqual("Interface", module.ImplementedInterfaces.Single(implemented => implemented.Name != "Class").Name);
     }
 
     [TestMethod]

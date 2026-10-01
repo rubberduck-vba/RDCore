@@ -37,7 +37,7 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
 
-        foreach (var implemented in live.ClassModule.ImplicitInterfaces)
+        foreach (var implemented in live.ClassModule.ImplementedInterfaces)
         {
             // the member is the interface's own: a Uri's fragment is where a symbol's identity lives.
             if (implemented.Uri.AbsoluteUri != interfaceMember.ParentUri.AbsoluteUri

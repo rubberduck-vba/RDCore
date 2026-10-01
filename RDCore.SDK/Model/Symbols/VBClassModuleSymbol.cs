@@ -52,24 +52,34 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// <see cref="Types.Complex.VBClassType.FromClassModule"/> reads this to populate
     /// <see cref="Types.Complex.VBClassType.Supertypes"/> — every consumer of that type gets a correct
     /// <c>Supertypes</c> array for free once this is resolved, with no other code to update.
+    /// <para>
+    /// What is assigned is what the source declares. What is read also has what the language implements for every
+    /// class module, first: <see cref="ClassLifecycleInterface"/>, whose members are <c>Initialize</c> and
+    /// <c>Terminate</c>. It is an interface of the module like any other, which is why whatever builds a list of the
+    /// interfaces a module implements — an editor's dropdown among them — finds it there, and its
+    /// <see cref="SymbolProperties.OptionalImplementation"/> is what tells that implementing none of its members is
+    /// not an error. It is still not a name workspace code can refer to.
+    /// </para>
     /// </remarks>
-    public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces { get; init; } = [];
+    public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces
+    {
+        get => ImplementsLifecycle && !_declaredInterfaces.Any(IsLifecycleInterface)
+            ? [ClassLifecycleInterface.Interface, .. _declaredInterfaces]
+            : _declaredInterfaces;
+        init => _declaredInterfaces = value;
+    }
 
-    private ImmutableArray<VBClassModuleSymbol>? _implicitInterfaces;
+    private ImmutableArray<VBClassModuleSymbol> _declaredInterfaces = [];
+
+    // a Uri's fragment is where a symbol's identity lives, and Uri equality ignores it.
+    private static bool IsLifecycleInterface(VBClassModuleSymbol candidate)
+        => candidate.Uri.AbsoluteUri == ClassLifecycleInterface.Interface.Uri.AbsoluteUri;
 
     /// <summary>
-    /// The interfaces this class module implements without an <c>Implements</c> directive — for every class module,
-    /// <see cref="ClassLifecycleInterface"/>. Kept apart from <see cref="ImplementedInterfaces"/>, which is what the
-    /// source declares: these are not interfaces a name can refer to, and are not supertypes of the class.
+    /// Whether the language implements <see cref="ClassLifecycleInterface"/> for this module, which it does for every
+    /// class module but that interface itself.
     /// </summary>
-    /// <remarks>
-    /// A host's own kinds of class module (a form, a document) will add theirs here.
-    /// </remarks>
-    public ImmutableArray<VBClassModuleSymbol> ImplicitInterfaces
-    {
-        get => _implicitInterfaces ?? ClassLifecycleInterface.Implicit;
-        init => _implicitInterfaces = value;
-    }
+    public bool ImplementsLifecycle { get; init; } = true;
 
     /// <summary>
     /// The member of this class that implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>

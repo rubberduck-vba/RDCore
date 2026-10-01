@@ -31,20 +31,51 @@ public sealed class ClassLifecycleInterfaceTests
     }
 
     [TestMethod]
-    public void EveryClassModule_ImplementsItImplicitly()
-        => CollectionAssert.AreEqual(new[] { ClassLifecycleInterface.Interface }, new VBClassModuleSymbol(Root, Root, "Widget").ImplicitInterfaces.ToArray());
-
-    [TestMethod]
-    public void TheInterfaceItself_ImplementsNothingImplicitly()
-        => Assert.IsEmpty(ClassLifecycleInterface.Interface.ImplicitInterfaces);
-
-    [TestMethod]
-    public void TheImplicitInterface_IsNotAnImplementedInterfaceNorASupertype()
+    public void EveryClassModule_ImplementsItLikeAnyInterface_WithoutDeclaringIt()
     {
         var widget = new VBClassModuleSymbol(Root, Root, "Widget");
 
-        Assert.IsEmpty(widget.ImplementedInterfaces);
-        Assert.IsFalse(VBClassType.FromClassModule(widget).Supertypes.OfType<VBClassType>().Any());
+        CollectionAssert.AreEqual(new[] { ClassLifecycleInterface.Interface }, widget.ImplementedInterfaces.ToArray());
+        Assert.IsEmpty(widget.ImplementedInterfaceNames, "the source has no Implements directive");
+    }
+
+    [TestMethod]
+    public void TheInterface_ComesBeforeTheInterfacesTheSourceDeclares()
+    {
+        var iShape = new VBClassModuleSymbol(Root, Root, "IShape");
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { ImplementedInterfaces = [iShape] };
+
+        CollectionAssert.AreEqual(new[] { "Class", "IShape" }, widget.ImplementedInterfaces.Select(implemented => implemented.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void AModuleThatAlreadyListsIt_ImplementsItOnce()
+    {
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget");
+        widget = widget with { ImplementedInterfaces = widget.ImplementedInterfaces };
+
+        Assert.HasCount(1, widget.ImplementedInterfaces);
+    }
+
+    [TestMethod]
+    public void TheInterfaceItself_DoesNotImplementItself()
+        => Assert.IsEmpty(ClassLifecycleInterface.Interface.ImplementedInterfaces);
+
+    [TestMethod]
+    public void TheInterface_SaysThatImplementingItIsOptional()
+        => Assert.IsTrue(ClassLifecycleInterface.Interface.GetProperty(SymbolProperties.OptionalImplementation));
+
+    [TestMethod]
+    public void AnInterfaceTheSourceDeclares_IsNotOptional()
+        => Assert.IsFalse(new VBClassModuleSymbol(Root, Root, "IShape").GetProperty(SymbolProperties.OptionalImplementation));
+
+    [TestMethod]
+    public void TheInterface_IsASupertypeOfEveryClass_NotOfItself()
+    {
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget");
+
+        Assert.IsTrue(VBClassType.FromClassModule(widget).Supertypes.OfType<VBClassType>().Any(supertype => supertype.Name == "Class"));
+        Assert.IsFalse(VBClassType.FromClassModule(ClassLifecycleInterface.Interface).Supertypes.OfType<VBClassType>().Any());
     }
 
     [TestMethod]

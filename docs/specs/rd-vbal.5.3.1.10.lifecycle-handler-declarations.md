@@ -6,7 +6,9 @@ This section corresponds to [**MS-VBAL §5.3.1.10** Lifecycle Handler Declaratio
 
 Every class module implicitly implements the `Class` interface, which has two members: `Initialize` and `Terminate`. A class handles them the way it handles the member of any interface it implements, with a procedure named `InterfaceName_MemberName`: `Class_Initialize` and `Class_Terminate`.
 
-The interface is implicit. The class has no `Implements Class` directive, the interface is not among the class type's `SuperTypes`, and no name refers to it. It is the `ImplicitInterfaces` of the class module symbol, not its `ImplementedInterfaces`.
+The interface is implicit: the class has no `Implements Class` directive, and the class module symbol's `ImplementedInterfaceNames` does not have it. It is nevertheless one of the `ImplementedInterfaces` of the class module symbol, the first, and one of the class type's `SuperTypes`, like any interface the class implements. Whatever lists the interfaces of a class module, such as an editor building the dropdowns of its code pane from the module's symbol, finds `Class` there, with its members, and needs no rule of its own for it.
+
+Two things set it apart. The interface symbol has the `OptionalImplementation` property: a class that implements it need not implement any of its members, which is what keeps the rules an `Implements` directive is held to ([**MS-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)) from faulting a class that handles neither event. And no name refers to it: it is not declared to the scope tree and is not a workspace symbol.
 
 A handler is never called by name. Raising an event dispatches the interface member to whatever the object's class implements it with ([**MS-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)), with the object as the target. A class that does not handle an event raises nothing.
 

@@ -94,4 +94,15 @@ public static class SymbolProperties
     /// apart at the point of invocation.
     /// </remarks>
     public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
+    /// <summary>
+    /// Whether a class that implements this interface need not implement all of its members, or any of them
+    /// (<strong>MS-VBAL §5.3.1.9</strong> otherwise requires every member to be). The members it does not implement are
+    /// not run when the interface's member is dispatched, which is not an error.
+    /// </summary>
+    /// <remarks>
+    /// Set on <see cref="ClassLifecycleInterface"/>: every class module implements it, and a class that handles neither
+    /// <c>Initialize</c> nor <c>Terminate</c> is the common case. A validity check of an <c>Implements</c> directive
+    /// reads this to know whether an unimplemented member is an error.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> OptionalImplementation = new(nameof(OptionalImplementation));
 }
