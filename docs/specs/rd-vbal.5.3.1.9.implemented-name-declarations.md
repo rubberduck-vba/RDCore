@@ -46,13 +46,13 @@ A public variable of the interface is read through the `Property Get` that imple
 
 The declared type of the expression the object is reached through is what the runtime asks, of the rules that type an expression at compile time
 ([ExpressionStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.ExpressionStaticSemanticsEvaluator.html)): a value carries the object and
-nothing of how it was declared. It is asked only of an object whose class implements an interface, and of an expression it can type. A member
-reached any other way, through a `With` block for one, is found among the class's own members.
+nothing of how it was declared. It is asked only of an object whose class implements an interface, and of an expression it can type. A
+with-relative member (`.Area`) is a member of the target of the innermost enclosing `With` block, so what is asked is the declared type of the
+expression the target was written as (`RuntimeEvaluationContext.EnclosingWithTargetExpression`): `With s` where `s` is declared as the interface
+dispatches `.Area` through it, and `With d` where `d` is declared as the class runs the class's own member.
 
-> [!NOTE]
-Assigning to a public variable of the interface goes to the `Property Let` (or `Property Set`) that implements it, indexed or not.
-
-> **Not implemented.** A member reached through a `With` block whose target is declared as an interface.
+Assigning to a public variable of the interface goes to the `Property Let` (or `Property Set`) that implements it, indexed or not, and so
+does an assignment in a `With` block.
 
 ---
 > ⏮️ [**RD-VBAL §5.3.1.8** Event Handler Declarations](rd-vbal.5.3.1.8.event-handler-declarations.md) | ⏭️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)

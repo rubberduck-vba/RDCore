@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 
 namespace RDCore.Runtime.Semantics;
@@ -19,4 +20,10 @@ namespace RDCore.Runtime.Semantics;
 /// <c>null</c> when the expression being evaluated is not inside any <c>With</c> block. A with-relative
 /// access (<c>.Member</c>/<c>!Member</c>) resolves against this.
 /// </param>
-public readonly record struct RuntimeEvaluationContext(Uri Scope, VBTypedValue? EnclosingWithTarget = null);
+/// <param name="EnclosingWithTargetExpression">
+/// The expression the enclosing <c>With</c> block's target was written as, which says how it is declared: an object a
+/// <c>With</c> holds is a value, and a value carries the object and nothing of the type its variable was declared as. What
+/// a with-relative member is looked up in - a class, or an interface of it (<strong>MS-VBAL §5.3.1.9</strong>) - is decided by that.
+/// </param>
+public readonly record struct RuntimeEvaluationContext(
+    Uri Scope, VBTypedValue? EnclosingWithTarget = null, ExpressionNode? EnclosingWithTargetExpression = null);

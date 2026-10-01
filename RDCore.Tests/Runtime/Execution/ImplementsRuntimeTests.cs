@@ -147,4 +147,20 @@ public sealed class ImplementsRuntimeTests
     [TestMethod]
     public void AnObjectAssignedDirectlyToTheInterfaceVariable_IsDispatchedToo()
         => CollectionAssert.AreEqual(new[] { "interface draw" }, Run("Set s = New Disc", "s.Draw"));
+
+    [TestMethod]
+    public void AWithBlockOnTheInterfaceVariable_DispatchesItsMembersThroughTheInterface()
+        => CollectionAssert.AreEqual(
+            new[] { "interface draw", "42", "round" },
+            Run("Set d = New Disc", "Set s = d", "With s", ".Draw", "Debug.Print .Area", "Debug.Print .Title", "End With"));
+
+    [TestMethod]
+    public void AWithBlockOnTheClassVariable_StillRunsTheClassesOwnMethod()
+        => CollectionAssert.AreEqual(new[] { "own draw" }, Run("Set d = New Disc", "Set s = d", "With d", ".Draw", "End With"));
+
+    [TestMethod]
+    public void ANestedWithBlock_DispatchesByTheInnermostTarget()
+        => CollectionAssert.AreEqual(
+            new[] { "own draw", "interface draw", "own draw" },
+            Run("Set d = New Disc", "Set s = d", "With s", "With d", ".Draw", "End With", ".Draw", "End With", "With d", ".Draw", "End With"));
 }

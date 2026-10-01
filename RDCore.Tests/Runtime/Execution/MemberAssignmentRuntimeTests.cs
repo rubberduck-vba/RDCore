@@ -281,5 +281,9 @@ public sealed class MemberAssignmentRuntimeTests
     public void TheVariableOfTheInterface_IsReadBackThroughThePropertyGetThatImplementsIt()
         => CollectionAssert.AreEqual(new[] { "1009" }, RunOk("Set m = New Impl", "Set i = m", "i.Size = 9", "Debug.Print i.Size"));
 
+    [TestMethod]
+    public void AWithBlockOnTheInterfaceVariable_AssignsAndReadsThroughTheProperties()
+        => CollectionAssert.AreEqual(new[] { "1009" }, RunOk("Set m = New Impl", "Set i = m", "With i", ".Size = 9", "Debug.Print .Size", "End With"));
+
     #endregion
 }

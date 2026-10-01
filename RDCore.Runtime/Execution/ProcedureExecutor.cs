@@ -108,7 +108,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             }
 
             var instruction = list.Items[activation.Pc];
-            var instructionContext = ResolveContext(context, activation, instruction);
+            var instructionContext = ResolveContext(context, activation, list, instruction);
 
             switch (instruction.Kind)
             {
@@ -308,10 +308,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // A purely lexical property of the instruction about to run, not something that should persist from
     // whatever the previous instruction's own context happened to carry - a GoTo into or out of a With
     // block leaves no stale stack, so this is recomputed fresh every fetch rather than pushed/popped.
-    private static RuntimeEvaluationContext ResolveContext(RuntimeEvaluationContext outer, CallStackFrame activation, Instruction instruction)
+    private static RuntimeEvaluationContext ResolveContext(
+        RuntimeEvaluationContext outer, CallStackFrame activation, InstructionList list, Instruction instruction)
         => instruction.EnclosingWith is { } openerOffset && activation.TryGetBlockState(openerOffset, out var target)
-            ? outer with { EnclosingWithTarget = target }
-            : outer with { EnclosingWithTarget = null };
+            ? outer with
+            {
+                EnclosingWithTarget = target,
+                EnclosingWithTargetExpression = (list.Items[openerOffset].Node as WithStatementNode)?.WithExpression,
+            }
+            : outer with { EnclosingWithTarget = null, EnclosingWithTargetExpression = null };
 
     // Returns null when the branch was taken and the loop should keep running (activation.Pc is
     // already set correctly); returns a non-null outcome only when execution must stop.

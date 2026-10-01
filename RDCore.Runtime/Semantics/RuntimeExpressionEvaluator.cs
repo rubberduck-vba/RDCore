@@ -529,6 +529,9 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     private static VBClassModuleSymbol? DeclaredInterfaceOf(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression, VBClassModuleSymbol actual)
     {
+        // a with-relative member (`.Area`) is a member of the target of the With block, which is declared as whatever its expression is.
+        ownerExpression ??= context.EnclosingWithTargetExpression;
+
         var lifecycle = ClassLifecycleInterface.Interface.Uri.AbsoluteUri;
         if (ownerExpression is null || !actual.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri != lifecycle))
         {
