@@ -340,9 +340,22 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         }
 
         var result = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
-        return result.Symbol is VBClassModuleSymbol classModule
-            ? NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule))
-            : RuntimeSemanticsEvaluationResult.InternalError();
+        if (result.Symbol is not VBClassModuleSymbol classModule)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
+
+        // MS-VBAL §5.3.1.10: Initialize runs before a reference to the new object is returned from the operation
+        // that creates it, and an error it leaves unhandled is that operation's.
+        if (!created.IsSuccess || created.Result is not VBObjectValue { } instance || session.Lifecycle is not { } lifecycle)
+        {
+            return created;
+        }
+
+        var initialized = lifecycle.Initialize(instance.Value);
+        return initialized.IsSuccess ? created : initialized;
     }
 
     private RuntimeSemanticsEvaluationResult EvaluateMemberAccess(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)

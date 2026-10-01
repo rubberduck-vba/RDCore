@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Shared;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
@@ -100,6 +101,17 @@ public interface IRuntimeSession
     /// </remarks>
     /// <returns><c>true</c> if the object was destroyed as a result of this call.</returns>
     bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle);
+
+    /// <summary>
+    /// What raises the lifecycle events of the session's objects, or <see langword="null"/> while nothing can run
+    /// user code against the session yet — a session whose symbols are only being defined. Set by whatever composes
+    /// the execution pipeline, which is what the handlers run through.
+    /// </summary>
+    /// <remarks>
+    /// While it is <see langword="null"/>, <see cref="ReleaseReference"/> destroys an object that has no references
+    /// left without raising <c>Terminate</c>.
+    /// </remarks>
+    IObjectLifecycle? Lifecycle { get; set; }
 }
 
 /// <summary>
@@ -236,4 +248,40 @@ public interface ISessionObjects
 
     /// <summary>Drops a reference to an instance and returns the remaining reference count.</summary>
     int RemoveRef(VBRuntimeObjectId instance, IBindingHandle handle);
+
+    /// <summary>The number of references currently held to an instance; <c>0</c> for one that is not live.</summary>
+    int RefCount(VBRuntimeObjectId instance);
+
+    /// <summary>
+    /// Records that <c>Terminate</c> is about to run for an instance (<strong>MS-VBAL §5.3.1.10</strong>: at most once
+    /// during an object's lifetime, however often it becomes a candidate for destruction).
+    /// </summary>
+    /// <returns><see langword="true"/> the first time it is asked of a live instance; otherwise <see langword="false"/>.</returns>
+    bool TryBeginTerminate(VBRuntimeObjectId instance);
+}
+
+/// <summary>
+/// Raises the lifecycle events of a class instance (<strong>MS-VBAL §5.3.1.10</strong>) by dispatching the members of
+/// <see cref="ClassLifecycleInterface"/> to whatever the instance's class implements them with.
+/// </summary>
+/// <remarks>
+/// A class that handles neither event is the common case, and raising an event it does not handle does nothing and
+/// is not an error. A lifecycle is the session's, not a call site's, so what raises these events is the creation and
+/// release of an instance, never user code.
+/// </remarks>
+public interface IObjectLifecycle
+{
+    /// <summary>
+    /// Raises <c>Initialize</c> on <paramref name="instance"/>, which has just been created and has not been
+    /// returned to anything yet.
+    /// </summary>
+    /// <returns>The outcome of the handler; an error the handler leaves unhandled is the creating operation's own.</returns>
+    RuntimeSemanticsEvaluationResult Initialize(VBRuntimeObjectId instance);
+
+    /// <summary>
+    /// Raises <c>Terminate</c> on <paramref name="instance"/>, which is about to be destroyed. Whether it should
+    /// run at all is the caller's to decide (<see cref="ISessionObjects.TryBeginTerminate"/>).
+    /// </summary>
+    /// <returns>The outcome of the handler.</returns>
+    RuntimeSemanticsEvaluationResult Terminate(VBRuntimeObjectId instance);
 }

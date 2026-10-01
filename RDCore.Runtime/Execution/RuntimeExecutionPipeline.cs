@@ -146,6 +146,8 @@ public sealed class RuntimeExecutionPipeline
         objectCoercion.Bindings = bindings;
         objectCoercion.Expressions = expressions;
         expressions.LetCoercionProvider = letCoercion;
+        // an object's lifecycle events run its class's handlers, which is code only this pipeline can run.
+        session.Lifecycle = new ClassLifecycle(session, bindings);
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);
     }

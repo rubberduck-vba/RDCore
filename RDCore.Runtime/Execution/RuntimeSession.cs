@@ -39,10 +39,28 @@ internal sealed class RuntimeSession(
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
     public IRuntimeOutput Output { get; init; } = output;
 
+    public IObjectLifecycle? Lifecycle { get; set; }
+
     public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
-        => Objects.RemoveRef(instance, handle) == 0
+    {
+        if (Objects.RemoveRef(instance, handle) != 0)
+        {
+            return false;
+        }
+
+        // MS-VBAL §5.3.1.10: Terminate runs while the object is still whole, and may give it a reference again; an
+        // object that has one is not destroyed, and is a candidate again when it next loses its last.
+        // 🚧 TODO an error the handler leaves unhandled is dropped here: a release has no operation to fail, and
+        // the callers of this have no result to carry it in. It belongs to whatever dropped the reference.
+        if (Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
+        {
+            _ = lifecycle.Terminate(instance);
+        }
+
+        return Objects.RefCount(instance) == 0
             && Objects.TryRemoveObject(instance)
             && Symbols.DestroyInstance(instance);
+    }
 }
 
 /// <summary>
@@ -54,6 +72,7 @@ internal sealed class RuntimeSession(
 internal sealed class SessionObjects : ISessionObjects
 {
     private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
+    private readonly HashSet<VBRuntimeObjectId> _terminating = [];
 
     public VBRuntimeObjectId CreateObject()
     {
@@ -81,10 +100,15 @@ internal sealed class SessionObjects : ISessionObjects
         return roots.Count;
     }
 
+    public int RefCount(VBRuntimeObjectId instance) => _roots.TryGetValue(instance, out var roots) ? roots.Count : 0;
+
+    public bool TryBeginTerminate(VBRuntimeObjectId instance) => _roots.ContainsKey(instance) && _terminating.Add(instance);
+
     public bool TryRemoveObject(VBRuntimeObjectId instance)
     {
         if (_roots.TryGetValue(instance, out var roots) && roots.Count == 0)
         {
+            _terminating.Remove(instance);
             return _roots.Remove(instance);
         }
         return false;
