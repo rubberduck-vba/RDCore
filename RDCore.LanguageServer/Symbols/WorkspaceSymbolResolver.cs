@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.AST;
+﻿using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -45,8 +46,9 @@ internal static class WorkspaceSymbolResolver
     /// </param>
     public static ISymbolResolver Compose(
         Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
-        ISymbolResolver fallback, string? projectName = null)
-        => ComposeWithScopes(workspaceRoot, modules, fallback, projectName).Resolver;
+        ISymbolResolver fallback, string? projectName = null,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        => ComposeWithScopes(workspaceRoot, modules, fallback, projectName, implicitScope).Resolver;
 
     /// <summary>
     /// Composes the workspace like <see cref="Compose"/> and also returns the scope tree the resolver
@@ -54,7 +56,8 @@ internal static class WorkspaceSymbolResolver
     /// </summary>
     public static WorkspaceComposition ComposeWithScopes(
         Uri workspaceRoot, IEnumerable<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
-        ISymbolResolver fallback, string? projectName = null)
+        ISymbolResolver fallback, string? projectName = null,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
     {
         var parsed = modules.ToList();
 
@@ -64,7 +67,7 @@ internal static class WorkspaceSymbolResolver
         var declared = BuildSymbols(workspaceRoot, parsed, fallback, projectName, withImplicitDeclarations: false);
         var declaredResolver = new CompositeSymbolResolver(new ScopeTreeSymbolResolver(ScopeTreeBuilder.Build(declared)), fallback);
 
-        var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName);
+        var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope);
         var scopeTree = ScopeTreeBuilder.Build(bound);
         return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree);
     }
@@ -73,7 +76,8 @@ internal static class WorkspaceSymbolResolver
     // through typeResolver.
     private static List<Symbol> BuildSymbols(
         Uri workspaceRoot, IReadOnlyList<(Uri ModuleUri, ModuleType ModuleType, ModuleParseResult Parse)> modules,
-        ISymbolResolver typeResolver, string? projectName, bool withImplicitDeclarations = true)
+        ISymbolResolver typeResolver, string? projectName, bool withImplicitDeclarations = true,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
     {
         var symbols = new List<Symbol>();
         if (projectName is not null)
@@ -105,7 +109,7 @@ internal static class WorkspaceSymbolResolver
             // so they're only known once the member provider below has run.
             // tagged here, once, before the ownMembers/symbols split below - both need the same tagged
             // instances, not just whichever one applied the attribute.
-            var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, typeResolver, withImplicitDeclarations).ProvideSymbols()
+            var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, typeResolver, withImplicitDeclarations, implicitScope).ProvideSymbols()
                 .Select(member => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberUserMemId(typeMember.Name) is { } userMemId
                     ? (Symbol)typeMember.With(SymbolProperties.UserMemId, userMemId)
                     : member)

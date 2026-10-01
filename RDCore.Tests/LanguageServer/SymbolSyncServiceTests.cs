@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Parsing;
@@ -7,9 +8,11 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -23,7 +26,8 @@ public sealed class SymbolSyncServiceTests
         => new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Mod1.bas")), source);
 
     private static (SymbolSyncService Sut, IRDCoreClientApp Host) Build(
-        ModuleParseResult? cached, bool providesCapability = true, DefineSymbolsResult? response = null)
+        ModuleParseResult? cached, bool providesCapability = true, DefineSymbolsResult? response = null,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
     {
         var host = Substitute.For<IRDCoreClientApp>();
         host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -54,9 +58,16 @@ public sealed class SymbolSyncServiceTests
             });
 
         var sut = new SymbolSyncService(
-            orchestration, parsing, documents, new IntrinsicSymbolResolver(), NullLogger<SymbolSyncService>.Instance);
+            orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(implicitScope),
+            NullLogger<SymbolSyncService>.Instance);
         return (sut, host);
     }
+
+    private static IOptions<SdkAppOptions> Options(ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        => Microsoft.Extensions.Options.Options.Create(new SdkAppOptions
+        {
+            Workspace = new SdkWorkspaceOptions { ImplicitDeclarationScope = implicitScope },
+        });
 
     [TestMethod]
     public async Task SendsModuleDescriptors_ForEachCachedDocument()
@@ -133,7 +144,7 @@ public sealed class SymbolSyncServiceTests
                 return false;
             });
 
-        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), NullLogger<SymbolSyncService>.Instance);
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance);
 
         await sut.SyncWorkspaceAsync(CancellationToken.None);
 

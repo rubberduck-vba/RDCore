@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Extensibility;
+using RDCore.SDK.Model;
 
 namespace RDCore.SDK.Server.Configuration;
 
@@ -92,6 +93,12 @@ public record class SdkAppCommandLineArgs
     public string? WorkspaceUri { get; set; }
 
     /// <summary>
+    /// A <em>command-line argument</em> that overrides the <see cref="SdkWorkspaceOptions.ImplicitDeclarationScope"/> setting.
+    /// </summary>
+    [Option("implicit-declaration-scope")]
+    public ImplicitDeclarationScope? ImplicitDeclarationScope { get; set; }
+
+    /// <summary>
     /// Repeatable <em>command-line argument</em> defining or overriding a project-level precompiler
     /// constant, in <c>NAME=VALUE</c> form (e.g. <c>--define RDDEBUG=1</c>). Overrides the
     /// <c>.rdproj</c> and the built-in host constants.
@@ -134,6 +141,7 @@ public record class SdkAppCommandLineArgs
         if (UnsafeDevMode is bool unsafeDevMode) yield return new("Configuration:Server:UnsafeDevMode", unsafeDevMode.ToString());
         if (WorkspaceUri is string workspaceUri) yield return new("Configuration:Workspace:WorkspaceUri", workspaceUri);
         if (DefaultLocation is string defaultLocation) yield return new("Configuration:Workspace:DefaultLocation", defaultLocation);
+        if (ImplicitDeclarationScope is ImplicitDeclarationScope implicitScope) yield return new("Configuration:Workspace:ImplicitDeclarationScope", implicitScope.ToString());
         if (Type is ServerTransportLayerMode transportType) yield return new("Configuration:Platform:Transport:Type", transportType.ToString());
         if (PipeName is string pipeName) yield return new("Configuration:Platform:Transport:PipeConfig:PipeName", pipeName);
     }
@@ -329,6 +337,16 @@ public record class SdkWorkspaceOptions
     /// ⚠️ If a workspace <c>Uri</c> is not supplied, a server application should exit with an error code.
     /// </remarks>
     public string WorkspaceUri { get; set; } = _defaultWorkspaceUri;
+
+    /// <summary>
+    /// Where the variable a reference to an undeclared name declares lives (<strong>MS-VBAL §5.6.10</strong>).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ImplicitDeclarationScope.Procedure"/> — a local of the procedure — is VBA's, and the default.
+    /// <see cref="ImplicitDeclarationScope.Module"/> is a BASIC's: a variable of the module, so that what one line
+    /// assigns the next one reads. A client that serves an interactive shell asks for it of the server it starts.
+    /// </remarks>
+    public ImplicitDeclarationScope ImplicitDeclarationScope { get; set; } = ImplicitDeclarationScope.Procedure;
 }
 
 /// <summary>

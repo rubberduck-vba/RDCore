@@ -302,7 +302,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     // this module has an implicit declaration mode at all.
     public IEnumerable<Symbol> BuildLocals(
         MemberDeclarationNode member, Uri procedureUri, IReadOnlySet<string> outerScopeNames,
-        ModuleDirectives directives = default, bool withImplicitDeclarations = true)
+        ModuleDirectives directives = default, bool withImplicitDeclarations = true,
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
     {
         var results = new List<Symbol>();
         var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -367,13 +368,19 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 // implicit Variant rather than resolving. That is this rule applied to an incomplete
                 // name universe, not a different rule; it corrects itself as the universe grows.
                 var resolved = resolver.ResolveValue(reference.IdentifierName, ScopeKind.Local, procedureUri);
-                if (!resolved.IsUnbound && !IsOwnLocal(resolved, procedureUri))
+                if (!resolved.IsUnbound && !IsOwnLocal(resolved, procedureUri) && !IsOwnModuleVariable(resolved))
                 {
                     continue;
                 }
 
                 declared.Add(reference.IdentifierName);
-                results.Add(BuildImplicitLocal(reference, procedureUri));
+
+                // where the variable lives is the environment's to say (ImplicitDeclarationScope). Declared at module
+                // level it is one variable however many procedures refer to the name - each of them declares it, and
+                // the provider fuses the declarations that share an identity.
+                results.Add(implicitScope == ImplicitDeclarationScope.Module
+                    ? BuildImplicitModuleVariable(reference)
+                    : BuildImplicitLocal(reference, procedureUri));
             }
         }
 
@@ -391,6 +398,14 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     private static bool IsOwnLocal(SymbolResolutionResult resolved, Uri procedureUri)
         => resolved.Symbol is VBLocalVariableSymbol local
             && local.ParentUri.AbsoluteUri == procedureUri.AbsoluteUri;
+
+    // The same trap one level up: with ImplicitDeclarationScope.Module the variable an earlier pass declared is this
+    // module's, and a pass over a resolver that holds it would find a match and declare nothing. Only a variable that
+    // was declared implicitly is an earlier pass's own output - one the source declares is a real match.
+    private bool IsOwnModuleVariable(SymbolResolutionResult resolved)
+        => resolved.Symbol is VBModuleFieldVariableMemberSymbol variable
+            && variable.GetProperty(SymbolProperties.ImplicitlyDeclared)
+            && variable.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri;
 
     /// <summary>
     /// The simple name expressions of <paramref name="node"/> that sit in the <em>default</em> binding
@@ -654,6 +669,24 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             workspaceRoot, procedureUri, node.IdentifierName, ScopeKind.Local, range, range,
             ResolvedType: ImplicitOrDeclaredType(asType: null, typeHint: null, procedureUri),
             DeclaredBy: LocalDeclarationKind.Implicit);
+    }
+
+    /// <summary>
+    /// Builds the module-level variable a reference to an undeclared name declares when the environment's
+    /// <see cref="ImplicitDeclarationScope"/> is <see cref="ImplicitDeclarationScope.Module"/>.
+    /// </summary>
+    /// <remarks>
+    /// The same variable as <c>Dim Name</c> at the top of the module would declare — an implicitly typed one, with no
+    /// access modifier — marked as implicit so that a later pass can tell it from one the source declares.
+    /// </remarks>
+    /// <param name="node">The simple name expression that declared it.</param>
+    public Symbol BuildImplicitModuleVariable(SimpleNameExpressionNode node)
+    {
+        var range = RangeOf(node);
+        return new VBModuleFieldVariableMemberSymbol(
+                workspaceRoot, moduleUri, node.IdentifierName, memberScope,
+                ImplicitOrDeclaredType(asType: null, typeHint: null, moduleUri), range, range, AccessModifier.Implicit)
+            .With(SymbolProperties.ImplicitlyDeclared, true);
     }
 
     // A ReDim always targets a dynamic array (MS-VBAL 5.4.3.3); the new dimensions stay unresolved.

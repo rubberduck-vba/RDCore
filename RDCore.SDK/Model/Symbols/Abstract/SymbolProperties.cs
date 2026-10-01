@@ -24,6 +24,17 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> AutoInstantiated = new(nameof(AutoInstantiated));
     /// <summary>
+    /// Whether a variable exists because something referred to its name and no declaration of it was written
+    /// (<strong>MS-VBAL §5.6.10</strong>), rather than because the source declares it.
+    /// </summary>
+    /// <remarks>
+    /// An implicit local says so by its <c>DeclaredBy</c>; an implicit <em>module-level</em> variable, which is what
+    /// <see cref="ImplicitDeclarationScope.Module"/> declares, is the same kind of symbol as an explicit one and says so
+    /// here. A later declaration pass, whose resolver already holds this variable, needs to tell it from a variable the
+    /// source declares, or it would take its own earlier output for the declaration it is about to make.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> ImplicitlyDeclared = new(nameof(ImplicitlyDeclared));
+    /// <summary>
     /// The value of the <c>VB_Exposed</c> attribute of a <see cref="VBClassModuleSymbol"/>
     /// </summary>
     public static readonly SymbolProperty<bool> Exposed = new(nameof(Exposed));

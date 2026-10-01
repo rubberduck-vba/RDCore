@@ -1,12 +1,15 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -44,8 +47,13 @@ internal sealed class SymbolSyncService(
     IParsingClientService parsing,
     IWorkspaceDocumentService documents,
     ISymbolResolver resolver,
+    IOptions<SdkAppOptions> options,
     ILogger<SymbolSyncService> logger) : ISymbolSyncService
 {
+    // where the variable an undeclared name declares lives is the environment's to say, and every extraction pass
+    // - the resolver's own two, and the one that defines the symbols - has to agree on it.
+    private ImplicitDeclarationScope ImplicitScope => options.Value.Workspace.ImplicitDeclarationScope;
+
     public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var host = orchestration.RuntimeEnvironment;
@@ -54,7 +62,7 @@ internal sealed class SymbolSyncService(
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
         var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
         var workspaceResolver = WorkspaceSymbolResolver.Compose(
-            workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver);
+            workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver, implicitScope: ImplicitScope);
 
         // a module the client keeps editing is defined again every time it is run, so the newest
         // definition has to win rather than being skipped as a duplicate.
@@ -105,7 +113,8 @@ internal sealed class SymbolSyncService(
             }
 
             var workspaceResolver = WorkspaceSymbolResolver.Compose(
-                workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver);
+                workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver,
+                implicitScope: ImplicitScope);
 
             var totalDefined = 0;
             foreach (var module in modules)
@@ -141,7 +150,9 @@ internal sealed class SymbolSyncService(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
         ISymbolResolver workspaceResolver, bool replace, CancellationToken token)
     {
-        var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver).ProvideSymbols();
+        var symbols = new SyntaxTreeSymbolProvider(
+            workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
+            withImplicitDeclarations: true, ImplicitScope).ProvideSymbols();
         var descriptors = SymbolDescriptorProjector.Project(symbols, moduleUri);
 
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(

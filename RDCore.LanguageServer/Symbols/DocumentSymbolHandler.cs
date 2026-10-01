@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -9,6 +10,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -28,7 +30,8 @@ namespace RDCore.LanguageServer.Symbols;
 internal sealed class DocumentSymbolHandler(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
-    ISymbolResolver resolver) : DocumentSymbolHandlerBase
+    ISymbolResolver resolver,
+    IOptions<SdkAppOptions> options) : DocumentSymbolHandlerBase
 {
     public override async Task<SymbolInformationOrDocumentSymbolContainer?> Handle(DocumentSymbolParams request, CancellationToken cancellationToken)
     {
@@ -52,7 +55,9 @@ internal sealed class DocumentSymbolHandler(
         var moduleType = ParsingClientService.ModuleTypeOf(document);
         var moduleKind = moduleType == ModuleType.ClassModule ? SymbolKindExt.Class : SymbolKindExt.Module;
 
-        var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, resolver).ProvideSymbols();
+        var symbols = new SyntaxTreeSymbolProvider(
+            workspaceRoot, moduleUri, moduleType, parseResult, resolver,
+            withImplicitDeclarations: true, options.Value.Workspace.ImplicitDeclarationScope).ProvideSymbols();
         var (moduleRange, moduleSelectionRange) = ModuleRangesOf(module);
 
         var documentSymbol = DocumentSymbolProjector.Project(moduleUri, moduleName, moduleKind, moduleRange, moduleSelectionRange, symbols);

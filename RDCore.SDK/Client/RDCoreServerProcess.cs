@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RDCore.SDK.Model;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Diagnostics;
@@ -145,7 +146,14 @@ public class RDCoreServerProcess(
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;
 
-        var info = CreateProcessStartInfo(fullPath, $"-p {Environment.ProcessId} -n {pipeName} -w \"{workspace}\" -t {trace} {(verbose ? "-v" : null)}");
+        // the environment a client serves is its own to describe to the server it starts: an interactive shell works
+        // the way a BASIC does, and says so here. Left out when it is the default, so a server's own appsettings win.
+        var implicitScope = Options.Value.Workspace.ImplicitDeclarationScope;
+        var implicitScopeArgument = implicitScope == ImplicitDeclarationScope.Procedure
+            ? null
+            : $" --implicit-declaration-scope {implicitScope}";
+
+        var info = CreateProcessStartInfo(fullPath, $"-p {Environment.ProcessId} -n {pipeName} -w \"{workspace}\" -t {trace} {(verbose ? "-v" : null)}{implicitScopeArgument}");
         if (hostMode)
         {
             info.Environment[ModeEnvironmentVariable] = "host";

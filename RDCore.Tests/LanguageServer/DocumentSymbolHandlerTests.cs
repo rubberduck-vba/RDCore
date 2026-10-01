@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -23,7 +24,8 @@ public sealed class DocumentSymbolHandlerTests
     private static readonly WorkspaceDocument Document = new(RelativePath, WorkspaceRoot);
     private static Uri DocUri => Document.Id.Uri.ToUri();
 
-    private DocumentSymbolHandler Sut() => new(_documents, _parsing, new IntrinsicSymbolResolver());
+    private DocumentSymbolHandler Sut()
+        => new(_documents, _parsing, new IntrinsicSymbolResolver(), Microsoft.Extensions.Options.Options.Create(new SdkAppOptions()));
 
     private static DocumentSymbolParams Request() => new()
     {
