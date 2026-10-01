@@ -16,6 +16,12 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> PredeclaredId = new(nameof(PredeclaredId));
     /// <summary>
+    /// The value of the <c>VB_Extensible</c> attribute of a <see cref="VBClassModuleSymbol"/>: whether it is an extensible
+    /// module (<strong>MS-VBAL §4.2.1</strong>), which a host extends with an extension module of the same name. Such a
+    /// module cannot have an <c>Implements</c> directive (<strong>§5.2.4.2</strong>).
+    /// </summary>
+    public static readonly SymbolProperty<bool> Extensible = new(nameof(Extensible));
+    /// <summary>
     /// Whether a variable is an <em>automatic instantiation variable</em> (<strong>MS-VBAL §2.5.1</strong>): one
     /// declared with an <c>As New</c> clause (<strong>§5.2.3.1.1</strong>), or the default instance variable of a
     /// predeclared class (<strong>§5.2.4.1.2</strong>, declared "as if" <c>As New</c>). Each time its content is

@@ -102,6 +102,7 @@ internal static class WorkspaceSymbolResolver
                     { Directives = directives, ImplementedInterfaceNames = implementedInterfaceNames }
                     .With(SymbolProperties.Creatable, parseResult.SyntaxTree?.IsCreatable() ?? true)
                     .With(SymbolProperties.PredeclaredId, parseResult.SyntaxTree?.IsPredeclared() ?? false)
+                    .With(SymbolProperties.Extensible, parseResult.SyntaxTree?.IsExtensible() ?? false)
                 : new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, moduleName) { Directives = directives };
 
             // members can't ride on the module symbol the way a Type's fields ride on it (built from

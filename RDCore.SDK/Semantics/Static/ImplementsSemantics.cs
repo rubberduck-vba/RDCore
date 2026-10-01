@@ -34,8 +34,12 @@ namespace RDCore.SDK.Semantics.Static;
 /// (<see cref="SymbolProperties.DefaultImplementation"/>), is not required of anything: this checks the interfaces a module
 /// names, and <see cref="ClassLifecycleInterface"/> is not one of them.
 /// <para>
-/// 🚧 TODO an <c>Implements</c> directive in an extension module is invalid, and there is no kind of module for this to say
-/// so of; the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
+/// An <c>Implements</c> directive in an extensible module (<c>Attribute VB_Extensible = True</c>,
+/// <see cref="SymbolProperties.Extensible"/>) is invalid, whatever the directive names, and nothing else of the module's
+/// directives is checked then.
+/// </para>
+/// <para>
+/// 🚧 TODO the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
 /// </para>
 /// </remarks>
 public static class ImplementsSemantics
@@ -49,6 +53,16 @@ public static class ImplementsSemantics
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(VBClassModuleSymbol module, ISymbolResolver resolver)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+
+        // MS-VBAL §5.2.4.2: "An <implements-directive> cannot occur within an extension module." What a host's document modules
+        // are is extensible, and a directive there would extend the very module the host reaches into.
+        if (module.GetProperty(SymbolProperties.Extensible) && !module.ImplementedInterfaceNames.IsEmpty)
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidImplementsDirective, LocationOf(module),
+                $"'{module.Name}' is an extensible module (Attribute VB_Extensible), which cannot have an Implements directive (MS-VBAL §5.2.4.2)."));
+            return errors.ToImmutable();
+        }
+
         var interfaces = CheckDirectives(module, resolver, errors);
 
         foreach (var implemented in interfaces)

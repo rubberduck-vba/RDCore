@@ -151,6 +151,24 @@ public static class ModuleNodeExtensions
     }
 
     /// <summary>
+    /// Whether a module is an extensible module (<strong>MS-VBAL §4.2.1</strong>) - what a host's document modules are -
+    /// per its <c>Attribute VB_Extensible</c> directive. Defaults to <c>false</c>: a module that declares no such
+    /// attribute is an ordinary one.
+    /// </summary>
+    public static bool IsExtensible(this ModuleNode module)
+    {
+        foreach (var attribute in module.Children.OfType<AttributeDirectiveNode>())
+        {
+            if (attribute.Binding is null && string.Equals(attribute.Name, Tokens.VB_Extensible, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(attribute.Value.Trim(), "True", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The value of a member's own <c>Attribute &lt;member&gt;.VB_UserMemId</c> directive, or
     /// <c>null</c> when the module declares none for that member. RD-VBA's own use of the value:
     /// <c>WellKnownDispIds.Value</c> (<c>0</c>) denotes the class's default member,

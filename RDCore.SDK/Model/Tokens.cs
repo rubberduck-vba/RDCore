@@ -260,6 +260,7 @@ public static class Tokens
     public const string VB_Creatable = "VB_Creatable";
     public const string VB_PredeclaredId = "VB_PredeclaredId";
     public const string VB_Exposed = "VB_Exposed";
+    public const string VB_Extensible = "VB_Extensible";
     public const string VB_Ext_Key = "VB_Ext_Key";
     public const string VB_Description = "VB_Description";
     public const string VB_UserMemId = "VB_UserMemId";

@@ -216,6 +216,33 @@ public sealed class ImplementsSemanticsTests
         => Assert.IsEmpty(Check("Implements IOk\r\n", ("IOk", "Private Sub Do_It()\r\nEnd Sub\r\n")));
 
     [TestMethod]
+    public void AnExtensibleModule_CannotHaveAnImplementsDirective()
+    {
+        var errors = Check("Attribute VB_Extensible = True\r\n" + FullDisc);
+
+        AssertOnly(VBCompileErrorId.InvalidImplementsDirective, errors);
+        StringAssert.Contains(errors.Single().Verbose, "extensible");
+    }
+
+    [TestMethod]
+    public void AnExtensibleModuleWithNoDirective_IsValid()
+        => Assert.IsEmpty(Check("Attribute VB_Extensible = True\r\nPublic Sub Anything()\r\nEnd Sub\r\n"));
+
+    [TestMethod]
+    public void AModuleThatSaysItIsNotExtensible_MayHaveADirective()
+        => Assert.IsEmpty(Check("Attribute VB_Extensible = False\r\n" + FullDisc));
+
+    [TestMethod]
+    public void TheAttribute_BecomesAPropertyOfTheModuleSymbol()
+    {
+        var modules = new[] { Class("Disc", "Attribute VB_Extensible = True\r\n"), Class("Plain", "Public Sub S()\r\nEnd Sub\r\n") };
+        var resolver = WorkspaceSymbolResolver.Compose(Root, modules, new IntrinsicSymbolResolver());
+
+        Assert.IsTrue(resolver.ResolveType("Disc", ScopeKind.Global, ModuleUri("Disc")).Symbol!.GetProperty(SymbolProperties.Extensible));
+        Assert.IsFalse(resolver.ResolveType("Plain", ScopeKind.Global, ModuleUri("Disc")).Symbol!.GetProperty(SymbolProperties.Extensible));
+    }
+
+    [TestMethod]
     public void AnInterfacePrefixThatBeginsAnother_IsInvalid()
         => Assert.IsTrue(Check(
             "Implements IA\r\nImplements IA_B\r\n",
