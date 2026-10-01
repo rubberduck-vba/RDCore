@@ -95,6 +95,10 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<int> MemberFlags = new(nameof(MemberFlags));
     /// <summary>
+    /// The <see cref="MemberFlags"/> bit that hides a member: it resolves like any other, and is left out of a completion list.
+    /// </summary>
+    public const int HiddenMemberFlag = 0x40;
+    /// <summary>
     /// 🎯 The key identifying the <em>external</em> implementation a member dispatches to: a member whose
     /// code is not the workspace's, so no instruction list exists for it and
     /// <c>IExternalDispatcher</c> runs it instead.

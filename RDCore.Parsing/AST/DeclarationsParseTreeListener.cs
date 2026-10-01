@@ -1215,12 +1215,25 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
+        // the Array keyword, written unqualified: `Array(1, 2, 3)` is the construct, whose lower bound follows Option Base,
+        // and `VBA.Array(1, 2, 3)` is not - that is a call of the library's member, which reaches here as a member access
+        // and is left as one. The empty parentheses are one omitted argument to the grammar, which is no element either.
+        if (KeywordOf(context)?.ARRAY() is not null)
+        {
+            var elements = arguments is [MissingArgumentNode] ? [] : arguments;
+            if (elements.All(element => element is not (NamedArgumentNode or MissingArgumentNode)))
+            {
+                CurrentBuilder.AddChild(new ArrayExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), elements));
+                return;
+            }
+        }
+
         CurrentBuilder.AddChild(new IndexExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), callee, arguments));
     }
 
-    // the keyword itself, by token: a name written [UBound], or typed with a hint, or a member called that, is an
-    // ordinary name and stays one.
-    private static ArrayBoundKind? ArrayBoundKeywordOf(VBABaseParserRuleContext context)
+    // the keyword a call is written on, by token: a name written [UBound], or typed with a hint, or a member called that, is
+    // an ordinary name and stays one.
+    private static VBAParser.KeywordContext? KeywordOf(VBABaseParserRuleContext context)
     {
         var callee = context switch
         {
@@ -1234,7 +1247,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return null;
         }
 
-        var keyword = name.identifier()?.untypedIdentifier()?.identifierValue()?.keyword();
+        return name.identifier()?.untypedIdentifier()?.identifierValue()?.keyword();
+    }
+
+    private static ArrayBoundKind? ArrayBoundKeywordOf(VBABaseParserRuleContext context)
+    {
+        var keyword = KeywordOf(context);
         return keyword?.LBOUND() is not null ? ArrayBoundKind.Lower
             : keyword?.UBOUND() is not null ? ArrayBoundKind.Upper
             : null;

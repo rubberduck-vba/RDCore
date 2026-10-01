@@ -55,6 +55,7 @@ public static class ExpressionStaticSemanticsEvaluator
             // TypeExpression names a type, not a value - nothing to recurse into as an expression.
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(context, expression, typeOfIs),
             ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(context, arrayBound),
+            ArrayExpressionNode array => EvaluateArray(context, array),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(context, expression, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             // ByVal flags how an argument is passed; the argument is the expression it is written before.
@@ -237,6 +238,21 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return StaticSemanticsEvaluationResult.Success(VBLongType.TypeInfo);
+    }
+
+    // the Array keyword yields a Variant whatever its elements, which are expressions like any other and can be wrong in their own right.
+    private static StaticSemanticsEvaluationResult EvaluateArray(StaticEvaluationContext context, ArrayExpressionNode array)
+    {
+        foreach (var element in array.Elements)
+        {
+            var result = Evaluate(context, element);
+            if (result.IsError)
+            {
+                return result;
+            }
+        }
+
+        return StaticSemanticsEvaluationResult.Success(VBVariantType.TypeInfo);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateTypeOfIs(

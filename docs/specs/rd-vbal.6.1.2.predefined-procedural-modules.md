@@ -20,5 +20,12 @@ The SDK defines the twelve **MS-VBAL §6.1.2** predefined procedural modules:
 |6.1.2.11|[Strings](rd-vbal.6.1.2.11.strings.md)|[IStdStringsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdStringsModule.html)|
 |6.1.2.12|[SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)|[VBSystemColorConstants](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBSystemColorConstants.html)|
 
+And one that the specification does not name but the language has: the library's hidden module, which holds `Array`, `Input$` and `Width`
+(`_HiddenModule`, **RD-VBAL §6.1.2.13**):
+
+|§|Module|SDK declaration|
+|---|---|---|
+|6.1.2.13|[Hidden Module](rd-vbal.6.1.2.13.hidden-module.md)|[IStdHiddenModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdHiddenModule.html)|
+
 ---
 > ⏮️ [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md) | ⏭️ [**RD-VBAL §6.1.2.1** ColorConstants Module](rd-vbal.6.1.2.1.colorconstants-module.md)
