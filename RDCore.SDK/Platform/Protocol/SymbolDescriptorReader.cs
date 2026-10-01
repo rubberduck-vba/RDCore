@@ -186,10 +186,14 @@ public static class SymbolDescriptorReader
                 break;
 
             case SymbolDescriptorKind.ModuleField:
-                yield return new VBModuleFieldVariableMemberSymbol(
+            {
+                Symbol field = new VBModuleFieldVariableMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, Declared(node.DeclaredTypeName),
                     node.Range, node.SelectionRange, node.AccessModifier);
+                field = node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
+                yield return node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field;
                 break;
+            }
 
             case SymbolDescriptorKind.ModuleConstant:
                 // the constant's own value is its single Constants entry - it has no storage to read one
@@ -240,13 +244,14 @@ public static class SymbolDescriptorReader
         }
         foreach (var local in member.Locals.IsDefault ? [] : member.Locals)
         {
-            builder.Add(new VBLocalVariableSymbol(
+            var variable = new VBLocalVariableSymbol(
                 workspaceRoot, memberUri, local.Name, ScopeKind.Local, local.Range, local.SelectionRange,
                 local.IsStatic,
                 local.DeclaredTypeName is not null && resolveType(local.DeclaredTypeName) is { } type
                     ? type
                     : VBUnknownType.TypeInfo,
-                local.DeclaredBy));
+                local.DeclaredBy);
+            builder.Add(local.IsAutoInstantiated ? (BoundTypedSymbol)variable.With(SymbolProperties.AutoInstantiated, true) : variable);
         }
         return builder.ToImmutable();
     }

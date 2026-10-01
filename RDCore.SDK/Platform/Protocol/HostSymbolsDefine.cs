@@ -197,6 +197,18 @@ public record class SymbolDescriptor
     public ImmutableArray<ConstantDescriptor> Constants { get; init; } = [];
 
     /// <summary>
+    /// Whether a module field is declared <c>WithEvents</c> (<strong>MS-VBAL §5.2.3.1.2</strong>): the procedures of its
+    /// module named for it and an event of its class handle that event of the object it holds.
+    /// </summary>
+    public bool IsWithEvents { get; init; }
+
+    /// <summary>
+    /// Whether a module field is an automatic instantiation variable (<strong>MS-VBAL §2.5.1</strong>): declared
+    /// <c>As New</c>, so that referring to it while it is <c>Nothing</c> creates the object.
+    /// </summary>
+    public bool IsAutoInstantiated { get; init; }
+
+    /// <summary>
     /// Members parented to this descriptor rather than the module: <c>Enum</c> constants and
     /// user-defined-<c>Type</c> fields.
     /// </summary>
@@ -253,6 +265,12 @@ public record class LocalDescriptor
     /// module-extent storage that outlives one activation, not procedure-extent.
     /// </summary>
     public bool IsStatic { get; init; }
+
+    /// <summary>
+    /// Whether the variable is an automatic instantiation variable (<strong>MS-VBAL §2.5.1</strong>): declared
+    /// <c>As New</c>.
+    /// </summary>
+    public bool IsAutoInstantiated { get; init; }
 
     /// <summary>
     /// How the variable entered the procedure scope — a real declaration, or an implicit one.

@@ -62,6 +62,8 @@ internal static class SymbolDescriptorProjector
             Parameters = ParametersOf(symbol),
             Locals = LocalsOf(symbol, children),
             Constants = ConstantsOf(symbol, children),
+            IsWithEvents = symbol.GetProperty(SymbolProperties.WithEvents),
+            IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
             External = ExternalOf(symbol),
         };
@@ -149,6 +151,7 @@ internal static class SymbolDescriptorProjector
                 Name = local.Name,
                 DeclaredTypeName = local.ResolvedType is null or VBUnknownType or VBVoidType ? null : local.ResolvedType.Name,
                 IsStatic = local.IsStatic,
+                IsAutoInstantiated = local.GetProperty(SymbolProperties.AutoInstantiated),
                 DeclaredBy = local.DeclaredBy,
                 Range = local.Range,
                 SelectionRange = local.SelectionRange,
