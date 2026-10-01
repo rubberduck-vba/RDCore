@@ -84,17 +84,35 @@ public record class VBClassModuleSymbol : VBModuleSymbol
 
     /// <summary>
     /// The member of this class that implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>
-    /// (<strong>MS-VBAL §5.3.1.9</strong>): the procedure named <c>InterfaceName_MemberName</c>, whatever its access.
+    /// (<strong>MS-VBAL §5.3.1.9</strong>): the declaration named <c>InterfaceName_MemberName</c>, whatever its access, of
+    /// the kind the member calls for.
     /// </summary>
+    /// <remarks>
+    /// A subroutine is implemented by a subroutine, a function by a function, and each property accessor by the same
+    /// accessor. A public variable is implemented by property declarations; the one this finds is its
+    /// <c>Property Get</c>, which is what reading the variable through the interface invokes.
+    /// </remarks>
     /// <param name="implemented">An interface this class implements, explicitly or implicitly.</param>
     /// <param name="interfaceMember">A member of <paramref name="implemented"/>.</param>
-    /// <returns>The implementing procedure, or <see langword="null"/> when this class does not implement the member.</returns>
-    public VBProcedureMemberSymbol? FindImplementation(VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember)
+    /// <returns>The implementing declaration, or <see langword="null"/> when this class does not implement the member.</returns>
+    public VBTypeMemberSymbol? FindImplementation(VBClassModuleSymbol implemented, VBTypeMemberSymbol interfaceMember)
     {
         var name = $"{implemented.Name}_{interfaceMember.Name}";
-        return Members.OfType<VBProcedureMemberSymbol>()
-            .FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
+        return Members.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
+            && ImplementsKindOf(interfaceMember, member));
     }
+
+    // Property Get, Let and Set derive from the function's and the subroutine's symbols, and are not the kinds of
+    // declaration they derive from.
+    private static bool ImplementsKindOf(VBTypeMemberSymbol interfaceMember, VBTypeMemberSymbol candidate) => interfaceMember switch
+    {
+        VBPropertyGetMemberSymbol => candidate is VBPropertyGetMemberSymbol,
+        VBPropertyLetMemberSymbol => candidate is VBPropertyLetMemberSymbol,
+        VBPropertySetMemberSymbol => candidate is VBPropertySetMemberSymbol,
+        VBFunctionMemberSymbol => candidate is VBFunctionMemberSymbol,
+        VBProcedureMemberSymbol => candidate is VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol),
+        _ => candidate is VBPropertyGetMemberSymbol,
+    };
 
     /// <summary>
     /// Whether this class implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>

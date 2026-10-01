@@ -17,6 +17,8 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Runtime.Abstract;
+using RDCore.SDK.Semantics.Static;
+using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -437,7 +439,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         }
 
         // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
-        return TryResolveInvocableMember(session, owner, memberName) is { } found
+        return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
             ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
             : EvaluateInstanceField(session, owner, memberName);
     }
@@ -476,7 +478,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     /// considered.
     /// </remarks>
     private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveInvocableMember(
-        IRuntimeSession session, VBTypedValue owner, string memberName)
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression, VBTypedValue owner, string memberName)
     {
         if (UnwrappedOwner(owner) is not VBObjectValue { } objectValue || objectValue.IsNothing()
             || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
@@ -484,11 +486,50 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return null;
         }
 
+        // MS-VBAL §5.3.1.9: "When the target object of an invocation has a declared type that is an interface class of
+        // the actual target object's class and the method name is the name of an interface member of that interface
+        // class then the actual invoked method is the method defined by the corresponding implemented method declaration
+        // of target's object's class."
+        if (ImplementationThroughDeclaredInterface(session, context, ownerExpression, instance.ClassModule, memberName) is { } implementation)
+        {
+            return (objectValue.RuntimeValue, implementation);
+        }
+
         var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
             candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol
             && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
         return member is null ? null : (objectValue.RuntimeValue, member);
+    }
+
+    // What the expression an object is reached through is declared as is what decides which of its interfaces a member
+    // is a member of: the value carries the object, and nothing of how it was declared. So the declaration is asked of
+    // the same rules that type the expression at compile time. It is asked only of an object whose class implements an
+    // interface it declares, since for any other the answer would be its own class.
+    private static VBTypeMemberSymbol? ImplementationThroughDeclaredInterface(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression, VBClassModuleSymbol actual, string memberName)
+    {
+        var lifecycle = ClassLifecycleInterface.Interface.Uri.AbsoluteUri;
+        if (ownerExpression is null || !actual.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri != lifecycle))
+        {
+            return null;
+        }
+
+        var scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
+        var declared = ExpressionStaticSemanticsEvaluator.Evaluate(new StaticEvaluationContext(session.Symbols.Resolver, scope), ownerExpression);
+        if (declared.Result is not VBClassType { Symbol: var declaredClass }
+            || actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declaredClass.Uri.AbsoluteUri) is not { } implementedInterface)
+        {
+            return null;
+        }
+
+        // a public variable or a method: not a Property Let or Set, which are an assignment's business, and not an event.
+        var interfaceMember = implementedInterface.Members.FirstOrDefault(candidate
+            => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)
+            && (candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+                || candidate.Kind == SymbolKindExt.Field));
+
+        return interfaceMember is null ? null : actual.FindImplementation(implementedInterface, interfaceMember);
     }
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
@@ -578,7 +619,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                 return notSet;
             }
 
-            if (TryResolveInvocableMember(session, ownerResult.Result!, qualified.Member.IdentifierName) is { } found)
+            if (TryResolveInvocableMember(session, context, qualified.Owner, ownerResult.Result!, qualified.Member.IdentifierName) is { } found)
             {
                 return InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver);
             }
