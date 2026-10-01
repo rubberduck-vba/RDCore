@@ -694,7 +694,8 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                 : RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        if (owner is not VBObjectValue objectValue || objectValue.IsNothing()
+        // an object held by a Variant - an element of an array of Variant, a Variant parameter - is the object.
+        if (UnwrappedOwner(owner) is not VBObjectValue objectValue || objectValue.IsNothing()
             || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
@@ -798,19 +799,9 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var subscripts = new int[indexExpression.Arguments.Length];
-        for (var i = 0; i < indexExpression.Arguments.Length; i++)
+        if (EvaluateSubscripts(session, context, indexExpression.Arguments, out var subscripts) is { } subscriptFailure)
         {
-            var argumentResult = EvaluateIndexArgument(session, indexExpression.Arguments[i], context);
-            if (argumentResult is { } evaluated && !evaluated.IsSuccess)
-            {
-                return evaluated;
-            }
-            if (argumentResult is null || !TryGetIntegralSubscript(argumentResult.Value.Result, out var subscript))
-            {
-                return RuntimeSemanticsEvaluationResult.InternalError();
-            }
-            subscripts[i] = subscript;
+            return subscriptFailure;
         }
 
         var element = array[subscripts];
@@ -818,6 +809,39 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             ? RuntimeSemanticsEvaluationResult.Success(element)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                 string.Join(", ", subscripts)));
+    }
+
+    /// <summary>
+    /// Evaluates the subscripts of an element of an array, <c>a(i, j)</c>, to the integers that select it.
+    /// </summary>
+    /// <param name="session">The session the expressions are evaluated in.</param>
+    /// <param name="context">The scope of the expressions.</param>
+    /// <param name="arguments">The subscript expressions, one per dimension.</param>
+    /// <param name="subscripts">What each evaluated to; empty when evaluating failed.</param>
+    /// <returns>The error or internal error that stopped it, or <see langword="null"/> when every subscript has a value.</returns>
+    public RuntimeSemanticsEvaluationResult? EvaluateSubscripts(
+        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> arguments, out int[] subscripts)
+    {
+        subscripts = [];
+        var evaluated = new int[arguments.Length];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var argumentResult = EvaluateIndexArgument(session, arguments[i], context);
+            if (argumentResult is { } failed && !failed.IsSuccess)
+            {
+                return failed;
+            }
+
+            if (argumentResult is null || !TryGetIntegralSubscript(argumentResult.Value.Result, out var subscript))
+            {
+                return RuntimeSemanticsEvaluationResult.InternalError();
+            }
+
+            evaluated[i] = subscript;
+        }
+
+        subscripts = evaluated;
+        return null;
     }
 
     private static VBTypeMemberSymbol? TryResolveCallableSub(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee)

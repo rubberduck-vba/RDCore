@@ -83,8 +83,13 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
         return redim.IsPreserve
             ? Preserved(session, symbol, redim, array, bounds)
-            : Allocate(session, symbol, new VBResizableArrayValue(bounds, array.ItemType));
+            : Allocate(session, symbol, new VBResizableArrayValue(bounds, array.IsInitialized ? array.ItemType : DeclaredItemType(symbol, array.ItemType)));
     }
+
+    // an array with no dimensions yet is every uninitialized array's own default, which knows nothing of the element type its
+    // variable was declared with: `Dim a() As Long` is an array of Long, and so is what a ReDim of it makes.
+    private static VBType DeclaredItemType(Symbol symbol, VBType fallback)
+        => symbol is ITypedSymbol { ResolvedType: VBArrayType { ItemType: var declared } } ? declared : fallback;
 
     /// <summary>
     /// Executes an <c>Erase</c> statement (<strong>MS-VBAL §5.4.3.4</strong>).

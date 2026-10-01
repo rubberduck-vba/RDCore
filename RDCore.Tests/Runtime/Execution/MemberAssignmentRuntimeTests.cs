@@ -124,10 +124,14 @@ public sealed class MemberAssignmentRuntimeTests
         var levelGet = world.Get(box, "Level", VBLongType.TypeInfo, AccessModifier.Public, ["Level = Size"]);
         var itemLet = world.Let(box, "Item", AccessModifier.Public, ["Size = i * 100 + v"], ("i", VBLongType.TypeInfo), ("v", VBLongType.TypeInfo));
         var partnerSet = world.Set(box, "Partner", AccessModifier.Public, ["Set Link = b"], ("b", VBObjectType.TypeInfo));
+        // a public array a box holds, which is sized by the box itself.
+        var cells = world.Field(box, "Cells", new VBResizableArrayType(VBLongType.TypeInfo), AccessModifier.Public);
+        var links = world.Field(box, "Links", new VBResizableArrayType(VBObjectType.TypeInfo), AccessModifier.Public);
+        var allocate = world.Sub(box, "Allocate", AccessModifier.Public, ["ReDim Cells(1 To 3)", "ReDim Links(1 To 2)"]);
         box = box with
         {
-            Members = [size, boxLink, show, terminate, showLink, levelLet, levelGet, itemLet, partnerSet],
-            DefaultInterfaceMembers = [size, boxLink, show, showLink, levelLet, levelGet, itemLet, partnerSet],
+            Members = [size, boxLink, show, terminate, showLink, levelLet, levelGet, itemLet, partnerSet, cells, links, allocate],
+            DefaultInterfaceMembers = [size, boxLink, show, showLink, levelLet, levelGet, itemLet, partnerSet, cells, links, allocate],
         };
         var boxType = VBClassType.FromClassModule(box);
 
@@ -154,7 +158,7 @@ public sealed class MemberAssignmentRuntimeTests
         var output = new RuntimeOutputBuffer();
         var session = RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
-            [new StdLibSymbolProvider(Root), new Provider([module, box, iBox, impl, size, boxLink, show, terminate, showLink, levelLet, levelGet, itemLet, partnerSet,
+            [new StdLibSymbolProvider(Root), new Provider([module, box, iBox, impl, size, boxLink, show, terminate, showLink, levelLet, levelGet, itemLet, partnerSet, cells, links, allocate,
                 iSize, stored, implLet, implGet, implShow, main])],
             output: output);
         var pipeline = RuntimeExecutionPipeline.Create(session, world.Bodies, Substitute.For<IVerboseMessageBuilder>());
@@ -215,6 +219,34 @@ public sealed class MemberAssignmentRuntimeTests
         Assert.IsTrue(outcome.IsError);
         Assert.AreEqual((int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, outcome.ErrorInfo!.ErrorId);
     }
+
+    #endregion
+
+    #region An array a variable holds
+
+    [TestMethod]
+    public void AnElementOfAnArrayAnObjectHolds_IsAssigned_AndReadBack()
+        => CollectionAssert.AreEqual(new[] { "7", "0" }, RunOk("Set b = New Box", "b.Allocate", "b.Cells(2) = 7", "Debug.Print b.Cells(2)", "Debug.Print b.Cells(3)"));
+
+    [TestMethod]
+    public void AnElementOfAnArrayAnObjectHolds_IsAssignedThroughAWithBlock()
+        => CollectionAssert.AreEqual(new[] { "5" }, RunOk("Set b = New Box", "b.Allocate", "With b", ".Cells(1) = 5", "End With", "Debug.Print b.Cells(1)"));
+
+    [TestMethod]
+    public void AnElementOfAnArrayAnObjectHolds_ThatIsOutOfBounds_IsError9()
+    {
+        _ = Run(out var outcome, "Set b = New Box", "b.Allocate", "b.Cells(4) = 1");
+
+        Assert.IsTrue(outcome.IsError);
+        Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, outcome.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void AnObjectIsSetAsAnElementOfAnArrayAnObjectHolds_AndReleasedWhenTheElementIsSetToNothing()
+        // the second box is held by the element only: setting it to Nothing is the last reference going.
+        => CollectionAssert.AreEqual(new[] { "9", "term", "after" }, RunOk(
+            "Set b = New Box", "b.Allocate", "Set c = New Box", "c.Size = 9", "Set b.Links(1) = c", "Debug.Print b.Links(1).Size",
+            "c.Size = -1", "Set c = Nothing", "Set b.Links(1) = Nothing", "Debug.Print \"after\""));
 
     #endregion
 

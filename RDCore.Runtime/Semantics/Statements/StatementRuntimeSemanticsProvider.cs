@@ -175,6 +175,14 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
                 : memberValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(memberValue.ErrorInfo!);
         }
 
+        if (assignment.Target is IndexExpressionNode element)
+        {
+            var elementValue = _expressionEvaluator.Evaluate(session, assignment.Value, context);
+            return elementValue.IsSuccess
+                ? _assignments.AssignArrayElement(session, context, element.Callee, element.Arguments, assignment.Value, elementValue.Result!, isSet: true)
+                : elementValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(elementValue.ErrorInfo!);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode simpleName)
         {
             return RuntimeExecutionOutcome.InternalError;

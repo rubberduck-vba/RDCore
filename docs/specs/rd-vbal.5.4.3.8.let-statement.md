@@ -61,7 +61,14 @@ public variable of the class, found through the declared interface when `obj` is
 ([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)). A public variable is assigned by Let-coercing the value to
 its declared type; with no such member, error 438 is raised. A `With` block assigns the same way.
 
-> **Not implemented.** An element of an array held by a member: `obj.Items(1) = value`.
+### Elements of an array
+
+`a(i, j) = value`, and `obj.Items(i) = value` when the array is what a public variable of an object holds
+(`LetAssignmentEvaluator.AssignArrayElement`), assigns an element in place: the value is Let-coerced to the element type of the array and
+written to the element's own cell, and the array is never copied. A subscript outside the bounds of the array is error 9. `Set a(i) = obj` does
+the same with Set-coercion, and lets go of the object the element held and takes a reference to the one it is given.
+
+A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.
 
 ### UDT fields
 

@@ -82,6 +82,18 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
     /// which reading a UDT variable would return one with every field at its default, whatever had been
     /// assigned to it.
     /// </remarks>
+    /// <summary>
+    /// What a binding holds for <paramref name="value"/>: the runtime value a <see cref="VBTypedValue"/> that is identified by
+    /// its location has to be boxed in, as <see cref="FreshBinding"/> does, so that reading the binding hands back the same instance.
+    /// </summary>
+    internal static IRuntimeValue BoxedValue(VBTypedValue value) => value switch
+    {
+        VBArrayValue array => new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array)),
+        VBUserDefinedTypeValue udt => new VBRuntimeValue<VBRuntimeUserDefinedTypeValue>(new VBRuntimeUserDefinedTypeValue(udt)),
+        VBVariantValue variant => new VBRuntimeVariantValue(variant.TypedValue.TypeInfo.VarType(), variant.TypedValue),
+        _ => value.Handle.Value,
+    };
+
     private static IBindingHandle FreshBinding(VBTypedValue value) => value switch
     {
         VBArrayValue array => new ValueBindingHandle(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),

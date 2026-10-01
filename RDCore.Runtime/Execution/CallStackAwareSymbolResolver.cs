@@ -85,10 +85,37 @@ public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolRe
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Always the session-wide <paramref name="inner"/> resolver, never the current frame: allocating
-    /// NEW storage is a session-level concern (a <c>Static</c> local's own first-call allocation,
-    /// chiefly) — an ordinary frame-local's own storage is a completely separate mechanism
-    /// (<see cref="ICallStackFrame.Push"/>), not reachable through this method at all.
+    /// Allocating NEW storage is a session-level concern (a <c>Static</c> local's own first-call allocation,
+    /// chiefly), which is <paramref name="inner"/>'s. A variable the current activation or the object it is a call on
+    /// already holds is not new storage: it is what a <c>ReDim</c> gives another array, which the variable's own binding
+    /// then holds, where everything that reads the variable looks for it.
     /// </remarks>
-    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address) => inner.TryAllocate(symbol, value, out address);
+    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
+    {
+        address = default;
+        IBindingHandle? held = null;
+        if (symbol.ScopeKind is ScopeKind.Local && callStack.Current is { } frame && frame.TryResolve(symbol, out var local))
+        {
+            held = local;
+            frame.TryGetAddress(symbol, out address);
+        }
+        else if (TryInstanceOf(symbol, out var instance) && instance.TryResolve(symbol, out var field))
+        {
+            held = field;
+            instance.TryGetAddress(symbol, out address);
+        }
+
+        if (held is null)
+        {
+            return inner.TryAllocate(symbol, value, out address);
+        }
+
+        if (!held.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        held.SetValue(this, SymbolAddressTable.BoxedValue(value));
+        return true;
+    }
 }

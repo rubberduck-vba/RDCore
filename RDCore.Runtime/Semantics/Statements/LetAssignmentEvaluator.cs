@@ -12,8 +12,10 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -95,12 +97,114 @@ public sealed class LetAssignmentEvaluator(
             ? AssignField(session, context, statement, memberAccess, source, value)
             : IsMemberOfObject(target)
                 ? AssignObjectMember(session, context, statement, target, source, value, isSet: false)
-                : TryResolveTarget(session, context, target, out var symbol)
-                    ? Assign(session, context, statement, symbol!, target, source, value)
-                    : RuntimeExecutionOutcome.InternalError;
+                : target is IndexExpressionNode element
+                    ? AssignArrayElement(session, context, element.Callee, element.Arguments, source, value, isSet: false)
+                    : TryResolveTarget(session, context, target, out var symbol)
+                        ? Assign(session, context, statement, symbol!, target, source, value)
+                        : RuntimeExecutionOutcome.InternalError;
 
     // `owner.Property(index) = value`: an index expression whose callee is a member access.
     private static bool IsMemberOfObject(ExpressionNode target) => target is IndexExpressionNode { Callee: MemberAccessExpressionNode };
+
+    /// <summary>
+    /// Assigns <paramref name="value"/> to an element of an array: <c>a(1, 2) = value</c>, or <c>owner.Items(1) = value</c> when the
+    /// array is what a variable of an object holds (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The value is Let-coerced to the element type of the array - Set-coerced for a <c>Set</c> assignment, which also lets go of the
+    /// object the element held and takes a reference to the one it is given. A subscript outside the bounds of the array is
+    /// error 9.
+    /// </remarks>
+    /// <param name="session">The session the array lives in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="arrayExpression">The expression the array is the value of: the callee of the index expression.</param>
+    /// <param name="subscripts">The subscript expressions, one for each dimension.</param>
+    /// <param name="source">The expression the value came from, for the location of an error.</param>
+    /// <param name="value">The value to assign, already evaluated.</param>
+    /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
+    public RuntimeExecutionOutcome AssignArrayElement(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode arrayExpression,
+        System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts, ExpressionNode source, VBTypedValue value, bool isSet)
+    {
+        var evaluated = expressions.Evaluate(session, arrayExpression, context);
+        if (!evaluated.IsSuccess)
+        {
+            return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+        }
+
+        var held = evaluated.Result;
+        while (held is VBVariantValue { TypedValue: { } wrapped })
+        {
+            held = wrapped;
+        }
+
+        if (held is not VBArrayValue array)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (expressions.EvaluateSubscripts(session, context, subscripts, out var indices) is { } failure)
+        {
+            return failure.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(failure.ErrorInfo!);
+        }
+
+        if (array.GetElementHandle(indices) is null)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.SubscriptOutOfRange, arrayExpression.Location, string.Join(", ", indices)));
+        }
+
+        if (isSet)
+        {
+            if (expressions.SetCoercion is not { } setCoercion)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            var setResult = setCoercion.EvaluateSetCoercion(session, source, value, array.ItemType);
+            if (!setResult.IsSuccess)
+            {
+                return RuntimeExecutionOutcome.Error(setResult.ErrorInfo!);
+            }
+
+            // what the element held is its object's identity as of now: the cell is about to be bound to something else.
+            var previous = array[indices] is VBObjectValue heldObject ? new VBObjectValue(heldObject.Value) : null;
+            var cell = StoreElement(session, array, indices, setResult.Result!.RuntimeValue);
+            ObjectReferences.Rebind(session, cell, previous, setResult.Result as VBObjectValue);
+            return RuntimeExecutionOutcome.Next;
+        }
+
+        var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(array.ItemType));
+        var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
+        if (!coerced.IsApplicable)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (!coerced.IsSuccess)
+        {
+            return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+        }
+
+        StoreElement(session, array, indices, coerced.Result!.RuntimeValue);
+        return RuntimeExecutionOutcome.Next;
+    }
+
+    // An element is written where it is: its cell is the storage, and the one an object reference is held by, which is what
+    // lets the reference be released when the element is assigned again. Only a cell that cannot be written - the inert one
+    // an element of a class, user-defined type or Object type starts with - is given a binding that can.
+    private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, IRuntimeValue value)
+    {
+        var cell = array.GetElementHandle(indices)!;
+        if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            cell.SetValue(session.Symbols.Resolver, value);
+            return cell;
+        }
+
+        array.TrySetElement(new ValueBindingHandle(value), indices);
+        return array.GetElementHandle(indices)!;
+    }
 
     /// <summary>
     /// Assigns <paramref name="value"/> to a member of an object (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>):
@@ -114,7 +218,8 @@ public sealed class LetAssignmentEvaluator(
     /// object it held and takes a reference to the one it is given, and attaches the handlers of a <c>WithEvents</c>
     /// variable to it, as a <c>Set</c> of a variable of the code's own does.
     /// <para>
-    /// 🚧 TODO an element of an array a variable holds, <c>owner.Items(1) = value</c>, is not assigned.
+    /// An index on a public variable is an element of the array it holds, <c>owner.Items(1) = value</c>
+    /// (<see cref="AssignArrayElement"/>).
     /// </para>
     /// </remarks>
     /// <param name="session">The session the object lives in.</param>
@@ -176,11 +281,19 @@ public sealed class LetAssignmentEvaluator(
                 : RuntimeExecutionOutcome.Error(invocation.ErrorInfo!);
         }
 
-        // a public variable is the storage of the object it is a variable of; an index on it is an element of what it holds.
-        if (!indexArguments.IsEmpty || member.Field is not { } field || member.Instance is not { } instance)
+        if (member.Field is null || member.Instance is null)
         {
             return RuntimeExecutionOutcome.InternalError;
         }
+
+        // a public variable is the storage of the object it is a variable of; an index on it is an element of what it holds.
+        if (!indexArguments.IsEmpty)
+        {
+            return AssignArrayElement(session, context, memberAccess, indexArguments, source, value, isSet);
+        }
+
+        var field = member.Field;
+        var instance = member.Instance;
 
         var handle = instance.GetValue(field);
         if (!isSet)
