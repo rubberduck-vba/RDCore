@@ -43,8 +43,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     private readonly FileStatementRuntimeSemantics _files;
     private readonly FixedAssignmentRuntimeSemantics _fixedAssignment;
     private readonly ArrayStatementRuntimeSemantics _arrays;
+    private readonly MidStatementRuntimeSemantics _mid;
 
-    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, LetAssignmentEvaluator assignments, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, FixedAssignmentRuntimeSemantics fixedAssignment, ArrayStatementRuntimeSemantics arrays)
+    public StatementRuntimeSemanticsProvider(RuntimeExpressionEvaluator expressionEvaluator, LetAssignmentEvaluator assignments, ISetCoercionRuntimeSemantics setCoercion, PrintOutputEvaluator printOutput, ConditionEvaluator conditions, FileStatementRuntimeSemantics files, FixedAssignmentRuntimeSemantics fixedAssignment, ArrayStatementRuntimeSemantics arrays, MidStatementRuntimeSemantics mid)
     {
         _expressionEvaluator = expressionEvaluator;
         _assignments = assignments;
@@ -54,6 +55,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         _files = files;
         _fixedAssignment = fixedAssignment;
         _arrays = arrays;
+        _mid = mid;
     }
 
     /// <inheritdoc/>
@@ -64,6 +66,8 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             AssignmentStatementNode { Kind: AssignmentKind.Set } assignment => ExecuteSetAssignment(session, context, assignment),
             // MS-VBAL §5.4.3.6-7: LSet and RSet fit a value into the target's own current width.
             AssignmentStatementNode { Kind: AssignmentKind.LSet or AssignmentKind.RSet } assignment => _fixedAssignment.Execute(session, context, assignment),
+            // MS-VBAL §5.4.3.5: Mid replaces a span of the characters (or bytes) of a string variable.
+            MidStatementNode mid => _mid.Execute(session, context, mid),
             // MS-VBAL §5.4.3.3-4: the statements that change an array's shape.
             RedimDeclarationNode redim => _arrays.ExecuteRedim(session, context, redim),
             KeywordStatementNode { Token: Tokens.Erase } erase => _arrays.ExecuteErase(session, context, erase),
