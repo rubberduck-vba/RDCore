@@ -118,10 +118,37 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             IndexExpressionNode indexExpression => EvaluateIndex(session, context, expression, indexExpression),
             DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(session, context, expression, dictionaryAccess),
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(session, context, expression, typeOfIs),
+            ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(session, context, arrayBound),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, unaryOperator),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+
+    // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it
+    // holds (VBArrayType.CreateValue hands back the stored instance, not a copy) - and only its bounds are read.
+    private RuntimeSemanticsEvaluationResult EvaluateArrayBound(
+        IRuntimeSession session, RuntimeEvaluationContext context, ArrayBoundExpressionNode arrayBound)
+    {
+        var array = Evaluate(session, arrayBound.Array, context);
+        if (!array.IsSuccess)
+        {
+            return array;
+        }
+
+        VBTypedValue? dimension = null;
+        if (arrayBound.Dimension is { } dimensionExpression)
+        {
+            var evaluated = Evaluate(session, dimensionExpression, context);
+            if (!evaluated.IsSuccess)
+            {
+                return evaluated;
+            }
+
+            dimension = evaluated.Result;
+        }
+
+        return ArrayBoundRuntimeSemantics.Evaluate(arrayBound, array.Result!, dimension);
+    }
 
     private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
     {

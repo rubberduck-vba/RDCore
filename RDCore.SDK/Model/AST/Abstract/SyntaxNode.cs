@@ -92,6 +92,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(LiteralExpressionNode), "LiteralExpression")]
 [JsonDerivedType(typeof(MemberAccessExpressionNode), "MemberAccessExpression")]
 [JsonDerivedType(typeof(NewExpressionNode), "NewExpression")]
+[JsonDerivedType(typeof(ArrayBoundExpressionNode), "ArrayBoundExpression")]
 [JsonDerivedType(typeof(SimpleNameExpressionNode), "SimpleNameExpression")]
 [JsonDerivedType(typeof(TypeOfIsExpressionNode), "TypeOfIsExpression")]
 [JsonDerivedType(typeof(VBUnaryOperatorExpressionNode), "UnaryOpExpression")]

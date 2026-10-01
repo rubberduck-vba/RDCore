@@ -51,6 +51,7 @@ public static class ExpressionStaticSemanticsEvaluator
             DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(context, expression, dictionaryAccess),
             // TypeExpression names a type, not a value - nothing to recurse into as an expression.
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(context, expression, typeOfIs),
+            ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(context, arrayBound),
             VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(context, expression, binaryOperator),
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
@@ -145,6 +146,26 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return DictionaryAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
+    }
+
+    // MS-VBAL 3.3.5.2: LBound and UBound yield a Long whatever the array, so the result type needs nothing of the
+    // operands - but an operand is an expression like any other and can be wrong in its own right, which is the
+    // first rule to fail here.
+    // 🚧 TODO the array operand's declared type must be an array, or a Variant or Object that may hold one: MS-VBA
+    // refuses anything else when it compiles the expression. Nothing says that yet, so a non-array operand is only
+    // found out when the expression runs.
+    private static StaticSemanticsEvaluationResult EvaluateArrayBound(StaticEvaluationContext context, ArrayBoundExpressionNode arrayBound)
+    {
+        foreach (var operand in arrayBound.Inputs.OfType<ExpressionNode>())
+        {
+            var result = Evaluate(context, operand);
+            if (result.IsError)
+            {
+                return result;
+            }
+        }
+
+        return StaticSemanticsEvaluationResult.Success(VBLongType.TypeInfo);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateTypeOfIs(

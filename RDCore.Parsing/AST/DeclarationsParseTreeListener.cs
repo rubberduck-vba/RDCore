@@ -1165,8 +1165,46 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(peeked.Length);
         var arguments = peeked.Skip(1).Cast<ExpressionNode>().ToImmutableArray();
+
+        // MS-VBAL 3.3.5.2: the LBound/UBound special forms are keywords the grammar lets through as identifiers,
+        // so what reaches here is an index expression on a name that is not one. The array is the construct's own
+        // operand rather than an argument to a call, and the name it was written with is dropped with the callee.
+        if (ArrayBoundKeywordOf(context) is { } kind && IsArrayBoundOperands(arguments))
+        {
+            CurrentBuilder.AddChild(new ArrayBoundExpressionNode(
+                GetCurrentNodeId(), context.GetSourceLocation(_rootUri), kind, arguments[0], arguments.Length > 1 ? arguments[1] : null));
+            return;
+        }
+
         CurrentBuilder.AddChild(new IndexExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), callee, arguments));
     }
+
+    // the keyword itself, by token: a name written [UBound], or typed with a hint, or a member called that, is an
+    // ordinary name and stays one.
+    private static ArrayBoundKind? ArrayBoundKeywordOf(VBABaseParserRuleContext context)
+    {
+        var callee = context switch
+        {
+            VBAParser.IndexExprContext index => index.lExpression(),
+            VBAParser.WhitespaceIndexExprContext spaced => spaced.lExpression(),
+            _ => null,
+        };
+
+        if (callee is not VBAParser.SimpleNameExprContext { } name || name.identifier()?.typedIdentifier() is not null)
+        {
+            return null;
+        }
+
+        var keyword = name.identifier()?.untypedIdentifier()?.identifierValue()?.keyword();
+        return keyword?.LBOUND() is not null ? ArrayBoundKind.Lower
+            : keyword?.UBOUND() is not null ? ArrayBoundKind.Upper
+            : null;
+    }
+
+    // one array and, optionally, the dimension: both positional. Anything else - no operand, three, a named or
+    // omitted one - is not this construct, and is left for the rules about calls to say what is wrong with it.
+    private static bool IsArrayBoundOperands(ImmutableArray<ExpressionNode> arguments)
+        => arguments.Length is 1 or 2 && arguments.All(argument => argument is not (NamedArgumentNode or MissingArgumentNode));
 
     // a positional argument's own `expression` (or ByVal-marked expression) flows through
     // transparently, same as `expression`'s `lExpr` alternative — no handler needed here. Only the

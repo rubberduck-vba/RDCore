@@ -10,21 +10,22 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
-namespace RDCore.Tests.Runtime.StdLib;
+namespace RDCore.Tests.Runtime.Execution;
 
 /// <summary>
-/// <c>LBound</c> and <c>UBound</c>: the special forms (<strong>MS-VBAL §3.3.5.2</strong>) that read the bounds of
+/// <c>LBound</c> and <c>UBound</c>: the special-form keywords (<strong>MS-VBAL §3.3.5.2</strong>) that read the bounds of
 /// one dimension of an array. MS-VBAL reserves the names and gives them no semantics, so these pin the behavior
-/// MS-VBA documents: the dimension counts from 1 and defaults to 1, and an array that has no such dimension —
-/// including a dynamic array not yet sized — is error 9.
+/// Microsoft documents for the keywords: the dimension counts from 1 and defaults to 1, and a lower bound may be any
+/// integer; and, where that documentation is silent, what MS-VBA does — an array that has no such dimension,
+/// including a dynamic array not yet sized, is error 9.
 /// </summary>
 /// <remarks>
-/// The array is the test's input: a module-level variable holding one, which is the state the functions read,
+/// The array is the test's input: a module-level variable holding one, which is the state the keywords read,
 /// and which a procedure-local array cannot yet be (see the ignored tests at the end).
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 3.3.5.2 Special forms")]
-public sealed class ArrayBoundFunctionTests
+public sealed class ArrayBoundRuntimeTests
 {
     // a fixed-size array of Long with the given (lower, upper) bounds, held by a module-level variable named A.
     private static IReadOnlyList<string> RunOn((int Lower, int Upper)[] bounds, params string[] body)
@@ -51,6 +52,37 @@ public sealed class ArrayBoundFunctionTests
     }
 
     private static string[] Trimmed(IReadOnlyList<string> output) => [.. output.Select(line => line.Trim())];
+
+    [TestMethod]
+    public void ReadingABound_DoesNotCopyTheArray()
+    {
+        // a regression guard: reading a bound looks at the dimensions only, so what it costs must not depend on how
+        // big the array is. Bytes allocated per evaluation over an array of a hundred thousand cells: copying the
+        // cells (a `with` copy of such an array) is 800 KB, and a bound measures about 2 KB, so the budget below is
+        // generous for the machinery around the bound and still catches a copy fifty times over.
+        const int Cells = 100_000;
+        const int Iterations = 200;
+        string[] loop(int count) =>
+        [
+            "Dim i As Long",
+            "Dim n As Long",
+            $"For i = 1 To {count}",
+            "n = UBound(A) + LBound(A)",
+            "Next",
+        ];
+
+        long Allocated(int count)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            RunOn([(1, Cells)], loop(count));
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        Allocated(1); // the first run pays for loading what a run needs, once
+        var perCall = (Allocated(Iterations + 1) - Allocated(1)) / (2d * Iterations);
+
+        Assert.IsLessThan(16 * 1024d, perCall, $"each bound allocated {perCall:N0} bytes - the array is being copied");
+    }
 
     [TestMethod]
     public void AnArrayWithExplicitBounds_ReportsThem()

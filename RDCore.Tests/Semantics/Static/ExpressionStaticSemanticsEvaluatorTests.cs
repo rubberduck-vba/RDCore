@@ -54,6 +54,9 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
     private static TypeOfIsExpressionNode TypeOfIsOf(ExpressionNode operand, ExpressionNode typeExpression)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [6]), TestLocations.TestLocation, operand, typeExpression);
 
+    private static ArrayBoundExpressionNode ArrayBoundOf(ArrayBoundKind kind, ExpressionNode array, ExpressionNode? dimension = null)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [11]), TestLocations.TestLocation, kind, array, dimension);
+
     private static IndexExpressionNode IndexOf(ExpressionNode callee, params ExpressionNode[] arguments)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [7]), TestLocations.TestLocation, callee, [.. arguments]);
 
@@ -257,6 +260,38 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
         Assert.AreEqual(VBLongType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    [DataRow(ArrayBoundKind.Lower)]
+    [DataRow(ArrayBoundKind.Upper)]
+    public void ArrayBound_ResolvesToLong_WhateverTheArrayHolds_ThroughRealSymbols(ArrayBoundKind kind)
+    {
+        // MS-VBAL 3.3.5.2: the bound is a Long, and an array of Strings has the same one.
+        var caller = Module("Caller");
+        var names = ModuleField(caller.Uri, "names", new VBFixedSizeArrayType(VBStringType.TypeInfo));
+        var context = ContextAt(caller.Uri, caller with { Members = [names] }, names);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, ArrayBoundOf(kind, NameOf("names")));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+        Assert.AreEqual(VBLongType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void ArrayBound_AnOperandError_PropagatesInsteadOfContinuing()
+        // an unresolved operand under Option Explicit fails the whole expression, the dimension's as much as the
+        // array's, though the bound's own type needs neither.
+    {
+        var caller = Module("Caller") with { Directives = new ModuleDirectives(Explicit: true) };
+        var data = ModuleField(caller.Uri, "data", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var context = ContextAt(caller.Uri, caller with { Members = [data] }, data);
+
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(
+            context, ArrayBoundOf(ArrayBoundKind.Upper, NameOf("data"), NameOf("DoesNotExist")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.VariableNotDefined, result.ErrorInfo!.VBCompileErrorId);
     }
 
     [TestMethod]
