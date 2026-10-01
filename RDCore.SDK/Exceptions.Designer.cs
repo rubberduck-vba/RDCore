@@ -529,6 +529,33 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Invalid Implements directive.
+        /// </summary>
+        public static string VBCompileError_InvalidImplementsDirective {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidImplementsDirective", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Object module needs to implement all members of its interface.
+        /// </summary>
+        public static string VBCompileError_InterfaceMemberNotImplemented {
+            get {
+                return ResourceManager.GetString("VBCompileError_InterfaceMemberNotImplemented", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid implemented member.
+        /// </summary>
+        public static string VBCompileError_InvalidImplementedMember {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidImplementedMember", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

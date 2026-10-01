@@ -372,6 +372,15 @@
   <data name="VBCompileError_ByValArgumentNotAllowed" xml:space="preserve">
     <value>Argument ByVal non autorisé ici</value>
   </data>
+  <data name="VBCompileError_InvalidImplementsDirective" xml:space="preserve">
+    <value>Directive Implements non valide</value>
+  </data>
+  <data name="VBCompileError_InterfaceMemberNotImplemented" xml:space="preserve">
+    <value>Le module objet doit implémenter tous les membres de son interface</value>
+  </data>
+  <data name="VBCompileError_InvalidImplementedMember" xml:space="preserve">
+    <value>Membre implémenté non valide</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>

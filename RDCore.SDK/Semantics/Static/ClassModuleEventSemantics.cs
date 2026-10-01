@@ -135,7 +135,7 @@ public static class ClassModuleEventSemantics
                     errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidEventHandler, LocationOf(candidate),
                         $"'{candidate.Name}' handles event '{handled.Name}' of '{variable.Name}', and an event handler must be a subroutine (MS-VBAL §5.3.1.8)."));
                 }
-                else if (IncompatibilityOf(ParametersOf(candidate), handled.Parameters) is { } reason)
+                else if (ParameterLists.Incompatibility(ParameterLists.Of(candidate), handled.Parameters) is { } reason)
                 {
                     errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidEventHandler, LocationOf(candidate),
                         $"'{candidate.Name}' handles event '{handled.Name}' of '{variable.Name}', and its parameter list is not compatible with the event's: {reason} (MS-VBAL §5.3.1.8)."));
@@ -150,46 +150,4 @@ public static class ClassModuleEventSemantics
     private static bool IsSubroutine(VBTypeMemberSymbol member)
         => member is VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
 
-    // the implicit Me every member of a class module has at parameter 0 is not a parameter of its parameter list.
-    private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member)
-    {
-        var parameters = member switch
-        {
-            VBProcedureMemberSymbol procedure => procedure.Parameters,
-            VBFunctionMemberSymbol function => function.Parameters,
-            _ => [],
-        };
-
-        return parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
-    }
-
-    // MS-VBAL §5.3.1.8: the same number of parameters, each of the same type and parameter mechanism.
-    private static string? IncompatibilityOf(ImmutableArray<VBParameterSymbol> handler, ImmutableArray<VBParameterSymbol> declared)
-    {
-        if (handler.Length != declared.Length)
-        {
-            return $"it has {handler.Length} parameter(s) and the event has {declared.Length}";
-        }
-
-        for (var i = 0; i < declared.Length; i++)
-        {
-            if (!SameType(handler[i].ResolvedType, declared[i].ResolvedType))
-            {
-                return $"parameter {i + 1} is a {handler[i].ResolvedType.Name} and the event's is a {declared[i].ResolvedType.Name}";
-            }
-
-            if (IsByRef(handler[i].ParameterKind) != IsByRef(declared[i].ParameterKind))
-            {
-                return $"parameter {i + 1} is passed {(IsByRef(handler[i].ParameterKind) ? "ByRef" : "ByVal")} and the event's {(IsByRef(declared[i].ParameterKind) ? "ByRef" : "ByVal")}";
-            }
-        }
-
-        return null;
-    }
-
-    // a type that is not known is not a type that differs.
-    private static bool SameType(Model.Types.Abstract.VBType left, Model.Types.Abstract.VBType right)
-        => left is VBUnknownType || right is VBUnknownType || string.Equals(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 }

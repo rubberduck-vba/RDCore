@@ -86,5 +86,8 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.InvalidEventName] = Exceptions.VBCompileError_InvalidEventName,
         [VBCompileErrorId.InvalidEventHandler] = Exceptions.VBCompileError_InvalidEventHandler,
         [VBCompileErrorId.ByValArgumentNotAllowed] = Exceptions.VBCompileError_ByValArgumentNotAllowed,
+        [VBCompileErrorId.InvalidImplementsDirective] = Exceptions.VBCompileError_InvalidImplementsDirective,
+        [VBCompileErrorId.InterfaceMemberNotImplemented] = Exceptions.VBCompileError_InterfaceMemberNotImplemented,
+        [VBCompileErrorId.InvalidImplementedMember] = Exceptions.VBCompileError_InvalidImplementedMember,
     };
 }

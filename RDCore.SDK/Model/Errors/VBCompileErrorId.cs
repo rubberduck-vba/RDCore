@@ -264,6 +264,26 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.13.1</strong> Argument Lists.
     /// </summary>
     ByValArgumentNotAllowed = 9327,
+    /// <summary>
+    /// An <c>Implements</c> directive names a class that cannot be an interface class: the class module itself, a class
+    /// another directive of the module already names, one whose public members have an underscore in their names, or one
+    /// whose name collides with another interface's; or two interfaces have names one of which begins with the other
+    /// followed by an underscore.<br/>
+    /// <strong>MS-VBAL §5.2.4.2</strong> Implements Directive.
+    /// </summary>
+    InvalidImplementsDirective = 9328,
+    /// <summary>
+    /// A class module that implements an interface does not declare the implemented name that corresponds to one of the
+    /// interface's public variables or methods.<br/>
+    /// <strong>MS-VBAL §5.2.4.2</strong> Implements Directive.
+    /// </summary>
+    InterfaceMemberNotImplemented = 9329,
+    /// <summary>
+    /// A procedure named for an interface member (<c>InterfaceName_MemberName</c>) does not correspond to it: it is not the
+    /// kind of declaration the member needs, or its parameters or its type are not equivalent to the member's.<br/>
+    /// <strong>MS-VBAL §5.3.1.9</strong> Implemented Name Declarations.
+    /// </summary>
+    InvalidImplementedMember = 9330,
 
 
     /***********************************************************************************************
