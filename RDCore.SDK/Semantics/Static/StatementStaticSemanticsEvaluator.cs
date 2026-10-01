@@ -222,8 +222,6 @@ public static class StatementStaticSemanticsEvaluator
     // MS-VBAL §5.4.2.20: the event is one the enclosing class module declares - a standard module has none, so a
     // RaiseEvent in one names no event - and the arguments are compatible with its parameter list under the rules of
     // procedure invocation, all treated as positional.
-    // 🚧 TODO a ByRef parameter whose type does not exactly match that of a variable passed to it is incompatible
-    // (§5.3.1.11), and an object argument is not checked against a parameter declared as a class.
     private static void EvaluateRaiseEvent(StaticEvaluationContext context, KeywordStatementNode statement, Walk walk)
     {
         if (statement.Inputs is not [SimpleNameExpressionNode eventName, .. var inputs])
@@ -261,18 +259,65 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
-        // a ByVal parameter of a type other than a class or Object takes the argument by Let-coercion (§5.3.1.11).
         for (var i = 0; i < Math.Min(arguments.Length, parameters.Length); i++)
         {
             var parameter = parameters[i];
-            if (argumentTypes[i] is { } argumentType
-                && parameter.ParameterKind is ParameterKind.ExplicitByVal or ParameterKind.ImplicitByVal
-                && parameter.ResolvedType is not (VBClassType or VBObjectType or VBUnknownType))
+            if (argumentTypes[i] is not { } argumentType || parameter.ResolvedType is VBUnknownType)
             {
+                continue;
+            }
+
+            if (ArgumentIncompatibility(context, parameter, arguments[i], argumentType) is { } reason)
+            {
+                walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventArgumentsIncompatible, arguments[i].Location,
+                    $"Argument {i + 1} of event '{declared.Name}' is not compatible with parameter '{parameter.Name}': {reason} (MS-VBAL §5.3.1.11)."));
+            }
+            else if (!IsByRef(parameter.ParameterKind) && parameter.ResolvedType is not (VBClassType or VBObjectType))
+            {
+                // a ByVal parameter of a type other than a class or Object takes the argument by Let-coercion.
                 CollectError(LetCoercionStaticSemantics.Instance.DetermineDeclaredType(context, arguments[i], argumentType, parameter.ResolvedType), walk);
             }
         }
     }
+
+    // MS-VBAL §5.3.1.11, for each mapped parameter: a class or Object parameter takes an argument of a specific class or
+    // Object, and a ByVal one a Variant too; a ByRef parameter of any other type but Variant takes an argument of exactly
+    // its declared type. Null when the argument is compatible, or not known to be incompatible.
+    private static string? ArgumentIncompatibility(
+        StaticEvaluationContext context, VBParameterSymbol parameter, ExpressionNode argument, VBType argumentType)
+    {
+        if (argumentType is VBUnknownType)
+        {
+            return null;
+        }
+
+        var byRef = IsByRef(parameter.ParameterKind);
+        if (parameter.ResolvedType is VBClassType or VBObjectType)
+        {
+            return argumentType is VBClassType or VBObjectType || (!byRef && argumentType is VBVariantType)
+                ? null
+                : $"a parameter declared as {parameter.ResolvedType.Name} takes {(byRef ? "an object" : "an object or a Variant")}, and the argument is a {argumentType.Name}";
+        }
+
+        // The runtime semantics of a ByRef parameter given a value (a literal, an operator's result) is a new local that is
+        // Let-assigned, which is no reference to a type: only an argument that is a variable is passed by reference.
+        // 🚧 TODO a member access that names a field is a variable too; it is taken for a value, and not checked.
+        if (byRef && parameter.ResolvedType is not VBVariantType && IsVariable(context, argument)
+            && !string.Equals(parameter.ResolvedType.Name, argumentType.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"a ByRef parameter of type {parameter.ResolvedType.Name} takes a variable of exactly that type, and the argument is a {argumentType.Name}";
+        }
+
+        return null;
+    }
+
+    private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
+
+    // an argument is a variable when it names one: a local, a parameter or a field, not a constant, a procedure or a value.
+    private static bool IsVariable(StaticEvaluationContext context, ExpressionNode argument)
+        => argument is SimpleNameExpressionNode name
+            && context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol
+                is VBLocalVariableSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol;
 
     // A jump's target operand names a label, not a value, and a label is not a symbol: evaluated as an
     // expression, a bare `Done` would come back as an undefined variable. Only the operands that really

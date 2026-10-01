@@ -23,8 +23,23 @@ only in the argument list of an external procedure's invocation ([**RD-VBAL §5.
 which a `RaiseEvent` never is, so it is a syntax error ([VBC00001](../diagnostics/vbc00001.md)) at the parser, and not a
 compile error. The tree keeps it all the same, as a `ByValArgumentExpressionNode`.
 
+Compatibility follows the static rules for each mapped parameter of procedure invocation
+([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)):
+
+|Parameter|Takes|
+|---|---|
+|`ByVal`, of a type that is neither a class nor `Object`|An argument that can be Let-coerced to its type.|
+|`ByVal`, a specific class or `Object`|An object of a specific class or `Object`, or a `Variant`.|
+|`ByRef`, of a type that is not a class, `Object` or `Variant`|A variable of exactly its declared type.|
+|`ByRef`, a specific class or `Object`|An object of a specific class or `Object`.|
+|`ByRef`, `Variant`|An argument of any type.|
+
 > [!NOTE]
-> **Not implemented.** A `ByRef` parameter whose declared type does not exactly match the variable passed to it, and an object argument for a parameter declared as a class, are not checked.
+> **Interpretation.** The static text asks for an exact type match of a `ByRef` parameter without saying what the argument is.
+> The runtime semantics of the same section is that an argument that is a value (a literal, an operator's result) is Let-assigned to
+> a new local variable, and only one that is a variable is referred to. The exact type is therefore required of a variable:
+> `RaiseEvent Bump(5)` is valid for `ByRef Count As Long`, and `RaiseEvent Bump(anInteger)` is not. A member access that names a
+> field is a variable too, and is taken for a value for now: it is not checked.
 
 ## Runtime Semantics
 

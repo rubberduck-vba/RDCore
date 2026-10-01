@@ -8,6 +8,8 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -49,7 +51,35 @@ public sealed class RaiseEventStaticSemanticsTests
         changed = changed with { Parameters = [new VBParameterSymbol(Root, changed.Uri, "Value", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo)] };
         var closed = new VBEventMemberSymbol(Root, module.Uri, "Closed", ScopeKind.Instance, R, R, AccessModifier.Public);
 
-        Symbol[] symbols = classModule ? [module, changed, closed] : [module];
+        // events with one parameter each, of the kind the compatibility rules tell apart, and a variable of each type.
+        var gadget = new VBClassModuleSymbol(Root, Root, "Gadget");
+        var gadgetType = VBClassType.FromClassModule(gadget);
+        VBEventMemberSymbol WithParameter(string name, ParameterKind kind, VBType type)
+        {
+            var declared = new VBEventMemberSymbol(Root, module.Uri, name, ScopeKind.Instance, R, R, AccessModifier.Public);
+            return declared with { Parameters = [new VBParameterSymbol(Root, declared.Uri, "P", R, R, kind, type)] };
+        }
+
+        VBModuleFieldVariableMemberSymbol Variable(string name, VBType type)
+            => new(Root, module.Uri, name, ScopeKind.Module, type, R, R, AccessModifier.Implicit);
+
+        Symbol[] events =
+        [
+            changed, closed,
+            WithParameter("Bump", ParameterKind.ExplicitByRef, VBLongType.TypeInfo),
+            WithParameter("TextOf", ParameterKind.ExplicitByVal, VBStringType.TypeInfo),
+            WithParameter("ShapeOf", ParameterKind.ExplicitByVal, gadgetType),
+            WithParameter("ShapeRef", ParameterKind.ExplicitByRef, gadgetType),
+            WithParameter("ObjectRef", ParameterKind.ExplicitByRef, VBObjectType.TypeInfo),
+            WithParameter("AnyRef", ParameterKind.ExplicitByRef, VBVariantType.TypeInfo),
+        ];
+        Symbol[] variables =
+        [
+            Variable("anInteger", VBIntegerType.TypeInfo), Variable("aLong", VBLongType.TypeInfo), Variable("aVariant", VBVariantType.TypeInfo),
+            Variable("anObject", VBObjectType.TypeInfo), Variable("aGadget", gadgetType),
+        ];
+
+        Symbol[] symbols = classModule ? [module, gadget, .. events, .. variables] : [module];
         var tree = ScopeTreeBuilder.Build(symbols);
         return (new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri)), module);
     }
@@ -97,6 +127,72 @@ public sealed class RaiseEventStaticSemanticsTests
 
         Assert.AreEqual(VBCompileErrorId.VariableNotDefined, errors.Single().VBCompileErrorId);
     }
+
+    #region Compatibility of the arguments (MS-VBAL §5.3.1.11)
+
+    private static void AssertIncompatible(ImmutableArray<VBCompileErrorInfo> errors)
+        => Assert.AreEqual(VBCompileErrorId.EventArgumentsIncompatible, errors.Single().VBCompileErrorId, string.Join("; ", errors.Select(error => error.Verbose)));
+
+    private static ImmutableArray<VBCompileErrorInfo> Raise(string eventName, ExpressionNode argument)
+        => Evaluate(Compose(classModule: true).Context, RaiseOf(eventName, argument));
+
+    [TestMethod]
+    public void AByRefParameter_TakesAVariableOfExactlyItsType()
+        => Assert.IsEmpty(Raise("Bump", NameOf("aLong")));
+
+    [TestMethod]
+    public void AByRefParameter_DoesNotTakeAVariableOfAnotherType()
+        => AssertIncompatible(Raise("Bump", NameOf("anInteger")));
+
+    [TestMethod]
+    public void AByRefParameter_TakesAValueOfAnotherType_ItBeingPassedAsANewLocal()
+        // §5.3.1.11 runtime semantics: an argument that is a value, not a variable, is Let-assigned to a local.
+        => Assert.IsEmpty(Raise("Bump", LongOf(5)));
+
+    [TestMethod]
+    public void AByRefVariantParameter_TakesAVariableOfAnyType()
+        => Assert.IsEmpty(Raise("AnyRef", NameOf("anInteger")));
+
+    [TestMethod]
+    public void AByValParameter_TakesAnArgumentLetCoercibleToItsType()
+        => Assert.IsEmpty(Raise("TextOf", NameOf("aLong")));
+
+    [TestMethod]
+    public void AClassParameter_TakesAnObjectOfAClass()
+        => Assert.IsEmpty(Raise("ShapeOf", NameOf("aGadget")));
+
+    [TestMethod]
+    public void AClassParameter_TakesAnObject_AndAByValOneAVariant()
+    {
+        Assert.IsEmpty(Raise("ShapeOf", NameOf("anObject")));
+        Assert.IsEmpty(Raise("ShapeOf", NameOf("aVariant")));
+    }
+
+    [TestMethod]
+    public void AClassParameter_DoesNotTakeAnArgumentThatIsNotAnObject()
+        => AssertIncompatible(Raise("ShapeOf", NameOf("aLong")));
+
+    [TestMethod]
+    public void AByRefClassParameter_DoesNotTakeAVariant()
+        => AssertIncompatible(Raise("ShapeRef", NameOf("aVariant")));
+
+    [TestMethod]
+    public void AByRefObjectParameter_TakesAClassObject_AndNotALong()
+    {
+        Assert.IsEmpty(Raise("ObjectRef", NameOf("aGadget")));
+        AssertIncompatible(Raise("ObjectRef", NameOf("aLong")));
+    }
+
+    [TestMethod]
+    public void AnIncompatibleArgument_IsReportedWhereItIsWritten_AndNamesTheParameter()
+    {
+        var error = Raise("Bump", NameOf("anInteger")).Single();
+
+        StringAssert.Contains(error.Verbose, "parameter 'P'");
+        StringAssert.Contains(error.Verbose, "Argument 1");
+    }
+
+    #endregion
 
     [TestMethod]
     public void RaiseEventNestedInABlock_IsChecked()
