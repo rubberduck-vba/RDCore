@@ -240,6 +240,24 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.4.2.20</strong> RaiseEvent Statement.
     /// </summary>
     EventArgumentsIncompatible = 9323,
+    /// <summary>
+    /// A <c>WithEvents</c> variable is not declared as a specific class that has at least one event, or is declared as
+    /// the class of the module that contains it.<br/>
+    /// <strong>MS-VBAL §5.2.3.1.2</strong> WithEvents Variable Declarations.
+    /// </summary>
+    InvalidWithEventsType = 9324,
+    /// <summary>
+    /// The name of an <c>Event</c> declaration contains an underscore, which is what separates the name of a
+    /// <c>WithEvents</c> variable from the name of the event in the name of a handler.<br/>
+    /// <strong>MS-VBAL §5.2.4.3</strong> Event Declaration.
+    /// </summary>
+    InvalidEventName = 9325,
+    /// <summary>
+    /// A procedure named for a <c>WithEvents</c> variable and one of the events of its class is not a valid handler of
+    /// the event: it is not a subroutine, or its parameter list is not compatible with the event's.<br/>
+    /// <strong>MS-VBAL §5.3.1.8</strong> Event Handler Declarations.
+    /// </summary>
+    InvalidEventHandler = 9326,
 
 
     /***********************************************************************************************

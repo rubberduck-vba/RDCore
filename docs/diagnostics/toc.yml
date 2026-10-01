@@ -16,3 +16,9 @@
   href: vbc09322.md
 - name: VBC09323 — Wrong number of arguments or invalid argument for event
   href: vbc09323.md
+- name: VBC09324 — Invalid type for WithEvents variable
+  href: vbc09324.md
+- name: VBC09325 — Invalid event name
+  href: vbc09325.md
+- name: VBC09326 — Invalid event handler
+  href: vbc09326.md

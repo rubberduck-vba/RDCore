@@ -8,8 +8,12 @@ A procedure of a class module handles an event when its name is `VariableName_Ev
 
 [VBClassModuleSymbol](../api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html) answers both sides of it: `WithEventsVariables` are the variables flagged with the `WithEvents` symbol property, and `FindEventHandler(variable, event)` is the procedure named for the variable and the event. It is the same naming that implements an interface member ([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)) and a lifecycle handler ([**RD-VBAL §5.3.1.10**](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)), and the only name a handler has: nothing calls it by name.
 
-> [!NOTE]
-> **Not implemented.** A procedure named like a handler is taken for one; whether it is a valid handler is not checked: that it is a subroutine, and that its parameter list is compatible with the event's, with the same number of parameters and each of the same type and parameter mechanism.
+A handler is invalid when it is not a subroutine, or when its parameter list is not compatible with the event's:
+the same number of parameters, each of the same type and parameter mechanism. The parameters may differ in name, and in
+whether the mechanism is written out. [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html)
+reports it as [VBC09326](../diagnostics/vbc09326.md). It decides by the name alone: a procedure that only begins with a
+`WithEvents` variable's name and an underscore is no handler, and neither is one named for a variable that is not
+`WithEvents`; neither is checked.
 
 ## Runtime Semantics
 

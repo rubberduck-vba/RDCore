@@ -493,6 +493,33 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Invalid type for WithEvents variable.
+        /// </summary>
+        public static string VBCompileError_InvalidWithEventsType {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidWithEventsType", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid event name.
+        /// </summary>
+        public static string VBCompileError_InvalidEventName {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidEventName", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid event handler.
+        /// </summary>
+        public static string VBCompileError_InvalidEventHandler {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidEventHandler", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

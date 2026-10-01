@@ -137,8 +137,10 @@ An `Event` declaration defines an event member of the class module. It is a `VBE
 
 The event symbols and their parameters are among the member descriptors the environment host receives, so a class's events are known where `RaiseEvent` runs.
 
-> [!NOTE]
-> **Not implemented.** The remaining static semantics of **MS-VBAL §5.2.4.3** are not checked: an event name must be unique within the class module, and must not contain an underscore, which is what separates a handler's variable from its event.
+An event name must be unique within the class module, reported as a duplicate declaration (`VBC09303`) when it is not, and
+must not contain an underscore, which is what separates a handler's variable from its event:
+[VBC09325](../diagnostics/vbc09325.md). Both are reported by
+[ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html).
 
 ---
 > ⏮️ [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md) | ⏭️ [**RD-VBAL §5.3** Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md)

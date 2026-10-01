@@ -40,8 +40,9 @@ A `WithEvents` variable is a variable of a class module whose declared type is a
 
 Assigning the variable with `Set` attaches its handlers to the object it is given, and detaches them from the object it held ([**RD-VBAL §5.4.3.9**](rd-vbal.5.4.3.9.set-statement.md)).
 
-> [!NOTE]
-> **Not implemented.** The declaration-level validity of `WithEvents` (**MS-VBAL §5.2.3.1.2**) is not checked: the declared type must be a specific class with at least one event, and must not be the class of the module containing the declaration.
+The declared type must be a specific class with at least one event, and must not be the class of the module containing the
+declaration; [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html) reports one
+that is not as [VBC09324](../diagnostics/vbc09324.md). A type that is not resolved is not reported.
 
 ### 5.2.3.1.3 Array Dimensions and Bounds
 
