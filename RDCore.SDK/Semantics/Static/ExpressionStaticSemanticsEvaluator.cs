@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -57,14 +58,18 @@ public static class ExpressionStaticSemanticsEvaluator
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
         };
 
-    // 🚧 TODO MS-VBAL §5.6.12's other classifications: an owner that names a project or a procedural module
-    // (`Strings.LenB`, `VBA.LenB`) is a namespace, not a value, and the member it reaches has that member's own
-    // declared type (a variable, property, function or value) or none (a subroutine). The interpreter evaluates them
-    // - see RuntimeExpressionEvaluator.TryClassifyNamespace and ISymbolResolver.ResolveMember - but this rule only
-    // knows a value's members, so such a reference is typed Unknown rather than rejected.
     private static StaticSemanticsEvaluationResult EvaluateMemberAccess(
         StaticEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
     {
+        // MS-VBAL §5.6.12: an owner that names a project or a procedural module (`Strings.LenB`, `VBA.LenB`) is a
+        // namespace, not a value: it has no declared type to look the member up in, and the member is resolved in
+        // the namespace instead.
+        if (memberAccess.Owner is { } namespaceExpression
+            && context.Resolver.NamespaceOf(namespaceExpression, context.Scope.Uri) is { } qualifier)
+        {
+            return EvaluateNamespaceMember(context, expression, qualifier, memberAccess);
+        }
+
         VBType ownerType;
         if (memberAccess.Owner is { } owner)
         {
@@ -89,6 +94,34 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
+    }
+
+    // MS-VBAL §5.6.12, an <l-expression> classified as a project or a procedural module: the member access is the
+    // member it resolves to, with that member's own declared type - a variable, property or function's, a value's, or
+    // none for a subroutine. A name the namespace does not have is as invalid as a member a value's type does not.
+    private static StaticSemanticsEvaluationResult EvaluateNamespaceMember(
+        StaticEvaluationContext context, ExpressionNode expression, Symbol qualifier, MemberAccessExpressionNode memberAccess)
+    {
+        var memberName = memberAccess.Member.IdentifierName;
+        var resolved = context.Resolver.ResolveMember(qualifier, memberName, context.Scope.Uri);
+
+        if (resolved.IsError)
+        {
+            return StaticSemanticsEvaluationResult.Error(
+                SimpleNameExpressionStaticSemantics.GetResolutionErrorInfo(expression, memberName, resolved.ErrorId!.Value, resolved.Candidates));
+        }
+
+        if (resolved.Symbol is not { } member)
+        {
+            return StaticSemanticsEvaluationResult.Error(
+                VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));
+        }
+
+        // 🚧 TODO a namespace that is the whole expression (`Debug.Print VBA`, `x = Strings`) is not a value, which
+        // §5.6.1's classification rules reject where a value is required; no diagnostic says so yet, so it is typed
+        // Unknown rather than rejected. One that is only the left-hand side of another member access never gets here.
+        return StaticSemanticsEvaluationResult.Success(
+            member is ITypedSymbol typed && !NamespaceExpressions.IsNamespace(member) ? typed.ResolvedType : VBUnknownType.TypeInfo);
     }
 
     private static StaticSemanticsEvaluationResult EvaluateIndexExpression(

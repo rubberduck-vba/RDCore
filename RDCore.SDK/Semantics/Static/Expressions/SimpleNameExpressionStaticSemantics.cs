@@ -53,7 +53,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
     }
 
-    private static VBCompileErrorInfo GetResolutionErrorInfo(
+    internal static VBCompileErrorInfo GetResolutionErrorInfo(
         ExpressionNode expression, string name, VBCompileErrorId errorId, ImmutableArray<Symbol> candidates)
         => VBCompileErrorInfo.For(errorId, expression.Location,
             $"'{name}' — {candidates.Length} candidates: {string.Join(", ", candidates.Select(candidate => candidate.ParentUri.Fragment.TrimStart('#')))}");

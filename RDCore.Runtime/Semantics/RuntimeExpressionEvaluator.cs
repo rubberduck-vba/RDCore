@@ -213,42 +213,17 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
-    /// <summary>
-    /// The project or procedural module an expression names, when it names one: the left-hand side of a member
-    /// access that is a namespace rather than a value (<strong>MS-VBAL §5.6.12</strong>).
-    /// </summary>
-    /// <remarks>
-    /// Classification is by what the name resolves to, from the scope it is written in, so whatever is nearer than a
-    /// module of that name — a local, a parameter, a module variable — is what the name means, as it is anywhere
-    /// else. A member access whose own left-hand side is a namespace is one too, when its member is a project or a
-    /// module: <c>VBA.Strings</c> in <c>VBA.Strings.LenB</c>.
-    /// </remarks>
-    /// <returns>The <see cref="VBProjectSymbol"/> or <see cref="VBStandardModuleSymbol"/> named, or <see langword="null"/>.</returns>
+    // the project or procedural module an expression names, when it names one (MS-VBAL §5.6.12) - decided by the
+    // classification the compiler uses, so that what is compiled as a namespace is run as one.
     private static Symbol? TryClassifyNamespace(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
-    {
-        switch (expression)
-        {
-            case SimpleNameExpressionNode name:
-                return session.Symbols.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope).Symbol is { } named
-                    && IsNamespace(named) ? named : null;
-
-            case MemberAccessExpressionNode { Owner: { } owner } access when TryClassifyNamespace(session, context, owner) is { } parent:
-                return session.Symbols.Resolver.ResolveMember(parent, access.Member.IdentifierName, context.Scope).Symbol is { } member
-                    && IsNamespace(member) ? member : null;
-
-            default:
-                return null;
-        }
-    }
-
-    private static bool IsNamespace(Symbol symbol) => symbol is VBProjectSymbol or VBStandardModuleSymbol;
+        => session.Symbols.Resolver.NamespaceOf(expression, context.Scope);
 
     // the member of a namespace a qualified name refers to, or null when there is none to refer to - which static
     // semantics should have rejected, as it should an unresolved bare name.
     private static Symbol? ResolveNamespaceMember(
         IRuntimeSession session, RuntimeEvaluationContext context, Symbol qualifier, MemberAccessExpressionNode access)
         => session.Symbols.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope).Symbol is { } member
-            && !IsNamespace(member) ? member : null;
+            && !NamespaceExpressions.IsNamespace(member) ? member : null;
 
     // null for anything that is not a workspace Const, and for a Const whose declaration carried no
     // expression - a library constant has a real binding to read instead, so it takes the path below.
