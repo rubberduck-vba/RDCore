@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
@@ -168,6 +169,10 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // already allocated just gets a fresh, independent copy of the same default value - see its own
     // xmldoc), but only the FIRST call should actually happen: every later call must see whatever the
     // previous call's own body last wrote, not get reset back to the default.
+    // what a variable's storage starts as: its type's default, except for an array, which is as big as it was declared.
+    private static VBTypedValue DefaultValueOf(IRuntimeSession session, VBLocalVariableSymbol variable)
+        => session.Symbols.Defaults?.DefaultValueOf(variable) ?? variable.ResolvedType.DefaultValue;
+
     internal static void HoistLocals(IRuntimeSession session, CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
     {
         foreach (var local in locals)
@@ -186,12 +191,12 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             {
                 if (!session.Symbols.Resolver.TryGetAddress(variable, out _))
                 {
-                    session.Symbols.Resolver.TryAllocate(variable, ((ITypedSymbol)variable).ResolvedType.DefaultValue, out _);
+                    session.Symbols.Resolver.TryAllocate(variable, DefaultValueOf(session, variable), out _);
                 }
             }
             else
             {
-                frame.Push(variable, ((ITypedSymbol)variable).ResolvedType.DefaultValue);
+                frame.Push(variable, DefaultValueOf(session, variable));
             }
         }
     }

@@ -109,6 +109,81 @@ public sealed class HostExecuteHandlerTests
     private static string Module(params string[] body)
         => $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
 
+    private static string ModuleWithDeclarations(string declarations, params string[] body)
+        => $"Attribute VB_Name = \"{ModuleName}\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
+
+    #region Arrays, declared in source and carried to the host
+
+    [TestMethod]
+    public async Task ALocalFixedSizeArray_IsAsBigAsItsBoundsSay()
+    {
+        var result = await ExecuteAsync(Module(
+            "Dim a(1 To 5) As Long", "a(2) = 7", "Debug.Print LBound(a)", "Debug.Print UBound(a)", "Debug.Print a(2)", "Debug.Print a(3)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "1", "5", "7", "0" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ABoundThatNamesAConstant_IsReducedWhenTheStorageIsAllocated()
+    {
+        var result = await ExecuteAsync(Module("Const Rows = 4", "Dim a(0 To Rows * 2) As Long", "Debug.Print UBound(a)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "8" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ADeclaredElementType_IsWhatAnElementStartsAs()
+    {
+        // an element nothing was assigned to is a Long's default, not an Empty Variant's, which prints as nothing at all.
+        var result = await ExecuteAsync(Module("Dim a(1 To 2) As Long", "Dim s(1 To 2) As String", "Debug.Print a(1)", "Debug.Print \"[\" & s(1) & \"]\""));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "0", "[]" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ALocalResizableArray_IsAnArrayOfItsDeclaredType_OnceItIsReDimmed()
+    {
+        var result = await ExecuteAsync(Module(
+            "Dim a() As Long", "ReDim a(2 To 3)", "a(2) = 9", "Debug.Print LBound(a)", "Debug.Print UBound(a)", "Debug.Print a(2)", "Debug.Print a(3)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "2", "3", "9", "0" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnArrayWithOnlyAnUpperBound_StartsAtTheModulesOptionBase()
+    {
+        var withBaseOne = await ExecuteAsync(ModuleWithDeclarations("Option Base 1", "Dim a(3) As Long", "Debug.Print LBound(a)"));
+        var withDefault = await ExecuteAsync(Module("Dim a(3) As Long", "Debug.Print LBound(a)"));
+
+        CollectionAssert.AreEqual(new[] { "1" }, withBaseOne.Output.Select(line => line.Trim()).ToArray(), withBaseOne.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "0" }, withDefault.Output.Select(line => line.Trim()).ToArray(), withDefault.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task AModuleLevelFixedSizeArray_IsAsBigAsItsBoundsSay()
+    {
+        var result = await ExecuteAsync(ModuleWithDeclarations(
+            "Const Size = 3\r\nDim M(1 To Size) As Long", "M(2) = 5", "Debug.Print UBound(M)", "Debug.Print M(2)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "3", "5" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AnArrayElementOfAnArrayThatWasNeverSized_IsSubscriptOutOfRange()
+    {
+        var result = await ExecuteAsync(Module("Dim a() As Long", "a(1) = 1"));
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome);
+        Assert.AreEqual(9, result.ErrorNumber);
+    }
+
+    #endregion
+
     [TestMethod]
     public async Task APrintStatement_RunsAndItsOutputComesBack()
     {

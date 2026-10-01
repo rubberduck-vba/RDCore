@@ -215,6 +215,12 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private readonly Dictionary<SymbolIdentity, Symbol> _instanceSymbols = [];
     private readonly Dictionary<SymbolIdentity, Symbol> _localSymbols = [];
 
+    /// <inheritdoc/>
+    public IVariableDefaults? Defaults { get; set; }
+
+    private VBTypedValue DefaultValueOf(Symbol variable)
+        => Defaults?.DefaultValueOf(variable) ?? ((ITypedSymbol)variable).ResolvedType.DefaultValue;
+
     /// <summary>
     /// What makes two definitions the same declaration: the symbol's own semantic identity, plus its
     /// concrete type.
@@ -275,10 +281,10 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         // it keeps its value between calls instead of being torn down when its frame pops.
         var isStaticLocal = scope is ScopeKind.Local && symbol is VBLocalVariableSymbol { IsStatic: true };
         if ((scope is ScopeKind.Module or ScopeKind.Global || isStaticLocal)
-            && symbol is ITypedSymbol { ResolvedType: var type }
+            && symbol is ITypedSymbol
             && symbol.Kind is SymbolKindExt.Field or SymbolKindExt.Variable)
         {
-            _ = SessionBindings.TryAllocate(symbol, type.DefaultValue, out _);
+            _ = SessionBindings.TryAllocate(symbol, DefaultValueOf(symbol), out _);
         }
 
         return true;
@@ -405,7 +411,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
         foreach (var field in fields)
         {
-            instance.Push(field, ((ITypedSymbol)field).ResolvedType.DefaultValue);
+            instance.Push(field, DefaultValueOf(field));
         }
 
         _instances[objectId] = instance;

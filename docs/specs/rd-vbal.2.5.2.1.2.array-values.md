@@ -24,7 +24,26 @@ Array declarations are described in [**RD-VBAL §5.2.3** Module Declarations](rd
 - An array has up to 60 dimensions.
 - Each dimension records only its _lower bound_ and _upper bound_. These are the operands of `LBound` and `UBound`.
 
-The value associated with an array type encodes the array dimensions. Evaluating each bound to a `Long`, and resolving an omitted lower bound against `Option Base`, is the concern of the semantic pass that materializes the array value; see [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md).
+The value associated with an array type encodes the array dimensions. Evaluating each bound to a `Long`, and resolving an omitted lower bound against `Option Base`, is the concern of whatever allocates the storage of the variable; see [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md).
+
+### Declared arrays
+
+What a declaration says of an array travels with the symbol it declares, because the type has no room for it:
+
+- the _kind_ and _element type_ are the type (`VBFixedSizeArrayType`, `VBResizableArrayType`, each of an element type);
+- the _bounds_ of a fixed-size array are constant expressions (**MS-VBAL §5.2.3.1.3**) that may name a `Const`, parsed by the declaration pass
+  (`ArrayDimensionBound.LowerExpression`, `UpperExpression`) and held on the symbol (`SymbolProperties.ArrayBounds`).
+
+Both reach the environment host in the symbol descriptors (`SymbolDescriptor.Array`, `LocalDescriptor.Array`, `ParameterDescriptor.Array`: whether it is
+fixed-size, and the bound expressions), with the element type as the descriptor's type name.
+
+The host allocates the storage of a variable through `IVariableDefaults` (`ISessionSymbols.Defaults`), which the execution pipeline sets:
+a fixed-size array starts with the dimensions its bounds reduce to - an omitted lower bound being the `Option Base` of the module - and a resizable one
+starts uninitialized, as an array of its declared element type. A procedure's local is allocated with each activation, a field of a class with each object,
+and a module-level array when its module's code is loaded, which is when its constants can first be reduced.
+
+> **Not implemented.** A bound that cannot be reduced (a non-constant expression, or an upper bound below the lower) is a compile error that nothing reports
+> yet; the array is left uninitialized. The fixed-size array field of a user-defined type carries no bounds.
 
 ## Initialization
 

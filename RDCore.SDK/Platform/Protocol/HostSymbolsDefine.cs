@@ -178,9 +178,16 @@ public record class SymbolDescriptor
     /// <summary>
     /// The declared type's name — from an <c>As</c> clause or a type-declaration character — or
     /// <c>null</c> when there is none, or the type reference is not a simple name (a qualified name
-    /// or an array definition needs a later semantic pass).
+    /// or an array definition needs a later semantic pass). For an array, the name of its <em>element</em> type, and
+    /// <see cref="Array"/> says what kind of array it is.
     /// </summary>
     public string? DeclaredTypeName { get; init; }
+
+    /// <summary>
+    /// What is declared is an array of <see cref="DeclaredTypeName"/>: how it is sized, which a type name has no room for.
+    /// <c>null</c> for anything that is not an array.
+    /// </summary>
+    public ArrayDescriptor? Array { get; init; }
 
     /// <summary>
     /// The source span of the whole declaration — the primary site (the first branch) when the
@@ -294,9 +301,12 @@ public record class LocalDescriptor
     public string Name { get; init; } = string.Empty;
 
     /// <summary>
-    /// The declared type's name, or <c>null</c> — resolved host-side like a member's.
+    /// The declared type's name, or <c>null</c> — resolved host-side like a member's. For an array, its element type's.
     /// </summary>
     public string? DeclaredTypeName { get; init; }
+
+    /// <summary>The array the variable is, when it is one: see <see cref="SymbolDescriptor.Array"/>.</summary>
+    public ArrayDescriptor? Array { get; init; }
 
     /// <summary>
     /// Whether the declaration carries the <c>Static</c> token (<strong>MS-VBAL §5.4.3.1</strong>):
@@ -405,10 +415,47 @@ public record class ParameterDescriptor
     /// </summary>
     public string? DeclaredTypeName { get; init; }
 
+    /// <summary>The array the parameter is, when it is one: see <see cref="SymbolDescriptor.Array"/>.</summary>
+    public ArrayDescriptor? Array { get; init; }
+
     /// <summary>
     /// The source span of the parameter declaration.
     /// </summary>
     public SourceRange Range { get; init; }
+}
+
+/// <summary>
+/// What an array declaration says beyond its element type (<strong>MS-VBAL §5.2.3.1.3</strong>): whether it is fixed-size, and the
+/// bounds it was declared with.
+/// </summary>
+public record class ArrayDescriptor
+{
+    /// <summary>
+    /// Whether the array is fixed-size - declared with bounds - rather than resizable, which has no dimensions until a <c>ReDim</c>
+    /// gives it some.
+    /// </summary>
+    public bool IsFixedSize { get; init; }
+
+    /// <summary>
+    /// The bounds of a fixed-size array, one for each dimension and outermost first; empty for a resizable one.
+    /// </summary>
+    public ImmutableArray<ArrayBoundDescriptor> Bounds { get; init; } = [];
+}
+
+/// <summary>
+/// The bounds of one dimension of a fixed-size array.
+/// </summary>
+/// <remarks>
+/// Expressions, not numbers: a bound is a constant expression that may name a <c>Const</c>, and the host is where the evaluator that
+/// reduces one lives (see <see cref="ConstantDescriptor.Value"/>).
+/// </remarks>
+public record class ArrayBoundDescriptor
+{
+    /// <summary>The lower bound, or <c>null</c> when the dimension was declared with an upper bound alone, which <c>Option Base</c> decides.</summary>
+    public ExpressionNode? Lower { get; init; }
+
+    /// <summary>The upper bound.</summary>
+    public ExpressionNode? Upper { get; init; }
 }
 
 /// <summary>

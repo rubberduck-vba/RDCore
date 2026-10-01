@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using System.Collections.Immutable;
@@ -56,6 +57,7 @@ internal static class SymbolDescriptorProjector
             AccessModifier = accessible?.AccessModifier ?? RDCore.SDK.Model.AccessModifier.Implicit,
             Scope = symbol.ScopeKind,
             DeclaredTypeName = DeclaredTypeNameOf(accessible),
+            Array = ArrayOf(accessible?.ResolvedType, symbol),
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),
@@ -113,9 +115,35 @@ internal static class SymbolDescriptorProjector
     };
 
     private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol)
-        => symbol is null || symbol.ResolvedType is VBUnknownType or VBVoidType
-            ? null
-            : symbol.ResolvedType.Name;
+        => symbol is null ? null : TypeNameOf(symbol.ResolvedType);
+
+    // the name a declared type travels as: the type's own, and for an array its element's - the kind of array and how it is
+    // sized are the array descriptor's. A type that did not resolve has no name to carry.
+    private static string? TypeNameOf(VBType? type) => type switch
+    {
+        null or VBUnknownType or VBVoidType => null,
+        VBArrayType array => array.ItemType is VBUnknownType or VBVoidType ? null : array.ItemType.Name,
+        _ => type.Name,
+    };
+
+    // what makes the name above an array of it: fixed-size or resizable, and for a fixed-size one the bounds the symbol was
+    // declared with (SymbolProperties.ArrayBounds).
+    private static ArrayDescriptor? ArrayOf(VBType? type, Symbol symbol)
+    {
+        if (type is not VBArrayType array)
+        {
+            return null;
+        }
+
+        var bounds = symbol.TryGetProperty(SymbolProperties.ArrayBounds, out var declared) && !declared.IsDefault
+            ? declared
+            : [];
+        return new ArrayDescriptor
+        {
+            IsFixedSize = array is VBFixedSizeArrayType,
+            Bounds = [.. bounds.Select(bound => new ArrayBoundDescriptor { Lower = bound.LowerExpression, Upper = bound.UpperExpression })],
+        };
+    }
 
     // a procedure's Dim/Static variables. Parameters are not among them: they are their own descriptor
     // array, and VBParameterSymbol derives from VBLocalVariableSymbol, so they would otherwise be
@@ -149,7 +177,8 @@ internal static class SymbolDescriptorProjector
             builder.Add(new LocalDescriptor
             {
                 Name = local.Name,
-                DeclaredTypeName = local.ResolvedType is null or VBUnknownType or VBVoidType ? null : local.ResolvedType.Name,
+                DeclaredTypeName = TypeNameOf(local.ResolvedType),
+                Array = ArrayOf(local.ResolvedType, local),
                 IsStatic = local.IsStatic,
                 IsAutoInstantiated = local.GetProperty(SymbolProperties.AutoInstantiated),
                 DeclaredBy = local.DeclaredBy,
@@ -232,7 +261,11 @@ internal static class SymbolDescriptorProjector
                 IsOptional = parameter.IsOptional,
                 IsParamArray = parameter is ParamArrayParameterSymbol,
                 DefaultValue = parameter.DefaultValue,
-                DeclaredTypeName = parameter.ResolvedType is VBUnknownType or VBVoidType ? null : parameter.ResolvedType.Name,
+                // a ParamArray is its own kind of parameter, and what it holds is the host's to make.
+                DeclaredTypeName = parameter is ParamArrayParameterSymbol
+                    ? parameter.ResolvedType is VBUnknownType or VBVoidType ? null : parameter.ResolvedType.Name
+                    : TypeNameOf(parameter.ResolvedType),
+                Array = parameter is ParamArrayParameterSymbol ? null : ArrayOf(parameter.ResolvedType, parameter),
                 Range = parameter.Range,
             });
         }

@@ -184,6 +184,17 @@ public interface ISessionSymbols
         System.Collections.Immutable.ImmutableArray<RDCore.SDK.Model.Source.SourceRange> implementedInterfaceRanges = default);
 
     /// <summary>
+    /// What the storage of a declared variable starts as, or <see langword="null"/> while nothing can reduce the constant
+    /// expressions of an array's bounds yet - a session whose symbols are only being defined. Set by whatever composes the
+    /// execution pipeline, as <see cref="IRuntimeSession.Lifecycle"/> is.
+    /// </summary>
+    /// <remarks>
+    /// While it is <see langword="null"/>, a variable starts as the default value of its declared type, which for a fixed-size array
+    /// is one with no dimensions: <see cref="Symbols.Abstract.SymbolProperties.ArrayBounds"/> are applied by whatever sets this.
+    /// </remarks>
+    IVariableDefaults? Defaults { get; set; }
+
+    /// <summary>
     /// The members the session has defined for a module, in no particular order: every procedure, property accessor,
     /// event, variable and constant declared by the module whose <see cref="Symbol.Uri"/> is <paramref name="moduleUri"/>.
     /// </summary>

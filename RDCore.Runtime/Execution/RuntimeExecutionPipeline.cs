@@ -149,6 +149,8 @@ public sealed class RuntimeExecutionPipeline
         expressions.SetCoercion = setCoercion;
         // an object's lifecycle events run its class's handlers, which is code only this pipeline can run.
         session.Lifecycle = new ClassLifecycle(session, bindings);
+        // a fixed-size array is as big as its declaration says, which takes evaluating its bounds: this is what can.
+        session.Symbols.Defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, numericCoercion));
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);
     }

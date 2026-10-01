@@ -42,4 +42,11 @@ public record class ArrayBoundsNode(SyntaxNodeId Identity, SourceLocation Locati
 /// effective lower bound then follows <c>Option Base</c>).
 /// </param>
 /// <param name="UpperBound">The upper-bound expression text.</param>
-public readonly record struct ArrayDimensionBound(string? LowerBound, string UpperBound);
+/// <param name="LowerExpression">The lower-bound expression, parsed, or <c>null</c> when there is no lower bound.</param>
+/// <param name="UpperExpression">
+/// The upper-bound expression, parsed, or <c>null</c> when it could not be (a syntax error left it incomplete). A bound is a
+/// constant expression (<strong>MS-VBAL §5.2.3.1.3</strong>) the runtime reduces when the array's storage is allocated, which is
+/// what these are for: the text above is what the source said, and these are what it means.
+/// </param>
+public readonly record struct ArrayDimensionBound(
+    string? LowerBound, string UpperBound, ExpressionNode? LowerExpression = null, ExpressionNode? UpperExpression = null);

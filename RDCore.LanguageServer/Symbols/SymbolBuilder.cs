@@ -159,13 +159,20 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     public Symbol BuildModuleField(VariableDeclarationNode node)
     {
         var range = RangeOf(node);
-        var type = ImplicitOrDeclaredType(AsTypeOf(node), node.TypeHint, moduleUri);
-        var field = AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
-            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier), AsTypeOf(node));
+        var asType = AsTypeOf(node);
+        var bounds = node.Children.OfType<ArrayBoundsNode>().FirstOrDefault();
+        var type = VariableType(ArrayElementType(asType, node.TypeHint, moduleUri), asType, bounds);
+        var field = WithArrayBounds(AutoInstantiatedIfDeclaredAsNew(new VBModuleFieldVariableMemberSymbol(
+            workspaceRoot, moduleUri, node.Name, memberScope, type, range, range, node.AccessModifier), asType), bounds);
 
         // MS-VBAL §5.2.3.1.2: what makes the procedures named for this variable event handlers.
         return node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
     }
+
+    // a fixed-size array is as big as its bounds say, which are constant expressions the type has no room for: they ride the symbol,
+    // and whatever allocates its storage reduces them.
+    private static Symbol WithArrayBounds(Symbol variable, ArrayBoundsNode? bounds)
+        => bounds is { IsResizable: false } ? variable.With(SymbolProperties.ArrayBounds, bounds.Bounds) : variable;
 
     // MS-VBAL 5.2.3.1.1 / 2.5.1: an <as-auto-object> clause (`As New Foo`) makes the variable it declares - or,
     // for an array, each of its dependent variables - an automatic instantiation variable.
@@ -639,10 +646,11 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         var asType = AsTypeOf(node);
         var elementType = ArrayElementType(asType, node.TypeHint, procedureUri);
-        var type = VariableType(elementType, asType, node.Children.OfType<ArrayBoundsNode>().FirstOrDefault());
-        return AutoInstantiatedIfDeclaredAsNew(new VBLocalVariableSymbol(
+        var bounds = node.Children.OfType<ArrayBoundsNode>().FirstOrDefault();
+        var type = VariableType(elementType, asType, bounds);
+        return WithArrayBounds(AutoInstantiatedIfDeclaredAsNew(new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.Name, ScopeKind.Local, range, range,
-            IsStatic: node.IsStatic, ResolvedType: type), asType);
+            IsStatic: node.IsStatic, ResolvedType: type), asType), bounds);
     }
 
     public Symbol BuildLocalConstant(ConstantDeclarationNode node, Uri procedureUri)

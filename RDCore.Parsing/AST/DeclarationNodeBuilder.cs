@@ -200,7 +200,13 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             modifier);
     }
 
-    public SyntaxNode BuildVariableDeclaration(VBAParser.VariableSubStmtContext context, AccessModifier modifier, bool isStatic)
+    /// <param name="boundExpressions">
+    /// The array-dim bounds as expressions, one pair per dimension, which only the listener can walk a subtree into; empty
+    /// when the declaration has none.
+    /// </param>
+    public SyntaxNode BuildVariableDeclaration(
+        VBAParser.VariableSubStmtContext context, AccessModifier modifier, bool isStatic,
+        ImmutableArray<(ExpressionNode? Lower, ExpressionNode? Upper)> boundExpressions = default)
     {
         // the name can be an IDENTIFIER, a keyword (`Dim Name As String`) or a bracketed foreign
         // name — take the text the way the member builders do, not IDENTIFIER().Symbol.
@@ -214,7 +220,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         var children = _children.ToList();
         if (context.arrayDim() is { } arrayDim)
         {
-            children.Add(BuildArrayBounds(arrayDim, children.Count));
+            children.Add(BuildArrayBounds(arrayDim, children.Count, boundExpressions));
         }
 
         return new VariableDeclarationNode(
@@ -232,7 +238,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     // dimSpec is `[ constantExpression To ] constantExpression`. Bounds are kept as verbatim text —
     // they may reference `Const`s and an omitted lower bound follows `Option Base`, both resolved
     // by a later semantic pass.
-    private ArrayBoundsNode BuildArrayBounds(VBAParser.ArrayDimContext context, int childIndex)
+    private ArrayBoundsNode BuildArrayBounds(
+        VBAParser.ArrayDimContext context, int childIndex, ImmutableArray<(ExpressionNode? Lower, ExpressionNode? Upper)> expressions)
     {
         var location = context.GetSourceLocation(_rootUri);
         var identity = NodeId.Add(childIndex);
@@ -242,9 +249,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             return new ArrayBoundsNode(identity, location, []);
         }
 
-        var bounds = boundsList.dimSpec().Select(spec => new ArrayDimensionBound(
+        var bounds = boundsList.dimSpec().Select((spec, index) => new ArrayDimensionBound(
             spec.lowerBound()?.constantExpression()?.GetText()?.Trim(),
-            spec.upperBound()?.constantExpression()?.GetText()?.Trim() ?? string.Empty));
+            spec.upperBound()?.constantExpression()?.GetText()?.Trim() ?? string.Empty,
+            expressions.IsDefault || index >= expressions.Length ? null : expressions[index].Lower,
+            expressions.IsDefault || index >= expressions.Length ? null : expressions[index].Upper));
 
         return new ArrayBoundsNode(identity, location, [.. bounds]);
     }

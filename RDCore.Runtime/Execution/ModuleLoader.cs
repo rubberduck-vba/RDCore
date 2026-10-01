@@ -7,6 +7,8 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
@@ -66,6 +68,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var members = session.Symbols.MembersOf(module.Uri);
         pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module, members));
 
+        SizeFixedSizeArrays(members);
+
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild());
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var errors = ImmutableArray.CreateBuilder<string>();
@@ -87,6 +91,35 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         }
 
         return errors.ToImmutable();
+    }
+
+    // A module-level array is allocated when its symbol is defined, which is before anything could reduce the constant expressions
+    // its bounds are: it has no dimensions then. Now it can, and an array that is still without them is given the ones it was
+    // declared with. (A variable of a class is allocated with each object, when the code is running.)
+    private void SizeFixedSizeArrays(IReadOnlyList<VBTypeMemberSymbol> members)
+    {
+        if (session.Symbols.Defaults is not { } defaults)
+        {
+            return;
+        }
+
+        foreach (var member in members)
+        {
+            if (member.ScopeKind is not ScopeKind.Module
+                || member is not ITypedSymbol { ResolvedType: VBFixedSizeArrayType type }
+                || !member.TryGetProperty(SymbolProperties.ArrayBounds, out _)
+                || !session.Symbols.Resolver.TryGetAddress(member, out var address)
+                || !session.Symbols.Resolver.TryRead(address, out var handle)
+                || type.CreateValue(handle!) is not VBArrayValue { IsInitialized: false })
+            {
+                continue;
+            }
+
+            if (defaults.DefaultValueOf(member) is VBArrayValue { IsInitialized: true } sized)
+            {
+                handle!.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(sized));
+            }
+        }
     }
 
     // a name is not enough: the accessors of a property share one, and the declaration says which it is.

@@ -72,7 +72,7 @@ public static class SymbolDescriptorReader
 
     private static IEnumerable<Symbol> Read(SymbolDescriptor node, Uri workspaceRoot, Uri parentUri, Func<string, VBType?> resolveType)
     {
-        VBType Declared(string? typeName) => typeName is not null && resolveType(typeName) is { } type ? type : VBUnknownType.TypeInfo;
+        VBType Declared(string? typeName) => DeclaredType(typeName, node.Array, resolveType);
         ImmutableArray<VBParameterSymbol> Parameters(Uri memberUri) => ReadParameters(node, workspaceRoot, memberUri, resolveType);
         ImmutableArray<BoundTypedSymbol> Locals(Uri memberUri) => ReadLocals(node, workspaceRoot, memberUri, resolveType);
 
@@ -190,6 +190,7 @@ public static class SymbolDescriptorReader
                 Symbol field = new VBModuleFieldVariableMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, Declared(node.DeclaredTypeName),
                     node.Range, node.SelectionRange, node.AccessModifier);
+                field = WithArrayBounds(field, node.Array);
                 field = node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
                 yield return node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field;
                 break;
@@ -205,6 +206,27 @@ public static class SymbolDescriptorReader
                 break;
         }
     }
+
+    // the declared type of a descriptor: the name resolved, which for an array is its element's and which the array descriptor
+    // then makes an array of - fixed-size, or resizable (a resizable Byte array is its own type, RD-VBAL 2.4.1.3).
+    private static VBType DeclaredType(string? typeName, ArrayDescriptor? array, Func<string, VBType?> resolveType)
+    {
+        var type = typeName is not null && resolveType(typeName) is { } resolved ? resolved : VBUnknownType.TypeInfo;
+        return array switch
+        {
+            null => type,
+            { IsFixedSize: true } => new VBFixedSizeArrayType(type),
+            _ => type is VBByteType ? VBResizableByteArrayType.TypeInfo : new VBResizableArrayType(type),
+        };
+    }
+
+    // the bounds a fixed-size array was declared with ride the symbol (SymbolProperties.ArrayBounds), as they do where the
+    // declaration was read.
+    private static Symbol WithArrayBounds(Symbol variable, ArrayDescriptor? array)
+        => array is { IsFixedSize: true, Bounds.IsDefaultOrEmpty: false }
+            ? variable.With(SymbolProperties.ArrayBounds, [.. array.Bounds.Select(bound =>
+                new RDCore.SDK.Model.AST.Declarations.ArrayDimensionBound(null, string.Empty, bound.Lower, bound.Upper))])
+            : variable;
 
     private static Symbol ReadUserDefinedTypeField(
         SymbolDescriptor field, Uri workspaceRoot, Uri userDefinedTypeUri, Func<string, VBType?> resolveType)
@@ -247,11 +269,10 @@ public static class SymbolDescriptorReader
             var variable = new VBLocalVariableSymbol(
                 workspaceRoot, memberUri, local.Name, ScopeKind.Local, local.Range, local.SelectionRange,
                 local.IsStatic,
-                local.DeclaredTypeName is not null && resolveType(local.DeclaredTypeName) is { } type
-                    ? type
-                    : VBUnknownType.TypeInfo,
+                DeclaredType(local.DeclaredTypeName, local.Array, resolveType),
                 local.DeclaredBy);
-            builder.Add(local.IsAutoInstantiated ? (BoundTypedSymbol)variable.With(SymbolProperties.AutoInstantiated, true) : variable);
+            var bounded = (BoundTypedSymbol)WithArrayBounds(variable, local.Array);
+            builder.Add(local.IsAutoInstantiated ? (BoundTypedSymbol)bounded.With(SymbolProperties.AutoInstantiated, true) : bounded);
         }
         return builder.ToImmutable();
     }
@@ -272,9 +293,7 @@ public static class SymbolDescriptorReader
                     workspaceRoot, memberUri, parameter.Name, parameter.Range, parameter.Range, parameter.ParameterKind)
                 : new VBParameterSymbol(
                     workspaceRoot, memberUri, parameter.Name, parameter.Range, parameter.Range, parameter.ParameterKind,
-                    parameter.DeclaredTypeName is not null && resolveType(parameter.DeclaredTypeName) is { } type
-                        ? type
-                        : VBUnknownType.TypeInfo,
+                    DeclaredType(parameter.DeclaredTypeName, parameter.Array, resolveType),
                     parameter.IsOptional,
                     parameter.DefaultValue));
         }

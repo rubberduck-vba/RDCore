@@ -216,7 +216,30 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var parent = context.Parent?.Parent as VBAParser.VariableStmtContext;
         var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
         var isStatic = parent?.STATIC() is not null;
-        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic));
+
+        // the bounds of a fixed-size array are constant expressions (MS-VBAL §5.2.3.1.3), which only the listener can walk
+        // into nodes. Captured before the declaration's own builder is popped, over a subtree this Exit has already passed.
+        var bounds = CaptureDimBounds(context.arrayDim());
+        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic, bounds));
+    }
+
+    // `dim-spec = [lower-bound "To"] upper-bound`, one per dimension; none for a dynamic array.
+    private ImmutableArray<(ExpressionNode? Lower, ExpressionNode? Upper)> CaptureDimBounds(VBAParser.ArrayDimContext? arrayDim)
+    {
+        if (arrayDim?.boundsList() is not { } boundsList)
+        {
+            return [];
+        }
+
+        var dimensions = ImmutableArray.CreateBuilder<(ExpressionNode?, ExpressionNode?)>();
+        foreach (var spec in boundsList.dimSpec())
+        {
+            dimensions.Add((
+                CaptureIsolatedExpression(spec.lowerBound()?.constantExpression()?.expression()),
+                CaptureIsolatedExpression(spec.upperBound()?.constantExpression()?.expression())));
+        }
+
+        return dimensions.ToImmutable();
     }
 
     public override void EnterConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context)

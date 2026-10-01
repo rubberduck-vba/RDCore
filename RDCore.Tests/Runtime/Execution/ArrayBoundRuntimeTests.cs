@@ -212,18 +212,10 @@ public sealed class ArrayBoundRuntimeTests
         CollectionAssert.AreEqual(new[] { ((int)VBRuntimeErrorId.SubscriptOutOfRange).ToString() }, Trimmed(output.Lines), string.Join(" / ", output.Lines));
     }
 
-    // the forms a program is written in. A procedure-local array keeps only the name "Array" on its way to the
-    // environment host - not that it is an array, nor fixed-size or resizable, nor its element type - so the
-    // local reaches the function as an unknown value, and `a(1)` on it is an internal error before any bound is
-    // asked for. Un-ignore with the descriptor that carries the array's declared type (and a fixed-size array's
-    // bounds) to the host.
-    private const string LocalArrayGap =
-        "A procedure-local array loses its declared type on the way to the host (SymbolDescriptorProjector projects " +
-        "every array type as the bare name \"Array\"), so the local is an unknown value: `Debug.Print a(1)` is already " +
-        "an internal error. Un-ignore when a local array's type, element type and fixed-size bounds reach the host.";
+    // the forms a program is written in: declared in the procedure, so the array reaches the runtime the way a program's
+    // arrays do - its kind, its element type and its bounds on the symbol the declaration was read as.
 
     [TestMethod]
-    [Ignore(LocalArrayGap)]
     public void ALocalArrayDeclaredWithBounds_ReportsThem()
     {
         var output = Run("Dim a(1 To 5) As Long", "Debug.Print LBound(a)", "Debug.Print UBound(a)");
@@ -232,7 +224,6 @@ public sealed class ArrayBoundRuntimeTests
     }
 
     [TestMethod]
-    [Ignore(LocalArrayGap)]
     public void ALocalArrayDeclaredByItsUpperBound_StartsAtZero()
     {
         var output = Run("Dim a(3) As Long", "Debug.Print LBound(a)", "Debug.Print UBound(a)");
@@ -241,7 +232,6 @@ public sealed class ArrayBoundRuntimeTests
     }
 
     [TestMethod]
-    [Ignore(LocalArrayGap)]
     public void ALocalDynamicArray_ReportsTheBoundsItWasSizedTo()
     {
         var output = Run("Dim a() As Long", "ReDim a(2 To 7)", "Debug.Print LBound(a)", "Debug.Print UBound(a)");
@@ -250,7 +240,6 @@ public sealed class ArrayBoundRuntimeTests
     }
 
     [TestMethod]
-    [Ignore(LocalArrayGap)]
     public void ALocalDynamicArrayNotYetSized_IsSubscriptOutOfRange()
     {
         var output = Run("On Error Resume Next", "Dim a() As Long", "Debug.Print UBound(a)", "Debug.Print Err.Number");

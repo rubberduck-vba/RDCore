@@ -241,7 +241,8 @@ End Sub
         var member = JsonSerializer.Deserialize<ModuleNode>(json)!.Children.OfType<MemberDeclarationNode>().Single();
 
         var dimBounds = member.Children.OfType<VariableDeclarationNode>().Single().Children.OfType<ArrayBoundsNode>().Single();
-        Assert.AreEqual(new ArrayDimensionBound("1", "3"), dimBounds.Bounds.Single());
+        Assert.AreEqual(("1", "3"), (dimBounds.Bounds.Single().LowerBound, dimBounds.Bounds.Single().UpperBound));
+        Assert.IsInstanceOfType<LiteralExpressionNode>(dimBounds.Bounds.Single().UpperExpression, "the parsed bound survives the round trip");
 
         var redim = member.Children.OfType<RedimDeclarationNode>().Single();
         Assert.AreEqual("Grid", redim.Name);
@@ -1047,12 +1048,19 @@ End Sub
         var grid = locals["Grid"]!;
         Assert.IsFalse(grid.IsResizable);
         Assert.AreEqual(2, grid.Rank);
-        Assert.AreEqual(new ArrayDimensionBound("1", "3"), grid.Bounds[0]);
-        Assert.AreEqual(new ArrayDimensionBound("0", "4"), grid.Bounds[1]);
+        Assert.AreEqual(("1", "3"), (grid.Bounds[0].LowerBound, grid.Bounds[0].UpperBound));
+        Assert.AreEqual(("0", "4"), (grid.Bounds[1].LowerBound, grid.Bounds[1].UpperBound));
+
+        // what the text says, parsed: the runtime reduces these when the array's storage is allocated.
+        Assert.IsInstanceOfType<LiteralExpressionNode>(grid.Bounds[0].LowerExpression);
+        Assert.IsInstanceOfType<LiteralExpressionNode>(grid.Bounds[0].UpperExpression);
+        Assert.IsInstanceOfType<LiteralExpressionNode>(grid.Bounds[1].UpperExpression);
 
         var row = locals["Row"]!;
         Assert.IsFalse(row.IsResizable);
-        Assert.AreEqual(new ArrayDimensionBound(null, "10"), row.Bounds.Single());
+        Assert.AreEqual((null, "10"), (row.Bounds.Single().LowerBound, row.Bounds.Single().UpperBound));
+        Assert.IsNull(row.Bounds.Single().LowerExpression);
+        Assert.IsInstanceOfType<LiteralExpressionNode>(row.Bounds.Single().UpperExpression);
 
         var buffer = locals["Buffer"]!;
         Assert.IsTrue(buffer.IsResizable);

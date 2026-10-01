@@ -31,6 +31,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     VBNumericLetCoercionTypeRuntimeSemantics Numbers)
 {
+    private readonly ArrayBoundEvaluator _bounds = new(Expressions, Numbers);
+
     /// <summary>
     /// Executes a <c>ReDim</c> statement (<strong>MS-VBAL §5.4.3.3</strong>).
     /// </summary>
@@ -296,36 +298,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
     private bool TryEvaluateSubscript(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression,
         out int value, out RuntimeExecutionOutcome failure)
-    {
-        value = 0;
-        var evaluated = Expressions.Evaluate(session, expression, context);
-        if (!evaluated.IsSuccess)
-        {
-            failure = evaluated.IsInternalError
-                ? RuntimeExecutionOutcome.InternalError
-                : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
-            return false;
-        }
-
-        // "dynamic-lower-bound = integer-expression" - a bound is Let-coerced to Integer like any other
-        // subscript, so a Double bound rounds rather than being refused.
-        var coerced = Numbers.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
-        {
-            NodeId = expression.Identity,
-            SourceValue = evaluated.Result!,
-            DestinationTypeDesc = new(VBIntegerType.TypeInfo),
-        });
-
-        if (!coerced.IsSuccess)
-        {
-            failure = RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
-            return false;
-        }
-
-        value = Convert.ToInt32(coerced.Result!.Handle.Value.BoxedValue);
-        failure = RuntimeExecutionOutcome.Next;
-        return true;
-    }
+        => _bounds.TryEvaluate(session, context, expression, out value, out failure);
 
     // a ReDim of a Variant that held nothing keeps Variant elements, which is what a Variant array is.
     private static VBType ItemTypeOf(VBTypedValue? current)

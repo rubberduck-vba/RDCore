@@ -34,6 +34,7 @@ public sealed class ClassModuleHostExecutionTests
     private const string Disc = ClassHeader + "Attribute VB_Name = \"Disc\"\r\n"
         + "Implements IShape\r\n"
         + "Public Radius As Long\r\n"
+        + "Public Cells(1 To 3) As Long\r\n"
         + "Private Function IShape_Area() As Double\r\n    IShape_Area = Radius * 2\r\nEnd Function\r\n";
 
     private static string Program(params string[] body)
@@ -124,6 +125,24 @@ public sealed class ClassModuleHostExecutionTests
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
         CollectionAssert.AreEqual(new[] { " 21 " }, result.Output.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AFixedSizeArrayOfAClass_IsAsBigAsItsBoundsSay_ForEachObject()
+    {
+        var (result, _) = await RunAsync(Program(
+            "Dim a As Disc",
+            "Dim b As Disc",
+            "Set a = New Disc",
+            "Set b = New Disc",
+            "a.Cells(3) = 5",
+            "b.Cells(3) = 6",
+            "Debug.Print UBound(a.Cells)",
+            "Debug.Print a.Cells(3)",
+            "Debug.Print b.Cells(3)"));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "3", "5", "6" }, result.Output.Select(line => line.Trim()).ToArray());
     }
 
     [TestMethod]

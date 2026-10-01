@@ -22,6 +22,12 @@ public static class SymbolProperties
     /// </summary>
     public static readonly SymbolProperty<bool> Extensible = new(nameof(Extensible));
     /// <summary>
+    /// The bounds a fixed-size array variable was declared with (<strong>MS-VBAL §5.2.3.1.3</strong>), one for each dimension and
+    /// outermost first: constant expressions, which the type of the variable has no room for and whatever allocates its storage
+    /// reduces. Unset for a variable that is not a fixed-size array.
+    /// </summary>
+    public static readonly SymbolProperty<System.Collections.Immutable.ImmutableArray<RDCore.SDK.Model.AST.Declarations.ArrayDimensionBound>> ArrayBounds = new(nameof(ArrayBounds));
+    /// <summary>
     /// Whether a variable is an <em>automatic instantiation variable</em> (<strong>MS-VBAL §2.5.1</strong>): one
     /// declared with an <c>As New</c> clause (<strong>§5.2.3.1.1</strong>), or the default instance variable of a
     /// predeclared class (<strong>§5.2.4.1.2</strong>, declared "as if" <c>As New</c>). Each time its content is
