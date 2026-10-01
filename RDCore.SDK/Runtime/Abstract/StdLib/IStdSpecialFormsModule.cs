@@ -13,7 +13,9 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// it was a program defined procedure name but which has special syntactic rules for its argument", and is not a
 /// member of any module the specification's standard library (section 6.1) defines. They are declared together
 /// here, rather than among the members of a module they do not belong to, so that the members MS-VBAL does define
-/// stay exactly as it defines them. What each one does is therefore the behavior MS-VBA documents for it.
+/// stay exactly as it defines them. What each one does is therefore the behavior Microsoft documents for the
+/// MS-VBA keyword of that name — its result, its optional arguments and their defaults — and, where that
+/// documentation is silent, the behavior MS-VBA is observed to have.
 /// <para>
 /// 🚧 TODO <c>Array</c>, <c>Circle</c>, <c>Input</c>, <c>InputB</c> and <c>Scale</c>, the other special forms.
 /// </para>
@@ -27,7 +29,8 @@ public interface IStdSpecialFormsModule
     /// <remarks>
     /// The argument is an array, of any element type and rank, whose bounds are read and which is left as it is.
     /// <para>
-    /// 💥 Raises run-time error 9 <c>Subscript out of range</c> when the array has no dimensions yet — a dynamic
+    /// 💥 The error cases are not in Microsoft's documentation of the keyword; they are MS-VBA's observed behavior.
+    /// Raises run-time error 9 <c>Subscript out of range</c> when the array has no dimensions yet — a dynamic
     /// array that has not been sized by <c>ReDim</c> — or when <paramref name="dimension"/> is not one of the
     /// array's dimensions, and run-time error 13 <c>Type mismatch</c> when <paramref name="arrayName"/> is not an
     /// array.
@@ -44,7 +47,8 @@ public interface IStdSpecialFormsModule
     /// <remarks>
     /// The argument is an array, of any element type and rank, whose bounds are read and which is left as it is.
     /// <para>
-    /// 💥 Raises run-time error 9 <c>Subscript out of range</c> when the array has no dimensions yet — a dynamic
+    /// 💥 The error cases are not in Microsoft's documentation of the keyword; they are MS-VBA's observed behavior.
+    /// Raises run-time error 9 <c>Subscript out of range</c> when the array has no dimensions yet — a dynamic
     /// array that has not been sized by <c>ReDim</c> — or when <paramref name="dimension"/> is not one of the
     /// array's dimensions, and run-time error 13 <c>Type mismatch</c> when <paramref name="arrayName"/> is not an
     /// array.

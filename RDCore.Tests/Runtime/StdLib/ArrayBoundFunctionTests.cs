@@ -82,6 +82,48 @@ public sealed class ArrayBoundFunctionTests
     }
 
     [TestMethod]
+    public void TheLBoundDocumentationTable_IncludingANegativeLowerBound()
+    {
+        // learn.microsoft.com LBound function, Remarks: an array A with a lower bound of 1, 0 and -3 in its three
+        // dimensions, and an upper bound of 100, 3 and 4 (the UBound page's table).
+        var output = RunOn(
+            [(1, 100), (0, 3), (-3, 4)],
+            "Debug.Print LBound(A, 1)",
+            "Debug.Print LBound(A, 2)",
+            "Debug.Print LBound(A, 3)",
+            "Debug.Print UBound(A, 1)",
+            "Debug.Print UBound(A, 2)",
+            "Debug.Print UBound(A, 3)");
+
+        CollectionAssert.AreEqual(new[] { "1", "0", "-3", "100", "3", "4" }, Trimmed(output), string.Join(" / ", output));
+    }
+
+    [TestMethod]
+    public void TheDocumentationExample_MyArray()
+    {
+        // the examples of both pages: Dim MyArray(1 To 10, 5 To 15, 10 To 20).
+        var output = RunOn(
+            [(1, 10), (5, 15), (10, 20)],
+            "Debug.Print LBound(A, 1)",
+            "Debug.Print LBound(A, 3)",
+            "Debug.Print UBound(A, 1)",
+            "Debug.Print UBound(A, 3)");
+
+        CollectionAssert.AreEqual(new[] { "1", "10", "10", "20" }, Trimmed(output), string.Join(" / ", output));
+    }
+
+    [TestMethod]
+    [Ignore("Split is declared but not implemented yet, so there is no array-returning expression to ask. The pages " +
+        "call the argument the \"name of the array variable\", but UBound(Split(...)) is how the keyword is most used. " +
+        "Un-ignore when Split is written.")]
+    public void TheArgument_MayBeAnExpressionThatYieldsAnArray()
+    {
+        var output = Run("Debug.Print UBound(Split(\"a b c\"))");
+
+        CollectionAssert.AreEqual(new[] { "2" }, Trimmed(output), string.Join(" / ", output));
+    }
+
+    [TestMethod]
     public void TheDimensionDefaultsToTheFirst()
     {
         var output = RunOn([(1, 2), (0, 9)], "Debug.Print UBound(A)", "Debug.Print UBound(A, 1)");
