@@ -78,6 +78,9 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
 
         // a class can have members this rule doesn't see (Implements, late-bound additions); a UDT
         // or Enum is a closed set of fields the parser already saw in full.
+        // 🚧 TODO every class is treated as extensible, which is what a host class (`Excel.Application.XLookup`) needs;
+        // a class that is closed - a workspace class, whose members the declaration pass saw in full - could reject an
+        // unknown member with MethodOrDataMemberNotFound too, once a class can say whether it is extensible.
         return owner is VBClassType
             ? StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));

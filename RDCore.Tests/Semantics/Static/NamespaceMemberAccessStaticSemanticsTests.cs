@@ -184,6 +184,25 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
     }
 
     [TestMethod]
+    public void AMemberOfAnExtensibleClassReachedThroughAProject_IsStaticallyValid()
+    {
+        // `Excel.Application.XLookup`: Application is a class a host extends beyond what its type library declares, so
+        // a name it does not declare is a late-bound call to resolve at run time - never a compile-time error.
+        var excel = (VBProjectSymbol)new VBProjectSymbol(Root, "Excel").With(SymbolProperties.Library, "Excel");
+        var globals = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Globals").With(SymbolProperties.Library, "Excel");
+        var application = new VBClassModuleSymbol(Root, Root, "Application");
+        var applicationType = new VBClassType(application, application.DefaultInterfaceMembers);
+        var applicationProperty = new VBFunctionMemberSymbol(
+            Root, globals.Uri, "Application", ScopeKind.Module, SymbolKindExt.Property, applicationType, R, R, AccessModifier.Public)
+            .With(SymbolProperties.Library, "Excel");
+
+        var context = W.Context(excel, globals, application, applicationProperty);
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, MemberOf(MemberOf(NameOf("Excel"), "Application"), "XLookup"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
+    }
+
+    [TestMethod]
     public void NamespaceOf_ClassifiesNamespacesAndNothingElse()
     {
         var context = W.Context();
