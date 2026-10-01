@@ -1159,6 +1159,13 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     // always considered satisfied even with nothing collected (an empty array, not error 449).
     private static ArgumentMapResult MapArguments(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes)
     {
+        // `Area()` is a call that supplies nothing; the parser reads the empty parentheses as one omitted argument, which a
+        // procedure that takes none has no parameter for.
+        if (parameters.IsEmpty && argumentNodes is [MissingArgumentNode])
+        {
+            argumentNodes = [];
+        }
+
         var paramArrayIndex = parameters.Length > 0 && parameters[^1] is ParamArrayParameterSymbol ? parameters.Length - 1 : -1;
         var mapped = new ExpressionNode?[parameters.Length];
         var paramArrayArguments = ImmutableArray.CreateBuilder<ExpressionNode>();

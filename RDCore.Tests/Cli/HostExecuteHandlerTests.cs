@@ -86,7 +86,7 @@ public sealed class HostExecuteHandlerTests
             workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver,
             withImplicitDeclarations: true, implicitScope).ProvideSymbols();
 
-        var defined = await new DefineSymbolsHandler(sessionProvider, NullLogger<DefineSymbolsHandler>.Instance)
+        var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

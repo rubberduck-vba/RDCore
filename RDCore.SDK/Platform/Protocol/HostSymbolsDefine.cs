@@ -77,6 +77,18 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public ImmutableArray<string> ImplementedInterfaceNames { get; init; } = [];
 
     /// <summary>
+    /// The <see cref="System.Text.Json"/> representation of the module's <see cref="RDCore.SDK.Model.AST.ModuleParseResult"/>
+    /// (see <see cref="PlatformJson"/>), or empty when the module is defined for its symbols alone.
+    /// </summary>
+    /// <remarks>
+    /// What gives the module's procedures code. A module the host is asked to run carries its parse result with that request
+    /// and is loaded then; a module of the workspace is never run as such, but its procedures are called by the ones that
+    /// are, and its class members by the objects that are made of it. The AST is polymorphic, which is why it rides a string
+    /// and not the transport's own serializer.
+    /// </remarks>
+    public string ParseResultJson { get; init; } = string.Empty;
+
+    /// <summary>
     /// Whether a descriptor replaces an already-defined symbol of the same identity rather than being
     /// skipped.
     /// </summary>
@@ -110,6 +122,12 @@ public record class DefineSymbolsResult
     /// defined, with <c>VBUnknownType</c>; a later resolver pass can bind them.
     /// </summary>
     public IReadOnlyList<string> UnresolvedTypeNames { get; init; } = [];
+
+    /// <summary>
+    /// The descriptions of the errors found lowering the module's procedures when <see cref="DefineSymbolsParams.ParseResultJson"/>
+    /// was given. The module's symbols are defined all the same; its procedures have no code, and what had before is kept.
+    /// </summary>
+    public IReadOnlyList<string> CodeErrors { get; init; } = [];
 
     /// <summary>
     /// The number of already-defined symbols that were replaced, when

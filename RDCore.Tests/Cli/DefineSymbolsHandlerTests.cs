@@ -1,5 +1,7 @@
 using System.IO.Abstractions.TestingHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.SDK.Services.VerboseMessages;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Model;
@@ -27,7 +29,7 @@ public sealed class DefineSymbolsHandlerTests
             provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
         }
 
-        return new DefineSymbolsHandler(provider, NullLogger<DefineSymbolsHandler>.Instance);
+        return new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
     }
 
     private static DefineSymbolsParams Request(params SymbolDescriptor[] symbols) => new()

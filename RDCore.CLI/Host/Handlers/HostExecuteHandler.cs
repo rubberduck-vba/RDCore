@@ -2,31 +2,25 @@ using RDCore.SDK.Model.Errors.Abstract;
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Semantics;
-using RDCore.Runtime.Semantics.Precompiler;
-using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.CLI.Host.Handlers;
 
 /// <summary>
-/// Handles <c>rdcore/host/execute</c>: lowers the procedures of a parsed module and runs one of them
-/// in this host's runtime session, answering with everything it printed.
+/// Handles <c>rdcore/host/execute</c>: loads the procedures of a parsed module into the session's code and runs one of
+/// them in this host's runtime session, answering with everything it printed.
 /// </summary>
 /// <remarks>
 /// The language server has already parsed the module and defined its symbols by the time this
 /// arrives, so each procedure's body is keyed by the session symbol it belongs to — the same
 /// <c>SemanticId</c> the invoker looks a callee up by, which is what lets one procedure of the module
-/// call another.
+/// call another, and one of another module that was loaded before it.
 /// <para>
 /// The request's cancellation token reaches the interpreter's own fetch-decode loop, so cancelling
 /// the request stops a program that would otherwise never stop on its own.
@@ -45,7 +39,7 @@ internal sealed class HostExecuteHandler(
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
-        if (payload?.ParseResult.SyntaxTree is not { } syntaxTree)
+        if (payload?.ParseResult.SyntaxTree is null)
         {
             return Task.FromResult(NotFound("the request carried no parsed module"));
         }
@@ -56,67 +50,25 @@ internal sealed class HostExecuteHandler(
             return Task.FromResult(NotFound($"module '{request.ModuleName}' is not defined in the session"));
         }
 
-        // every procedure of the module, lowered and keyed by the session symbol it belongs to, so a
-        // call from one to another resolves through the invoker like any other call would.
-        var bodies = new Dictionary<SemanticId, InstructionList>();
-
-        // composed before anything is lowered, because lowering needs its expression evaluator to decide
-        // which #If branches are live. The invoker looks a body up at call time, so the dictionary it
-        // holds here is this same one, still being filled below.
-        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, messages, token);
-
-        // MS-VBAL 3.4.2: an excluded #If branch is logically removed before the rest of the language
-        // ever sees it. The parser leaves both branches' statements in the body AST as plain siblings
-        // and records the directives separately, so the only thing correlating a statement to its own
-        // branch is source position - which is what a dead range is. Until this call existed, both
-        // branches of every #If ran: an assignment in the dead branch won, and a division by zero
-        // inside `#If False` raised error 11.
-        // The scope is the global one because that is where a #Const is bound and resolved from
-        // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant), not the module being lowered.
-        var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(
-            session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), payload.ParseResult.PrecompilerTrivia);
-
-        // MS-VBAL 5.2.3.3 / 5.4.3.2: a Const statically evaluates to a value and is substituted at its
-        // use sites, so the session gives it no storage - reducing its expression is this step's job,
-        // and lowering is where it belongs: a constant expression yields the same value however many
-        // times it is written, so it is reduced once here rather than at every use.
-        pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module));
-
-        VBTypeMemberSymbol? entryPoint = null;
-        foreach (var member in syntaxTree.Children.OfType<MemberDeclarationNode>())
+        // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
+        // call from one to another - or from one module to another - resolves through the invoker like any other.
+        var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
+        if (errors.Length > 0)
         {
-            if (member.Name is not { Length: > 0 } name
-                || !session.Symbols.TryResolveValue(name, module, out var symbol)
-                || symbol is not VBTypeMemberSymbol procedure)
+            return Task.FromResult(new ExecuteSessionResult
             {
-                continue;
-            }
-
-            // the build decides whether Debug statements exist at all, and the build is what the DEBUG
-            // conditional compilation constant says it is.
-            var lowering = InstructionListLowering.Lower(
-                new StatementBlock([.. member.Children]),
-                new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild()));
-            if (lowering.Errors.Length > 0)
-            {
-                return Task.FromResult(new ExecuteSessionResult
-                {
-                    Outcome = ExecutionOutcome.SyntaxError,
-                    Diagnostics = [.. lowering.Errors.Select(error => error.Description)],
-                });
-            }
-
-            bodies[procedure.SemanticId] = lowering.InstructionList;
-            if (string.Equals(name, request.EntryPoint, StringComparison.OrdinalIgnoreCase))
-            {
-                entryPoint = procedure;
-            }
+                Outcome = ExecutionOutcome.SyntaxError,
+                Diagnostics = [.. errors],
+            });
         }
 
-        if (entryPoint is null)
+        if (!session.Symbols.TryResolveValue(request.EntryPoint, module, out var entry) || entry is not VBTypeMemberSymbol entryPoint)
         {
             return Task.FromResult(NotFound($"'{request.ModuleName}.{request.EntryPoint}' is not a procedure of the module"));
         }
+
+        // the pipeline is composed per run: the cancellation is this run's own.
+        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, token);
 
         var output = new RuntimeOutputBuffer();
         var result = Run(session, pipeline, entryPoint, output, token);
@@ -201,41 +153,6 @@ internal sealed class HostExecuteHandler(
     }
 
     // the module symbol is defined in the session from the .rdproj, under the global scope.
-    // every Const this module declares, module-level and procedure-local, as the session knows them.
-    // The AST names them; the session symbols are what carry the expression to reduce and the identity
-    // the folded value is keyed by. A constant declared by another module is not here — it is folded on
-    // first use instead, and still only once.
-    private static IEnumerable<Symbol> ConstantsOf(IRuntimeSession session, ModuleNode syntaxTree, Symbol module)
-    {
-        foreach (var declaration in syntaxTree.Children.OfType<ConstantDeclarationNode>())
-        {
-            if (session.Symbols.TryResolveValue(declaration.Name, module, out var constant) && constant is not null)
-            {
-                yield return constant;
-            }
-        }
-
-        foreach (var member in syntaxTree.Children.OfType<MemberDeclarationNode>())
-        {
-            if (member.Name is not { Length: > 0 } name
-                || !session.Symbols.TryResolveValue(name, module, out var symbol))
-            {
-                continue;
-            }
-
-            var locals = symbol switch
-            {
-                VBReturningMemberSymbol returning => returning.Locals,
-                VBProcedureMemberSymbol procedure => procedure.Locals,
-                _ => [],
-            };
-            foreach (var local in locals.OfType<VBLocalConstantSymbol>())
-            {
-                yield return local;
-            }
-        }
-    }
-
     private static bool TryResolveModule(IRuntimeSession session, string moduleName, out Symbol module)
     {
         if (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var resolved) && resolved is not null)

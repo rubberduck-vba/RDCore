@@ -181,6 +181,16 @@ public interface ISessionSymbols
     bool TryComposeClassModule(string moduleName, System.Collections.Immutable.ImmutableArray<string> implementedInterfaceNames);
 
     /// <summary>
+    /// The members the session has defined for a module, in no particular order: every procedure, property accessor,
+    /// event, variable and constant declared by the module whose <see cref="Symbol.Uri"/> is <paramref name="moduleUri"/>.
+    /// </summary>
+    /// <remarks>
+    /// Names are not enough to find a declaration: the <c>Get</c>, <c>Let</c> and <c>Set</c> accessors of a property share one.
+    /// </remarks>
+    /// <param name="moduleUri">The <see cref="Symbol.Uri"/> of the module symbol.</param>
+    IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri);
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>

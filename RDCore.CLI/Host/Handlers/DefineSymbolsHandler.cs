@@ -9,6 +9,10 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Execution;
+using System.Collections.Immutable;
 
 namespace RDCore.CLI.Host.Handlers;
 
@@ -20,6 +24,7 @@ namespace RDCore.CLI.Host.Handlers;
 /// </summary>
 internal sealed class DefineSymbolsHandler(
     IEnvironmentSessionProvider sessionProvider,
+    IVerboseMessageBuilder messages,
     ILogger<DefineSymbolsHandler> logger) : RDCoreRequestHandler<DefineSymbolsParams, DefineSymbolsResult>
 {
     protected override Task<DefineSymbolsResult> HandleAsync(DefineSymbolsParams request, CancellationToken token)
@@ -102,6 +107,9 @@ internal sealed class DefineSymbolsHandler(
         // the one that implements the interfaces its directives name, is this. A module that is not a class has nothing to compose.
         session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames);
 
+        // the module's procedures get their code now that everything they are keyed by is defined.
+        var loadErrors = LoadCode(session, request);
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
@@ -115,8 +123,43 @@ internal sealed class DefineSymbolsHandler(
             Replaced = replaced,
             Skipped = skipped,
             UnresolvedTypeNames = [.. unresolvedTypeNames],
+            CodeErrors = loadErrors,
             MergedDefinitions = merged,
         });
+    }
+
+    // a standard module is a value in the default binding context, and a class module is a type: the name of one binds only
+    // in the type binding context (MS-VBAL 5.6.4), unless the class has a default instance.
+    private static bool TryResolveModule(IRuntimeSession session, string moduleName, out Symbol module)
+    {
+        if ((session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var resolved)
+                || session.Symbols.TryResolveType(moduleName, GlobalSymbols.UnresolvedSymbol, out resolved))
+            && resolved is VBModuleSymbol)
+        {
+            module = resolved;
+            return true;
+        }
+
+        module = GlobalSymbols.UnresolvedSymbol;
+        return false;
+    }
+
+    private ImmutableArray<string> LoadCode(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (request.ParseResultJson.Length == 0
+            || PlatformJson.Deserialize<ModuleParseResult>(request.ParseResultJson) is not { } parseResult
+            || !TryResolveModule(session, request.ModuleName, out var module))
+        {
+            return [];
+        }
+
+        var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, parseResult);
+        foreach (var error in errors)
+        {
+            logger.LogWarning("{module} was not loaded: {error}", request.ModuleName, error);
+        }
+
+        return errors;
     }
 
     // MS-VBAL 5.2.1: the module symbol is composed from the .rdproj without parsing anything, so its

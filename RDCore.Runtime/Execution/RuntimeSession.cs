@@ -336,11 +336,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
 
         // what the class declares: every member defined under its identity.
-        ImmutableArray<VBTypeMemberSymbol> members =
-        [
-            .. AllSymbols().OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri),
-        ];
-        var composed = module with { Members = members, ImplementedInterfaceNames = implementedInterfaceNames };
+        var composed = module with { Members = [.. MembersOf(module.Uri)], ImplementedInterfaceNames = implementedInterfaceNames };
         Replace(module, composed with { DefaultInterfaceMembers = VBClassType.FromClassModule(composed).Members });
 
         // every class that names an interface is resolved again, whichever it is that has just been composed: it may be the
@@ -357,6 +353,9 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
 
         return true;
     }
+
+    public IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri)
+        => [.. AllSymbols().OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri)];
 
     private IEnumerable<Symbol> AllSymbols()
         => _globalSymbols.Values.Concat(_workspaceSymbols.Values).Concat(_instanceSymbols.Values).Concat(_localSymbols.Values).ToList();

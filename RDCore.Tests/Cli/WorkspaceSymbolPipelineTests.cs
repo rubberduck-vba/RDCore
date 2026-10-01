@@ -1,6 +1,8 @@
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.SDK.Services.VerboseMessages;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
@@ -78,7 +80,7 @@ public sealed class WorkspaceSymbolPipelineTests
             NullLogger<EnvironmentSessionProvider>.Instance);
         sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
 
-        var handler = new DefineSymbolsHandler(sessionProvider, NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
         var resolver = new IntrinsicSymbolResolver();
         var parser = new ModuleParser();
 

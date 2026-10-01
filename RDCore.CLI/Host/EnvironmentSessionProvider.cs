@@ -53,6 +53,12 @@ public interface IEnvironmentSessionProvider
     IRuntimeSession Session { get; }
 
     /// <summary>
+    /// The code of the composed session: the lowered procedures of every module loaded into it. Replaced, empty, each
+    /// time the session is composed.
+    /// </summary>
+    ProgramImage Image { get; }
+
+    /// <summary>
     /// Composes the session from a loaded project's module structure and precompiler constants.
     /// Replaces any previously composed session.
     /// </summary>
@@ -86,6 +92,9 @@ public sealed class EnvironmentSessionProvider(
         "The runtime session has not been composed yet; it is composed on the LSP initialize handshake.");
 
     /// <inheritdoc/>
+    public ProgramImage Image { get; private set; } = new();
+
+    /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
@@ -95,6 +104,7 @@ public sealed class EnvironmentSessionProvider(
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
 
         _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, modules], Output);
+        Image = new ProgramImage();
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;
 

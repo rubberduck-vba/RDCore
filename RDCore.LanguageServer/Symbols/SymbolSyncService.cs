@@ -65,9 +65,11 @@ internal sealed class SymbolSyncService(
             workspaceRoot, [(moduleUri, ModuleType.StdModule, parseResult)], resolver, implicitScope: ImplicitScope);
 
         // a module the client keeps editing is defined again every time it is run, so the newest
-        // definition has to win rather than being skipped as a duplicate.
+        // definition has to win rather than being skipped as a duplicate. Its parse result travels with the request to
+        // run it, not with this one.
         await DefineModuleSymbolsAsync(
-            workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true, token);
+            workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true,
+            withCode: false, token);
         return moduleUri;
     }
 
@@ -122,7 +124,7 @@ internal sealed class SymbolSyncService(
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, token);
+                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: true, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -148,7 +150,7 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, CancellationToken token)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
@@ -164,6 +166,7 @@ internal sealed class SymbolSyncService(
                 Symbols = descriptors,
                 Directives = parseResult.SyntaxTree.GetModuleDirectives(),
                 ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
+                ParseResultJson = withCode ? PlatformJson.Serialize(parseResult) : string.Empty,
                 Replace = replace,
             }, token);
 
