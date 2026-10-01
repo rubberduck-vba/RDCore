@@ -146,14 +146,9 @@ public class RDCoreServerProcess(
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;
 
-        // the environment a client serves is its own to describe to the server it starts: an interactive shell works
-        // the way a BASIC does, and says so here. Left out when it is the default, so a server's own appsettings win.
-        var implicitScope = Options.Value.Workspace.ImplicitDeclarationScope;
-        var implicitScopeArgument = implicitScope == ImplicitDeclarationScope.Procedure
-            ? null
-            : $" --implicit-declaration-scope {implicitScope}";
-
-        var info = CreateProcessStartInfo(fullPath, $"-p {Environment.ProcessId} -n {pipeName} -w \"{workspace}\" -t {trace} {(verbose ? "-v" : null)}{implicitScopeArgument}");
+        var arguments = ServerArguments(
+            Environment.ProcessId, pipeName, workspace, trace, verbose, Options.Value.Workspace.ImplicitDeclarationScope);
+        var info = CreateProcessStartInfo(fullPath, arguments);
         if (hostMode)
         {
             info.Environment[ModeEnvironmentVariable] = "host";
@@ -174,6 +169,28 @@ public class RDCoreServerProcess(
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The command line a server process is started with.
+    /// </summary>
+    /// <remarks>
+    /// The environment a client serves is its own to describe to the server it starts: an interactive shell works the
+    /// way a BASIC does, and says so here. The scope is left out when it is the default, so that a server's own
+    /// settings win.
+    /// <para>
+    /// 👉 <c>-v</c> goes last. It is a switch the argument parser only reads as one at the end of a command line; with
+    /// anything after it, it takes the next argument for its value and the server never starts.
+    /// </para>
+    /// </remarks>
+    internal static string ServerArguments(
+        int clientProcessId, string pipeName, string workspace, LogLevel trace, bool verbose, ImplicitDeclarationScope implicitScope)
+    {
+        var implicitScopeArgument = implicitScope == ImplicitDeclarationScope.Procedure
+            ? null
+            : $"--implicit-declaration-scope {implicitScope} ";
+
+        return $"-p {clientProcessId} -n {pipeName} -w \"{workspace}\" {implicitScopeArgument}-t {trace} {(verbose ? "-v" : null)}";
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()
