@@ -38,9 +38,12 @@ public record class VBStringLetCoercionRuntimeSemantics(
         ISymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
-        => frame.DestinationTypeDesc.Target is VBStringType
+    {
+        frame = WithoutVariant(frame);
+        return frame.DestinationTypeDesc.Target is VBStringType
             ? FromConversion(ValueConversions.ToText(frame.SourceValue), expression, frame)
             : LetCoercionResult.NotApplicable(frame);
+    }
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,

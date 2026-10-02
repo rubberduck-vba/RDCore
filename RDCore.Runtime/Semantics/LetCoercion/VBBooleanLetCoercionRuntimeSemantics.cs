@@ -35,10 +35,13 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : LetCoercionRuntimeSemantics<VBBooleanType>(FormatterService)
 {
-    public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
-        frame.DestinationTypeDesc.Target is VBBooleanType
+    public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    {
+        frame = WithoutVariant(frame);
+        return frame.DestinationTypeDesc.Target is VBBooleanType
             ? FromConversion(ValueConversions.ToBoolean(frame.SourceValue), expression, frame)
             : LetCoercionResult.NotApplicable(frame);
+    }
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {

@@ -33,9 +33,13 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver, ExpressionNode expression,
-        LetCoercionStackFrame frame) => frame.DestinationTypeDesc.Target is VBNumericType destination
+        LetCoercionStackFrame frame)
+    {
+        frame = WithoutVariant(frame);
+        return frame.DestinationTypeDesc.Target is VBNumericType destination
             ? FromConversion(ValueConversions.ToNumeric(frame.SourceValue, destination), expression, frame)
             : LetCoercionResult.NotApplicable(frame);
+    }
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
