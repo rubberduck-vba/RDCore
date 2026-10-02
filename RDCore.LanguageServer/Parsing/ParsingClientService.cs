@@ -121,7 +121,7 @@ internal sealed class ParsingClientService(
         await orchestration.ParsingService.WaitForReadyAsync(token);
 
         var envelope = await orchestration.ParsingService.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
-            new ParseDocumentParams { DocumentUri = documentUri, Fragment = document.Text }, token);
+            new ParseDocumentParams { DocumentUri = documentUri, Fragment = ModuleSourceOf(document) }, token);
 
         // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
@@ -189,6 +189,10 @@ internal sealed class ParsingClientService(
             logger.LogError(exception, "❌ Workspace parse failed.");
         }
     }
+
+    // what the parser is given of a document: its text, or - for a program of the platform's BASIC, which is lines and nothing around them - the module the lines are.
+    internal static string ModuleSourceOf(WorkspaceDocument document)
+        => BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath()) ? BasicProgramText.ToModuleSource(document.Text) : document.Text;
 
     // review #170: fixed. The file extension was a stopgap; module kind is a fact of the source
     // (the VERSION header), not the file name — RD-VBA determines it the same way regardless of

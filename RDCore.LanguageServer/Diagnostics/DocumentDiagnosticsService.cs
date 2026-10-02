@@ -8,6 +8,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Diagnostics;
 
@@ -107,7 +108,7 @@ internal sealed class DocumentDiagnosticsService(
             return DocumentDiagnosticsResult.Fresh(currentVersion, []);
         }
 
-        return DocumentDiagnosticsResult.Fresh(version, Aggregate(reports));
+        return DocumentDiagnosticsResult.Fresh(version, InTheTextOf(document, Aggregate(reports)));
     }
 
     // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,
@@ -162,6 +163,12 @@ internal sealed class DocumentDiagnosticsService(
             return null;
         }
     }
+
+    // what the providers found is where it is in the module the document is, which for a program of the BASIC has a header the text does not: the client has the text.
+    private static IReadOnlyList<Diagnostic> InTheTextOf(WorkspaceDocument document, IReadOnlyList<Diagnostic> found)
+        => BasicProgramText.IsProgram(document.Id.Uri.GetFileSystemPath())
+            ? [.. found.Select(diagnostic => diagnostic with { Range = BasicProgramText.ToTextRange(diagnostic.Range) })]
+            : found;
 
     // registered capabilities decide who provides diagnostics; today that is only RDCore.Diagnostics.
     private IRDCoreClientApp[] DiagnosticsProviders() => [.. orchestration.Extensions

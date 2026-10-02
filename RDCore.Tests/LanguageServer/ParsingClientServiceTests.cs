@@ -198,6 +198,18 @@ public sealed class ParsingClientServiceTests
     }
 
     [TestMethod]
+    public async Task AProgramOfTheBasic_IsParsedAsTheModuleItIs()
+    {
+        var (sut, parser, documents) = Build();
+        var uri = new Uri("file:///c:/ws/src/hello.rdc");
+        StubDocument(documents, uri, new WorkspaceDocument("hello.rdc", Root, "100 X = 1\r\n"));
+
+        await sut.ParseDocumentAsync(uri, CancellationToken.None);
+
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(
+            Arg.Is<ParseDocumentParams>(p => p.Fragment == "Public Sub Main()\r\n100 X = 1\r\nEnd Sub\r\n"), Arg.Any<CancellationToken>());
+    }
+    [TestMethod]
     public void ParseDocumentParams_CarriesTheMethodAttribute()
     {
         var method = typeof(ParseDocumentParams)

@@ -319,4 +319,19 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(1, diagnostics.Count);
         Assert.IsNull(PayloadSentTo(provider).Semantics);
     }
+
+    [TestMethod]
+    public async Task AProgramOfTheBasic_HasItsDiagnosticsWhereTheyAreInTheText_NotInTheModuleItIs()
+    {
+        var program = new WorkspaceDocument("src/hello.rdc", Root, "100 X = 1\r\n110 Y = 2\r\n", version: 1);
+        WorkspaceHas(program);
+        _parsing.ParseDocumentAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Sub Main()\r\n100 X = 1\r\n110 Y = 2\r\nEnd Sub"));
+        // the module has a header line the text does not: line 2 of the module is line 1 of the text.
+        ProvidersAre(Provider("RDCore.Diagnostics", 1, Diag(2)));
+
+        var result = await Sut().GetAsync(program.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual(1, result.Diagnostics.Single().Range.Start.Line);
+    }
 }
