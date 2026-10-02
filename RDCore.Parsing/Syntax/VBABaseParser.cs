@@ -62,6 +62,13 @@ public abstract class VBABaseParser : Parser
         return false;
     }
 
+    // Whether a token begins a name: an identifier, a keyword (which a name may be, such as Name, Date or Open) or the bracket of a foreign name.
+    // What a type hint is immediately followed by, with no whitespace between, is what decides whether it is a type hint at all.
+    protected bool IsNameStart(IToken token)
+    {
+        return token.Text is { Length: > 0 } text && (char.IsLetter(text[0]) || text[0] == '_' || text[0] == '[');
+    }
+
     protected bool IsTokenType(int actual, params int[] expectedOptions)
     {
         foreach (int expected in expectedOptions)

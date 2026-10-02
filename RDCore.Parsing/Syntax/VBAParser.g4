@@ -603,8 +603,10 @@ legalLabelIdentifier : { !IsTokenType(TokenTypeAtRelativePosition(1),DOEVENTS,EN
 //of tokens in the identifier is made. All untypedIdentifers not a foreignNames consist of exactly one token and a typedIdentifier is an untyped one followed by a typeHint,
 //again a single token. So, in the majority of situations, the third token is the token following the potential type hint. 
 //For foreignNames, no assumption can be made because they consist of a pair of brackets containing arbitrarily many tokens. 
-//That is why the second part of the predicate looks at the first character in order to determine whether the identifier is a foreignName. 
-identifier : {!IsTokenType(TokenTypeAtRelativePosition(3),IDENTIFIER,L_SQUARE_BRACKET) || IsTokenType(TokenTypeAtRelativePosition(1),L_SQUARE_BRACKET)}? typedIdentifier
+//That is why the second part of the predicate looks at the first character in order to determine whether the identifier is a foreignName.
+//A keyword is a legal name too (Name, Date, Open...), and is not an IDENTIFIER token: so a bang that is immediately followed by anything that begins a name is the bang
+//notation and no type hint, whatever kind of token the name is (`d!Name`, not `d!` followed by `Name`).
+identifier : {(!IsTokenType(TokenTypeAtRelativePosition(3),IDENTIFIER,L_SQUARE_BRACKET) && !(IsTokenType(TokenTypeAtRelativePosition(2),EXCLAMATIONPOINT) && IsNameStart(TokenAtRelativePosition(3)))) || IsTokenType(TokenTypeAtRelativePosition(1),L_SQUARE_BRACKET)}? typedIdentifier
              | untypedIdentifier;
 untypedIdentifier : identifierValue;
 typedIdentifier : untypedIdentifier typeHint;

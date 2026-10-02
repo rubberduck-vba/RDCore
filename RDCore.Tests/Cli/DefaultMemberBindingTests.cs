@@ -22,14 +22,22 @@ public sealed class DefaultMemberBindingTests
         => CollectionAssert.AreEqual(new[] { "438" }, await RunAsync(declaration, assignment, use));
 
     [TestMethod]
-    public async Task ADictionaryAccess_IsACallOfTheDefaultMember_WithTheNameOfTheMemberAsItsArgument()
+    [DataRow("Foo")]
+    [DataRow("Name")]
+    [DataRow("Date")]
+    [DataRow("Open")]
+    public async Task ADictionaryAccess_IsACallOfTheDefaultMember_WithTheNameOfTheMemberAsItsArgument(string member)
     {
         var dict = ("Dict", ModuleWorkspace.ClassModule("Dict",
             "Public Function Item(ByVal key As String) As String", "Attribute Item.VB_UserMemId = 0", "Item = \"<\" & key & \">\"", "End Function"));
 
-        CollectionAssert.AreEqual(new[] { "<Foo>" }, await ModuleWorkspace.RunAsync(
-            [dict], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim d As New Dict\r\nDebug.Print d!Foo\r\nEnd Sub\r\n"));
+        CollectionAssert.AreEqual(new[] { $"<{member}>" }, await ModuleWorkspace.RunAsync(
+            [dict], $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim d As New Dict\r\nDebug.Print d!{member}\r\nEnd Sub\r\n"));
     }
+
+    [TestMethod]
+    public async Task ADictionaryAccess_OfAKeywordName_OnAnObjectWithNoDefaultMember_IsError438()
+        => CollectionAssert.AreEqual(new[] { "438" }, await RunAsync("Dim o As Object", "Set o = New Plain", "Debug.Print o!Name"));
 
     [TestMethod]
     public async Task ANothing_IsError91_WhenItIsIndexed()
