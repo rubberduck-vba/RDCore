@@ -61,7 +61,7 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
             // MS-VBAL §5.2.4.1.1 (instancing): a class that is Public Not Creatable cannot be instantiated from another project, and a Private one - the
             // default, with VB_Creatable = False too - from none but its own.
             return classModule.GetProperty(SymbolProperties.Creatable) || IsInTheProjectOf(context, classModule)
-                ? StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.DefaultInterfaceMembers))
+                ? StaticSemanticsEvaluationResult.Success(VBClassType.Of(classModule))
                 : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
                     $"'{typeName}' is not creatable (Attribute VB_Creatable = False)."));
         }

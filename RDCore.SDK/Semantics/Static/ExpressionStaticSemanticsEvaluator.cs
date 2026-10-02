@@ -43,6 +43,18 @@ public static class ExpressionStaticSemanticsEvaluator
     /// same "not modeled yet, not wrong" convention every existing rule already uses for its own gaps.
     /// </returns>
     public static StaticSemanticsEvaluationResult Evaluate(StaticEvaluationContext context, ExpressionNode expression)
+    {
+        var result = EvaluateCore(context, expression);
+        if (context.Facts is { } facts)
+        {
+            // children are evaluated first, so what is known of an operand is known when the expression that has it is described.
+            facts.Record(ExpressionFactDescriber.Describe(context, facts, expression, result));
+        }
+
+        return result;
+    }
+
+    private static StaticSemanticsEvaluationResult EvaluateCore(StaticEvaluationContext context, ExpressionNode expression)
         => expression switch
         {
             LiteralExpressionNode => LiteralExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression),
@@ -173,7 +185,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
     // the Function or Property Get a callee names, by its bare name, qualified by the project or module that declares it, or as a member of an object
     // of a class; null for anything that is not one (an array, a variable that holds an object, a Sub).
-    private static VBReturningMemberSymbol? ProcedureNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    internal static VBReturningMemberSymbol? ProcedureNamedBy(StaticEvaluationContext context, ExpressionNode callee)
     {
         Symbol? symbol = callee switch
         {

@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
@@ -20,6 +21,12 @@ namespace RDCore.SDK.Semantics;
 /// </param>
 public sealed record class ProcedureSemanticModel(SemanticId Procedure, ImmutableArray<VBCompileErrorInfo> CompileErrors)
 {
+    /// <summary>
+    /// What the static pass found out about each expression of the procedure's body, by the expression: its declared type, what it names and is
+    /// bound to, and how it is written. Empty when the pass had no workspace to resolve names in.
+    /// </summary>
+    public ImmutableDictionary<SyntaxNodeId, ExpressionFact> Expressions { get; init; } = ImmutableDictionary<SyntaxNodeId, ExpressionFact>.Empty;
+
     /// <summary>
     /// Whether the static pass found nothing wrong with the procedure.
     /// </summary>

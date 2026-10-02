@@ -43,7 +43,7 @@ public sealed record class InstanceExpressionStaticSemantics : IStaticSemantics
         var module = moduleName is null ? null : context.Resolver.ResolveType(moduleName, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol;
 
         return module is VBClassModuleSymbol classModule
-            ? StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.DefaultInterfaceMembers))
+            ? StaticSemanticsEvaluationResult.Success(VBClassType.Of(classModule))
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfMe, expression.Location,
                 "'Me' is only valid within a class module."));
     }

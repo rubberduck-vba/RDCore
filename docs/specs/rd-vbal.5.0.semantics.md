@@ -189,6 +189,23 @@ does not resolve while the module that declares it is defined may name a module 
 (`DeclarationRules.DeclaredTypes`) only when everything the declaration can see is defined: the name is then resolved again,
 and is an error if it still does not.
 
+### Expression facts
+
+Given the symbols of a workspace, the static pass records an
+[ExpressionFact](../api/RDCore.SDK.Semantics.ExpressionFact.html) for every expression it evaluates, in the
+`Expressions` of the procedure's model, by the expression's node identity. An operand has a fact of its own, evaluated before
+the expression that has it.
+
+|Member|Is|
+|---|---|
+|`DeclaredType`|The declared type of the expression (**RD-VBAL §5.0.1**); `null` when it is an error, which `Error` then holds.|
+|`Classification`|What it names (**MS-VBAL §5.6.1**): a value, variable, constant, function, property, subroutine, type, namespace, or the member of an object that is bound when it runs.|
+|`Binding`|The `SemanticId` of the symbol it refers to, when it resolved to one.|
+|`Flags`|[ValueExpressionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html): `Literal`, `LateBound`, `DefaultMember`, `WithBlockRelative`, `DictionaryAccess`, `ProcedureCall`, `CaseMismatch`, and `ExplicitCallKeyword` on the callee of a `Call` statement written with the keyword.|
+
+Facts are descriptions, not opinions: whether a late-bound member, a name written in another case or the obsolete `Call` keyword
+is worth a diagnostic is for an analyzer to say.
+
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling
 `CheckStructure`: the rules are written in one place, and lowering only acts on the outcome (a jump that lands nowhere has no

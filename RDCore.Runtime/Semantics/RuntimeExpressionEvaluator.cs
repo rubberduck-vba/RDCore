@@ -1502,22 +1502,46 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     private RuntimeSemanticsEvaluationResult EvaluateDictionaryAccess(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
     {
-        if (dictionaryAccess.Owner is { } ownerExpression)
+        // the object the member is looked up in: the expression written before the bang, or the enclosing With block's target.
+        var ownerResult = dictionaryAccess.Owner is { } ownerExpression
+            ? Evaluate(session, ownerExpression, context)
+            : context.EnclosingWithTarget is { } withTarget
+                ? RuntimeSemanticsEvaluationResult.Success(withTarget)
+                : RuntimeSemanticsEvaluationResult.InternalError();
+        if (!ownerResult.IsSuccess)
         {
-            var ownerResult = Evaluate(session, ownerExpression, context);
-            if (!ownerResult.IsSuccess)
-            {
-                return ownerResult;
-            }
-        }
-        else if (context.EnclosingWithTarget is null)
-        {
-            return RuntimeSemanticsEvaluationResult.InternalError();
+            return ownerResult;
         }
 
-        // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14) -
-        // never a plain read.
-        return RuntimeSemanticsEvaluationResult.InternalError();
+        var owner = ownerResult.Result;
+        while (owner is VBVariantValue { TypedValue: var wrapped })
+        {
+            owner = wrapped;
+        }
+
+        if (owner is not VBObjectValue objectValue)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectRequired, expression.Location, "A dictionary access is a call of the default member of an object."));
+        }
+
+        if (objectValue.IsNothing())
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
+        }
+
+        // owner!member is always sugar for a call through owner's default member (MS-VBAL §5.6.14), with the name of the member as its argument -
+        // never a plain read. An object that has no default member to bind the call to does not support it: error 438.
+        if (TryResolveDefaultMember(session, objectValue) is not { } defaultMember)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to call with the name of the member."));
+        }
+
+        var name = new LiteralExpressionNode(
+            dictionaryAccess.Member.Identity, dictionaryAccess.Member.Location, new VBStringValue(dictionaryAccess.Member.IdentifierName));
+        return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver);
     }
 
     private RuntimeSemanticsEvaluationResult EvaluateTypeOfIs(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, TypeOfIsExpressionNode typeOfIs)

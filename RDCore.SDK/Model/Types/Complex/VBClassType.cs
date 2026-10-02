@@ -34,6 +34,15 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     public static VBClassType FromClassModule(VBClassModuleSymbol classModule)
         => FromClassModule(classModule, [classModule.Uri.AbsoluteUri]);
 
+    /// <summary>
+    /// The type a name resolved to a class module is: its precomputed default interface (<see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/>, which is
+    /// not built again) with what that interface does not carry - the interfaces the class implements, which an object of it may be Set to, and its default
+    /// member, which indexing an object of it calls.
+    /// </summary>
+    /// <param name="classModule">The class module, as the composition has it.</param>
+    public static VBClassType Of(VBClassModuleSymbol classModule)
+        => FromClassModule(classModule) with { Members = classModule.DefaultInterfaceMembers };
+
     // classModule.ImplementedInterfaces isn't itself validated yet (MS-VBAL §5.2.3.6 disallows a
     // circular Implements chain, but nothing enforces that today) - visited guards this recursion
     // against looping forever over a malformed workspace exactly like it would over a well-formed one.

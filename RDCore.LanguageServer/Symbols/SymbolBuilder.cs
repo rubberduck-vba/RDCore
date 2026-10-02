@@ -312,7 +312,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         {
             VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
             VBEnumMemberSymbol enumType => new VBEnumType(enumType, members: null),
-            VBClassModuleSymbol classModule => new VBClassType(classModule, classModule.DefaultInterfaceMembers),
+            VBClassModuleSymbol classModule => VBClassType.Of(classModule),
             BoundTypedSymbol bound => bound.ResolvedType,
             UnboundTypedSymbol unbound => unbound.ResolvedType,
             _ => new VBUnresolvedType(qualifier is null ? typeName : $"{qualifier}.{typeName}"),

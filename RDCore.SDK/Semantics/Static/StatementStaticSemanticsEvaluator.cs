@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -113,7 +114,16 @@ public static class StatementStaticSemanticsEvaluator
     /// <returns>The model of the procedure.</returns>
     public static ProcedureSemanticModel Analyze(
         SemanticId procedure, StatementBlock block, StaticSemanticsOptions options = default, MemberKind? kind = null, StaticEvaluationContext? context = null)
-        => new(procedure, context is { } resolved ? Evaluate(resolved, block, options, kind) : CheckStructure(block, options, kind));
+    {
+        if (context is not { } resolved)
+        {
+            return new(procedure, CheckStructure(block, options, kind));
+        }
+
+        var facts = new ExpressionFactCollector();
+        var errors = Evaluate(resolved with { Facts = facts }, block, options, kind);
+        return new(procedure, errors) { Expressions = facts.ToImmutable() };
+    }
 
     private static ImmutableArray<VBCompileErrorInfo> Run(StaticEvaluationContext context, StatementBlock block, Walk walk)
     {
@@ -257,6 +267,12 @@ public static class StatementStaticSemanticsEvaluator
                 {
                     CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
                 }
+            }
+
+            // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
+            if (statement is CallStatementNode { IsExplicitCall: true } call && context.Facts is { } facts && facts.TryGet(call.Callee.Identity, out var callee))
+            {
+                facts.Record(callee with { Flags = callee.Flags | ValueExpressionSemanticFlags.ExplicitCallKeyword });
             }
         }
 

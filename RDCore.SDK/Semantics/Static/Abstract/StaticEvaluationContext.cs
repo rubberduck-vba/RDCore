@@ -28,4 +28,9 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// inside any <c>With</c> block. A with-relative access (<c>.Member</c>/<c>!Member</c>) resolves
 /// against this; per §5.6.15, one is invalid when this is <c>null</c>.
 /// </param>
-public readonly record struct StaticEvaluationContext(ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null);
+/// <param name="Facts">
+/// Where the facts of the expressions evaluated are recorded (<see cref="ExpressionFact"/>), or <c>null</c> when the caller
+/// has no use for anything but the declared type.
+/// </param>
+public readonly record struct StaticEvaluationContext(
+    ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null);
