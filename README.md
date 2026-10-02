@@ -19,7 +19,7 @@ This arrangement protects both the legacy and current contributors while enablin
 <a id="projectstatus"/>
 
 ## 📊 Project Status
-RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols → execution) but is not completed nor released yet.
+RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols → execution) but is not completed yet: preview builds are published as GitHub [prereleases](https://github.com/rubberduck-vba/RDCore/releases) while it remains pre-alpha.
 
 **Contributions**  
 

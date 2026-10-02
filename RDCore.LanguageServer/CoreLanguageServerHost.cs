@@ -36,6 +36,10 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
         // IFileSystem is already registered by AppHost; the workspace services take the split
         // abstractions, so project them here.
         services
+            // the numeric AssemblyName.Version, not the informational one: WorkspaceService.LoadAsync compares a
+            // project's version against it as a System.Version, and new Version("0.1.0+<sha>") would throw.
+            // That guard is a no-op today: the loader re-stamps the project with this same version (see the
+            // ProjectFile copy constructor).
             .AddSingleton(Info.Version ?? new Version(0, 0, 0))
             // the language the workspace is written in, which the client says when it starts the server and again when it initializes it:
             // asked for when it is needed, never kept from before.

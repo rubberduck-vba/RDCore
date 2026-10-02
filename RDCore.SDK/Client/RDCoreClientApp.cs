@@ -143,16 +143,16 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// Gets information about this LSP client application and its configuration.
     /// </summary>
     /// <remarks>
-    /// 🧩 The base implementation returns the <c>Name</c> and <c>Version</c> of the executing <see cref="Assembly"/>,
-    /// which is everything <see cref="ClientInfo"/> needs.
+    /// 🧩 The base implementation returns the <c>Name</c> of the entry <see cref="Assembly"/> and its <see cref="AssemblyDisplayVersion"/>
+    /// (the informational version, prerelease suffix and <c>+commit</c> build metadata included), which is everything <see cref="ClientInfo"/> needs.
     /// </remarks>
     protected virtual ClientInfo GetClientInfo()
     {
-        var assemblyName = Assembly.GetEntryAssembly()?.GetName();
+        var assembly = Assembly.GetEntryAssembly();
         return new()
         {
-            Name = assemblyName?.Name ?? "RDCore.CustomLanguageClientApp",
-            Version = (assemblyName?.Version ?? new Version()).ToString(3),
+            Name = assembly?.GetName().Name ?? "RDCore.CustomLanguageClientApp",
+            Version = AssemblyDisplayVersion.Get(assembly),
         };
     }
 

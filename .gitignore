@@ -21,6 +21,8 @@ mono_crash.*
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
+# the release pipeline's scripts, not build output
+!/tools/release/
 [Rr]eleases/
 x64/
 x86/

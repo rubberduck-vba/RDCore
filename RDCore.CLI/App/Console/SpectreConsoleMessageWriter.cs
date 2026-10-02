@@ -1,5 +1,6 @@
 using System.Reflection;
 using RDCore.CLI.Themes;
+using RDCore.SDK;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 using Spectre.Console;
@@ -108,11 +109,12 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
 
     public IConsoleMessageWriter WriteAssemblyInfo()
     {
-        var name = Assembly.GetExecutingAssembly().GetName();
-        var company = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
+        var assembly = Assembly.GetExecutingAssembly();
+        var company = assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
+        // the informational version, so a preview build shows its prerelease suffix and commit.
         return WriteMessage(new ConsoleMessageBuilder()
             .WithKind(MessageKind.Trace)
-            .WithMessageBody($"{name.Name} [v{name.Version?.ToString(3) ?? "0.1a"}]")
+            .WithMessageBody($"{assembly.GetName().Name} [v{AssemblyDisplayVersion.Get(assembly)}]")
             .WithPlaceholder("COMPANY", company));
     }
 

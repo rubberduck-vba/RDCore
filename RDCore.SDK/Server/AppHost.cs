@@ -56,8 +56,10 @@ public abstract class AppHost<TApp>() : IDisposable
     /// Gets the <see cref="AssemblyName"/> of this application.
     /// </summary>
     /// <remarks>
-    /// 👉 This provides the <c>Name</c> and <c>Version</c> values for both
-    /// <see cref="ServerInfo"/> and <see cref="ClientInfo"/> unless the application overrides this default.
+    /// 👉 Its numeric <c>Version</c> is the one workspace (<c>.rdproj</c>) versions are stamped with and that the language
+    /// server's <c>WorkspaceService.LoadAsync</c> compares them against; the loader re-stamps a loaded project with it
+    /// (see the <see cref="ProjectFile"/> copy constructor), so that check currently compares the running version with itself.<br/>
+    /// 👉 The version reported in <see cref="ServerInfo"/> and <see cref="ClientInfo"/> is <see cref="AssemblyDisplayVersion"/>'s.
     /// </remarks>
     public static AssemblyName Info => _info.Value;
 

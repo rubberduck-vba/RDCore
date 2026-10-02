@@ -1,0 +1,415 @@
+# Rubberduck Core — Release
+#
+# Builds the RDCore platform on windows-latest, tests it and packages it. A pushed `v*` tag then publishes it as a
+# GitHub PRERELEASE: a preview for evaluation, not a certified build.
+#   1. Resolves the version: <VersionPrefix> from Directory.Build.props, plus a suffix taken from the tag
+#      (v0.1.0-rc.1 -> rc.1), the pull request (pr.<number>) or the run (ci.<run_number>).
+#   2. Tests, publishes the platform tree (PlatformPublish.ps1: Release, win-x64, framework-dependent), writes
+#      THIRD-PARTY-NOTICES.txt, SOURCE.md and release.json into it, gates it (tools/release/Test-PlatformTree.ps1),
+#      smoke-launches the language server, and zips it with release.json and SHA256SUMS alongside.
+#   3. Tag runs only, once a required reviewer approves the `release` environment: checks the tag still points at the
+#      built commit and has no release (or draft) yet, attests the build provenance of the zip and release.json,
+#      creates a draft prerelease, uploads the assets, then publishes it.
+# A manual run (workflow_dispatch) is a dry run: everything up to the zip, uploaded as a short-lived workflow
+# artifact, and no release. A pull request that touches the release plumbing builds and packages too, but uploads
+# only the metadata: never the zip or the binaries.
+#
+# ── One-time setup before this works (a maintainer, before the first tag) ─────────────────────
+#   • Settings → Environments: create `release`, with a Required reviewers protection rule and, under Deployment
+#     branches and tags, a single rule of type Tag with the pattern `v*`. A job naming a missing environment
+#     auto-creates it UNPROTECTED, so the build job's preflight refuses a tag run unless it can read `release` and
+#     finds it requires reviewers and restricts deployment branches and tags; it warns if admins can bypass its rules.
+#   • Settings → Rules → Rulesets: a tag ruleset on refs/tags/v* restricting creation, update and deletion to the
+#     maintainers, with no bypass for GitHub Actions (or any other app).
+#   • Optional, later: immutable releases (only after a clean rehearsal, e.g. a full v0.1.0-rc.1 run: the tag name of
+#     an immutable release can never be reused), and "Require actions to be pinned to a full-length commit SHA".
+#   See RELEASING.md for the step-by-step runbook.
+# ──────────────────────────────────────────────────────────────────────────────────────────
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
+      - 'PlatformPublish.ps1'
+      - 'tools/release/**'
+      - 'Directory.Build.props'
+      - 'NOTICE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # keeps the first-run banner out of the output the version step parses
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    # actions: read is what GitHub documents for reading an environment; without it the preflight works only while
+    # the repository is public
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    # event text never goes inside a script: it reaches the scripts through env and is read as $env:...
+    steps:
+      # before the checkout, so the working tree gets Windows line endings as on a maintainer's machine
+      - name: Configure line endings
+        run: git config --global core.autocrlf true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # full history, so origin/main is there to check a tag against
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      # ANTLR 4.6.6 (RDCore.Parsing) runs the Java tool at build time
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Resolve version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          $prefix = @(dotnet msbuild RDCore.CLI/RDCore.CLI.csproj -getProperty:VersionPrefix) | Where-Object { $_.Trim() } | Select-Object -Last 1
+          $prefix = "$prefix".Trim()
+          if ($LASTEXITCODE -ne 0 -or $prefix -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Output "::error::Could not read <VersionPrefix> from Directory.Build.props (got '$prefix')."
+            exit 1
+          }
+          # SemVer prerelease identifiers: dot-separated, none empty
+          $identifiers = '[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
+          $isTag = $env:EVENT_NAME -eq 'push' -and $env:REF_TYPE -eq 'tag'
+          if ($isTag) {
+            if ($env:REF_NAME -cnotmatch "^v(?<prefix>\d+\.\d+\.\d+)(-(?<suffix>$identifiers))?$" -or $Matches.prefix -cne $prefix) {
+              Write-Output "::error::Tag '$env:REF_NAME' must be v$prefix or v$prefix-<suffix> (<VersionPrefix> is $prefix; see RELEASING.md)."
+              exit 1
+            }
+            $suffix = "$($Matches.suffix)"
+          }
+          elseif ($env:EVENT_NAME -eq 'pull_request') {
+            $suffix = "pr.$env:PR_NUMBER"
+          }
+          else {
+            $suffix = "ci.$env:GITHUB_RUN_NUMBER"
+          }
+          if ($suffix -and $suffix -cnotmatch "^$identifiers$") {
+            Write-Output "::error::'$suffix' is not a valid version suffix."
+            exit 1
+          }
+          $version = if ($suffix) { "$prefix-$suffix" } else { $prefix }
+          "suffix=$suffix" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "is_tag=$($isTag.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          Write-Output "Version $version (tag run: $isTag)"
+
+      - name: Check the tag is on main
+        if: steps.version.outputs.is_tag == 'true'
+        run: |
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::$env:GITHUB_SHA is not on main. Tag a commit that is already on main (see RELEASING.md)."
+            exit 1
+          }
+
+      - name: Check the release environment is protected
+        if: steps.version.outputs.is_tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # the publish job names the `release` environment, and a missing environment is created on the spot with no
+          # protection at all: refuse to get that far, and fail closed whenever the environment can't be read.
+          $response = @(gh api --include "repos/$env:GITHUB_REPOSITORY/environments/release" 2>$null)
+          $status = if ($response.Count -and $response[0] -match '^HTTP/\S+\s+(\d{3})') { [int]$Matches[1] } else { 0 }
+          $body = ($response | Select-Object -Skip ([array]::IndexOf($response, '') + 1)) -join "`n"
+          switch ($status) {
+            404 {
+              Write-Output "::error::The 'release' environment does not exist. The publish job would create it unprotected; create it with required reviewers first (see RELEASING.md)."
+              exit 1
+            }
+            200 {
+              $environment = $body | ConvertFrom-Json
+              if (-not (@($environment.protection_rules) | Where-Object type -eq 'required_reviewers')) {
+                Write-Output "::error::The 'release' environment has no required reviewers; add them before tagging (see RELEASING.md)."
+                exit 1
+              }
+              # null: every branch and tag may deploy
+              if ($null -eq $environment.deployment_branch_policy) {
+                Write-Output "::error::The 'release' environment lets any branch or tag deploy; restrict it to tags matching v* (see RELEASING.md)."
+                exit 1
+              }
+              # the live response has it but GitHub's published schema doesn't, so a missing field stays quiet
+              if ($environment.can_admins_bypass -eq $true) {
+                Write-Output "::warning::Administrators can bypass the 'release' environment's protection rules; untick that option (see RELEASING.md)."
+              }
+              Write-Output "The 'release' environment requires reviewers and restricts deployment branches and tags."
+            }
+            default {
+              # a transient failure (status 0: no response at all) must not let the run reach an unchecked environment
+              Write-Output "::error::Could not read the 'release' environment (HTTP $status). Re-run the job; the environment must exist and require reviewers (see RELEASING.md)."
+              exit 1
+            }
+          }
+          exit 0
+
+      - name: Record the toolchain
+        run: |
+          $info = Join-Path $env:RUNNER_TEMP build-info.txt
+          & {
+            '$ dotnet --info'
+            dotnet --info
+            ''
+            '$ java -version'
+            java -version 2>&1 | ForEach-Object ToString
+          } | Set-Content -LiteralPath $info
+          Get-Content -LiteralPath $info
+
+      # same ContinuousIntegrationBuild as the publish below, so any build output it reuses has deterministic paths
+      - name: Test
+        run: dotnet test RDCore.slnx -c Release -p:ContinuousIntegrationBuild=true
+
+      - name: Publish the platform tree
+        env:
+          VERSION_SUFFIX: ${{ steps.version.outputs.suffix }}
+        run: |
+          $publish = @{ Silent = $true; Configuration = 'Release'; RuntimeIdentifier = 'win-x64'; PlatformRoot = "$env:RUNNER_TEMP/platform" }
+          if ($env:VERSION_SUFFIX) { $publish.VersionSuffix = $env:VERSION_SUFFIX }
+          ./PlatformPublish.ps1 @publish
+
+      - name: Write THIRD-PARTY-NOTICES.txt
+        run: ./tools/release/New-ThirdPartyNotices.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -OutFile "$env:RUNNER_TEMP/platform/THIRD-PARTY-NOTICES.txt"
+
+      # last to write into the tree: release.json hashes every file
+      - name: Write SOURCE.md and release.json
+        env:
+          IS_TAG: ${{ steps.version.outputs.is_tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $metadata = @{
+            PlatformRoot = "$env:RUNNER_TEMP/platform"
+            Repository = $env:GITHUB_REPOSITORY
+            ServerUrl = $env:GITHUB_SERVER_URL
+            RunUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          }
+          if ($env:IS_TAG -eq 'true') { $metadata.Tag = $env:REF_NAME }
+          ./tools/release/New-ReleaseMetadata.ps1 @metadata
+
+      - name: Check the platform tree
+        run: ./tools/release/Test-PlatformTree.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -ExpectedCommit $env:GITHUB_SHA -RequireReleaseFiles
+
+      # on a copy of the tree; a cold runner starts slower than a workstation
+      - name: Smoke-test the language server
+        run: ./tools/release/Test-LanguageServerStartup.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -TimeoutSeconds 120
+
+      - name: Package
+        run: ./tools/release/New-ReleaseArchive.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -OutDir "$env:RUNNER_TEMP/out"
+
+      # checked with GNU sha256sum, not the script that wrote them
+      - name: Verify the checksums
+        shell: bash
+        working-directory: ${{ runner.temp }}/out
+        run: sha256sum -c SHA256SUMS
+
+      # what ships is the zip, so gate the zip too; its name also proves the build took the resolved version
+      - name: Verify the zip
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $zip = @(Get-ChildItem -Path "$env:RUNNER_TEMP/out" -Filter *.zip)
+          if ($zip.Count -ne 1 -or $zip[0].Name -cne "rdcore-$env:VERSION-win-x64.zip") {
+            Write-Output "::error::Expected rdcore-$env:VERSION-win-x64.zip, found [$($zip.Name -join ', ')]."
+            exit 1
+          }
+          $extracted = Join-Path $env:RUNNER_TEMP extracted
+          Expand-Archive -LiteralPath $zip[0].FullName -DestinationPath $extracted
+          ./tools/release/Test-PlatformTree.ps1 -PlatformRoot $extracted -ExpectedCommit $env:GITHUB_SHA -RequireReleaseFiles
+
+      - name: Write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          IS_TAG: ${{ steps.version.outputs.is_tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $notes = Join-Path $env:RUNNER_TEMP notes
+          New-Item $notes -ItemType Directory -Force | Out-Null
+          $repository = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY"
+          $sourceRef = if ($env:IS_TAG -eq 'true') { $env:REF_NAME } else { $env:GITHUB_SHA }
+          $text = @'
+          **Preview build.** RDCore {VERSION} is a prerelease for evaluation, not a certified build.
+
+          Built from commit [`{SHORT}`]({REPOSITORY}/commit/{COMMIT}) by [this workflow run]({RUN}).
+
+          ### Requirements
+
+          - Windows x64.
+          - The .NET 10 runtime, x64 (`Microsoft.NETCore.App`). The zip is framework-dependent and does not include it; `release.json` records the minimum version.
+
+          ### Installing
+
+          - Extract `{ZIP}` into a user-writable folder of its own, one per version (e.g. `%LOCALAPPDATA%\RDCore\{VERSION}`), not under `Program Files`: logs are written inside it. The zip's top level is the platform root (`rdcore.json`); keep the tree together.
+          - Launch the language server with its own folder as the working directory: `RDCore.LanguageServer.exe --client-process-id <client pid> --pipe-name <pipe> --workspace <workspace>`, as `launch.languageServer` in `release.json` describes. Pass the client's own process ID: without it, the server and the processes it starts keep running if the client dies.
+          - Don't set `RDCORE_PLATFORM_ROOT` globally: each server finds its platform root from its own location, and a global value would point every installed version at one tree.
+
+          ### Verifying
+
+          ```sh
+          sha256sum -c SHA256SUMS
+          gh attestation verify {ZIP} -R {REPO} --signer-workflow {REPO}/.github/workflows/release.yml --source-ref {GITREF}
+          ```
+
+          The binaries are **not code-signed**: SmartScreen may warn about them, and Windows 11 Smart App Control may block them.
+
+          ### Source and licences
+
+          `SOURCE.md` in the zip says where the corresponding source is: {REPOSITORY}/tree/{REF}. The licences are `LICENSE-GPLv3.md` and `LICENSE-MIT.md`, with `NOTICE.md` saying which covers what; `THIRD-PARTY-NOTICES.txt` lists the third-party components.
+          '@
+          $text = $text.Replace('{VERSION}', $env:VERSION).Replace('{SHORT}', $env:GITHUB_SHA.Substring(0, 7)).Replace('{COMMIT}', $env:GITHUB_SHA)
+          # {GITREF} is the full ref the attestation records as its source (refs/tags/<tag> on a tag run)
+          $text = $text.Replace('{REPOSITORY}', $repository).Replace('{REPO}', $env:GITHUB_REPOSITORY).Replace('{REF}', $sourceRef).Replace('{GITREF}', $env:GITHUB_REF)
+          $text = $text.Replace('{RUN}', "$repository/actions/runs/$env:GITHUB_RUN_ID").Replace('{ZIP}', "rdcore-$env:VERSION-win-x64.zip")
+          Set-Content -LiteralPath (Join-Path $notes release-notes.md) -Value ($text + "`n") -NoNewline
+          Get-Content -LiteralPath (Join-Path $notes release-notes.md)
+
+      # a tag run's artifacts must outlast the approval, which can wait up to 30 days
+      - name: Upload the release assets
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: ${{ steps.version.outputs.is_tag == 'true' && 30 || 3 }}
+
+      - name: Upload the release notes
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes/release-notes.md
+          if-no-files-found: error
+          retention-days: ${{ steps.version.outputs.is_tag == 'true' && 30 || 3 }}
+
+      # a pull request's build is untrusted: only its metadata leaves the runner, never the zip or the binaries
+      - name: Upload the pull request metadata
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: untrusted-pr-${{ github.event.pull_request.number }}-not-a-release
+          path: |
+            ${{ runner.temp }}/out/release.json
+            ${{ runner.temp }}/out/SHA256SUMS
+            ${{ runner.temp }}/platform/rdcore.json
+            ${{ runner.temp }}/platform/Extensions/*/extension.manifest.json
+            ${{ runner.temp }}/build-info.txt
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # pauses here until a required reviewer approves
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      # an approval, or a re-run, keeps the GITHUB_SHA the build job saw: never publish one commit's binaries under a
+      # tag that has since been moved to another. commits/refs/tags/<tag> peels an annotated tag to its commit.
+      - name: Check the tag still points at the built commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$TAG" --jq .sha) || {
+            echo "::error::Could not resolve $TAG; was it deleted? Nothing is published from this run (see RELEASING.md)."
+            exit 1
+          }
+          if [ "$sha" != "$GITHUB_SHA" ]; then
+            echo "::error::$TAG now points at $sha, but this run built $GITHUB_SHA. Don't re-run it: the run the moved tag started builds and publishes $TAG (see RELEASING.md)."
+            exit 1
+          fi
+
+      # `gh release create --draft` checks for nothing, and GitHub accepts a second draft for the same tag, so a re-run
+      # after a failure must stop here. The listing includes drafts because this token can push.
+      - name: Check the tag has no release yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[] | select(.tag_name == env.TAG) | if .draft then "draft" else "published" end')
+          if grep -qx published <<< "$releases"; then
+            echo "::error::$TAG is already published; check its assets. There is nothing to re-run."
+            exit 1
+          elif [ -n "$releases" ]; then
+            echo "::error::$(wc -l <<< "$releases") draft release(s) for $TAG already exist, left by an earlier attempt. Delete them but keep the tag: 'gh release delete $TAG -R $GITHUB_REPOSITORY --yes' (without --cleanup-tag) removes one at a time, until 'gh release list -R $GITHUB_REPOSITORY' shows none for $TAG. Then re-run this job (see RELEASING.md)."
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-assets
+          path: assets
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: notes
+
+      - name: Verify the checksums
+        working-directory: assets
+        run: sha256sum -c SHA256SUMS
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            assets/*.zip
+            assets/release.json
+
+      # draft first, published last: the assets are all in place before anyone can see the release
+      - name: Create the draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --prerelease --title "RDCore $VERSION (preview)" --notes-file notes/release-notes.md
+
+      - name: Upload the assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" assets/* --repo "$GITHUB_REPOSITORY"
+
+      - name: Publish the prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
