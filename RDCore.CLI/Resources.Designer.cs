@@ -431,6 +431,60 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Loads a program from a .rdc file (LOAD name)..
+        /// </summary>
+        public static string Repl_Load_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Load_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Saves the program to a .rdc file (SAVE name)..
+        /// </summary>
+        public static string Repl_Save_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Save_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to BAD FILE NAME ERROR.
+        /// </summary>
+        public static string Repl_BadFileName {
+            get {
+                return ResourceManager.GetString("Repl_BadFileName", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to FILE NOT FOUND ERROR.
+        /// </summary>
+        public static string Repl_FileNotFound {
+            get {
+                return ResourceManager.GetString("Repl_FileNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NOT A PROGRAM ERROR.
+        /// </summary>
+        public static string Repl_Load_NotAProgram {
+            get {
+                return ResourceManager.GetString("Repl_Load_NotAProgram", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a verbose NOT A PROGRAM message.
+        /// </summary>
+        public static string Repl_Load_NotAProgram_Verbose {
+            get {
+                return ResourceManager.GetString("Repl_Load_NotAProgram_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Clears the program..
         /// </summary>
         public static string Repl_New_Summary {

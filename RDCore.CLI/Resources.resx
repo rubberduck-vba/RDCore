@@ -267,6 +267,24 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_New_Summary" xml:space="preserve">
     <value>Clears the program.</value>
   </data>
+  <data name="Repl_Load_Summary" xml:space="preserve">
+    <value>Loads a program from a .rdc file (LOAD name).</value>
+  </data>
+  <data name="Repl_Save_Summary" xml:space="preserve">
+    <value>Saves the program to a .rdc file (SAVE name); to the file it came from when there is no name.</value>
+  </data>
+  <data name="Repl_BadFileName" xml:space="preserve">
+    <value>BAD FILE NAME ERROR</value>
+  </data>
+  <data name="Repl_FileNotFound" xml:space="preserve">
+    <value>FILE NOT FOUND ERROR</value>
+  </data>
+  <data name="Repl_Load_NotAProgram" xml:space="preserve">
+    <value>NOT A PROGRAM ERROR</value>
+  </data>
+  <data name="Repl_Load_NotAProgram_Verbose" xml:space="preserve">
+    <value>{0} is not a program: the lines of the file that do not start with a line number are {1}.</value>
+  </data>
   <data name="Repl_Exit_Summary" xml:space="preserve">
     <value>Ends the session and exits.</value>
   </data>

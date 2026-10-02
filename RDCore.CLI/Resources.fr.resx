@@ -265,6 +265,24 @@
   <data name="Repl_New_Summary" xml:space="preserve">
     <value>Efface le programme.</value>
   </data>
+  <data name="Repl_Load_Summary" xml:space="preserve">
+    <value>Charge un programme depuis un fichier .rdc (LOAD nom).</value>
+  </data>
+  <data name="Repl_Save_Summary" xml:space="preserve">
+    <value>Enregistre le programme dans un fichier .rdc (SAVE nom); dans le fichier d'origine sans nom.</value>
+  </data>
+  <data name="Repl_BadFileName" xml:space="preserve">
+    <value>BAD FILE NAME ERROR</value>
+  </data>
+  <data name="Repl_FileNotFound" xml:space="preserve">
+    <value>FILE NOT FOUND ERROR</value>
+  </data>
+  <data name="Repl_Load_NotAProgram" xml:space="preserve">
+    <value>NOT A PROGRAM ERROR</value>
+  </data>
+  <data name="Repl_Load_NotAProgram_Verbose" xml:space="preserve">
+    <value>{0} n'est pas un programme : les lignes du fichier qui ne commencent pas par un numéro de ligne sont {1}.</value>
+  </data>
   <data name="Repl_Exit_Summary" xml:space="preserve">
     <value>Termine la session et quitte.</value>
   </data>

@@ -1,0 +1,46 @@
+using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Workspace;
+using System.IO.Abstractions;
+
+namespace RDCore.CLI.App.Repl.Commands;
+
+/// <summary>
+/// <c>LOAD</c>: replaces the program with the one in a <c>.rdc</c> file, which is from then on a document of the language server for as long as it is the program.
+/// </summary>
+/// <remarks>
+/// Says nothing on success, as its BASIC namesake does not. The file is opened as a document (<c>textDocument/didOpen</c>) with the version the buffer has, so what
+/// the language server knows of the program is the text that was loaded, and every line typed after it is a change of that document.
+/// </remarks>
+internal sealed class LoadReplCommand(IFileSystem fileSystem) : IReplCommand
+{
+    public string Name => "LOAD";
+    public IReadOnlyList<string> Aliases => [];
+    public string Summary => Resources.Repl_Load_Summary;
+
+    public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
+    {
+        var path = ReplFilePath.Resolve(fileSystem, arguments);
+        if (path is null)
+        {
+            context.Console.WriteMessage(MessageKind.Error, Resources.Repl_BadFileName);
+            return ReplCommandResult.Continue;
+        }
+
+        if (!fileSystem.File.Exists(path))
+        {
+            context.Console.WriteMessage(MessageKind.Error, Resources.Repl_FileNotFound, path);
+            return ReplCommandResult.Continue;
+        }
+
+        var rejected = context.Program.Load(await fileSystem.File.ReadAllTextAsync(path, token));
+        if (rejected.Count > 0)
+        {
+            context.Console.WriteMessage(MessageKind.Error, Resources.Repl_Load_NotAProgram,
+                string.Format(Resources.Repl_Load_NotAProgram_Verbose, path, string.Join(", ", rejected)));
+            return ReplCommandResult.Continue;
+        }
+
+        await context.Document.OpenAsync(path, token);
+        return ReplCommandResult.Continue;
+    }
+}

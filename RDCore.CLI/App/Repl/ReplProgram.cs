@@ -83,6 +83,69 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// The program as the text of a <c>.rdc</c> file: one numbered line per line of the buffer, in number order.
+    /// </summary>
+    /// <remarks>
+    /// This is the text of the document the language server is told of (<see cref="RDCore.SDK.Workspace.BasicProgramText"/>), not the module the lines are the
+    /// body of.
+    /// </remarks>
+    public string ToSourceText()
+    {
+        var text = new StringBuilder();
+        foreach (var (number, statement) in Lines())
+        {
+            text.Append(number).Append(' ').Append(statement).Append(NewLine);
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// Replaces the buffer with the program in the text of a <c>.rdc</c> file.
+    /// </summary>
+    /// <param name="text">The text: numbered lines, in any order; a line that is blank is skipped.</param>
+    /// <returns>
+    /// The 1-based lines of the text that are not numbered lines, in which case the buffer is as it was: a program that is only partly there is not
+    /// one to run. Empty when the text was loaded.
+    /// </returns>
+    public IReadOnlyList<int> Load(string text)
+    {
+        var loaded = new SortedDictionary<int, string>();
+        var rejected = new List<int>();
+        var lineIndex = 0;
+        foreach (var line in text.Split('\n'))
+        {
+            lineIndex++;
+            var input = ReplInputParser.Parse(line, _ => false);
+            switch (input.Kind)
+            {
+                case ReplInputKind.Empty:
+                    break;
+                case ReplInputKind.StoreLine:
+                    loaded[input.LineNumber] = input.Text;
+                    break;
+                default:
+                    rejected.Add(lineIndex);
+                    break;
+            }
+        }
+
+        if (rejected.Count > 0)
+        {
+            return rejected;
+        }
+
+        _lines.Clear();
+        foreach (var line in loaded)
+        {
+            _lines.Add(line.Key, line.Value);
+        }
+
+        Version++;
+        return [];
+    }
+
+    /// <summary>
     /// The buffer's lines in number order, optionally narrowed to a range.
     /// </summary>
     /// <param name="from">The first line number to include, or <c>null</c> for the start of the buffer.</param>

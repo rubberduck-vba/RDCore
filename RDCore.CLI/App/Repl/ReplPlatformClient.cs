@@ -1,5 +1,7 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Workspace;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -13,6 +15,44 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     /// <inheritdoc/>
     public bool Provides<TCapability>() where TCapability : CorePlatformClientCapability
         => client.PlatformInfo?.Provides<TCapability>() ?? false;
+
+    /// <inheritdoc/>
+    public Task OpenDocumentAsync(Uri document, string text, int version, CancellationToken token)
+        => client.SendNotificationAsync(
+            new DidOpenTextDocumentParams
+            {
+                TextDocument = new TextDocumentItem { Uri = document, LanguageId = SupportedLanguages.BASIC.Id, Version = version, Text = text },
+            }, token);
+
+    /// <inheritdoc/>
+    public Task ChangeDocumentAsync(Uri document, int version, string text, CancellationToken token)
+        => client.SendNotificationAsync(
+            new DidChangeTextDocumentParams
+            {
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = document, Version = version },
+                ContentChanges = new Container<TextDocumentContentChangeEvent>(new TextDocumentContentChangeEvent { Text = text }),
+            }, token);
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<TextEdit>> WillSaveDocumentAsync(Uri document, CancellationToken token)
+    {
+        await client.SendNotificationAsync(
+            new WillSaveTextDocumentParams { TextDocument = new TextDocumentIdentifier(document), Reason = TextDocumentSaveReason.Manual }, token);
+
+        var edits = await client.SendRequestAsync<WillSaveWaitUntilTextDocumentParams, TextEditContainer?>(
+            new WillSaveWaitUntilTextDocumentParams { TextDocument = new TextDocumentIdentifier(document), Reason = TextDocumentSaveReason.Manual }, token);
+        return edits?.ToArray() ?? [];
+    }
+
+    /// <inheritdoc/>
+    public Task SaveDocumentAsync(Uri document, string text, CancellationToken token)
+        => client.SendNotificationAsync(
+            new DidSaveTextDocumentParams { TextDocument = new TextDocumentIdentifier(document), Text = text }, token);
+
+    /// <inheritdoc/>
+    public Task CloseDocumentAsync(Uri document, CancellationToken token)
+        => client.SendNotificationAsync(
+            new DidCloseTextDocumentParams { TextDocument = new TextDocumentIdentifier(document) }, token);
 
     /// <inheritdoc/>
     public Task<SessionStatusResult> GetSessionStatusAsync(int waitMilliseconds, CancellationToken token)

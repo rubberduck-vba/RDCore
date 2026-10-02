@@ -10,6 +10,9 @@ internal sealed class ExitReplCommand : IReplCommand
     public IReadOnlyList<string> Aliases => ["QUIT", "BYE"];
     public string Summary => Resources.Repl_Exit_Summary;
 
-    public Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
-        => Task.FromResult(ReplCommandResult.Exit);
+    public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
+    {
+        await context.Document.CloseAsync(token);
+        return ReplCommandResult.Exit;
+    }
 }

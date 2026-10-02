@@ -9,9 +9,11 @@ internal sealed class NewReplCommand : IReplCommand
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_New_Summary;
 
-    public Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
+    public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
+        // a new program is not the file that was loaded: the language server is told the document is closed, not that it was emptied.
+        await context.Document.CloseAsync(token);
         context.Program.Clear();
-        return Task.FromResult(ReplCommandResult.Continue);
+        return ReplCommandResult.Continue;
     }
 }

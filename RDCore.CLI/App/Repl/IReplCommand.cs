@@ -1,3 +1,4 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
@@ -57,6 +58,48 @@ public interface IReplPlatformClient
     bool Provides<TCapability>() where TCapability : CorePlatformClientCapability;
 
     /// <summary>
+    /// Tells the language server that a document is open (<c>textDocument/didOpen</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="text">The complete text of the document.</param>
+    /// <param name="version">The version of that text, which the client numbers.</param>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task OpenDocumentAsync(Uri document, string text, int version, CancellationToken token);
+
+    /// <summary>
+    /// Tells the language server that an open document has a new text (<c>textDocument/didChange</c>), as the complete text.
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="version">The version of the new text; it is greater than the one before it.</param>
+    /// <param name="text">The complete new text.</param>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task ChangeDocumentAsync(Uri document, int version, string text, CancellationToken token);
+
+    /// <summary>
+    /// Tells the language server that a document is about to be saved (<c>textDocument/willSave</c>), and asks it for the edits it would have made first
+    /// (<c>textDocument/willSaveWaitUntil</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The edits to apply before the text is written; none, when the server has none.</returns>
+    Task<IReadOnlyList<TextEdit>> WillSaveDocumentAsync(Uri document, CancellationToken token);
+
+    /// <summary>
+    /// Tells the language server that a document was saved (<c>textDocument/didSave</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="text">The text that was written.</param>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task SaveDocumentAsync(Uri document, string text, CancellationToken token);
+
+    /// <summary>
+    /// Tells the language server that a document is closed (<c>textDocument/didClose</c>).
+    /// </summary>
+    /// <param name="document">The document's URI.</param>
+    /// <param name="token">A token that cancels the notification.</param>
+    Task CloseDocumentAsync(Uri document, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server for the state of the platform's runtime session.
     /// </summary>
     /// <param name="waitMilliseconds">How long the language server may wait for the session to come up; <c>0</c> answers immediately.</param>
@@ -106,6 +149,7 @@ public interface IReplPlatformClient
 /// <param name="Program">The program buffer the numbered lines are kept in.</param>
 /// <param name="Console">The shell's console.</param>
 /// <param name="Platform">The language server this shell is a client of.</param>
+/// <param name="Document">The program as a document of the language server, once it is a file that was loaded or saved.</param>
 /// <param name="Commands">
 /// Every command the shell offers. Carried here rather than injected into the one command that needs
 /// it — <c>HELP</c> is itself in the list, so asking the container for the list while building it is
@@ -115,6 +159,7 @@ public sealed record class ReplCommandContext(
     ReplProgram Program,
     IReplConsole Console,
     IReplPlatformClient Platform,
+    ReplDocument Document,
     IReadOnlyList<IReplCommand> Commands);
 
 /// <summary>

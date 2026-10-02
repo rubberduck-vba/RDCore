@@ -24,6 +24,7 @@ internal sealed class ReplShell(
     ReplProgram program,
     IReplConsole console,
     IReplPlatformClient platform,
+    ReplDocument document,
     IReplCommandDispatcher dispatcher,
     ILogger<ReplShell> logger)
 {
@@ -46,7 +47,7 @@ internal sealed class ReplShell(
     public async Task RunAsync(CancellationToken token)
     {
         using var breakHandler = new ConsoleBreakHandler(OnBreak);
-        var context = new ReplCommandContext(program, console, platform, dispatcher.Commands);
+        var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands);
 
         await WriteSessionBannerAsync(token);
 
@@ -76,6 +77,7 @@ internal sealed class ReplShell(
 
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
+                await SynchronizeDocumentAsync(token);
                 return ReplCommandResult.Continue;
 
             case ReplInputKind.DeleteLine:
@@ -83,6 +85,7 @@ internal sealed class ReplShell(
                 {
                     console.WriteMessage(MessageKind.Error, Resources.Repl_UndefinedLine, input.LineNumber.ToString());
                 }
+                await SynchronizeDocumentAsync(token);
                 return ReplCommandResult.Continue;
 
             case ReplInputKind.Command:
@@ -99,6 +102,19 @@ internal sealed class ReplShell(
                 await RunImmediateAsync(context, input.Text, token);
                 WriteReady();
                 return ReplCommandResult.Continue;
+        }
+    }
+
+    // the server is told of an edit as it is made; a server that is gone costs the shell its diagnostics and nothing it needs to run a program.
+    private async Task SynchronizeDocumentAsync(CancellationToken token)
+    {
+        try
+        {
+            await document.SynchronizeAsync(token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "The language server could not be told of an edit of the program.");
         }
     }
 

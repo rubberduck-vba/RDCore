@@ -122,6 +122,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<ShowSplashCommand>()
             // the interactive shell and everything it acts on:
             .AddSingleton<ReplProgram>()
+            .AddSingleton<ReplDocument>()
             .AddSingleton<IReplConsole, ReplConsole>()
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
@@ -131,6 +132,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, PeekReplCommand>()
             .AddSingleton<IReplCommand, PokeReplCommand>()
             .AddSingleton<IReplCommand, NewReplCommand>()
+            .AddSingleton<IReplCommand, LoadReplCommand>()
+            .AddSingleton<IReplCommand, SaveReplCommand>()
             .AddSingleton<IReplCommand, ExitReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
