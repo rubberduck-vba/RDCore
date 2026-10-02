@@ -144,8 +144,8 @@ allows a plain reference binding for without a class/`Object` copy-back.
 |Parameter|Argument|Binding|
 |---|---|---|
 |`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
-|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's|A reference binding.|
-|`ByRef`, declared `Variant`|An addressable, writable variable|A reference binding.|
+|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), or a public variable of an object (`obj.Count`, `.Count`)|A reference binding.|
+|`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
 |`Optional`|None (unmapped)|The default value; see [Optional Parameters](#optional-parameters).|

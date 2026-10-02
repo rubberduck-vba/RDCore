@@ -85,6 +85,18 @@ public interface ICallStackFrame : IStackFrame
     bool TryGetAddress(Symbol symbol, out MemoryAddress address);
 
     /// <summary>
+    /// Whether <paramref name="symbol"/> is a <c>ByRef</c> parameter of this activation: a second name for a variable of the caller's, and not a variable of its own
+    /// (<strong>MS-VBAL §5.3.1.11</strong>).
+    /// </summary>
+    bool IsByRefParameter(Symbol symbol);
+
+    /// <summary>
+    /// Whether a <c>ByRef</c> parameter of this activation is the variable at <paramref name="address"/> - whether this activation <em>locks</em> it
+    /// (<strong>MS-VBAL §5.4.3.3</strong>: a variable "currently locked by a ByRef formal parameter" cannot be re-dimensioned by another name).
+    /// </summary>
+    bool LocksAddress(MemoryAddress address);
+
+    /// <summary>
     /// Gets the <see cref="IBindingHandle"/> currently held in this frame for the specified
     /// locally-scoped <see cref="Symbol"/>, if any.
     /// </summary>
