@@ -203,8 +203,29 @@ the expression that has it.
 |`Binding`|The `SemanticId` of the symbol it refers to, when it resolved to one.|
 |`Flags`|[ValueExpressionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html): `Literal`, `LateBound`, `DefaultMember`, `WithBlockRelative`, `DictionaryAccess`, `ProcedureCall`, `CaseMismatch`, and `ExplicitCallKeyword` on the callee of a `Call` statement written with the keyword.|
 
+An expression an assignment writes to, the counter or control variable of a `For` or `For Each`, the string a `Mid` statement
+replaces a part of, and the array a `ReDim` gives its dimensions, is flagged `AssignmentTarget`; an element of an array is
+written through the array. What a statement prints is an expression like any other, evaluated and described as one.
+
 Facts are descriptions, not opinions: whether a late-bound member, a name written in another case or the obsolete `Call` keyword
 is worth a diagnostic is for an analyzer to say.
+
+### Declaration facts
+
+A `ModuleSemanticModel` also says how the declarations of the module are used by the module's own code
+(`Declarations`, [DeclarationFact](../api/RDCore.SDK.Semantics.DeclarationFact.html)), counted from the bindings of the
+expression facts: each variable, constant, parameter, procedure, property and event has the number of expressions that
+`Reads` it (or call it) and that `Writes` to it. The accessors of a property are one declaration. A variable that was never
+declared is `IsImplicit` (it came into being because something referred to it), and `OptionExplicit` says whether the
+module states `Option Explicit` (**MS-VBAL §5.2.1.3**).
+
+|Fact|Is|
+|---|---|
+|`IsUnreferenced`|Nothing in the module refers to it.|
+|`IsNeverAssigned`|A variable that is read and never written: it holds the default of its type wherever it is read.|
+
+These are counts, not verdicts. Only the module's own code is counted, so a `Public` declaration that nothing in its own
+module uses may be used by another module: which declarations are worth a diagnostic is for an analyzer to say.
 
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling
