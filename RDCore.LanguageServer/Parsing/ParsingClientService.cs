@@ -50,6 +50,19 @@ internal interface IParsingClientService
     /// Gets the last <see cref="ModuleParseResult"/> cached for <paramref name="documentUri"/>.
     /// </summary>
     bool TryGetCached(Uri documentUri, out ModuleParseResult result);
+
+    /// <summary>
+    /// Gets the <see cref="ModuleParseResult"/> cached for <paramref name="documentUri"/> if it is a parse of the version of its text that is asked for, and not of another.
+    /// </summary>
+    /// <remarks>
+    /// What is derived from a parse - symbols, the model of the host, diagnostics - is of one version of the text: a parse of another is of text that is not there any more.
+    /// </remarks>
+    bool TryGetCached(Uri documentUri, int version, out ModuleParseResult result);
+
+    /// <summary>
+    /// Forgets the parse cached for <paramref name="documentUri"/>.
+    /// </summary>
+    void Invalidate(Uri documentUri);
 }
 
 internal sealed class ParsingClientService(
@@ -57,10 +70,24 @@ internal sealed class ParsingClientService(
     IWorkspaceDocumentService documents,
     ILogger<ParsingClientService> logger) : IParsingClientService
 {
-    private readonly ConcurrentDictionary<Uri, ModuleParseResult> _cache = new();
+    // the last parse of each document, and the version of the text it is a parse of.
+    private readonly ConcurrentDictionary<Uri, (int Version, ModuleParseResult Result)> _cache = new();
 
     public bool TryGetCached(Uri documentUri, out ModuleParseResult result)
-        => _cache.TryGetValue(documentUri, out result!);
+    {
+        var found = _cache.TryGetValue(documentUri, out var cached);
+        result = cached.Result;
+        return found;
+    }
+
+    public bool TryGetCached(Uri documentUri, int version, out ModuleParseResult result)
+    {
+        var found = _cache.TryGetValue(documentUri, out var cached) && cached.Version == version;
+        result = found ? cached.Result : default!;
+        return found;
+    }
+
+    public void Invalidate(Uri documentUri) => _cache.TryRemove(documentUri, out _);
 
     public async Task<ModuleParseResult> ParseFragmentAsync(Uri documentUri, string source, CancellationToken token)
     {
@@ -80,9 +107,15 @@ internal sealed class ParsingClientService(
         {
             var error = ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty),
                 "no workspace document is loaded for this URI");
-            _cache[documentUri] = error;
+            _cache[documentUri] = (-1, error);
             logger.LogWarning("❌ Parse skipped for {uri}: no workspace document is loaded for it.", documentUri);
             return error;
+        }
+
+        // the text has not changed since it was parsed: so the parse has not either.
+        if (TryGetCached(documentUri, document.Version, out var cached))
+        {
+            return cached;
         }
 
         await orchestration.ParsingService.WaitForReadyAsync(token);
@@ -96,7 +129,11 @@ internal sealed class ParsingClientService(
             ? envelope.Unwrap<ModuleParseResult>()
             : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
 
-        _cache[documentUri] = result;
+        // what the parser answered is the parse of the version it was sent. A failure to answer is not: it is kept under no version, so that it is what the last
+        // parse was without being taken for the parse of any text, and the next ask is another try. A parse that comes back after a later one has been kept does
+        // not replace it.
+        var parsedVersion = envelope is not null ? document.Version : -1;
+        _cache.AddOrUpdate(documentUri, (parsedVersion, result), (_, existing) => existing.Version > parsedVersion ? existing : (parsedVersion, result));
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation("📄 Parsed {uri}: {status}", documentUri,

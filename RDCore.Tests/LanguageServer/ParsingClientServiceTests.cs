@@ -137,6 +137,66 @@ public sealed class ParsingClientServiceTests
         Assert.AreSame(result, cached);
     }
 
+    // ---- a parse is of one version of the text ----
+
+    private static readonly Uri Mod1 = new("file:///c:/ws/src/Mod1.bas");
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfTheSameVersion_IsNotParsedAgain()
+    {
+        var (sut, parser, documents) = Build();
+        StubDocument(documents, Mod1, new WorkspaceDocument("Mod1.bas", Root, "x", version: 3));
+
+        var first = await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+        var second = await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+
+        Assert.AreSame(first, second);
+        await parser.Received(1).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ParseDocumentAsync_OfALaterVersion_IsParsedAgain()
+    {
+        var (sut, parser, documents) = Build();
+        StubDocument(documents, Mod1, new WorkspaceDocument("Mod1.bas", Root, "x", version: 3));
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+        StubDocument(documents, Mod1, new WorkspaceDocument("Mod1.bas", Root, "x y", version: 4));
+
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+        Assert.IsTrue(sut.TryGetCached(Mod1, 4, out _));
+        Assert.IsFalse(sut.TryGetCached(Mod1, 3, out _), "the parse of text that is not there any more is not the parse of anything");
+    }
+
+    [TestMethod]
+    public async Task AFailureToParse_IsNotTakenForTheParseOfTheVersion_SoTheNextAskIsAnotherTry()
+    {
+        var (sut, parser, documents) = Build();
+        parser.SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(default!, default).ReturnsForAnyArgs((PlatformJsonEnvelope)null!);
+        StubDocument(documents, Mod1, new WorkspaceDocument("Mod1.bas", Root, "x", version: 3));
+
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+
+        Assert.IsFalse(sut.TryGetCached(Mod1, 3, out _));
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AnInvalidatedParse_IsParsedAgainWhateverTheVersion()
+    {
+        var (sut, parser, documents) = Build();
+        StubDocument(documents, Mod1, new WorkspaceDocument("Mod1.bas", Root, "x", version: 3));
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+
+        sut.Invalidate(Mod1);
+        await sut.ParseDocumentAsync(Mod1, CancellationToken.None);
+
+        Assert.IsTrue(sut.TryGetCached(Mod1, 3, out _));
+        await parser.Received(2).SendRequestAsync<ParseDocumentParams, PlatformJsonEnvelope>(Arg.Any<ParseDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
     [TestMethod]
     public void ParseDocumentParams_CarriesTheMethodAttribute()
     {
