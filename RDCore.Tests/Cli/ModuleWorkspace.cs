@@ -49,20 +49,23 @@ internal static class ModuleWorkspace
     /// <param name="classes">The class modules of the workspace.</param>
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="moduleName">The module whose model is asked for, or empty for the models of every module.</param>
-    public static async Task<SemanticsPayload> SemanticsAsync(IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "")
+    /// <param name="language">The language the code is written in; RD-VBA unless said otherwise.</param>
+    public static async Task<SemanticsPayload> SemanticsAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null)
     {
         SemanticsPayload? payload = null;
-        await RunCoreAsync(classes, program, errorsOnly: true, async sessionProvider =>
+        await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        });
+        }, language: language);
 
         return payload!;
     }
 
     private static async Task<string[]> RunCoreAsync(
-        IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null)
+        IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
+        SupportedLanguage? language = null)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
@@ -83,7 +86,7 @@ internal static class ModuleWorkspace
         }
 
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance);
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language), new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance);
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 

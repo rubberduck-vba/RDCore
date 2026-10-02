@@ -60,6 +60,15 @@ public class SupportedLanguage
     /// </remarks>
     public bool HasBarePrint { get; init; }
 
+    /// <summary>
+    /// Whether the language has the <c>Option Explicit</c> directive (<strong>MS-VBAL Â§5.2.1.3</strong>), with which a module requires that every
+    /// name it uses is declared.
+    /// </summary>
+    /// <remarks>
+    /// VBA and VB6 do. A BASIC does not: a variable is whatever a line first assigns, which is what makes it a language to type in a line at a time, and a
+    /// module of it cannot state a directive that it has no way to write. Whether a module states it is not something to have an opinion about, then.
+    /// </remarks>
+    public bool HasOptionExplicit { get; init; } = true;
     /// <summary>The patterns of the files written in the language, as a document filter pattern.</summary>
     public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
 
@@ -98,6 +107,7 @@ public static class SupportedLanguages
     {
         ImplicitDeclarationScope = ImplicitDeclarationScope.Module,
         HasBarePrint = true,
+        HasOptionExplicit = false,
     };
 
     /// <summary>Every language the platform serves.</summary>

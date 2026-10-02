@@ -101,7 +101,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var moduleModel = new ModuleSemanticModel(
             module.Uri, DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver), procedureModels.ToImmutable())
         {
-            OptionExplicit = module is VBModuleSymbol { Directives.Explicit: true },
+            // a language that has no such directive has no fact to state about it.
+            OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members), procedureModels),
         };
 

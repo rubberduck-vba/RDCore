@@ -40,6 +40,19 @@ internal interface ISymbolSyncService
     /// that a caller cannot address the same module differently than the workspace sync does.
     /// </returns>
     Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
+
+    /// <summary>
+    /// Has the environment host load the code of a module whose symbols it has been sent (<see cref="SyncModuleAsync"/>), so that the semantic analysis pass runs
+    /// over it and the host has a model to answer for it.
+    /// </summary>
+    /// <remarks>
+    /// Loading is not running: nothing is executed, which is what a client that wants a module analyzed asks for. The errors that stop a module from loading are the
+    /// host's to report through its model.
+    /// </remarks>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="parseResult">The parsed module.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
 }
 
 internal sealed class SymbolSyncService(
@@ -143,7 +156,7 @@ internal sealed class SymbolSyncService(
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    await LoadModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Parse, token);
+                    await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Parse, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -195,8 +208,14 @@ internal sealed class SymbolSyncService(
         return result.Defined + result.Replaced;
     }
 
+    public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    {
+        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        return SendModuleCodeAsync(workspaceRoot, new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, parseResult, token);
+    }
+
     // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded.
-    private async Task LoadModuleCodeAsync(Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    private async Task SendModuleCodeAsync(Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
         var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
             new DefineSymbolsParams

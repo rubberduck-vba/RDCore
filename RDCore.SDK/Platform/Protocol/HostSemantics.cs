@@ -116,17 +116,19 @@ public record class DeclarationFactDto(
 /// A <see cref="ModuleSemanticModel"/>, as it travels.
 /// </summary>
 /// <param name="Module">The address of the module.</param>
-/// <param name="OptionExplicit">Whether the module states <c>Option Explicit</c>.</param>
+/// <param name="OptionExplicit">Whether the module states <c>Option Explicit</c>; not issued (<see langword="null"/>) in a language that has no such directive.</param>
 /// <param name="DeclarationErrors">What is wrong with what the module declares.</param>
 /// <param name="Procedures">The model of each procedure of the module.</param>
 /// <param name="Declarations">What is known of how the module's declarations are used.</param>
 public record class ModuleSemanticsDto(
     Uri Module,
-    bool OptionExplicit,
+    bool? OptionExplicit,
     ImmutableArray<CompileErrorDto> DeclarationErrors,
     ImmutableArray<ProcedureSemanticsDto> Procedures,
     ImmutableArray<DeclarationFactDto> Declarations)
 {
+
+
     /// <summary>
     /// Describes a model for the wire.
     /// </summary>

@@ -10,7 +10,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// Without it a name that is not declared is not an error, and a variable comes into being where it is used, so a misspelled name goes unnoticed. Whether the
-/// module states it is a fact the host that loaded the module vouches for; an analyzer that is not given the fact has nothing to say.
+/// module states it is a fact the host that loaded the module vouches for, and the host does not issue it for a language that has no such directive (a BASIC has no way
+/// to state it): an analyzer that is not given the fact has nothing to say.
 /// </remarks>
 internal sealed class OptionExplicitAnalyzer : IModuleAnalyzer
 {

@@ -216,7 +216,8 @@ A `ModuleSemanticModel` also describes the declarations of the module (`Declarat
 [DeclarationFact](../api/RDCore.SDK.Semantics.DeclarationFact.html)): each variable, constant, parameter, procedure, property
 and event, with the access it is declared with and where. A variable that was never declared is `IsImplicit` (it came into
 being because something referred to it), and `OptionExplicit` says whether the module states `Option Explicit`
-(**MS-VBAL §5.2.1.3**). The accessors of a property are one declaration.
+(**MS-VBAL §5.2.1.3**); it is not issued (`null`) for a language that has no such directive, such as the platform's BASIC. The
+accessors of a property are one declaration.
 
 **A fact is stated only when it is true.** A fact that says a declaration is _not used_ is a claim about every place that
 could use it, and the language core makes it only when it can vouch for all of them. A declaration's `References` (the

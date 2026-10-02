@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 
@@ -50,6 +52,7 @@ internal sealed class DocumentDiagnosticsService(
     IWorkspaceDocumentService documents,
     IParsingClientService parsing,
     IPlatformOrchestrationService orchestration,
+    ISymbolSyncService symbols,
     ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
 {
     public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token)
@@ -61,7 +64,11 @@ internal sealed class DocumentDiagnosticsService(
         }
 
         var parseResult = await parsing.ParseFragmentAsync(documentUri, source, token);
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult));
+
+        // a module the client supplied has no code in the host until it is put there: defined, and loaded - which is not run - so that the host's pass
+        // analyzes it and has the facts to answer for it, as it has for a module of the workspace.
+        var semantics = await AnalyzeInHostAsync(documentUri.Fragment.TrimStart('#'), parseResult, token);
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics));
         var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));
 
         return (Aggregate(reports), providers.Length);
@@ -101,6 +108,33 @@ internal sealed class DocumentDiagnosticsService(
         }
 
         return DocumentDiagnosticsResult.Fresh(version, Aggregate(reports));
+    }
+
+    // puts a module the host does not have where the host can analyze it, and asks it for what it found out: nothing when the host does not run the pass,
+    // and nothing when it could not be told of the module.
+    private async Task<ModuleSemanticsDto?> AnalyzeInHostAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    {
+        if (orchestration.RuntimeEnvironment?.PlatformInfo?.Provides<SemanticAnalysis>() != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            await symbols.SyncModuleAsync(moduleName, parseResult, token);
+            await symbols.LoadModuleCodeAsync(moduleName, parseResult, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "🔎 The environment host could not be given {module} to analyze.", moduleName);
+            return null;
+        }
+
+        return await SemanticsOfAsync(moduleName, token);
     }
 
     // what the environment host's semantic analysis pass found out about the module, which is what an analyzer decides what to say of; nothing when the host

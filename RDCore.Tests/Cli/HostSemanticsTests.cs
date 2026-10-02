@@ -60,4 +60,26 @@ public sealed class HostSemanticsTests
         var n = model.Declarations.Single(declaration => declaration.Name == "n");
         Assert.AreEqual(new DeclarationReferences(1, 1, 0), n.References);
     }
+
+    [TestMethod]
+    [DataRow("vba", "Option Explicit", true)]
+    [DataRow("vba", "", false)]
+    [DataRow("vb6", "", false)]
+    public async Task OptionExplicit_IsAFactOfALanguageThatHasIt(string language, string directive, bool stated)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], Program(directive, "Public Sub Main()", "End Sub"), language: RDCore.SDK.Workspace.SupportedLanguages.Get(language));
+
+        Assert.AreEqual(stated, payload.Modules.Single().OptionExplicit);
+    }
+
+    [TestMethod]
+    public async Task OptionExplicit_IsNotIssuedForALanguageThatHasNone()
+    {
+        // a BASIC has no way to state it: that it is not stated is not something to say.
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], Program("Public Sub Main()", "End Sub"), language: RDCore.SDK.Workspace.SupportedLanguages.BASIC);
+
+        Assert.IsNull(payload.Modules.Single().OptionExplicit);
+    }
 }

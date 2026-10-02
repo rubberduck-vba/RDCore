@@ -57,7 +57,12 @@ public sealed record class ModuleSemanticModel(
     /// Whether the module states <c>Option Explicit</c> (<strong>MS-VBAL §5.2.1.3</strong>): without it, a name that refers to nothing declared is not an
     /// error, but a variable that comes into being (<see cref="DeclarationFact.IsImplicit"/>).
     /// </summary>
-    public bool OptionExplicit { get; init; }
+    /// <remarks>
+    /// The fact is not issued - it is <see langword="null"/> - for a module of a language that has no such directive
+    /// (<see cref="Workspace.SupportedLanguage.HasOptionExplicit"/>): there is nothing it could state, and a <see langword="false"/> would say that it
+    /// does not when it cannot.
+    /// </remarks>
+    public bool? OptionExplicit { get; init; }
 
     /// <summary>
     /// How each declaration of the module is used by the module's own code (<see cref="Static.DeclarationUsage"/>): its variables, constants, parameters,
