@@ -1306,9 +1306,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     // than-spec gap rather than a wrong result). Anything else (an expression, a literal, a mismatched-
     // type argument, a read-only target) falls through to the same Let-coerced copy every ByVal argument
     // already gets - MS-VBAL's own "otherwise" case, never an error.
-    private static bool TryResolveByRefArgument(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode argument, VBParameterSymbol parameter, out VBRuntimeReference reference)
+    private bool TryResolveByRefArgument(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode argument, VBParameterSymbol parameter, out VBRuntimeReference reference)
     {
         reference = VBRuntimeReference.NullRef;
+        if (argument is MemberAccessExpressionNode memberAccess)
+        {
+            return TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference);
+        }
+
         if (argument is not SimpleNameExpressionNode simpleName)
         {
             return false;
@@ -1323,6 +1328,38 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
         if (!session.Symbols.Resolver.TryGetAddress(argumentSymbol, out var address)
             || !session.Symbols.Resolver.GetValue(argumentSymbol).BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        reference = new VBRuntimeReference(address);
+        return true;
+    }
+
+    // MS-VBAL §5.3.1.11: a public variable of an object is a variable too, with an address of its own, and a ByRef parameter is a second name for it
+    // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property, and the field of a
+    // user-defined type, which has no address of its own, fall through to the copy.
+    private bool TryResolveFieldByRefArgument(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBParameterSymbol parameter, out VBRuntimeReference reference)
+    {
+        reference = VBRuntimeReference.NullRef;
+
+        var evaluated = EvaluateOwner(session, context, memberAccess);
+        if (!evaluated.IsSuccess
+            || UnwrappedOwner(evaluated.Result!) is not VBObjectValue owner
+            || ResolveAssignableMember(session, context, memberAccess.Owner, owner, memberAccess.Member.IdentifierName, isSet: false)
+                is not { Field: ITypedSymbol { ResolvedType: { } fieldType } field, Instance: { } instance })
+        {
+            return false;
+        }
+
+        if (!parameter.ResolvedType.Equals(fieldType) && parameter.ResolvedType is not VBVariantType)
+        {
+            return false;
+        }
+
+        if (!instance.TryGetAddress((Symbol)field, out var address)
+            || !instance.GetValue((Symbol)field).BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             return false;
         }

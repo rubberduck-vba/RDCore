@@ -431,6 +431,25 @@ public sealed class LetAssignmentEvaluator(
         return declared is not null;
     }
 
+    /// <summary>
+    /// The address of the storage a member-access <paramref name="target"/> is: the one a <c>ByRef</c> argument that names it is aliased to.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the target.</param>
+    /// <param name="target">The expression the value is written through.</param>
+    /// <param name="address">The address.</param>
+    /// <returns><see langword="false"/> when the target is not a public variable of an object, which is the one that has an address of its own.</returns>
+    public bool TryGetAddress(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target, out MemoryAddress address)
+    {
+        address = default;
+        return target is MemberAccessExpressionNode memberAccess
+            && TryEvaluateOwner(session, context, memberAccess, out var owner, out _)
+            && owner is VBObjectValue objectOwner
+            && expressions.ResolveAssignableMember(session, context, memberAccess.Owner, objectOwner, memberAccess.Member.IdentifierName, isSet: false)
+                is { Field: { } field, Instance: { } instance }
+            && instance.TryGetAddress(field, out address);
+    }
+
     // the owner of a member-access target, which is an expression in its own right: `a.b.c = 1` assigns a
     // field of whatever `a.b` is, so the owner is evaluated rather than resolved.
     private bool TryEvaluateOwner(

@@ -75,9 +75,14 @@ else:
 An element the resized array has and the original did not is its element type's default value. An element at an
 index now outside the array's bounds is discarded.
 
+A `ReDim` of a variable that is currently locked by a `ByRef` formal parameter is runtime error 10, `This array is fixed or temporarily locked`
+(**MS-VBAL §5.4.3.3**). An array passed by reference is its parameter's for as long as an activation on the call stack has one: another name for it - the module variable the
+argument is, a public variable of an object - cannot take its dimensions away. A `ReDim` of the parameter itself is not locked, which is what passing an array by reference is for; so
+is one of a parameter that is passed on down a chain of `ByRef` calls. The lock is the activation's, so it is gone once the call returns
+([ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.LocksAddress`).
+
 > [!NOTE]
-> **Not implemented.** A `ReDim` whose target is currently aliased by a `ByRef` parameter does not raise runtime
-> error 10, `This array is fixed or temporarily locked`. Nothing models that lock yet.
+> **MS-VBAL §5.4.3.4** states no such rule for `Erase`, and `Erase` does not raise error 10.
 
 A target that is a member access (`obj.Buffer`, `.Buffer`) is an expression: the array is read from it, and the new array is written back through it, as an assignment to
 it is - the public variable of the object, or the field of the record. The element type of an array that has no dimensions yet is the one the member is declared with.

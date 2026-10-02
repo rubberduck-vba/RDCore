@@ -157,6 +157,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
         => _byRefAliases.TryGetValue(symbol.SemanticId, out address) || _addresses.TryGetAddress(symbol, out address);
 
+    /// <inheritdoc/>
+    public bool IsByRefParameter(Symbol symbol) => _byRefAliases.ContainsKey(symbol.SemanticId);
+
+    /// <inheritdoc/>
+    public bool LocksAddress(MemoryAddress address) => _byRefAliases.ContainsValue(address);
+
     /// <summary>
     /// Frees every local this frame allocated. Called when the frame is popped off the
     /// <see cref="ICallStack"/> that owns it — a frame is never partially torn down.

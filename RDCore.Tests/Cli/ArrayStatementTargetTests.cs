@@ -33,11 +33,14 @@ public sealed class ArrayStatementTargetTests
 
     private const string BoxSource =
         "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Box\"\r\n"
-        + "Public Items() As Long\r\nPublic Fixed(1 To 3) As Long\r\nPublic Loose As Variant\r\n";
+        + "Public Items() As Long\r\nPublic Fixed(1 To 3) As Long\r\nPublic Loose As Variant\r\nPublic Count As Long\r\n";
 
-    private static async Task<string[]> RunAsync(params string[] body)
+    private static Task<string[]> RunAsync(params string[] body) => RunProgramAsync(string.Empty, string.Empty, body);
+
+    // `moduleLevel` is what Program declares before its procedures, and `procedures` the procedures it has besides Main, whose body is `body`.
+    internal static async Task<string[]> RunProgramAsync(string moduleLevel, string procedures, params string[] body)
     {
-        var programSource = $"Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim b As Box\r\nSet b = New Box\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
+        var programSource = $"Attribute VB_Name = \"Program\"\r\n{moduleLevel}\r\nPublic Sub Main()\r\nDim b As Box\r\nSet b = New Box\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n{procedures}\r\n";
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
         [
             ("Box", "cls", ModuleType.ClassModule, BoxSource),

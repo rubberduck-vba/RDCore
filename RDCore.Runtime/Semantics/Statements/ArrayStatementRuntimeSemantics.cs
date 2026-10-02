@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -63,6 +64,12 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return targetFailure;
         }
 
+        // "If the redimensioned variable is currently locked by a ByRef formal parameter runtime Error 10 is raised."
+        if (IsLockedByAParameter(session, context, target))
+        {
+            return Failed(redim, VBRuntimeErrorId.ThisArrayIsFixedOrTemporarilyLocked, $"{redim.Name} is locked by a ByRef parameter");
+        }
+
         if (!TryEvaluateBounds(session, context, redim, out var bounds, out var failure))
         {
             return failure;
@@ -85,6 +92,24 @@ public sealed record class ArrayStatementRuntimeSemantics(
         return redim.IsPreserve
             ? Preserved(session, context, redim, target, array, bounds)
             : Store(session, context, redim, target, new VBResizableArrayValue(bounds, array.IsInitialized ? array.ItemType : DeclaredItemType(target, array.ItemType)));
+    }
+
+    // a variable that an activation on the call stack has a ByRef parameter for is that parameter's for as long as the activation is: the array it holds is
+    // what the callee may be reading, so another name for it cannot take its dimensions away. Re-dimensioning through the parameter itself is the
+    // one way that is allowed - it is the very purpose of passing an array by reference.
+    private bool IsLockedByAParameter(IRuntimeSession session, RuntimeEvaluationContext context, Target target)
+    {
+        if (target.Symbol is { } symbol && session.CallStack.Current?.IsByRefParameter(symbol) == true)
+        {
+            return false;
+        }
+
+        MemoryAddress address = default;
+        var found = target.Symbol is { } named
+            ? session.Symbols.Resolver.TryGetAddress(named, out address)
+            : target.Expression is { } expression && Assignments.TryGetAddress(session, context, expression, out address);
+
+        return found && session.CallStack.Frames.Any(frame => frame.LocksAddress(address));
     }
 
     // an array with no dimensions yet is every uninitialized array's own default, which knows nothing of the element type its
