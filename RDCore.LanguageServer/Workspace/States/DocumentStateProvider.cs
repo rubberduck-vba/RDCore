@@ -51,6 +51,23 @@ public interface IDocumentStateProvider
     /// A document tab was closed in the editor, but the file still exists in the workspace and is correctly loaded.
     /// </remarks>
     void OnDocumentClosed(TextDocumentIdentifier id);
+    /// <summary>
+    /// Whether the document has a state at all: it is one the server knows of.
+    /// </summary>
+    bool IsTracked(TextDocumentIdentifier id);
+    /// <summary>
+    /// Sets the document state to <c>Opened</c>, whatever it was.
+    /// </summary>
+    /// <remarks>
+    /// <strong>LSP 3.17</strong> <c>textDocument/didOpen</c>: from that moment the text the client sends is the document, and what is on disk - or that there is
+    /// nothing, or that it could not be read - is no longer what the server goes by. A document that was missing, that could not be loaded, or that the server did not know
+    /// of, is a document the client has open all the same.
+    /// </remarks>
+    void OnDocumentOpenedByClient(TextDocumentIdentifier id);
+    /// <summary>
+    /// Stops tracking the document: it has no state any more.
+    /// </summary>
+    void Forget(TextDocumentIdentifier id);
 }
 
 public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDocumentStateProvider
@@ -64,6 +81,10 @@ public class DocumentStateProvider(ILogger<DocumentStateProvider> logger) : IDoc
     public void OnDocumentLoadError(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is UnloadedDocumentState ? DocumentState.LoadError : throw new InvalidDocumentStateException(DocumentStateValue.LoadError);
     public void OnDocumentOpened(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is LoadedDocumentState ? DocumentState.Opened : throw new InvalidDocumentStateException(DocumentStateValue.Opened);
     public void OnDocumentClosed(TextDocumentIdentifier id) => _state[id] = _state.TryGetValue(id, out DocumentState? value) && value is OpenedDocumentState ? DocumentState.Loaded : throw new InvalidDocumentStateException(DocumentStateValue.Loaded);
+
+    public bool IsTracked(TextDocumentIdentifier id) => _state.ContainsKey(id);
+    public void OnDocumentOpenedByClient(TextDocumentIdentifier id) => _state[id] = DocumentState.Opened;
+    public void Forget(TextDocumentIdentifier id) => _state.Remove(id);
 
     public void Initialize(IEnumerable<TextDocumentIdentifier> workspaceDocumentIds)
     {
