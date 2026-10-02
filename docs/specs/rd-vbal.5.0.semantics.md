@@ -154,6 +154,29 @@ The language core features an analytical pipeline that attaches detailed _semant
 
 Semantic flags are _facts_, not _opinions_.
 
+### The semantic model
+
+What the analysis finds out about a procedure is described by an immutable
+[ProcedureSemanticModel](../api/RDCore.SDK.Semantics.ProcedureSemanticModel.html), and that of a module by a
+[ModuleSemanticModel](../api/RDCore.SDK.Semantics.ModuleSemanticModel.html). A model is built by the pass that analyzed the code;
+it is never written back onto the syntax tree or onto a value.
+
+The first fact a model holds is the _compile errors_ of the _static pass_ (**RD-VBAL §5.0.1**), which is one walk over a
+procedure body: `StatementStaticSemanticsEvaluator`. Given the symbols of a workspace it evaluates every expression, and
+the coercion of every assignment; with none, `CheckStructure` checks what needs no name resolution:
+
+|Rule|Reported as|
+|---|---|
+|An `Exit` statement is where it may be (**MS-VBAL §5.4.2.5**, `.7`, `.17`-`.19`).|[VBC09312](../diagnostics/vbc09312.md)–[VBC09315](../diagnostics/vbc09315.md), [VBC09332](../diagnostics/vbc09332.md)|
+|A label is defined once (**MS-VBAL §5.4.1.1**).|`DuplicateLabelDefinition`|
+|A jump names a label that is defined.|`LabelNotDefined`|
+|A statement exists in the language: a bare `Print` is a statement of BASIC only.|`SubOrFunctionNotDefined`|
+
+A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
+instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling
+`CheckStructure`: the rules are written in one place, and lowering only acts on the outcome (a jump that lands nowhere has no
+target; an `Exit` that is not where it may be has no instruction).
+
 ### Diagnostics
 
 > 🧩 The role of _analyzers_ in extensions like **RDCore.Diagnostics** is to inspect the flags and errors in

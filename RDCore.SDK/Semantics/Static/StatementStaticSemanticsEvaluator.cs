@@ -72,8 +72,51 @@ public static class StatementStaticSemanticsEvaluator
     /// or line number in <paramref name="block"/> defines. Empty when the whole tree is valid.
     /// </returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, StatementBlock block, MemberKind? procedure = null)
+        => Evaluate(context, block, default, procedure);
+
+    /// <summary>
+    /// Walks every statement in <paramref name="block"/> like <see cref="Evaluate(StaticEvaluationContext, StatementBlock, MemberKind?)"/>, for the
+    /// build and the language <paramref name="options"/> state.
+    /// </summary>
+    /// <param name="context">The compile-time context to start walking from.</param>
+    /// <param name="block">The statement block to walk - a procedure body.</param>
+    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
+    /// <param name="procedure">The kind of the procedure <paramref name="block"/> is the body of, when it is known.</param>
+    /// <returns>Every compile error found, in traversal order, followed by those that are told once the whole body has been walked.</returns>
+    public static ImmutableArray<VBCompileErrorInfo> Evaluate(
+        StaticEvaluationContext context, StatementBlock block, StaticSemanticsOptions options, MemberKind? procedure = null)
+        => Run(context, block, new Walk { Procedure = procedure, Options = options });
+
+    /// <summary>
+    /// Walks every statement in <paramref name="block"/> and checks what needs no name resolution: where an <c>Exit</c> statement is written, that every
+    /// label a jump names is defined and none is defined twice, and the statements the language has. The types of expressions, which need the symbols
+    /// of a workspace, are not evaluated.
+    /// </summary>
+    /// <param name="block">The statement block to walk - a procedure body.</param>
+    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
+    /// <param name="procedure">The kind of the procedure <paramref name="block"/> is the body of, when it is known.</param>
+    /// <returns>Every compile error found, in traversal order, followed by those that are told once the whole body has been walked.</returns>
+    public static ImmutableArray<VBCompileErrorInfo> CheckStructure(StatementBlock block, StaticSemanticsOptions options = default, MemberKind? procedure = null)
+        => Run(default, block, new Walk { Procedure = procedure, Options = options, Structural = true });
+
+    /// <summary>
+    /// Analyzes the body of a procedure, and describes what the static pass found out about it.
+    /// </summary>
+    /// <param name="procedure">The identity of the procedure.</param>
+    /// <param name="block">The statement block to walk - the procedure's body.</param>
+    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
+    /// <param name="kind">The kind of the procedure, when it is known.</param>
+    /// <param name="context">
+    /// The compile-time context the body's expressions are evaluated in, or <see langword="null"/> when there is no workspace to resolve names in:
+    /// only the structure of the body is checked then (<see cref="CheckStructure"/>).
+    /// </param>
+    /// <returns>The model of the procedure.</returns>
+    public static ProcedureSemanticModel Analyze(
+        SemanticId procedure, StatementBlock block, StaticSemanticsOptions options = default, MemberKind? kind = null, StaticEvaluationContext? context = null)
+        => new(procedure, context is { } resolved ? Evaluate(resolved, block, options, kind) : CheckStructure(block, options, kind));
+
+    private static ImmutableArray<VBCompileErrorInfo> Run(StaticEvaluationContext context, StatementBlock block, Walk walk)
     {
-        var walk = new Walk { Procedure = procedure };
         EvaluateBlock(context, block, walk);
         ReportUndefinedLabels(walk);
         return walk.Errors.ToImmutable();
@@ -83,10 +126,20 @@ public static class StatementStaticSemanticsEvaluator
     {
         foreach (var child in block.Children)
         {
+            // MS-VBAL §3.4.2: an excluded branch is logically removed, so what is in it is not analyzed and defines no label.
+            if (walk.Options.IsDead(child.SourceLocation.Range))
+            {
+                continue;
+            }
+
             switch (child)
             {
                 case LineLabelNode label:
-                    walk.LabelDefinitions.Add(label.Name);
+                    // MS-VBAL §5.4.1.1: a label is defined once in its procedure.
+                    if (!walk.LabelDefinitions.Add(label.Name))
+                    {
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateLabelDefinition, label.SourceLocation, label.Name));
+                    }
                     break;
                 case StatementNode statement:
                     EvaluateStatement(context, statement, walk);
@@ -102,6 +155,12 @@ public static class StatementStaticSemanticsEvaluator
         // Inputs pass below so the resolved target type can be threaded straight into bodyContext.
         if (statement is WithStatementNode withStatement)
         {
+            if (walk.Structural)
+            {
+                EvaluateBlock(context, withStatement.Body, walk);
+                return;
+            }
+
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, withStatement.WithExpression);
             CollectError(targetResult, walk);
 
@@ -110,11 +169,26 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
+        // a bare Print is a statement of some languages only.
+        if (statement is PrintStatementNode print)
+        {
+            if (BarePrintStaticSemantics.Evaluate(print, walk.Options.Language) is { } printError)
+            {
+                walk.Errors.Add(printError);
+                return;
+            }
+        }
+
         // AssignmentStatementNode needs both Target's and Value's declared types kept around (not just
         // their error status) to run the coercion rule matching its Kind - the generic Inputs pass below
         // only ever checks IsError, so this is handled separately rather than folded into it.
         if (statement is AssignmentStatementNode assignment)
         {
+            if (walk.Structural)
+            {
+                return;
+            }
+
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
             if (assignment.Kind == AssignmentKind.Set && DefaultInstanceNamedBy(context, assignment.Target) is { } defaultInstance)
@@ -145,12 +219,15 @@ public static class StatementStaticSemanticsEvaluator
         // MS-VBAL §5.4.3.5.
         if (statement is MidStatementNode mid)
         {
-            walk.Errors.AddRange(MidStatementStaticSemantics.Evaluate(context, mid));
+            if (!walk.Structural)
+            {
+                walk.Errors.AddRange(MidStatementStaticSemantics.Evaluate(context, mid));
+            }
             return;
         }
 
         // MS-VBAL §5.4.5, and Name.
-        if (FileStatementStaticSemantics.TryEvaluate(context, statement, out var fileStatementErrors))
+        if (!walk.Structural && FileStatementStaticSemantics.TryEvaluate(context, statement, out var fileStatementErrors))
         {
             walk.Errors.AddRange(fileStatementErrors);
             return;
@@ -165,15 +242,21 @@ public static class StatementStaticSemanticsEvaluator
         // bare `Changed` would come back as an undefined variable.
         if (statement is KeywordStatementNode { Token: Tokens.RaiseEvent } raiseEvent)
         {
-            EvaluateRaiseEvent(context, raiseEvent, walk);
+            if (!walk.Structural)
+            {
+                EvaluateRaiseEvent(context, raiseEvent, walk);
+            }
             return;
         }
 
-        foreach (var input in statement.Inputs)
+        if (!walk.Structural)
         {
-            if (input is ExpressionNode expression)
+            foreach (var input in statement.Inputs)
             {
-                CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
+                if (input is ExpressionNode expression)
+                {
+                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
+                }
             }
         }
 
@@ -389,14 +472,22 @@ public static class StatementStaticSemanticsEvaluator
                 ReferenceLabel(goSub.LabelExpression, walk);
                 return true;
             case OnGoToStatementNode onGoTo:
-                CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, onGoTo.Selector), walk);
+                if (!walk.Structural)
+                {
+                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, onGoTo.Selector), walk);
+                }
+
                 foreach (var label in onGoTo.Labels)
                 {
                     ReferenceLabel(label, walk);
                 }
                 return true;
             case OnGoSubStatementNode onGoSub:
-                CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, onGoSub.Selector), walk);
+                if (!walk.Structural)
+                {
+                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, onGoSub.Selector), walk);
+                }
+
                 foreach (var label in onGoSub.Labels)
                 {
                     ReferenceLabel(label, walk);
@@ -481,6 +572,12 @@ public static class StatementStaticSemanticsEvaluator
 
         // the kind of procedure the walked body belongs to, when it is known.
         public MemberKind? Procedure { get; init; }
+
+        // which branches are excluded, and which language the body is written in.
+        public StaticSemanticsOptions Options { get; init; }
+
+        // when there is no workspace to resolve names in, only what needs none is checked: the types of expressions are not.
+        public bool Structural { get; init; }
 
         // how many loops of each kind the statement being walked is lexically inside.
         public int ForDepth { get; set; }

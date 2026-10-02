@@ -30,17 +30,12 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// the control-flow shapes above — an ordinary data-manipulation statement (Let/Set-assignment, a
 /// <c>Call</c>) chiefly — falls through as <see cref="InstructionKind.Simple"/>.
 /// <para>
-/// Lowering doubles as a validator for the one static-semantics rule it needs to resolve jump targets
-/// at all: every label a jump names must be defined exactly once in the procedure
-/// (<strong>MS-VBAL §5.4.1.1</strong>). A jump whose target does not resolve gets a <c>null</c>
-/// <see cref="Instruction.Target"/>/<see cref="Instruction.Targets"/> entry and a
-/// <see cref="VBCompileErrorId.LabelNotDefined"/> diagnostic; a repeated label definition gets a
-/// <see cref="VBCompileErrorId.DuplicateLabelDefinition"/> diagnostic and keeps its first offset. This
-/// pass needs no symbol resolver: a label is not a symbol, so <see cref="LabelOperands"/> reads a jump's
-/// operand directly off the expression tree, the same way <see cref="StatementStaticSemanticsEvaluator"/>
-/// does. It is also where an <c>Exit</c> statement is checked against the position it is written in
-/// (<see cref="ExitStatementStaticSemantics"/>): an <c>Exit For</c>/<c>Exit Do</c> with no enclosing loop of the matching kind, and an
-/// <c>Exit Sub</c>/<c>Exit Function</c>/<c>Exit Property</c> in the wrong kind of procedure, get a diagnostic and no instruction.
+/// What is wrong with a body is not lowering's to find out: the <see cref="InstructionListLoweringResult.Errors"/> it reports are those of
+/// <see cref="StatementStaticSemanticsEvaluator.CheckStructure"/>, which is the one place the rules are written - every label a jump names must be
+/// defined exactly once in the procedure (<strong>MS-VBAL §5.4.1.1</strong>), an <c>Exit</c> statement must be where it may be
+/// (<see cref="ExitStatementStaticSemantics"/>), and a statement must exist in the language. Lowering only has to act on the outcome: a jump whose
+/// target does not resolve gets a <c>null</c> <see cref="Instruction.Target"/>/<see cref="Instruction.Targets"/> entry, a repeated label definition
+/// keeps its first offset, and an <c>Exit</c> that is where it may not be, or a bare <c>Print</c> in a language that has none, gets no instruction.
 /// </para>
 /// <para>
 /// A statement (or label) lexically inside a dead <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch — a
@@ -79,15 +74,18 @@ public static class InstructionListLowering
         // deferred jump target can be resolved in one final pass.
         foreach (var (index, operand) in state.PendingJumps)
         {
-            state.Items[index] = state.Items[index] with { Target = ResolveLabel(operand, state.Labels, state.Errors) };
+            state.Items[index] = state.Items[index] with { Target = ResolveLabel(operand, state.Labels) };
         }
         foreach (var (index, operands) in state.PendingJumpTables)
         {
-            var targets = operands.Select(operand => ResolveLabel(operand, state.Labels, state.Errors)).ToImmutableArray();
+            var targets = operands.Select(operand => ResolveLabel(operand, state.Labels)).ToImmutableArray();
             state.Items[index] = state.Items[index] with { Targets = targets };
         }
 
-        return new InstructionListLoweringResult(new InstructionList([.. state.Items], state.Labels, state.ByNode), state.Errors.ToImmutable());
+        // what is wrong with the body is the static pass's to say, once, whoever lowers it: lowering only needs to know where a jump lands, and a jump
+        // that lands nowhere has no target.
+        var errors = StatementStaticSemanticsEvaluator.CheckStructure(body, new StaticSemanticsOptions(options.Dead, options.Language), procedure);
+        return new InstructionListLoweringResult(new InstructionList([.. state.Items], state.Labels, state.ByNode), errors);
     }
 
     private static void LowerBlock(StatementBlock block, LoweringState state, LoweringScope scope)
@@ -102,10 +100,8 @@ public static class InstructionListLowering
             switch (child)
             {
                 case LineLabelNode label:
-                    if (!state.Labels.TryAdd(label.Name, state.Items.Count))
-                    {
-                        state.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateLabelDefinition, label.SourceLocation, label.Name));
-                    }
+                    // a label defined twice keeps its first offset: that it is one is the static pass's error to report.
+                    state.Labels.TryAdd(label.Name, state.Items.Count);
                     break;
                 case StatementNode statement:
                     LowerStatement(statement, state, scope);
@@ -142,10 +138,7 @@ public static class InstructionListLowering
             // a bare Print is the Print member of a form or a report in VB6, which the platform has none of. In VBA it is a reserved identifier with no
             // semantics and no statement inside a procedure (only the Immediate window, which is not procedure scope, accepts it as Debug.Print), so
             // in a language without one (HasBarePrint) it is as undefined as any other name the language does not declare.
-            case PrintStatementNode { FileNumber: null } barePrint when state.Language is { HasBarePrint: false }:
-                state.Errors.Add(VBCompileErrorInfo.For(
-                    VBCompileErrorId.SubOrFunctionNotDefined, barePrint.SourceLocation,
-                    $"'{barePrint.Token}' is not a statement of {state.Language.Name}: a Print with no file number is the member of a form or a report in VB6, which the platform has none of, and in VBA it is a reserved identifier that is no statement inside a procedure."));
+            case PrintStatementNode barePrint when BarePrintStaticSemantics.Evaluate(barePrint, state.Language) is not null:
                 break;
 
             case GoToStatementNode goTo:
@@ -287,17 +280,9 @@ public static class InstructionListLowering
         }
     }
 
-    // an Exit statement is where it may be, or it is an error and there is nothing to lower: the same rule the static semantics evaluator checks.
+    // an Exit statement is where it may be, or it is an error and there is nothing to lower: the same rule the static pass reports it by.
     private static bool CheckExit(KeywordStatementNode exit, LoweringState state, LoweringScope scope)
-    {
-        if (ExitStatementStaticSemantics.Evaluate(exit, scope.EnclosingFor is not null, scope.EnclosingDo is not null, state.Procedure) is not { } error)
-        {
-            return true;
-        }
-
-        state.Errors.Add(error);
-        return false;
-    }
+        => ExitStatementStaticSemantics.Evaluate(exit, scope.EnclosingFor is not null, scope.EnclosingDo is not null, state.Procedure) is null;
 
     private static void LowerExit(StatementNode statement, LoweringState state, LoweringScope scope, LoopExit? exit)
     {
@@ -502,23 +487,9 @@ public static class InstructionListLowering
     private static void PatchEnd(LoweringState state, int index, int value) => state.Items[index] = state.Items[index] with { End = value };
     private static void PatchTarget(LoweringState state, int index, int value) => state.Items[index] = state.Items[index] with { Target = value };
 
-    private static int? ResolveLabel(ExpressionNode operand, IReadOnlyDictionary<string, int> labels, ImmutableArray<VBCompileErrorInfo>.Builder errors)
-    {
-        if (!LabelOperands.TryGetLabelName(operand, out var name))
-        {
-            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.LabelNotDefined, operand.Location,
-                "A jump target must be a line label or a line number."));
-            return null;
-        }
-
-        if (labels.TryGetValue(name, out var target))
-        {
-            return target;
-        }
-
-        errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.LabelNotDefined, operand.Location, name));
-        return null;
-    }
+    // a jump whose operand is no label, or names one that is not defined, lands nowhere: the static pass reports it.
+    private static int? ResolveLabel(ExpressionNode operand, IReadOnlyDictionary<string, int> labels)
+        => LabelOperands.TryGetLabelName(operand, out var name) && labels.TryGetValue(name, out var target) ? target : null;
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
     private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, SupportedLanguage? language, MemberKind? procedure)
@@ -528,7 +499,6 @@ public static class InstructionListLowering
         public List<Instruction> Items { get; } = [];
         public Dictionary<string, int> Labels { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<SyntaxNodeId, int> ByNode { get; } = [];
-        public ImmutableArray<VBCompileErrorInfo>.Builder Errors { get; } = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
         public List<(int Index, ExpressionNode Operand)> PendingJumps { get; } = [];
         public List<(int Index, ImmutableArray<ExpressionNode> Operands)> PendingJumpTables { get; } = [];
         public ImmutableArray<SourceRange> DeadRanges { get; } = deadRanges;
