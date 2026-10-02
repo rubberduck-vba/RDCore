@@ -172,6 +172,16 @@ the coercion of every assignment; with none, `CheckStructure` checks what needs 
 |A jump names a label that is defined.|`LabelNotDefined`|
 |A statement exists in the language: a bare `Print` is a statement of BASIC only.|`SubOrFunctionNotDefined`|
 
+A module is not valid for having valid procedures: what it declares is checked once for the module, by
+`DeclarationStaticSemanticsEvaluator`, and a `ModuleSemanticModel` holds those errors (`DeclarationErrors`) beside the
+model of each procedure, so that it is valid only when both are.
+
+|Rule|Reported as|
+|---|---|
+|A name is declared once in the scope of a module; the accessors of a property are the one declaration of it.|`DuplicateDeclaration`|
+|What a class module declares about events (**MS-VBAL §5.2.4.3**, `§5.2.3.1.2`, `§5.3.1.8`).|`ClassModuleEventSemantics`|
+|What its `Implements` directives require of it (**MS-VBAL §5.2.4.2**, `§5.3.1.9`).|`ImplementsSemantics`|
+
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling
 `CheckStructure`: the rules are written in one place, and lowering only acts on the outcome (a jump that lands nowhere has no

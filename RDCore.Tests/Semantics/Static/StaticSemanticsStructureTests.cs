@@ -97,13 +97,27 @@ public sealed class StaticSemanticsStructureTests
         var (good, _) = Body("x = 1");
         var module = new Uri("file:///c:/ws/Mod1.bas");
 
-        var model = new ModuleSemanticModel(module, [
+        var model = new ModuleSemanticModel(module, [], [
             StatementStaticSemanticsEvaluator.Analyze(Foo, good, kind: kind),
             StatementStaticSemanticsEvaluator.Analyze(new SemanticId(new Uri("file:///c:/ws/Mod1.bas#Bar")), bad, kind: kind),
         ]);
 
         Assert.IsFalse(model.IsValid);
         Assert.HasCount(1, model.CompileErrors);
-        Assert.IsTrue(new ModuleSemanticModel(module, [model.Procedures[0]]).IsValid);
+        Assert.IsTrue(new ModuleSemanticModel(module, [], [model.Procedures[0]]).IsValid);
+    }
+
+    [TestMethod]
+    public void AModuleModel_IsNotValid_WhenItsDeclarationsAreNot_WhateverItsProcedures()
+    {
+        var (good, kind) = Body("x = 1");
+        var module = new Uri("file:///c:/ws/Mod1.bas");
+        var error = VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, new SourceLocation(module, SourceRange.Empty), "Total");
+
+        var model = new ModuleSemanticModel(module, [error], [StatementStaticSemanticsEvaluator.Analyze(Foo, good, kind: kind)]);
+
+        Assert.IsTrue(model.Procedures.All(procedure => procedure.IsValid));
+        Assert.IsFalse(model.IsValid);
+        Assert.AreEqual(error, model.CompileErrors.Single());
     }
 }

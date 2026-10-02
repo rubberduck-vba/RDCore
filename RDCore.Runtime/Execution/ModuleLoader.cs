@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -74,7 +75,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
-        var errors = ImmutableArray.CreateBuilder<string>();
+        var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
         foreach (var declaration in syntaxTree.Children.OfType<MemberDeclarationNode>())
         {
             if (FindMember(members, declaration) is not { } procedure)
@@ -92,19 +93,25 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                 procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope));
 
-            // what the error is, and the detail that says which of the module's statements it is about.
-            errors.AddRange(model.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
-                ? error.Description
-                : $"{error.Description}: {error.Verbose}"));
+            procedureModels.Add(model);
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));
         }
 
-        if (errors.Count == 0)
+        // a module is valid when what it declares is, as well as every procedure of it.
+        var moduleModel = new ModuleSemanticModel(
+            module.Uri, DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver), procedureModels.ToImmutable());
+
+        // what the error is, and the detail that says which of the module's statements it is about.
+        var errors = moduleModel.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
+            ? error.Description
+            : $"{error.Description}: {error.Verbose}").ToImmutableArray();
+
+        if (errors.IsEmpty)
         {
             image.Load(module.Uri, procedures);
         }
 
-        return errors.ToImmutable();
+        return errors;
     }
 
     // A module-level array is allocated when its symbol is defined, which is before anything could reduce the constant expressions

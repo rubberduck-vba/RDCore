@@ -32,8 +32,20 @@ internal static class ModuleWorkspace
     /// Runs <c>Program.Main</c> of a workspace of <paramref name="classes"/> and the <c>Program</c> standard module whose source is <paramref name="program"/>.
     /// </summary>
     /// <returns>What it printed, a line each, trimmed.</returns>
-    public static async Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
+    public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
+        => RunCoreAsync(classes, program, errorsOnly: false);
+
+    /// <summary>
+    /// Loads the workspace of <paramref name="classes"/> and the <c>Program</c> standard module the way <see cref="RunAsync"/> does, and gives the
+    /// errors that stopped a module from loading, instead of running it.
+    /// </summary>
+    /// <returns>The errors of every module, one each; empty when every module loaded.</returns>
+    public static Task<string[]> LoadErrorsAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
+        => RunCoreAsync(classes, program, errorsOnly: true);
+
+    private static async Task<string[]> RunCoreAsync(IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly)
     {
+        var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
@@ -77,11 +89,24 @@ internal static class ModuleWorkspace
                     ModuleName = module.Module.Name,
                     Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
                     Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
+                    ImplementedInterfaceNames = module.Parse.SyntaxTree.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = module.Parse.SyntaxTree.GetImplementedInterfaceRanges(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     Replace = true,
                 }, CancellationToken.None);
 
+            if (errorsOnly)
+            {
+                loadErrors.AddRange(defined.CodeErrors);
+                continue;
+            }
+
             Assert.IsEmpty(defined.CodeErrors, $"{module.Module.Name}: {string.Join("; ", defined.CodeErrors)}");
+        }
+
+        if (errorsOnly)
+        {
+            return [.. loadErrors];
         }
 
         var entry = parsed.Single(module => module.Module.Name == "Program");
