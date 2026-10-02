@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Runtime;
+using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server.Handlers.Document;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -107,6 +108,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<DocumentDiagnosticHandler>();
         builder.WithHandler<DocumentSymbolHandler>();
         builder.WithHandler<FoldingRangeHandler>();
+        builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
@@ -128,6 +130,7 @@ internal sealed class CoreLanguageServerApp(
         // external (host) container, so bridge the same singletons across.
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentDiagnosticsService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IParsingClientService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<ISemanticTokensService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
@@ -168,7 +171,7 @@ internal sealed class CoreLanguageServerApp(
             //RangeFormatting = new(true),
             //References = new(true),
             //Rename = new(true),
-            //SemanticTokens = new(true),
+            SemanticTokens = new(true),
             //SignatureHelp = new(true),
             //SelectionRange = new(true),
             Synchronization = new(true),

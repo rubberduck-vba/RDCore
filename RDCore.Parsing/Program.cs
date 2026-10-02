@@ -21,6 +21,7 @@ using System.Runtime.CompilerServices;
 
 // list all the platform capabilities provided by this server here:
 [assembly: ProvidesCorePlatformClientCapability<ParseFullDocument>]
+[assembly: ProvidesCorePlatformClientCapability<ParseTokens>]
 
 
 namespace RDCore.Parsing;
@@ -87,6 +88,7 @@ public class RDCoreParserApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
     {
         builder.WithHandler<ParseFullDocumentHandler>();
+        builder.WithHandler<ParseTokensHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -94,6 +96,7 @@ public class RDCoreParserApp(
         // ModuleParser takes IOptions<SdkServerOptions>; the base registers the configured instance
         // into this container (OmniSharp's own AddOptions would supply an unconfigured default).
         services.AddSingleton<IModuleParser, ModuleParser>();
+        services.AddSingleton<ISyntaxTokenizer, SyntaxTokenizer>();
 
         // handlers resolve ILogger<T> from the OmniSharp-internal container, which otherwise has no
         // sink — route it to the same RDCore.ParseServer.log the outer host writes.

@@ -63,6 +63,15 @@ internal interface IParsingClientService
     /// Forgets the parse cached for <paramref name="documentUri"/>.
     /// </summary>
     void Invalidate(Uri documentUri);
+
+    /// <summary>
+    /// Asks the parsing server for the lexical tokens of a text, and caches nothing.
+    /// </summary>
+    /// <param name="documentUri">The URI of the document the text is of.</param>
+    /// <param name="text">The text, as it is held.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The tokens in the order they are in the text; none when the parsing server answered nothing.</returns>
+    Task<IReadOnlyList<SyntaxToken>> TokenizeAsync(Uri documentUri, string text, CancellationToken token);
 }
 
 internal sealed class ParsingClientService(
@@ -88,6 +97,15 @@ internal sealed class ParsingClientService(
     }
 
     public void Invalidate(Uri documentUri) => _cache.TryRemove(documentUri, out _);
+
+    public async Task<IReadOnlyList<SyntaxToken>> TokenizeAsync(Uri documentUri, string text, CancellationToken token)
+    {
+        await orchestration.ParsingService.WaitForReadyAsync(token);
+
+        var result = await orchestration.ParsingService.SendRequestAsync<ParseTokensParams, ParseTokensResult>(
+            new ParseTokensParams { DocumentUri = documentUri, Text = text }, token);
+        return result?.Tokens ?? [];
+    }
 
     public async Task<ModuleParseResult> ParseFragmentAsync(Uri documentUri, string source, CancellationToken token)
     {

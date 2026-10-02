@@ -44,6 +44,11 @@ public class ParserCapabilities
     /// If supported, enables the language server to request a parse result containing the full syntax tree of a specified workspace document.
     /// </summary>
     public ParseFullDocument ParseFullDocument { get; set; } = new();
+
+    /// <summary>
+    /// If supported, enables the language server to request the lexical tokens of a text, which is what a document is highlighted by.
+    /// </summary>
+    public ParseTokens ParseTokens { get; set; } = new();
 }
 
 /// <summary>
@@ -163,6 +168,11 @@ public static class RDCorePlatformProtocol
     public const string ParseFullDocument = "rdcore/parser/document";
 
     /// <summary>
+    /// Requests the lexical tokens of a text from the parser.
+    /// </summary>
+    public const string ParseTokens = "rdcore/parser/tokens";
+
+    /// <summary>
     /// Sends a module's member symbol descriptors to the environment host to define in its runtime session.
     /// </summary>
     public const string DefineSymbols = "rdcore/host/symbols/define";
@@ -180,6 +190,7 @@ public static class RDCorePlatformProtocol
 }
 
 [JsonDerivedType(typeof(ParseFullDocument))]
+[JsonDerivedType(typeof(ParseTokens))]
 [JsonDerivedType(typeof(DefineSymbols))]
 [JsonDerivedType(typeof(CliCommand))]
 [JsonDerivedType(typeof(DiagnoseDocument))]
@@ -195,6 +206,11 @@ public abstract record class CorePlatformClientCapability(bool IsSupported = tru
 /// Enables the language server to request a parse result containing the full syntax tree of a specified workspace document.
 /// </summary>
 public record class ParseFullDocument(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Enables the language server to request the lexical tokens of a text over <c>rdcore/parser/tokens</c>.
+/// </summary>
+public record class ParseTokens(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Enables the language server to send module member symbol descriptors to the environment host over

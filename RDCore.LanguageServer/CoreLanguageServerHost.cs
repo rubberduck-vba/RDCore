@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using RDCore.SDK.Server.Configuration;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
@@ -48,6 +49,7 @@ internal sealed class CoreLanguageServerHost() : RDCorePlatformServerHost<CoreLa
             .AddSingleton<IWorkspaceDocumentService, WorkspaceDocumentService>()
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IParsingClientService, ParsingClientService>()
+            .AddSingleton<ISemanticTokensService, SemanticTokensService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()
