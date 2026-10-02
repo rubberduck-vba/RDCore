@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.LanguageServer.Diagnostics;
@@ -84,7 +85,9 @@ internal sealed class DocumentDiagnosticsService(
         }
 
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
-        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult));
+        // the module is named the way the workspace sync names it when it defines it in the host.
+        var semantics = await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, token);
+        var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics));
 
         var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));
 
@@ -98,6 +101,32 @@ internal sealed class DocumentDiagnosticsService(
         }
 
         return DocumentDiagnosticsResult.Fresh(version, Aggregate(reports));
+    }
+
+    // what the environment host's semantic analysis pass found out about the module, which is what an analyzer decides what to say of; nothing when the host
+    // does not run the pass, has not loaded the module, or could not answer: a diagnostics extension still has the syntax tree to go on.
+    private async Task<ModuleSemanticsDto?> SemanticsOfAsync(string moduleName, CancellationToken token)
+    {
+        var host = orchestration.RuntimeEnvironment;
+        if (host?.PlatformInfo?.Provides<SemanticAnalysis>() != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = await host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(new HostSemanticsParams { ModuleName = moduleName }, token);
+            return PlatformJson.Deserialize<SemanticsPayload>(result.Json).Modules.FirstOrDefault();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "🔎 The environment host could not answer for the semantics of {module}.", moduleName);
+            return null;
+        }
     }
 
     // registered capabilities decide who provides diagnostics; today that is only RDCore.Diagnostics.

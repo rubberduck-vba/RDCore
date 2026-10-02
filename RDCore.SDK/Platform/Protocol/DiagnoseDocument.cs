@@ -41,7 +41,11 @@ public record class DiagnoseDocumentRequest : IRequest, IRequest<DiagnoseDocumen
 /// <param name="DocumentUri">The document being diagnosed.</param>
 /// <param name="SourceVersion">The workspace document version <paramref name="ParseResult"/> was produced from.</param>
 /// <param name="ParseResult">The parsed module — AST plus syntax errors.</param>
-public record class DiagnoseDocumentPayload(Uri DocumentUri, int SourceVersion, ModuleParseResult ParseResult);
+/// <param name="Semantics">
+/// What the environment host's semantic analysis pass found out about the module (<strong>RD-VBAL §5.0.3</strong>): the facts an analyzer decides what to say of.
+/// <see langword="null"/> when the host has none, because it is not part of the platform or the module's code has not been loaded.
+/// </param>
+public record class DiagnoseDocumentPayload(Uri DocumentUri, int SourceVersion, ModuleParseResult ParseResult, ModuleSemanticsDto? Semantics = null);
 
 /// <summary>
 /// Response to <c>rdcore/diagnostics/document</c>: the diagnostics a provider found, already projected
