@@ -17,15 +17,14 @@ declared in the procedure body; see
 
 In MS-VBAL, a local `Const`'s value is substituted at compile time; it has no run-time address.
 
-> [!NOTE]
-> **Not implemented.** A local `Const` is not modeled at run time: a local `Const`'s initializer expression is not
-> passed to any point where the runtime could evaluate it. Reading a local `Const` at run time resolves to
-> `InternalError`, rather than silently reading a wrong value.
+RD-VBA does the same: a constant's expression is reduced once, when its module is loaded, and a read of the constant is that value. The expression is evaluated in the scope
+where the constant is written, and may name another constant.
 
 ## Implementation
 
 `RDCore.Runtime.Execution.RuntimeProcedureInvoker.HoistLocals` hoists a procedure's `Dim` and `Static` locals
-only; a local `Const` gets no storage.
+only; a local `Const` gets no storage. `RDCore.Runtime.Execution.ModuleLoader` hands the constants of the module, the local ones included, to
+`RuntimeExpressionEvaluator.FoldConstants`.
 
 ---
 > ⏮️ [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md) | ⏭️ [**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)

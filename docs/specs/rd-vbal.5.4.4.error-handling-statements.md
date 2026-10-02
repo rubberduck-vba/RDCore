@@ -35,14 +35,8 @@ unhandled run-time error has occurred; see [**RD-VBAL §2.3.2** Mode / State](rd
 
 ## The Err object
 
-> [!NOTE]
-> **Not implemented.** VBA source cannot read or call the error object at run time (`Err.Number`,
-> `Err.Raise(...)`), for two reasons:
->
-> - The `Err` function of the `Information` module has no runtime implementation: calling it raises the run-time
->   error "Application-defined or object-defined error".
-> - Calling a member of an object through a member access is not implemented: a member access reads only a field
->   of a class instance, and any other member reports `InternalError`.
+VBA source reads and calls the error object at run time (`Err.Number`, `Err.Raise 5`): every error that is raised, handled or not, reaches the session's
+error state, which is what `Err` reports ([**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)).
 
 The `Err` class is described in [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md).
 

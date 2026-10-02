@@ -409,7 +409,11 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             }
         }
 
-        return results;
+        // MS-VBAL §5.3.1.2: in a procedure declared Static every local variable has module extent, as if it were declared Static itself - the
+        // implicit ones and the ReDim's too. A constant is not a variable, and a parameter is not one of these.
+        return member.IsStatic
+            ? results.Select(symbol => symbol is VBLocalVariableSymbol { IsStatic: false } local and not VBParameterSymbol ? local with { IsStatic = true } : symbol).ToList()
+            : results;
     }
 
     // A resolver is composed over the symbols an earlier extraction pass produced, and that pass

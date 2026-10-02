@@ -142,8 +142,9 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             context.GetSourceLocation(_rootUri),
             [.. _children], 
             name,
-            MemberKind.PropertyGet, 
-            modifier);
+            MemberKind.PropertyGet,
+            modifier,
+            IsStatic: context.STATIC() is not null);
     }
     public SyntaxNode BuildPropertyLetDeclaration(VBAParser.PropertyLetStmtContext context)
     {
@@ -157,7 +158,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             name,
             MemberKind.PropertyLet,
-            modifier);
+            modifier,
+            IsStatic: context.STATIC() is not null);
     }
     public SyntaxNode BuildPropertySetDeclaration(VBAParser.PropertySetStmtContext context)
     {
@@ -171,7 +173,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             name,
             MemberKind.PropertySet,
-            modifier);
+            modifier,
+            IsStatic: context.STATIC() is not null);
     }
     public SyntaxNode BuildProcedureDeclaration(VBAParser.SubStmtContext context)
     {
@@ -185,7 +188,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             name,
             MemberKind.Procedure,
-            modifier);
+            modifier,
+            IsStatic: context.STATIC() is not null);
     }
     public SyntaxNode BuildFunctionDeclaration(VBAParser.FunctionStmtContext context)
     {
@@ -199,7 +203,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             name,
             MemberKind.Function,
-            modifier);
+            modifier,
+            IsStatic: context.STATIC() is not null);
     }
 
     /// <param name="boundExpressions">

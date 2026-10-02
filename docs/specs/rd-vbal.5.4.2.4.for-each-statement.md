@@ -61,10 +61,7 @@ run-time error.
 > [!NOTE]
 > **Not implemented.** Enumerating an object that exposes a `_NewEnum` member. `For Each` over such an object reports
 > `InternalError`: enumerating it means invoking its `_NewEnum` member, then the COM `IEnumVARIANT`-shaped methods on
-> whatever that member returns, and neither is invoked. Calling a member of an object through a member access is not
-> implemented: a member access reads only a field of a class instance, and any other member reports `InternalError`.
-> The same gap keeps VBA source from calling the error object's members
-> ([**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)).
+> whatever that member returns, and neither is invoked. An array is enumerated.
 
 ### Errors
 
