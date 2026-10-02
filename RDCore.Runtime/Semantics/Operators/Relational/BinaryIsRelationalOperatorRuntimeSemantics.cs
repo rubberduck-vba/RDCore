@@ -13,6 +13,8 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Analysis;
+using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 
@@ -34,6 +36,23 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.Success(VBBooleanType.TypeInfo);
+
+    // the operands are object references compared as they are (MS-VBAL 5.6.9.7): the Boolean effective type of the result is
+    // not a type to let-coerce them to - which would coerce an object to a Boolean, and fail.
+    protected override LetCoercionResult ValidateOperand(
+        ISymbolResolver resolver,
+        ExpressionNode expression,
+        OperatorEvaluationFrame frame,
+        InputIndex index)
+        => LetCoercionResult.Success(frame[index], []);
+
+    protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
+        ISymbolResolver resolver,
+        ILetCoercionSemanticContextBuilder builder,
+        ExpressionNode expression,
+        OperatorEvaluationFrame frame,
+        InputIndex operandIndex)
+        => new(frame.NodeId, LetCoercionResult.Success(frame[operandIndex], []));
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,
