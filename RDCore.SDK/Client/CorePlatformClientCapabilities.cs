@@ -1,4 +1,4 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using System.Text.Json.Serialization;
 
@@ -65,6 +65,11 @@ public class EnvironmentHostCapabilities
     /// If supported, the environment host lowers and runs a parsed module in its runtime session.
     /// </summary>
     public SessionExecute SessionExecute { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the environment host answers <c>rdcore/host/semantics</c> with the semantic model of the code it holds.
+    /// </summary>
+    public SemanticAnalysis SemanticAnalysis { get; set; } = new();
 
     /// <summary>
     /// If supported, the environment host reads and writes single bytes of the runtime session it owns.
@@ -163,6 +168,12 @@ public static class RDCorePlatformProtocol
     public const string DefineSymbols = "rdcore/host/symbols/define";
 
     /// <summary>
+    /// Asks the environment host for the semantic model of the code it holds. The language-server side of the diagnostics it hands an extension;
+    /// never sent by a client.
+    /// </summary>
+    public const string HostSemantics = "rdcore/host/semantics";
+
+    /// <summary>
     /// Hands a diagnostics-provider extension a parsed document and asks for the diagnostics it finds.
     /// </summary>
     public const string DiagnoseDocument = "rdcore/diagnostics/document";
@@ -175,6 +186,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(SessionStatus))]
 [JsonDerivedType(typeof(SessionExecute))]
 [JsonDerivedType(typeof(SessionAnalyze))]
+[JsonDerivedType(typeof(SemanticAnalysis))]
 [JsonDerivedType(typeof(SessionMemoryAccess))]
 [JsonPolymorphic]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
@@ -220,6 +232,12 @@ public record class SessionAnalyze(bool IsSupported = false) : CorePlatformClien
 /// memory — <c>PEEK</c> and <c>POKE</c>, unchecked.
 /// </summary>
 public record class SessionMemoryAccess(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component runs the semantic analysis pass over the code it holds and answers with its model - <c>rdcore/host/semantics</c>,
+/// which is what a diagnostics extension analyzes.
+/// </summary>
+public record class SemanticAnalysis(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring extension answers <c>rdcore/diagnostics/document</c> — it is a

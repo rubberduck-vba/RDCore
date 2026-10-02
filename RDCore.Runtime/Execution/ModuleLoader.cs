@@ -105,6 +105,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members), procedureModels),
         };
 
+        // kept whether or not the module loads: what is wrong with a module is what is asked after.
+        image.Semantics.Store(moduleModel);
+
         // what the error is, and the detail that says which of the module's statements it is about.
         var errors = moduleModel.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
             ? error.Description

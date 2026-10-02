@@ -43,7 +43,26 @@ internal static class ModuleWorkspace
     public static Task<string[]> LoadErrorsAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
         => RunCoreAsync(classes, program, errorsOnly: true);
 
-    private static async Task<string[]> RunCoreAsync(IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly)
+    /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host what the semantic analysis pass found out about it, as the language server does.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="moduleName">The module whose model is asked for, or empty for the models of every module.</param>
+    public static async Task<SemanticsPayload> SemanticsAsync(IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "")
+    {
+        SemanticsPayload? payload = null;
+        await RunCoreAsync(classes, program, errorsOnly: true, async sessionProvider =>
+        {
+            var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
+            payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
+        });
+
+        return payload!;
+    }
+
+    private static async Task<string[]> RunCoreAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
@@ -122,6 +141,11 @@ internal static class ModuleWorkspace
 
         if (errorsOnly)
         {
+            if (afterLoading is not null)
+            {
+                await afterLoading(sessionProvider);
+            }
+
             return [.. loadErrors];
         }
 

@@ -25,6 +25,11 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     private ImmutableDictionary<string, ImmutableArray<SemanticId>> _modules = ImmutableDictionary<string, ImmutableArray<SemanticId>>.Empty;
 
     /// <summary>
+    /// What the semantic analysis pass found out about the code of the session: the model of each module, as of the last time it was loaded.
+    /// </summary>
+    public SemanticModelStore Semantics { get; } = new();
+
+    /// <summary>
     /// Loads the procedures of a module, replacing every one that was loaded for it before.
     /// </summary>
     /// <param name="moduleUri">The <see cref="Symbol.Uri"/> of the module symbol the procedures are declared by.</param>

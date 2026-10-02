@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -41,6 +41,8 @@ using System.Runtime.CompilerServices;
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
+// and it runs the semantic analysis pass over the code it holds, so it answers for what the pass found:
+[assembly: ProvidesCorePlatformClientCapability<SemanticAnalysis>]
 // native command-mode verbs provided by rdc.exe:
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 
@@ -380,6 +382,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<DefineSymbolsHandler>()
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
+            .WithHandler<HostSemanticsHandler>()
             .WithHandler<HostPeekHandler>()
             .WithHandler<HostPokeHandler>();
 
