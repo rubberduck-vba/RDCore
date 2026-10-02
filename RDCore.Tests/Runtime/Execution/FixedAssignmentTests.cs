@@ -140,6 +140,16 @@ public sealed class FixedAssignmentTests
     }
 
     [TestMethod]
+    public void LSet_AVariantSource_IsWhatItHolds()
+    {
+        // the coercion takes the value it holds: a Variant is not a kind of value of its own. (It was an internal error, once.)
+        var (outcome, values, _) = Run([("S", new VBFixedStringType(6)), ("V", VBVariantType.TypeInfo)], "V = \"ab\"", "LSet S = V");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("ab    ", values["S"]);
+    }
+
+    [TestMethod]
     public void LSet_ANonStringExpression_IsLetCoercedToStringFirst()
     {
         // "Let e be the data value of <expression> Let-coerced to declared type String."

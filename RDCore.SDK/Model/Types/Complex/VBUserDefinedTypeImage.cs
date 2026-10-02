@@ -67,6 +67,24 @@ public static class VBUserDefinedTypeImage
     }
 
     /// <summary>
+    /// Whether <paramref name="type"/> has a variable-length <c>String</c> member, directly or in a user-defined type that it has as a member.
+    /// </summary>
+    /// <remarks>
+    /// A fixed-length <c>String</c> member is not one: its characters are in the record. A variable-length one is a pointer, and it is what
+    /// makes a byte copy of the record (<c>LSet</c>, <strong>MS-VBAL §5.4.3.6</strong>) unsafe in MS-VBA.
+    /// </remarks>
+    /// <param name="type">The user-defined type to look into.</param>
+    public static bool HoldsVariableLengthString(VBUserDefinedType type)
+        => type.Fields().Any(field => field.ResolvedType switch
+        {
+            // the order matters: a fixed-length String is a VBStringType too.
+            VBFixedStringType => false,
+            VBStringType => true,
+            VBUserDefinedType nested => HoldsVariableLengthString(nested),
+            _ => false,
+        });
+
+    /// <summary>
     /// Copies <paramref name="source"/> into <paramref name="destination"/> as bytes
     /// (<strong>MS-VBAL §5.4.3.6</strong>), reinterpreting them through the destination's own layout.
     /// </summary>
@@ -90,14 +108,9 @@ public static class VBUserDefinedTypeImage
 
             // a field with no byte representation takes the source's own value when the source has a field of
             // the same type at the same offset - the only reading of "copied" that is both meaningful and
-            // safe, since the alternative is handing the destination a pointer it does not own.
-            //
-            // TODO issue a semantic flag from the static-analysis pass for an LSet whose source or destination
-            // is a UDT holding a variable-length String. MS-VBA copies the pointer and leaves two records
-            // owning one allocation, which is why the statement is a known way to corrupt a VBA process; RDCore
-            // copies the value instead and cannot corrupt anything, but a program written against MS-VBA's
-            // behaviour is relying on something it should be told about either way. The flag belongs with the
-            // rest of the conversion facts, at analysis time, where a diagnostic can carry it.
+            // safe, since the alternative is handing the destination a pointer it does not own. (MS-VBA copies
+            // the pointer of a variable-length String, which is what HoldsVariableLengthString is for telling
+            // a program about: an analyzer flags it, FixedAssignmentSemanticFlags.)
             if (type is null || !HasImage(type))
             {
                 destination.TrySetFieldAt(index, ReferenceAt(source, sourceLayout, field.Offset, type)

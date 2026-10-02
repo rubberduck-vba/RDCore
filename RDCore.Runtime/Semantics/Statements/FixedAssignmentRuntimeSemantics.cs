@@ -1,11 +1,17 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Builders;
+using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -25,6 +31,11 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// (<see cref="VBUserDefinedTypeImage"/>), which is how VBA fakes a union. <c>RSet</c> has no such form —
 /// §5.4.3.7 admits only <c>String</c> and <c>Variant</c>.
 /// </para>
+/// <para>
+/// <see cref="Analyze"/> establishes the facts about the statement as <see cref="FixedAssignmentSemanticFlags"/>, which
+/// <see cref="Evaluate"/> reads back to know which form it is, and which an analyzer reads to say what is worth saying about it: that
+/// the byte copy of a record that has a variable-length <c>String</c> member is not what it is in MS-VBA, for one.
+/// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates the source expression.</param>
 /// <param name="Strings">Let-coerces it to <c>String</c>, which both statements require of it.</param>
@@ -33,6 +44,7 @@ public sealed record class FixedAssignmentRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     VBStringLetCoercionRuntimeSemantics Strings,
     LetAssignmentEvaluator Assignments)
+    : StatementRuntimeSemantics<FixedAssignmentSemanticContext, FixedAssignmentSemanticFlags>
 {
     /// <summary>The character a short value is padded with — U+0020, as the specification spells it.</summary>
     private const char Padding = ' ';
@@ -63,32 +75,106 @@ public sealed record class FixedAssignmentRuntimeSemantics(
                 : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
         }
 
+        var source = evaluated.Result!;
+        var builder = new SemanticContextFlagsBuilder<FixedAssignmentSemanticContext, FixedAssignmentSemanticFlags>();
+        Analyze(session, new ConversionOperationSemanticContext(), builder, assignment, current, source);
+        var semantics = builder.Build();
+
+        var result = Evaluate(session, semantics, assignment, current, source);
+        if (!result.IsSuccess)
+        {
+            return result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+        }
+
+        // the byte copy of one record over another is done in place: a UDT has location identity, and LSet assigns no new one.
+        return semantics.Flags.HasFlag(FixedAssignmentSemanticFlags.UserDefinedTypeCopy)
+            ? RuntimeExecutionOutcome.Next
+            : Assignments.Assign(session, context, assignment, symbol!, assignment.Target, assignment.Value, result.Result!);
+    }
+
+    public override ISemanticFlagsAccumulator<FixedAssignmentSemanticFlags> Analyze(
+        IRuntimeSession session,
+        ConversionOperationSemanticContext conversionContext,
+        ISemanticFlagsAccumulator<FixedAssignmentSemanticFlags> builder,
+        SyntaxNode node,
+        params VBTypedValue[] inputs)
+    {
+        if (node is not AssignmentStatementNode assignment || inputs is not [var current, var source])
+        {
+            return builder;
+        }
+
+        switch ((Unwrapped(current), Unwrapped(source)))
+        {
+            case (VBUserDefinedTypeValue target, VBUserDefinedTypeValue from) when assignment.Kind is AssignmentKind.LSet:
+                builder.AddFlags(FixedAssignmentSemanticFlags.UserDefinedTypeCopy);
+                if (HoldsVariableLengthString(from))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.SourceHoldsVariableLengthString);
+                }
+
+                if (HoldsVariableLengthString(target))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.DestinationHoldsVariableLengthString);
+                }
+                break;
+
+            case (VBStringValue, _):
+                builder.AddFlags(FixedAssignmentSemanticFlags.StringTarget);
+                break;
+
+            default:
+                builder.AddFlags(FixedAssignmentSemanticFlags.Failed);
+                break;
+        }
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Evaluates an <c>LSet</c> or <c>RSet</c> statement over the current value of its target and the value of its source.
+    /// </summary>
+    /// <remarks>
+    /// The result is the string the target is to be given, for the string form. The record form has no value to give: it copies the source
+    /// over the target in place, and the result is that target.
+    /// </remarks>
+    public override RuntimeSemanticsEvaluationResult Evaluate(
+        IRuntimeSession session,
+        FixedAssignmentSemanticContext context,
+        SyntaxNode node,
+        params VBTypedValue[] inputs)
+    {
+        if (node is not AssignmentStatementNode assignment || inputs is not [var current, var source])
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
         // "The value type of <bound-variable-expression> MUST be String or a UDT" - a target holding anything
         // else is a type mismatch at run time, the static rule having already allowed String, Variant and UDT
         // through on the declared type alone.
-        return (Unwrapped(current), Unwrapped(evaluated.Result!)) switch
+        return (Unwrapped(current), Unwrapped(source)) switch
         {
-            (VBUserDefinedTypeValue target, VBUserDefinedTypeValue source)
-                when assignment.Kind is AssignmentKind.LSet => CopyRecord(source, target),
+            (VBUserDefinedTypeValue target, VBUserDefinedTypeValue from)
+                when assignment.Kind is AssignmentKind.LSet => CopyRecord(from, target),
 
-            (VBStringValue target, _) => Fit(session, context, assignment, symbol!, target, evaluated.Result!),
+            (VBStringValue target, var from) => Fit(session, assignment, target, from),
 
-            _ => Failed(assignment, VBRuntimeErrorId.TypeMismatch),
+            _ => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.TypeMismatch, assignment.SourceLocation, $"{assignment.Kind} requires a String or a user-defined type")),
         };
     }
 
     // "The data in <expression>... is copied into <bound-variable-expression> variable" - bytes, not fields,
     // so that a copy between two differently-shaped records reinterprets rather than refusing. The target is
     // filled in place: a UDT has location identity, and LSet assigns no new one.
-    private static RuntimeExecutionOutcome CopyRecord(VBUserDefinedTypeValue source, VBUserDefinedTypeValue target)
+    private static RuntimeSemanticsEvaluationResult CopyRecord(VBUserDefinedTypeValue source, VBUserDefinedTypeValue target)
     {
         VBUserDefinedTypeImage.Copy(source, target);
-        return RuntimeExecutionOutcome.Next;
+        return RuntimeSemanticsEvaluationResult.Success(target);
     }
 
-    private RuntimeExecutionOutcome Fit(
-        IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment,
-        SDK.Model.Symbols.Abstract.Symbol symbol, VBStringValue target, VBTypedValue source)
+    private RuntimeSemanticsEvaluationResult Fit(
+        IRuntimeSession session, AssignmentStatementNode assignment, VBStringValue target, VBTypedValue source)
     {
         // "Let e be the data value of <expression> Let-coerced to declared type String."
         var coerced = Strings.EvaluateLetCoercion(session.Symbols.Resolver, assignment.Value, new()
@@ -100,7 +186,9 @@ public sealed record class FixedAssignmentRuntimeSemantics(
 
         if (!coerced.IsSuccess)
         {
-            return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+            return coerced.IsApplicable
+                ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!)
+                : RuntimeSemanticsEvaluationResult.InternalError();
         }
 
         var text = coerced.Result!.Handle.Value.BoxedValue as string ?? string.Empty;
@@ -116,9 +204,11 @@ public sealed record class FixedAssignmentRuntimeSemantics(
                 ? text.PadLeft(width, Padding)
                 : text.PadRight(width, Padding);
 
-        return Assignments.Assign(
-            session, context, assignment, symbol, assignment.Target, assignment.Value, new VBStringValue(fitted));
+        return RuntimeSemanticsEvaluationResult.Success(new VBStringValue(fitted));
     }
+
+    private static bool HoldsVariableLengthString(VBUserDefinedTypeValue record)
+        => record.TypeInfo is VBUserDefinedType type && VBUserDefinedTypeImage.HoldsVariableLengthString(type);
 
     // a Variant target or source is one of the declared types the static rule admits, and what it holds is
     // what the runtime rule is about - so both sides are unwrapped before either is judged.
@@ -131,8 +221,4 @@ public sealed record class FixedAssignmentRuntimeSemantics(
 
         return value;
     }
-
-    private static RuntimeExecutionOutcome Failed(AssignmentStatementNode assignment, VBRuntimeErrorId error)
-        => RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
-            error, assignment.SourceLocation, $"{assignment.Kind} requires a String or a user-defined type"));
 }
