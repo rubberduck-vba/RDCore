@@ -1086,7 +1086,8 @@ End Sub
             .Children.OfType<RedimDeclarationNode>().Single();
 
         Assert.AreEqual("Grid", redim.Name);
-        Assert.IsNull(redim.QualifierName);
+        Assert.IsInstanceOfType<SimpleNameExpressionNode>(redim.Target);
+        Assert.IsTrue(redim.IsSimpleName);
         Assert.IsTrue(redim.IsPreserve);
 
         // a ReDim's bounds are ordinary run-time expressions, so they are expression nodes rather than the
@@ -1158,7 +1159,54 @@ End Sub
             .Children.OfType<RedimDeclarationNode>().Single();
 
         Assert.AreEqual("Buffer", redim.Name);
-        Assert.AreEqual("Me", redim.QualifierName);
+        // the target is the member access itself, an expression with an owner of its own: not a string that says what the owner was called.
+        var target = Assert.IsInstanceOfType<MemberAccessExpressionNode>(redim.Target);
+        Assert.AreEqual("Buffer", target.Member.IdentifierName);
+        Assert.IsFalse(redim.IsSimpleName);
+        Assert.IsInstanceOfType<InstanceExpressionNode>(target.Owner, "Me is the instance expression, which a string could not have said");
+    }
+
+    [TestMethod]
+    public void Redim_WithAWithRelativeMemberAccess_HasAnOwnerlessMemberAccessAsItsTarget()
+    {
+        var content = """
+            Sub Foo()
+                With obj
+                    ReDim .Buffer(3)
+                End With
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<WithStatementNode>().Single().Body.Children.OfType<RedimDeclarationNode>().Single();
+
+        var target = Assert.IsInstanceOfType<MemberAccessExpressionNode>(redim.Target);
+        Assert.IsNull(target.Owner);
+        Assert.AreEqual("Buffer", redim.Name);
+    }
+
+    [TestMethod]
+    public void Redim_OfAnOwnerThatIsItselfAMemberAccess_KeepsTheWholeChain()
+    {
+        var content = """
+            Sub Foo()
+                ReDim a.b.Items(1 To 3)
+            End Sub
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        var redim = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single()
+            .Children.OfType<RedimDeclarationNode>().Single();
+
+        var target = Assert.IsInstanceOfType<MemberAccessExpressionNode>(redim.Target);
+        Assert.AreEqual("Items", target.Member.IdentifierName);
+        var owner = Assert.IsInstanceOfType<MemberAccessExpressionNode>(target.Owner);
+        Assert.AreEqual("b", owner.Member.IdentifierName);
     }
 
     [TestMethod]

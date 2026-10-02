@@ -261,9 +261,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
 
     public SyntaxNode BuildRedimDeclaration(
-        VBAParser.RedimVariableDeclarationContext context, bool isPreserve, ImmutableArray<RedimDimensionNode> bounds)
+        VBAParser.RedimVariableDeclarationContext context, bool isPreserve, ImmutableArray<RedimDimensionNode> bounds,
+        ExpressionNode? target)
     {
-        var (name, qualifier, typeHint) = RedimTarget(context.expression());
+        var (name, typeHint) = RedimTarget(context.expression());
 
         // ExitAsTypeClause has already put the optional `As` clause node in _children. The bounds were
         // captured by the listener, which is the only thing that can turn a subtree into expression nodes.
@@ -271,29 +272,28 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         children.Add(new RedimBoundsNode(
             NodeId.Add(children.Count), context.GetSourceLocation(_rootUri), bounds));
 
+        // the target is the expression the array is read from and written back through. A recovered parse can leave the listener with none to
+        // capture, and the name is then all there is of it.
+        target ??= new SimpleNameExpressionNode(NodeId.Add(children.Count), context.GetSourceLocation(_rootUri), name);
+
         return new RedimDeclarationNode(
             NodeId,
             context.GetSourceLocation(_rootUri),
-            name,
-            qualifier,
+            target,
             [.. children],
             isPreserve,
             typeHint);
     }
 
-    // the ReDim target is an index expression `lExpression '(' argumentList ')'`; take the callee's
-    // name, plus a qualifier for a member access and the type-declaration character for a simple name.
-    private static (string Name, string? Qualifier, string? TypeHint) RedimTarget(VBAParser.ExpressionContext? expression)
+    // the ReDim target is an index expression `lExpression '(' argumentList ')'`; take the callee's name, and the type-declaration character of a simple name.
+    private static (string Name, string? TypeHint) RedimTarget(VBAParser.ExpressionContext? expression)
         => Indexed(expression).Callee switch
         {
-            VBAParser.SimpleNameExprContext simple
-                => (simple.identifier().Name(), null, simple.identifier().TypeHint()),
-            VBAParser.MemberAccessExprContext member
-                => (member.unrestrictedIdentifier().Name(), member.lExpression()?.GetText(), null),
-            VBAParser.WithMemberAccessExprContext withMember
-                => (withMember.unrestrictedIdentifier().Name(), ".", null),
-            { } other => (other.GetText(), null, null),
-            _ => (expression?.GetText() ?? string.Empty, null, null),
+            VBAParser.SimpleNameExprContext simple => (simple.identifier().Name(), simple.identifier().TypeHint()),
+            VBAParser.MemberAccessExprContext member => (member.unrestrictedIdentifier().Name(), null),
+            VBAParser.WithMemberAccessExprContext withMember => (withMember.unrestrictedIdentifier().Name(), null),
+            { } other => (other.GetText(), null),
+            _ => (expression?.GetText() ?? string.Empty, null),
         };
 
 

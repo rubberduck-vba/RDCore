@@ -24,14 +24,25 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// <c>Erase</c> takes them away again — "removes the dimensions and data of a resizable array (setting it
 /// back to its initial state)". On a <em>fixed-size</em> array <c>Erase</c> keeps the dimensions and resets
 /// the elements instead, which is the one thing the two spellings of it do differently.
+/// <para>
+/// The array is what a variable holds, and what the statement acts on is where that variable is: a name that resolves to a symbol, or a member access
+/// (<c>obj.Buffer</c>) or an element (<c>a(1)</c>) that is an expression. The array is read from it, and the new one is written back through it
+/// the way an assignment to it is.
+/// </para>
 /// </remarks>
-/// <param name="Expressions">Evaluates the bound expressions, which are ordinary run-time expressions.</param>
+/// <param name="Expressions">Evaluates the bound expressions, which are ordinary run-time expressions, and the targets that are expressions.</param>
 /// <param name="Numbers">Let-coerces each bound to <c>Integer</c>, the type a subscript is.</param>
+/// <param name="Assignments">Writes the new array back through a target that is an expression.</param>
 public sealed record class ArrayStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
-    VBNumericLetCoercionTypeRuntimeSemantics Numbers)
+    VBNumericLetCoercionTypeRuntimeSemantics Numbers,
+    LetAssignmentEvaluator Assignments)
 {
     private readonly ArrayBoundEvaluator _bounds = new(Expressions, Numbers);
+
+    // what a statement acts on: the symbol a simple name resolves to, or the expression that a member access or an index is, the type it is
+    // declared as when that is known, and the value it holds now.
+    private readonly record struct Target(Symbol? Symbol, ExpressionNode? Expression, VBType? Declared, VBTypedValue? Current);
 
     /// <summary>
     /// Executes a <c>ReDim</c> statement (<strong>MS-VBAL §5.4.3.3</strong>).
@@ -46,18 +57,10 @@ public sealed record class ArrayStatementRuntimeSemantics(
     public RuntimeExecutionOutcome ExecuteRedim(
         IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim)
     {
-        if (redim.QualifierName is not null)
+        // a simple name is the symbol it resolves to; anything else - a member access - is an expression.
+        if (!TryResolveTarget(session, context, redim.IsSimpleName ? null : redim.Target, redim.Name, out var target, out var targetFailure))
         {
-            // TODO re-dimension a member-access target (`obj.Buffer`, `.Buffer`). It needs the owner
-            // evaluated and written back through, which is the same machinery a member-access assignment
-            // target needs; a simple name is every other case.
-            return RuntimeExecutionOutcome.InternalError;
-        }
-
-        var resolved = session.Symbols.Resolver.ResolveValue(redim.Name, ScopeKind.Local, context.Scope);
-        if (resolved.Symbol is not { } symbol)
-        {
-            return RuntimeExecutionOutcome.InternalError;
+            return targetFailure;
         }
 
         if (!TryEvaluateBounds(session, context, redim, out var bounds, out var failure))
@@ -65,11 +68,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return failure;
         }
 
-        var current = symbol is ITypedSymbol { ResolvedType: { } declared }
-            ? declared.CreateValue(session.Symbols.Resolver.GetValue(symbol))
-            : null;
-
-        var held = Unwrapped(current);
+        var held = Unwrapped(target.Current);
         if (held is not VBArrayValue array)
         {
             // "Runtime Error 13 is raised if the declared type of a redimensioned variable is Variant and its
@@ -79,19 +78,19 @@ public sealed record class ArrayStatementRuntimeSemantics(
             // is what the rule is about, so it is the unwrapped value that decides: a Variant holding a
             // number is the error, and one holding nothing yet is not.
             return held is null or VBEmptyValue
-                ? Allocate(session, symbol, new VBResizableArrayValue(bounds, ItemTypeOf(current)))
+                ? Store(session, context, redim, target, new VBResizableArrayValue(bounds, ItemTypeOf(target.Current)))
                 : Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
         }
 
         return redim.IsPreserve
-            ? Preserved(session, symbol, redim, array, bounds)
-            : Allocate(session, symbol, new VBResizableArrayValue(bounds, array.IsInitialized ? array.ItemType : DeclaredItemType(symbol, array.ItemType)));
+            ? Preserved(session, context, redim, target, array, bounds)
+            : Store(session, context, redim, target, new VBResizableArrayValue(bounds, array.IsInitialized ? array.ItemType : DeclaredItemType(target, array.ItemType)));
     }
 
     // an array with no dimensions yet is every uninitialized array's own default, which knows nothing of the element type its
     // variable was declared with: `Dim a() As Long` is an array of Long, and so is what a ReDim of it makes.
-    private static VBType DeclaredItemType(Symbol symbol, VBType fallback)
-        => symbol is ITypedSymbol { ResolvedType: VBArrayType { ItemType: var declared } } ? declared : fallback;
+    private static VBType DeclaredItemType(Target target, VBType fallback)
+        => (target.Declared ?? target.Current?.TypeInfo) is VBArrayType { ItemType: var item } ? item : fallback;
 
     /// <summary>
     /// Executes an <c>Erase</c> statement (<strong>MS-VBAL §5.4.3.4</strong>).
@@ -109,28 +108,19 @@ public sealed record class ArrayStatementRuntimeSemantics(
     {
         foreach (var element in statement.Inputs.OfType<ExpressionNode>())
         {
-            if (element is not SimpleNameExpressionNode simpleName)
+            // §5.4.3.4 allows any l-expression classified as a variable, property, function or unbound member: a simple name is a symbol, and
+            // the rest - a member access, an element - are expressions.
+            var name = element is SimpleNameExpressionNode simpleName ? simpleName.IdentifierName : element.ToString() ?? string.Empty;
+            if (!TryResolveTarget(session, context, element is SimpleNameExpressionNode ? null : element, name, out var target, out var targetFailure))
             {
-                // TODO erase a member-access or indexed element. §5.4.3.4 allows any l-expression classified
-                // as a variable, property, function or unbound member; a simple name is the rest of them.
-                return RuntimeExecutionOutcome.InternalError;
+                return targetFailure;
             }
 
-            var resolved = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
-            if (resolved.Symbol is not { } symbol)
-            {
-                return RuntimeExecutionOutcome.InternalError;
-            }
-
-            var current = symbol is ITypedSymbol { ResolvedType: { } declared }
-                ? declared.CreateValue(session.Symbols.Resolver.GetValue(symbol))
-                : null;
-
-            if (Unwrapped(current) is not VBArrayValue array)
+            if (Unwrapped(target.Current) is not VBArrayValue array)
             {
                 // "Runtime error 13 (Type mismatch) is raised if the declared type of an <erase-element> is
                 // Variant and its value type is not an array."
-                return Failed(statement, VBRuntimeErrorId.TypeMismatch, $"{simpleName.IdentifierName} is not an array");
+                return Failed(statement, VBRuntimeErrorId.TypeMismatch, $"{name} is not an array");
             }
 
             // "If the declared type is fixed size array every dependent variable ... is reset to standard
@@ -139,7 +129,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
             var outcome = array is VBFixedSizeArrayValue fixedSize
                 ? Reset(fixedSize)
                 // "this data value is set to be an empty array with the same element type" - dimensions gone.
-                : Allocate(session, symbol, new VBResizableArrayValue([], array.ItemType));
+                : Store(session, context, statement, target, new VBResizableArrayValue([], array.ItemType));
 
             if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
             {
@@ -148,6 +138,41 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
 
         return RuntimeExecutionOutcome.Next;
+    }
+
+    // the symbol a simple name resolves to, or the expression a member access or an element is - and what it holds, which is the array.
+    private bool TryResolveTarget(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? expression, string name,
+        out Target target, out RuntimeExecutionOutcome failure)
+    {
+        target = default;
+        failure = RuntimeExecutionOutcome.Next;
+
+        if (expression is not null)
+        {
+            var evaluated = Expressions.Evaluate(session, expression, context);
+            if (!evaluated.IsSuccess)
+            {
+                failure = evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+                return false;
+            }
+
+            Assignments.TryGetDeclaredType(session, context, expression, out var declaredType);
+            target = new(null, expression, declaredType, evaluated.Result);
+            return true;
+        }
+
+        if (session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is not { } symbol)
+        {
+            failure = RuntimeExecutionOutcome.InternalError;
+            return false;
+        }
+
+        var declared = (symbol as ITypedSymbol)?.ResolvedType;
+        var current = declared?.CreateValue(session.Symbols.Resolver.GetValue(symbol));
+
+        target = new(symbol, null, declared, current);
+        return true;
     }
 
     // "Each element in the array is reset to the default value for its data type" - in place, the array
@@ -166,8 +191,8 @@ public sealed record class ArrayStatementRuntimeSemantics(
     // dimension of an array and the number of dimensions might not be changed. Attempting to change the lower
     // bound of any dimension, the upper bound of any dimension other than the last dimension or the number of
     // dimensions will result in Error 9."
-    private static RuntimeExecutionOutcome Preserved(
-        IRuntimeSession session, Symbol symbol, RedimDeclarationNode redim,
+    private RuntimeExecutionOutcome Preserved(
+        IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim, Target target,
         VBArrayValue array, (int LBound, int UBound)[] bounds)
     {
         if (array.Rank != bounds.Length)
@@ -200,7 +225,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
             }
         }
 
-        return Allocate(session, symbol, resized);
+        return Store(session, context, redim, target, resized);
     }
 
     // every subscript tuple of an array, outermost dimension varying slowest - the order does not matter to
@@ -233,16 +258,22 @@ public sealed record class ArrayStatementRuntimeSemantics(
 
     // TODO raise error 10 ("This array is fixed or temporarily locked") when the variable is currently
     // aliased by a ByRef parameter, which MS-VBAL §5.4.3.3 requires. Nothing models that lock yet.
-    private static RuntimeExecutionOutcome Allocate(IRuntimeSession session, Symbol symbol, VBArrayValue array)
+    private RuntimeExecutionOutcome Store(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, Target target, VBArrayValue array)
     {
         // a Variant-declared variable stores a Variant, whatever it holds: its declared type is what reads
         // the value back, and VBVariantType can only read a Variant. Storing the bare array would make the
         // very next read of the variable throw.
-        var stored = symbol is ITypedSymbol { ResolvedType: VBVariantType }
-            ? new VBVariantValue(array)
-            : (VBTypedValue)array;
+        var variant = target.Declared is VBVariantType || target.Current is VBVariantValue;
+        var stored = variant ? new VBVariantValue(array) : (VBTypedValue)array;
 
-        return session.Symbols.Resolver.TryAllocate(symbol, stored, out _)
+        // a target that is an expression is written the way an assignment to it is: through the field of the object, or the element of the array.
+        if (target.Expression is { } expression)
+        {
+            return Assignments.Assign(session, context, statement, expression, expression, stored);
+        }
+
+        return session.Symbols.Resolver.TryAllocate(target.Symbol!, stored, out _)
             ? RuntimeExecutionOutcome.Next
             : RuntimeExecutionOutcome.InternalError;
     }

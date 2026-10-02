@@ -362,7 +362,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         // it — the LocalDeclarationKind.ReDim marker is that pass's hook.
         foreach (var redim in body.OfType<RedimDeclarationNode>())
         {
-            if (redim.QualifierName is not null || outerScopeNames.Contains(redim.Name) || !declared.Add(redim.Name))
+            if (!redim.IsSimpleName || outerScopeNames.Contains(redim.Name) || !declared.Add(redim.Name))
             {
                 continue;
             }

@@ -114,7 +114,7 @@ public sealed class RuntimeExecutionPipeline
         var statements = new StatementRuntimeSemanticsProvider(
             expressions, assignments, setCoercion, print, conditions, files,
             new FixedAssignmentRuntimeSemantics(expressions, stringCoercion, assignments),
-            new ArrayStatementRuntimeSemantics(expressions, numericCoercion),
+            new ArrayStatementRuntimeSemantics(expressions, numericCoercion, assignments),
             new MidStatementRuntimeSemantics(expressions, stringCoercion, numericCoercion, assignments));
 
         var executor = new ProcedureExecutor(

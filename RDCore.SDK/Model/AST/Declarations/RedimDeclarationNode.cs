@@ -32,14 +32,37 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The source location of the <c>ReDim</c> target.</param>
-/// <param name="Name">The target identifier name.</param>
-/// <param name="QualifierName">The qualifier when the target is a member access (<c>obj.Buffer</c>, <c>Me.Buffer</c>, <c>.Buffer</c>); <c>null</c> for a simple name.</param>
+/// <param name="Target">
+/// The expression the array is the value of, and the one the new array is written back through: a <see cref="SimpleNameExpressionNode"/> (<c>ReDim a(1)</c>), or a
+/// <see cref="MemberAccessExpressionNode"/> (<c>obj.Buffer</c>, <c>Me.Buffer</c>, <c>.Buffer</c>).
+/// </param>
 /// <param name="Children">The <see cref="RedimBoundsNode"/>, and the <see cref="AsTypeExpressionNode"/> when an <c>As</c> clause is present.</param>
 /// <param name="IsPreserve"><c>true</c> when the <c>ReDim</c> statement has the <c>Preserve</c> keyword.</param>
 /// <param name="TypeHint">The <em>type-declaration character</em> on the target name (e.g. <c>%</c> in <c>ReDim n%(2)</c>), if one was supplied.</param>
-public record class RedimDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, string? QualifierName, ImmutableArray<SyntaxNode> Children, bool IsPreserve = false, string? TypeHint = default)
+public record class RedimDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, ExpressionNode Target, ImmutableArray<SyntaxNode> Children, bool IsPreserve = false, string? TypeHint = default)
     : StatementNode(Identity, Location, Children)
 {
+    /// <summary>
+    /// The identifier the target names: the name itself, or the member of a member access.
+    /// </summary>
+    /// <remarks>
+    /// What the symbol pass looks for, to know whether a <see cref="Target"/> that is a simple name is a re-dimension of what it resolves to or an implicit declaration.
+    /// Empty for a target that is neither, which only a recovered parse leaves.
+    /// </remarks>
+    [JsonIgnore]
+    public string Name => Target switch
+    {
+        SimpleNameExpressionNode simpleName => simpleName.IdentifierName,
+        MemberAccessExpressionNode memberAccess => memberAccess.Member.IdentifierName,
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// Whether the target is a name that resolves to a symbol, and not an expression to evaluate: <c>ReDim a(1)</c>, not <c>ReDim obj.Buffer(1)</c>.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsSimpleName => Target is SimpleNameExpressionNode;
+
     /// <summary>
     /// The dimensions this statement gives the array, or <c>null</c> when it declared none.
     /// </summary>

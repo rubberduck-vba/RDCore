@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears.|
+|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears. Its `Target` is an expression: a `SimpleNameExpressionNode` (`a`), or a `MemberAccessExpressionNode` (`obj.Buffer`, `Me.Buffer`, `.Buffer`) with the owner as the expression it is.|
 |[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|—|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
@@ -79,9 +79,8 @@ index now outside the array's bounds is discarded.
 > **Not implemented.** A `ReDim` whose target is currently aliased by a `ByRef` parameter does not raise runtime
 > error 10, `This array is fixed or temporarily locked`. Nothing models that lock yet.
 
-> [!NOTE]
-> **Not implemented.** A `ReDim` whose target is a member access (`obj.Buffer`, `.Buffer`) is not executed. It
-> needs the owner evaluated and written back through, as a member-access assignment target does.
+A target that is a member access (`obj.Buffer`, `.Buffer`) is an expression: the array is read from it, and the new array is written back through it, as an assignment to
+it is - the public variable of the object, or the field of the record. The element type of an array that has no dimensions yet is the one the member is declared with.
 
 ## Implementation
 

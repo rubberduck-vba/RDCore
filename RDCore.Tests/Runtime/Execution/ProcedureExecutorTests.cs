@@ -83,7 +83,7 @@ public sealed class ProcedureExecutorTests
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, booleanCoercion),
             new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter)), numericCoercion, new VBStringLetCoercionRuntimeSemantics(formatter), assignments, new InputListEvaluator(assignments)),
             new FixedAssignmentRuntimeSemantics(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), assignments),
-            new ArrayStatementRuntimeSemantics(expressionEvaluator, numericCoercion),
+            new ArrayStatementRuntimeSemantics(expressionEvaluator, numericCoercion, assignments),
             new MidStatementRuntimeSemantics(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), numericCoercion, assignments));
         var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);

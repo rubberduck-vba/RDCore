@@ -274,8 +274,21 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // run-time expressions (MS-VBAL §5.4.3.3) and only the listener can walk a subtree into nodes. This
         // runs before the redim's own builder is popped, over a subtree this Exit has already passed.
         var bounds = CaptureRedimBounds(context);
-        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve, bounds));
+
+        // the target is an expression - `a`, `obj.Buffer`, `.Buffer` - to evaluate for the array it holds and to write the new one back through.
+        var target = CaptureIsolatedExpression(IndexedCallee(context.expression()));
+
+        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve, bounds, target));
     }
+
+    // the callee of an `x(...)` index expression, whichever of the two index shapes it took.
+    private static VBAParser.LExpressionContext? IndexedCallee(VBAParser.ExpressionContext? expression)
+        => (expression as VBAParser.LExprContext)?.lExpression() switch
+        {
+            VBAParser.IndexExprContext index => index.lExpression(),
+            VBAParser.WhitespaceIndexExprContext index => index.lExpression(),
+            _ => null,
+        };
 
     // `dynamic-dim-spec = [dynamic-lower-bound "To"] dynamic-upper-bound`, one per dimension. They arrive as
     // an index expression's argument list, `x(1 To n)` being indistinguishable from a call until the ReDim

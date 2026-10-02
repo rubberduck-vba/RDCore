@@ -29,9 +29,8 @@ at run time may change them.
 
 An `Erase` statement erases each element of its `erase-list`, in source order.
 
-> [!NOTE]
-> **Not implemented.** An `erase-element` that is not a simple name is not executed. **MS-VBAL §5.4.3.4**
-> admits any `l-expression` classified as a variable, property, function or unbound member.
+An `erase-element` that is not a simple name - a member access (`obj.Items`), an element (`v(1)`) - is an expression: the array is read from it, and a resizable array's
+emptied replacement is written back through it, as an assignment to it is. A fixed-size array is reset in place.
 
 ## Implementation
 

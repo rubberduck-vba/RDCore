@@ -310,7 +310,9 @@ public sealed class LetAssignmentEvaluator(
                 return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
             }
 
-            handle.SetValue(session.Symbols.Resolver, coerced.Result!.RuntimeValue);
+            // an array, a record and a Variant are held as the value that identifies them by where it is, which is what every allocation boxes them
+            // in: the value's own runtime value is not one for them, and a whole array assigned to a variable of an object would have none.
+            handle.SetValue(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(coerced.Result!));
             return RuntimeExecutionOutcome.Next;
         }
 
@@ -394,6 +396,39 @@ public sealed class LetAssignmentEvaluator(
         return udt.TrySetField(declared.Name, coerced.Result!)
             ? RuntimeExecutionOutcome.Next
             : RuntimeExecutionOutcome.InternalError;
+    }
+
+    /// <summary>
+    /// The type a member-access <paramref name="target"/> is declared as: the type of the public variable of the object, or of the field of the user-defined type, that it is.
+    /// </summary>
+    /// <remarks>
+    /// What a statement that makes a value for the target - an array that <c>ReDim</c> gives dimensions to - needs to know of it, because the value it holds before
+    /// says only what it is, and an array that has no dimensions yet does not say what it holds. A property has no declared type of its own that
+    /// an assignment writes to, and says <see langword="false"/> here.
+    /// </remarks>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the target.</param>
+    /// <param name="target">The expression the value is written through.</param>
+    /// <param name="declared">The declared type.</param>
+    /// <returns><see langword="false"/> when the target is not a member access, or does not name a variable that has a declared type.</returns>
+    public bool TryGetDeclaredType(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target, out SDK.Model.Types.Abstract.VBType? declared)
+    {
+        declared = null;
+        if (target is not MemberAccessExpressionNode memberAccess || !TryEvaluateOwner(session, context, memberAccess, out var owner, out _))
+        {
+            return false;
+        }
+
+        var name = memberAccess.Member.IdentifierName;
+        declared = owner switch
+        {
+            VBObjectValue objectOwner when expressions.ResolveAssignableMember(session, context, memberAccess.Owner, objectOwner, name, isSet: false)
+                is { Field: ITypedSymbol { ResolvedType: { } fieldType } } => fieldType,
+            VBUserDefinedTypeValue udt => udt.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.ResolvedType,
+            _ => null,
+        };
+
+        return declared is not null;
     }
 
     // the owner of a member-access target, which is an expression in its own right: `a.b.c = 1` assigns a
