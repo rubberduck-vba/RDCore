@@ -113,12 +113,8 @@ internal static class WorkspaceSymbolResolver
             // members can't ride on the module symbol the way a Type's fields ride on it (built from
             // one AST node's own children) - a module's members are separate top-level declarations,
             // so they're only known once the member provider below has run.
-            // tagged here, once, before the ownMembers/symbols split below - both need the same tagged
-            // instances, not just whichever one applied the attribute.
+            // (the provider tags each member with its VB_UserMemId, once, so the ownMembers/symbols split below has the same tagged instances.)
             var members = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, moduleType, parseResult, typeResolver, withImplicitDeclarations, implicitScope).ProvideSymbols()
-                .Select(member => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberUserMemId(typeMember.Name) is { } userMemId
-                    ? (Symbol)typeMember.With(SymbolProperties.UserMemId, userMemId)
-                    : member)
                 .ToList();
             ImmutableArray<VBTypeMemberSymbol> ownMembers =
                 [.. members.Where(member => member.ParentUri.AbsoluteUri == module.Uri.AbsoluteUri).OfType<VBTypeMemberSymbol>()];

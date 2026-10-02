@@ -1,6 +1,7 @@
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -72,9 +73,14 @@ public sealed record class SetCoercionRuntimeSemantics(IVerboseMessageBuilder Fo
         return SetCoercionResult.Error(OnSetCoercionTypeMismatch(expression));
     }
 
+    // the library's IUnknown is the root interface: an object of any class is one, as it is an Object.
+    private static bool IsRootInterface(VBClassType type)
+        => type.Symbol.Name.Equals("IUnknown", StringComparison.OrdinalIgnoreCase)
+            && type.Symbol.TryGetProperty(SymbolProperties.Library, out var library) && !string.IsNullOrEmpty(library);
+
     private static bool IsCompatibleClass(VBClassType source, VBClassType destination, HashSet<Uri>? visited = null)
     {
-        if (string.Equals(source.Symbol.Uri.AbsoluteUri, destination.Symbol.Uri.AbsoluteUri, StringComparison.Ordinal))
+        if (string.Equals(source.Symbol.Uri.AbsoluteUri, destination.Symbol.Uri.AbsoluteUri, StringComparison.Ordinal) || IsRootInterface(destination))
         {
             return true;
         }

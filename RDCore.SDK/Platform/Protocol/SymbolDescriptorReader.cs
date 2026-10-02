@@ -47,11 +47,15 @@ public static class SymbolDescriptorReader
             var isPrimary = true;
             foreach (var symbol in Read(descriptor, workspaceRoot, moduleUri, resolveType))
             {
-                yield return isPrimary ? WithDefinitions(symbol, descriptor) : symbol;
+                yield return isPrimary ? WithUserMemId(WithDefinitions(symbol, descriptor), descriptor) : symbol;
                 isPrimary = false;
             }
         }
     }
+
+    // the id the member's module gave it (VB_UserMemId): what marks a class's default member and its enumeration member.
+    private static Symbol WithUserMemId(Symbol symbol, SymbolDescriptor descriptor)
+        => descriptor.UserMemId is { } userMemId ? symbol.With(SymbolProperties.UserMemId, userMemId) : symbol;
 
     // a member declared in more than one conditional-compilation branch arrives as one descriptor
     // carrying every site; rebuild them onto the reconstructed symbol. Range/SelectionRange stay the

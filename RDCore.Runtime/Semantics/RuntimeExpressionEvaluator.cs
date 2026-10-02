@@ -554,6 +554,49 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         return member is null ? null : (objectValue.RuntimeValue, member);
     }
 
+    /// <summary>
+    /// Whether the class of <paramref name="owner"/> has an enumeration member: a public property or function marked <c>VB_UserMemId = -4</c>
+    /// (<strong>MS-VBAL §5.4.2.4</strong>), commonly named <c>_NewEnum</c>.
+    /// </summary>
+    public static bool HasEnumerationMember(IRuntimeSession session, VBObjectValue owner)
+        => !owner.IsNothing() && session.Symbols.TryGetInstance(owner.Value, out var instance) && EnumerationMemberOf(instance.ClassModule) is not null;
+
+    private static VBTypeMemberSymbol? EnumerationMemberOf(VBClassModuleSymbol classModule)
+        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol
+            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.NewEnum);
+
+    /// <summary>
+    /// Invokes the enumeration member of <paramref name="owner"/>, the object a <c>For Each</c> over it enumerates with.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the statement.</param>
+    /// <param name="owner">The object being enumerated.</param>
+    /// <returns>What the member returned, or the error it raised; an internal error when the object has no enumeration member.</returns>
+    public RuntimeSemanticsEvaluationResult InvokeEnumerationMember(IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner)
+    {
+        if (owner.IsNothing() || !session.Symbols.TryGetInstance(owner.Value, out var instance) || EnumerationMemberOf(instance.ClassModule) is not { } member)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        return InvokeProcedure(session, context, member, [], owner.RuntimeValue);
+    }
+
+    /// <summary>
+    /// Invokes a member of <paramref name="owner"/> that takes no arguments, by name: what a <c>For Each</c> asks an enumerator for.
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the statement.</param>
+    /// <param name="owner">The object the member is called on.</param>
+    /// <param name="memberName">The member's name.</param>
+    /// <returns>What the member returned, or the error it raised; <c>438</c> when the object has no such member.</returns>
+    public RuntimeSemanticsEvaluationResult InvokeMember(IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner, string memberName)
+        => TryResolveInvocableMember(session, context, null, owner, memberName) is { } found
+            ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
+            : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, default, $"The object has no member '{memberName}'."));
+
     // What the expression an object is reached through is declared as is what decides which of its interfaces a member
     // is a member of: the value carries the object, and nothing of how it was declared. So the declaration is asked of
     // the same rules that type the expression at compile time. It is asked only of an object whose class implements an
@@ -785,16 +828,23 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         // arguments and all. This is also the ONLY way a Function/Property Get recurses into itself:
         // Foo(n - 1) always resolves its own Callee here, never through EvaluateSimpleName's own
         // self-reference check for a bare Foo with no parentheses at all.
+        RuntimeSemanticsEvaluationResult calleeResult;
         if (TryResolveCallableSub(session, context, indexExpression.Callee) is { } sub)
         {
-            return InvokeProcedure(session, context, sub, indexExpression.Arguments);
+            // a function that declares no parameters is not given what follows it in parentheses: it is called, and what it
+            // returns is what is indexed - `Items(1)` of a function that returns a Collection.
+            if (!ReturnsToBeIndexed(sub, null, indexExpression.Arguments))
+            {
+                return InvokeProcedure(session, context, sub, indexExpression.Arguments);
+            }
+
+            calleeResult = InvokeProcedure(session, context, sub, []);
         }
 
         // a call written on an object - Err.Raise 5, obj.Item(1) - invokes the member the object's class has by that
         // name. The owner is evaluated once, here, because evaluating it again to read the member as an array would
         // repeat whatever it does.
-        RuntimeSemanticsEvaluationResult calleeResult;
-        if (indexExpression.Callee is MemberAccessExpressionNode { Owner: { } namespaceExpression } namespaced
+        else if (indexExpression.Callee is MemberAccessExpressionNode { Owner: { } namespaceExpression } namespaced
             && TryClassifyNamespace(session, context, namespaceExpression) is { } qualifier)
         {
             // MS-VBAL §5.6.12: a call of a member of a project or a procedural module - Strings.LenB("42"),
@@ -823,10 +873,17 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
             if (TryResolveInvocableMember(session, context, qualified.Owner, ownerResult.Result!, qualified.Member.IdentifierName) is { } found)
             {
-                return InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver);
-            }
+                if (!ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments))
+                {
+                    return InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver);
+                }
 
-            calleeResult = EvaluateInstanceField(session, ownerResult.Result!, qualified.Member.IdentifierName);
+                calleeResult = InvokeProcedure(session, context, found.Member, [], found.Receiver);
+            }
+            else
+            {
+                calleeResult = EvaluateInstanceField(session, ownerResult.Result!, qualified.Member.IdentifierName);
+            }
         }
         else
         {
@@ -878,6 +935,19 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             ? RuntimeSemanticsEvaluationResult.Success(element)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                 string.Join(", ", subscripts)));
+    }
+
+    // a Function or Property Get that declares no parameters, called with arguments: they are not its own, and index what it returns.
+    private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, IRuntimeValue? receiver, ImmutableArray<ExpressionNode> arguments)
+    {
+        // `F()` is written with an empty argument list, which is not an argument: it is the call itself.
+        if (member is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || arguments.IsDefaultOrEmpty || arguments is [MissingArgumentNode])
+        {
+            return false;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(member);
+        return (receiver is not null && parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters).IsEmpty;
     }
 
     /// <summary>

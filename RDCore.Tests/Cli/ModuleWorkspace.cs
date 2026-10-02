@@ -1,0 +1,99 @@
+using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.CLI.Host;
+using RDCore.CLI.Host.Handlers;
+using RDCore.LanguageServer.Symbols;
+using RDCore.Parsing;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace;
+
+namespace RDCore.Tests.Cli;
+
+/// <summary>
+/// Runs a workspace of several modules the way the platform does - the language server's composition over every module, the host's session, each module's symbols and code
+/// defined in it, then the entry point run - and gives what it printed.
+/// </summary>
+internal static class ModuleWorkspace
+{
+    private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace");
+
+    /// <summary>A class module's source: the header every one has, then <paramref name="body"/>.</summary>
+    public static string ClassModule(string name, params string[] body)
+        => $"VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"{name}\"\r\n{string.Join("\r\n", body)}\r\n";
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> of a workspace of <paramref name="classes"/> and the <c>Program</c> standard module whose source is <paramref name="program"/>.
+    /// </summary>
+    /// <returns>What it printed, a line each, trimmed.</returns>
+    public static async Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
+    {
+        (string Name, string Extension, ModuleType Type, string Source)[] modules =
+        [
+            .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
+            ("Program", "bas", ModuleType.StdModule, program),
+        ];
+
+        var project = new ProjectFile(Root, new RDCoreProject
+        {
+            Name = "Project1",
+            Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
+        });
+        var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
+        foreach (var module in modules)
+        {
+            files[Path.Combine(Root, $"{module.Name}.{module.Extension}")] = new(module.Source);
+        }
+
+        var sessionProvider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance);
+        var workspaceRoot = new Uri(Root);
+        sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
+
+        var parsed = modules.Select(module =>
+        {
+            var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
+            Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+            return (Module: module, Uri: new UriBuilder(workspaceRoot) { Fragment = module.Name }.Uri, Parse: parse);
+        }).ToArray();
+
+        var resolver = WorkspaceSymbolResolver.Compose(
+            workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver());
+
+        foreach (var module in parsed)
+        {
+            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
+            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                .Handle(new DefineSymbolsParams
+                {
+                    WorkspaceRoot = workspaceRoot,
+                    ModuleUri = module.Uri,
+                    ModuleName = module.Module.Name,
+                    Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
+                    Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
+                    ParseResultJson = PlatformJson.Serialize(module.Parse),
+                    Replace = true,
+                }, CancellationToken.None);
+
+            Assert.IsEmpty(defined.CodeErrors, $"{module.Module.Name}: {string.Join("; ", defined.CodeErrors)}");
+        }
+
+        var entry = parsed.Single(module => module.Module.Name == "Program");
+        var result = await new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+            .Handle(new HostExecuteParams
+            {
+                Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
+                ModuleName = "Program",
+                EntryPoint = "Main",
+            }, CancellationToken.None);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorMessage} {string.Join("; ", result.Diagnostics ?? [])}");
+        return [.. result.Output.Select(line => line.Trim())];
+    }
+}

@@ -140,7 +140,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // activation and is not in the frame.
     private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
     {
-        var returned = frame.ReturnValue as VBObjectValue;
+        // a Variant result holds the object it was Set to, which is as much returned as an Object result is.
+        var result = frame.ReturnValue;
+        while (result is VBVariantValue { TypedValue: var wrapped })
+        {
+            result = wrapped;
+        }
+
+        var returned = result as VBObjectValue;
         foreach (var local in locals)
         {
             if (local is not VBLocalVariableSymbol { IsStatic: false } variable || !frame.TryResolve(variable, out var handle))

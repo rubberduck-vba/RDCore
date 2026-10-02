@@ -66,6 +66,7 @@ internal static class SymbolDescriptorProjector
             Constants = ConstantsOf(symbol, children),
             IsWithEvents = symbol.GetProperty(SymbolProperties.WithEvents),
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
+            UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
             External = ExternalOf(symbol),
         };

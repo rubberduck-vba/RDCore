@@ -248,6 +248,16 @@ public record class SymbolDescriptor
     public bool IsWithEvents { get; init; }
 
     /// <summary>
+    /// The member's <c>VB_UserMemId</c> (<strong>MS-VBAL §5.2.1</strong>), when its module says one: <c>0</c> marks the default member of a class, <c>-4</c> its enumeration
+    /// member (<c>_NewEnum</c>). <see langword="null"/> for a member with none.
+    /// </summary>
+    /// <remarks>
+    /// It travels because the host finds the default member and the enumeration member of a class by it - for <c>c(1)</c> and for <c>For Each</c> - and the host reads no
+    /// source of its own to find the attribute in.
+    /// </remarks>
+    public int? UserMemId { get; init; }
+
+    /// <summary>
     /// Whether a module field is an automatic instantiation variable (<strong>MS-VBAL §2.5.1</strong>): declared
     /// <c>As New</c>, so that referring to it while it is <c>Nothing</c> creates the object.
     /// </summary>

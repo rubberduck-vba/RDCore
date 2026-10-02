@@ -24,8 +24,7 @@ a `For Each...Next` loop. `For Each...Next` enumeration is intended to be used w
 
 ## Runtime Semantics
 
-`For Each` is implemented for arrays. It structurally recognizes an object that exposes an enumeration member, and
-reports a run-time error for any other collection value.
+`For Each` is implemented for arrays and for objects that expose an enumeration member.
 
 A language-level condition in a well-formed program never reports `InternalError`; such a condition raises a
 run-time error.
@@ -47,21 +46,42 @@ run-time error.
       (**MS-VBAL §5.4.2.4**'s rule).
 4. When the collection is `Nothing`, raise error 91: enumerating it would invoke `_NewEnum` on an unset reference.
 5. When the collection is a live object whose class exposes a member with `VB_UserMemId = -4` (commonly `_NewEnum`),
-   recognize it structurally and report `InternalError` (see the note below).
+   invoke that member and store a `ForEachState` holding the *enumerator* object it returns (see *Object enumeration*
+   below), then ask the enumerator for its first member as an array's first element is taken, skipping the body when
+   it has none. The member's declared type may be `IUnknown`, `Object` or the enumerator's own class.
 6. When the collection is a live object with no such member, raise error 438.
 7. When the collection is anything else (a scalar), raise error 13, `TypeMismatch`.
 
 ### ForEachNext
 
 1. Read the `ForEachState` back via `Instruction.Matching`.
-2. Advance the index. When the array is exhausted, fall through past the loop.
+2. Advance the index (an array), or ask the enumerator for its next member (an object). When the array or the
+   enumerator is exhausted, fall through past the loop.
 3. Otherwise, assign the next element to the control variable, and branch back to the body's first instruction
    (`Instruction.Target`).
 
-> [!NOTE]
-> **Not implemented.** Enumerating an object that exposes a `_NewEnum` member. `For Each` over such an object reports
-> `InternalError`: enumerating it means invoking its `_NewEnum` member, then the COM `IEnumVARIANT`-shaped methods on
-> whatever that member returns, and neither is invoked. An array is enumerated.
+### Object enumeration
+
+MS-VBAL leaves the enumeration of an object *implementation-defined*. RDCore follows the shape of COM's
+`IEnumVARIANT`, reduced to the two members a VBA enumerator is written with:
+
+|Member|Contract|
+|---|---|
+|`MoveNext() As Boolean`|Advances to the next member; `False` when there is none.|
+|`Current As Variant`|The member the enumerator is at.|
+
+The enumerator of a [Collection](rd-vbal.6.1.3.1.collection-object.md) (`IEnumVARIANT`) is a library class that has
+them, and so is an enumerator written in VBA: a class whose `_NewEnum` (`VB_UserMemId = -4`) returns `Me`, or any other
+object that has the two. Each loop has an enumerator of its own, so loops over the same object, nested or in turn, do
+not disturb one another; a member added to a `Collection` while a loop runs is not the loop's.
+
+A member is Set-assigned to the control variable when it is an object and the control variable can hold one, and
+Let-assigned otherwise: a `Long` control is Let-coerced from a member that is a number.
+
+`IUnknown` is a library class (`IStdUnknownClass`), the root interface: an object of any class is one in a `Set`
+assignment, as it is an `Object`, which is what lets `Property Get NewEnum() As IUnknown` be written as it always has
+been. The `VB_UserMemId` of a class module's member travels in the symbol descriptor (`SymbolDescriptor.UserMemId`), so
+the host finds the enumeration member and the default member of a workspace class as it does those of the library's.
 
 ### Errors
 
@@ -70,7 +90,7 @@ run-time error.
 |The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 — For loop not initialized|
 |`ForEachNext` finds no stored `ForEachState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 — For loop not initialized|
 |The collection is `Nothing`.|91 — Object variable or With block variable not set|
-|The collection is a live object with no `VB_UserMemId = -4` member.|438 — Object doesn't support this property or method|
+|The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 — Object doesn't support this property or method|
 |The collection is anything else (a scalar).|13 — Type mismatch|
 
 MS-VBAL does not separately call out an array that was never initialized. MS-VBA raises error 92 for it, because

@@ -39,7 +39,17 @@ internal sealed class SyntaxTreeSymbolProvider(
     bool withImplicitDeclarations = true,
     ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure) : ISymbolProvider
 {
-    public IEnumerable<Symbol> ProvideSymbols()
+    public IEnumerable<Symbol> ProvideSymbols() => ProvideDeclaredSymbols().Select(WithUserMemId);
+
+    // the id a member's own module gave it (`Attribute Item.VB_UserMemId = 0`): what marks the default member of a class and its enumeration member
+    // (`_NewEnum`, -4). It is stamped here, on what the provider yields, so that both of its consumers have it - the resolver that binds the workspace, and the
+    // host the symbols are defined to, which reads no source of its own to find it in.
+    private Symbol WithUserMemId(Symbol member)
+        => member is VBTypeMemberSymbol typeMember && parseResult.SyntaxTree?.GetMemberUserMemId(typeMember.Name) is { } userMemId
+            ? typeMember.With(SymbolProperties.UserMemId, userMemId)
+            : member;
+
+    private IEnumerable<Symbol> ProvideDeclaredSymbols()
     {
         // one identity (same uri, same concrete symbol type) can be declared once per #If branch —
         // collapse each such group into the first site, carrying every site in Definitions. the accessors

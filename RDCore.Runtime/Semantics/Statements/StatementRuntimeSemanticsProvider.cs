@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model;
@@ -212,6 +213,15 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         if (!coercionResult.IsSuccess)
         {
             return RuntimeExecutionOutcome.Error(coercionResult.ErrorInfo!);
+        }
+
+        // MS-VBAL §5.3.1: `Set Foo = obj` inside Foo's own body Set-assigns its function result variable, as `Foo = value` Let-assigns it
+        // (LetAssignmentEvaluator): it is not a real addressable symbol with a binding, but the activation's own result.
+        if (target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+            && ((Symbol)target).Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
+        {
+            ((CallStackFrame)enclosing).ReturnValue = coercionResult.Result!;
+            return RuntimeExecutionOutcome.Next;
         }
 
         var handle = session.Symbols.Resolver.GetValue((Symbol)target);

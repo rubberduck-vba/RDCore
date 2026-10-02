@@ -686,11 +686,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet,
                     forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
 
-            case VBObjectValue objectValue when session.Symbols.TryGetInstance(objectValue.Value, out var instance) && HasNewEnumMember(instance.ClassModule):
-                // recognized (VB_UserMemId = -4, commonly "_NewEnum"), but actually enumerating it means
-                // calling it and then the COM IEnumVARIANT-shaped methods on whatever it returns - real
-                // procedure invocation, which doesn't exist yet.
-                return RuntimeExecutionOutcome.InternalError;
+            case VBObjectValue objectValue when RuntimeExpressionEvaluator.HasEnumerationMember(session, objectValue):
+                // an object that has an enumeration member (VB_UserMemId = -4, commonly "_NewEnum") is enumerated by what it returns.
+                return StartObjectEnumeration(session, context, instruction, activation, forEachStatement, control, objectValue);
 
             case VBObjectValue:
                 // a live object with no enumeration member - MS-VBAL §5.4.2.4 requires one.
@@ -702,6 +700,100 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch,
                     forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_RequiresEnumerableCollection_Verbose));
         }
+    }
+
+    // MS-VBAL §5.4.2.4 leaves the enumeration of an object implementation-defined: its enumeration member returns an enumerator, which is
+    // asked once for each member - moved to, then read - until it has none. The enumerator is asked for before any member is, and is the
+    // loop's for as long as the loop runs: what the collection holds by then is the enumerator's to say.
+    // Returns null when the first member was assigned (or there is none, and the loop was skipped), and a non-null outcome only when execution must stop.
+    private RuntimeExecutionOutcome? StartObjectEnumeration(
+        IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation,
+        ForEachStatementNode forEachStatement, ITypedSymbol control, VBObjectValue collection)
+    {
+        var enumeratorResult = forEach.Enumerate(session, context, collection);
+        if (!enumeratorResult.IsSuccess)
+        {
+            return ToFailureOutcome(enumeratorResult);
+        }
+
+        var returned = enumeratorResult.Result;
+        while (returned is VBVariantValue { TypedValue: { } wrapped })
+        {
+            returned = wrapped;
+        }
+
+        if (returned is not VBObjectValue { } enumerator || enumerator.IsNothing())
+        {
+            // an enumeration member that returns no enumerator has nothing to enumerate with.
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet,
+                forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
+        }
+
+        var advanced = AdvanceEnumerator(session, context, enumerator, forEachStatement.ControlExpression, control, out var outcome);
+        if (outcome is not null)
+        {
+            return outcome;
+        }
+
+        if (!advanced)
+        {
+            // a collection with no members: the loop is over before it began, as for an array with no elements.
+            if (instruction.End is not { } emptyEnd)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            activation.Pc = emptyEnd;
+            return null;
+        }
+
+        activation.SetForEachState(instruction.Offset, new ForEachState(control, forEachStatement.ControlExpression, null, 0, enumerator));
+        activation.Pc = instruction.Offset + 1;
+        return null;
+    }
+
+    // Moves the enumerator to its next member and assigns it to the control variable. False when there is none to assign; the outcome is
+    // non-null only when execution must stop.
+    private bool AdvanceEnumerator(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue enumerator, ExpressionNode controlExpression, ITypedSymbol control,
+        out RuntimeExecutionOutcome? outcome)
+    {
+        outcome = null;
+
+        var moved = forEach.MoveNext(session, context, enumerator);
+        if (!moved.IsSuccess)
+        {
+            outcome = ToFailureOutcome(moved);
+            return false;
+        }
+
+        var held = moved.Result;
+        while (held is VBVariantValue { TypedValue: { } wrapped })
+        {
+            held = wrapped;
+        }
+
+        // a Boolean's own storage is an integer: any that is not zero is True.
+        if (held is null || Convert.ToInt32(held.Handle.Value.BoxedValue) == 0)
+        {
+            return false;
+        }
+
+        var current = forEach.Current(session, context, enumerator);
+        if (!current.IsSuccess)
+        {
+            outcome = ToFailureOutcome(current);
+            return false;
+        }
+
+        var assigned = forEach.AssignEnumerated(session, control, controlExpression, current.Result!);
+        if (!assigned.IsSuccess)
+        {
+            outcome = ToFailureOutcome(assigned);
+            return false;
+        }
+
+        return true;
     }
 
     // Returns null when the next element was assigned successfully and the loop should keep running
@@ -717,8 +809,31 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
 
+        // an object is enumerated by the enumerator it gave: the next member is the one it moves to.
+        if (state.Enumerator is { } enumerator)
+        {
+            if (!AdvanceEnumerator(session, context, enumerator, state.ControlExpression, state.Control, out var enumeratedOutcome))
+            {
+                if (enumeratedOutcome is not null)
+                {
+                    return enumeratedOutcome;
+                }
+
+                activation.Pc = instruction.Offset + 1; // no more members - the loop ends here.
+                return null;
+            }
+
+            if (instruction.Target is not { } enumeratedTarget)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            activation.Pc = enumeratedTarget;
+            return null;
+        }
+
         var nextIndex = state.Index + 1;
-        if (nextIndex >= state.Array.Length)
+        if (nextIndex >= state.Array!.Length)
         {
             activation.Pc = instruction.Offset + 1; // no more elements - the loop ends here.
             return null;
