@@ -230,4 +230,64 @@ public sealed class SymbolSyncServiceTests
 
         CollectionAssert.AreEqual(new[] { ("Mod1", false), ("Mod2", false), ("Mod1", true), ("Mod2", true) }, requests);
     }
+
+    private (SymbolSyncService Sut, List<(string Module, bool CodeOnly, bool Replace)> Requests) TwoModuleWorkspace(bool changedParseIsCurrent)
+    {
+        var requests = new List<(string Module, bool CodeOnly, bool Replace)>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var request = call.Arg<DefineSymbolsParams>();
+                requests.Add((request.ModuleName, request.CodeOnly, request.Replace));
+                return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+            });
+
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        var mod1 = new WorkspaceDocument("src/Mod1.bas", Root, "Public Sub Foo()\r\nEnd Sub", version: 5);
+        var mod2 = new WorkspaceDocument("src/Mod2.bas", Root, "Public Sub Bar()\r\nEnd Sub", version: 1);
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([mod1, mod2]);
+        documents.TryGetDocument(mod1.Id.Uri.ToUri(), out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = mod1; return true; });
+
+        var parse = (WorkspaceDocument document, string name) => new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", $"{name}.bas")), document.Text);
+        var parse1 = parse(mod1, "Mod1");
+        var parse2 = parse(mod2, "Mod2");
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var path = ((Uri)call[0]).AbsolutePath;
+                call[1] = path.EndsWith("Mod1.bas", StringComparison.OrdinalIgnoreCase) ? parse1 : parse2;
+                return true;
+            });
+        parsing.TryGetCached(Arg.Any<Uri>(), Arg.Any<int>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call => { call[2] = parse1; return changedParseIsCurrent; });
+
+        return (new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance), requests);
+    }
+
+    [TestMethod]
+    public async Task ADocumentThatChanged_IsDefinedAgainAndItsCodeLoadedAgain_AndNoOtherModuleIs()
+    {
+        var (sut, requests) = TwoModuleWorkspace(changedParseIsCurrent: true);
+
+        await sut.SyncDocumentAsync(new Uri(Path.Combine(Root, "src", "Mod1.bas")), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { ("Mod1", false, true), ("Mod1", true, false) }, requests);
+    }
+
+    [TestMethod]
+    public async Task ADocumentWhoseParseIsNotOfItsText_IsNotSentToTheHost()
+    {
+        var (sut, requests) = TwoModuleWorkspace(changedParseIsCurrent: false);
+
+        await sut.SyncDocumentAsync(new Uri(Path.Combine(Root, "src", "Mod1.bas")), CancellationToken.None);
+
+        Assert.IsEmpty(requests);
+    }
 }

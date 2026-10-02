@@ -53,6 +53,18 @@ internal interface ISymbolSyncService
     /// <param name="parseResult">The parsed module.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
+
+    /// <summary>
+    /// Brings the environment host up to date with a workspace document that changed: its symbols are defined again, in the workspace as it is now, and its code is
+    /// loaded again, so that the host's model of the module is the one of the text the document has.
+    /// </summary>
+    /// <remarks>
+    /// Does nothing when the server has no parse of the version of the text the document has now: what is derived from other text is not an improvement.
+    /// The modules that refer to what changed are not loaded again: they are as they were until they are touched, or the workspace is synced.
+    /// </remarks>
+    /// <param name="documentUri">The address of the document.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task SyncDocumentAsync(Uri documentUri, CancellationToken token);
 }
 
 internal sealed class SymbolSyncService(
@@ -102,24 +114,7 @@ internal sealed class SymbolSyncService(
 
             // collect every parsed module first: the resolver is composed over the whole workspace, so
             // one module's `As SomeType` can bind to a sibling module's Type / Enum declaration.
-            Uri? workspaceRoot = null;
-            var modules = new List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)>();
-            foreach (var document in documents.GetAllDocuments())
-            {
-                token.ThrowIfCancellationRequested();
-
-                if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
-                {
-                    continue;
-                }
-
-                workspaceRoot ??= new Uri(document.WorkspaceRoot);
-                // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
-                var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
-                // module kind is never a parser input — read it off the raw source, same as the parsing pass.
-                var moduleKind = ParsingClientService.ModuleTypeOf(document);
-                modules.Add((new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, moduleKind, parseResult));
-            }
+            var (workspaceRoot, modules) = CollectModules(token);
 
             if (workspaceRoot is null)
             {
@@ -206,6 +201,60 @@ internal sealed class SymbolSyncService(
         }
 
         return result.Defined + result.Replaced;
+    }
+
+    // every workspace module that has a parse: the resolver is composed over the whole workspace, so one module's `As SomeType` can bind to a sibling module's
+    // Type / Enum declaration.
+    private (Uri? WorkspaceRoot, List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)> Modules) CollectModules(CancellationToken token)
+    {
+        Uri? workspaceRoot = null;
+        var modules = new List<(Uri Uri, string Name, ModuleType Kind, ModuleParseResult Parse)>();
+        foreach (var document in documents.GetAllDocuments())
+        {
+            token.ThrowIfCancellationRequested();
+
+            if (!parsing.TryGetCached(document.Id.Uri.ToUri(), out var parseResult) || parseResult.SyntaxTree is null)
+            {
+                continue;
+            }
+
+            workspaceRoot ??= new Uri(document.WorkspaceRoot);
+            // the module's programmatic name is its Attribute VB_Name; the file name is the fallback.
+            var moduleName = parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name;
+            // module kind is never a parser input — read it off the raw source, same as the parsing pass.
+            var moduleKind = ParsingClientService.ModuleTypeOf(document);
+            modules.Add((new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri, moduleName, moduleKind, parseResult));
+        }
+
+        return (workspaceRoot, modules);
+    }
+
+    public async Task SyncDocumentAsync(Uri documentUri, CancellationToken token)
+    {
+        var host = orchestration.RuntimeEnvironment;
+        await host.WaitForReadyAsync(token);
+
+        if (host.PlatformInfo?.Provides<DefineSymbols>() != true
+            || !documents.TryGetDocument(documentUri, out var document)
+            || !parsing.TryGetCached(documentUri, document.Version, out var parseResult) || parseResult.SyntaxTree is null)
+        {
+            // the host cannot be told, or what the server has of the document is not a parse of the text it has now: nothing is better than what is stale.
+            return;
+        }
+
+        var (workspaceRoot, modules) = CollectModules(token);
+        var moduleName = parseResult.SyntaxTree.GetDeclaredName() ?? document.Name;
+        if (workspaceRoot is null || modules.FirstOrDefault(module => module.Name == moduleName) is not { Parse: not null } changed)
+        {
+            return;
+        }
+
+        // the module is defined again with the newest definition winning, in the workspace as it is now - what the other modules declare is what its names are
+        // bound against - and then its code is loaded, which is checked against the same.
+        var workspaceResolver = WorkspaceSymbolResolver.Compose(
+            workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, implicitScope: ImplicitScope);
+        await DefineModuleSymbolsAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, workspaceResolver, replace: true, withCode: false, token);
+        await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Parse, token);
     }
 
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
