@@ -533,6 +533,27 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         return member is null ? null : (objectValue.RuntimeValue, member);
     }
 
+    /// <summary>
+    /// The default member of an object - the one a class marks with <c>VB_UserMemId = 0</c> - and the object it is invoked on
+    /// (<strong>MS-VBAL §5.6.13</strong>: <c>c(1)</c> is <c>c.Item(1)</c> where <c>Item</c> is the default member of <c>c</c>'s class).
+    /// </summary>
+    /// <remarks>
+    /// The library's classes mark theirs the same way (<c>Collection.Item</c>), so one that is a class of the workspace's and one that is the library's are found alike.
+    /// </remarks>
+    private static (IRuntimeValue Receiver, VBTypeMemberSymbol Member)? TryResolveDefaultMember(IRuntimeSession session, VBObjectValue objectValue)
+    {
+        if (objectValue.IsNothing() || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
+        {
+            return null;
+        }
+
+        var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
+
+        return member is null ? null : (objectValue.RuntimeValue, member);
+    }
+
     // What the expression an object is reached through is declared as is what decides which of its interfaces a member
     // is a member of: the value carries the object, and nothing of how it was declared. So the declaration is asked of
     // the same rules that type the expression at compile time. It is asked only of an object whose class implements an
@@ -824,6 +845,21 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         while (calleeValue is VBVariantValue { TypedValue: var wrapped })
         {
             calleeValue = wrapped;
+        }
+
+        // an object that is indexed is a call of its default member: `c(1)` is `c.Item(1)`.
+        if (calleeValue is VBObjectValue indexed)
+        {
+            if (indexed.IsNothing())
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                    VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
+            }
+
+            return TryResolveDefaultMember(session, indexed) is { } defaultMember
+                ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver)
+                : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                    VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
         }
 
         if (calleeValue is not VBArrayValue array)
@@ -1118,10 +1154,12 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             }
 
             // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
-            // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value.
+            // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
+            // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
+            // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns.
             if (SetCoercion is { } setCoercion
                 && argumentResult.Value.Result is VBObjectValue
-                && parameter.ResolvedType is VBClassType or VBObjectType)
+                && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType)
             {
                 var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, argumentResult.Value.Result!, parameter.ResolvedType);
                 if (!setResult.IsSuccess)

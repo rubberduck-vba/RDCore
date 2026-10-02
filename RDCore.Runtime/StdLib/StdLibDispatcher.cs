@@ -49,7 +49,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// </remarks>
     /// <param name="session">The session the implementations read their state from.</param>
     public static StdLibDispatcher For(IRuntimeSession session)
-        => new(new Dictionary<Type, object>
+    {
+        // a collection makes the enumerator its For Each is driven by, which is an object of a class of its own.
+        var enumerators = new StdEnumVariant(session);
+
+        return new(new Dictionary<Type, object>
         {
             [typeof(IStdInformationModule)] = new StdInformation(session),
             [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
@@ -58,7 +62,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdErrClass)] = new ErrObject(session),
             [typeof(IStdConversionModule)] = new StdConversion(session),
             [typeof(IStdHiddenModule)] = new StdHidden(session),
+            [typeof(IStdCollectionClass)] = new StdCollection(session, enumerators),
+            [typeof(IStdEnumVariantClass)] = enumerators,
         });
+    }
 
     /// <summary>
     /// Creates the dispatcher over a set of implementations.
@@ -118,6 +125,13 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.InvalidProcedureCallOrArgument, request.CallSite,
                 $"'{request.Member.Name}' was called with arguments its implementation cannot accept."));
+        }
+
+        // a class whose instances have state of their own is told which instance the call is on: the implementation is one object for the
+        // whole class, and what is in a collection is the collection's.
+        if (implementation is IStdLibReceiverBound bound)
+        {
+            bound.Receiver = HasReceiver(request.Member) && TypedValue(request.Arguments[0]) is VBObjectValue receiver ? receiver.Value : null;
         }
 
         // an implementation returns the outcome rather than throwing, the same as the rest of the semantics

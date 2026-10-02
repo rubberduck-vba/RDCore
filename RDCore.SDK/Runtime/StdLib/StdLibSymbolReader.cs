@@ -136,12 +136,38 @@ public sealed class StdLibSymbolReader
 
         // then classes, so a module member declared as one — Information.Err() As ErrObject — binds a
         // class type that already knows its own members.
+        // A class that has a member declared as another class - Collection's _NewEnum returns an IEnumVARIANT - binds that class's type, which has to know its
+        // own members first: so a class is read after every class it names, whatever order the declarations are in.
         var classTypes = new Dictionary<Type, VBClassType>();
-        foreach (var declaration in Marked<StdLibClassAttribute>(all))
+        var marked = Marked<StdLibClassAttribute>(all);
+        var reading = new HashSet<Type>();
+        void ReadClassAfterItsDependencies(Type declaration)
         {
+            if (classTypes.ContainsKey(declaration))
+            {
+                return;
+            }
+
+            if (!reading.Add(declaration))
+            {
+                throw new InvalidOperationException(
+                    $"'{declaration.Name}' names itself through the classes its members are declared as: a class is read after every class it names, and this one has none to be read first.");
+            }
+
+            foreach (var named in ClassesNamedBy(declaration, marked))
+            {
+                ReadClassAfterItsDependencies(named);
+            }
+
             var symbol = ReadClass(declaration, enumTypes, classTypes);
             classTypes[declaration] = VBClassType.FromClassModule(symbol);
             symbols.Add(symbol);
+            reading.Remove(declaration);
+        }
+
+        foreach (var declaration in marked)
+        {
+            ReadClassAfterItsDependencies(declaration);
         }
 
         foreach (var declaration in Marked<StdLibModuleAttribute>(all))
@@ -160,6 +186,15 @@ public sealed class StdLibSymbolReader
         => [.. declarations
             .Where(type => type.GetCustomAttribute<TAttribute>() is not null)
             .OrderBy(type => type.MetadataToken)];
+
+    // the other marked classes a class's members are declared as: the type a member returns, or one of its parameters is.
+    private static IEnumerable<Type> ClassesNamedBy(Type declaration, Type[] markedClasses)
+        => MembersOf(declaration)
+            .SelectMany(method => method.GetParameters().Select(parameter => parameter.ParameterType)
+                .Append(method.GetCustomAttribute<StdLibMemberAttribute>()?.ReturnType ?? method.ReturnType))
+            .Select(type => type.IsGenericType ? type.GetGenericArguments()[0] : type)
+            .Where(type => type != declaration && markedClasses.Contains(type))
+            .Distinct();
 
     private static MethodInfo[] MembersOf(Type declaration)
         => [.. declaration.GetMethods().OrderBy(method => method.MetadataToken)];
@@ -266,6 +301,12 @@ public sealed class StdLibSymbolReader
         // not the workspace's, so there is no instruction list for it, and this is what an
         // IExternalDispatcher finds the implementation by. Nothing downstream could reconstruct it.
         member = member.With(SymbolProperties.ExternalTarget, ExternalTargetOf(method.DeclaringType!, method));
+
+        // the default member of a class, and its enumeration member, are found by the id they carry - as the attributes of a workspace class say.
+        if (attribute is { UserMemId: not StdLibMemberAttribute.NoUserMemId })
+        {
+            member = member.With(SymbolProperties.UserMemId, attribute.UserMemId);
+        }
 
         return ownerIsHidden || attribute?.IsHidden == true
             ? member.With(SymbolProperties.MemberFlags, member.GetProperty(SymbolProperties.MemberFlags) | SymbolProperties.HiddenMemberFlag)
