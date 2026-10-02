@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -170,5 +170,11 @@
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
     <value>Unresolved late bound member access; this call is likely going to raise run-time error 438 (VBR00438) at run-time.</value>
+  </data>
+  <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
+    <value>Option Explicit is not specified: a name that is not declared is not an error, and a variable is created where it is used. A misspelled name goes unnoticed.</value>
+  </data>
+  <data name="ObsoleteCallStatement_Message" xml:space="preserve">
+    <value>The Call keyword is obsolete: the call is the same without it.</value>
   </data>
 </root>

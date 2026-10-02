@@ -59,6 +59,13 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09333](vbc09333.md)|Variable required — an expression that is not a variable is where a statement requires one|
 |[VBC09334](vbc09334.md)|Access not valid for the file mode — the Access clause of an Open is not one its For mode allows|
 
+### Rubberduck Core diagnostics
+
+|Code|Condition|
+|---|---|
+|[RDC00101](rdc00101.md)|Implicit declarations enabled — a module that does not state Option Explicit|
+|[RDC00302](rdc00302.md)|Obsolete Call statement — a call statement written with the Call keyword|
+
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)
 

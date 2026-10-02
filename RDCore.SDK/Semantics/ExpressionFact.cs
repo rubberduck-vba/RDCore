@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Flags;
@@ -72,6 +73,7 @@ public enum ExpressionClassification
 /// is worth a diagnostic is for an analyzer to say.
 /// </remarks>
 /// <param name="Node">The expression the fact describes.</param>
+/// <param name="Location">Where the expression is written.</param>
 /// <param name="DeclaredType">The declared type of the expression (<strong>RD-VBAL §5.0.1</strong>), or <see langword="null"/> when it is an error.</param>
 /// <param name="Classification">What the expression names.</param>
 /// <param name="Binding">The symbol the expression refers to, when it refers to one that resolved.</param>
@@ -79,6 +81,7 @@ public enum ExpressionClassification
 /// <param name="Error">The compile error of the expression itself or of the first of its operands that has one, when it has.</param>
 public sealed record class ExpressionFact(
     SyntaxNodeId Node,
+    SourceLocation Location,
     VBType? DeclaredType,
     ExpressionClassification Classification,
     SemanticId? Binding,

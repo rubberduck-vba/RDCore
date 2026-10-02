@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -170,5 +170,11 @@
   </data>
   <data name="UnresolvedLateBoundMemberAccess_Message" xml:space="preserve">
     <value>Appel à liaison tardive non résolu: il semble que cet appel pourrait soulever l'erreur d'exécution 438 (VBR00438).</value>
+  </data>
+  <data name="ImplicitDeclarationsEnabled_Message" xml:space="preserve">
+    <value>Option Explicit n'est pas sp&#233;cifi&#233;e; un nom non d&#233;clar&#233; n'est pas une erreur, et une variable est cr&#233;&#233;e o&#249; il est utilis&#233;. Un nom mal &#233;crit passe inaper&#231;u.</value>
+  </data>
+  <data name="ObsoleteCallStatement_Message" xml:space="preserve">
+    <value>Le mot-cl&#233; Call est obsol&#232;te; l'appel est le m&#234;me sans lui.</value>
   </data>
 </root>

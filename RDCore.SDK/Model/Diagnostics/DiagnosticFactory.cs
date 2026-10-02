@@ -51,6 +51,12 @@ public interface ICoreDiagnosticsFactory
     /// MS-VBAL does not differentiate a custom <em>application error</em> from a <em>semantic run-time error</em>. The numeric portion of the diagnostic code matches the corresponding application-supplied error code.
     /// </remarks>
     Diagnostic FromVBApplicationError(VBApplicationErrorInfo info);
+    /// <summary>
+    /// Creates a new <c>Diagnostic</c> from what an analyzer found worth saying about a module.
+    /// </summary>
+    /// <param name="finding">What an <see cref="IModuleAnalyzer"/> found.</param>
+    /// <returns>A coded <c>RDC00000</c> (Rubberduck Core) diagnostic, with the severity the analyzer gave it.</returns>
+    Diagnostic FromAnalyzerFinding(AnalyzerFinding finding);
 }
 
 public class DiagnosticFactory : ICoreDiagnosticsFactory
@@ -59,6 +65,20 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
     public Diagnostic FromVBCompileError(VBCompileErrorInfo info) => CreateDiagnostic(info);
     public Diagnostic FromVBRuntimeError(VBRuntimeErrorInfo info) => CreateDiagnostic(info);
     public Diagnostic FromVBApplicationError(VBApplicationErrorInfo info) => CreateDiagnostic(info);
+
+    public Diagnostic FromAnalyzerFinding(AnalyzerFinding finding)
+    {
+        var code = finding.Id.ToDiagnosticCode();
+        return new()
+        {
+            Code = new DiagnosticCode(code),
+            CodeDescription = CreateCodeDescription(code),
+            Message = finding.Message,
+            Severity = finding.Severity,
+            Source = nameof(RDCore),
+            Range = finding.Range.ToLsp(),
+        };
+    }
 
     // the LSP client opens this URL when the reader follows a diagnostic's "learn more" — it is the
     // per-code page docfx publishes from docs/diagnostics/<code>.md, hence the .html extension.

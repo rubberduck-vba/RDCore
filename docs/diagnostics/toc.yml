@@ -46,3 +46,7 @@
   href: vbc09333.md
 - name: VBC09334 — Access not valid for the file mode
   href: vbc09334.md
+- name: RDC00101 — Implicit declarations enabled
+  href: rdc00101.md
+- name: RDC00302 — Obsolete Call statement
+  href: rdc00302.md

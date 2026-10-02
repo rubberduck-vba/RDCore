@@ -30,18 +30,18 @@ internal static class ExpressionFactDescriber
         switch (expression)
         {
             case LiteralExpressionNode:
-                return new(expression.Identity, type, ExpressionClassification.Value, null, ValueExpressionSemanticFlags.Literal, error);
+                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, null, ValueExpressionSemanticFlags.Literal, error);
 
             case SimpleNameExpressionNode name:
             {
                 var symbol = context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol;
                 return symbol is null
-                    ? new(expression.Identity, type, ExpressionClassification.Unknown, null, 0, error)
-                    : new(expression.Identity, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName), error);
+                    ? new(expression.Identity, expression.Location, type, ExpressionClassification.Unknown, null, 0, error)
+                    : new(expression.Identity, expression.Location, type, ClassificationOf(symbol), symbol.SemanticId, FlagsOf(symbol, name.IdentifierName), error);
             }
 
             case NewExpressionNode:
-                return new(expression.Identity, type, ExpressionClassification.Value, BoundClassOf(type)?.SemanticId, 0, error);
+                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, BoundClassOf(type)?.SemanticId, 0, error);
 
             case MemberAccessExpressionNode access:
                 return DescribeMember(context, facts, access.Owner, access.Member.IdentifierName, type, expression, 0, error);
@@ -53,7 +53,7 @@ internal static class ExpressionFactDescriber
                 return DescribeIndex(context, facts, index, type, error);
 
             default:
-                return new(expression.Identity, type, ExpressionClassification.Value, null, 0, error);
+                return new(expression.Identity, expression.Location, type, ExpressionClassification.Value, null, 0, error);
         }
     }
 
@@ -61,7 +61,7 @@ internal static class ExpressionFactDescriber
         StaticEvaluationContext context, IExpressionFactSink facts, IndexExpressionNode index, VBType? type, VBCompileErrorInfo? error)
     {
         ExpressionFact Fact(Symbol? binding, ValueExpressionSemanticFlags flags)
-            => new(index.Identity, type, ExpressionClassification.Value, binding?.SemanticId, flags, error);
+            => new(index.Identity, index.Location, type, ExpressionClassification.Value, binding?.SemanticId, flags, error);
 
         if (ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, index.Callee) is { } procedure)
         {
@@ -90,7 +90,7 @@ internal static class ExpressionFactDescriber
         ExpressionNode expression, ValueExpressionSemanticFlags kind, VBCompileErrorInfo? error)
     {
         ExpressionFact Fact(ExpressionClassification classification, Symbol? binding, ValueExpressionSemanticFlags flags)
-            => new(expression.Identity, type, classification, binding?.SemanticId, flags, error);
+            => new(expression.Identity, expression.Location, type, classification, binding?.SemanticId, flags, error);
 
         // an access with no owner is relative to the object of the enclosing With block.
         var flags = kind | (owner is null ? ValueExpressionSemanticFlags.WithBlockRelative : 0);

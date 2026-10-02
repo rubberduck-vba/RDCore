@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Handlers;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.Diagnostics;
@@ -40,6 +41,10 @@ internal class CoreDiagnosticsApp(
     protected override void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<ICoreDiagnosticsFactory, DiagnosticFactory>();
+
+        // every analyzer the extension has, which the handler calls for each document it diagnoses.
+        services.AddSingleton<IModuleAnalyzer, OptionExplicitAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

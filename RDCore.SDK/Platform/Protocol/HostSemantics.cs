@@ -74,6 +74,7 @@ public record class CompileErrorDto(VBCompileErrorId Id, SourceLocation Location
 /// An <see cref="ExpressionFact"/>, as it travels.
 /// </summary>
 /// <param name="Node">The expression.</param>
+/// <param name="Location">Where it is written.</param>
 /// <param name="DeclaredType">The name of its declared type, or <see langword="null"/> when it is an error.</param>
 /// <param name="Classification">What it names.</param>
 /// <param name="Binding">The address of the symbol it refers to, when it resolved to one.</param>
@@ -81,6 +82,7 @@ public record class CompileErrorDto(VBCompileErrorId Id, SourceLocation Location
 /// <param name="Error">Its compile error, when it has one.</param>
 public record class ExpressionFactDto(
     SyntaxNodeId Node,
+    SourceLocation Location,
     string? DeclaredType,
     ExpressionClassification Classification,
     Uri? Binding,
@@ -138,7 +140,7 @@ public record class ModuleSemanticsDto(
             procedure.IsFullyAnalyzed,
             [.. procedure.CompileErrors.Select(ErrorOf)],
             [.. procedure.Expressions.Values.Select(fact => new ExpressionFactDto(
-                fact.Node, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error)))]))],
+                fact.Node, fact.Location, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error)))]))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(
             declaration.Symbol.Uri, declaration.Name, declaration.Kind, declaration.Access, declaration.IsImplicit, declaration.Location, declaration.References))]);
 
