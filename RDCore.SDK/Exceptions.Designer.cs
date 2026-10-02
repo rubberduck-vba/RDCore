@@ -565,6 +565,33 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Exit Sub not allowed in Function or Property.
+        /// </summary>
+        public static string VBCompileError_ExitSubNotAllowedInFunctionOrProperty {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExitSubNotAllowedInFunctionOrProperty", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable required - can't assign to this expression.
+        /// </summary>
+        public static string VBCompileError_VariableRequired {
+            get {
+                return ResourceManager.GetString("VBCompileError_VariableRequired", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Access not valid for the file mode.
+        /// </summary>
+        public static string VBCompileError_FileAccessNotValidForMode {
+            get {
+                return ResourceManager.GetString("VBCompileError_FileAccessNotValidForMode", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

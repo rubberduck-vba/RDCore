@@ -167,7 +167,7 @@ public enum VBCompileErrorId
     ExitFunctionNotAllowedInSubOrProperty = 9314,
     /// <summary>
     /// <c>Exit</c> statement must match the <em>kind</em> of procedure in which it occurs.<br/>
-    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/exit-sub-not-allowed-in-function-or-property">learn.microsoft.com</a>
+    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/exit-property-not-allowed-in-function-or-sub">learn.microsoft.com</a>
     /// </summary>
     ExitPropertyNotAllowedInSubOrFunction = 9315,
     /// <summary>
@@ -291,6 +291,25 @@ public enum VBCompileErrorId
     /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/sub-or-function-not-defined">learn.microsoft.com</a>
     /// </summary>
     SubOrFunctionNotDefined = 9331,
+    /// <summary>
+    /// <c>Exit Sub</c> is only valid within a <c>Sub</c>: the <c>Exit</c> statement must match the <em>kind</em> of procedure in which it occurs.<br/>
+    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/exit-sub-not-allowed-in-function-or-property">learn.microsoft.com</a>
+    /// </summary>
+    ExitSubNotAllowedInFunctionOrProperty = 9332,
+    /// <summary>
+    /// An expression that is not a variable is where a variable is required: the target of a <c>Mid</c> statement, the variable a
+    /// <c>Line Input #</c>, <c>Input #</c> or <c>Get</c> statement reads into.<br/>
+    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/variable-required-cant-assign-to-this-expression">learn.microsoft.com</a>
+    /// </summary>
+    VariableRequired = 9333,
+    /// <summary>
+    /// The <c>Access</c> clause of an <c>Open</c> statement is not one its <c>For</c> mode allows: <c>Output</c> is only
+    /// <c>Write</c>, <c>Input</c> only <c>Read</c>, and <c>Append</c> is <c>Read Write</c> or <c>Write</c>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 <strong>MS-VBAL §5.4.5.1</strong> states the rule and names no error: the message is the platform's.
+    /// </remarks>
+    FileAccessNotValidForMode = 9334,
 
 
     /***********************************************************************************************

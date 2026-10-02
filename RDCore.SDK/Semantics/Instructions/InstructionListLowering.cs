@@ -38,8 +38,9 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <see cref="VBCompileErrorId.DuplicateLabelDefinition"/> diagnostic and keeps its first offset. This
 /// pass needs no symbol resolver: a label is not a symbol, so <see cref="LabelOperands"/> reads a jump's
 /// operand directly off the expression tree, the same way <see cref="StatementStaticSemanticsEvaluator"/>
-/// does. An <c>Exit For</c>/<c>Exit Do</c> with no enclosing loop of the matching kind is left with an
-/// unresolved <see cref="Instruction.Target"/> and no diagnostic.
+/// does. It is also where an <c>Exit</c> statement is checked against the position it is written in
+/// (<see cref="ExitStatementStaticSemantics"/>): an <c>Exit For</c>/<c>Exit Do</c> with no enclosing loop of the matching kind, and an
+/// <c>Exit Sub</c>/<c>Exit Function</c>/<c>Exit Property</c> in the wrong kind of procedure, get a diagnostic and no instruction.
 /// </para>
 /// <para>
 /// A statement (or label) lexically inside a dead <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch — a
@@ -65,9 +66,13 @@ public static class InstructionListLowering
     /// whether <c>Debug</c> statements are lowered at all. The default is a debug build of a body with
     /// no conditional compilation in it.
     /// </param>
-    public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default)
+    /// <param name="procedure">
+    /// The kind of the procedure <paramref name="body"/> belongs to, which the <c>Exit Sub</c>, <c>Exit Function</c> and <c>Exit Property</c>
+    /// statements are checked against. <see langword="null"/> - the default - when it is not known: those statements are not checked then.
+    /// </param>
+    public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null)
     {
-        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.Language);
+        var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.Language, procedure);
         LowerBlock(body, state, default);
 
         // Every label in the procedure is now known, however deeply nested its definition was, so every
@@ -182,8 +187,11 @@ public static class InstructionListLowering
                 Emit(state, scope, statement, InstructionKind.RaiseError);
                 break;
 
-            case KeywordStatementNode { Token: Tokens.ExitSub or Tokens.ExitFunction or Tokens.ExitProperty }:
-                Emit(state, scope, statement, InstructionKind.ExitProcedure);
+            case KeywordStatementNode { Token: Tokens.ExitSub or Tokens.ExitFunction or Tokens.ExitProperty } exitProcedure:
+                if (CheckExit(exitProcedure, state, scope))
+                {
+                    Emit(state, scope, statement, InstructionKind.ExitProcedure);
+                }
                 break;
 
             case KeywordStatementNode { Token: Tokens.End }:
@@ -194,12 +202,18 @@ public static class InstructionListLowering
                 Emit(state, scope, statement, InstructionKind.Break);
                 break;
 
-            case KeywordStatementNode { Token: Tokens.ExitFor }:
-                LowerExit(statement, state, scope, scope.EnclosingFor);
+            case KeywordStatementNode { Token: Tokens.ExitFor } exitFor:
+                if (CheckExit(exitFor, state, scope))
+                {
+                    LowerExit(statement, state, scope, scope.EnclosingFor);
+                }
                 break;
 
-            case KeywordStatementNode { Token: Tokens.ExitDo }:
-                LowerExit(statement, state, scope, scope.EnclosingDo);
+            case KeywordStatementNode { Token: Tokens.ExitDo } exitDo:
+                if (CheckExit(exitDo, state, scope))
+                {
+                    LowerExit(statement, state, scope, scope.EnclosingDo);
+                }
                 break;
 
             case IfBlockStatementNode ifBlock:
@@ -270,6 +284,18 @@ public static class InstructionListLowering
         {
             PatchTarget(state, index, after);
         }
+    }
+
+    // an Exit statement is where it may be, or it is an error and there is nothing to lower: the same rule the static semantics evaluator checks.
+    private static bool CheckExit(KeywordStatementNode exit, LoweringState state, LoweringScope scope)
+    {
+        if (ExitStatementStaticSemantics.Evaluate(exit, scope.EnclosingFor is not null, scope.EnclosingDo is not null, state.Procedure) is not { } error)
+        {
+            return true;
+        }
+
+        state.Errors.Add(error);
+        return false;
     }
 
     private static void LowerExit(StatementNode statement, LoweringState state, LoweringScope scope, LoopExit? exit)
@@ -494,9 +520,10 @@ public static class InstructionListLowering
     }
 
     // Shared, mutable across the whole recursive lowering of one procedure body.
-    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, SupportedLanguage? language)
+    private sealed class LoweringState(ImmutableArray<SourceRange> deadRanges, bool includeDebugStatements, SupportedLanguage? language, MemberKind? procedure)
     {
         public SupportedLanguage? Language { get; } = language;
+        public MemberKind? Procedure { get; } = procedure;
         public List<Instruction> Items { get; } = [];
         public Dictionary<string, int> Labels { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<SyntaxNodeId, int> ByNode { get; } = [];

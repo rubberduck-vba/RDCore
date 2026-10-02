@@ -80,7 +80,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                 continue;
             }
 
-            var lowering = InstructionListLowering.Lower(new StatementBlock([.. declaration.Children]), options);
+            var lowering = InstructionListLowering.Lower(new StatementBlock([.. declaration.Children]), options, declaration.MemberKind);
             // what the error is, and the detail that says which of the module's statements it is about.
             errors.AddRange(lowering.Errors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description

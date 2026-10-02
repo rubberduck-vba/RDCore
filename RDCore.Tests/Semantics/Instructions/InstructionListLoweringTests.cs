@@ -42,6 +42,17 @@ public sealed class InstructionListLoweringTests
         return InstructionListLowering.Lower(new StatementBlock([.. member.Children]));
     }
 
+    // a body in a declaration of the kind it is written for, which the lowering is told: what an Exit statement is allowed depends on it.
+    private static InstructionListLoweringResult LowerIn(string header, string footer, params string[] procedureBody)
+    {
+        var source = $"{header}\r\n{string.Join("\r\n", procedureBody)}\r\n{footer}\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), default, member.MemberKind);
+    }
+
     private static InstructionListLoweringResult LowerForRelease(params string[] procedureBody)
     {
         var source = $"Sub Foo()\r\n{string.Join("\r\n", procedureBody)}\r\nEnd Sub\r\n";
@@ -460,15 +471,79 @@ public sealed class InstructionListLoweringTests
     }
 
     [TestMethod]
-    [DataRow("Exit Do")]
-    [DataRow("Exit For")]
-    public void ExitForOrDo_WithNoEnclosingLoopOfTheMatchingKind_LeavesTheTargetUnresolved_NoDiagnostic(string statement)
+    [DataRow("Exit Do", VBCompileErrorId.ExitDoNotWithinDoLoop)]
+    [DataRow("Exit For", VBCompileErrorId.ExitForNotWithinForNext)]
+    public void ExitForOrDo_WithNoEnclosingLoopOfTheMatchingKind_IsAnError_AndLowersToNothing(string statement, VBCompileErrorId expected)
     {
         var result = Lower(statement);
 
+        Assert.AreEqual(expected, result.Errors.Single().VBCompileErrorId);
+        Assert.IsEmpty(result.InstructionList.Items);
+    }
+
+    [TestMethod]
+    [DataRow("Exit Do", "For i = 1 To 2", "Next", VBCompileErrorId.ExitDoNotWithinDoLoop, DisplayName = "an Exit Do in a For loop")]
+    [DataRow("Exit For", "Do", "Loop", VBCompileErrorId.ExitForNotWithinForNext, DisplayName = "an Exit For in a Do loop")]
+    [DataRow("Exit For", "While True", "Wend", VBCompileErrorId.ExitForNotWithinForNext, DisplayName = "an Exit For in a While loop")]
+    public void AnExit_InALoopOfAnotherKind_IsAnError(string statement, string opener, string closer, VBCompileErrorId expected)
+    {
+        var result = Lower(opener, statement, closer);
+
+        Assert.AreEqual(expected, result.Errors.Single().VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void AnExitFor_InADoLoopThatIsInAForLoop_IsTheForLoops()
+    {
+        var result = Lower("For i = 1 To 2", "Do", "Exit For", "Loop", "Next");
+
         AssertNoErrors(result);
-        Assert.AreEqual(InstructionKind.ExitLoop, result.InstructionList.Items[0].Kind);
-        Assert.IsNull(result.InstructionList.Items[0].Target);
+    }
+
+    [TestMethod]
+    public void AnExitFor_InAnIfInsideAForLoop_IsValid_BecauseTheLoopIsLexicallyAround()
+    {
+        var result = Lower("For i = 1 To 2", "If i = 1 Then", "Exit For", "End If", "Next");
+
+        AssertNoErrors(result);
+    }
+
+    [TestMethod]
+    [DataRow("Sub Foo()", "End Sub", "Exit Sub", null)]
+    [DataRow("Function Foo()", "End Function", "Exit Function", null)]
+    [DataRow("Property Get Foo()", "End Property", "Exit Property", null)]
+    [DataRow("Property Let Foo(ByVal v As Long)", "End Property", "Exit Property", null)]
+    [DataRow("Property Set Foo(ByVal v As Object)", "End Property", "Exit Property", null)]
+    [DataRow("Property Get Foo()", "End Property", "Exit Function", null, DisplayName = "MS-VBA accepts an Exit Function in a Property Get")]
+    [DataRow("Function Foo()", "End Function", "Exit Sub", VBCompileErrorId.ExitSubNotAllowedInFunctionOrProperty)]
+    [DataRow("Property Get Foo()", "End Property", "Exit Sub", VBCompileErrorId.ExitSubNotAllowedInFunctionOrProperty)]
+    [DataRow("Property Let Foo(ByVal v As Long)", "End Property", "Exit Sub", VBCompileErrorId.ExitSubNotAllowedInFunctionOrProperty)]
+    [DataRow("Sub Foo()", "End Sub", "Exit Function", VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty)]
+    [DataRow("Property Let Foo(ByVal v As Long)", "End Property", "Exit Function", VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty)]
+    [DataRow("Property Set Foo(ByVal v As Object)", "End Property", "Exit Function", VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty)]
+    [DataRow("Sub Foo()", "End Sub", "Exit Property", VBCompileErrorId.ExitPropertyNotAllowedInSubOrFunction)]
+    [DataRow("Function Foo()", "End Function", "Exit Property", VBCompileErrorId.ExitPropertyNotAllowedInSubOrFunction)]
+    public void AnExitProcedure_MustMatchTheKindOfProcedureItIsIn(string header, string footer, string statement, VBCompileErrorId? expected)
+    {
+        var result = LowerIn(header, footer, statement);
+
+        if (expected is { } error)
+        {
+            Assert.AreEqual(error, result.Errors.Single().VBCompileErrorId);
+            Assert.IsEmpty(result.InstructionList.Items, "an Exit that is an error lowers to nothing");
+        }
+        else
+        {
+            AssertNoErrors(result);
+            Assert.AreEqual(InstructionKind.ExitProcedure, result.InstructionList.Items[0].Kind);
+        }
+    }
+
+    [TestMethod]
+    public void AnExitProcedure_IsNotChecked_WhenTheKindOfProcedureIsNotKnown()
+    {
+        // Lower(...) is told no kind: an Exit Function in what is in fact a Sub is not for it to say.
+        AssertNoErrors(Lower("Exit Function"));
     }
 
     // ---- If / ElseIf / Else (§5.4.2.8) ----

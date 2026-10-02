@@ -387,6 +387,15 @@
   <data name="VBCompileError_SubOrFunctionNotDefined" xml:space="preserve">
     <value>Sub ou Function non définie</value>
   </data>
+  <data name="VBCompileError_ExitSubNotAllowedInFunctionOrProperty" xml:space="preserve">
+    <value>Exit Sub non permis dans une procédure Function ou une propriété</value>
+  </data>
+  <data name="VBCompileError_VariableRequired" xml:space="preserve">
+    <value>Variable requise - impossible d'assigner à cette expression</value>
+  </data>
+  <data name="VBCompileError_FileAccessNotValidForMode" xml:space="preserve">
+    <value>Accès non valide pour le mode du fichier</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>

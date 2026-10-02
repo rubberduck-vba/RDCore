@@ -1,5 +1,6 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
@@ -59,14 +60,20 @@ public static class StatementStaticSemanticsEvaluator
     /// block it appears in, so label references are checked against the labels defined anywhere within
     /// this block: passing a nested block on its own would report every jump out of it as undefined.
     /// </param>
+    /// <param name="procedure">
+    /// The kind of the procedure <paramref name="block"/> is the body of, which decides whether an <c>Exit Sub</c>,
+    /// <c>Exit Function</c> or <c>Exit Property</c> statement in it is where it may be
+    /// (<see cref="ExitStatementStaticSemantics"/>). <see langword="null"/> when it is not known: the kind of procedure is not checked then, and the
+    /// <c>Exit For</c> and <c>Exit Do</c> statements still are.
+    /// </param>
     /// <returns>
     /// Every compile error found, in traversal order, followed by a
     /// <see cref="VBCompileErrorId.LabelNotDefined"/> error for each label reference that no line label
     /// or line number in <paramref name="block"/> defines. Empty when the whole tree is valid.
     /// </returns>
-    public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, StatementBlock block)
+    public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, StatementBlock block, MemberKind? procedure = null)
     {
-        var walk = new Walk();
+        var walk = new Walk { Procedure = procedure };
         EvaluateBlock(context, block, walk);
         ReportUndefinedLabels(walk);
         return walk.Errors.ToImmutable();
@@ -125,6 +132,30 @@ public static class StatementStaticSemanticsEvaluator
             return;
         }
 
+        // MS-VBAL §5.4.2.5, .7, .17-.19: where an Exit statement may be written.
+        if (statement is KeywordStatementNode { Token: Tokens.ExitFor or Tokens.ExitDo or Tokens.ExitSub or Tokens.ExitFunction or Tokens.ExitProperty } exit)
+        {
+            if (ExitStatementStaticSemantics.Evaluate(exit, walk.ForDepth > 0, walk.DoDepth > 0, walk.Procedure) is { } exitError)
+            {
+                walk.Errors.Add(exitError);
+            }
+            return;
+        }
+
+        // MS-VBAL §5.4.3.5.
+        if (statement is MidStatementNode mid)
+        {
+            walk.Errors.AddRange(MidStatementStaticSemantics.Evaluate(context, mid));
+            return;
+        }
+
+        // MS-VBAL §5.4.5, and Name.
+        if (FileStatementStaticSemantics.TryEvaluate(context, statement, out var fileStatementErrors))
+        {
+            walk.Errors.AddRange(fileStatementErrors);
+            return;
+        }
+
         if (TryEvaluateJump(context, statement, walk))
         {
             return;
@@ -173,28 +204,29 @@ public static class StatementStaticSemanticsEvaluator
                 }
                 break;
             case DoLoopStatementNode doLoop:
-                EvaluateBlock(context, doLoop.Body, walk);
+                EvaluateLoopBody(context, doLoop.Body, walk, isForLoop: false);
                 break;
             case DoLoopUntilStatementNode doLoopUntil:
-                EvaluateBlock(context, doLoopUntil.Body, walk);
+                EvaluateLoopBody(context, doLoopUntil.Body, walk, isForLoop: false);
                 break;
             case DoLoopWhileStatementNode doLoopWhile:
-                EvaluateBlock(context, doLoopWhile.Body, walk);
+                EvaluateLoopBody(context, doLoopWhile.Body, walk, isForLoop: false);
                 break;
             case DoUntilLoopStatementNode doUntilLoop:
-                EvaluateBlock(context, doUntilLoop.Body, walk);
+                EvaluateLoopBody(context, doUntilLoop.Body, walk, isForLoop: false);
                 break;
             case DoWhileLoopStatementNode doWhileLoop:
-                EvaluateBlock(context, doWhileLoop.Body, walk);
+                EvaluateLoopBody(context, doWhileLoop.Body, walk, isForLoop: false);
                 break;
+            // a While...Wend loop is not a Do loop, and has no Exit statement of its own.
             case WhileWendStatementNode whileWend:
                 EvaluateBlock(context, whileWend.Body, walk);
                 break;
             case ForStatementNode forStatement:
-                EvaluateBlock(context, forStatement.Body, walk);
+                EvaluateLoopBody(context, forStatement.Body, walk, isForLoop: true);
                 break;
             case ForEachStatementNode forEachStatement:
-                EvaluateBlock(context, forEachStatement.Body, walk);
+                EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true);
                 break;
             case SelectCaseStatementNode selectCase:
                 foreach (var caseExpressionBlock in selectCase.CaseExpressionBlocks)
@@ -216,6 +248,30 @@ public static class StatementStaticSemanticsEvaluator
             case CaseElseClauseStatementNode caseElseClauseStatement:
                 EvaluateBlock(context, caseElseClauseStatement.Body, walk);
                 break;
+        }
+    }
+
+    // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted.
+    private static void EvaluateLoopBody(StaticEvaluationContext context, StatementBlock body, Walk walk, bool isForLoop)
+    {
+        if (isForLoop)
+        {
+            walk.ForDepth++;
+        }
+        else
+        {
+            walk.DoDepth++;
+        }
+
+        EvaluateBlock(context, body, walk);
+
+        if (isForLoop)
+        {
+            walk.ForDepth--;
+        }
+        else
+        {
+            walk.DoDepth--;
         }
     }
 
@@ -422,5 +478,13 @@ public static class StatementStaticSemanticsEvaluator
         public HashSet<string> LabelDefinitions { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<ExpressionNode> LabelReferences { get; } = [];
+
+        // the kind of procedure the walked body belongs to, when it is known.
+        public MemberKind? Procedure { get; init; }
+
+        // how many loops of each kind the statement being walked is lexically inside.
+        public int ForDepth { get; set; }
+
+        public int DoDepth { get; set; }
     }
 }

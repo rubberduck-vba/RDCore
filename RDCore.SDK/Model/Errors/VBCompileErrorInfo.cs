@@ -90,5 +90,8 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.InterfaceMemberNotImplemented] = Exceptions.VBCompileError_InterfaceMemberNotImplemented,
         [VBCompileErrorId.InvalidImplementedMember] = Exceptions.VBCompileError_InvalidImplementedMember,
         [VBCompileErrorId.SubOrFunctionNotDefined] = Exceptions.VBCompileError_SubOrFunctionNotDefined,
+        [VBCompileErrorId.ExitSubNotAllowedInFunctionOrProperty] = Exceptions.VBCompileError_ExitSubNotAllowedInFunctionOrProperty,
+        [VBCompileErrorId.VariableRequired] = Exceptions.VBCompileError_VariableRequired,
+        [VBCompileErrorId.FileAccessNotValidForMode] = Exceptions.VBCompileError_FileAccessNotValidForMode,
     };
 }
