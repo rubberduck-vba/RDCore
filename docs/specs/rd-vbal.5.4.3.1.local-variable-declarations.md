@@ -97,11 +97,8 @@ value between calls ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.nam
 The one-time guarded `TryAllocate`, with `CallStackAwareSymbolResolver`'s fall-through for reads, is the entire
 mechanism for `Static` locals.
 
-> [!NOTE]
-> **Not implemented.** A whole procedure declared `Static` is not modeled: a local has module extent only when it
-> is declared with an explicit `Static` keyword. RD-VBA's `Static` handling is therefore narrower than MS-VBAL's.
-> See
-> [**RD-VBAL §5.3.1.2** Static Procedures](rd-vbal.5.3.1.2.static-procedures.md).
+A local variable also has module extent when its procedure is declared `Static`
+([**RD-VBAL §5.3.1.2** Static Procedures](rd-vbal.5.3.1.2.static-procedures.md)): it is marked `Static` as if the keyword were written.
 
 ## Implementation
 

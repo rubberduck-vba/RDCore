@@ -13,7 +13,11 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// <param name="Name">The declared identifier name of the member.</param>
 /// <param name="MemberKind">Specifies the kind of member.</param>
 /// <param name="AccessModifier">An access modifier, if one was supplied.</param>
-public record class MemberDeclarationNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children, string Name, MemberKind MemberKind, AccessModifier AccessModifier = AccessModifier.Implicit)
+/// <param name="IsStatic">
+/// <c>true</c> when the procedure is declared with the <c>Static</c> keyword (<strong>MS-VBAL §5.3.1.2</strong>): every local variable of it then has module
+/// extent, as if each were declared <c>Static</c>. Only a <c>Sub</c>, a <c>Function</c> or a property can be.
+/// </param>
+public record class MemberDeclarationNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children, string Name, MemberKind MemberKind, AccessModifier AccessModifier = AccessModifier.Implicit, bool IsStatic = false)
     : SyntaxNode(Identity, SourceLocation, Children);
 /// <summary>
 /// 
