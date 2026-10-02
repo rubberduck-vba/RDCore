@@ -6,6 +6,14 @@
   href: vbc00042.md
 - name: VBC09309 — Label not defined
   href: vbc09309.md
+- name: VBC09312 — Exit Do not within Do...Loop
+  href: vbc09312.md
+- name: VBC09313 — Exit For not within For...Next
+  href: vbc09313.md
+- name: VBC09314 — Exit Function not allowed in Sub or Property
+  href: vbc09314.md
+- name: VBC09315 — Exit Property not allowed in Sub or Function
+  href: vbc09315.md
 - name: VBC09319 — Duplicate label definition
   href: vbc09319.md
 - name: VBC09320 — Inconsistent property accessors
@@ -32,3 +40,9 @@
   href: vbc09330.md
 - name: VBC09331 — Sub or Function not defined
   href: vbc09331.md
+- name: VBC09332 — Exit Sub not allowed in Function or Property
+  href: vbc09332.md
+- name: VBC09333 — Variable required
+  href: vbc09333.md
+- name: VBC09334 — Access not valid for the file mode
+  href: vbc09334.md

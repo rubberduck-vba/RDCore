@@ -20,6 +20,11 @@ Name "C:\MYDIR\OLDFILE" As "C:\YOURDIR\NEWFILE"   ' Move and rename a file.
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
+## Static Semantics
+
+Both operands have to be Let-coercible to `String`; one that is not is a `TypeMismatch`
+([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
+
 ## Runtime Semantics
 
 Both operands are String expressions, Let-coerced to `String`. The new path name is the name the file or directory has afterwards.

@@ -22,11 +22,11 @@ innermost enclosing loop of that kind.
 A `While…Wend` loop does not satisfy `Exit For`
 ([**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement.md)).
 
-> [!NOTE]
-> **Not implemented.** No diagnostic is reported for an `Exit For` that has no enclosing `For` or `For Each` loop.
-> Lowering leaves the `ExitLoop` target unresolved (`null`).
-> [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) defines `ExitForNotWithinForNext` (9313)
-> for this condition, but nothing reports it.
+An `Exit For` that has no enclosing `For` or `For Each` loop is
+[`VBC09313`](../diagnostics/vbc09313.md) (`ExitForNotWithinForNext`). The rule is
+[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, which
+[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) and instruction-list
+lowering both ask: the statement is lexically inside a loop of the kind, at any depth. Lowering emits no instruction for the statement that is an error.
 
 ## Runtime Semantics
 

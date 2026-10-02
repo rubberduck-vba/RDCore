@@ -13,6 +13,13 @@
 [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `ExitProcedure`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
+## Static Semantics
+
+An `Exit Sub` must be inside the body of a subroutine; in a `Function` or in a property it is
+[`VBC09332`](../diagnostics/vbc09332.md) (`ExitSubNotAllowedInFunctionOrProperty`). The rule is
+[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, applied when the kind of the procedure is known
+([**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md)).
+
 ## Runtime Semantics
 
 The executor dispatches the `ExitProcedure` instruction, which completes the current activation.

@@ -38,6 +38,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |Code|Condition|
 |---|---|
 |[VBC09309](vbc09309.md)|Label not defined — a jump names a line label or line number the procedure does not define|
+|[VBC09312](vbc09312.md)|Exit Do not within Do...Loop — an Exit Do that is not inside a Do loop|
+|[VBC09313](vbc09313.md)|Exit For not within For...Next — an Exit For that is not inside a For or For Each loop|
+|[VBC09314](vbc09314.md)|Exit Function not allowed in Sub or Property — an Exit Function in a Sub, or a Property Let or Set|
+|[VBC09315](vbc09315.md)|Exit Property not allowed in Sub or Function — an Exit Property in a Sub or a Function|
 |[VBC09319](vbc09319.md)|Duplicate label definition — a procedure defines the same line label or line number more than once|
 |[VBC09320](vbc09320.md)|Inconsistent property accessors — a property's Get/Let/Set do not together describe one valid property|
 |[VBC09321](vbc09321.md)|Argument required for Property Let or Property Set — a Let/Set declares no parameters at all|
@@ -50,7 +54,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09328](vbc09328.md)|Invalid Implements directive — the class itself, a repeat, an underscore in a public member, or overlapping interface prefixes|
 |[VBC09329](vbc09329.md)|Object module needs to implement all members of its interface — a public member of the interface has no implemented name declaration|
 |[VBC09330](vbc09330.md)|Invalid implemented member — an implemented name declaration of another kind, parameters or type than its member|
-|[VBC09331](vbc09331.md)|Sub or Function not defined — a statement or a call the language the code is written in does not have|
+|[VBC09331](vbc09331.md)|Sub or Function not defined — a statement or a call the language the code is written in does not have, or does not accept yet|
+|[VBC09332](vbc09332.md)|Exit Sub not allowed in Function or Property — an Exit Sub in a Function or a property|
+|[VBC09333](vbc09333.md)|Variable required — an expression that is not a variable is where a statement requires one|
+|[VBC09334](vbc09334.md)|Access not valid for the file mode — the Access clause of an Open is not one its For mode allows|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

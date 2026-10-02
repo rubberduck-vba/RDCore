@@ -50,8 +50,13 @@ public class SupportedLanguage
     /// Whether a <c>Print</c> statement with no file number - <c>Print "x"</c> - is a statement of the language.
     /// </summary>
     /// <remarks>
-    /// In VB6 it is the <c>Print</c> member of the form or report it is written in, so it exists only where there is one; and VBA has no such
-    /// statement at all, which is why a call of it is undefined. A BASIC has it as its own: it writes to the output of the program.
+    /// In VB6 it is the <c>Print</c> member of the form or report it is written in, so it exists only where there is one. A BASIC has it as its
+    /// own: it writes to the output of the program.
+    /// <para>
+    /// 🚧 What a VBA module makes of it is not settled. <c>Print</c> is a reserved word of the language, and a bare <c>Print</c> is accepted in the
+    /// Immediate window, where it writes what <c>Debug.Print</c> does; whether module code accepts it too, and as what, is still to be worked
+    /// out. <c>false</c> is the platform not accepting it there <em>yet</em>, not a finding that VBA has no such statement.
+    /// </para>
     /// </remarks>
     public bool HasBarePrint { get; init; }
 

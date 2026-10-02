@@ -13,6 +13,17 @@
 [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) as `Exit Sub` and
 `Exit Property`: `ExitProcedure` ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
+## Static Semantics
+
+An `Exit Function` must be inside the body of a function; in a `Sub`, or in a `Property Let` or a `Property Set`, it is
+[`VBC09314`](../diagnostics/vbc09314.md) (`ExitFunctionNotAllowedInSubOrProperty`).
+
+> [!NOTE]
+> **MS-VBAL §5.4.2.18** says the statement must be in a function, and the platform also accepts it in a `Property Get`, as MS-VBA does.
+> The rule is [ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s. It is applied when the
+> kind of the procedure is known: [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html)
+> and instruction-list lowering are each told it, and check nothing of the kind without it.
+
 ## Runtime Semantics
 
 The executor dispatches the `ExitProcedure` instruction, as for `Exit Sub`

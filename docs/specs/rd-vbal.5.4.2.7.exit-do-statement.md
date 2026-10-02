@@ -22,11 +22,11 @@ A `While…Wend` loop does not satisfy `Exit Do`: MS-VBAL gives `While…Wend` n
 ([**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement.md)). An `Exit Do` written inside a
 `While…Wend` is not consumed by it; it resolves against the `Do` loop that encloses the `While…Wend`.
 
-> [!NOTE]
-> **Not implemented.** No diagnostic is reported for an `Exit Do` that has no enclosing `Do` loop, including an
-> `Exit Do` inside a `While…Wend` that no `Do` loop encloses. Lowering leaves the `ExitLoop` target unresolved
-> (`null`). [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) defines
-> `ExitDoNotWithinDoLoop` (9312) for this condition, but nothing reports it.
+An `Exit Do` that has no enclosing `Do` loop, including one inside a `While…Wend` that no `Do` loop encloses, is
+[`VBC09312`](../diagnostics/vbc09312.md) (`ExitDoNotWithinDoLoop`). The rule is
+[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, which
+[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) and instruction-list
+lowering both ask. Lowering emits no instruction for the statement that is an error.
 
 ## Runtime Semantics
 

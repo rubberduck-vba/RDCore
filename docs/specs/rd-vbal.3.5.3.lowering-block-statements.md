@@ -73,11 +73,13 @@ its own ([**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement
 inside a `While…Wend` is not consumed by it; it resolves against the `Do` loop, if any, that encloses the
 `While…Wend`.
 
-> [!NOTE]
-> **Not implemented.** No diagnostic is reported for an `Exit For` or `Exit Do` that has no enclosing loop of
-> the matching kind, including an `Exit Do` inside a `While…Wend` that no `Do` loop encloses. The `ExitLoop`
-> target is left unresolved (`null`). `VBCompileErrorId` defines `ExitDoNotWithinDoLoop` (9312) and
-> `ExitForNotWithinForNext` (9313) for these conditions, but nothing reports them.
+An `Exit For` or `Exit Do` that has no enclosing loop of the matching kind, including an `Exit Do` inside a `While…Wend`
+that no `Do` loop encloses, is [VBC09313](../diagnostics/vbc09313.md) or [VBC09312](../diagnostics/vbc09312.md), and lowers to no
+instruction. An `Exit Sub`, `Exit Function` or `Exit Property` in the wrong kind of procedure is
+[VBC09332](../diagnostics/vbc09332.md), [VBC09314](../diagnostics/vbc09314.md) or [VBC09315](../diagnostics/vbc09315.md), and lowers to no instruction
+either. The rule is the one [`StatementStaticSemanticsEvaluator`](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks
+([ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)); the kind of procedure is a parameter
+of `Lower`, and is not checked when it is not given.
 
 ## `EnclosingWith` is static
 
@@ -111,10 +113,11 @@ resolved offsets.
 |---|---|---|
 |A label operand (`GoTo`, `GoSub`, `On…GoTo`, `On…GoSub`, `On Error GoTo`, `Resume`) names a line label or line number the procedure does not define.|The operand carries a `null` target.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
 |A label is defined more than once.|The first offset the label was defined at is kept; every jump to the label resolves against that first definition.|[VBC09319](../diagnostics/vbc09319.md) — Duplicate label definition|
-|An `Exit For`/`Exit Do` has no enclosing loop of the matching kind.|The `ExitLoop` target is left unresolved.|None (see [Loop exits](#loop-exits)).|
+|An `Exit For`/`Exit Do` has no enclosing loop of the matching kind.|No instruction is lowered for it.|[VBC09313](../diagnostics/vbc09313.md) — Exit For not within For...Next, [VBC09312](../diagnostics/vbc09312.md) — Exit Do not within Do...Loop|
+|An `Exit Sub`/`Exit Function`/`Exit Property` is in the wrong kind of procedure.|No instruction is lowered for it.|[VBC09332](../diagnostics/vbc09332.md), [VBC09314](../diagnostics/vbc09314.md), [VBC09315](../diagnostics/vbc09315.md)|
 
-Lowering never fails outright: it always produces a complete `InstructionList`, whether or not every label and
-loop exit resolved.
+Lowering never fails outright: it always produces a complete `InstructionList`, whether or not every label
+resolved and every statement was where it may be.
 
 Whether to refuse to run a body that lowered with errors is a decision for the component that executes the body, not for
 lowering ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).

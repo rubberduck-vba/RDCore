@@ -67,10 +67,30 @@ and `Get` reads is described in [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5
 the same target resolution the Let assignment statement uses
 ([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)).
 
+## Static Semantics
+
+What the operands of a file statement have to be declared as is [FileStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.FileStatementStaticSemantics.html)'s,
+which [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks. A declared type that breaks a rule is a
+`TypeMismatch`; an operand whose declared type is not known is deferred, not rejected.
+
+|Operand|Rule|MS-VBAL|
+|---|---|---|
+|A file number (every statement but `Print` with none), a `Seek` position, a `Lock` or `Unlock` record number, a `Width` line width, a `Spc` or `Tab` number|A scalar declared type: any but an array or a user-defined type.|§5.4.5.1.1, .3, .4, .7, .8.1|
+|The path name of an `Open`, and the `Len` of its record length|Let-coercible to `String`, and to `Integer`.|§5.4.5.1|
+|The `Access` of an `Open`|`Output`: `Write`. `Input`: `Read`. `Append`: `Read Write` or `Write`. Otherwise [`VBC09334`](../diagnostics/vbc09334.md).|§5.4.5.1|
+|The variable of a `Line Input #`|A variable ([`VBC09333`](../diagnostics/vbc09333.md)), declared as a `String` or a `Variant`.|§5.4.5.6|
+|Each variable of an `Input #`|A variable, not declared as an `Object` or a class.|§5.4.5.10|
+|The data of a `Put`|Not declared as an `Object`, a class, or a user-defined type that has one in it.|§5.4.5.11|
+|The variable of a `Get`|A variable, declared as the data of a `Put` is.|§5.4.5.12|
+|Each operand of a `Name`|Let-coercible to `String`. ([**RD-VBAL §5.4.5.13**](rd-vbal.5.4.5.13.name-statement.md); not in MS-VBAL.)|-|
+
+Only an expression that is certainly not a variable is reported as one ([`VBC09333`](../diagnostics/vbc09333.md)): a literal, an operator's result, a constant.
+
 ## Implementation
 
 |Name|Role|
 |---|---|
+|`FileStatementStaticSemantics`|The static rules above, for every file statement and for `Name`.|
 |`IFileChannels`|The session-level shim every file statement runs through: the numbered channels, each with the mode it was opened under.|
 |`IFileChannel`|One numbered channel. Its record surface is the one `Put` and `Get` use.|
 |`IFileChannelOutput`|The character output surface of a channel, used by `Print #` and `Write #`. It carries the maximum line length `Width #` sets.|

@@ -17,12 +17,21 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
 ## Static Semantics
 
-> [!NOTE]
-> **Not implemented.** No static-analysis diagnostic flags an `LSet` whose source or destination UDT holds a
-> variable-length `String` member.
-
 A program written against MS-VBA that uses `LSet` over a record holding a variable-length `String` member relies
-on what MS-VBA does with it (see [UDT form](#udt-form)).
+on what MS-VBA does with it (see [UDT form](#udt-form)). The statement says so with a semantic flag, and not with an error: it is not wrong.
+
+[FixedAssignmentRuntimeSemantics](../api/RDCore.Runtime.Semantics.Statements.FixedAssignmentRuntimeSemantics.html)`.Analyze` sets the
+[FixedAssignmentSemanticFlags](../api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
+
+|Flag|Set when|
+|---|---|
+|`StringTarget`|The target is a `String`: the string form.|
+|`UserDefinedTypeCopy`|`LSet` between two user-defined types: the byte copy.|
+|`SourceHoldsVariableLengthString`|The source of the byte copy has a variable-length `String` member, at any depth.|
+|`DestinationHoldsVariableLengthString`|The destination of the byte copy has one.|
+|`Failed`|The operation raises a run-time error: the target is neither.|
+
+A diagnostic is the job of an analyzer that reads the flags (`RDCore.Diagnostics`, or any other).
 
 ## Runtime Semantics
 

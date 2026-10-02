@@ -25,8 +25,18 @@ split of the `Mid`/`Mid$` function overloads, which matters for static semantics
 
 ## Static Semantics
 
+The declared type of the target MUST be `String` or `Variant` (**MS-VBAL §5.4.3.5**); another is a `TypeMismatch`. The target is a variable: a literal, an operator's
+result or a constant is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).
+
+The position and the length are used as the runtime semantics uses them - as `Long` - and the value as a `String`, so each has to be Let-coercible to that
+([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)).
+
+The rule is [MidStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.MidStatementStaticSemantics.html)'s, which
+[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks. An operand whose declared type is not known
+is deferred, not rejected.
+
 > [!NOTE]
-> Reserved. This section has no content yet.
+> A `Byte()` target is a run-time possibility the specification's static rule does not allow: it is a `TypeMismatch`.
 
 ## Runtime Semantics
 

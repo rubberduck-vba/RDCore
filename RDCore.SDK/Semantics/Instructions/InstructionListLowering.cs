@@ -139,12 +139,14 @@ public static class InstructionListLowering
             case DebugStatementNode when !state.IncludeDebugStatements:
                 break;
 
-            // a bare Print is the Print member of a form or a report in VB6, and VBA has no such statement at all: in a language that
-            // has none there is nothing for it to be, which is as undefined as any other name the language does not declare.
+            // a bare Print is the Print member of a form or a report in VB6, which the platform has none of. In VBA it is a reserved word and
+            // the Immediate window accepts it as Debug.Print; what a module does with it is not settled, so a language that does not have it
+            // (HasBarePrint) does not accept it for now, like any other name it does not declare.
+            // TODO decipher a bare Print in VBA module code before this is called a rule of the language: there is a lot of weirdness around Print.
             case PrintStatementNode { FileNumber: null } barePrint when state.Language is { HasBarePrint: false }:
                 state.Errors.Add(VBCompileErrorInfo.For(
                     VBCompileErrorId.SubOrFunctionNotDefined, barePrint.SourceLocation,
-                    $"'{barePrint.Token}' is not a statement of {state.Language.Name}: a Print with no file number is the member of a form or a report, which a bare Print has no one to be a member of."));
+                    $"'{barePrint.Token}' is not (yet) a statement of {state.Language.Name}: a Print with no file number is the member of a form or a report in VB6, which the platform has none of, and what VBA module code makes of it is not settled."));
                 break;
 
             case GoToStatementNode goTo:
