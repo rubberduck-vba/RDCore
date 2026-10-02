@@ -212,20 +212,27 @@ is worth a diagnostic is for an analyzer to say.
 
 ### Declaration facts
 
-A `ModuleSemanticModel` also says how the declarations of the module are used by the module's own code
-(`Declarations`, [DeclarationFact](../api/RDCore.SDK.Semantics.DeclarationFact.html)), counted from the bindings of the
-expression facts: each variable, constant, parameter, procedure, property and event has the number of expressions that
-`Reads` it (or call it) and that `Writes` to it. The accessors of a property are one declaration. A variable that was never
-declared is `IsImplicit` (it came into being because something referred to it), and `OptionExplicit` says whether the
-module states `Option Explicit` (**MS-VBAL §5.2.1.3**).
+A `ModuleSemanticModel` also describes the declarations of the module (`Declarations`,
+[DeclarationFact](../api/RDCore.SDK.Semantics.DeclarationFact.html)): each variable, constant, parameter, procedure, property
+and event, with the access it is declared with and where. A variable that was never declared is `IsImplicit` (it came into
+being because something referred to it), and `OptionExplicit` says whether the module states `Option Explicit`
+(**MS-VBAL §5.2.1.3**). The accessors of a property are one declaration.
 
-|Fact|Is|
-|---|---|
-|`IsUnreferenced`|Nothing in the module refers to it.|
-|`IsNeverAssigned`|A variable that is read and never written: it holds the default of its type wherever it is read.|
+**A fact is stated only when it is true.** A fact that says a declaration is _not used_ is a claim about every place that
+could use it, and the language core makes it only when it can vouch for all of them. A declaration's `References` (the
+expressions that read it, write to it, and pass it as an argument that may be taken by reference) are stated when both hold,
+and are `null` otherwise, which says the references are not known, and not that there are none:
 
-These are counts, not verdicts. Only the module's own code is counted, so a `Public` declaration that nothing in its own
-module uses may be used by another module: which declarations are worth a diagnostic is for an analyzer to say.
+1. Nothing outside the code analyzed can refer to it: a local, a parameter, or a variable that is not `Public` or `Friend`. A
+   procedure, a property and an event are also called by convention (an event handler, a member that implements an
+   interface) or by name at run time, and a constant is referred to by the expressions of declarations (the bounds of an
+   array, the value of another constant), which are not evaluated as those of a procedure are: none of them has references yet.
+2. The code that could refer to it was analyzed completely (`ProcedureSemanticModel.IsFullyAnalyzed`): the procedure has no
+   error, and the body was looked at again, apart from the pass, for each place a name is written that refers to something,
+   and every one has a fact. For a local or a parameter that is its procedure; for a variable of the module, every procedure.
+
+An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
+to say.
 
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling

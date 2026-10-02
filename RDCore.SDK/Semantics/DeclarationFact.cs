@@ -41,11 +41,32 @@ public enum DeclarationKind
 }
 
 /// <summary>
-/// What the static pass found out about how a declaration is used, by the code of the module that declares it.
+/// Every reference to a declaration there is, counted by what the reference does.
 /// </summary>
 /// <remarks>
-/// A fact is a count of what was found, not a verdict: a <c>Public</c> declaration that nothing in its own module refers to may be used by another module, which
-/// this model does not see; whether that is worth a diagnostic, and for which declarations, is for an analyzer to say.
+/// These are the references, all of them: a count is only ever stated for a declaration that nothing outside the code the pass analyzed can refer to
+/// (<see cref="DeclarationFact.References"/>). An expression that is passed as an argument is a reference of its own kind, because what it does is not
+/// what the expression says: the procedure it is passed to may read it, write to it, or both, when its parameter is <c>ByRef</c>.
+/// </remarks>
+/// <param name="Reads">How many expressions refer to it for its value, or to call it.</param>
+/// <param name="Writes">How many expressions write to it (<see cref="Flags.ValueExpressionSemanticFlags.AssignmentTarget"/>).</param>
+/// <param name="PassedAsArguments">How many expressions pass it as an argument of a call (<see cref="Flags.ValueExpressionSemanticFlags.PassedAsArgument"/>).</param>
+public readonly record struct DeclarationReferences(int Reads, int Writes, int PassedAsArguments)
+{
+    /// <summary>
+    /// The number of references of any kind.
+    /// </summary>
+    public int Total => Reads + Writes + PassedAsArguments;
+}
+
+/// <summary>
+/// What the static pass found out about a declaration.
+/// </summary>
+/// <remarks>
+/// A fact is stated only when it is true. What refers to a declaration that is accessible from outside the module, or that is called by convention or through
+/// the object it is a member of rather than by an expression that names it (an event handler, a member that implements an interface), is not all in the code
+/// the pass analyzed, and its references are not counted: <see cref="References"/> is then <see langword="null"/>, which says the references are not known
+/// and not that there are none.
 /// </remarks>
 /// <param name="Symbol">The identity of the declared symbol.</param>
 /// <param name="Name">The name it is declared with.</param>
@@ -53,8 +74,9 @@ public enum DeclarationKind
 /// <param name="Access">Who can refer to it besides the module's own code.</param>
 /// <param name="IsImplicit">Whether it was never declared: it came into being because something referred to it, which is legal and worth reporting.</param>
 /// <param name="Location">Where it is declared.</param>
-/// <param name="Reads">How many expressions of the module refer to it for its value, or to call it.</param>
-/// <param name="Writes">How many expressions of the module write to it (<see cref="Flags.ValueExpressionSemanticFlags.AssignmentTarget"/>).</param>
+/// <param name="References">
+/// Every reference to it, when every reference to it is in the code that was analyzed and was analyzed completely; <see langword="null"/> otherwise.
+/// </param>
 public sealed record class DeclarationFact(
     SemanticId Symbol,
     string Name,
@@ -62,16 +84,4 @@ public sealed record class DeclarationFact(
     AccessModifier Access,
     bool IsImplicit,
     SourceLocation Location,
-    int Reads,
-    int Writes)
-{
-    /// <summary>
-    /// Whether nothing in the module refers to it at all.
-    /// </summary>
-    public bool IsUnreferenced => Reads == 0 && Writes == 0;
-
-    /// <summary>
-    /// Whether it is read, and never written to: a variable that is never assigned holds the default of its type wherever it is read.
-    /// </summary>
-    public bool IsNeverAssigned => Kind is DeclarationKind.Variable && Reads > 0 && Writes == 0;
-}
+    DeclarationReferences? References);

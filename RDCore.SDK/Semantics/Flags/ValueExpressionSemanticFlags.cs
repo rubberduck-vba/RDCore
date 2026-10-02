@@ -52,4 +52,10 @@ public enum ValueExpressionSemanticFlags
     /// part of, or the array a <c>ReDim</c> gives its dimensions. An element of an array is written through the array, which is what is flagged.
     /// </summary>
     AssignmentTarget = 1 << 8,
+
+    /// <summary>
+    /// It is an argument of a call that may take it by reference: what the procedure does with it, reads it or writes to it, is not what the expression says.
+    /// An argument that is passed by value, and an index of an array, is not.
+    /// </summary>
+    PassedAsArgument = 1 << 9,
 }

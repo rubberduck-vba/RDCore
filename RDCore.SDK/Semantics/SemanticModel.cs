@@ -28,6 +28,14 @@ public sealed record class ProcedureSemanticModel(SemanticId Procedure, Immutabl
     public ImmutableDictionary<SyntaxNodeId, ExpressionFact> Expressions { get; init; } = ImmutableDictionary<SyntaxNodeId, ExpressionFact>.Empty;
 
     /// <summary>
+    /// Whether <see cref="Expressions"/> has a fact for every place the body refers to a name, and nothing was found wrong with it: the references the facts
+    /// say there are in the body are all the references there are. It is <see langword="false"/> whenever that could not be established - a procedure with an
+    /// error, an expression the pass does not look into, or no workspace to resolve names in - and what is counted from the facts is not known then, which is not
+    /// to say that it is none.
+    /// </summary>
+    public bool IsFullyAnalyzed { get; init; }
+
+    /// <summary>
     /// Whether the static pass found nothing wrong with the procedure.
     /// </summary>
     public bool IsValid => CompileErrors.IsEmpty;

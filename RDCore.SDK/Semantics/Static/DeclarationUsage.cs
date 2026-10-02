@@ -9,67 +9,108 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Semantics.Static;
 
 /// <summary>
-/// Counts how the declarations of a module are used by its code, from the expression facts of its procedures.
+/// Counts how the declarations of a module are used by its code, from the expression facts of its procedures, where the count is the whole truth.
 /// </summary>
 /// <remarks>
-/// A declaration is used by an expression that is bound to it (<see cref="ExpressionFact.Binding"/>): written to when the expression is flagged
-/// <see cref="ValueExpressionSemanticFlags.AssignmentTarget"/>, read otherwise. Only the module's own code is counted, so the count of a declaration another
-/// module can refer to is not the count of its uses.
+/// A fact is stated only when it is true, and a count of the references to a declaration is true only when every reference to it is among the ones counted. That
+/// takes two things, and a declaration that lacks either has no count (<see cref="DeclarationFact.References"/> is <see langword="null"/>):
+/// <list type="bullet">
+/// <item>Nothing outside the code analyzed can refer to it: a local, a parameter, a <c>Private</c> variable or constant. A <c>Public</c> or <c>Friend</c>
+/// declaration can be referred to from another module; a procedure, a property or an event is also called by convention (an event handler, a member that implements
+/// an interface) or by name at run time, which no expression says.</item>
+/// <item>The code that could refer to it was analyzed completely (<see cref="ProcedureSemanticModel.IsFullyAnalyzed"/>): a procedure that has an error, or that
+/// the pass does not look into entirely, may refer to anything. For a local or a parameter that is its procedure; for a variable or a constant of the module,
+/// every procedure of it.</item>
+/// </list>
+/// What is counted is each expression bound to the declaration: written to when it is flagged <see cref="ValueExpressionSemanticFlags.AssignmentTarget"/>,
+/// passed as an argument that may be taken by reference when it is flagged <see cref="ValueExpressionSemanticFlags.PassedAsArgument"/>, read otherwise.
 /// </remarks>
 public static class DeclarationUsage
 {
     /// <summary>
-    /// Counts the uses of <paramref name="declared"/> by <paramref name="procedures"/>.
+    /// Counts the references to <paramref name="declared"/> by <paramref name="procedures"/>.
     /// </summary>
     /// <param name="declared">
-    /// The symbols the module declares, of which the variables, constants, parameters, procedures, properties and events are the declarations counted: its members,
+    /// The symbols the module declares, of which the variables, constants, parameters, procedures, properties and events are the declarations stated: its members,
     /// and the parameters and locals of its procedures. Whatever else is among them is not a declaration of one of those kinds, and is left out.
     /// </param>
     /// <param name="procedures">The models of the procedures of the module.</param>
     /// <returns>A fact for each declaration, in the order they are given.</returns>
     public static ImmutableArray<DeclarationFact> Of(IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures)
     {
-        var reads = new Dictionary<SemanticId, int>();
-        var writes = new Dictionary<SemanticId, int>();
-        foreach (var fact in procedures.SelectMany(procedure => procedure.Expressions.Values).Where(fact => fact.Binding is not null))
+        var models = procedures.ToList();
+        var references = new Dictionary<SemanticId, DeclarationReferences>();
+        foreach (var fact in models.SelectMany(procedure => procedure.Expressions.Values).Where(fact => fact.Binding is not null))
         {
-            var counts = fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) ? writes : reads;
-            counts[fact.Binding!.Value] = counts.GetValueOrDefault(fact.Binding.Value) + 1;
+            var current = references.GetValueOrDefault(fact.Binding!.Value);
+            references[fact.Binding.Value] = fact.Flags switch
+            {
+                var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => current with { Writes = current.Writes + 1 },
+                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) => current with { PassedAsArguments = current.PassedAsArguments + 1 },
+                _ => current with { Reads = current.Reads + 1 },
+            };
         }
 
+        var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
+
         // the accessors of a property are one declaration, though each has the identity of its own that an expression can be bound to: it is the first one
-        // that stands for it, and what is counted is what refers to any of them.
+        // that stands for it.
         var candidates = declared
             .Select(symbol => (Symbol: symbol, Kind: KindOf(symbol)))
             .Where(candidate => candidate.Kind is not null)
             .DistinctBy(candidate => candidate.Symbol.SemanticId)
             .ToList();
-        var accessorsByProperty = candidates
-            .Where(candidate => candidate.Kind is DeclarationKind.Property)
-            .ToLookup(candidate => (candidate.Symbol.ParentUri.AbsoluteUri, candidate.Symbol.Name.ToUpperInvariant()));
+        var seenProperties = new HashSet<(string Module, string Name)>();
 
-        return [.. candidates
-            .Where(candidate => candidate.Kind is not DeclarationKind.Property
-                || ReferenceEquals(accessorsByProperty[(candidate.Symbol.ParentUri.AbsoluteUri, candidate.Symbol.Name.ToUpperInvariant())].First().Symbol, candidate.Symbol))
-            .Select(candidate =>
+        var facts = ImmutableArray.CreateBuilder<DeclarationFact>();
+        foreach (var (symbol, kind) in candidates)
+        {
+            if (kind is DeclarationKind.Property && !seenProperties.Add((symbol.ParentUri.AbsoluteUri, symbol.Name.ToUpperInvariant())))
             {
-                var identities = candidate.Kind is DeclarationKind.Property
-                    ? accessorsByProperty[(candidate.Symbol.ParentUri.AbsoluteUri, candidate.Symbol.Name.ToUpperInvariant())].Select(accessor => accessor.Symbol.SemanticId).ToList()
-                    : [candidate.Symbol.SemanticId];
-                return new DeclarationFact(
-                    candidate.Symbol.SemanticId, candidate.Symbol.Name, candidate.Kind!.Value, AccessOf(candidate.Symbol), IsImplicit(candidate.Symbol),
-                    LocationOf(candidate.Symbol), identities.Sum(id => reads.GetValueOrDefault(id)), identities.Sum(id => writes.GetValueOrDefault(id)));
-            })];
+                continue;
+            }
+
+            DeclarationReferences? counted = null;
+            if (IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed))
+            {
+                counted = references.GetValueOrDefault(symbol.SemanticId);
+            }
+
+            facts.Add(new DeclarationFact(
+                symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted));
+        }
+
+        return facts.ToImmutable();
     }
 
     /// <summary>
-    /// Everything a module declares that <see cref="Of"/> counts: its members, and the parameters and locals of each.
+    /// Everything a module declares that <see cref="Of"/> states: its members, and the parameters and locals of each.
     /// </summary>
     /// <param name="members">The members declared by the module.</param>
     public static IEnumerable<Symbol> DeclaredBy(IEnumerable<VBTypeMemberSymbol> members)
         => members.SelectMany(member => new Symbol[] { member }
             .Concat(DeclarationStaticSemanticsEvaluator.ParametersOf(member))
             .Concat(DeclarationStaticSemanticsEvaluator.LocalsOf(member)));
+
+    // a local, a parameter, and a variable or a constant of the module that is not Public or Friend: nothing outside the module's code can refer to them, and
+    // what refers to one by name is an expression. A procedure, a property or an event can be called with no expression that names it.
+    private static bool IsAccessibleOnlyFromItsOwnCode(Symbol symbol, DeclarationKind kind) => kind switch
+    {
+        DeclarationKind.Parameter => true,
+        DeclarationKind.Variable when symbol is VBLocalVariableSymbol => true,
+        // a variable that is declared with Dim or with no modifier at all is Private.
+        DeclarationKind.Variable => symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private or AccessModifier.Implicit },
+        // a constant is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of an enumeration
+        // member and of an optional parameter: expressions of the declarations of a module, which the pass does not evaluate as it does those of its procedures.
+        // 🚧 TODO count the references of a constant once the expressions of declarations are evaluated.
+        _ => false,
+    };
+
+    // the code that could refer to a local or a parameter is the code of its procedure; to anything else that is confined to the module, any procedure of it.
+    private static bool CodeThatCanReferToIt(Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed)
+        => symbol is VBLocalVariableSymbol or VBLocalConstantSymbol
+            ? models.Any(procedure => procedure.IsFullyAnalyzed && procedure.Procedure.Uri.AbsoluteUri == symbol.ParentUri.AbsoluteUri)
+            : moduleIsFullyAnalyzed;
 
     private static DeclarationKind? KindOf(Symbol symbol) => symbol switch
     {

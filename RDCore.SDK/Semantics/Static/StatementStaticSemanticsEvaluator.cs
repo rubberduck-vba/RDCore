@@ -122,7 +122,7 @@ public static class StatementStaticSemanticsEvaluator
 
         var facts = new ExpressionFactCollector();
         var errors = Evaluate(resolved with { Facts = facts }, block, options, kind);
-        return new(procedure, errors) { Expressions = facts.ToImmutable() };
+        return new(procedure, errors) { Expressions = facts.ToImmutable(), IsFullyAnalyzed = errors.IsEmpty && ExpressionCoverage.IsCovered(block, options, facts) };
     }
 
     private static ImmutableArray<VBCompileErrorInfo> Run(StaticEvaluationContext context, StatementBlock block, Walk walk)
@@ -291,9 +291,18 @@ public static class StatementStaticSemanticsEvaluator
             }
 
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
-            if (statement is CallStatementNode { IsExplicitCall: true } call && context.Facts is { } facts && facts.TryGet(call.Callee.Identity, out var callee))
+            if (statement is CallStatementNode callStatement)
             {
-                facts.Record(callee with { Flags = callee.Flags | ValueExpressionSemanticFlags.ExplicitCallKeyword });
+                // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
+                if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
+                {
+                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Arguments);
+                }
+
+                if (callStatement.IsExplicitCall && context.Facts is { } explicitFacts && explicitFacts.TryGet(callStatement.Callee.Identity, out var explicitCallee))
+                {
+                    explicitFacts.Record(explicitCallee with { Flags = explicitCallee.Flags | ValueExpressionSemanticFlags.ExplicitCallKeyword });
+                }
             }
         }
 
