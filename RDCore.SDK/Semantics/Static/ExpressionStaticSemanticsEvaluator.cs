@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 using RDCore.SDK.Semantics.Static.Operators;
@@ -155,7 +156,37 @@ public static class ExpressionStaticSemanticsEvaluator
             }
         }
 
+        // MS-VBAL §5.6.13: the arguments are those of a call when the callee is a procedure, and the result of the call has the type the procedure
+        // returns - however that type is shaped: `Whole()` of a function that returns Long() is no element of an array. A procedure that declares no
+        // parameters is not given the arguments written after it: it is called, and they index what it returns.
+        if (ProcedureNamedBy(context, indexExpression.Callee) is { } procedure)
+        {
+            var indexesResult = procedure.Parameters.All(parameter => parameter.Name == "Me")
+                && indexExpression.Arguments is not ([] or [MissingArgumentNode]);
+            return indexesResult
+                ? IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!)
+                : calleeResult;
+        }
+
         return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
+    }
+
+    // the Function or Property Get a callee names, by its bare name, qualified by the project or module that declares it, or as a member of an object
+    // of a class; null for anything that is not one (an array, a variable that holds an object, a Sub).
+    private static VBReturningMemberSymbol? ProcedureNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        Symbol? symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when Evaluate(context, owner) is { IsSuccess: true, Result: VBClassType classType }
+                => classType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                    && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol),
+            _ => null,
+        };
+
+        return symbol as VBReturningMemberSymbol;
     }
 
     // an argument written with ByVal, whether it is positional or named.

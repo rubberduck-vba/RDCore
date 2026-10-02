@@ -96,5 +96,5 @@ public abstract record class StaticSemantics() : IStaticSemantics
     /// </remarks>
     protected static VBCompileErrorInfo GetStaticCoercionTypeMismatchErrorInfo(ExpressionNode expression, VBType[] operandDeclaredTypes)
         => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, 
-            Exceptions.VBCompileError_LetCoercionTypeMismatch_Verbose);
+            $"{Exceptions.VBCompileError_LetCoercionTypeMismatch_Verbose} ({string.Join(" → ", operandDeclaredTypes.Select(type => type.Name))})");
 }

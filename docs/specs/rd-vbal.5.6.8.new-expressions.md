@@ -25,5 +25,9 @@ and the last part `B` in the type binding context. See
 
 Whether a class named by `New` is _creatable_ is not a name-lookup concern. It is checked once the name is bound.
 
+A class whose `VB_Creatable` is `False` (the default instancing mode, _Private_, and _Public Not Creatable_) can only be
+created by the modules of the project that defines it (**MS-VBAL §5.2.4.1.1**): `New` of one is a type mismatch from any
+other project, and valid within its own.
+
 ---
 > ⏮️ [**RD-VBAL §5.6.7** TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md) | ⏭️ [**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md)

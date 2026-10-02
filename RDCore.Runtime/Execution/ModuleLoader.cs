@@ -12,6 +12,8 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Semantics.Static;
+using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Execution;
@@ -80,9 +82,18 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                 continue;
             }
 
-            var lowering = InstructionListLowering.Lower(new StatementBlock([.. declaration.Children]), options, declaration.MemberKind);
+            var body = new StatementBlock([.. declaration.Children]);
+            var lowering = InstructionListLowering.Lower(body, options, declaration.MemberKind);
+
+            // the static pass is told what the session defines, so what is wrong with an expression is found out along with what is wrong with the
+            // structure of the body.
+            var scope = session.Symbols.ScopeOf(procedure.Uri);
+            var model = StatementStaticSemanticsEvaluator.Analyze(
+                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language), declaration.MemberKind,
+                scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope));
+
             // what the error is, and the detail that says which of the module's statements it is about.
-            errors.AddRange(lowering.Errors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
+            errors.AddRange(model.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description
                 : $"{error.Description}: {error.Verbose}"));
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));

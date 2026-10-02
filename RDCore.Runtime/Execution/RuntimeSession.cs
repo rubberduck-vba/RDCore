@@ -366,6 +366,8 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     public IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri)
         => [.. AllSymbols().OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri)];
 
+    public LexicalScope? ScopeOf(Uri uri) => EnsureScopeTree().TryGetScope(uri, out var scope) ? scope : null;
+
     private IEnumerable<Symbol> AllSymbols()
         => _globalSymbols.Values.Concat(_workspaceSymbols.Values).Concat(_instanceSymbols.Values).Concat(_localSymbols.Values).ToList();
 

@@ -205,6 +205,14 @@ public interface ISessionSymbols
     IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri);
 
     /// <summary>
+    /// The lexical scope a symbol's code is found in (<strong>RD-VBAL §2.3.1.2</strong>), over everything the session has defined: what the static
+    /// pass resolves the names of a procedure body against.
+    /// </summary>
+    /// <param name="uri">The <see cref="Symbol.Uri"/> of the procedure or module.</param>
+    /// <returns>The scope, or <see langword="null"/> when the session has defined no symbol at that address.</returns>
+    LexicalScope? ScopeOf(Uri uri);
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>

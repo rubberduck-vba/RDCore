@@ -58,7 +58,9 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
 
         if (result.Symbol is VBClassModuleSymbol classModule)
         {
-            return classModule.GetProperty(SymbolProperties.Creatable)
+            // MS-VBAL §5.2.4.1.1 (instancing): a class that is Public Not Creatable cannot be instantiated from another project, and a Private one - the
+            // default, with VB_Creatable = False too - from none but its own.
+            return classModule.GetProperty(SymbolProperties.Creatable) || IsInTheProjectOf(context, classModule)
                 ? StaticSemanticsEvaluationResult.Success(new VBClassType(classModule, classModule.DefaultInterfaceMembers))
                 : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
                     $"'{typeName}' is not creatable (Attribute VB_Creatable = False)."));
@@ -70,4 +72,10 @@ public sealed record class NewExpressionStaticSemantics : IStaticSemantics
         return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(errorId, expression.Location,
             $"'{typeName}' does not reference an instantiable class."));
     }
+
+    // the project is the class module's parent, and the one the expression is written in is the project scope above it. (Compared by the whole address:
+    // a Uri's equality ignores its fragment.)
+    private static bool IsInTheProjectOf(StaticEvaluationContext context, VBClassModuleSymbol classModule)
+        => context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Project) is { } project
+            && string.Equals(project.Uri.AbsoluteUri, classModule.ParentUri.AbsoluteUri, StringComparison.Ordinal);
 }

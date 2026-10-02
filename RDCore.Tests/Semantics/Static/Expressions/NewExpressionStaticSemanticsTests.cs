@@ -257,10 +257,24 @@ public sealed class NewExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ANonCreatableClass_IsATypeMismatchError()
-        // Attribute VB_Creatable = False - the workspace's own classes are always creatable in
-        // practice; this exercises the check itself ahead of referenced-library classes actually
-        // being reachable (no library symbol provider exists yet).
+    public void ANonCreatableClassOfAnotherProject_IsATypeMismatchError()
+        // Attribute VB_Creatable = False - MS-VBAL §5.2.4.1.1: instances of a Private or Public Not Creatable class can only be created by modules
+        // of the project that defines it.
+    {
+        var module = Module("Caller");
+        var classModule = (VBClassModuleSymbol)new VBClassModuleSymbol(Root, new Uri("file://rdcore-other-project"), "Collection1")
+            .With(SymbolProperties.Creatable, false);
+        var context = ContextAt(module.Uri, module, classModule);
+
+        var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void ANonCreatableClassOfTheSameProject_IsInstantiable()
+        // the default instancing mode of a class module is Private: VB_Creatable = False, and every module of the project creates it.
     {
         var module = Module("Caller");
         var classModule = ClassModule("Collection1", creatable: false);
@@ -268,8 +282,7 @@ public sealed class NewExpressionStaticSemanticsTests
 
         var result = NewExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NewOf(NameOf("Collection1")));
 
-        Assert.IsTrue(result.IsError);
-        Assert.AreEqual(VBCompileErrorId.TypeMismatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
     }
 
     [TestMethod]
