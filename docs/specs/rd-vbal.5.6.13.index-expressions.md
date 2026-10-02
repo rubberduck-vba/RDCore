@@ -38,6 +38,12 @@ from within `Foo`'s own body). A bare `Foo`, from within `Foo`'s own body, reads
 array the same as a declared array. See
 [**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant).
 
+### Object Callee
+
+An index expression whose `Callee` is an object - or a `Variant` holding one - calls the object's **default member**, the one its class marks with `VB_UserMemId = 0`: `c(1)` is
+`c.Item(1)`, and `c(1)(2)` indexes what that returns. A class of the workspace and a class of the library are found alike
+([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)). An object with no such member is runtime error 438, and `Nothing` is runtime error 91.
+
 
 ## 5.6.13.1 Argument Lists
 
