@@ -23,9 +23,9 @@ it through a callable binding
 |A procedure of the workspace|[IProcedureInvoker](../api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html)|
 |A member with an external target (a standard-library member)|[IExternalDispatcher](../api/RDCore.SDK.Runtime.Abstract.Execution.IExternalDispatcher.html) ([**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md))|
 
-> [!NOTE]
-> **Not implemented.** The bare, unparenthesized argument form of a bare-call statement (`Foo 1, 2`), and a callee
-> reached through a member access (`obj.Foo`, `Call obj.Foo(1)`). Both report `InternalError`.
+The unparenthesized argument form of a bare-call statement (`Foo 1, 2`, `p.Grow 2`) and a callee reached through a member access (`obj.Foo`, `Call obj.Foo(1)`) are invoked the
+same way: a member of an object, of a module (`Strings.LenB`) or of a project (`VBA.LenB`) is a callee like any other
+([**RD-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)).
 
 A bare reference to a `Sub`, `Function` or `Property Get` invokes a procedure the same way
 ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md),
