@@ -201,6 +201,7 @@ public static class StatementStaticSemanticsEvaluator
 
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Target);
             CollectError(targetResult, walk);
+            MarkWritten(context, assignment.Target);
             if (assignment.Kind == AssignmentKind.Set && DefaultInstanceNamedBy(context, assignment.Target) is { } defaultInstance)
             {
                 walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfObject, assignment.Target.Location,
@@ -267,6 +268,26 @@ public static class StatementStaticSemanticsEvaluator
                 {
                     CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
                 }
+            }
+
+            // what a statement writes to, apart from an assignment's target: the counter or the control variable of a loop, the string a Mid statement
+            // replaces a part of, and the array a ReDim gives its dimensions.
+            switch (statement)
+            {
+                case ForStatementNode forStatement:
+                    MarkWritten(context, forStatement.ControlExpression);
+                    break;
+                case ForEachStatementNode forEachStatement:
+                    MarkWritten(context, forEachStatement.ControlExpression);
+                    break;
+                case MidStatementNode midStatement:
+                    MarkWritten(context, midStatement.Target);
+                    break;
+                case RedimDeclarationNode redim:
+                    // the target is the array, which is not one of the statement's operands: it is evaluated here.
+                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, redim.Target), walk);
+                    MarkWritten(context, redim.Target);
+                    break;
             }
 
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
@@ -347,6 +368,25 @@ public static class StatementStaticSemanticsEvaluator
             case CaseElseClauseStatementNode caseElseClauseStatement:
                 EvaluateBlock(context, caseElseClauseStatement.Body, walk);
                 break;
+        }
+    }
+
+    // an expression a statement writes to is a fact of it: the element of an array is written through the array it is an element of.
+    private static void MarkWritten(StaticEvaluationContext context, ExpressionNode target)
+    {
+        if (context.Facts is not { } facts)
+        {
+            return;
+        }
+
+        while (target is IndexExpressionNode index)
+        {
+            target = index.Callee;
+        }
+
+        if (facts.TryGet(target.Identity, out var fact))
+        {
+            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.AssignmentTarget });
         }
     }
 

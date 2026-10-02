@@ -101,7 +101,7 @@ public static class DeclarationStaticSemanticsEvaluator
         }
     }
 
-    private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch
+    internal static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch
     {
         VBReturningMemberSymbol returning => returning.Parameters,
         VBProcedureMemberSymbol procedure => procedure.Parameters,
@@ -109,7 +109,7 @@ public static class DeclarationStaticSemanticsEvaluator
         _ => [],
     };
 
-    private static ImmutableArray<BoundTypedSymbol> LocalsOf(VBTypeMemberSymbol member) => member switch
+    internal static ImmutableArray<BoundTypedSymbol> LocalsOf(VBTypeMemberSymbol member) => member switch
     {
         VBReturningMemberSymbol returning => returning.Locals,
         VBProcedureMemberSymbol procedure => procedure.Locals,

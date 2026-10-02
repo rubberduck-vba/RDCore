@@ -99,7 +99,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         // a module is valid when what it declares is, as well as every procedure of it.
         var moduleModel = new ModuleSemanticModel(
-            module.Uri, DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver), procedureModels.ToImmutable());
+            module.Uri, DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver), procedureModels.ToImmutable())
+        {
+            OptionExplicit = module is VBModuleSymbol { Directives.Explicit: true },
+            Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members), procedureModels),
+        };
 
         // what the error is, and the detail that says which of the module's statements it is about.
         var errors = moduleModel.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description

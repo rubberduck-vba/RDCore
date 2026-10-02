@@ -187,6 +187,14 @@ public sealed class ExpressionFactTests
     }
 
     [TestMethod]
+    public void WhatIsPrinted_IsAnExpressionLikeAnyOther()
+    {
+        var (model, _, _) = Analyze([], ["Debug.Print Undeclared"]);
+
+        Assert.IsFalse(model.IsValid, "a name that refers to nothing, in an output list, is as wrong as anywhere else");
+    }
+
+    [TestMethod]
     public void WithNoWorkspaceToResolveNamesIn_TheModelHasNoExpressionFacts()
     {
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), "Sub Run()\r\nDim x\r\nx = 5\r\nEnd Sub\r\n");

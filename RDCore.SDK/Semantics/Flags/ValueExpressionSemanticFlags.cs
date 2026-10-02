@@ -46,4 +46,10 @@ public enum ValueExpressionSemanticFlags
     /// the obsolete form of the statement.
     /// </summary>
     ExplicitCallKeyword = 1 << 7,
+
+    /// <summary>
+    /// What it names is written to: it is the target of an assignment, the counter or control variable of a loop, the string a <c>Mid</c> statement replaces a
+    /// part of, or the array a <c>ReDim</c> gives its dimensions. An element of an array is written through the array, which is what is flagged.
+    /// </summary>
+    AssignmentTarget = 1 << 8,
 }

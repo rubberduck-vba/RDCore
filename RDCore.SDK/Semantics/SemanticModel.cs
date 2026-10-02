@@ -46,6 +46,18 @@ public sealed record class ModuleSemanticModel(
     Uri Module, ImmutableArray<VBCompileErrorInfo> DeclarationErrors, ImmutableArray<ProcedureSemanticModel> Procedures)
 {
     /// <summary>
+    /// Whether the module states <c>Option Explicit</c> (<strong>MS-VBAL §5.2.1.3</strong>): without it, a name that refers to nothing declared is not an
+    /// error, but a variable that comes into being (<see cref="DeclarationFact.IsImplicit"/>).
+    /// </summary>
+    public bool OptionExplicit { get; init; }
+
+    /// <summary>
+    /// How each declaration of the module is used by the module's own code (<see cref="Static.DeclarationUsage"/>): its variables, constants, parameters,
+    /// procedures, properties and events, and the variables that were never declared. Empty when the pass had no workspace to resolve names in.
+    /// </summary>
+    public ImmutableArray<DeclarationFact> Declarations { get; init; } = [];
+
+    /// <summary>
     /// Every compile error of the module: those of its declarations, then those of each procedure.
     /// </summary>
     public ImmutableArray<VBCompileErrorInfo> CompileErrors => [.. DeclarationErrors, .. Procedures.SelectMany(procedure => procedure.CompileErrors)];

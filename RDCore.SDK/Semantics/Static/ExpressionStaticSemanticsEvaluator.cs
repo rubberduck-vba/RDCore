@@ -73,8 +73,28 @@ public static class ExpressionStaticSemanticsEvaluator
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             // ByVal flags how an argument is passed; the argument is the expression it is written before.
             ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
+            // what is printed is an expression like any other, which can be wrong in its own right; an item of an output list has no type of its own.
+            PrintOutputItemNode item => EvaluateOperands(context, item.Value),
+            PrintSpcClauseNode spc => EvaluateOperands(context, spc.Count),
+            PrintTabClauseNode tab => EvaluateOperands(context, tab.Column),
+            ObjectPrintExpressionNode print => EvaluateOperands(context, [print.Owner, .. print.Items]),
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
         };
+
+    // the operands of an expression that has no declared type of its own: the first of them that is an error, or nothing known of the expression itself.
+    private static StaticSemanticsEvaluationResult EvaluateOperands(StaticEvaluationContext context, params ExpressionNode?[] operands)
+    {
+        foreach (var operand in operands.OfType<ExpressionNode>())
+        {
+            var result = Evaluate(context, operand);
+            if (result.IsError)
+            {
+                return result;
+            }
+        }
+
+        return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+    }
 
     private static StaticSemanticsEvaluationResult EvaluateMemberAccess(
         StaticEvaluationContext context, ExpressionNode expression, MemberAccessExpressionNode memberAccess)
