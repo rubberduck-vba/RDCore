@@ -54,7 +54,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09328](vbc09328.md)|Invalid Implements directive — the class itself, a repeat, an underscore in a public member, or overlapping interface prefixes|
 |[VBC09329](vbc09329.md)|Object module needs to implement all members of its interface — a public member of the interface has no implemented name declaration|
 |[VBC09330](vbc09330.md)|Invalid implemented member — an implemented name declaration of another kind, parameters or type than its member|
-|[VBC09331](vbc09331.md)|Sub or Function not defined — a statement or a call the language the code is written in does not have, or does not accept yet|
+|[VBC09331](vbc09331.md)|Sub or Function not defined — a statement or a call the language the code is written in does not have|
 |[VBC09332](vbc09332.md)|Exit Sub not allowed in Function or Property — an Exit Sub in a Function or a property|
 |[VBC09333](vbc09333.md)|Variable required — an expression that is not a variable is where a statement requires one|
 |[VBC09334](vbc09334.md)|Access not valid for the file mode — the Access clause of an Open is not one its For mode allows|

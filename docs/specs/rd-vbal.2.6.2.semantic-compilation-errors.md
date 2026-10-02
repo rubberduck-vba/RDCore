@@ -47,7 +47,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09328`](../diagnostics/vbc09328.md)|Invalid Implements directive|an Implements directive names the class itself, a class another directive names, a class with an underscore in a public member, or an interface whose prefix begins another's|
 |[`VBC09329`](../diagnostics/vbc09329.md)|Object module needs to implement all members of its interface|a public variable or method of an interface class has no implemented name declaration|
 |[`VBC09330`](../diagnostics/vbc09330.md)|Invalid implemented member|an implemented name declaration is not the kind of declaration its member is, or its parameters or type are not equivalent|
-|[`VBC09331`](../diagnostics/vbc09331.md)|Sub or Function not defined|a statement the language the code is written in does not have, or the platform does not accept in it yet: a bare `Print` outside the platform's BASIC|
+|[`VBC09331`](../diagnostics/vbc09331.md)|Sub or Function not defined|a statement the language the code is written in does not have: a bare `Print` outside the platform's BASIC|
 |[`VBC09332`](../diagnostics/vbc09332.md)|Exit Sub not allowed in Function or Property|an `Exit Sub` statement is in a `Function` or a property|
 |[`VBC09333`](../diagnostics/vbc09333.md)|Variable required|an expression that is certainly not a variable (a literal, an operator's result, a constant) is the target of a `Mid` statement, or the variable a `Line Input #`, `Input #` or `Get` reads into|
 |[`VBC09334`](../diagnostics/vbc09334.md)|Access not valid for the file mode|the `Access` clause of an `Open` statement is not one its `For` mode allows|

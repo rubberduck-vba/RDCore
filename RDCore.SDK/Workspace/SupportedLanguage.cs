@@ -53,9 +53,9 @@ public class SupportedLanguage
     /// In VB6 it is the <c>Print</c> member of the form or report it is written in, so it exists only where there is one. A BASIC has it as its
     /// own: it writes to the output of the program.
     /// <para>
-    /// 🚧 What a VBA module makes of it is not settled. <c>Print</c> is a reserved word of the language, and a bare <c>Print</c> is accepted in the
-    /// Immediate window, where it writes what <c>Debug.Print</c> does; whether module code accepts it too, and as what, is still to be worked
-    /// out. <c>false</c> is the platform not accepting it there <em>yet</em>, not a finding that VBA has no such statement.
+    /// In VBA <c>Print</c> is a reserved identifier: it is illegal as the name of anything, it has no semantics, and it is not a recognized statement
+    /// inside a procedure. Only the Immediate window accepts a bare <c>Print</c>, where it writes what <c>Debug.Print</c> does - and the Immediate window
+    /// is not procedure scope.
     /// </para>
     /// </remarks>
     public bool HasBarePrint { get; init; }
