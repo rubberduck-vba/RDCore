@@ -179,8 +179,15 @@ model of each procedure, so that it is valid only when both are.
 |Rule|Reported as|
 |---|---|
 |A name is declared once in the scope of a module; the accessors of a property are the one declaration of it.|`DuplicateDeclaration`|
+|A declared type is a name that resolves to a type (**MS-VBAL §5.6.4**): of a variable, constant, parameter, result or local.|`UserDefinedTypeNotDefined`: _The declared type 'Missing' could not be resolved._|
 |What a class module declares about events (**MS-VBAL §5.2.4.3**, `§5.2.3.1.2`, `§5.3.1.8`).|`ClassModuleEventSemantics`|
 |What its `Implements` directives require of it (**MS-VBAL §5.2.4.2**, `§5.3.1.9`).|`ImplementsSemantics`|
+
+An unknown type is a type that is not known _yet_; a name that did not resolve is kept as one (`VBUnresolvedType`, which is an
+unknown type in every other respect) so that the error can say which. The host defines a module at a time, and a name that
+does not resolve while the module that declares it is defined may name a module defined after it, so the rule is asked for
+(`DeclarationRules.DeclaredTypes`) only when everything the declaration can see is defined: the name is then resolved again,
+and is an error if it still does not.
 
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling

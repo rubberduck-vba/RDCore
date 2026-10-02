@@ -305,7 +305,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     }
 
     // Binds a reserved/declared type name through the resolver, optionally qualified by a project name
-    // (MS-VBAL 5.6.4); an unresolved name stays Unknown. A resolved user-defined type, enum or class
+    // (MS-VBAL 5.6.4); an unresolved name stays Unknown, and remembers the name (VBUnresolvedType). A resolved user-defined type, enum or class
     // module is a symbol carrying no VBType of its own, so build one.
     private VBType ResolveTypeName(string typeName, Uri handle, string? qualifier = null)
         => VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, handle).Symbol switch
@@ -315,7 +315,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             VBClassModuleSymbol classModule => new VBClassType(classModule, classModule.DefaultInterfaceMembers),
             BoundTypedSymbol bound => bound.ResolvedType,
             UnboundTypedSymbol unbound => unbound.ResolvedType,
-            _ => VBUnknownType.TypeInfo,
+            _ => new VBUnresolvedType(qualifier is null ? typeName : $"{qualifier}.{typeName}"),
         };
 
     // Procedure-local Dim/Static/Const declarations, plus the symbols a ReDim or a reference to an

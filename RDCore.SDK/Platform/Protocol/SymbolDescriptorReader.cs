@@ -215,7 +215,7 @@ public static class SymbolDescriptorReader
     // then makes an array of - fixed-size, or resizable (a resizable Byte array is its own type, RD-VBAL 2.4.1.3).
     private static VBType DeclaredType(string? typeName, ArrayDescriptor? array, Func<string, VBType?> resolveType)
     {
-        var type = typeName is not null && resolveType(typeName) is { } resolved ? resolved : VBUnknownType.TypeInfo;
+        var type = Resolve(typeName, resolveType);
         return array switch
         {
             null => type,
@@ -223,6 +223,11 @@ public static class SymbolDescriptorReader
             _ => type is VBByteType ? VBResizableByteArrayType.TypeInfo : new VBResizableArrayType(type),
         };
     }
+
+    // a name that does not resolve here, a module at a time, is not known yet and is not an error yet: it is kept as written, for whoever has the
+    // whole workspace to resolve it again (VBUnresolvedType). No name is no declared type at all.
+    private static VBType Resolve(string? typeName, Func<string, VBType?> resolveType)
+        => typeName is null ? VBUnknownType.TypeInfo : resolveType(typeName) ?? new VBUnresolvedType(typeName);
 
     // the bounds a fixed-size array was declared with ride the symbol (SymbolProperties.ArrayBounds), as they do where the
     // declaration was read.
@@ -235,9 +240,7 @@ public static class SymbolDescriptorReader
     private static Symbol ReadUserDefinedTypeField(
         SymbolDescriptor field, Uri workspaceRoot, Uri userDefinedTypeUri, Func<string, VBType?> resolveType)
     {
-        var type = field.DeclaredTypeName is not null && resolveType(field.DeclaredTypeName) is { } resolved
-            ? resolved
-            : VBUnknownType.TypeInfo;
+        var type = Resolve(field.DeclaredTypeName, resolveType);
 
         return new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, field.Name, type, field.Range, field.SelectionRange, field.AccessModifier);
@@ -263,9 +266,7 @@ public static class SymbolDescriptorReader
         {
             builder.Add(new VBLocalConstantSymbol(
                 workspaceRoot, memberUri, constant.Name, constant.Range, constant.SelectionRange,
-                constant.DeclaredTypeName is not null && resolveType(constant.DeclaredTypeName) is { } constantType
-                    ? constantType
-                    : VBUnknownType.TypeInfo,
+                Resolve(constant.DeclaredTypeName, resolveType),
                 constant.Value));
         }
         foreach (var local in member.Locals.IsDefault ? [] : member.Locals)

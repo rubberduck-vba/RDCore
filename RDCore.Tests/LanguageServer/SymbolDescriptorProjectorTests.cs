@@ -36,12 +36,13 @@ public sealed class SymbolDescriptorProjectorTests
     }
 
     [TestMethod]
-    public void UnresolvedType_ProjectsWithNullDeclaredTypeName()
+    public void UnresolvedType_ProjectsWithTheNameItWasWrittenWith()
     {
+        // the host resolves it again once it has the whole workspace, and says so if it still does not.
         var descriptor = Project("Private Widget As CWidget").Single();
 
         Assert.AreEqual(SymbolDescriptorKind.ModuleField, descriptor.Kind);
-        Assert.IsNull(descriptor.DeclaredTypeName);
+        Assert.AreEqual("CWidget", descriptor.DeclaredTypeName);
     }
 
     [TestMethod]

@@ -119,11 +119,13 @@ internal static class SymbolDescriptorProjector
         => symbol is null ? null : TypeNameOf(symbol.ResolvedType);
 
     // the name a declared type travels as: the type's own, and for an array its element's - the kind of array and how it is
-    // sized are the array descriptor's. A type that did not resolve has no name to carry.
+    // sized are the array descriptor's. A type that is not known has no name to carry, and one that did not resolve carries the
+    // name it was written with, which the host resolves again once it has the whole workspace.
     private static string? TypeNameOf(VBType? type) => type switch
     {
+        VBUnresolvedType unresolved => unresolved.DeclaredName,
         null or VBUnknownType or VBVoidType => null,
-        VBArrayType array => array.ItemType is VBUnknownType or VBVoidType ? null : array.ItemType.Name,
+        VBArrayType array => array.ItemType is VBVoidType ? null : TypeNameOf(array.ItemType),
         _ => type.Name,
     };
 

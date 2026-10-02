@@ -7,7 +7,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// A semantic data type representing an unknown (unresolved) but presumably valid data type.
 /// </summary>
-public sealed record class VBUnknownType() : VBType(typeof(object), VBTypeNames.VBUnknown)
+public record class VBUnknownType() : VBType(typeof(object), VBTypeNames.VBUnknown)
 {
     private static readonly Lazy<VBUnknownType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
