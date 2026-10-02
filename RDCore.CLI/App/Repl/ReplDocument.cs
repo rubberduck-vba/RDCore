@@ -13,7 +13,7 @@ namespace RDCore.CLI.App.Repl;
 /// text, as the fragment it is.
 /// </para>
 /// </remarks>
-public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platform)
+public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platform, ReplWorkspace? scratchWorkspace = null)
 {
     private int _sentVersion;
 
@@ -24,6 +24,36 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     public bool IsOpen => Uri is not null;
 
     /// <summary>
+    /// Whether the document is the one the shell opens for a program that is no file's, which is in the shell's scratch workspace and which a <c>SAVE</c> with
+    /// no name is therefore not a save of.
+    /// </summary>
+    public bool IsScratch { get; private set; }
+
+    /// <summary>
+    /// Opens the program as a document in the shell's scratch workspace, unless it is one already: what a listing of the program is highlighted by, which the
+    /// language server tells of a document.
+    /// </summary>
+    /// <param name="token">A token that cancels the notification.</param>
+    /// <returns><see langword="false"/> when the program is not a document and cannot be: the shell is attached to a workspace of its own, and has no scratch one.</returns>
+    public async Task<bool> EnsureOpenAsync(CancellationToken token)
+    {
+        if (IsOpen)
+        {
+            await SynchronizeAsync(token);
+            return true;
+        }
+
+        if (scratchWorkspace is null)
+        {
+            return false;
+        }
+
+        await OpenAsync(scratchWorkspace.ListingPath, token);
+        IsScratch = true;
+        return true;
+    }
+
+    /// <summary>
     /// Opens the program as the document at <paramref name="path"/>; the document that was open, if there was one, is closed.
     /// </summary>
     /// <param name="path">The absolute path of the <c>.rdc</c> file.</param>
@@ -32,6 +62,7 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
     {
         await CloseAsync(token);
 
+        IsScratch = false;
         var uri = new Uri(path);
         await platform.OpenDocumentAsync(uri, program.ToSourceText(), program.Version, token);
         _sentVersion = program.Version;
@@ -95,6 +126,7 @@ public sealed class ReplDocument(ReplProgram program, IReplPlatformClient platfo
         }
 
         Uri = null;
+        IsScratch = false;
         await platform.CloseDocumentAsync(uri, token);
     }
 }

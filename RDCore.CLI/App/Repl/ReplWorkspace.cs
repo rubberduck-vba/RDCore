@@ -37,6 +37,12 @@ public sealed class ReplWorkspace : IDisposable
     public string ProgramPath { get; }
 
     /// <summary>
+    /// The absolute path of the document the program is while it is no file's (<see cref="ReplDocument"/>): a <c>.rdc</c> in the workspace root that is never
+    /// written, as the language server is sent its text and does not read it.
+    /// </summary>
+    public string ListingPath => _fileSystem.Path.Combine(Root, $"Untitled{BasicProgramText.Extension}");
+
+    /// <summary>
     /// Scaffolds a private workspace with an empty program module in it.
     /// </summary>
     /// <param name="fileSystem">The file system to scaffold on.</param>

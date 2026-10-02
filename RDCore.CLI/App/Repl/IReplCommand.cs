@@ -31,6 +31,10 @@ public interface IReplConsole
     /// <param name="text">The line; empty writes a blank line.</param>
     void WriteLine(string text = "");
 
+    /// <summary>Writes one line made of runs of text, each in the style of the theme it is of.</summary>
+    /// <param name="runs">The runs, in order; the line is what they say.</param>
+    void WriteLine(IReadOnlyList<ReplTextRun> runs);
+
     /// <summary>Writes a themed platform message.</summary>
     /// <param name="kind">The message kind, which selects the icon and accent style.</param>
     /// <param name="message">The message body.</param>
@@ -83,6 +87,14 @@ public interface IReplPlatformClient
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>The edits to apply before the text is written; none, when the server has none.</returns>
     Task<IReadOnlyList<TextEdit>> WillSaveDocumentAsync(Uri document, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what the tokens of a document are (<c>textDocument/semanticTokens/full</c>), which is what a listing is highlighted by.
+    /// </summary>
+    /// <param name="document">The document's URI; the language server answers for the text it has of it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The tokens in the order they are in the document; none when the language server has none to give.</returns>
+    Task<IReadOnlyList<ReplSemanticToken>> GetSemanticTokensAsync(Uri document, CancellationToken token);
 
     /// <summary>
     /// Tells the language server that a document was saved (<c>textDocument/didSave</c>).

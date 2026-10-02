@@ -140,6 +140,12 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
             // lifetime must not be listening for them too. EXIT is how a session ends.
             .AddSingleton<IHostLifetime, ReplHostLifetime>();
+
+        if (scratchWorkspace is not null)
+        {
+            // where the program is a document while it is no file's.
+            services.AddSingleton(scratchWorkspace);
+        }
     }
 
     // client mode renders its logs through the same Spectre-backed writer; framework lifetime

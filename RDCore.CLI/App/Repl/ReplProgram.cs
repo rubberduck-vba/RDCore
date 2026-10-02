@@ -56,6 +56,27 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// Where the line numbered <paramref name="number"/> is in the program, which is the line of <see cref="ToSourceText"/> it is.
+    /// </summary>
+    /// <param name="number">The line number.</param>
+    /// <returns>The zero-based position of the line among the lines, or <c>-1</c> if no such line is in the buffer.</returns>
+    public int IndexOf(int number)
+    {
+        var index = 0;
+        foreach (var key in _lines.Keys)
+        {
+            if (key == number)
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
     /// Removes the line numbered <paramref name="number"/>.
     /// </summary>
     /// <returns><c>false</c> if no such line was in the buffer.</returns>

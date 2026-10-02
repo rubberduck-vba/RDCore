@@ -19,7 +19,7 @@ internal sealed class SaveReplCommand(IFileSystem fileSystem) : IReplCommand
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
-        var path = arguments.Length == 0 && context.Document.Uri is { IsFile: true } open
+        var path = arguments.Length == 0 && context.Document is { IsScratch: false, Uri: { IsFile: true } open }
             ? open.LocalPath
             : ReplFilePath.Resolve(fileSystem, arguments);
         if (path is null)

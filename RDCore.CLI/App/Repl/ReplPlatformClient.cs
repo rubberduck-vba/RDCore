@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Workspace;
+using SemanticTokens = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -42,6 +43,14 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         var edits = await client.SendRequestAsync<WillSaveWaitUntilTextDocumentParams, TextEditContainer?>(
             new WillSaveWaitUntilTextDocumentParams { TextDocument = new TextDocumentIdentifier(document), Reason = TextDocumentSaveReason.Manual }, token);
         return edits?.ToArray() ?? [];
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<ReplSemanticToken>> GetSemanticTokensAsync(Uri document, CancellationToken token)
+    {
+        var tokens = await client.SendRequestAsync<SemanticTokensParams, SemanticTokens?>(
+            new SemanticTokensParams { TextDocument = new TextDocumentIdentifier(document) }, token);
+        return tokens is null ? [] : ReplSemanticToken.Decode(tokens.Data);
     }
 
     /// <inheritdoc/>

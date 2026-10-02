@@ -15,25 +15,64 @@ internal sealed class ListReplCommand : IReplCommand
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_List_Summary;
 
-    public Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
+    public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
         if (!TryParseRange(arguments, out var from, out var to))
         {
             context.Console.WriteMessage(MessageKind.Error, Resources.Repl_SyntaxError, arguments);
-            return Task.FromResult(ReplCommandResult.Continue);
+            return ReplCommandResult.Continue;
         }
 
         // the numbers are right-aligned to the widest one in the listing, as a BASIC listing is, so
         // the statements line up whatever the numbering.
         var lines = context.Program.Lines(from, to).ToArray();
         var width = lines.Length == 0 ? 0 : lines.Max(line => line.Number).ToString().Length;
+        var highlighted = lines.Length == 0 ? null : await TokensByLineAsync(context, token);
         foreach (var (number, statement) in lines)
         {
-            context.Console.WriteLine($"{number.ToString().PadLeft(width)} {statement}");
+            var text = $"{number} {statement}";
+            var padding = new string(' ', width - number.ToString().Length);
+            if (highlighted is not null && highlighted.TryGetValue(context.Program.IndexOf(number), out var tokens))
+            {
+                context.Console.WriteLine([new ReplTextRun(padding, ReplTextStyle.Plain), .. ReplHighlighter.Runs(text, tokens)]);
+            }
+            else
+            {
+                context.Console.WriteLine(padding + text);
+            }
         }
 
         context.Console.WriteLine();
-        return Task.FromResult(ReplCommandResult.Continue);
+        return ReplCommandResult.Continue;
+    }
+
+    // the language server says what each token of the program is, by the line of the program it is on. A listing it cannot highlight is a listing all the same.
+    private static async Task<Dictionary<int, List<ReplSemanticToken>>?> TokensByLineAsync(ReplCommandContext context, CancellationToken token)
+    {
+        try
+        {
+            if (!await context.Document.EnsureOpenAsync(token) || context.Document.Uri is not { } document)
+            {
+                return null;
+            }
+
+            var byLine = new Dictionary<int, List<ReplSemanticToken>>();
+            foreach (var semanticToken in await context.Platform.GetSemanticTokensAsync(document, token))
+            {
+                if (!byLine.TryGetValue(semanticToken.Line, out var line))
+                {
+                    byLine[semanticToken.Line] = line = [];
+                }
+
+                line.Add(semanticToken);
+            }
+
+            return byLine;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
