@@ -124,7 +124,7 @@ internal sealed class SymbolSyncService(
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: true, token);
+                    totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: false, token);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -133,6 +133,21 @@ internal sealed class SymbolSyncService(
                     // not re-run on didOpen/didChange, so an unguarded throw here used to make it
                     // permanent instead of degrading to "this one module didn't get defined."
                     logger.LogError(exception, "❌ Symbol sync failed for module {module}; continuing with the remaining workspace modules.", module.Name);
+                }
+            }
+
+            // the code of a module is checked against everything the workspace declares, which a module that names one defined after it cannot be until
+            // every module is: so the code is sent once all of them are defined.
+            foreach (var module in modules)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    await LoadModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Parse, token);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogError(exception, "❌ Loading the code of module {module} failed; continuing with the remaining workspace modules.", module.Name);
                 }
             }
 
@@ -178,6 +193,28 @@ internal sealed class SymbolSyncService(
         }
 
         return result.Defined + result.Replaced;
+    }
+
+    // the module's symbols are defined: the host composes it and loads its code, and says what is wrong with the code if it is not loaded.
+    private async Task LoadModuleCodeAsync(Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    {
+        var result = await orchestration.RuntimeEnvironment.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            new DefineSymbolsParams
+            {
+                WorkspaceRoot = workspaceRoot,
+                ModuleUri = moduleUri,
+                ModuleName = moduleName,
+                Directives = parseResult.SyntaxTree.GetModuleDirectives(),
+                ImplementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [],
+                ImplementedInterfaceRanges = parseResult.SyntaxTree?.GetImplementedInterfaceRanges() ?? [],
+                ParseResultJson = PlatformJson.Serialize(parseResult),
+                CodeOnly = true,
+            }, token);
+
+        foreach (var error in result.CodeErrors)
+        {
+            logger.LogWarning("📤 {module} was not loaded: {error}", moduleName, error);
+        }
     }
 
     private void LogIfEnabled(LogLevel level, string message)

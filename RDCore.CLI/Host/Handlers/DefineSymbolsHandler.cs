@@ -77,7 +77,8 @@ internal sealed class DefineSymbolsHandler(
         // the language server already collapses #If-branch duplicates, but stay defensive: fuse any
         // that still arrive with the same identity (uri + concrete type) so the session never sees a
         // colliding define. Property Get/Let/Set share a uri but not a type, so they stay distinct.
-        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType)
+        // a request for the code of a module that was defined by an earlier one defines nothing again.
+        foreach (var group in (request.CodeOnly ? [] : SymbolDescriptorReader.Read(request, ResolveType))
             .GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
         {
             var sites = group.ToList();

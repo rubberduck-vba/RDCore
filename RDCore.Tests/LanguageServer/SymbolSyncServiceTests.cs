@@ -185,7 +185,49 @@ public sealed class SymbolSyncServiceTests
 
         await sut.SyncWorkspaceAsync(CancellationToken.None);
 
+        // its symbols, and then its code
         await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
-            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod2"), Arg.Any<CancellationToken>());
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod2" && !p.CodeOnly), Arg.Any<CancellationToken>());
+        await host.Received(1).SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(
+            Arg.Is<DefineSymbolsParams>(p => p.ModuleName == "Mod2" && p.CodeOnly), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task TheCodeOfEveryModule_IsSentOnlyOnceEveryModuleIsDefined()
+    {
+        // a module that names one defined after it is checked against what the workspace declares: which it cannot be until the other is defined.
+        var requests = new List<(string Module, bool CodeOnly)>();
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = [nameof(DefineSymbols)] });
+        host.SendRequestAsync<DefineSymbolsParams, DefineSymbolsResult>(Arg.Any<DefineSymbolsParams>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var request = call.Arg<DefineSymbolsParams>();
+                requests.Add((request.ModuleName, request.CodeOnly));
+                return Task.FromResult(new DefineSymbolsResult { Defined = 1 });
+            });
+
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(host);
+
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.GetAllDocuments().Returns([new WorkspaceDocument("src/Mod1.bas", Root, "content"), new WorkspaceDocument("src/Mod2.bas", Root, "content")]);
+
+        var parsing = Substitute.For<IParsingClientService>();
+        parsing.TryGetCached(Arg.Any<Uri>(), out Arg.Any<ModuleParseResult>())
+            .Returns(call =>
+            {
+                var path = ((Uri)call[0]).AbsolutePath;
+                var name = path.EndsWith("Mod1.bas", StringComparison.OrdinalIgnoreCase) ? "Mod1" : "Mod2";
+                call[1] = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", $"{name}.bas")), "Public Sub Foo()\r\nEnd Sub");
+                return true;
+            });
+
+        var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance);
+
+        await sut.SyncWorkspaceAsync(CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { ("Mod1", false), ("Mod2", false), ("Mod1", true), ("Mod2", true) }, requests);
     }
 }

@@ -27,6 +27,17 @@ public sealed class DeclarationErrorTests
     }
 
     [TestMethod]
+    public async Task AModule_ThatNamesOneDefinedAfterIt_IsLoaded_ForTheCodeIsCheckedOnceEveryModuleIsDefined()
+    {
+        // A comes before B in the workspace, and uses it.
+        var a = ("A", ModuleWorkspace.ClassModule("A", "Public Function Make() As B", "Set Make = New B", "End Function"));
+        var b = ("B", ModuleWorkspace.ClassModule("B", "Public Size As Long"));
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync([a, b], Program()));
+        CollectionAssert.AreEqual(new[] { "ran" }, await ModuleWorkspace.RunAsync([a, b], Program()));
+    }
+
+    [TestMethod]
     public async Task TheAccessorsOfAProperty_AreTheOneDeclarationOfIt()
         => CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync(
             [("Box", ModuleWorkspace.ClassModule("Box", "Private mV As Long",

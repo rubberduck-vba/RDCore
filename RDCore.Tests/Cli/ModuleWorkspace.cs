@@ -78,10 +78,11 @@ internal static class ModuleWorkspace
         var resolver = WorkspaceSymbolResolver.Compose(
             workspaceRoot, parsed.Select(module => (module.Uri, module.Module.Type, module.Parse)), new IntrinsicSymbolResolver());
 
+        // as the language server does: every module is defined, and then the code of each is sent.
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,
@@ -91,8 +92,23 @@ internal static class ModuleWorkspace
                     Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
                     ImplementedInterfaceNames = module.Parse.SyntaxTree.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = module.Parse.SyntaxTree.GetImplementedInterfaceRanges(),
-                    ParseResultJson = PlatformJson.Serialize(module.Parse),
                     Replace = true,
+                }, CancellationToken.None);
+        }
+
+        foreach (var module in parsed)
+        {
+            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                .Handle(new DefineSymbolsParams
+                {
+                    WorkspaceRoot = workspaceRoot,
+                    ModuleUri = module.Uri,
+                    ModuleName = module.Module.Name,
+                    Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
+                    ImplementedInterfaceNames = module.Parse.SyntaxTree.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = module.Parse.SyntaxTree.GetImplementedInterfaceRanges(),
+                    ParseResultJson = PlatformJson.Serialize(module.Parse),
+                    CodeOnly = true,
                 }, CancellationToken.None);
 
             if (errorsOnly)

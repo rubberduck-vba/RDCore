@@ -106,6 +106,17 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// whatever locals and declared types they had.
     /// </remarks>
     public bool Replace { get; init; }
+
+    /// <summary>
+    /// Whether the module's symbols were defined by an earlier request, and this one is for its code alone: the host defines nothing, composes the class,
+    /// and loads the module's procedures from <see cref="ParseResultJson"/>.
+    /// </summary>
+    /// <remarks>
+    /// A module's code is checked against what the whole workspace declares (<strong>RD-VBAL §5.0.1</strong>), and the host is told of the modules one at a
+    /// time: a module that names one that comes after it cannot be checked until that one is defined. The language server defines every module first, and
+    /// then sends the code of each.
+    /// </remarks>
+    public bool CodeOnly { get; init; }
 }
 
 /// <summary>
