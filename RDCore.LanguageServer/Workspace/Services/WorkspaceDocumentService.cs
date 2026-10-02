@@ -355,8 +355,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             return false;
         }
 
-        // the client says what it saved, or it does not: either way, what is saved is the text of the document.
-        _documents[id] = (text is null || text == document.Text ? document : document with { Text = text }).AsSaved();
+        // the client says what it saved, or it does not: either way, what is saved is the text of the document. When it is not the text the server has, the
+        // server was behind, and the text is one version later than what was derived from the one it had.
+        _documents[id] = (text is null || text == document.Text ? document : document.WithText(text, document.Version + 1)).AsSaved();
         return true;
     }
 

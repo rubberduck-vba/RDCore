@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -8,8 +8,10 @@ using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Runtime;
+using RDCore.LanguageServer.Server.Handlers.Document;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
+using RDCore.SDK.Workspace;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
@@ -41,6 +43,7 @@ internal sealed class CoreLanguageServerApp(
     IParsingClientService parsing,
     ISymbolSyncService symbolSync,
     IDocumentDiagnosticsService diagnostics,
+    IDiagnosticsPublisher publisher,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -109,6 +112,14 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();
+
+        // the lifecycle of the documents a client has open.
+        builder.WithHandler<DidOpenTextDocumentHandler>();
+        builder.WithHandler<DidChangeTextDocumentHandler>();
+        builder.WithHandler<WillSaveTextDocumentHandler>();
+        builder.WithHandler<WillSaveWaitUntilTextDocumentHandler>();
+        builder.WithHandler<DidSaveTextDocumentHandler>();
+        builder.WithHandler<DidCloseTextDocumentHandler>();
     }
 
     protected override void ConfigureServices(IServiceCollection services)
@@ -122,6 +133,12 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolSyncService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());
+
+        // the documents of every language the platform serves: the client names the language its own way, so what selects a document is the file it is.
+        services.AddSingleton(new TextDocumentSelector(SupportedLanguages.All
+            .SelectMany(language => language.FileTypes).Distinct()
+            .Select(fileType => new TextDocumentFilter { Pattern = $"**/{fileType}" })));
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
@@ -179,6 +196,8 @@ internal sealed class CoreLanguageServerApp(
 
     protected override async Task OnLanguageServerInitializeAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {
+        // a client that pulls diagnostics is not pushed them as well: it would show each finding twice.
+        publisher.Attach(server, enabled: request.Capabilities?.TextDocument?.Diagnostic is null);
         await LoadWorkspaceAsync(request);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }

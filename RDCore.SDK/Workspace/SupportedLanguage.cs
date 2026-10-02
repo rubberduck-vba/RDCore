@@ -103,7 +103,11 @@ public static class SupportedLanguages
     /// <summary>
     /// The platform's BASIC, which an interactive shell is written in.
     /// </summary>
-    public static SupportedLanguage BASIC { get; } = new("basic", "RDCore BASIC", "*.bas")
+    /// <remarks>
+    /// Its source is a <c>.rdc</c> file: a program of the shell, a text file of lines. It is not a <c>.bas</c>, which is a module of the BASIC of Visual Basic - a file with
+    /// procedures in it, and a header - and which this is not.
+    /// </remarks>
+    public static SupportedLanguage BASIC { get; } = new("basic", "RDCore BASIC", "*.rdc")
     {
         ImplicitDeclarationScope = ImplicitDeclarationScope.Module,
         HasBarePrint = true,
