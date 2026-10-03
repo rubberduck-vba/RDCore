@@ -1,19 +1,15 @@
 ﻿using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
-using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics;
@@ -63,8 +59,8 @@ public interface ILetCoercionRuntimeSemanticsProvider
 /// 👉 Each instance only instantiates the let-coercion strategies it needs for its context.
 /// </remarks>
 public class LetCoercionRuntimeSemanticsProvider(
-    IEnumerable<ILetCoercionRuntimeSemantics> semantics, 
-    IVerboseMessageBuilder formatterService) 
+    IEnumerable<ILetCoercionRuntimeSemantics> semantics,
+    IVerboseMessageBuilder formatterService)
     : ILetCoercionRuntimeSemanticsProvider
 {
     private readonly IVerboseMessageBuilder _formatterService = formatterService;
@@ -110,9 +106,9 @@ public class LetCoercionRuntimeSemanticsProvider(
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose, expression, [frame]));
 
     public LetCoercionAnalysisContext Analyze(
-        ISymbolResolver resolver, 
-        ILetCoercionSemanticContextBuilder builder, 
-        ExpressionNode expression, 
+        ISymbolResolver resolver,
+        ILetCoercionSemanticContextBuilder builder,
+        ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         var coercionResult = LetCoercionResult.NotApplicable(frame);
@@ -192,7 +188,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             ? TryGetStrategy(VBObjectType.TypeInfo, out var strategy)
             : TryGetStrategy(frame.DestinationTypeDesc.Target, out strategy);
 
-        if (!strategyFound)
+        if (!strategyFound || strategy is null)
         {
             // in-and-out: no need to push the coercion frame for this
             return LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame), [.. _stack.Frames]);

@@ -60,9 +60,9 @@ internal static class DocumentSymbolProjector
 
     private static DocumentSymbol? Describe(Symbol symbol, ILookup<string, Symbol> childrenByParent)
     {
-        // only a BoundSymbol carries the Range/SelectionRange a DocumentSymbol needs; an unbound
+        // only a WorkspaceSymbol carries the Range/SelectionRange a DocumentSymbol needs; an unbound
         // symbol reaching here (a stray/unexpected parentage) has nothing to project.
-        if (symbol is not BoundSymbol bound || ToDocumentSymbolKind(bound.Kind) is not { } kind)
+        if (symbol is not SDK.Model.Symbols.Abstract.WorkspaceSymbol bound || ToDocumentSymbolKind(bound.Kind) is not { } kind)
         {
             return null;
         }

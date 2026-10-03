@@ -1,8 +1,5 @@
-using System.IO.Abstractions.TestingHelpers;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
@@ -12,7 +9,10 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
+using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
 
 namespace RDCore.Tests.Cli;
 
@@ -87,7 +87,7 @@ public sealed class ImplementedInterfacesPipelineTests
     private static IEnumerable<VBClassModuleSymbol> DeclaredInterfaces(VBClassModuleSymbol module)
         => module.ImplementedInterfaces.Where(implemented => implemented.Uri.AbsoluteUri != ClassLifecycleInterface.Interface.Uri.AbsoluteUri);
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("IShape", "Disc")]
     [DataRow("Disc", "IShape")]
     public async Task AClassModule_ImplementsTheInterfaceItsDirectiveNames_WhicheverModuleIsDefinedFirst(string first, string second)

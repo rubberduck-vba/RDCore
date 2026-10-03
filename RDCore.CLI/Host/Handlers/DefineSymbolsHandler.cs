@@ -83,7 +83,7 @@ internal sealed class DefineSymbolsHandler(
         {
             var sites = group.ToList();
             merged += sites.Count - 1;
-            var symbol = sites.Find(candidate => candidate is BoundSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
+            var symbol = sites.Find(candidate => candidate is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
 
             if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
             {

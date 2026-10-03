@@ -126,7 +126,7 @@ public sealed class EventRuntimeTests
     }
 
     // a procedure of the module with the variables a and b (Source) and x and y (Sink), run as a call would be.
-    private static RuntimeSemanticsEvaluationResult Main(World world, params string[] body)
+    private static RuntimeSemanticsEvaluationResult MainProc(World world, params string[] body)
     {
         var main = new VBProcedureMemberSymbol(
             Root, world.Module.Uri, "Main", ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
@@ -151,7 +151,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "x got 7" }, Printed(world));
     }
@@ -161,7 +161,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "a.Fire", "Debug.Print \"fired\""));
+        AssertRan(MainProc(world, "Set a = New Source", "a.Fire", "Debug.Print \"fired\""));
 
         CollectionAssert.AreEqual(new[] { "fired" }, Printed(world));
     }
@@ -171,7 +171,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([("Src_Bump", ["Count = Count + 1"])]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire", "Debug.Print \"fired\""));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire", "Debug.Print \"fired\""));
 
         CollectionAssert.AreEqual(new[] { "fired" }, Printed(world));
     }
@@ -181,7 +181,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "x got 7", "y got 7" }, Printed(world));
     }
@@ -191,7 +191,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink",
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink",
             "x.Attach a, \"x\"", "y.Attach a, \"y\"", "x.Attach a, \"x\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "y got 7", "x got 7" }, Printed(world));
@@ -203,7 +203,7 @@ public sealed class EventRuntimeTests
         // `Set x.Src = a` assigns a variable of x, from code that is not x's: the handlers are x's, not Main's.
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Tag = \"x\"", "Set x.Src = a", "a.Fire", "Set x.Src = Nothing", "a.Fire"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Tag = \"x\"", "Set x.Src = a", "a.Fire", "Set x.Src = Nothing", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "x got 7" }, Printed(world));
     }
@@ -213,7 +213,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire", "x.Detach", "a.Fire", "Debug.Print \"end\""));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire", "x.Detach", "a.Fire", "Debug.Print \"end\""));
 
         CollectionAssert.AreEqual(new[] { "x got 7", "end" }, Printed(world));
     }
@@ -223,7 +223,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([ChangedHandler]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set b = New Source", "Set x = New Sink",
+        AssertRan(MainProc(world, "Set a = New Source", "Set b = New Source", "Set x = New Sink",
             "x.Attach a, \"x\"", "x.Attach b, \"x\"", "a.Fire", "Debug.Print \"a fired\"", "b.Fire"));
 
         CollectionAssert.AreEqual(new[] { "a fired", "x got 7" }, Printed(world));
@@ -236,7 +236,7 @@ public sealed class EventRuntimeTests
         // raiser finds in its variable afterwards.
         var world = Compose([("Src_Bump", ["Count = Count + 10", "Debug.Print Tag & \" count \" & Count"])]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.FireBump"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.FireBump"));
 
         CollectionAssert.AreEqual(new[] { "x count 11", "y count 21", "total 21" }, Printed(world));
     }
@@ -248,7 +248,7 @@ public sealed class EventRuntimeTests
         // first left in the parameter (MS-VBAL §5.4.2.20).
         var world = Compose([("Src_Bump", ["Count = Count + 10", "Debug.Print Tag & \" count \" & Count"])], fireBody: ["RaiseEvent Bump(5)"]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "x count 15", "y count 25" }, Printed(world));
     }
@@ -258,7 +258,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([("Src_Bump", ["Count = Count + 10", "Debug.Print Tag & \" count \" & Count"])], fireBody: ["RaiseEvent Bump(5)", "RaiseEvent Bump(5)"]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire"));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "a.Fire"));
 
         CollectionAssert.AreEqual(new[] { "x count 15", "x count 15" }, Printed(world));
     }
@@ -268,7 +268,7 @@ public sealed class EventRuntimeTests
     {
         var world = Compose([("Src_Changed", ["Debug.Print Tag & \" before\"", "Debug.Print 1 / 0"])]);
 
-        var outcome = Main(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire");
+        var outcome = MainProc(world, "Set a = New Source", "Set x = New Sink", "Set y = New Sink", "x.Attach a, \"x\"", "y.Attach a, \"y\"", "a.Fire");
 
         Assert.IsTrue(outcome.IsError);
         Assert.AreEqual((int)VBRuntimeErrorId.DivisionByZero, outcome.ErrorInfo!.ErrorId);
@@ -281,7 +281,7 @@ public sealed class EventRuntimeTests
         // the sink is held by x only: setting x to Nothing destroys it, and its handlers go with it.
         var world = Compose([ChangedHandler, ("Class_Terminate", ["Debug.Print Tag & \" gone\""])]);
 
-        AssertRan(Main(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "Set x = Nothing", "a.Fire", "Debug.Print \"end\""));
+        AssertRan(MainProc(world, "Set a = New Source", "Set x = New Sink", "x.Attach a, \"x\"", "Set x = Nothing", "a.Fire", "Debug.Print \"end\""));
 
         CollectionAssert.AreEqual(new[] { "x gone", "end" }, Printed(world));
     }

@@ -2,23 +2,15 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values;
-using RDCore.SDK.Model.Values.Runtime;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Analysis;
-using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Globalization;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -99,7 +91,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     private static string ToRegex(string likePattern)
     {
         StringBuilder regexStr = new();
-        for (var i = 0;  i < likePattern.Length; i++)
+        for (var i = 0; i < likePattern.Length; i++)
         {
             var token = likePattern[i];
             switch (token)

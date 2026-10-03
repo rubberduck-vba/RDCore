@@ -341,7 +341,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
         // Number to Double."
         var asDouble = ToNumeric<VBDoubleValue>(number, VBDoubleType.TypeInfo, errorAsCode: false);
         return asDouble.IsSuccess
-            ? Text(asDouble.Result!, asDouble.Result.Value >= 0)
+            ? Text(asDouble.Result!, asDouble.Result!.Value >= 0)
             : RuntimeSemanticsEvaluationResult<VBStringValue>.Error(asDouble.ErrorInfo!);
     }
 

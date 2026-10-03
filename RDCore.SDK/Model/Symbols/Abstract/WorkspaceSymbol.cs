@@ -13,21 +13,21 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="Kind">A <c>SymbolKind</c> (extensible) metadata value describing the kind of symbol.</param>
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
-public abstract record class BoundSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind,
+public abstract record class WorkspaceSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind,
     SourceRange Range, SourceRange SelectionRange) : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind)
 {
     /// <summary>
     /// Every source site where this symbol is declared, in source order — populated only when the
     /// same name is declared in more than one conditional-compilation branch. Empty for the common
-    /// single-declaration case, in which <see cref="BoundSymbol.Range"/> and
-    /// <see cref="BoundSymbol.SelectionRange"/> are the sole site.
+    /// single-declaration case, in which <see cref="WorkspaceSymbol.Range"/> and
+    /// <see cref="WorkspaceSymbol.SelectionRange"/> are the sole site.
     /// </summary>
     public ImmutableArray<SymbolDefinition> Definitions { get; init; } = [];
 
     /// <summary>
     /// Every declaration site of this symbol: <see cref="Definitions"/> when it is populated,
     /// otherwise a single synthesized <see cref="DefinitionState.Live"/> site over
-    /// <see cref="BoundSymbol.Range"/>. Use this when a caller needs to treat single- and
+    /// <see cref="WorkspaceSymbol.Range"/>. Use this when a caller needs to treat single- and
     /// multi-branch symbols uniformly.
     /// </summary>
     public IEnumerable<SymbolDefinition> AllDefinitions => Definitions.IsDefaultOrEmpty
@@ -36,7 +36,7 @@ public abstract record class BoundSymbol(Uri WorkspaceRoot, Uri ParentUri, strin
 
     /// <summary>
     /// The primary declaration span — the first <see cref="DefinitionState.Live"/> site, else the
-    /// first site, else <see cref="BoundSymbol.Range"/>. LSP navigation targets the primary; when no
+    /// first site, else <see cref="WorkspaceSymbol.Range"/>. LSP navigation targets the primary; when no
     /// precompiler-evaluation pass has run yet this is simply the first branch.
     /// </summary>
     public SourceRange PrimaryRange => PrimaryDefinition?.Range ?? Range;

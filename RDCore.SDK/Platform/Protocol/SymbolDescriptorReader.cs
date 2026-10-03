@@ -62,7 +62,7 @@ public static class SymbolDescriptorReader
     // primary site the ctor already set.
     private static Symbol WithDefinitions(Symbol symbol, SymbolDescriptor descriptor)
     {
-        if (descriptor.Definitions.Length <= 1 || symbol is not BoundSymbol bound)
+        if (descriptor.Definitions.Length <= 1 || symbol is not WorkspaceSymbol bound)
         {
             return symbol;
         }

@@ -8,7 +8,6 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
-using RDCore.SDK.Model.AST;
 using System.IO.Abstractions.TestingHelpers;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -189,7 +188,7 @@ public sealed class DocumentLifecycleServiceTests
     public async Task ARequestForEditsBeforeASave_IsCancelled_WhenTheClientCancelsIt()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => _sut.WillSaveWaitUntilAsync(Mod1, TextDocumentSaveReason.Manual, cancellation.Token));
     }

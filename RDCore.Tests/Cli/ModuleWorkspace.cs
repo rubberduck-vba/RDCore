@@ -1,18 +1,16 @@
-using System.IO.Abstractions.TestingHelpers;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
-using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
+using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
 
 namespace RDCore.Tests.Cli;
 
@@ -111,9 +109,9 @@ internal static class ModuleWorkspace
                     ModuleUri = module.Uri,
                     ModuleName = module.Module.Name,
                     Symbols = SymbolDescriptorProjector.Project(symbols, module.Uri),
-                    Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
-                    ImplementedInterfaceNames = module.Parse.SyntaxTree.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree.GetImplementedInterfaceRanges(),
+                    Directives = module.Parse.SyntaxTree!.GetModuleDirectives(),
+                    ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     Replace = true,
                 }, CancellationToken.None);
         }
@@ -127,8 +125,8 @@ internal static class ModuleWorkspace
                     ModuleUri = module.Uri,
                     ModuleName = module.Module.Name,
                     Directives = module.Parse.SyntaxTree.GetModuleDirectives(),
-                    ImplementedInterfaceNames = module.Parse.SyntaxTree.GetImplementedInterfaceNames(),
-                    ImplementedInterfaceRanges = module.Parse.SyntaxTree.GetImplementedInterfaceRanges(),
+                    ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
+                    ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     ParseResultJson = PlatformJson.Serialize(module.Parse),
                     CodeOnly = true,
                 }, CancellationToken.None);

@@ -1,8 +1,8 @@
-﻿using System.IO.Abstractions.TestingHelpers;
-using NSubstitute;
+﻿using NSubstitute;
 using RDCore.CLI.App.Commands;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Workspace;
+using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli;
 
@@ -25,7 +25,7 @@ public sealed class NewWorkspaceCommandTests
         return (sut, fs);
     }
 
-    private static async Task<RDCoreProject> LoadProject(MockFileSystem fs)
+    private static async Task<RDCoreProject> LoadProjectAsync(MockFileSystem fs)
         => (await new ProjectFileLoader(fs).LoadAsync(Root)).ProjectInfo;
 
     [TestMethod]
@@ -36,7 +36,7 @@ public sealed class NewWorkspaceCommandTests
         var exit = await sut.ExecuteAsync([Root, "--empty"], CancellationToken.None);
 
         Assert.AreEqual(0, exit);
-        var project = await LoadProject(fs);
+        var project = await LoadProjectAsync(fs);
         Assert.AreEqual("rdcore-new-ws", project.Name);
         Assert.IsEmpty(project.Modules);
         Assert.IsEmpty(project.OtherFiles);
@@ -49,7 +49,7 @@ public sealed class NewWorkspaceCommandTests
 
         await sut.ExecuteAsync([Root, "--empty", "--name", "MyProject"], CancellationToken.None);
 
-        Assert.AreEqual("MyProject", (await LoadProject(fs)).Name);
+        Assert.AreEqual("MyProject", (await LoadProjectAsync(fs)).Name);
     }
 
     [TestMethod]
@@ -65,7 +65,7 @@ public sealed class NewWorkspaceCommandTests
         var exit = await sut.ExecuteAsync([Root], CancellationToken.None);
 
         Assert.AreEqual(0, exit);
-        var project = await LoadProject(fs);
+        var project = await LoadProjectAsync(fs);
         // classification
         CollectionAssert.AreEquivalent(
             new[] { "Zeta.bas", "sub/Alpha.cls", "ThisWorkbook.doccls" },
@@ -92,7 +92,7 @@ public sealed class NewWorkspaceCommandTests
 
         await sut.ExecuteAsync([Root], CancellationToken.None);
 
-        var project = await LoadProject(fs);
+        var project = await LoadProjectAsync(fs);
         Assert.AreEqual("Real.bas", project.Modules.Single().RelativeUri);
         Assert.IsEmpty(project.OtherFiles);
     }
@@ -117,7 +117,7 @@ public sealed class NewWorkspaceCommandTests
 
         Assert.AreEqual(0, exit);
         Assert.IsFalse(fs.File.ReadAllText(RdprojPath).Contains("stale"));
-        Assert.AreEqual("Mod.bas", (await LoadProject(fs)).Modules.Single().RelativeUri);
+        Assert.AreEqual("Mod.bas", (await LoadProjectAsync(fs)).Modules.Single().RelativeUri);
     }
 
     [TestMethod]

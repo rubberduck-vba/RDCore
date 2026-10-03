@@ -1,7 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -35,7 +34,7 @@ public sealed class VariantOperandStatementTests
         var symbols = variables.Select(variable => Variable(variable.Name, variable.Type)).ToArray();
         var (session, outcome) = RuntimeSourceHarness.Run(files, symbols, body);
 
-        return (files, outcome, symbols.ToDictionary(symbol => symbol.Name, symbol => session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
+        return (files, outcome, symbols.ToDictionary(symbol => symbol.Name, symbol => (object?)session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
     }
 
     private static readonly (string, VBType) P = ("P", VBVariantType.TypeInfo);

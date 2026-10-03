@@ -31,9 +31,9 @@ public sealed class ReplLoadSaveTests
         _context = new ReplCommandContext(_program, _console, _platform, _document, []);
     }
 
-    private Task<ReplCommandResult> Load(string arguments) => new LoadReplCommand(_files).ExecuteAsync(_context, arguments, CancellationToken.None);
+    private Task<ReplCommandResult> LoadAsync(string arguments) => new LoadReplCommand(_files).ExecuteAsync(_context, arguments, CancellationToken.None);
 
-    private Task<ReplCommandResult> Save(string arguments) => new SaveReplCommand(_files).ExecuteAsync(_context, arguments, CancellationToken.None);
+    private Task<ReplCommandResult> SaveAsync(string arguments) => new SaveReplCommand(_files).ExecuteAsync(_context, arguments, CancellationToken.None);
 
     // ---- the buffer as a file ----
 
@@ -77,7 +77,7 @@ public sealed class ReplLoadSaveTests
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
 
-        await Load("hello");
+        await LoadAsync("hello");
 
         Assert.AreEqual("10 X = 1\r\n", _program.ToSourceText());
         Assert.AreEqual(new Uri(ProgramPath), _document.Uri);
@@ -89,7 +89,7 @@ public sealed class ReplLoadSaveTests
     {
         _program.Store(10, "kept");
 
-        await Load("nope.rdc");
+        await LoadAsync("nope.rdc");
 
         _console.Received(1).WriteMessage(MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>());
         Assert.AreEqual(1, _program.Count);
@@ -101,7 +101,7 @@ public sealed class ReplLoadSaveTests
     {
         _files.AddFile(ProgramPath, new MockFileData("Public Sub Foo()\r\nEnd Sub"));
 
-        await Load("hello.rdc");
+        await LoadAsync("hello.rdc");
 
         _console.Received(1).WriteMessage(MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>());
         Assert.IsFalse(_document.IsOpen);
@@ -112,9 +112,9 @@ public sealed class ReplLoadSaveTests
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
         _files.AddFile(Path.Combine(Root, "other.rdc"), new MockFileData("10 Y = 2\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
-        await Load("other");
+        await LoadAsync("other");
 
         Received.InOrder(() =>
         {
@@ -130,7 +130,7 @@ public sealed class ReplLoadSaveTests
     public async Task AnEditOfALoadedProgram_IsAChangeOfTheDocument_WithTheWholeTextAndTheNextVersion()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
         _program.Store(20, "Print X");
         await _document.SynchronizeAsync(CancellationToken.None);
@@ -142,7 +142,7 @@ public sealed class ReplLoadSaveTests
     public async Task NothingEditedSinceTheServerWasTold_IsNotAChange()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
         await _document.SynchronizeAsync(CancellationToken.None);
 
@@ -166,7 +166,7 @@ public sealed class ReplLoadSaveTests
     {
         _program.Store(10, "X = 1");
 
-        await Save("hello");
+        await SaveAsync("hello");
 
         Assert.AreEqual("10 X = 1\r\n", _files.File.ReadAllText(ProgramPath));
         Received.InOrder(() =>
@@ -181,10 +181,10 @@ public sealed class ReplLoadSaveTests
     public async Task Save_WithNoName_IsTheFileTheProgramCameFrom_AndTheServerIsToldOfTheEditsFirst()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
         _program.Store(20, "Print X");
 
-        await Save("");
+        await SaveAsync("");
 
         Assert.AreEqual("10 X = 1\r\n20 Print X\r\n", _files.File.ReadAllText(ProgramPath));
         Received.InOrder(() =>
@@ -201,7 +201,7 @@ public sealed class ReplLoadSaveTests
     {
         _program.Store(10, "X = 1");
 
-        await Save("");
+        await SaveAsync("");
 
         _console.Received(1).WriteMessage(MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>());
         Assert.IsFalse(_files.FileExists(ProgramPath));
@@ -211,9 +211,9 @@ public sealed class ReplLoadSaveTests
     public async Task Save_ToAnotherFile_IsTheOtherFileThatIsOpen()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
-        await Save("copy");
+        await SaveAsync("copy");
 
         var copy = Path.Combine(Root, "copy.rdc");
         Assert.IsTrue(_files.FileExists(copy));
@@ -227,7 +227,7 @@ public sealed class ReplLoadSaveTests
     public async Task New_ClosesTheDocument_AndEmptiesTheProgram()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
         await new NewReplCommand().ExecuteAsync(_context, "", CancellationToken.None);
 
@@ -240,7 +240,7 @@ public sealed class ReplLoadSaveTests
     public async Task Exit_ClosesTheDocument()
     {
         _files.AddFile(ProgramPath, new MockFileData("10 X = 1\r\n"));
-        await Load("hello");
+        await LoadAsync("hello");
 
         var result = await new ExitReplCommand().ExecuteAsync(_context, "", CancellationToken.None);
 

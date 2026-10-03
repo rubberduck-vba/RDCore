@@ -118,7 +118,7 @@ public sealed class SemanticContextBuilderTests
 
     [TestMethod]
     public void AddLetCoercionFlags_ForTheSameOperandTwice_DoesNotThrow()
-        // the provider adds an operand's flags twice (the operation's, then the operand's own).
+    // the provider adds an operand's flags twice (the operation's, then the operand's own).
     {
         var builder = new LetCoercionSemanticContextFlagsBuilder();
 
@@ -153,8 +153,8 @@ public sealed class SemanticContextBuilderTests
 
     [TestMethod]
     public void AddLetCoercionFlags_OnADiagnosticsBuilder_AreKeptPerOperand_ButNotMixedIntoItsOwnFlags()
-        // a builder for another kind of context (here still conversion-typed, but reached through the diagnostics-carrying
-        // one, which does not fold them in) keeps the operand flags for whoever asks; its own flags stay its own.
+    // a builder for another kind of context (here still conversion-typed, but reached through the diagnostics-carrying
+    // one, which does not fold them in) keeps the operand flags for whoever asks; its own flags stay its own.
     {
         var (builder, _) = WithDiagnostics();
 
@@ -210,14 +210,13 @@ public sealed class SemanticContextBuilderTests
     [TestMethod]
     public void ConversionSemanticFlags_All_IsEveryFlagThereIs()
         // `All` had been left behind as flags were added.
-        => Assert.AreEqual(
-            Enum.GetValues<ConversionSemanticFlags>().Where(flag => flag != ConversionSemanticFlags.All).Aggregate((ConversionSemanticFlags)0, (all, flag) => all | flag),
-            ConversionSemanticFlags.All);
+        => Assert.AreEqual(ConversionSemanticFlags.All,
+            Enum.GetValues<ConversionSemanticFlags>().Where(flag => flag != ConversionSemanticFlags.All).Aggregate((ConversionSemanticFlags)0, (all, flag) => all | flag));
 
     [TestMethod]
     public void AddLetCoercionFlags_ReachTheBuiltConversionContext()
-        // for a conversion builder the operand flags ARE conversion flags: dropping them would leave the operation's
-        // context blind to how its operands were coerced.
+    // for a conversion builder the operand flags ARE conversion flags: dropping them would leave the operation's
+    // context blind to how its operands were coerced.
     {
         var builder = new LetCoercionSemanticContextFlagsBuilder();
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Widening, InputIndex.BinaryLeftOperand);

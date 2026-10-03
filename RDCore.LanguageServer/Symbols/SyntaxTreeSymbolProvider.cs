@@ -14,7 +14,7 @@ namespace RDCore.LanguageServer.Symbols;
 /// Produces the member symbols a module declares, resolved from its parsed declaration AST. The tree
 /// carries every conditional-compilation branch, so a name declared in more than one branch
 /// (<c>#If VBA7 Then … #Else … #End If</c>) is collapsed into a single symbol whose
-/// <see cref="BoundSymbol.Definitions"/> lists each branch's declaration site; a later pass marks
+/// <see cref="WorkspaceSymbol.Definitions"/> lists each branch's declaration site; a later pass marks
 /// the sites live or dead from the resolved <c>#Const</c> values.
 /// </summary>
 /// <remarks>
@@ -63,7 +63,7 @@ internal sealed class SyntaxTreeSymbolProvider(
                 continue;
             }
 
-            var bound = sites.OfType<BoundSymbol>().OrderBy(symbol => symbol.Range).ToList();
+            var bound = sites.OfType<WorkspaceSymbol>().OrderBy(symbol => symbol.Range).ToList();
             if (bound.Count != sites.Count)
             {
                 // unbound duplicates aren't expected from the ast — pass them through untouched.

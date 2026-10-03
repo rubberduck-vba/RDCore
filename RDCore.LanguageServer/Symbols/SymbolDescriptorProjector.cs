@@ -81,7 +81,7 @@ internal static class SymbolDescriptorProjector
     // carried only for a multi-branch symbol; the common single-declaration descriptor stays lean and
     // consumers read Range/SelectionRange.
     private static ImmutableArray<DefinitionDescriptor> DefinitionsOf(Symbol symbol)
-        => symbol is BoundSymbol { Definitions.IsDefaultOrEmpty: false } bound
+        => symbol is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false } bound
             ? [.. bound.Definitions.Select(definition => new DefinitionDescriptor
             {
                 Range = definition.Range,
@@ -233,8 +233,8 @@ internal static class SymbolDescriptorProjector
                 Name = constant.Name,
                 DeclaredTypeName = type is VBUnknownType or VBVoidType ? null : type.Name,
                 Value = value,
-                Range = (constant as BoundSymbol)?.Range ?? default,
-                SelectionRange = (constant as BoundSymbol)?.SelectionRange ?? default,
+                Range = (constant as WorkspaceSymbol)?.Range ?? default,
+                SelectionRange = (constant as WorkspaceSymbol)?.SelectionRange ?? default,
             });
         }
         return builder.ToImmutable();

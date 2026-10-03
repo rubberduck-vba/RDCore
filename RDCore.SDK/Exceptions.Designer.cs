@@ -801,7 +801,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A bound symbol was required to throw a let-coercion type mismatch, but the operand unexpectedly links an unbound &apos;{$SYMBOLTYPE}&apos; symbol..
         /// </summary>
-        public static string VBRuntimeInternalError_BoundSymbolExpected_Verbose {
+        public static string VBRuntimeInternalError_WorkspaceSymbolExpected_Verbose {
             get {
                 return ResourceManager.GetString("VBRuntimeInternalError_BoundSymbolExpected_Verbose", resourceCulture);
             }

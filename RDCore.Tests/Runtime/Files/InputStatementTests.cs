@@ -2,12 +2,10 @@ using RDCore.Runtime.Execution;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.IO.Abstractions.TestingHelpers;
 
@@ -49,7 +47,7 @@ public sealed class InputStatementTests
 
         return (outcome, symbols.ToDictionary(
             symbol => symbol.Name,
-            symbol => session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
+            symbol => (object?)session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
     }
 
     private static (RuntimeExecutionOutcome Outcome, object? Value) RunOne(

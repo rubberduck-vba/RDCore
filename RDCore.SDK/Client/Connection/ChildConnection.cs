@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.General;
-using OmniSharp.Extensions.LanguageServer.Shared;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using System.IO.Pipelines;
@@ -293,7 +292,10 @@ public sealed class ChildConnection(
         await serverProcess.StartAsync(_request!.ServerExecutablePath, _request.PipeName, _connectionCts, _request.HostMode);
 
         Transition(ConnectionState.Connecting);
-        _pipe?.Dispose();
+        if (_pipe is not null)
+        {
+            await _pipe.DisposeAsync();
+        }
         _pipe = transportLayer.ConfigureClient(_request.PipeName);
         var timeoutMs = (int)TimeSpan.FromSeconds(_request.ConnectTimeoutSeconds > 0 ? _request.ConnectTimeoutSeconds : 30).TotalMilliseconds;
         var connect = _pipe.ConnectAsync(timeoutMs, ct);

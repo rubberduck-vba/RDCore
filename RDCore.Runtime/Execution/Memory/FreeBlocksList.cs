@@ -1,4 +1,5 @@
 using RDCore.SDK.Runtime.Shared;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Runtime.Execution.Memory;
 
@@ -100,7 +101,7 @@ internal sealed class FreeBlocksList
     /// <param name="block">The block handed out, exactly <paramref name="size"/> bytes long.</param>
     /// <param name="segment">The segment it belongs to.</param>
     /// <returns><c>false</c> if no free block is big enough.</returns>
-    public bool TryTakeSmallestFit(int size, out SessionMemoryBlock block, out SessionMemorySegment? segment)
+    public bool TryTakeSmallestFit(int size, [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemoryBlock block, [MaybeNullWhen(false)][NotNullWhen(true)] out SessionMemorySegment? segment)
     {
         var best = -1;
         for (var i = 0; i < _blocks.Count; i++)

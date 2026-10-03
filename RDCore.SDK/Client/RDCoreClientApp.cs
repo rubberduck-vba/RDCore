@@ -13,7 +13,6 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Server.Handlers;
 using RDCore.SDK.Server.Handlers.Lifecycle;
 using RDCore.SDK.Server.Handlers.Platform;
 using System.Reflection;
@@ -25,7 +24,7 @@ namespace RDCore.SDK.Client;
 public interface IRDCoreClientApp : IRDCoreApp
 {
     Task<TResult> SendRequestAsync<TParams, TResult>(TParams request, CancellationToken token) where TParams : IRequest<TResult>;
-    Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams: IRequest;
+    Task SendNotificationAsync<TParams>(TParams notification, CancellationToken token) where TParams : IRequest;
     /// <summary>
     /// Completes once the connection to the child server is <see cref="ConnectionStateValue.Ready"/>;
     /// faults if the connection reaches a terminal state first.
@@ -114,7 +113,9 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     public Task WaitForTerminalAsync() => Connection.WaitForTerminalAsync();
 
+#pragma warning disable VSTHRD110 // Observe result of async calls
     public Task ShutdownAsync() => _connection?.ShutdownAsync() ?? Task.CompletedTask;
+#pragma warning restore VSTHRD110 // Observe result of async calls
 
     public PlatformInitializeResult? PlatformInfo => _connection?.PlatformInfo;
 

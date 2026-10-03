@@ -15,7 +15,7 @@ namespace RDCore.SDK.Model.Symbols.Abstract;
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
 public abstract record class BoundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange, VBType ResolvedType)
-    : BoundSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange), ITypedSymbol { }
+    : WorkspaceSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, Range, SelectionRange), ITypedSymbol { }
 
 /// <summary>
 /// An <c>UnboundSymbol</c> (<strong>not</strong> bound to a workspace document <c>Location</c>) that can be resolved to a <c>VBType</c>.

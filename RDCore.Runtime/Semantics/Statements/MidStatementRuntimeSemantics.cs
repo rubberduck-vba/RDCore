@@ -1,14 +1,14 @@
-using System.Text;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -93,7 +93,7 @@ public sealed record class MidStatementRuntimeSemantics(
     // "The data value of <string-argument> MUST be Let-coercible to String", and so must the value assigned into it.
     private bool TryEvaluateString(
         IRuntimeSession session, RuntimeEvaluationContext context, MidStatementNode mid, ExpressionNode expression,
-        out string? text, out RuntimeExecutionOutcome failure)
+        [MaybeNullWhen(false)][NotNullWhen(true)] out string? text, [MaybeNullWhen(false)][NotNullWhen(true)] out RuntimeExecutionOutcome failure)
     {
         text = null;
         var evaluated = Expressions.Evaluate(session, expression, context);

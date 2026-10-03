@@ -2,7 +2,6 @@ using RDCore.Runtime.Execution;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -46,7 +45,7 @@ public sealed class PutAndGetStatementTests
 
         return (fileSystem, outcome, symbols.ToDictionary(
             symbol => symbol.Name,
-            symbol => session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
+            symbol => (object?)session.Symbols.Resolver.GetValue(symbol).Value.BoxedValue));
     }
 
     [TestMethod]
