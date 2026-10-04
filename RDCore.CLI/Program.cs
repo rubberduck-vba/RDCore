@@ -117,7 +117,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
-            .AddSingleton<ShowSplashCommand>()
+            .AddSingleton<ShowSplashReplCommand>()
             .AddSingleton<ShowMemoryReplCommand>()
             // the interactive shell and everything it acts on:
             .AddSingleton<ReplProgram>()
@@ -125,7 +125,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplConsole, ReplConsole>()
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
-            .AddSingleton<IReplCommand, ShowSplashCommand>()
+            .AddSingleton<IReplCommand, ShowSplashReplCommand>()
             .AddSingleton<IReplCommand, ListReplCommand>()
             .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, AnalyzeReplCommand>()

@@ -2,14 +2,14 @@ using RDCore.SDK.ConsoleIO;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
-internal record class ShowSplashCommand : IReplCommand
+internal record class ShowSplashReplCommand : IReplCommand
 {
     /// <summary>How far in the background art sits, so the title art overlays it where it is meant to.</summary>
     private const int SplashIndent = 15;
 
     private readonly IConsoleMessageWriter _writer;
 
-    public ShowSplashCommand(IConsoleMessageWriter writer)
+    public ShowSplashReplCommand(IConsoleMessageWriter writer)
     {
         _writer = writer;
     }
@@ -28,10 +28,11 @@ internal record class ShowSplashCommand : IReplCommand
         // splits the same way, so the two now agree about where a line ends.
         var logo = string.Join('\n', Resources.RDCoreSplash_Background
             .Split('\n')
+            .SkipLast(1)
             .Select(line => $"{new string(' ', SplashIndent)}{line.TrimEnd('\r')}"));
 
-        context.Console.WriteLine(logo);
-        context.Console.WriteLine(Resources.RDCoreSplash_Foreground);
+        context.Console.WriteLine([new ReplTextRun(logo, ReplTextStyle.Keyword)]);
+        context.Console.WriteLine([new ReplTextRun(Resources.RDCoreSplash_Foreground, ReplTextStyle.Number)]);
         _writer.WriteSlogan();
         _writer.WriteLegalNotice();
 

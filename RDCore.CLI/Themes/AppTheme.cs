@@ -65,23 +65,15 @@ public sealed class AppTheme(ThemeDocument document)
     /// <summary>The shell foreground, in 24-bit colour — what the console shell frame is painted with.</summary>
     public ConsoleRgbColor ShellForeground => ToForegroundRgb(Resolve(document.Shell.Foreground));
 
-    /// <summary>The resolved style token for the splash logo art.</summary>
-    public string SplashLogo => Resolve(document.Splash.Logo);
-
-    /// <summary>The resolved style token for the splash title.</summary>
-    public string SplashTitle => Resolve(document.Splash.Title);
-
-    /// <summary>The splash logo colour, in 24-bit colour (the art is printed raw, unwrapped).</summary>
-    public ConsoleRgbColor SplashLogoColor => ToForegroundRgb(SplashLogo);
-
-    /// <summary>The splash title colour, in 24-bit colour.</summary>
-    public ConsoleRgbColor SplashTitleColor => ToForegroundRgb(SplashTitle);
-
     /// <summary>The resolved syntax-highlight tokens for program-mode listings.</summary>
     public ThemeSyntaxStyles Syntax => new(
-        Resolve(document.Syntax.Keyword), Resolve(document.Syntax.Comment), Resolve(document.Syntax.String),
-        Resolve(document.Syntax.Number), Resolve(document.Syntax.Identifier),
-        Resolve(document.Syntax.IdentifierClass), Resolve(document.Syntax.IdentifierConst));
+        Resolve(document.Syntax.Keyword),
+        Resolve(document.Syntax.Comment),
+        Resolve(document.Syntax.String),
+        Resolve(document.Syntax.Number),
+        Resolve(document.Syntax.Identifier),
+        Resolve(document.Syntax.IdentifierClass),
+        Resolve(document.Syntax.IdentifierConst));
 
     private static string Key(MessageKind kind) => kind.ToString().ToLowerInvariant();
 
