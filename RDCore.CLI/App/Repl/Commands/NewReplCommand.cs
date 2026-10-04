@@ -5,7 +5,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </summary>
 internal sealed class NewReplCommand : IReplCommand
 {
-    public string Name => "NEW";
+    public string Name => ReplCommandNames.New;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_New_Summary;
 

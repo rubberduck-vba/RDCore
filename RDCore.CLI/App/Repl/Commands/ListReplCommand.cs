@@ -11,7 +11,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </remarks>
 internal sealed class ListReplCommand : IReplCommand
 {
-    public string Name => "LIST";
+    public string Name => ReplCommandNames.List;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_List_Summary;
 

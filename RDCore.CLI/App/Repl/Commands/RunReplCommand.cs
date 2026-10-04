@@ -14,7 +14,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </remarks>
 internal sealed class RunReplCommand : IReplCommand
 {
-    public string Name => "RUN";
+    public string Name => ReplCommandNames.Run;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Run_Summary;
 

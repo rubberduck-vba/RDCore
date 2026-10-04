@@ -6,8 +6,8 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </summary>
 internal sealed class ExitReplCommand : IReplCommand
 {
-    public string Name => "EXIT";
-    public IReadOnlyList<string> Aliases => ["QUIT", "BYE"];
+    public string Name => ReplCommandNames.Exit;
+    public IReadOnlyList<string> Aliases => [ReplCommandNames.Quit, ReplCommandNames.Bye];
     public string Summary => Resources.Repl_Exit_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

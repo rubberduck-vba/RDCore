@@ -16,7 +16,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </remarks>
 internal sealed class AnalyzeReplCommand : IReplCommand
 {
-    public string Name => "ANALYZE";
+    public string Name => ReplCommandNames.Analyze;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Analyze_Summary;
 

@@ -5,7 +5,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </summary>
 internal sealed class HelpReplCommand : IReplCommand
 {
-    public string Name => "HELP";
+    public string Name => ReplCommandNames.Help;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Help_Summary;
 

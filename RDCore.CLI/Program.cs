@@ -1,4 +1,3 @@
-using CommandLine;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,19 +8,17 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
+using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.CLI.App.Console;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.SDK;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Client.Connection;
-using RDCore.SDK.Model;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Platform;
-using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -75,6 +72,7 @@ public class Program
             ReplWorkspace? scratchWorkspace = null;
             if (args.Length == 0)
             {
+                Console.WriteLine("Initializing...");
                 var fileSystem = new FileSystem();
                 scratchWorkspace = await ReplWorkspace.CreateAsync(fileSystem, new ProjectFileWriter(fileSystem));
                 args = ["--workspace", scratchWorkspace.Root];
@@ -101,7 +99,7 @@ public class Program
 /// </param>
 internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) : RDCoreLanguageClientHost<RDCoreConsoleClientApp>()
 {
-    protected override IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs) 
+    protected override IEnumerable<(string, string?)> ConfigureOverrides(string[] initialArgs, SdkAppCommandLineArgs baseArgs)
         => [
             ("CLI:UnsafeDevMode", baseArgs.UnsafeDevMode?.ToString() ?? false.ToString()),
             // an interactive shell is written in the platform's BASIC, and the language is what decides the rest: a variable that a line
@@ -120,12 +118,14 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
             .AddSingleton<ShowSplashCommand>()
+            .AddSingleton<ShowMemoryCommand>()
             // the interactive shell and everything it acts on:
             .AddSingleton<ReplProgram>()
             .AddSingleton<ReplDocument>()
             .AddSingleton<IReplConsole, ReplConsole>()
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
+            .AddSingleton<IReplCommand, ShowSplashCommand>()
             .AddSingleton<IReplCommand, ListReplCommand>()
             .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, AnalyzeReplCommand>()
@@ -135,6 +135,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, LoadReplCommand>()
             .AddSingleton<IReplCommand, SaveReplCommand>()
             .AddSingleton<IReplCommand, ExitReplCommand>()
+            .AddSingleton<IReplCommand, ShowMemoryCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
             // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
@@ -167,16 +168,15 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
 
     protected override async Task BeforeAppStartAsync(IServiceProvider provider)
     {
-        var themes = provider.GetRequiredService<IAppThemeService>();
-        await themes.InitializeAsync(CancellationToken.None);
-
         // the C64-style deep-blue shell frame, in the theme's own 24-bit colours. Restored on the way
         // out — including on Ctrl+C, which never reaches the host's own teardown.
         var frame = provider.GetRequiredService<IConsoleShellFrame>();
-        frame.Apply(themes.Theme.ShellBackground, themes.Theme.ShellForeground);
         AppDomain.CurrentDomain.ProcessExit += (_, _) => frame.Restore();
 
-        provider.GetRequiredService<ShowSplashCommand>().Execute(new() { Show = true });
+        var themes = provider.GetRequiredService<IAppThemeService>();
+        await themes.InitializeAsync(CancellationToken.None);
+
+        frame.Apply(themes.Theme.ShellBackground, themes.Theme.ShellForeground);
     }
 
     /// <summary>

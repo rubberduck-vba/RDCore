@@ -1,5 +1,4 @@
 using RDCore.SDK.ConsoleIO.Model;
-using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -13,13 +12,13 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </remarks>
 internal sealed class LoadReplCommand(IFileSystem fileSystem) : IReplCommand
 {
-    public string Name => "LOAD";
+    public string Name => ReplCommandNames.Load;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Load_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
-        var path = ReplFilePath.Resolve(fileSystem, arguments);
+        var path = ReplFilePathService.Resolve(fileSystem, arguments);
         if (path is null)
         {
             context.Console.WriteMessage(MessageKind.Error, Resources.Repl_BadFileName);

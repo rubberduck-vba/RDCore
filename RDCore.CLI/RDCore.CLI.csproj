@@ -53,7 +53,9 @@
 
   <ItemGroup>
     <!-- the built-in default theme is compiled in; disk themes are discovered from ThemesDiscoveryPath. -->
-    <EmbeddedResource Include="Themes\rdc-default.theme" />
+    <EmbeddedResource Include="Themes\rdc-default.theme">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

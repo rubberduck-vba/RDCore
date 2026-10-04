@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
-using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -49,7 +48,9 @@ internal sealed class ReplShell(
         using var breakHandler = new ConsoleBreakHandler(OnBreak);
         var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands);
 
-        await WriteSessionBannerAsync(token);
+        await dispatcher.DispatchAsync(context, "SPLASH", string.Empty, CancellationToken.None);
+        await dispatcher.DispatchAsync(context, "MEMORY", string.Empty, CancellationToken.None);
+        WriteReady();
 
         while (!token.IsCancellationRequested)
         {
@@ -171,34 +172,7 @@ internal sealed class ReplShell(
         }
     }
 
-    /// <summary>
-    /// Prints the session's memory line and the ready banner — in that order, and only once the
-    /// runtime session actually exists, so that <c>READY.</c> means the platform really is.
-    /// </summary>
-    private async Task WriteSessionBannerAsync(CancellationToken token)
-    {
-        SessionStatusResult status;
-        try
-        {
-            status = await platform.GetSessionStatusAsync(SessionWaitMilliseconds, token);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "The runtime session status could not be read.");
-            status = new SessionStatusResult();
-        }
-
-        console.WriteLine();
-        console.WriteLine(Resources.Repl_HelpHint);
-        console.WriteLine(status.IsComposed
-            ? string.Format(Resources.Repl_Memory,
-                status.Memory.ReservedBytes, status.Memory.AvailableBytes,
-                status.Memory.AllocatedBytes, status.Memory.FreeBytes)
-            : Resources.Repl_NoSession);
-        WriteReady();
-    }
-
-    private void WriteReady() => console.WriteLine(Resources.Repl_Ready);
+    private void WriteReady() => console.WriteLine($"✅ {Resources.Repl_Ready}");
 
     // a break at the prompt is just a break; a break during a command cancels it.
     private void OnBreak()

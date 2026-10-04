@@ -6,7 +6,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// <summary>
 /// The file a <c>LOAD</c> or a <c>SAVE</c> was told to act on.
 /// </summary>
-internal static class ReplFilePath
+internal static class ReplFilePathService
 {
     /// <summary>
     /// The absolute path of the file that was typed, which may be quoted and may leave out the extension of a program (<see cref="BasicProgramText.Extension"/>).

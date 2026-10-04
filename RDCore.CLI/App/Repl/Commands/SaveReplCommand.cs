@@ -13,7 +13,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </remarks>
 internal sealed class SaveReplCommand(IFileSystem fileSystem) : IReplCommand
 {
-    public string Name => "SAVE";
+    public string Name => ReplCommandNames.Save;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Save_Summary;
 
@@ -21,7 +21,7 @@ internal sealed class SaveReplCommand(IFileSystem fileSystem) : IReplCommand
     {
         var path = arguments.Length == 0 && context.Document is { IsScratch: false, Uri: { IsFile: true } open }
             ? open.LocalPath
-            : ReplFilePath.Resolve(fileSystem, arguments);
+            : ReplFilePathService.Resolve(fileSystem, arguments);
         if (path is null)
         {
             context.Console.WriteMessage(MessageKind.Error, Resources.Repl_BadFileName);

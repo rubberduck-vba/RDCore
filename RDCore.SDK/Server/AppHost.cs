@@ -14,7 +14,6 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
-using System.Diagnostics;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Text;
@@ -103,7 +102,7 @@ public abstract class AppHost<TApp>() : IDisposable
         await BeforeAppStartAsync(_host.Services);
 
         try
-        {            
+        {
             _hostTask = _host.StartAsync(ProcessTokenSource.Token);
             LogIfEnabled(LogLevel.Information, "Host started; starting application...");
 
@@ -345,7 +344,7 @@ public abstract class AppHost<TApp>() : IDisposable
     }
 
     public void Dispose()
-    {        
+    {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }

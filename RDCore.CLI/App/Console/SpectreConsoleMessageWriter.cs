@@ -1,8 +1,8 @@
-using System.Reflection;
 using RDCore.CLI.Themes;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 using Spectre.Console;
+using System.Reflection;
 
 namespace RDCore.CLI.App.Console;
 
@@ -19,7 +19,8 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         MessageKind.Warning => "▲",
         MessageKind.Error => "✖",
         MessageKind.Success => "✔",
-        _ => "·",
+        MessageKind.Trace => "·",
+        _ => string.Empty,
     };
 
     public IConsoleMessageWriter Clear()
@@ -111,7 +112,7 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
         var name = Assembly.GetExecutingAssembly().GetName();
         var company = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
         return WriteMessage(new ConsoleMessageBuilder()
-            .WithKind(MessageKind.Trace)
+            .WithKind((MessageKind)(-1))
             .WithMessageBody($"{name.Name} [v{name.Version?.ToString(3) ?? "0.1a"}]")
             .WithPlaceholder("COMPANY", company));
     }
@@ -120,15 +121,15 @@ public sealed class SpectreConsoleMessageWriter(IAnsiConsole console, IAppThemeS
     {
         var company = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
         return WriteMessage(new ConsoleMessageBuilder()
-            .WithKind(MessageKind.Trace)
+            .WithKind((MessageKind)(-1))
             .WithMessageBody(Resources.CopyrightNotice.Replace("{$YEAR}", DateTimeOffset.UtcNow.Year.ToString()))
             .WithPlaceholder("COMPANY", company)
             .WithLineBreak());
     }
 
     public IConsoleMessageWriter WriteSlogan() => WriteMessage(new ConsoleMessageBuilder()
-        .WithKind(MessageKind.Information)
-        .WithMessageBody(Resources.RDCore_Slogan)
+        .WithKind((MessageKind)(-1))
+        .WithMessageBody($"{new string(' ', 36)}{Resources.RDCore_Slogan} ™")
         .WithPlaceholder("VIVAT", "V I V A T")
         .WithPlaceholder("CUCUMIS", "C U C U M I S")
         .WithLineBreak());

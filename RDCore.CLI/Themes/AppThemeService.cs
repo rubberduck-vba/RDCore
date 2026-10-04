@@ -1,7 +1,7 @@
+using Microsoft.Extensions.Options;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
 
 namespace RDCore.CLI.Themes;
 
@@ -110,7 +110,6 @@ public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoade
         {
             Add(document);
         }
-
         _selection = _themes.ContainsKey(options.Value.Theme) ? options.Value.Theme : "rdc-default";
     }
 
