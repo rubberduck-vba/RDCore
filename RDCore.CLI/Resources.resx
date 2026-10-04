@@ -269,10 +269,10 @@ Long Live the Cucumber (Latin)</comment>
     <value>Clears the program.</value>
   </data>
   <data name="Repl_Load_Summary" xml:space="preserve">
-    <value>Loads a program from a .rdc file (LOAD name).</value>
+    <value>Loads a program from a .rdc file: LOAD &lt;name&gt;</value>
   </data>
   <data name="Repl_Save_Summary" xml:space="preserve">
-    <value>Saves the program to a .rdc file (SAVE name); to the file it came from when there is no name.</value>
+    <value>Saves the program to a .rdc file; to the file it came from when there is no name: SAVE [&lt;name&gt;]</value>
   </data>
   <data name="Repl_BadFileName" xml:space="preserve">
     <value>BAD FILE NAME ERROR</value>
@@ -335,7 +335,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>Displays a summary of session memory usage.</value>
   </data>
   <data name="Repl_Theme_Summary" xml:space="preserve">
-    <value>Sets the shell theme (colors).</value>
+    <value>Sets the shell theme (colors), or lists available ones; THEME LIST|&lt;name&gt;</value>
   </data>
   <data name="Repl_Theme_ErrThemeNotFound" xml:space="preserve">
     <value>THEME NOT FOUND</value>

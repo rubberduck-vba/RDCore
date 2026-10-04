@@ -423,7 +423,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Loads a program from a .rdc file (LOAD name)..
+        ///   Looks up a localized string similar to Loads a program from a .rdc file: LOAD &lt;name&gt;.
         /// </summary>
         public static string Repl_Load_Summary {
             get {
@@ -594,7 +594,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Saves the program to a .rdc file (SAVE name); to the file it came from when there is no name..
+        ///   Looks up a localized string similar to Saves the program to a .rdc file; to the file it came from when there is no name: SAVE [&lt;name&gt;].
         /// </summary>
         public static string Repl_Save_Summary {
             get {
@@ -621,7 +621,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sets the shell theme (colors)..
+        ///   Looks up a localized string similar to Sets the shell theme (colors), or lists available ones; THEME LIST|&lt;name&gt;.
         /// </summary>
         public static string Repl_Theme_Summary {
             get {

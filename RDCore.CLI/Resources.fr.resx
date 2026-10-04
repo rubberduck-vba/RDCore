@@ -267,10 +267,10 @@
     <value>Efface le programme.</value>
   </data>
   <data name="Repl_Load_Summary" xml:space="preserve">
-    <value>Charge un programme depuis un fichier .rdc (LOAD nom).</value>
+    <value>Charge un programme depuis un fichier .rdc: LOAD &lt;nom&gt;</value>
   </data>
   <data name="Repl_Save_Summary" xml:space="preserve">
-    <value>Enregistre le programme dans un fichier .rdc (SAVE nom); dans le fichier d'origine sans nom.</value>
+    <value>Enregistre le programme dans un fichier .rdc; dans le fichier d'origine sans nom: SAVE [&lt;nom&gt;]</value>
   </data>
   <data name="Repl_BadFileName" xml:space="preserve">
     <value>BAD FILE NAME ERROR</value>
@@ -333,7 +333,7 @@
     <value>Affiche un sommaire de l'utilisation de la mémoire de la session.</value>
   </data>
   <data name="Repl_Theme_Summary" xml:space="preserve">
-    <value>Modifie le thème (couleurs) de la console.</value>
+    <value>Modifie le thème (couleurs) de la console, ou affiche les thèmes disponibles: THEME LIST|&lt;nom&gt;</value>
   </data>
   <data name="Repl_Theme_ErrThemeNotFound" xml:space="preserve">
     <value>THEME INTROUVABLE</value>
