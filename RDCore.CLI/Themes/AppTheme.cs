@@ -127,7 +127,7 @@ public sealed class AppTheme(ThemeDocument document)
     {
         try
         {
-            var color = Style.Parse(token).Background;
+            var color = Style.Parse(token).Foreground;
             return new ConsoleRgbColor(color.R, color.G, color.B);
         }
         catch (Exception)

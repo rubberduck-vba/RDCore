@@ -2,12 +2,12 @@ using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
-internal record class ShowMemoryCommand : IReplCommand
+internal record class ShowMemoryReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.Memory;
     public IReadOnlyList<string> Aliases => [];
 
-    public string Summary => "Display session memory usage information.";
+    public string Summary => Resources.Repl_Memory_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {

@@ -5,6 +5,8 @@ internal static class ReplCommandNames
     public const string Analyze = "ANALYZE";
 
     public const string Bye = "BYE"; // alias for EXIT
+    public const string Clear = "CLEAR";
+    public const string Cls = "CLS"; // alias for CLEAR
     public const string Exit = "EXIT";
     public const string Help = "HELP";
     public const string List = "LIST";
@@ -17,4 +19,5 @@ internal static class ReplCommandNames
     public const string Run = "RUN";
     public const string Save = "SAVE";
     public const string Splash = "SPLASH";
+    public const string Theme = "THEME";
 }

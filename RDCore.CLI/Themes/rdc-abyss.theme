@@ -1,0 +1,105 @@
+{
+  "name": "rdc-abyss",
+  "author": "9562-7303 Québec inc.",
+  "version": "0.1",
+
+  "palette": {
+    "shell-bg": "#000C18",
+    "shell-fg": "#0c0a50",
+    "shell-highlight": "#0071EB",
+    "shell-highlight-fg": "#ffffff",
+
+    "error": "#e95653",
+    "error-bright": "#ff0301",
+    "error-dim": "#b51a17",
+    "error-light": "#e59a99",
+
+    "success": "#67d864",
+    "success-bright": "#00fd17",
+    "success-dim": "#2ca329",
+    "success-light": "#9be599",
+
+    "information": "#64aed8",
+    "information-bright": "#00fefd",
+    "information-dim": "#2977a4",
+    "information-light": "#99c9e5",
+
+    "warning": "#d8b064",
+    "warning-bright": "#fdbf00",
+    "warning-dim": "#a37e29",
+    "warning-light": "#e5cf99",
+
+    "trace": "#9898a4",
+    "trace-bright": "#ffffff",
+    "trace-dim": "#62626f",
+    "trace-light": "#b9b9c3"
+  },
+
+  "shell": {
+    "background": "shell-bg",
+    "foreground": "shell-fg"
+  },
+
+  "messages": {
+    "error": {
+      "icon": "⛔",
+      "title": "error-bright",
+      "body": "error",
+      "verbose": "error-dim",
+      "timestamp": "error-dim",
+      "metric": "error-bright",
+      "stack-trace": "error-dim"
+    },
+    "warning": {
+      "icon": "⚠️",
+      "title": "warning-bright",
+      "body": "warning",
+      "verbose": "warning-dim",
+      "timestamp": "warning-dim",
+      "metric": "warning-bright",
+      "stack-trace": "warning-dim"
+    },
+    "success": {
+      "icon": "✅",
+      "title": "success-bright",
+      "body": "success",
+      "verbose": "success-dim",
+      "timestamp": "success-dim",
+      "metric": "success-bright",
+      "stack-trace": "success-dim"
+    },
+    "information": {
+      "icon": "ℹ",
+      "title": "information-bright",
+      "body": "information",
+      "verbose": "information-dim",
+      "timestamp": "information-dim",
+      "metric": "information-bright",
+      "stack-trace": "information-dim"
+    },
+    "trace": {
+      "icon": "·",
+      "title": "trace-bright",
+      "body": "trace",
+      "verbose": "trace-dim",
+      "timestamp": "trace-dim",
+      "metric": "trace-bright",
+      "stack-trace": "trace-dim"
+    }
+  },
+
+  "syntax": {
+    "keyword": "#3e61ff",
+    "comment": "#2ca329",
+    "string": "#e59a99",
+    "number": "#0000ff",
+    "identifier": "#99c9e5",
+    "identifier-class": "#2977a4",
+    "identifier-const": "#a37e29"
+  },
+
+  "splash": {
+    "logo": "shell-highlight",
+    "title": "shell-highlight-fg"
+  }
+}

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using RDCore.SDK.ConsoleIO;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Text.Json;
@@ -24,9 +25,9 @@ public sealed class AppThemeLoaderService(IFileSystem fileSystem) : IAppThemeLoa
     public ThemeDocument LoadBuiltInDefault()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith("rdc-default.theme", StringComparison.Ordinal));
+        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith("rdc-dark.theme", StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource)!;
-        return JsonSerializer.Deserialize<ThemeDocument>(stream, _json) ?? new ThemeDocument { Name = "rdc-default" };
+        return JsonSerializer.Deserialize<ThemeDocument>(stream, _json) ?? new ThemeDocument { Name = "rdc-dark" };
     }
 
     /// <inheritdoc/>
@@ -74,7 +75,7 @@ public interface IAppThemeService
 }
 
 /// <inheritdoc/>
-public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderService loader) : IAppThemeService
+public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderService loader, IConsoleShellFrame frame) : IAppThemeService
 {
     private readonly Dictionary<string, AppTheme> _themes = new(StringComparer.OrdinalIgnoreCase);
     private string _selection = "rdc-default";
@@ -94,6 +95,7 @@ public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoade
             return false;
         }
         _selection = name;
+        frame.Apply(Theme.ShellBackground, Theme.ShellForeground);
         return true;
     }
 

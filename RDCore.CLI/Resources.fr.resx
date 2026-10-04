@@ -229,7 +229,8 @@
   </data>
   <data name="NewWorkspace_InvalidPath" xml:space="preserve">
     <value>Le chemin correspond à un fichier existant, pas à un dossier.</value>
-  </data>  <data name="Repl_Ready" xml:space="preserve">
+  </data>
+  <data name="Repl_Ready" xml:space="preserve">
     <value>PRÊT.</value>
   </data>
   <data name="Repl_Memory" xml:space="preserve">
@@ -297,7 +298,8 @@
   </data>
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Écrit un octet à une adresse mémoire de la session.</value>
-  </data>  <data name="Repl_RuntimeError" xml:space="preserve">
+  </data>
+  <data name="Repl_RuntimeError" xml:space="preserve">
     <value>{0}</value>
   </data>
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
@@ -314,15 +316,29 @@
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
     <value>ERREUR: PROCÉDURE NON DÉFINIE</value>
-  </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
+  </data>
+  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>RIEN À SIGNALER ({0} FOURNISSEUR(S))</value>
   </data>
   <data name="Repl_Analyze_Count" xml:space="preserve">
     <value>{0} DIAGNOSTIC(S)</value>
-  </data>  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
+  </data>
+  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
     <value>ERREUR: ADRESSE ILLÉGALE</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
     <value>ERREUR: QUANTITÉ ILLÉGALE</value>
+  </data>
+  <data name="Repl_Memory_Summary" xml:space="preserve">
+    <value>Affiche un sommaire de l'utilisation de la mémoire de la session.</value>
+  </data>
+  <data name="Repl_Theme_Summary" xml:space="preserve">
+    <value>Modifie le thème (couleurs) de la console.</value>
+  </data>
+  <data name="Repl_Theme_ErrThemeNotFound" xml:space="preserve">
+    <value>THEME INTROUVABLE</value>
+  </data>
+  <data name="Repl_Clear_Summary" xml:space="preserve">
+    <value>Efface le contenu de la console.</value>
   </data>
 </root>

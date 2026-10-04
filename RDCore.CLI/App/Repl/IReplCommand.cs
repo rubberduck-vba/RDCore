@@ -27,6 +27,11 @@ public enum ReplCommandResult
 /// </remarks>
 public interface IReplConsole
 {
+    /// <summary>
+    /// Clears the console.
+    /// </summary>
+    void Clear();
+
     /// <summary>Writes one plain line in the shell's own colours.</summary>
     /// <param name="text">The line; empty writes a blank line.</param>
     void WriteLine(string text = "");

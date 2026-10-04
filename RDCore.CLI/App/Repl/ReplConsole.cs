@@ -22,6 +22,8 @@ namespace RDCore.CLI.App.Repl;
 internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole console, IAppThemeService themes) : IReplConsole
 {
     /// <inheritdoc/>
+    public void Clear() => System.Console.Clear();
+    /// <inheritdoc/>
     public void WriteLine(string text = "") => System.Console.Out.WriteLine(text);
 
     /// <inheritdoc/>

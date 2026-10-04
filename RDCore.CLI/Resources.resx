@@ -231,7 +231,8 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="NewWorkspace_InvalidPath" xml:space="preserve">
     <value>The path points to an existing file, not a directory.</value>
-  </data>  <data name="Repl_Ready" xml:space="preserve">
+  </data>
+  <data name="Repl_Ready" xml:space="preserve">
     <value>READY.</value>
   </data>
   <data name="Repl_Memory" xml:space="preserve">
@@ -299,7 +300,8 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_Poke_Summary" xml:space="preserve">
     <value>Writes a byte at a session memory address.</value>
-  </data>  <data name="Repl_RuntimeError" xml:space="preserve">
+  </data>
+  <data name="Repl_RuntimeError" xml:space="preserve">
     <value>{0}</value>
   </data>
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
@@ -316,15 +318,29 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_NotFound" xml:space="preserve">
     <value>UNDEFINED PROCEDURE ERROR</value>
-  </data>  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
+  </data>
+  <data name="Repl_Analyze_NoFindings" xml:space="preserve">
     <value>NOTHING TO REPORT ({0} PROVIDER(S))</value>
   </data>
   <data name="Repl_Analyze_Count" xml:space="preserve">
     <value>{0} DIAGNOSTIC(S)</value>
-  </data>  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
+  </data>
+  <data name="Repl_Memory_NotAllocated" xml:space="preserve">
     <value>ILLEGAL ADDRESS ERROR</value>
   </data>
   <data name="Repl_Memory_BadArguments" xml:space="preserve">
     <value>ILLEGAL QUANTITY ERROR</value>
+  </data>
+  <data name="Repl_Memory_Summary" xml:space="preserve">
+    <value>Displays a summary of session memory usage.</value>
+  </data>
+  <data name="Repl_Theme_Summary" xml:space="preserve">
+    <value>Sets the shell theme (colors).</value>
+  </data>
+  <data name="Repl_Theme_ErrThemeNotFound" xml:space="preserve">
+    <value>THEME NOT FOUND</value>
+  </data>
+  <data name="Repl_Clear_Summary" xml:space="preserve">
+    <value>Clears the console content.</value>
   </data>
 </root>

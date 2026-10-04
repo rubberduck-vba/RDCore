@@ -53,6 +53,12 @@
 
   <ItemGroup>
     <!-- the built-in default theme is compiled in; disk themes are discovered from ThemesDiscoveryPath. -->
+    <EmbeddedResource Include="Themes\rdc-abyss.theme">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Themes\rdc-dark.theme">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
     <EmbeddedResource Include="Themes\rdc-default.theme">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>

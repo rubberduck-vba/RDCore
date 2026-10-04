@@ -118,7 +118,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
             .AddSingleton<ShowSplashCommand>()
-            .AddSingleton<ShowMemoryCommand>()
+            .AddSingleton<ShowMemoryReplCommand>()
             // the interactive shell and everything it acts on:
             .AddSingleton<ReplProgram>()
             .AddSingleton<ReplDocument>()
@@ -135,7 +135,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, LoadReplCommand>()
             .AddSingleton<IReplCommand, SaveReplCommand>()
             .AddSingleton<IReplCommand, ExitReplCommand>()
-            .AddSingleton<IReplCommand, ShowMemoryCommand>()
+            .AddSingleton<IReplCommand, ShowMemoryReplCommand>()
+            .AddSingleton<IReplCommand, ThemeReplCommand>()
+            .AddSingleton<IReplCommand, ClearReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
             // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
@@ -175,7 +177,6 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
 
         var themes = provider.GetRequiredService<IAppThemeService>();
         await themes.InitializeAsync(CancellationToken.None);
-
         frame.Apply(themes.Theme.ShellBackground, themes.Theme.ShellForeground);
     }
 
@@ -291,6 +292,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
         services
             .Configure<AppOptions>(configuration.GetSection("Configuration:CLI"))
             .AddSingleton<IAppThemeService, AppThemeService>()
+            .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
             .AddSingleton<IConsoleMessageWriter, SpectreConsoleMessageWriter>()

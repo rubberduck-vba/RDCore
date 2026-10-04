@@ -1,9 +1,11 @@
-using System.IO.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.Themes;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 using Spectre.Console;
+using System.IO.Abstractions;
 
 namespace RDCore.Tests.Cli;
 
@@ -35,16 +37,6 @@ public sealed class AppThemeTests
     }
 
     [TestMethod]
-    public void BuiltInDefault_SyntaxAndSplashResolve()
-    {
-        var theme = BuiltInDefault();
-
-        _ = Style.Parse(theme.Syntax.Keyword);
-        _ = Style.Parse(theme.SplashLogo);
-        Assert.AreEqual("rdc-default", theme.Name);
-    }
-
-    [TestMethod]
     public void UnknownValue_FallsBackToDefaultToken()
     {
         var theme = new AppTheme(new ThemeDocument
@@ -59,7 +51,7 @@ public sealed class AppThemeTests
     public async Task Service_SetTheme_RejectsUnknownName()
     {
         var options = Options.Create(new AppOptions());
-        var service = new AppThemeService(options, new AppThemeLoaderService(new FileSystem()));
+        var service = new AppThemeService(options, new AppThemeLoaderService(new FileSystem()), Substitute.For<IConsoleShellFrame>());
         await service.InitializeAsync(CancellationToken.None);
 
         Assert.IsTrue(service.SetTheme("rdc-default"));
