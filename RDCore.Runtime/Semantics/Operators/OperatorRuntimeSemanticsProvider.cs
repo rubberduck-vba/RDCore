@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -29,6 +30,18 @@ public interface IOperatorRuntimeSemanticsProvider
     /// Evaluates a binary operator expression against its already-evaluated operands.
     /// </summary>
     RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, VBBinaryOperatorExpressionNode expression, VBTypedValue left, VBTypedValue right);
+
+    /// <summary>
+    /// Evaluates the binary operator <paramref name="token"/> against its already-evaluated operands, for an operation that is not an operator
+    /// expression of its own in source: the comparison of a <c>Case</c>, the step and the limit of a <c>For</c> loop, an assignment.
+    /// </summary>
+    /// <param name="session">The session the operation is evaluated in.</param>
+    /// <param name="token">The operator: one of the <see cref="Tokens"/> operators, or the let-assignment operator
+    /// (<see cref="OperatorSymbolNames.BinaryAssignmentValueOp"/>).</param>
+    /// <param name="expression">The expression the operation is evaluated for, whose identity and location are the operation's.</param>
+    /// <param name="left">The left operand.</param>
+    /// <param name="right">The right operand.</param>
+    RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, string token, ExpressionNode expression, VBTypedValue left, VBTypedValue right);
 
     /// <summary>
     /// Evaluates a unary operator expression against its already-evaluated operand.
@@ -63,6 +76,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
     private readonly UnaryNegationOperatorRuntimeSemantics _negation;
     private readonly UnaryNotOperatorRuntimeSemantics _not;
     private readonly UnaryLetCoerceOperatorRuntimeSemantics _letCoerce;
+    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment;
 
     public OperatorRuntimeSemanticsProvider(ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IVerboseMessageBuilder formatterService)
     {
@@ -90,12 +104,18 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         _negation = new(letCoercionProvider, formatterService);
         _not = new(letCoercionProvider, formatterService);
         _letCoerce = new(letCoercionProvider, formatterService);
+        _letAssignment = new(letCoercionProvider, formatterService);
     }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, VBBinaryOperatorExpressionNode expression, VBTypedValue left, VBTypedValue right)
-        => expression.Token switch
+        => EvaluateBinaryOperator(session, expression.Token, expression, left, right);
+
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, string token, ExpressionNode expression, VBTypedValue left, VBTypedValue right)
+        => token switch
         {
+            OperatorSymbolNames.BinaryAssignmentValueOp => _letAssignment.Evaluate(session, new(), expression, left, right),
             Tokens.AdditionOp => _addition.Evaluate(session, new(), expression, left, right),
             Tokens.SubtractionOp => _subtraction.Evaluate(session, new(), expression, left, right),
             Tokens.MultiplicationOp => _multiplication.Evaluate(session, new(), expression, left, right),

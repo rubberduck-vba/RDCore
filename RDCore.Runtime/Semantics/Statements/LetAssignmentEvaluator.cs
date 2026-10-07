@@ -22,7 +22,6 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -36,22 +35,16 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// (MS-VBAL 5.4.5.6, .10 and .12, each saying so in those words) - so the target side of an assignment is
 /// factored out here rather than restated by each of them, and the function-result-variable rule below is
 /// honoured by all of them for free.
-/// <para>
-/// Scoped to a target that resolves to a plain <see cref="Symbol"/>, same as
-/// <see cref="BinaryLetAssignmentOperatorRuntimeSemantics"/> itself documents: a member-access or indexed
-/// target needs procedure-invocation machinery that doesn't exist yet.
-/// </para>
 /// </remarks>
 /// <param name="coercions">The Let-coercion rules the assignment applies to its source value.</param>
-/// <param name="formatter">Formats the verbose message of an error the coercion raises.</param>
+/// <param name="operators">The let-assignment operator a variable is assigned through.</param>
 /// <param name="expressions">Evaluates the owner of a member-access target, which has to be in hand before
 /// the field being assigned can be.</param>
 public sealed class LetAssignmentEvaluator(
     ILetCoercionRuntimeSemanticsProvider coercions,
-    IVerboseMessageBuilder formatter,
+    IOperatorRuntimeSemanticsProvider operators,
     RuntimeExpressionEvaluator expressions)
 {
-    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment = new(coercions, formatter);
 
     /// <summary>
     /// Resolves the symbol <paramref name="target"/> names.
@@ -543,7 +536,7 @@ public sealed class LetAssignmentEvaluator(
         // passed directly rather than read back off the node's Children.
         var syntheticOperator = new VBBinaryOperatorExpressionNode(
             OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
-        var result = _letAssignment.Evaluate(session, new(), syntheticOperator, new VBSymbolDescValue(symbol), value);
+        var result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(symbol), value);
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError

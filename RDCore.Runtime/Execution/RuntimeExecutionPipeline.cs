@@ -101,10 +101,11 @@ public sealed class RuntimeExecutionPipeline
         handle.Inner = letCoercion;
 
         var setCoercion = new SetCoercionRuntimeSemantics(messages);
-        var expressions = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, messages));
+        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, messages);
+        var expressions = new RuntimeExpressionEvaluator(operators);
         var print = new PrintOutputEvaluator(expressions, letCoercion);
         var conditions = new ConditionEvaluator(expressions, letCoercion);
-        var assignments = new LetAssignmentEvaluator(letCoercion, messages, expressions);
+        var assignments = new LetAssignmentEvaluator(letCoercion, operators, expressions);
         var files = new FileStatementRuntimeSemantics(
             expressions, print, new WriteOutputEvaluator(expressions), letCoercion,
             assignments, new InputListEvaluator(assignments));
@@ -118,9 +119,9 @@ public sealed class RuntimeExecutionPipeline
             statements,
             conditions,
             new WithTargetEvaluator(expressions, new WithStatementRuntimeSemantics(setCoercion, letCoercion)),
-            new CaseMatchEvaluator(expressions, letCoercion, messages),
-            new ForLoopEvaluator(expressions, letCoercion, messages),
-            new ForEachEvaluator(expressions, letCoercion, setCoercion, messages),
+            new CaseMatchEvaluator(expressions, operators),
+            new ForLoopEvaluator(expressions, operators),
+            new ForEachEvaluator(expressions, operators, setCoercion),
             new JumpTableEvaluator(expressions, letCoercion),
             new ErrorHandlingEvaluator(expressions, letCoercion),
             cancellation);

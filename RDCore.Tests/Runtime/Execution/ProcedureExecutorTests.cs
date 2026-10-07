@@ -79,9 +79,10 @@ public sealed class ProcedureExecutorTests
                 new VBEmptyTypeLetCoercionRuntimeSemantics(formatter), new VBNullTypeLetCoercionRuntimeSemantics(formatter),
                 new VBErrorTypeLetCoercionRuntimeSemantics(handle, formatter)], formatter);
         handle.Inner = letCoercion;
-        var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
+        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, formatter);
+        var expressionEvaluator = new RuntimeExpressionEvaluator(operators);
         var print = new PrintOutputEvaluator(expressionEvaluator, letCoercion);
-        var assignments = new LetAssignmentEvaluator(letCoercion, formatter, expressionEvaluator);
+        var assignments = new LetAssignmentEvaluator(letCoercion, operators, expressionEvaluator);
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, letCoercion),
             new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator), letCoercion, assignments, new InputListEvaluator(assignments)),
             new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
@@ -90,9 +91,9 @@ public sealed class ProcedureExecutorTests
         var conditions = new ConditionEvaluator(expressionEvaluator, letCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
-        var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
-        var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
-        var forEach = new ForEachEvaluator(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
+        var cases = new CaseMatchEvaluator(expressionEvaluator, operators);
+        var forLoop = new ForLoopEvaluator(expressionEvaluator, operators);
+        var forEach = new ForEachEvaluator(expressionEvaluator, operators, new SetCoercionRuntimeSemantics(formatter));
         var jumpTable = new JumpTableEvaluator(expressionEvaluator, letCoercion);
         var errorHandling = new ErrorHandlingEvaluator(expressionEvaluator, letCoercion);
         return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable, errorHandling);
