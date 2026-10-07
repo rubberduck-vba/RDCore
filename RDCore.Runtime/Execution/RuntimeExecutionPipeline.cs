@@ -79,16 +79,13 @@ public sealed class RuntimeExecutionPipeline
         CancellationToken cancellation = default)
     {
         var handle = new ProviderHandle();
-        var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, messages);
-        var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle);
-        var stringCoercion = new VBStringLetCoercionRuntimeSemantics(messages);
         var objectCoercion = new VBObjectLetCoercionRuntimeSemantics(handle, messages);
 
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
             [
-                numericCoercion,
-                booleanCoercion,
-                stringCoercion,
+                new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle),
+                new VBBooleanLetCoercionRuntimeSemantics(handle, messages),
+                new VBStringLetCoercionRuntimeSemantics(messages),
                 new VBDateLetCoercionRuntimeSemantics(handle, messages),
                 new VBFixedStringLetCoercionRuntimeSemantics(handle, messages),
                 new VBVariantTypeLetCoercionRuntimeSemantics(handle, messages),
@@ -109,7 +106,7 @@ public sealed class RuntimeExecutionPipeline
         var conditions = new ConditionEvaluator(expressions, letCoercion);
         var assignments = new LetAssignmentEvaluator(letCoercion, messages, expressions);
         var files = new FileStatementRuntimeSemantics(
-            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), letCoercion,
+            expressions, print, new WriteOutputEvaluator(expressions), letCoercion,
             assignments, new InputListEvaluator(assignments));
         var statements = new StatementRuntimeSemanticsProvider(
             expressions, assignments, setCoercion, print, conditions, files,

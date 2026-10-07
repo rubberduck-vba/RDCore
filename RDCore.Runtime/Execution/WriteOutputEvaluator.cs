@@ -1,5 +1,4 @@
 using RDCore.Runtime.Semantics;
-using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -27,10 +26,7 @@ namespace RDCore.Runtime.Execution;
 /// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates each output expression.</param>
-/// <param name="Strings">Let-coerces a value to <c>String</c> where the rules call for that.</param>
-public sealed record class WriteOutputEvaluator(
-    RuntimeExpressionEvaluator Expressions,
-    VBStringLetCoercionRuntimeSemantics Strings)
+public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expressions)
 {
     /// <summary>
     /// VBA's date origin: serial <c>0</c>. A value on this date is a time of day and nothing more, and a
