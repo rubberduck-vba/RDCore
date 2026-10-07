@@ -32,14 +32,14 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates the bound expressions, which are ordinary run-time expressions, and the targets that are expressions.</param>
-/// <param name="Numbers">Let-coerces each bound to <c>Integer</c>, the type a subscript is.</param>
+/// <param name="LetCoercion">Let-coerces each bound to <c>Integer</c>, the type a subscript is.</param>
 /// <param name="Assignments">Writes the new array back through a target that is an expression.</param>
 public sealed record class ArrayStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
-    VBNumericLetCoercionTypeRuntimeSemantics Numbers,
+    ILetCoercionRuntimeSemanticsProvider LetCoercion,
     LetAssignmentEvaluator Assignments)
 {
-    private readonly ArrayBoundEvaluator _bounds = new(Expressions, Numbers);
+    private readonly ArrayBoundEvaluator _bounds = new(Expressions, LetCoercion);
 
     // what a statement acts on: the symbol a simple name resolves to, or the expression that a member access or an index is, the type it is
     // declared as when that is known, and the value it holds now.

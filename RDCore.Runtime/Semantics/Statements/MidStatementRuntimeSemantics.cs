@@ -29,13 +29,11 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates the target and the operands.</param>
-/// <param name="Strings">Let-coerces the target and the value to <c>String</c>, which the statement requires of both.</param>
-/// <param name="Numbers">Let-coerces the position and the length to <c>Long</c>.</param>
+/// <param name="LetCoercion">Let-coerces the target and the value to <c>String</c>, which the statement requires of both, and the position and the length to <c>Long</c>.</param>
 /// <param name="Assignments">Let-assigns the new string into the target.</param>
 public sealed record class MidStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
-    VBStringLetCoercionRuntimeSemantics Strings,
-    VBNumericLetCoercionTypeRuntimeSemantics Numbers,
+    ILetCoercionRuntimeSemanticsProvider LetCoercion,
     LetAssignmentEvaluator Assignments)
 {
     /// <summary>
@@ -110,7 +108,7 @@ public sealed record class MidStatementRuntimeSemantics(
             source = wrapped;
         }
 
-        var coerced = Strings.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, new()
         {
             NodeId = mid.Identity,
             SourceValue = source,
@@ -143,7 +141,7 @@ public sealed record class MidStatementRuntimeSemantics(
             return false;
         }
 
-        var coerced = Numbers.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, new()
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,

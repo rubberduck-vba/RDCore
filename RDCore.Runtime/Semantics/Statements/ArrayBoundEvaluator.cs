@@ -12,10 +12,10 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// (<strong>§5.2.3.1.3</strong>) alike.
 /// </summary>
 /// <param name="Expressions">Evaluates the bound expression.</param>
-/// <param name="Numbers">Let-coerces the bound to <c>Integer</c>, the type a subscript is.</param>
+/// <param name="LetCoercion">Let-coerces the bound to <c>Integer</c>, the type a subscript is.</param>
 public sealed record class ArrayBoundEvaluator(
     RuntimeExpressionEvaluator Expressions,
-    VBNumericLetCoercionTypeRuntimeSemantics Numbers)
+    ILetCoercionRuntimeSemanticsProvider LetCoercion)
 {
     /// <summary>
     /// Evaluates a bound.
@@ -44,7 +44,7 @@ public sealed record class ArrayBoundEvaluator(
             return false;
         }
 
-        var coerced = Numbers.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, new()
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,

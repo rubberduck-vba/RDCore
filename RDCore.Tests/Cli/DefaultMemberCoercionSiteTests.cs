@@ -42,4 +42,28 @@ public sealed class DefaultMemberCoercionSiteTests
 
         CollectionAssert.AreEqual(new[] { "438" }, printed);
     }
+
+    [TestMethod]
+    public Task AnIfCondition_IsTheDefaultMember()
+        => AssertPrintsAsync("yes", "b.Value = True", "If b Then Debug.Print \"yes\" Else Debug.Print \"no\"");
+
+    [TestMethod]
+    public Task ADoWhileCondition_IsTheDefaultMember()
+        => AssertPrintsAsync("done", "b.Value = False", "Do While b", "Loop", "Debug.Print \"done\"");
+
+    [TestMethod]
+    public Task AnOnGoToSelector_IsTheDefaultMember()
+        => AssertPrintsAsync("two", "b.Value = 2", "On b GoTo One, Two", "Exit Sub", "One:", "Debug.Print \"one\"", "Exit Sub", "Two:", "Debug.Print \"two\"");
+
+    [TestMethod]
+    public Task APrintedItem_IsTheDefaultMember()
+        => AssertPrintsAsync("abc", "b.Value = \"abc\"", "Debug.Print b");
+
+    [TestMethod]
+    public Task TheStartOfAMidStatement_IsTheDefaultMember()
+        => AssertPrintsAsync("aXc", "Dim s As String", "s = \"abc\"", "b.Value = 2", "Mid(s, b, 1) = \"X\"", "Debug.Print s");
+
+    [TestMethod]
+    public Task TheNumberOfAnErrorStatement_IsTheDefaultMember()
+        => AssertPrintsAsync("Error 5", "b.Value = 5", "Error b");
 }

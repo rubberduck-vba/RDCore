@@ -105,17 +105,17 @@ public sealed class RuntimeExecutionPipeline
 
         var setCoercion = new SetCoercionRuntimeSemantics(messages);
         var expressions = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, messages));
-        var print = new PrintOutputEvaluator(expressions, stringCoercion, numericCoercion);
-        var conditions = new ConditionEvaluator(expressions, booleanCoercion);
+        var print = new PrintOutputEvaluator(expressions, letCoercion);
+        var conditions = new ConditionEvaluator(expressions, letCoercion);
         var assignments = new LetAssignmentEvaluator(letCoercion, messages, expressions);
         var files = new FileStatementRuntimeSemantics(
-            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), numericCoercion, stringCoercion,
+            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), letCoercion,
             assignments, new InputListEvaluator(assignments));
         var statements = new StatementRuntimeSemanticsProvider(
             expressions, assignments, setCoercion, print, conditions, files,
-            new FixedAssignmentRuntimeSemantics(expressions, stringCoercion, assignments),
-            new ArrayStatementRuntimeSemantics(expressions, numericCoercion, assignments),
-            new MidStatementRuntimeSemantics(expressions, stringCoercion, numericCoercion, assignments));
+            new FixedAssignmentRuntimeSemantics(expressions, letCoercion, assignments),
+            new ArrayStatementRuntimeSemantics(expressions, letCoercion, assignments),
+            new MidStatementRuntimeSemantics(expressions, letCoercion, assignments));
 
         var executor = new ProcedureExecutor(
             statements,
@@ -124,8 +124,8 @@ public sealed class RuntimeExecutionPipeline
             new CaseMatchEvaluator(expressions, letCoercion, messages),
             new ForLoopEvaluator(expressions, letCoercion, messages),
             new ForEachEvaluator(expressions, letCoercion, setCoercion, messages),
-            new JumpTableEvaluator(expressions, numericCoercion),
-            new ErrorHandlingEvaluator(expressions, numericCoercion),
+            new JumpTableEvaluator(expressions, letCoercion),
+            new ErrorHandlingEvaluator(expressions, letCoercion),
             cancellation);
 
         // the evaluator needs the invoker, which needs the executor, which needs the evaluator: the
@@ -152,7 +152,7 @@ public sealed class RuntimeExecutionPipeline
         // an object's lifecycle events run its class's handlers, which is code only this pipeline can run.
         session.Lifecycle = new ClassLifecycle(session, bindings);
         // a fixed-size array is as big as its declaration says, which takes evaluating its bounds: this is what can.
-        session.Symbols.Defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, numericCoercion));
+        session.Symbols.Defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, letCoercion));
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);
     }

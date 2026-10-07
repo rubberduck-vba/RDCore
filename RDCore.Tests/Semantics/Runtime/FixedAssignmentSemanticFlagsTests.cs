@@ -54,7 +54,7 @@ public sealed class FixedAssignmentSemanticFlagsTests
         var strings = new VBStringLetCoercionRuntimeSemantics(formatter);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider([strings], formatter);
         var expressions = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
-        return new FixedAssignmentRuntimeSemantics(expressions, strings, new LetAssignmentEvaluator(letCoercion, formatter, expressions));
+        return new FixedAssignmentRuntimeSemantics(expressions, letCoercion, new LetAssignmentEvaluator(letCoercion, formatter, expressions));
     }
 
     private static FixedAssignmentSemanticFlags Analyze(AssignmentKind kind, VBTypedValue target, VBTypedValue source)

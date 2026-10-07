@@ -75,24 +75,26 @@ public sealed class ProcedureExecutorTests
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);
         var variantCoercion = new VBVariantTypeLetCoercionRuntimeSemantics(handle, formatter);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
-            [numericCoercion, booleanCoercion, variantCoercion], formatter);
+            [numericCoercion, booleanCoercion, variantCoercion, new VBStringLetCoercionRuntimeSemantics(formatter),
+                new VBEmptyTypeLetCoercionRuntimeSemantics(formatter), new VBNullTypeLetCoercionRuntimeSemantics(formatter),
+                new VBErrorTypeLetCoercionRuntimeSemantics(handle, formatter)], formatter);
         handle.Inner = letCoercion;
         var expressionEvaluator = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
-        var print = new PrintOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), numericCoercion);
+        var print = new PrintOutputEvaluator(expressionEvaluator, letCoercion);
         var assignments = new LetAssignmentEvaluator(letCoercion, formatter, expressionEvaluator);
-        var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, booleanCoercion),
-            new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter)), numericCoercion, new VBStringLetCoercionRuntimeSemantics(formatter), assignments, new InputListEvaluator(assignments)),
-            new FixedAssignmentRuntimeSemantics(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), assignments),
-            new ArrayStatementRuntimeSemantics(expressionEvaluator, numericCoercion, assignments),
-            new MidStatementRuntimeSemantics(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter), numericCoercion, assignments));
-        var conditions = new ConditionEvaluator(expressionEvaluator, booleanCoercion);
+        var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, letCoercion),
+            new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator, new VBStringLetCoercionRuntimeSemantics(formatter)), letCoercion, assignments, new InputListEvaluator(assignments)),
+            new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
+            new ArrayStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
+            new MidStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments));
+        var conditions = new ConditionEvaluator(expressionEvaluator, letCoercion);
         var withStatement = new WithStatementRuntimeSemantics(new SetCoercionRuntimeSemantics(formatter), letCoercion);
         var withTargets = new WithTargetEvaluator(expressionEvaluator, withStatement);
         var cases = new CaseMatchEvaluator(expressionEvaluator, letCoercion, formatter);
         var forLoop = new ForLoopEvaluator(expressionEvaluator, letCoercion, formatter);
         var forEach = new ForEachEvaluator(expressionEvaluator, letCoercion, new SetCoercionRuntimeSemantics(formatter), formatter);
-        var jumpTable = new JumpTableEvaluator(expressionEvaluator, numericCoercion);
-        var errorHandling = new ErrorHandlingEvaluator(expressionEvaluator, numericCoercion);
+        var jumpTable = new JumpTableEvaluator(expressionEvaluator, letCoercion);
+        var errorHandling = new ErrorHandlingEvaluator(expressionEvaluator, letCoercion);
         return new ProcedureExecutor(statements, conditions, withTargets, cases, forLoop, forEach, jumpTable, errorHandling);
     }
 
