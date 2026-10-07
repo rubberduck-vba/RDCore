@@ -12,5 +12,5 @@ public class AppOptions
     public string ThemesDiscoveryPath { get; init; } = "./Themes";
 
     /// <summary>The name of the theme to select once themes are loaded.</summary>
-    public string Theme { get; init; } = "rdc-default";
+    public string Theme { get; init; } = "dark";
 }

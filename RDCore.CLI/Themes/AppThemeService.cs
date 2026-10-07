@@ -9,7 +9,7 @@ namespace RDCore.CLI.Themes;
 /// <summary>Loads <see cref="ThemeDocument"/>s — the built-in default plus any on disk.</summary>
 public interface IAppThemeLoaderService
 {
-    /// <summary>The theme compiled into the assembly (<c>rdc-default</c>). Always available.</summary>
+    /// <summary>The theme compiled into the assembly (<c>rdc-dark</c>). Always available.</summary>
     ThemeDocument LoadBuiltInDefault();
 
     /// <summary>Every <c>*.theme</c> under <paramref name="directory"/> that parses; empty if the folder is absent.</summary>
@@ -25,9 +25,9 @@ public sealed class AppThemeLoaderService(IFileSystem fileSystem) : IAppThemeLoa
     public ThemeDocument LoadBuiltInDefault()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith("rdc-dark.theme", StringComparison.Ordinal));
+        var resource = assembly.GetManifestResourceNames().Single(name => name.EndsWith("rdc-dark.theme", StringComparison.OrdinalIgnoreCase));
         using var stream = assembly.GetManifestResourceStream(resource)!;
-        return JsonSerializer.Deserialize<ThemeDocument>(stream, _json) ?? new ThemeDocument { Name = "rdc-dark" };
+        return JsonSerializer.Deserialize<ThemeDocument>(stream, _json) ?? new ThemeDocument { Name = "dark" };
     }
 
     /// <inheritdoc/>
@@ -78,7 +78,7 @@ public interface IAppThemeService
 public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoaderService loader, IConsoleShellFrame frame) : IAppThemeService
 {
     private readonly Dictionary<string, AppTheme> _themes = new(StringComparer.OrdinalIgnoreCase);
-    private string _selection = "rdc-default";
+    private string _selection = "dark";
 
     /// <inheritdoc/>
     public IReadOnlyCollection<string> ThemeNames => _themes.Keys;
@@ -112,7 +112,7 @@ public sealed class AppThemeService(IOptions<AppOptions> options, IAppThemeLoade
         {
             Add(document);
         }
-        _selection = _themes.ContainsKey(options.Value.Theme) ? options.Value.Theme : "rdc-default";
+        _selection = _themes.ContainsKey(options.Value.Theme) ? options.Value.Theme : "dark";
     }
 
     private void Add(ThemeDocument document) => _themes[document.Name] = new AppTheme(document);

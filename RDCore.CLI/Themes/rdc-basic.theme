@@ -1,12 +1,12 @@
 {
-  "name": "abyss",
+  "name": "basic",
   "author": "9562-7303 Québec inc.",
-  "version": "0.1",
+  "version": "0.2",
 
   "palette": {
-    "shell-bg": "#000C18",
-    "shell-fg": "#6688CC",
-    "shell-highlight": "#0071EB",
+    "shell-bg": "#0c0a50",
+    "shell-fg": "#c0c0c0",
+    "shell-highlight": "#5f8dd3",
     "shell-highlight-fg": "#ffffff",
 
     "error": "#e95653",
@@ -92,7 +92,7 @@
     "keyword": "#3e61ff",
     "comment": "#2ca329",
     "string": "#e59a99",
-    "number": "#0000ff",
+    "number": "#ffffff",
     "identifier": "#99c9e5",
     "identifier-class": "#2977a4",
     "identifier-const": "#a37e29"
