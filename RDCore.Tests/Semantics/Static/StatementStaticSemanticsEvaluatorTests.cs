@@ -242,8 +242,25 @@ public sealed class StatementStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void LetAssignment_IncompatibleSource_IsATypeMismatchError()
-        // proves Let-coercion is really being checked now (not just permissive by default): a
-        // non-Variant intrinsic source into a class destination is invalid per MS-VBAL 5.5.1.1.
+        // proves Let-coercion is really being checked (not just permissive by default): an object of a class with no
+        // default member into a Long is invalid per MS-VBAL 5.5.1.1.
+    {
+        var module = Module("Caller");
+        var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [widget, n] }, widget, n);
+
+        var block = Block(AssignOf(NameOf("n"), NameOf("widget"), AssignmentKind.ImplicitLet));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
+    public void LetAssignment_ToAVariableOfAClass_IsNotACoercionToTheClass()
+        // MS-VBAL 5.4.3.8: the value is let-assigned to the default property of the object; only a target of any other type has the
+        // coercion of the value to its declared type checked.
     {
         var module = Module("Caller");
         var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
@@ -251,10 +268,8 @@ public sealed class StatementStaticSemanticsEvaluatorTests
         var context = ContextAt(module.Uri, module with { Members = [widget, n] }, widget, n);
 
         var block = Block(AssignOf(NameOf("widget"), NameOf("n"), AssignmentKind.ImplicitLet));
-        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
-        Assert.AreEqual(1, errors.Length);
-        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+        Assert.IsEmpty(StatementStaticSemanticsEvaluator.Evaluate(context, block));
     }
 
     [TestMethod]

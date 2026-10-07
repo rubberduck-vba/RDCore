@@ -210,7 +210,9 @@ public static class StatementStaticSemanticsEvaluator
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
             CollectError(valueResult, walk);
 
-            if (targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
+            // MS-VBAL §5.4.3.8: a value let-assigned to an object is assigned to its default member, which is not the coercion of the value to the object.
+            var assignsADefaultMember = assignment.Kind != AssignmentKind.Set && targetResult.Result is VBClassType or VBObjectType;
+            if (targetResult.IsSuccess && valueResult.IsSuccess && !assignsADefaultMember && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
             }

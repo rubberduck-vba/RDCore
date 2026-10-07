@@ -25,4 +25,21 @@ public sealed class DefaultMemberCoercionSiteTests
     public Task ALetAssignmentOfAnObject_IsTheValueOfItsDefaultMember()
         => AssertPrintsAsync("42", "b.Value = 42", "Dim n As Long", "n = b", "Debug.Print CStr(n)");
 
+    [TestMethod]
+    public Task ALetAssignmentToAnObject_IsTheAssignmentOfItsDefaultMember()
+        => AssertPrintsAsync("42", "b = 42", "Debug.Print b.Value");
+
+    [TestMethod]
+    public Task ALetAssignmentToNothing_IsError91()
+        => AssertPrintsAsync("Error 91", "Dim nothingThere As Box", "nothingThere = 42");
+
+    [TestMethod]
+    public async Task ALetAssignmentToAnObjectWithNoDefaultMember_IsError438()
+    {
+        var plain = ("Plain", ModuleWorkspace.ClassModule("Plain", "Public Size As Long"));
+        var printed = await ModuleWorkspace.RunAsync([plain],
+            "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nOn Error GoTo Failed\r\nDim p As New Plain\r\np = 42\r\nExit Sub\r\nFailed:\r\nDebug.Print Err.Number\r\nEnd Sub\r\n");
+
+        CollectionAssert.AreEqual(new[] { "438" }, printed);
+    }
 }

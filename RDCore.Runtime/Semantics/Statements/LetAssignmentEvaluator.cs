@@ -11,6 +11,8 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -530,6 +532,12 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // MS-VBAL §5.4.3.8: a value let-assigned to a variable of a class or Object is let-assigned to the default property of the object it holds.
+        if (symbol is ITypedSymbol { ResolvedType: VBClassType or VBObjectType })
+        {
+            return AssignDefaultMember(session, context, statement, target, source, value);
+        }
+
         // the reserved synthetic "__let_op" binary operator - the same shape its own test suite
         // exercises it with: a throwaway node carrying this statement's own identity/location, operands
         // passed directly rather than read back off the node's Children.
@@ -540,5 +548,38 @@ public sealed class LetAssignmentEvaluator(
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+    }
+
+    // the object the target holds is assigned the way `target.Default = value` would be: an object of a class with no default member is error 438.
+    private RuntimeExecutionOutcome AssignDefaultMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
+    {
+        var evaluated = expressions.Evaluate(session, target, context);
+        if (!evaluated.IsSuccess)
+        {
+            return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+        }
+
+        if (evaluated.Result is not VBObjectValue owner)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (owner.IsNothing())
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, target.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
+        }
+
+        if (!session.Symbols.TryGetInstance(owner.Value, out var instance)
+            || VBClassType.FromClassModule(instance.ClassModule).DefaultMember is not { } defaultMember)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, target.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
+        }
+
+        var access = new MemberAccessExpressionNode(target.Identity, target.Location, target,
+            new SimpleNameExpressionNode(target.Identity, target.Location, defaultMember.Name));
+        return AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet: false);
     }
 }
