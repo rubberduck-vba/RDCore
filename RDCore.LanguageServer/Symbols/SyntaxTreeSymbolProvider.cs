@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics;
 
 namespace RDCore.LanguageServer.Symbols;
 
@@ -51,9 +52,11 @@ internal sealed class SyntaxTreeSymbolProvider(
 
     private IEnumerable<Symbol> ProvideDeclaredSymbols()
     {
-        // one identity (same uri, same concrete symbol type) can be declared once per #If branch —
-        // collapse each such group into the first site, carrying every site in Definitions. the accessors
-        // of one property have identities of their own (Symbol.UriSuffix), so they never fuse here.
+        // one identity (same uri, same concrete symbol type) can be declared once per #If branch — such sites are alternatives of one another, and fuse
+        // into the first, carrying every site in Definitions. a site that is not an alternative of the others is not another branch of the same
+        // declaration but a second declaration of the name, which is an error for whoever reads the symbols to find, and not one to hide in a fusion.
+        // the accessors of one property have identities of their own (Symbol.UriSuffix), so they never fuse here.
+        var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
         foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
         {
             var sites = group.ToList();
@@ -74,12 +77,43 @@ internal sealed class SyntaxTreeSymbolProvider(
                 continue;
             }
 
-            yield return bound[0] with
+            foreach (var alternatives in ClusterAlternatives(bound, blocks))
             {
-                Definitions = [.. bound.Select(symbol => new SymbolDefinition(symbol.Range, symbol.SelectionRange, DefinitionState.Unknown))],
-            };
+                yield return alternatives.Count == 1
+                    ? alternatives[0]
+                    : alternatives[0] with
+                    {
+                        Definitions = [.. alternatives.Select(symbol => new SymbolDefinition(symbol.Range, symbol.SelectionRange, DefinitionState.Unknown))],
+                    };
+            }
         }
     }
+
+    // The sites of one declaration, in source order, in groups of sites that are each alternatives of every other site in the group: a site joins the first group
+    // whose every site is in another branch than it, and begins a group of its own when none is - which is what a second declaration in the same branch is.
+    // A name that every procedure of a module declares by mentioning it (the implicit variable of a module-scoped environment) is declared by none of
+    // them in particular, and is the one variable however many sites there are.
+    private static List<List<WorkspaceSymbol>> ClusterAlternatives(List<WorkspaceSymbol> sites, ConditionalCompilationBlocks blocks)
+    {
+        var groups = new List<List<WorkspaceSymbol>>();
+        foreach (var site in sites)
+        {
+            var group = groups.FirstOrDefault(candidate => candidate.All(other
+                => (IsImplicit(other) && IsImplicit(site)) || blocks.AreAlternatives(other.Range.Start, site.Range.Start)));
+            if (group is null)
+            {
+                groups.Add([site]);
+            }
+            else
+            {
+                group.Add(site);
+            }
+        }
+
+        return groups;
+    }
+
+    private static bool IsImplicit(WorkspaceSymbol symbol) => symbol.GetProperty(SymbolProperties.ImplicitlyDeclared);
 
     private IEnumerable<Symbol> EnumerateDeclaredSymbols()
     {

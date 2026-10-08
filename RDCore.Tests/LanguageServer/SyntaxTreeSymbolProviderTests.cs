@@ -189,6 +189,59 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
+    public void ANameDeclaredTwice_WithNoConditionalCompilation_IsTwoDeclarations_NotOneWithTwoDefinitions()
+    {
+        var fields = Provide("Public Total As Long\r\nPublic Total As Long\r\n").OfType<VBModuleFieldVariableMemberSymbol>().ToArray();
+
+        Assert.HasCount(2, fields);
+        Assert.IsTrue(fields.All(field => field.Definitions.IsDefaultOrEmpty), "a second declaration is not another branch of the first");
+    }
+
+    [TestMethod]
+    public void ALocalDeclaredTwice_IsTwoDeclarations()
+    {
+        var locals = Provide("Public Sub Foo()\r\nDim x As Long\r\nDim x As String\r\nEnd Sub\r\n").OfType<VBLocalVariableSymbol>().ToArray();
+
+        Assert.HasCount(2, locals);
+    }
+
+    [TestMethod]
+    public void ANameDeclaredTwiceInOneBranch_IsADuplicate_AndTheOtherBranchIsItsAlternative()
+    {
+        const string source = """
+            #If DEBUG Then
+            Dim Foo As Long
+            Dim Foo As Long
+            #Else
+            Dim Foo As Double
+            #End If
+            """;
+
+        var foos = Provide(source).OfType<VBModuleFieldVariableMemberSymbol>().Where(field => field.Name == "Foo").ToArray();
+
+        // the second Foo of the #If branch is a declaration of its own; the one of the #Else branch is an alternative of the first.
+        Assert.HasCount(2, foos);
+        Assert.IsTrue(foos.Any(foo => foo.Definitions.Length == 2));
+        Assert.IsTrue(foos.Any(foo => foo.Definitions.IsDefaultOrEmpty));
+    }
+
+    [TestMethod]
+    public void ANameDeclaredInTheBranchesOfTwoBlocks_IsNotAnAlternativeOfItself()
+    {
+        const string source = """
+            #If A Then
+            Dim Foo As Long
+            #End If
+            #If B Then
+            Dim Foo As Long
+            #End If
+            """;
+
+        // each block's branches are alternatives of the branches of that block; the two blocks are not alternatives of each other.
+        Assert.HasCount(2, Provide(source).OfType<VBModuleFieldVariableMemberSymbol>().Where(field => field.Name == "Foo").ToArray());
+    }
+
+    [TestMethod]
     public void Enum_YieldsEnumSymbolAndItsMembers()
     {
         const string source = """
