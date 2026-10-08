@@ -117,11 +117,50 @@ internal sealed class SessionHalt : ISessionHalt
         Location = location;
     }
 
+    private StepKind? _step;
+    private int _stepDepth;
+
     public void Clear()
     {
         Pending = null;
         Location = null;
+        _step = null;
     }
+
+    public IExecutionGate? Gate { get; set; }
+
+    public void RequestStep(StepKind kind, int callDepth)
+    {
+        _step = kind;
+        _stepDepth = callDepth;
+    }
+
+    public bool TakeStep(int callDepth)
+    {
+        if (_step is not { } step)
+        {
+            return false;
+        }
+
+        var due = step switch
+        {
+            StepKind.Into => true,
+            StepKind.Over => callDepth <= _stepDepth,
+            StepKind.Out => callDepth < _stepDepth,
+            _ => false,
+        };
+
+        if (due)
+        {
+            _step = null;
+        }
+
+        return due;
+    }
+
+    // a program that is already being stopped does not wait again at whatever unwinds it.
+    public bool TrySuspend(RuntimeHaltKind kind, SourceLocation? location)
+        => Pending is null && Gate is { } gate && gate.Suspend(kind, location) is SuspensionDecision.Resume;
 }
 
 /// <summary>

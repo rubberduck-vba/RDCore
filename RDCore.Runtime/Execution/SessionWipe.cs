@@ -39,8 +39,9 @@ public static class SessionWipe
     /// </summary>
     /// <param name="session">The session the program ran in.</param>
     /// <remarks>
-    /// A <c>Stop</c> or a break leaves the call stack as it was, so that the locals of every activation can be looked at (MS-VBAL 5.4.2.11). That is all it is for:
-    /// nothing resumes a program from its stack, so a program that is started, or a module that is discarded, abandons it. Only the stack is let go of: the module-level
+    /// A <c>Stop</c> or a break that unwinds the program leaves the call stack as it was, so that the locals of every activation can be looked at (MS-VBAL 5.4.2.11). That
+    /// is all it is for: a program is resumed from where it waits (<see cref="SuspendableExecution"/>), not from a stack that is left behind, so a program that is started,
+    /// or a module that is discarded, abandons it. Only the stack is let go of: the module-level
     /// variables are the session's and stay as the program made them, and the objects the locals held are the session's too, until it is wiped by an <c>End</c>.
     /// </remarks>
     // TODO: the objects only a local of an abandoned activation held keep their reference until the session is wiped; releasing them runs their Terminate, which a program
