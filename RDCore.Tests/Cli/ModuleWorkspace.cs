@@ -61,9 +61,24 @@ internal static class ModuleWorkspace
         return payload!;
     }
 
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, and hands what came of it to <paramref name="inspect"/> instead of requiring that it completed: the
+    /// outcome, whatever it was, the session it ran in, and a way to run the entry point again in that same session.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
+    /// began to be composed. Never, when omitted.</param>
+    public static Task InspectAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null)
+        => RunCoreAsync(classes, program, errorsOnly: false, inspect: inspect, cancelAfter: cancelAfter);
+
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
-        SupportedLanguage? language = null)
+        SupportedLanguage? language = null,
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
@@ -151,13 +166,27 @@ internal static class ModuleWorkspace
         }
 
         var entry = parsed.Single(module => module.Module.Name == "Program");
-        var result = await new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
-            .Handle(new HostExecuteParams
-            {
-                Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
-                ModuleName = "Program",
-                EntryPoint = "Main",
-            }, CancellationToken.None);
+        Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
+            => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
+                    ModuleName = "Program",
+                    EntryPoint = "Main",
+                }, cancellation);
+
+        using var cancellation = new CancellationTokenSource();
+        if (cancelAfter is { } timeout)
+        {
+            cancellation.CancelAfter(timeout);
+        }
+
+        var result = await Execute(cancellation.Token);
+        if (inspect is not null)
+        {
+            await inspect(sessionProvider, result, () => Execute(CancellationToken.None));
+            return [.. result.Output.Select(line => line.Trim())];
+        }
 
         Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorMessage} {string.Join("; ", result.Diagnostics ?? [])}");
         return [.. result.Output.Select(line => line.Trim())];

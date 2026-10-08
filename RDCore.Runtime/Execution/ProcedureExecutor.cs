@@ -95,15 +95,34 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// </summary>
     public RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
     {
+        var outcome = RunInstructions(session, frame, list, context);
+
+        // a statement can stop the program without being one of the two that are for it: a Debug.Assert that fails breaks.
+        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt)
+        {
+            session.Halt.Request(outcome.Kind is RuntimeExecutionOutcomeKind.Halt ? RuntimeHaltKind.End : RuntimeHaltKind.Break);
+        }
+
+        // A program that was stopped inside a call has no answer to give the statement that made the call, and a call without one fails the way a call
+        // fails that the interpreter cannot answer. It was not that: the session says what stopped it, and the procedure that made the call is stopped by it too.
+        return outcome.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+            ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
+            : outcome;
+    }
+
+    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
+    {
         var activation = (CallStackFrame)frame;
 
         while (activation.Pc < list.Items.Length)
         {
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
-            // whose own control flow never would - an empty Do…Loop, a GoTo cycle.
+            // whose own control flow never would - an empty Do…Loop, a GoTo cycle. It is a break
+            // like a Stop is, which is why it is requested of the session the same way.
             if (cancellation.IsCancellationRequested)
             {
+                session.Halt.Request(RuntimeHaltKind.Break, list.Items[activation.Pc].Node?.SourceLocation);
                 return RuntimeExecutionOutcome.Break;
             }
 
@@ -290,9 +309,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return RuntimeExecutionOutcome.ExitProcedure;
 
                 case InstructionKind.Halt:
+                    session.Halt.Request(RuntimeHaltKind.End, instruction.Node?.SourceLocation);
                     return RuntimeExecutionOutcome.Halt;
 
                 case InstructionKind.Break:
+                    session.Halt.Request(RuntimeHaltKind.Break, instruction.Node?.SourceLocation);
                     return RuntimeExecutionOutcome.Break;
 
                 default:

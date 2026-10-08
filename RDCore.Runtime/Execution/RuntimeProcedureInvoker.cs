@@ -118,7 +118,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         HoistLocals(Session, frame, GetLocals(procedure));
 
         var outcome = Executor.Run(Session, frame, body, new RuntimeEvaluationContext(procedure.Uri));
-        ReleaseLocals(frame, GetLocals(procedure));
+
+        // a program that was stopped does not unwind: the objects its locals held are not let go of, because that is where a Terminate would run, and an End
+        // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken.
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
+        {
+            ReleaseLocals(frame, GetLocals(procedure));
+        }
+
         Session.CallStack.TryPop(out _);
 
         return outcome.Kind switch
@@ -126,10 +133,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             RuntimeExecutionOutcomeKind.ExitProcedure => RuntimeSemanticsEvaluationResult.Success(
                 procedure is VBReturningMemberSymbol ? frame.ReturnValue! : VBVoidValue.Void),
             RuntimeExecutionOutcomeKind.Error => RuntimeSemanticsEvaluationResult.Error(outcome.ErrorInfo!),
-            // Halt (End) and Break (Stop) inside a called procedure have no way to propagate through
-            // this return type yet - RuntimeSemanticsEvaluationResult is Result-or-Error only. End's own
-            // "wipe the whole session atomically" semantics need a session-level signal a caller's own
-            // ProcedureExecutor.Run can observe, which doesn't exist yet - deferred, not mismodeled.
+            // Halt (End) and Break (Stop) have no answer to give: this return type is a value or an error, and a call that was
+            // stopped is neither. It fails as a call fails that has no answer, and the session says why (ISessionHalt) - which is
+            // what the Run of the procedure that made the call, and the host that started the program, ask when they see it.
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
     }
