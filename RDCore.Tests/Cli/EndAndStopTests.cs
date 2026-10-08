@@ -162,6 +162,22 @@ public sealed class EndAndStopTests
     }
 
     [TestMethod]
+    public async Task AFailedAssert_BreaksAtItself_AsAStopDoes()
+    {
+        var run = await RunTwiceAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Total = 1",
+            "    Debug.Assert Total = 2",
+            "    Total = 3",
+            "End Sub"));
+
+        Assert.AreEqual(ExecutionOutcome.Interrupted, run.Result.Outcome, run.Result.ErrorMessage);
+        Assert.AreEqual(3, run.Result.ErrorLine, "the fourth line of the module");
+        Assert.AreEqual(1, run.Total);
+    }
+
+    [TestMethod]
     public async Task Stop_SaysWhereItStopped()
     {
         var run = await RunTwiceAsync(Program(

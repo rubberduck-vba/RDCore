@@ -135,6 +135,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     var outcome = statements.Execute(session, instructionContext, instruction.Node!);
                     if (outcome.Kind != RuntimeExecutionOutcomeKind.Next)
                     {
+                        // a statement can stop the program without being one of the two that are for it - a Debug.Assert that fails breaks - and it
+                        // stopped it at itself.
+                        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt)
+                        {
+                            session.Halt.Request(
+                                outcome.Kind is RuntimeExecutionOutcomeKind.Halt ? RuntimeHaltKind.End : RuntimeHaltKind.Break, instruction.Node?.SourceLocation);
+                        }
+
                         if (InterceptError(session, activation, list, instruction.Offset, outcome) is { } unhandledSimple)
                         {
                             return unhandledSimple;
