@@ -78,6 +78,12 @@ public class EnvironmentHostCapabilities
     public SessionDiscard SessionDiscard { get; set; } = new();
 
     /// <summary>
+    /// If supported, the environment host can run a program so that it stops and waits where a <c>Stop</c> or a break puts it, and resumes, steps or ends it
+    /// over <c>rdcore/host/debug/*</c>.
+    /// </summary>
+    public ProgramDebugging ProgramDebugging { get; set; } = new();
+
+    /// <summary>
     /// If supported, the environment host answers <c>rdcore/host/semantics</c> with the semantic model of the code it holds.
     /// </summary>
     public SemanticAnalysis SemanticAnalysis { get; set; } = new();
@@ -161,6 +167,21 @@ public static class RDCorePlatformProtocol
     public const string HostDiscard = "rdcore/host/discard";
 
     /// <summary>
+    /// Asks the environment host to resume a program that waits at a stop, or to take one step of it.
+    /// </summary>
+    public const string HostDebugResume = "rdcore/host/debug/resume";
+
+    /// <summary>
+    /// Asks the environment host to stop a program that is running where it is, so that it waits.
+    /// </summary>
+    public const string HostDebugPause = "rdcore/host/debug/pause";
+
+    /// <summary>
+    /// Asks the environment host to end a program that is running or waits.
+    /// </summary>
+    public const string HostDebugTerminate = "rdcore/host/debug/terminate";
+
+    /// <summary>
     /// Asks the language server to analyze a module the client supplies.
     /// </summary>
     public const string SessionAnalyze = "rdcore/session/analyze";
@@ -220,6 +241,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(SessionStatus))]
 [JsonDerivedType(typeof(SessionExecute))]
 [JsonDerivedType(typeof(SessionDiscard))]
+[JsonDerivedType(typeof(ProgramDebugging))]
 [JsonDerivedType(typeof(SessionAnalyze))]
 [JsonDerivedType(typeof(SemanticAnalysis))]
 [JsonDerivedType(typeof(SessionMemoryAccess))]
@@ -269,6 +291,12 @@ public record class SessionExecute(bool IsSupported = false) : CorePlatformClien
 /// What a client that clears a program means by it: the variables the program made go with the program, which defining it again never takes out.
 /// </remarks>
 public record class SessionDiscard(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component can run a program under a debugger: the program waits where a <c>Stop</c> or a break puts it
+/// (<strong>MS-VBAL 5.4.2.11</strong>), and is resumed, stepped or ended by <c>rdcore/host/debug/resume</c>, <c>.../pause</c> and <c>.../terminate</c>.
+/// </summary>
+public record class ProgramDebugging(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring component analyzes a supplied module and reports diagnostics —

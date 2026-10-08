@@ -38,6 +38,8 @@ using System.Runtime.CompilerServices;
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
 [assembly: ProvidesCorePlatformClientCapability<SessionDiscard>]
+// it can run a program so that it waits at a Stop, and it is the one that resumes, steps or ends it:
+[assembly: ProvidesCorePlatformClientCapability<ProgramDebugging>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // and it runs the semantic analysis pass over the code it holds, so it answers for what the pass found:
 [assembly: ProvidesCorePlatformClientCapability<SemanticAnalysis>]
@@ -396,6 +398,9 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
             .WithHandler<HostDiscardHandler>()
+            .WithHandler<HostDebugResumeHandler>()
+            .WithHandler<HostDebugPauseHandler>()
+            .WithHandler<HostDebugTerminateHandler>()
             .WithHandler<HostSemanticsHandler>()
             .WithHandler<HostPeekHandler>()
             .WithHandler<HostPokeHandler>();

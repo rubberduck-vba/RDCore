@@ -38,6 +38,12 @@ internal sealed class HostExecuteHandler(
             return Task.FromResult(NotFound("there is no runtime session to run in"));
         }
 
+        // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
+        if (sessionProvider.Execution.State is ProgramState.Running)
+        {
+            return Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "a program is running" });
+        }
+
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
         if (payload?.ParseResult.SyntaxTree is null)
         {
@@ -67,11 +73,16 @@ internal sealed class HostExecuteHandler(
             return Task.FromResult(NotFound($"'{request.ModuleName}.{request.EntryPoint}' is not a procedure of the module"));
         }
 
-        // the pipeline is composed per run: the cancellation is this run's own.
-        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, token);
+        // the pipeline is composed per run: the cancellation is this run's own. For a program under a debugger a cancellation is a break and not the end of the
+        // run, which the owner of the program sees to.
+        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, request.Debug ? CancellationToken.None : token);
 
-        var output = new RuntimeOutputBuffer();
-        var result = Run(session, pipeline, entryPoint, output, token);
+        return RunAsync(pipeline, entryPoint, request, token);
+    }
+
+    private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
+    {
+        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -79,107 +90,7 @@ internal sealed class HostExecuteHandler(
                 request.ModuleName, request.EntryPoint, result.Outcome, result.Output.Count);
         }
 
-        return Task.FromResult(result);
-    }
-
-    private ExecuteSessionResult Run(
-        IRuntimeSession session,
-        RuntimeExecutionPipeline pipeline,
-        VBTypeMemberSymbol entryPoint,
-        RuntimeOutputBuffer output,
-        CancellationToken token)
-    {
-        // the session is this host's own and outlives the run; the output buffer and the cancellation
-        // are this run's, so the pipeline is composed per run and the output routed for its duration.
-        sessionProvider.Output.Target = output;
-        try
-        {
-            // a program starts as one that was never stopped, whatever the one before it did: what a Stop left of its activations is let go of.
-            session.Halt.Clear();
-            SessionWipe.Abandon(session);
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
-        }
-        finally
-        {
-            sessionProvider.Output.Target = NullRuntimeOutput.Instance;
-
-            // what the program held for as long as it ran is released, and was freed in the order it was allocated in: the free memory at the end of
-            // the space is unused again, and what is free afterwards is fragmentation - a hole with something allocated after it.
-            session.Memory.Reclaim();
-        }
-    }
-
-    // What the invoker answered, as the caller sees it. An internal error means the interpreter met
-    // something it has no implementation for - unless the run was cancelled, in which case that is
-    // exactly what an interrupted run looks like from here.
-    private ExecuteSessionResult Report(
-        RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
-    {
-        // a program that was stopped is not one that failed: an End is over and leaves nothing of it, and a Stop - or a break asked for from outside, which is what
-        // cancelling the request is - leaves the session as the program made it, with the place it stopped at.
-        if (session.Halt.Pending is { } halt)
-        {
-            var location = session.Halt.Location;
-            session.Halt.Clear();
-
-            if (halt is RuntimeHaltKind.End)
-            {
-                SessionWipe.End(session);
-                return new ExecuteSessionResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
-            }
-
-            return new ExecuteSessionResult
-            {
-                Outcome = ExecutionOutcome.Interrupted,
-                Output = output.Lines,
-                ErrorMessage = "the program was interrupted",
-                ErrorLine = location?.Range.Start.Line ?? -1,
-                ErrorCharacter = location?.Range.Start.Character ?? -1,
-            };
-        }
-
-        if (invocation.IsSuccess)
-        {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
-        }
-
-        if (invocation.IsInternalError)
-        {
-            return new ExecuteSessionResult
-            {
-                Outcome = token.IsCancellationRequested ? ExecutionOutcome.Interrupted : ExecutionOutcome.NotImplemented,
-                Output = output.Lines,
-                ErrorMessage = token.IsCancellationRequested
-                    ? "the program was interrupted"
-                    : "the interpreter reached something it cannot run yet",
-            };
-        }
-
-        // the error itself says what and where; the session's own error state says the rest, because that is
-        // where Err lives - its Source, and the stack trace captured when the error was raised.
-        var error = invocation.ErrorInfo!;
-        return new ExecuteSessionResult
-        {
-            Outcome = ExecutionOutcome.RuntimeError,
-            Output = output.Lines,
-            ErrorNumber = error.ErrorId,
-            ErrorMessage = error.Description,
-            ErrorCode = error.ToDiagnosticCode(),
-            ErrorTitle = error.AsErrorInfo.ToDiagnosticTitle(),
-            ErrorLineNumber = session.Errors.LineNumber,
-            // MS-VBAL 6.1.3.2.2.6: unspecified, Source is the current project name - which the session
-            // does not know and this does.
-            ErrorSource = session.Errors.Source is { Length: > 0 } source ? source : sessionProvider.ProjectName,
-            ErrorLine = error.Location.Range.Start.Line,
-            ErrorCharacter = error.Location.Range.Start.Character,
-            StackTrace =
-            [
-                .. session.Errors.StackTrace.Frames.Select(frame => new ExecuteStackFrame(
-                    frame.ProcedureName,
-                    frame.Location?.Range.Start.Line ?? -1,
-                    frame.Location?.Range.Start.Character ?? -1)),
-            ],
-        };
+        return result;
     }
 
     // the module symbol is defined in the session from the .rdproj, under the global scope.

@@ -39,6 +39,13 @@ public record class ExecuteSessionParams : IRequest, IRequest<ExecuteSessionResu
     /// The name of the parameterless procedure to invoke.
     /// </summary>
     public string EntryPoint { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the program runs under a debugger: a <c>Stop</c>, a failed <c>Debug.Assert</c> or a break does not end the request but suspends the program, and the
+    /// answer is <see cref="ExecutionOutcome.Suspended"/>. It is resumed, stepped or ended by the requests of <see cref="HostDebugResumeParams"/>. Without it a
+    /// <c>Stop</c> ends the run as <see cref="ExecutionOutcome.Interrupted"/>, as it always did.
+    /// </summary>
+    public bool Debug { get; init; }
 }
 
 /// <summary>
@@ -69,6 +76,11 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteSessionResult>
     /// The name of the parameterless procedure to invoke.
     /// </summary>
     public string EntryPoint { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the program runs under a debugger. See <see cref="ExecuteSessionParams.Debug"/>.
+    /// </summary>
+    public bool Debug { get; init; }
 }
 
 /// <summary>
@@ -105,6 +117,17 @@ public enum ExecutionOutcome
     /// The interpreter reached something it has no implementation for. Not a program error: a gap.
     /// </summary>
     NotImplemented,
+
+    /// <summary>
+    /// The program was run under a debugger and waits where it stopped: <see cref="ExecuteSessionResult.ErrorLine"/> and
+    /// <see cref="ExecuteSessionResult.ErrorCharacter"/> say where. It is neither over nor failed.
+    /// </summary>
+    Suspended,
+
+    /// <summary>
+    /// The request cannot be answered now: a program is running, or is suspended and the request would wreck it.
+    /// </summary>
+    Refused,
 }
 
 /// <summary>

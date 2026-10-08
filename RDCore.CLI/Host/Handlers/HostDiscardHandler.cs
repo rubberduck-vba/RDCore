@@ -17,11 +17,29 @@ internal sealed class HostDiscardHandler(
     IEnvironmentSessionProvider sessionProvider,
     ILogger<HostDiscardHandler> logger) : RDCoreRequestHandler<HostDiscardParams, DiscardSessionResult>
 {
-    protected override Task<DiscardSessionResult> HandleAsync(HostDiscardParams request, CancellationToken token)
+    protected override async Task<DiscardSessionResult> HandleAsync(HostDiscardParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(new DiscardSessionResult());
+            return new DiscardSessionResult();
+        }
+
+        // A client that clears its program (NEW, LOAD) ends the one that is running or waits first. Anything else that takes a module out - a document that is
+        // closed - leaves it be: the program is not the document's to end, and its code stays until it is over.
+        var execution = sessionProvider.Execution;
+        if (request.EndProgram)
+        {
+            _ = await execution.TerminateAsync(wipe: true);
+        }
+
+        if (execution.State is not ProgramState.Idle)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("📌 {module}: kept, a program is {state}.", request.ModuleName, execution.State);
+            }
+
+            return new DiscardSessionResult();
         }
 
         var session = sessionProvider.Session;
@@ -38,6 +56,6 @@ internal sealed class HostDiscardHandler(
             logger.LogInformation("🗑️ {module}: {discarded} symbol(s) discarded.", request.ModuleName, discarded);
         }
 
-        return Task.FromResult(new DiscardSessionResult { Discarded = discarded });
+        return new DiscardSessionResult { Discarded = discarded };
     }
 }

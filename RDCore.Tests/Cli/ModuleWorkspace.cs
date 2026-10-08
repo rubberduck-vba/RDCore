@@ -68,17 +68,18 @@ internal static class ModuleWorkspace
     /// <param name="classes">The class modules of the workspace.</param>
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
+    /// <param name="debug">Whether the program runs under a debugger: a <c>Stop</c> suspends it, and the first run answers that it waits.</param>
     /// <param name="cancelAfter">How long the first run has before its request is cancelled, counted from when it starts and not from when the workspace
     /// began to be composed. Never, when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null)
-        => RunCoreAsync(classes, program, errorsOnly: false, inspect: inspect, cancelAfter: cancelAfter);
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, TimeSpan? cancelAfter = null, bool debug = false)
+        => RunCoreAsync(classes, program, errorsOnly: false, inspect: inspect, cancelAfter: cancelAfter, debug: debug);
 
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null)
+        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] modules =
@@ -173,6 +174,7 @@ internal static class ModuleWorkspace
                     Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
                     ModuleName = "Program",
                     EntryPoint = "Main",
+                    Debug = debug,
                 }, cancellation);
 
         using var cancellation = new CancellationTokenSource();

@@ -45,6 +45,12 @@ public record class HostDiscardParams : IRequest, IRequest<DiscardSessionResult>
     /// The programmatic name of the module.
     /// </summary>
     public string ModuleName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the program that is running or waits is ended, and the session wiped, before the module goes: what a client that clears its program
+    /// (<c>NEW</c>, <c>LOAD</c>) asks. Without it a module of a program that is running or waits is kept, since the code it runs is not the document's to take away.
+    /// </summary>
+    public bool EndProgram { get; init; }
 }
 
 /// <summary>

@@ -59,6 +59,11 @@ public interface IEnvironmentSessionProvider
     ProgramImage Image { get; }
 
     /// <summary>
+    /// The owner of the program that runs in the composed session. Replaced each time the session is composed.
+    /// </summary>
+    ProgramExecution Execution { get; }
+
+    /// <summary>
     /// Composes the session from a loaded project's module structure and precompiler constants.
     /// Replaces any previously composed session.
     /// </summary>
@@ -95,6 +100,9 @@ public sealed class EnvironmentSessionProvider(
     public ProgramImage Image { get; private set; } = new();
 
     /// <inheritdoc/>
+    public ProgramExecution Execution { get; private set; } = default!;
+
+    /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
     {
         var configuration = new ConfigurationSymbolProvider(environment, project);
@@ -105,6 +113,7 @@ public sealed class EnvironmentSessionProvider(
 
         _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, modules], Output);
         Image = new ProgramImage();
+        Execution = new ProgramExecution(this);
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;
 
