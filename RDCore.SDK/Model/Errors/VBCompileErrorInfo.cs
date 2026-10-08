@@ -93,5 +93,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.ExitSubNotAllowedInFunctionOrProperty] = Exceptions.VBCompileError_ExitSubNotAllowedInFunctionOrProperty,
         [VBCompileErrorId.VariableRequired] = Exceptions.VBCompileError_VariableRequired,
         [VBCompileErrorId.FileAccessNotValidForMode] = Exceptions.VBCompileError_FileAccessNotValidForMode,
+        [VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch] = Exceptions.VBCompileError_TypeDeclarationCharacterDoesNotMatch,
     };
 }

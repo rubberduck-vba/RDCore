@@ -697,7 +697,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         return new VBLocalVariableSymbol(
             workspaceRoot, procedureUri, node.IdentifierName, ScopeKind.Local, range, range,
-            ResolvedType: ImplicitOrDeclaredType(asType: null, typeHint: null, procedureUri),
+            ResolvedType: ImplicitOrDeclaredType(asType: null, node.TypeHint, procedureUri),
             DeclaredBy: LocalDeclarationKind.Implicit);
     }
 
@@ -715,7 +715,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
         var range = RangeOf(node);
         return new VBModuleFieldVariableMemberSymbol(
                 workspaceRoot, moduleUri, node.IdentifierName, memberScope,
-                ImplicitOrDeclaredType(asType: null, typeHint: null, moduleUri), range, range, AccessModifier.Implicit)
+                ImplicitOrDeclaredType(asType: null, node.TypeHint, moduleUri), range, range, AccessModifier.Implicit)
             .With(SymbolProperties.ImplicitlyDeclared, true);
     }
 

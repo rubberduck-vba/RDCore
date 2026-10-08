@@ -1,4 +1,5 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -152,10 +153,33 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateLabelDefinition, label.SourceLocation, label.Name));
                     }
                     break;
-                case StatementNode statement:
-                    EvaluateStatement(context, statement, walk);
+                // a name is declared once in its procedure: the parameters and the variables and constants of the body share one scope, and what a name is
+                // written with - Dim x$ and Dim x% - is how its type is said, not a different name.
+                case VariableDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.SourceLocation);
+                    goto default;
+                case ConstantDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    goto default;
+                case ParameterDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    goto default;
+                default:
+                    if (child is StatementNode statement)
+                    {
+                        EvaluateStatement(context, statement, walk);
+                    }
+
                     break;
             }
+        }
+    }
+
+    private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
+    {
+        if (name.Length > 0 && !walk.DeclaredNames.Add(name))
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, location, $"'{name}' is declared more than once in this procedure."));
         }
     }
 
@@ -637,6 +661,9 @@ public static class StatementStaticSemanticsEvaluator
         public HashSet<string> LabelDefinitions { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<ExpressionNode> LabelReferences { get; } = [];
+
+        // the names the walked procedure has declared so far: its parameters, variables and constants share one scope.
+        public HashSet<string> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         // the kind of procedure the walked body belongs to, when it is known.
         public MemberKind? Procedure { get; init; }

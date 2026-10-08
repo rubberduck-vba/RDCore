@@ -58,6 +58,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09332](vbc09332.md)|Exit Sub not allowed in Function or Property — an Exit Sub in a Function or a property|
 |[VBC09333](vbc09333.md)|Variable required — an expression that is not a variable is where a statement requires one|
 |[VBC09334](vbc09334.md)|Access not valid for the file mode — the Access clause of an Open is not one its For mode allows|
+|[VBC09335](vbc09335.md)|Type-declaration character does not match declared data type — a name is written with the character of a type other than the one it was declared as|
 
 ### Rubberduck Core diagnostics
 
