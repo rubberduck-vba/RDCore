@@ -91,10 +91,8 @@ internal sealed class SyntaxTreeSymbolProvider(
         // a standard module's members are module-scoped; a class module's are instance-scoped.
         var memberScope = moduleType == ModuleType.ClassModule ? ScopeKind.Instance : ScopeKind.Module;
         // MS-VBAL 5.2.3.1.5: a declaration that names no type is implicitly a Variant, unless a
-        // Def<Type> directive covers the first letter of its name. Which letters a directive covers isn't
-        // modeled yet, so a module that has any leaves such declarations undetermined rather than wrongly Variant.
-        var implicitType = module.Children.OfType<TypeDefDirectiveNode>().Any() ? VBUnknownType.TypeInfo : VBVariantType.TypeInfo;
-        var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver, implicitType);
+        // Def<Type> directive covers the first letter of its name (MS-VBAL 5.2.2).
+        var builder = new SymbolBuilder(workspaceRoot, moduleUri, memberScope, resolver, VBVariantType.TypeInfo, [.. module.Children.OfType<TypeDefDirectiveNode>()]);
 
         // MS-VBAL 5.2.1.3: Option Explicit sets the module's variable declaration mode. Without it the
         // module is in implicit mode, where a reference to an undeclared name declares it (5.6.10).
