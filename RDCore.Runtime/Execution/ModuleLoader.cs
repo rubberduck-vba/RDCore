@@ -63,10 +63,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
         var pipeline = RuntimeExecutionPipeline.Create(session, image, messages);
 
-        // the scope is the global one because that is where a #Const is bound and resolved from
-        // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant), not the module being lowered.
-        var deadRanges = PrecompilerLiveBranchEvaluator.GetDeadRanges(
+        // the scope is the global one because that is where the project's #Const is bound and resolved from
+        // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant); the module's own are found in the trivia, and shadow them.
+        var precompiled = PrecompilerLiveBranchEvaluator.Evaluate(
             session, pipeline.Expressions, new RuntimeEvaluationContext(StaticSymbol.GlobalUri), parseResult.PrecompilerTrivia);
+        var deadRanges = precompiled.DeadRanges;
 
         var members = session.Symbols.MembersOf(module.Uri);
         pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module, members));
@@ -100,7 +101,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         }
 
         // a module is valid when what it declares is, as well as every procedure of it.
-        var declarationErrors = DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks)
+        var declarationErrors = precompiled.Errors
+            .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver));
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {

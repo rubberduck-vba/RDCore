@@ -124,7 +124,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         {
             LiteralExpressionNode => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression),
             SimpleNameExpressionNode simpleName => EvaluateSimpleName(session, context, simpleName),
-            PrecompilerNameExpressionNode precompilerName => EvaluatePrecompilerConstant(session, precompilerName),
+            PrecompilerNameExpressionNode precompilerName => EvaluatePrecompilerConstant(session, context, precompilerName),
             InstanceExpressionNode => EvaluateInstance(session, context, expression),
             NewExpressionNode newExpression => EvaluateNew(session, context, expression, newExpression),
             MemberAccessExpressionNode memberAccess => EvaluateMemberAccess(session, context, expression, memberAccess),
@@ -399,8 +399,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     // MS-VBAL §5.6.16.2: a conditional-compilation constant that names nothing is the value 0 - not a
     // compile error, and Option Explicit (a variable-declaration concern) has no bearing on it.
-    private static RuntimeSemanticsEvaluationResult EvaluatePrecompilerConstant(IRuntimeSession session, PrecompilerNameExpressionNode name)
+    // A constant the module declares itself shadows the project's of the same name (§3.4.1).
+    private static RuntimeSemanticsEvaluationResult EvaluatePrecompilerConstant(IRuntimeSession session, RuntimeEvaluationContext context, PrecompilerNameExpressionNode name)
     {
+        if (context.ConditionalConstant?.Invoke(name.Name) is { } moduleConstant)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(moduleConstant);
+        }
+
         var result = session.Symbols.Resolver.ResolveConditionalConstant(name.Name, ScopeKind.Global, StaticSymbol.GlobalUri);
         return RuntimeSemanticsEvaluationResult.Success(result.Symbol is PrecompilerConstantSymbol constant ? constant.Value : new VBIntegerValue(0));
     }

@@ -91,10 +91,10 @@ public sealed class TypeDeclarationCharacterTests
     [TestMethod]
     public async Task ANameDeclaredInEachBranchOfABlockThatCannotBeEvaluated_IsDeclaredOnce_Too()
     {
-        // a condition that fails to evaluate says which branch is dead of none of them, and the branches are alternatives all the same.
+        // a condition that fails to evaluate is an error of its own, and says which branch is dead of none of them: the branches are alternatives all the same.
         var errors = await ErrorsOfAsync("#If 1 / 0 Then", "Dim Temp As Long", "#Else", "Dim Temp As Double", "#End If");
 
-        Assert.IsEmpty(errors);
+        Assert.IsFalse(errors.Any(error => error.Id == VBCompileErrorId.DuplicateDeclaration));
     }
 
     [TestMethod]

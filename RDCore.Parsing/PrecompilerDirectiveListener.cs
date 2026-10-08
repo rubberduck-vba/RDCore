@@ -205,7 +205,7 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
 
 
     public override void ExitCcVarLhs([NotNull] VBAConditionalCompilationParser.CcVarLhsContext context)
-        => OnExpression(new PrecompilerNameExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.name().GetText()));
+        => OnExpression(new PrecompilerNameExpressionNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.name().nameValue().GetText()));
 
     public override void ExitLiteral([NotNull] VBAConditionalCompilationParser.LiteralContext context)
     {
@@ -216,7 +216,8 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
             // a #Const literal value that does not fit its type degrades to no expression rather than
-            // forfeiting the whole module's precompiler trivia.
+            // forfeiting the whole module's precompiler trivia - and says so, because a condition with no expression is not a branch to take.
+            _errors.Report(context.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError, $"'{context.GetText()}' is not a value a conditional-compilation expression can have.");
         }
     }
 
@@ -254,6 +255,14 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
             {
                 OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, new VBDateValue(rawValue.ToOADate())));
             }
+            else
+            {
+                _errors.Report(location, VBCompileErrorId.SyntaxError, $"'{dateNode.Symbol.Text}' is not a date.");
+            }
+        }
+        else if (context.NULL() is not null)
+        {
+            OnExpression(new LiteralExpressionNode(GetCurrentNodeId(), location, VBNullValue.Null));
         }
         else if (context.NOTHING() is not null)
         {
