@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -29,7 +30,12 @@ public sealed record class RuntimeCallableBindingFactory(
     /// <inheritdoc/>
     public ICallableBinding ForMember(
         VBTypeMemberSymbol member, IRuntimeValue? receiver = null, SourceLocation callSite = default)
-        => member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 } && External is not null
+        => IsExternal(member) && External is not null
             ? new ExternalBindingHandle(member, External, receiver, callSite)
             : new CallableBindingHandle(member, Invoker, receiver);
+
+    // a Declare names a native library: it has no body in the workspace and no target the standard library knows, and what it is is in its type.
+    private static bool IsExternal(VBTypeMemberSymbol member)
+        => member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+            || member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 };
 }
