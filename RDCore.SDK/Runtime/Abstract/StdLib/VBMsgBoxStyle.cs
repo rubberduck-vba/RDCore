@@ -4,7 +4,7 @@
 /// <strong>MS-VBAL 6.1.1.12 VbMsgBoxStyle</strong>
 /// </summary>
 /// <remarks>
-/// These values encode the rendered appearance and possible return values of the <see cref="IStdInteractionModule.StdInteraction__MsgBox"/> function.
+/// These values encode the rendered appearance and possible return values of the <see cref="IStdInteractionModule.MsgBox"/> function.
 /// </remarks>
 [StdLibEnum]
 public enum VBMsgBoxStyle
