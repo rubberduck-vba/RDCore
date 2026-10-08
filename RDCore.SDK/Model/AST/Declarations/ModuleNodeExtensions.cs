@@ -54,7 +54,24 @@ public static class ModuleNodeExtensions
         : new ModuleDirectives(
             Explicit: module.HasOptionExplicit(),
             Compare: module.GetOptionCompare(),
-            Base: module.GetOptionBase());
+            Base: module.GetOptionBase(),
+            PrivateModule: module.HasOptionPrivateModule());
+
+    /// <summary>
+    /// Whether the module declares <c>Option Private Module</c> (<strong>MS-VBAL §5.2.1.4</strong>).
+    /// </summary>
+    public static bool HasOptionPrivateModule(this ModuleNode module)
+    {
+        foreach (var child in module.Children)
+        {
+            if (child is ModuleOptionDirectiveNode { ModuleOption: ModuleOptions.OptionPrivateModule })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Whether the module declares <c>Option Explicit</c> (<strong>MS-VBAL §5.2.1.3</strong>).
