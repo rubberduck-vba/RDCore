@@ -27,6 +27,74 @@ public sealed class DeclarationErrorTests
     }
 
     [TestMethod]
+    [DataRow("Public Total As Long", "Public Total As Long")]
+    [DataRow("Public Total As Long", "Public Total As String")]
+    [DataRow("Public Total As Long", "Public Const Total = 1")]
+    [DataRow("Public Sub Work()\r\nEnd Sub", "Public Sub Work()\r\nEnd Sub")]
+    [DataRow("Public Sub Work()\r\nEnd Sub", "Public Function WORK() As Long\r\nEnd Function")]
+    [DataRow("Public Property Get V() As Long\r\nEnd Property", "Public Property Get V() As Long\r\nEnd Property")]
+    public async Task ANameDeclaredTwice_AsTheSameKindOfThing_IsADuplicateDeclaration_Too(string first, string second)
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second));
+
+        Assert.HasCount(1, errors);
+        StringAssert.Contains(errors[0], "declared more than once");
+    }
+
+    [TestMethod]
+    public async Task AnEnumAndAPropertyOfTheSameName_AreEachDeclaredOnce_TheyAreNamesOfDifferentThings()
+    {
+        // the shape of a real module (IPlayer.cls of OOPBattleship): `Property Get PlayerType() As PlayerType`.
+        var errors = await ModuleWorkspace.LoadErrorsAsync(
+            [("IPlayer", ModuleWorkspace.ClassModule("IPlayer",
+                "Public Enum PlayerType", "HumanControlled", "ComputerControlled", "End Enum",
+                "Public Property Get PlayerType() As PlayerType", "End Property"))],
+            Program());
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), errors);
+    }
+
+    [TestMethod]
+    public async Task TwoTypesOfTheSameName_AreADuplicateDeclaration()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync(
+            [], Program("Public Enum Kind", "A", "End Enum", "Public Type Kind", "X As Long", "End Type"));
+
+        Assert.HasCount(1, errors);
+        StringAssert.Contains(errors[0], "declared more than once");
+    }
+
+    [TestMethod]
+    public async Task ANameDeclaredInEachBranchOfAConditionalCompilationBlock_IsDeclaredOnce_WhateverTheBranchesAreWorth()
+    {
+        // VBA7 and Mac are constants nothing here defines: the block is not evaluated, and what it declares is still one declaration of each name.
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "#If VBA7 Then",
+            "Public Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As Long)",
+            "#Else",
+            "Public Declare Sub Sleep Lib \"kernel32\" (ByVal ms As Long)",
+            "#End If",
+            "#If Mac Then",
+            "Public Total As Long",
+            "#ElseIf VBA7 Then",
+            "Public Total As LongLong",
+            "#Else",
+            "Public Total As Integer",
+            "#End If"));
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), errors);
+    }
+
+    [TestMethod]
+    public async Task ANameDeclaredTwiceInOneBranch_IsADuplicateDeclaration_EvenWhenTheOtherBranchDeclaresItToo()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
+            "#If Mac Then", "Public Total As Long", "Public Total As Long", "#Else", "Public Total As Integer", "#End If"));
+
+        Assert.HasCount(1, errors);
+    }
+
+    [TestMethod]
     public async Task AModule_ThatNamesOneDefinedAfterIt_IsLoaded_ForTheCodeIsCheckedOnceEveryModuleIsDefined()
     {
         // A comes before B in the workspace, and uses it.

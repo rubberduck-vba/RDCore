@@ -98,8 +98,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         }
 
         // a module is valid when what it declares is, as well as every procedure of it.
-        var moduleModel = new ModuleSemanticModel(
-            module.Uri, DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver), procedureModels.ToImmutable())
+        var declarationErrors = DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia))
+            .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver));
+        var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
