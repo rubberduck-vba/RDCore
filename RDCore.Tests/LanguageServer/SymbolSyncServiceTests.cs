@@ -281,6 +281,55 @@ public sealed class SymbolSyncServiceTests
         CollectionAssert.AreEqual(new[] { ("Mod1", false, true), ("Mod1", true, false) }, requests);
     }
 
+    private static (SymbolSyncService Sut, IRDCoreClientApp Host) ForDiscard(bool providesDiscard = true, bool hasHost = true)
+    {
+        var host = Substitute.For<IRDCoreClientApp>();
+        host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = providesDiscard ? [nameof(SessionDiscard)] : [] });
+        host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DiscardSessionResult { Discarded = 3 }));
+
+        var orchestration = Substitute.For<IPlatformOrchestrationService>();
+        orchestration.RuntimeEnvironment.Returns(hasHost ? host : null);
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.WorkspaceRoot.Returns(Root);
+
+        return (new SymbolSyncService(
+            orchestration, Substitute.For<IParsingClientService>(), documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance), host);
+    }
+
+    [TestMethod]
+    public async Task AModuleThatIsDiscarded_IsAddressedTheWayItWasDefined_AndTheHostSaysWhatItTookOut()
+    {
+        var (sut, host) = ForDiscard();
+
+        var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
+
+        Assert.AreEqual(3, result.Discarded);
+        await host.Received(1).SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+            Arg.Is<HostDiscardParams>(p => p.ModuleName == "Program" && p.ModuleUri == new UriBuilder(new Uri(Root)) { Fragment = "Program" }.Uri),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AHostThatCannotDiscard_IsNotAsked_AndNothingWasTakenOut()
+    {
+        var (sut, host) = ForDiscard(providesDiscard: false);
+
+        var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
+
+        Assert.AreEqual(0, result.Discarded);
+        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostDiscardParams, DiscardSessionResult>(default!, default);
+    }
+
+    [TestMethod]
+    public async Task APlatformWithNoHost_TakesNothingOut()
+    {
+        var (sut, _) = ForDiscard(hasHost: false);
+
+        Assert.AreEqual(0, (await sut.DiscardModuleAsync("Program", CancellationToken.None)).Discarded);
+    }
+
     [TestMethod]
     public async Task ADocumentWhoseParseIsNotOfItsText_IsNotSentToTheHost()
     {

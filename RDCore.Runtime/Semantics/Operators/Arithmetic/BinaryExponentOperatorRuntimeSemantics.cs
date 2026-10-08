@@ -35,8 +35,9 @@ public record class BinaryExponentOperatorRuntimeSemantics(
         ExpressionNode expression, 
         OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
         {
-            VBNumericType or VBStringType or VBDateType or VBEmptyType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBStringType or VBDateType or VBEmptyType
+            // a Boolean is a numeric operand here, as it is an Integer one in the standard arithmetic table.
+            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()

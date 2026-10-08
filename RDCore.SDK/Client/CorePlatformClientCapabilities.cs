@@ -72,6 +72,12 @@ public class EnvironmentHostCapabilities
     public SessionExecute SessionExecute { get; set; } = new();
 
     /// <summary>
+    /// If supported, the environment host takes a module out of its runtime session over <c>rdcore/host/discard</c>: what it declared, what it held,
+    /// and the code and the model made of it.
+    /// </summary>
+    public SessionDiscard SessionDiscard { get; set; } = new();
+
+    /// <summary>
     /// If supported, the environment host answers <c>rdcore/host/semantics</c> with the semantic model of the code it holds.
     /// </summary>
     public SemanticAnalysis SemanticAnalysis { get; set; } = new();
@@ -99,6 +105,12 @@ public class LanguageServerCapabilities
     /// <c>rdcore/session/execute</c>, and reports what it printed.
     /// </summary>
     public SessionExecute SessionExecute { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server takes a module the client supplied out of the runtime session, over <c>rdcore/session/discard</c>: what it
+    /// declared and what it held go, as a program's variables do when the program is cleared.
+    /// </summary>
+    public SessionDiscard SessionDiscard { get; set; } = new();
 
     /// <summary>
     /// If supported, the language server analyzes a module the client supplies, over
@@ -136,6 +148,17 @@ public static class RDCorePlatformProtocol
     /// language-server side of <see cref="SessionExecute"/>; never sent by a client.
     /// </summary>
     public const string HostExecute = "rdcore/host/execute";
+
+    /// <summary>
+    /// Asks the language server to take a module the client supplied out of the runtime session.
+    /// </summary>
+    public const string SessionDiscard = "rdcore/session/discard";
+
+    /// <summary>
+    /// Asks the environment host to take a module out of its runtime session. The language-server side of <see cref="SessionDiscard"/>; never sent
+    /// by a client.
+    /// </summary>
+    public const string HostDiscard = "rdcore/host/discard";
 
     /// <summary>
     /// Asks the language server to analyze a module the client supplies.
@@ -196,6 +219,7 @@ public static class RDCorePlatformProtocol
 [JsonDerivedType(typeof(DiagnoseDocument))]
 [JsonDerivedType(typeof(SessionStatus))]
 [JsonDerivedType(typeof(SessionExecute))]
+[JsonDerivedType(typeof(SessionDiscard))]
 [JsonDerivedType(typeof(SessionAnalyze))]
 [JsonDerivedType(typeof(SemanticAnalysis))]
 [JsonDerivedType(typeof(SessionMemoryAccess))]
@@ -236,6 +260,15 @@ public record class SessionStatus(bool IsSupported = false) : CorePlatformClient
 /// language server and the component that owns the runtime session.
 /// </summary>
 public record class SessionExecute(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the declaring component takes a module out of the runtime session — <c>rdcore/session/discard</c> to a client,
+/// <c>rdcore/host/discard</c> between the language server and the component that owns the runtime session.
+/// </summary>
+/// <remarks>
+/// What a client that clears a program means by it: the variables the program made go with the program, which defining it again never takes out.
+/// </remarks>
+public record class SessionDiscard(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
 
 /// <summary>
 /// Advertises that the declaring component analyzes a supplied module and reports diagnostics —

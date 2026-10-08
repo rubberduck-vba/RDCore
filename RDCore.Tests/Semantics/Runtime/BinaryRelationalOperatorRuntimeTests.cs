@@ -211,4 +211,16 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
     [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
     public void LessThan_Error_ComparesNumericValue_True()
         => AssertResult<VBBooleanValue>(Evaluate(Lt(), new VBErrorValue(5), new VBErrorValue(9)), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.3 Binary '<' Operator")]
+    public void LessThan_Date_ComparesTheDatesAsDoubles()
+        => AssertResult<VBBooleanValue>(Evaluate(
+            new BinaryLtRelationalOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBDateValue(2), new VBDateValue(3)), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_DateAndLong_ComparesTheDateAsADouble()
+        => AssertResult<VBBooleanValue>(Evaluate(
+            new BinaryEqRelationalOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBDateValue(2), new VBLongValue(2)), true);
 }

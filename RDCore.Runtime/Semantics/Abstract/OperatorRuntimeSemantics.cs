@@ -20,6 +20,7 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics;
@@ -94,6 +95,7 @@ where TFlags : struct, Enum
             Operands = [.. operands],
             EffectiveType = VBUnknownType.TypeInfo,
             Comparison = comparison,
+            Site = ConversionSite.OperatorOperand,
         };
 
         var effectiveTypeResult = DetermineOperatorEffectiveType(resolver, initialContext, expression, frame);
@@ -193,11 +195,84 @@ where TFlags : struct, Enum
         TContext context,
         SyntaxNode node,
         params VBTypedValue[] inputs)
+        => EvaluateAtSite(session, context, (ExpressionNode)node, ConversionSite.OperatorOperand, inputs);
+
+    /// <summary>
+    /// Evaluates the operation the construct at the specified <paramref name="site"/> asks for.
+    /// </summary>
+    /// <param name="session">The session the operation is evaluated in.</param>
+    /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
+    /// <param name="expression">The expression the operation is evaluated for, whose identity and location are the operation's.</param>
+    /// <param name="site">The construct that asks for the operation, which is the site of the conversions of its operands.</param>
+    /// <param name="inputs">The operands.</param>
+    /// <remarks>
+    /// 👉 An operator expression is its own site (<see cref="ConversionSite.OperatorOperand"/>). A <c>Case</c> comparison or the
+    /// increment of a <c>For</c> loop is an operation of the same operators that is not an operator expression of its own in source,
+    /// and says what it is here.
+    /// </remarks>
+    public RuntimeSemanticsEvaluationResult EvaluateAtSite(
+        IRuntimeSession session,
+        TContext context,
+        ExpressionNode expression,
+        ConversionSite site,
+        params VBTypedValue[] inputs)
     {
-        var expression = (ExpressionNode)node;
-        var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo, session.CurrentStringComparison());
+        var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo, session.CurrentStringComparison(), site);
         return Evaluate(session.Symbols.Resolver, context, expression, frame);
     }
+
+    /// <summary>
+    /// States an operation that was just evaluated as an <see cref="OperatorFact"/>.
+    /// </summary>
+    /// <param name="session">The session the operation was evaluated in.</param>
+    /// <param name="token">The operator.</param>
+    /// <param name="expression">The expression the operation was evaluated for.</param>
+    /// <param name="result">The result of the evaluation: the error the fact states, if there is one, is the evaluation's own.</param>
+    /// <param name="operands">The operands the operation was evaluated with.</param>
+    /// <returns><see langword="null"/> for an operation that has no family of its own: an assignment states its conversion, which is a fact of its own.</returns>
+    internal OperatorFact? Observe(
+        IRuntimeSession session,
+        string token,
+        ExpressionNode expression,
+        RuntimeSemanticsEvaluationResult result,
+        VBTypedValue[] operands)
+    {
+        var resolver = session.Symbols.Resolver;
+        var comparison = session.CurrentStringComparison();
+
+        var builder = new SemanticContextFlagsBuilder<TContext, TFlags>();
+        Analyze(resolver, builder, expression, comparison, operands);
+
+        var effectiveType = DetermineOperatorEffectiveType(
+            resolver, new TContext(), expression, new OperatorEvaluationFrame(expression.Identity, [.. operands], VBUnknownType.TypeInfo, comparison)).Result;
+
+        return CreateFact(
+            token, expression, effectiveType, builder.Build().Flags, comparison,
+            isValueKnown: !operands.Any(operand => operand.IsIndeterminate), StatedErrors.Of(result.ErrorInfo));
+    }
+
+    /// <summary>
+    /// Creates the fact that states an operation of this operator's family.
+    /// </summary>
+    /// <param name="token">The operator.</param>
+    /// <param name="expression">The expression the operation was evaluated for.</param>
+    /// <param name="effectiveType">The effective type of the operation, if it has one.</param>
+    /// <param name="flags">What the analysis of the operation says.</param>
+    /// <param name="comparison">How <c>String</c> values are compared where the operation is evaluated.</param>
+    /// <param name="isValueKnown">Whether every operand is known.</param>
+    /// <param name="error">The error the operation raises, if it is stated.</param>
+    /// <remarks>
+    /// 🧩 Each family of operators overrides this to say which fact it states. The base states none.
+    /// </remarks>
+    protected virtual OperatorFact? CreateFact(
+        string token,
+        ExpressionNode expression,
+        VBType? effectiveType,
+        TFlags flags,
+        StringComparisonRules comparison,
+        bool isValueKnown,
+        VBErrorInfo? error)
+        => null;
 
     /// <summary>
     /// Evaluates the specified <c>operator expression</c> in the specified execution context, using the specified operands.
@@ -206,10 +281,50 @@ where TFlags : struct, Enum
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
     /// <param name="expression">The operator expression being evaluated.</param>
     /// <param name="frame">The evaluation frame encapsulating the operation inputs.</param>
+    /// <remarks>
+    /// An operation of an indeterminate operand (<see cref="VBTypedValue.IsIndeterminate"/>) yields an indeterminate value, and raises nothing:
+    /// what it would raise because of the value an operand assumes is not known to happen.
+    /// </remarks>
     protected RuntimeSemanticsEvaluationResult Evaluate(
-        ISymbolResolver resolver, 
-        TContext context, 
-        ExpressionNode expression, 
+        ISymbolResolver resolver,
+        TContext context,
+        ExpressionNode expression,
+        OperatorEvaluationFrame frame)
+    {
+        var (result, effectiveType) = EvaluateOperation(resolver, context, expression, frame);
+
+        // an internal error is a defect of the semantics, whatever the operands are.
+        return frame.Operands.Any(operand => operand.IsIndeterminate) && result.ErrorInfo?.ErrorId != (int)VBRuntimeErrorId.InternalError
+            ? RuntimeSemanticsEvaluationResult.Success(IndeterminateResultOf(frame, result, effectiveType))
+            : result;
+    }
+
+    /// <summary>
+    /// The declared type of the value the operation yields for the specified <em>effective type</em>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 Most operators yield a value of their effective type; one that compares its operands yields a <c>Boolean</c> instead.
+    /// </remarks>
+    /// <param name="effectiveType">The effective type of the operation.</param>
+    protected virtual VBType ResultTypeOf(VBType effectiveType) => effectiveType;
+
+    private VBTypedValue IndeterminateResultOf(OperatorEvaluationFrame frame, RuntimeSemanticsEvaluationResult result, VBType? effectiveType)
+    {
+        // the subtype of a Variant decides the effective type, so the type of the result is not known either.
+        if (effectiveType is null || frame.Operands.Any(operand => operand is VBVariantValue { IsIndeterminate: true }))
+        {
+            return VBVariantType.TypeInfo.CreateIndeterminateValue();
+        }
+
+        return result.IsSuccess
+            ? result.Result!.AsIndeterminate()
+            : ResultTypeOf(effectiveType).CreateIndeterminateValue();
+    }
+
+    private (RuntimeSemanticsEvaluationResult Result, VBType? EffectiveType) EvaluateOperation(
+        ISymbolResolver resolver,
+        TContext context,
+        ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
         // 1. Determine the EFFECTIVE TYPE of the operation base on the type of its operands.
@@ -217,7 +332,7 @@ where TFlags : struct, Enum
         // if no effective type can be determined, we must throw a type mismatch error:
         if (effectiveTypeResult.ErrorInfo is VBRuntimeErrorInfo error)
         {
-            return RuntimeSemanticsEvaluationResult.Error(error);
+            return (RuntimeSemanticsEvaluationResult.Error(error), null);
         }
         else if (!effectiveTypeResult.IsApplicable)
         {
@@ -225,8 +340,8 @@ where TFlags : struct, Enum
             Debug.Fail("⚠️ Broken assumption: DetermineEffectiveType was expected to yield a TypeMismatch error in this situation.");
             var operandTypeNames = string.Join(',', frame.Operands.Select(operand => operand.TypeInfo.Name));
         
-            return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
-                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", operandTypeNames)));
+            return (RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", operandTypeNames))), null);
         }
 
         if (effectiveTypeResult.Result is VBType effectiveType) // this should be a given
@@ -247,9 +362,9 @@ where TFlags : struct, Enum
             {
                 if (validation.Result is null)
                 {
-                    return RuntimeSemanticsEvaluationResult.Error(validation.ErrorInfo
+                    return (RuntimeSemanticsEvaluationResult.Error(validation.ErrorInfo
                         ?? OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
-                            Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose));
+                            Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose)), effectiveType);
                 }
             }
 
@@ -259,17 +374,17 @@ where TFlags : struct, Enum
             var evaluateResult = EvaluateExpressionResult(resolver, context, expression, frame with { Operands = [.. validOperands] });
             if (evaluateResult.IsInternalError)
             {
-                return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InternalError, expression, 
-                    Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose));
+                return (RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
+                    Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose)), effectiveType);
             }
-            return evaluateResult;
+            return (evaluateResult, effectiveType);
         }
     
         // if we make it this far, something went horribly wrong.
         Debug.Fail("⚠️ Broken assumption: DetermineOperatorEffectiveTypeResult.Result was expected to yield a valid VBType value.");
-        return RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
+        return (RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
             Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose
-                .Replace("{$EXPRESSION}", expression.GetType().Name)));
+                .Replace("{$EXPRESSION}", expression.GetType().Name))), null);
     }
 
     /// <summary>
@@ -426,6 +541,7 @@ where TFlags : struct, Enum
                 OperandIndex = operandIndex,
                 SourceValue = operand,
                 DestinationTypeDesc = new VBTypeDescValue(destinationType),
+                Site = frame.Site,
             });
     }
 }

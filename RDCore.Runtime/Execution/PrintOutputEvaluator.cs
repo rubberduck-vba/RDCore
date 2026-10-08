@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Execution;
@@ -26,12 +27,10 @@ namespace RDCore.Runtime.Execution;
 /// <c>Spc</c>/<c>Tab</c> modulo cases) do not apply to a session's output, which has none.
 /// </remarks>
 /// <param name="expressionEvaluator">Evaluates each output expression.</param>
-/// <param name="stringCoercion">Let-coerces an evaluated value to <c>String</c>, per the output-string rules.</param>
-/// <param name="numericCoercion">Let-coerces a <c>Spc</c>/<c>Tab</c> count to <c>Long</c>.</param>
+/// <param name="letCoercion">Let-coerces an evaluated value to <c>String</c> per the output-string rules, and a <c>Spc</c>/<c>Tab</c> count to <c>Long</c>.</param>
 public sealed class PrintOutputEvaluator(
     RuntimeExpressionEvaluator expressionEvaluator,
-    VBStringLetCoercionRuntimeSemantics stringCoercion,
-    VBNumericLetCoercionTypeRuntimeSemantics numericCoercion)
+    ILetCoercionRuntimeSemanticsProvider letCoercion)
 {
     /// <summary>
     /// The width of a print zone (<strong>MS-VBAL §5.4.5</strong>: "divided into a sequence of
@@ -88,10 +87,7 @@ public sealed class PrintOutputEvaluator(
                 break;
 
             case PrintSpcClauseNode spc:
-                if (Evaluate(session, context, spc.Count) is not { } spaces)
-                {
-                    return RuntimeExecutionOutcome.InternalError;
-                }
+                var spaces = Evaluate(session, context, spc.Count);
                 if (spaces.Outcome is { } spcFailure)
                 {
                     return spcFailure;
@@ -105,10 +101,7 @@ public sealed class PrintOutputEvaluator(
                 break;
 
             case PrintTabClauseNode tab:
-                if (Evaluate(session, context, tab.Column!) is not { } column)
-                {
-                    return RuntimeExecutionOutcome.InternalError;
-                }
+                var column = Evaluate(session, context, tab.Column!);
                 if (column.Outcome is { } tabFailure)
                 {
                     return tabFailure;
@@ -131,11 +124,14 @@ public sealed class PrintOutputEvaluator(
                         : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
                 }
 
-                if (ToOutputString(session, item.Value, result.Result!) is not { } text)
+                var text = ToOutputString(session, item.Value, result.Result!);
+                if (!text.IsSuccess)
                 {
-                    return RuntimeExecutionOutcome.InternalError;
+                    return text.IsInternalError
+                        ? RuntimeExecutionOutcome.InternalError
+                        : RuntimeExecutionOutcome.Error(text.ErrorInfo!);
                 }
-                output.Write(text);
+                output.Write(((VBStringValue)text.Result!).Value);
                 break;
         }
 
@@ -157,10 +153,10 @@ public sealed class PrintOutputEvaluator(
     }
 
     /// <summary>
-    /// The output string of an output expression, per <strong>MS-VBAL §5.4.5.8</strong>'s own list of
-    /// cases. Returns <c>null</c> when the value cannot be Let-coerced to <c>String</c> at all.
+    /// The output string of an output expression, as a <c>String</c> value, per <strong>MS-VBAL §5.4.5.8</strong>'s own list of
+    /// cases; or the error of the let-coercion that could not make one.
     /// </summary>
-    private string? ToOutputString(IRuntimeSession session, ExpressionNode expression, VBTypedValue value)
+    private RuntimeSemanticsEvaluationResult ToOutputString(IRuntimeSession session, ExpressionNode expression, VBTypedValue value)
     {
         // a Variant's own wrapped value is what is printed; the wrapper never is.
         while (value is VBVariantValue { TypedValue: var wrapped })
@@ -170,27 +166,42 @@ public sealed class PrintOutputEvaluator(
 
         return value switch
         {
-            VBBooleanValue boolean => boolean.Value.StoredValue != 0 ? "True" : "False",
-            VBNullValue => "Null",
+            VBBooleanValue boolean => Text(boolean.Value.StoredValue != 0 ? "True" : "False"),
+            VBNullValue => Text("Null"),
             // "the output string is 'Error ' followed by the error code Let-coerced to String".
-            VBErrorValue error => $"Error {error.Value}",
+            VBErrorValue error => Text($"Error {error.Value}"),
+            // an object is printed as the data value of its default member (MS-VBAL §5.6.2.2).
+            VBObjectValue => DataValueOf(session, expression, value),
             // a Date is numeric but is excluded from the space-padded numeric case by name.
-            VBDateValue => Coerce(session, expression, value),
+            VBDateValue => Coerce(session, expression, value, VBStringType.TypeInfo),
             // "with a space character inserted as the first and the last character of the String".
-            VBNumericTypedValue => Coerce(session, expression, value) is { } number ? $" {number} " : null,
-            _ => Coerce(session, expression, value),
+            VBNumericTypedValue => Padded(Coerce(session, expression, value, VBStringType.TypeInfo)),
+            _ => Coerce(session, expression, value, VBStringType.TypeInfo),
         };
     }
 
-    private string? Coerce(IRuntimeSession session, ExpressionNode expression, VBTypedValue value)
+    private RuntimeSemanticsEvaluationResult DataValueOf(IRuntimeSession session, ExpressionNode expression, VBTypedValue value)
     {
-        var frame = new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(VBStringType.TypeInfo));
-        var result = stringCoercion.EvaluateLetCoercion(session.Symbols.Resolver, expression, frame);
-        return result is { IsApplicable: true, IsSuccess: true, Result: VBStringValue coerced } ? coerced.Value : null;
+        var data = Coerce(session, expression, value, VBVariantType.TypeInfo);
+        return data.IsSuccess ? ToOutputString(session, expression, data.Result!) : data;
+    }
+
+    private static RuntimeSemanticsEvaluationResult Padded(RuntimeSemanticsEvaluationResult number)
+        => number is { IsSuccess: true, Result: VBStringValue text } ? Text($" {text.Value} ") : number;
+
+    private static RuntimeSemanticsEvaluationResult Text(string text) => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(text));
+
+    private RuntimeSemanticsEvaluationResult Coerce(IRuntimeSession session, ExpressionNode expression, VBTypedValue value, VBType destination)
+    {
+        var frame = new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(destination), ConversionSite.PrintItem);
+        var result = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, frame);
+        return result.IsSuccess
+            ? RuntimeSemanticsEvaluationResult.Success(result.Result!)
+            : RuntimeSemanticsEvaluationResult.Error(result.ErrorInfo!);
     }
 
     // a Spc/Tab count: evaluated, then Let-coerced to Long so a Variant or a Double argument works.
-    private (int Count, RuntimeExecutionOutcome? Outcome)? Evaluate(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
+    private (int Count, RuntimeExecutionOutcome? Outcome) Evaluate(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
     {
         var result = expressionEvaluator.Evaluate(session, expression, context);
         if (!result.IsSuccess)
@@ -200,18 +211,8 @@ public sealed class PrintOutputEvaluator(
                 : RuntimeExecutionOutcome.Error(result.ErrorInfo!));
         }
 
-        var source = result.Result!;
-        while (source is VBVariantValue { TypedValue: var wrapped })
-        {
-            source = wrapped;
-        }
-
-        var frame = new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBLongType.TypeInfo));
-        var coerced = numericCoercion.EvaluateLetCoercion(session.Symbols.Resolver, expression, frame);
-        if (!coerced.IsApplicable)
-        {
-            return null;
-        }
+        var frame = new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, result.Result!, new VBTypeDescValue(VBLongType.TypeInfo), ConversionSite.PrintItem);
+        var coerced = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, frame);
 
         return coerced is { IsSuccess: true, Result: VBLongValue count }
             ? (count.Value, null)

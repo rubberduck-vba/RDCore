@@ -1,7 +1,7 @@
 namespace RDCore.CLI.App.Repl.Commands;
 
 /// <summary>
-/// <c>NEW</c>: clears the program buffer. Says nothing on success, as its BASIC namesake does not.
+/// <c>NEW</c>: clears the program buffer, and the variables the program made. Says nothing on success, as its BASIC namesake does not.
 /// </summary>
 internal sealed class NewReplCommand : IReplCommand
 {
@@ -14,6 +14,9 @@ internal sealed class NewReplCommand : IReplCommand
         // a new program is not the file that was loaded: the language server is told the document is closed, not that it was emptied.
         await context.Document.CloseAsync(token);
         context.Program.Clear();
+
+        // and so are the variables the program made: a new program starts from nothing.
+        await ReplExecution.DiscardProgramAsync(context, token);
         return ReplCommandResult.Continue;
     }
 }

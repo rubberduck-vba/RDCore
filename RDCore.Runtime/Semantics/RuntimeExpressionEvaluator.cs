@@ -25,6 +25,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
@@ -755,7 +756,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         {
             var letResult = LetCoercionProvider.EvaluateLetCoercionSemantics(
                 session.Symbols.Resolver, source,
-                new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(valueParameter.ResolvedType)));
+                new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(valueParameter.ResolvedType), ConversionSite.Argument));
             if (!letResult.IsApplicable)
             {
                 return RuntimeSemanticsEvaluationResult.InternalError();
@@ -1247,7 +1248,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             // this exact same path (MS-VBAL §5.3.1.11's own "otherwise" case) - a fresh local, never a
             // reported error.
             var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
-                argumentResult.Value.Result!, new VBTypeDescValue(parameter.ResolvedType));
+                argumentResult.Value.Result!, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
             var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
             if (!coercionResult.IsApplicable)
             {
@@ -1299,7 +1300,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             }
 
             var coercionFrame = new LetCoercionStackFrame(argumentNodes[i].Identity, InputIndex.CoercionSourceValue,
-                argumentResult.Value.Result!, new VBTypeDescValue(VBVariantType.TypeInfo));
+                argumentResult.Value.Result!, new VBTypeDescValue(VBVariantType.TypeInfo), ConversionSite.Argument);
             var coercionResult = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNodes[i], coercionFrame);
             if (!coercionResult.IsApplicable)
             {

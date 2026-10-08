@@ -92,7 +92,8 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
             new(NodeId: expression.Identity,
                 OperandIndex: InputIndex.BinaryRightOperand,
                 SourceValue: frame[InputIndex.BinaryRightOperand],
-                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
+                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType),
+                Site: frame.Site));
 
     protected override OperatorAnalysisContext<ConversionSemanticFlags> CreateAnalysisContext(
         SyntaxNode node,

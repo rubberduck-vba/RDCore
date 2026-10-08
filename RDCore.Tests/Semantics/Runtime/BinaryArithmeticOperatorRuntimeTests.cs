@@ -129,6 +129,69 @@ public sealed class BinaryArithmeticOperatorRuntimeTests : OperatorArithmeticRun
         => AssertIsNull(Evaluate(Mul(), VBNullValue.Null, VBNullValue.Null));
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.4 Binary '*' Operator")]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void Multiplication_DateAndEmpty_IsADouble(bool dateOnTheLeft)
+    {
+        // MS-VBAL 5.6.9.3.4: a Date by Empty has a Double effective type, whichever side the Date is on.
+        var semantics = new BinaryMultiplicationOperatorRuntimeSemantics(RealCoercionProvider(), Formatter());
+        var result = dateOnTheLeft
+            ? Evaluate(semantics, new VBDateValue(2), VBEmptyValue.Empty)
+            : Evaluate(semantics, VBEmptyValue.Empty, new VBDateValue(2));
+
+        AssertResult<VBDoubleValue>(result, 0d);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.7 Binary '^' Operator")]
+    [DataRow(true, 1d)]
+    [DataRow(false, 0.5d)]
+    public void Exponent_ABooleanOperand_IsNumeric_WithADoubleEffectiveType(bool booleanOnTheLeft, double expected)
+    {
+        // True is -1: True ^ 2 is 1, and 2 ^ True is 0.5.
+        var semantics = new BinaryExponentOperatorRuntimeSemantics(RealCoercionProvider(), Formatter());
+        var result = booleanOnTheLeft
+            ? Evaluate(semantics, new VBBooleanValue(true), new VBIntegerValue(2))
+            : Evaluate(semantics, new VBIntegerValue(2), new VBBooleanValue(true));
+
+        AssertResult<VBDoubleValue>(result, expected);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.6 '\\' Operator and Mod Operator")]
+    public void IntegerDivision_OfASingleByABoolean_IsALong()
+        // a Boolean is an operand as an Integer is: 5 \ True is 5 \ -1.
+        => AssertResult<VBLongValue>(Evaluate(
+            new BinaryIntegerDivisionOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBSingleValue(5), new VBBooleanValue(true)), -5);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.6 '\\' Operator and Mod Operator")]
+    public void Modulo_OfASingleByABoolean_IsALong()
+        => AssertResult<VBLongValue>(Evaluate(
+            new BinaryModuloOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBSingleValue(5), new VBBooleanValue(true)), 0);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators")]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void Addition_OfAnErrorOperand_IsATypeMismatch(bool errorOnTheLeft)
+    {
+        var semantics = new BinaryAdditionOperatorRuntimeSemantics(RealCoercionProvider(), Formatter());
+        var result = errorOnTheLeft
+            ? Evaluate(semantics, new VBErrorValue(5), new VBLongValue(1))
+            : Evaluate(semantics, new VBLongValue(1), new VBErrorValue(5));
+
+        AssertError(result, VBRuntimeErrorId.TypeMismatch);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators")]
+    public void Addition_OfTwoErrorOperands_IsATypeMismatch()
+        => AssertError(Evaluate(new BinaryAdditionOperatorRuntimeSemantics(RealCoercionProvider(), Formatter()), new VBErrorValue(5), new VBErrorValue(5)),
+            VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.5 Binary '/' Operator")]
     public void Division_Double_RealQuotient()
         => AssertResult<VBDoubleValue>(

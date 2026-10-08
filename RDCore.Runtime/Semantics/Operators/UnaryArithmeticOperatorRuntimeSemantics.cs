@@ -3,14 +3,17 @@ using RDCore.SDK;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
@@ -44,8 +47,13 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
         DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
         LetCoercionAnalysisContext coercionResult,
         RuntimeSemanticsEvaluationResult evaluationResult,
-        ArithmeticOperatorSemanticFlags semanticFlags) 
+        ArithmeticOperatorSemanticFlags semanticFlags)
         => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
+
+    protected override OperatorFact? CreateFact(
+        string token, ExpressionNode expression, VBType? effectiveType, ArithmeticOperatorSemanticFlags flags,
+        StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
+        => new ArithmeticOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary arithmetic operator, computing the result in the

@@ -2,11 +2,11 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Facts;
 
 namespace RDCore.Runtime.Execution;
 
@@ -16,11 +16,9 @@ namespace RDCore.Runtime.Execution;
 /// of &lt;expression&gt; after having been Let-coerced to declared type Integer").
 /// </summary>
 /// <remarks>
-/// Same shape as <see cref="ConditionEvaluator"/>: the destination type is always statically known
-/// (<c>Integer</c>), so this calls <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/> directly,
-/// bypassing the coercion provider's own strategy-dispatch machinery.
+/// Same shape as <see cref="ConditionEvaluator"/>: the value is let-coerced by the coercion provider, the way any other coercion is.
 /// </remarks>
-public sealed class JumpTableEvaluator(RuntimeExpressionEvaluator expressionEvaluator, VBNumericLetCoercionTypeRuntimeSemantics numericCoercion)
+public sealed class JumpTableEvaluator(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercion)
 {
     /// <summary>
     /// Evaluates <paramref name="selector"/> and let-coerces the result to <c>Integer</c>.
@@ -33,20 +31,8 @@ public sealed class JumpTableEvaluator(RuntimeExpressionEvaluator expressionEval
             return valueResult;
         }
 
-        // unwrap Variant: bypassing the provider skips its own unwrap too.
-        var source = valueResult.Result!;
-        while (source is VBVariantValue { TypedValue: var wrapped })
-        {
-            source = wrapped;
-        }
-
-        var frame = new LetCoercionStackFrame(selector.Identity, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(VBIntegerType.TypeInfo));
-        var coercionResult = numericCoercion.EvaluateLetCoercion(session.Symbols.Resolver, selector, frame);
-
-        if (!coercionResult.IsApplicable)
-        {
-            return RuntimeSemanticsEvaluationResult.InternalError();
-        }
+        var frame = new LetCoercionStackFrame(selector.Identity, InputIndex.CoercionSourceValue, valueResult.Result!, new VBTypeDescValue(VBIntegerType.TypeInfo), ConversionSite.JumpSelector);
+        var coercionResult = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, selector, frame);
 
         return coercionResult.IsSuccess
             ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)

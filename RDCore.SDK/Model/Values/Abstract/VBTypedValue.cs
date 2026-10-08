@@ -76,27 +76,46 @@ public abstract record class VBTypedValue(VBType TypeInfo)
         => this with { Handle = new ValueBindingHandle(runtimeValue) };
 
     /// <summary>
+    /// Whether the value is not known: it is bound to an <see cref="IndeterminateBindingHandle"/>, and the value it yields is assumed.
+    /// </summary>
+    /// <remarks>
+    /// An analysis evaluates code without running it, so a value that is not a constant is not known: it is represented by an indeterminate value of
+    /// its declared type (<see cref="VBType.CreateIndeterminateValue"/>). Whatever is derived from an indeterminate value is indeterminate, and
+    /// nothing that is raised because of the value it assumes is known to happen.
+    /// </remarks>
+    public bool IsIndeterminate => Handle is IndeterminateBindingHandle;
+
+    /// <summary>
+    /// Returns a copy of this value whose value is not known, and which assumes the value this one holds.
+    /// </summary>
+    public VBTypedValue AsIndeterminate()
+        => IsIndeterminate ? this : this with { Handle = new IndeterminateBindingHandle(Handle) };
+
+    /// <summary>
     /// The bound managed value, or <c>null</c> when the binding cannot yield one.
     /// </summary>
     /// <remarks>
     /// 👉 <see cref="IBindingHandle"/> is a <em>storage</em> concern, not <em>identity</em>: two typed
     /// values of the same type holding the same managed value are equal regardless of how (or whether)
     /// each is currently bound. Equality and hashing therefore key on the exact value type and this
-    /// managed value only — never on <see cref="Handle"/>, which is mutable.
+    /// managed value only — never on <see cref="Handle"/>, which is mutable. Whether the value is known
+    /// at all is not storage: an indeterminate value is never equal to a known one.
     /// </remarks>
     private object? BoundManagedValue
         => Handle.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? Handle.Value.BoxedValue : null;
 
     /// <summary>
-    /// Two typed values are equal when they have the exact same value type and hold equal managed values.
+    /// Two typed values are equal when they have the exact same value type, either both are known or neither is (<see cref="IsIndeterminate"/>),
+    /// and they hold equal managed values.
     /// </summary>
     public virtual bool Equals(VBTypedValue? other)
         => other is not null
         && EqualityContract == other.EqualityContract
+        && IsIndeterminate == other.IsIndeterminate
         && Equals(BoundManagedValue, other.BoundManagedValue);
 
     /// <inheritdoc/>
-    public override int GetHashCode() => HashCode.Combine(EqualityContract, BoundManagedValue);
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, IsIndeterminate, BoundManagedValue);
 
     /// <summary>
     /// Prints this <c>VBTypedValue</c>'s members for <see cref="object.ToString"/>.

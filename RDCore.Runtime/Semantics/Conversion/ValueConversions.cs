@@ -111,6 +111,9 @@ public static partial class ValueConversions
         // MS-VBAL 5.5.1.2.10: Null converts to no type that cannot hold it.
         VBNullType => ValueConversionResult.Failure(VBRuntimeErrorId.InvalidUseOfNull),
 
+        // MS-VBAL 5.5.1.2.9: an Error converts to nothing but a Variant or an Error.
+        VBErrorType => ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch),
+
         _ => ValueConversionResult.NotApplicable,
     };
 

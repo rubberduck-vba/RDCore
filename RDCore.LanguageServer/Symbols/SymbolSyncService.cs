@@ -65,6 +65,18 @@ internal interface ISymbolSyncService
     /// <param name="documentUri">The address of the document.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task SyncDocumentAsync(Uri documentUri, CancellationToken token);
+
+    /// <summary>
+    /// Takes a module out of the environment host: what it declared, what it held, and the code and the model that were made of it.
+    /// </summary>
+    /// <remarks>
+    /// For a module that is gone: a document the client closed that the workspace has no claim on, or a program the client cleared. The module is addressed
+    /// the way it was when it was defined, which is the point of deriving the address here and nowhere else.
+    /// </remarks>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>What the host took out; nothing when the host cannot be told.</returns>
+    Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token);
 }
 
 internal sealed class SymbolSyncService(
@@ -255,6 +267,29 @@ internal sealed class SymbolSyncService(
             workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver, implicitScope: ImplicitScope);
         await DefineModuleSymbolsAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, workspaceResolver, replace: true, withCode: false, token);
         await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Parse, token);
+    }
+
+    public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token)
+    {
+        var host = orchestration.RuntimeEnvironment;
+        if (host is null)
+        {
+            return new DiscardSessionResult();
+        }
+
+        await host.WaitForReadyAsync(token);
+        if (host.PlatformInfo?.Provides<SessionDiscard>() != true)
+        {
+            // the host cannot be told: what it holds stays, as it did before there was a way to say otherwise.
+            return new DiscardSessionResult();
+        }
+
+        var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
+        var result = await host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+            new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName }, token);
+
+        LogIfEnabled(LogLevel.Information, $"🗑️ {moduleName}: {result.Discarded} symbol(s) discarded.");
+        return result;
     }
 
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)

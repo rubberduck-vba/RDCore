@@ -77,6 +77,29 @@ public sealed class OperatorRuntimeSemanticsProviderTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(EveryBinaryToken))]
+    public void EveryBinaryToken_ForAnyExpression_DispatchesToItsOwnOperator_NeverInternalError(string token)
+    {
+        // a statement's operation (a Case comparison, a For loop's step) is evaluated for an expression that is not an operator of its own.
+        var result = Provider().EvaluateBinaryOperator(Session, token, new LiteralExpressionNode(NodeId, TestLocations.TestLocation, new VBLongValue(1)),
+            new VBLongValue(1), new VBLongValue(2));
+
+        Assert.IsFalse(result.IsInternalError, $"'{token}' dispatched to InternalError - missing from the provider's switch.");
+    }
+
+    [TestMethod]
+    public void TheTokenGiven_IsTheOperatorEvaluated_WhateverTheExpressionIs()
+    {
+        var result = Provider().EvaluateBinaryOperator(Session, Tokens.CompareLessThanOp, Binary(Tokens.AdditionOp), new VBLongValue(1), new VBLongValue(2));
+
+        Assert.IsInstanceOfType<VBBooleanValue>(result.Result);
+    }
+
+    [TestMethod]
+    public void AnUnrecognizedTokenGiven_IsAnInternalError()
+        => Assert.IsTrue(Provider().EvaluateBinaryOperator(Session, "?", Binary(Tokens.AdditionOp), new VBLongValue(1), new VBLongValue(2)).IsInternalError);
+
+    [TestMethod]
     public void AnUnrecognizedBinaryToken_IsAnInternalError()
         => Assert.IsTrue(Provider().EvaluateBinaryOperator(Session, Binary("?"), new VBLongValue(1), new VBLongValue(2)).IsInternalError);
 

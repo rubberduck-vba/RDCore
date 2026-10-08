@@ -1,13 +1,17 @@
 using RDCore.SDK.Model.Symbols.Operators;
+using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators;
@@ -29,6 +33,22 @@ public interface IOperatorRuntimeSemanticsProvider
     /// Evaluates a binary operator expression against its already-evaluated operands.
     /// </summary>
     RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, VBBinaryOperatorExpressionNode expression, VBTypedValue left, VBTypedValue right);
+
+    /// <summary>
+    /// Evaluates the binary operator <paramref name="token"/> against its already-evaluated operands, for an operation that is not an operator
+    /// expression of its own in source: the comparison of a <c>Case</c>, the step and the limit of a <c>For</c> loop, an assignment.
+    /// </summary>
+    /// <param name="session">The session the operation is evaluated in.</param>
+    /// <param name="token">The operator: one of the <see cref="Tokens"/> operators, or the let-assignment operator
+    /// (<see cref="OperatorSymbolNames.BinaryAssignmentValueOp"/>).</param>
+    /// <param name="expression">The expression the operation is evaluated for, whose identity and location are the operation's.</param>
+    /// <param name="left">The left operand.</param>
+    /// <param name="right">The right operand.</param>
+    /// <param name="site">The construct that asks for the operation, which is the site of the conversions of its operands. The let-assignment operator
+    /// is always an <see cref="ConversionSite.Assignment"/>.</param>
+    RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(
+        IRuntimeSession session, string token, ExpressionNode expression, VBTypedValue left, VBTypedValue right,
+        ConversionSite site = ConversionSite.OperatorOperand);
 
     /// <summary>
     /// Evaluates a unary operator expression against its already-evaluated operand.
@@ -63,9 +83,20 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
     private readonly UnaryNegationOperatorRuntimeSemantics _negation;
     private readonly UnaryNotOperatorRuntimeSemantics _not;
     private readonly UnaryLetCoerceOperatorRuntimeSemantics _letCoerce;
+    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment;
 
-    public OperatorRuntimeSemanticsProvider(ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IVerboseMessageBuilder formatterService)
+    // told of every operation this provider evaluates; null when nothing is analyzing the code, which is how code runs.
+    private readonly AnalysisObservation? _observation;
+
+    /// <param name="letCoercionProvider">Coerces the operands of every operator.</param>
+    /// <param name="formatterService">Builds the verbose half of an error message.</param>
+    /// <param name="observation">Told of every operation this provider evaluates, as an <see cref="OperatorFact"/>; <see langword="null"/> when nothing
+    /// is analyzing the code. The same one the <paramref name="letCoercionProvider"/> is given, so that describing an operation does not state
+    /// the conversions of its operands a second time.</param>
+    public OperatorRuntimeSemanticsProvider(
+        ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IVerboseMessageBuilder formatterService, AnalysisObservation? observation = null)
     {
+        _observation = observation;
         _addition = new(letCoercionProvider, formatterService);
         _subtraction = new(letCoercionProvider, formatterService);
         _multiplication = new(letCoercionProvider, formatterService);
@@ -90,33 +121,41 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         _negation = new(letCoercionProvider, formatterService);
         _not = new(letCoercionProvider, formatterService);
         _letCoerce = new(letCoercionProvider, formatterService);
+        _letAssignment = new(letCoercionProvider, formatterService);
     }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, VBBinaryOperatorExpressionNode expression, VBTypedValue left, VBTypedValue right)
-        => expression.Token switch
+        => EvaluateBinaryOperator(session, expression.Token, expression, left, right);
+
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(
+        IRuntimeSession session, string token, ExpressionNode expression, VBTypedValue left, VBTypedValue right, ConversionSite site = ConversionSite.OperatorOperand)
+        => token switch
         {
-            Tokens.AdditionOp => _addition.Evaluate(session, new(), expression, left, right),
-            Tokens.SubtractionOp => _subtraction.Evaluate(session, new(), expression, left, right),
-            Tokens.MultiplicationOp => _multiplication.Evaluate(session, new(), expression, left, right),
-            Tokens.DivisionOp => _division.Evaluate(session, new(), expression, left, right),
-            Tokens.IntegerDivisionOp => _integerDivision.Evaluate(session, new(), expression, left, right),
-            Tokens.ModuloOp => _modulo.Evaluate(session, new(), expression, left, right),
-            Tokens.PowerOp => _exponent.Evaluate(session, new(), expression, left, right),
-            Tokens.ConcatOp => _concat.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareIsOp => _is.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareEqualOp => _eq.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareNotEqualOp => _neq.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareGreaterThanOp => _gt.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareGreaterThanOrEqualOp => _gtEq.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLessThanOp => _lt.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLessThanOrEqualOp => _ltEq.Evaluate(session, new(), expression, left, right),
-            Tokens.CompareLikeOp => _like.Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalAndOp => _and.Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalOrOp => _or.Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalXOrOp => _xor.Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalEqvOp => _eqv.Evaluate(session, new(), expression, left, right),
-            Tokens.LogicalImpOp => _imp.Evaluate(session, new(), expression, left, right),
+            // an assignment states the conversion of its source, which is a fact of its own: it is not an operation to state.
+            OperatorSymbolNames.BinaryAssignmentValueOp => _letAssignment.EvaluateAtSite(session, new(), expression, ConversionSite.Assignment, left, right),
+            Tokens.AdditionOp => Evaluate(_addition, session, token, expression, site, left, right),
+            Tokens.SubtractionOp => Evaluate(_subtraction, session, token, expression, site, left, right),
+            Tokens.MultiplicationOp => Evaluate(_multiplication, session, token, expression, site, left, right),
+            Tokens.DivisionOp => Evaluate(_division, session, token, expression, site, left, right),
+            Tokens.IntegerDivisionOp => Evaluate(_integerDivision, session, token, expression, site, left, right),
+            Tokens.ModuloOp => Evaluate(_modulo, session, token, expression, site, left, right),
+            Tokens.PowerOp => Evaluate(_exponent, session, token, expression, site, left, right),
+            Tokens.ConcatOp => Evaluate(_concat, session, token, expression, site, left, right),
+            Tokens.CompareIsOp => Evaluate(_is, session, token, expression, site, left, right),
+            Tokens.CompareEqualOp => Evaluate(_eq, session, token, expression, site, left, right),
+            Tokens.CompareNotEqualOp => Evaluate(_neq, session, token, expression, site, left, right),
+            Tokens.CompareGreaterThanOp => Evaluate(_gt, session, token, expression, site, left, right),
+            Tokens.CompareGreaterThanOrEqualOp => Evaluate(_gtEq, session, token, expression, site, left, right),
+            Tokens.CompareLessThanOp => Evaluate(_lt, session, token, expression, site, left, right),
+            Tokens.CompareLessThanOrEqualOp => Evaluate(_ltEq, session, token, expression, site, left, right),
+            Tokens.CompareLikeOp => Evaluate(_like, session, token, expression, site, left, right),
+            Tokens.LogicalAndOp => Evaluate(_and, session, token, expression, site, left, right),
+            Tokens.LogicalOrOp => Evaluate(_or, session, token, expression, site, left, right),
+            Tokens.LogicalXOrOp => Evaluate(_xor, session, token, expression, site, left, right),
+            Tokens.LogicalEqvOp => Evaluate(_eqv, session, token, expression, site, left, right),
+            Tokens.LogicalImpOp => Evaluate(_imp, session, token, expression, site, left, right),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
@@ -124,10 +163,41 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
     public RuntimeSemanticsEvaluationResult EvaluateUnaryOperator(IRuntimeSession session, VBUnaryOperatorExpressionNode expression, VBTypedValue operand)
         => expression.Token switch
         {
-            Tokens.NegationOp => _negation.Evaluate(session, new(), expression, operand),
-            Tokens.LogicalNotOp => _not.Evaluate(session, new(), expression, operand),
-            // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator, and this is it.
+            Tokens.NegationOp => Evaluate(_negation, session, expression.Token, expression, ConversionSite.OperatorOperand, operand),
+            Tokens.LogicalNotOp => Evaluate(_not, session, expression.Token, expression, ConversionSite.OperatorOperand, operand),
+            // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator, and this is it. Its operation is its operand's conversion.
             OperatorSymbolNames.UnaryLetCoerceOp => _letCoerce.Evaluate(session, new(), expression, operand),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
+
+    // the one place an operation is evaluated: what the evaluation says is the operation's, and is stated as it is, once the
+    // operation is done, so that what is observed is what ran.
+    private RuntimeSemanticsEvaluationResult Evaluate<TContext, TFlags>(
+        OperatorRuntimeSemantics<TContext, TFlags> semantics,
+        IRuntimeSession session,
+        string token,
+        ExpressionNode expression,
+        ConversionSite site,
+        params VBTypedValue[] operands)
+        where TContext : SemanticContext<TFlags>, new()
+        where TFlags : struct, Enum
+    {
+        var result = semantics.EvaluateAtSite(session, new TContext(), expression, site, operands);
+        if (_observation is { IsSuspended: false } observation)
+        {
+            // describing the operation evaluates it again, operands and all: those conversions are not the code's.
+            OperatorFact? fact;
+            using (observation.Suspend())
+            {
+                fact = semantics.Observe(session, token, expression, result, operands);
+            }
+
+            if (fact is not null)
+            {
+                observation.OnOperation(fact);
+            }
+        }
+
+        return result;
+    }
 }

@@ -39,6 +39,17 @@ public interface ISessionMemoryAllocator
     bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block);
 
     /// <summary>
+    /// Gives the free memory at the end of the address space back, so that it is unused again rather than free.
+    /// </summary>
+    /// <returns>The number of bytes given back.</returns>
+    /// <remarks>
+    /// Releasing a block does not do this: it becomes a free block, which is the next allocation's to reuse. Once a program has ended and what it held
+    /// is released, the free blocks at the end of the space are only an artefact of the order it allocated in, and are not fragmentation. What
+    /// remains free afterwards is: a hole with something allocated after it.
+    /// </remarks>
+    int Reclaim();
+
+    /// <summary>
     /// Current allocation and fragmentation statistics for this session's memory space.
     /// </summary>
     SessionMemoryInfo Info { get; }

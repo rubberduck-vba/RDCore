@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Facts;
 
 namespace RDCore.Runtime.Execution;
 
@@ -15,11 +16,9 @@ namespace RDCore.Runtime.Execution;
 /// number").
 /// </summary>
 /// <remarks>
-/// Same shape as <see cref="ConditionEvaluator"/>: the destination type is always statically known
-/// (<c>Integer</c>), so this calls <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/> directly,
-/// bypassing the coercion provider's own strategy-dispatch machinery.
+/// Same shape as <see cref="ConditionEvaluator"/>: the value is let-coerced by the coercion provider, the way any other coercion is.
 /// </remarks>
-public sealed class ErrorHandlingEvaluator(RuntimeExpressionEvaluator expressionEvaluator, VBNumericLetCoercionTypeRuntimeSemantics numericCoercion)
+public sealed class ErrorHandlingEvaluator(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercion)
 {
     /// <summary>
     /// Evaluates <paramref name="numberExpression"/> and let-coerces the result to <c>Integer</c>.
@@ -32,13 +31,8 @@ public sealed class ErrorHandlingEvaluator(RuntimeExpressionEvaluator expression
             return valueResult;
         }
 
-        var frame = new LetCoercionStackFrame(numberExpression.Identity, InputIndex.CoercionSourceValue, valueResult.Result!, new VBTypeDescValue(VBIntegerType.TypeInfo));
-        var coercionResult = numericCoercion.EvaluateLetCoercion(session.Symbols.Resolver, numberExpression, frame);
-
-        if (!coercionResult.IsApplicable)
-        {
-            return RuntimeSemanticsEvaluationResult.InternalError();
-        }
+        var frame = new LetCoercionStackFrame(numberExpression.Identity, InputIndex.CoercionSourceValue, valueResult.Result!, new VBTypeDescValue(VBIntegerType.TypeInfo), ConversionSite.ErrorNumber);
+        var coercionResult = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, numberExpression, frame);
 
         return coercionResult.IsSuccess
             ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)

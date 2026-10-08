@@ -4,11 +4,13 @@ using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
@@ -16,6 +18,7 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 
@@ -31,8 +34,13 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         DetermineOperatorEffectiveTypeResult determineOperatorEffectiveTypeResult,
         LetCoercionAnalysisContext coercionResult,
         RuntimeSemanticsEvaluationResult evaluationResult,
-        ConcatOperationSemanticFlags semanticFlags) 
+        ConcatOperationSemanticFlags semanticFlags)
         => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
+
+    protected override OperatorFact? CreateFact(
+        string token, ExpressionNode expression, VBType? effectiveType, ConcatOperationSemanticFlags flags,
+        StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
+        => new ConcatOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
 
     protected override ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> Analyze(
         ISymbolResolver resolver, 

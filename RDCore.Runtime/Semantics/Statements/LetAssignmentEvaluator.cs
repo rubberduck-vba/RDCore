@@ -11,6 +11,8 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -20,7 +22,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Semantics.Facts;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -34,22 +36,16 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// (MS-VBAL 5.4.5.6, .10 and .12, each saying so in those words) - so the target side of an assignment is
 /// factored out here rather than restated by each of them, and the function-result-variable rule below is
 /// honoured by all of them for free.
-/// <para>
-/// Scoped to a target that resolves to a plain <see cref="Symbol"/>, same as
-/// <see cref="BinaryLetAssignmentOperatorRuntimeSemantics"/> itself documents: a member-access or indexed
-/// target needs procedure-invocation machinery that doesn't exist yet.
-/// </para>
 /// </remarks>
 /// <param name="coercions">The Let-coercion rules the assignment applies to its source value.</param>
-/// <param name="formatter">Formats the verbose message of an error the coercion raises.</param>
+/// <param name="operators">The let-assignment operator a variable is assigned through.</param>
 /// <param name="expressions">Evaluates the owner of a member-access target, which has to be in hand before
 /// the field being assigned can be.</param>
 public sealed class LetAssignmentEvaluator(
     ILetCoercionRuntimeSemanticsProvider coercions,
-    IVerboseMessageBuilder formatter,
+    IOperatorRuntimeSemanticsProvider operators,
     RuntimeExpressionEvaluator expressions)
 {
-    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment = new(coercions, formatter);
 
     /// <summary>
     /// Resolves the symbol <paramref name="target"/> names.
@@ -174,7 +170,7 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
-        var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(array.ItemType));
+        var frame = new LetCoercionStackFrame(source.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(array.ItemType), ConversionSite.Assignment);
         var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
         if (!coerced.IsApplicable)
         {
@@ -298,7 +294,7 @@ public sealed class LetAssignmentEvaluator(
         var handle = instance.GetValue(field);
         if (!isSet)
         {
-            var frame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(field.ResolvedType));
+            var frame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(field.ResolvedType), ConversionSite.Assignment);
             var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
             if (!coerced.IsApplicable)
             {
@@ -381,7 +377,7 @@ public sealed class LetAssignmentEvaluator(
         // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
         // the coercion is the same one an assignment to a variable of that type would apply.
         var frame = new LetCoercionStackFrame(
-            statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(fieldType));
+            statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(fieldType), ConversionSite.Assignment);
         var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
         if (!coerced.IsApplicable)
         {
@@ -514,7 +510,7 @@ public sealed class LetAssignmentEvaluator(
             // directly instead, the same lower-level call ByVal/ByRef-fallback parameter passing already
             // makes for the identical reason.
             var returnCoercionFrame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue,
-                value, new VBTypeDescValue(((ITypedSymbol)symbol).ResolvedType));
+                value, new VBTypeDescValue(((ITypedSymbol)symbol).ResolvedType), ConversionSite.Return);
             var returnCoercionResult = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, returnCoercionFrame);
             if (!returnCoercionResult.IsApplicable)
             {
@@ -530,15 +526,54 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // MS-VBAL §5.4.3.8: a value let-assigned to a variable of a class or Object is let-assigned to the default property of the object it holds.
+        if (symbol is ITypedSymbol { ResolvedType: VBClassType or VBObjectType })
+        {
+            return AssignDefaultMember(session, context, statement, target, source, value);
+        }
+
         // the reserved synthetic "__let_op" binary operator - the same shape its own test suite
         // exercises it with: a throwaway node carrying this statement's own identity/location, operands
         // passed directly rather than read back off the node's Children.
         var syntheticOperator = new VBBinaryOperatorExpressionNode(
             OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
-        var result = _letAssignment.Evaluate(session, new(), syntheticOperator, new VBSymbolDescValue(symbol), value);
+        var result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(symbol), value);
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+    }
+
+    // the object the target holds is assigned the way `target.Default = value` would be: an object of a class with no default member is error 438.
+    private RuntimeExecutionOutcome AssignDefaultMember(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
+    {
+        var evaluated = expressions.Evaluate(session, target, context);
+        if (!evaluated.IsSuccess)
+        {
+            return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
+        }
+
+        if (evaluated.Result is not VBObjectValue owner)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (owner.IsNothing())
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, target.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
+        }
+
+        if (!session.Symbols.TryGetInstance(owner.Value, out var instance)
+            || VBClassType.FromClassModule(instance.ClassModule).DefaultMember is not { } defaultMember)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, target.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
+        }
+
+        var access = new MemberAccessExpressionNode(target.Identity, target.Location, target,
+            new SimpleNameExpressionNode(target.Identity, target.Location, defaultMember.Name));
+        return AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet: false);
     }
 }

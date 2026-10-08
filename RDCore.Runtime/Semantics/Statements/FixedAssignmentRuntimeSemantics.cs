@@ -11,6 +11,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Runtime.Semantics.Statements;
@@ -38,11 +39,11 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// </para>
 /// </remarks>
 /// <param name="Expressions">Evaluates the source expression.</param>
-/// <param name="Strings">Let-coerces it to <c>String</c>, which both statements require of it.</param>
+/// <param name="LetCoercion">Let-coerces it to <c>String</c>, which both statements require of it.</param>
 /// <param name="Assignments">Let-assigns the fitted string into the target.</param>
 public sealed record class FixedAssignmentRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
-    VBStringLetCoercionRuntimeSemantics Strings,
+    ILetCoercionRuntimeSemanticsProvider LetCoercion,
     LetAssignmentEvaluator Assignments)
     : StatementRuntimeSemantics<FixedAssignmentSemanticContext, FixedAssignmentSemanticFlags>
 {
@@ -177,11 +178,12 @@ public sealed record class FixedAssignmentRuntimeSemantics(
         IRuntimeSession session, AssignmentStatementNode assignment, VBStringValue target, VBTypedValue source)
     {
         // "Let e be the data value of <expression> Let-coerced to declared type String."
-        var coerced = Strings.EvaluateLetCoercion(session.Symbols.Resolver, assignment.Value, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, assignment.Value, new()
         {
             NodeId = assignment.Identity,
             SourceValue = source,
             DestinationTypeDesc = new(VBStringType.TypeInfo),
+            Site = ConversionSite.StringStatement,
         });
 
         if (!coerced.IsSuccess)

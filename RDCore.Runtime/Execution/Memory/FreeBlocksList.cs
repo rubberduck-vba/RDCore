@@ -94,6 +94,30 @@ internal sealed class FreeBlocksList
     }
 
     /// <summary>
+    /// Takes the free block of <paramref name="segment"/> that ends at <paramref name="end"/>, if there is one.
+    /// </summary>
+    /// <param name="segment">The segment the block belongs to.</param>
+    /// <param name="end">The address just after the block.</param>
+    /// <param name="block">The block, whole: the list is coalesced, so there is at most one that ends there.</param>
+    /// <returns><c>false</c> if no free block of the segment ends there.</returns>
+    public bool TryTakeEndingAt(SessionMemorySegment segment, MemoryAddress end, out SessionMemoryBlock block)
+    {
+        for (var i = _blocks.Count - 1; i >= 0; i--)
+        {
+            var entry = _blocks[i];
+            if (ReferenceEquals(entry.Segment, segment) && entry.Block.Address.Value + entry.Block.Size == end.Value)
+            {
+                _blocks.RemoveAt(i);
+                block = entry.Block;
+                return true;
+            }
+        }
+
+        block = default;
+        return false;
+    }
+
+    /// <summary>
     /// Takes the smallest free block that satisfies <paramref name="size"/>, returning whatever is
     /// left over to the free list.
     /// </summary>

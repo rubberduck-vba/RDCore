@@ -11,6 +11,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Runtime.Semantics.Statements;
@@ -68,7 +69,7 @@ public sealed record class WithStatementRuntimeSemantics(
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var frame = new LetCoercionStackFrame(withStatement.WithExpression.Identity, InputIndex.CoercionSourceValue, target, new VBTypeDescValue(target.TypeInfo));
+        var frame = new LetCoercionStackFrame(withStatement.WithExpression.Identity, InputIndex.CoercionSourceValue, target, new VBTypeDescValue(target.TypeInfo), ConversionSite.WithTarget);
         var letResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, withStatement.WithExpression, frame);
         return letResult.IsSuccess
             ? RuntimeSemanticsEvaluationResult.Success(letResult.Result!)

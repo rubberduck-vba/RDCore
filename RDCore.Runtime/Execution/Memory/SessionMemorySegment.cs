@@ -64,6 +64,14 @@ internal record class SessionMemorySegment : ISessionMemoryAllocator
         return true;
     }
 
+    /// <summary>
+    /// Where the next block carved from this segment's unused memory starts: the end of the memory handed out so far.
+    /// </summary>
+    internal MemoryAddress CurrentAddress => _currentAddress;
+
+    /// <summary>
+    /// Records a block that was carved from this segment's unused memory, and so is committed from now on.
+    /// </summary>
     internal MemoryAddress Allocate(SessionMemoryBlock block)
     {
         _memoryMap[block.Address] = block;
@@ -73,6 +81,41 @@ internal record class SessionMemorySegment : ISessionMemoryAllocator
 
         return block.Address;
     }
+
+    /// <summary>
+    /// Records a block that was free and is allocated again.
+    /// </summary>
+    /// <remarks>
+    /// It was committed already, when it was first carved, and was counted free when it was released: it is neither committed a second time nor
+    /// free any longer. Counting it as <see cref="Allocate"/> counts a new block made the committed bytes and the free bytes grow with every reuse,
+    /// for a program that does nothing but allocate a variable and release it.
+    /// </remarks>
+    internal MemoryAddress Reuse(SessionMemoryBlock block)
+    {
+        _memoryMap[block.Address] = block;
+        _info = _info
+            .WithAllocated(block.Size)
+            .WithFree(-block.Size);
+
+        return block.Address;
+    }
+
+    /// <summary>
+    /// Takes back the free block that ends where this segment's unused memory begins, which is unused memory again.
+    /// </summary>
+    /// <param name="block">A free block of this segment that ends at <see cref="CurrentAddress"/>.</param>
+    internal void Retract(SessionMemoryBlock block)
+    {
+        _currentAddress = block.Address;
+        _info = _info
+            .WithFree(-block.Size)
+            .WithCommitted(-block.Size);
+    }
+
+    /// <summary>
+    /// A segment does not know its free blocks, which the session's free list keeps: only the session reclaims.
+    /// </summary>
+    public int Reclaim() => 0;
 
     public bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block)
     {

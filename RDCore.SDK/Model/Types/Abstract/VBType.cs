@@ -65,6 +65,16 @@ public abstract record class VBType
         => throw new NotSupportedException($"A value of type '{Name}' cannot be constructed from a binding handle.");
 
     /// <summary>
+    /// Creates a value of this type that is not known (<see cref="VBTypedValue.IsIndeterminate"/>), and which assumes this type's
+    /// <see cref="DefaultValue"/>.
+    /// </summary>
+    /// <remarks>
+    /// What an analysis knows of a value that is not a constant is its declared type: the value is indeterminate, and assumes a value of that type
+    /// so that the semantics that evaluate it can.
+    /// </remarks>
+    public VBTypedValue CreateIndeterminateValue() => DefaultValue.AsIndeterminate();
+
+    /// <summary>
     /// Prints this <c>VBType</c>'s members for <see cref="object.ToString"/>.
     /// </summary>
     /// <remarks>

@@ -1,5 +1,4 @@
 using RDCore.Runtime.Semantics;
-using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -12,7 +11,6 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Execution;
 
@@ -27,10 +25,8 @@ namespace RDCore.Runtime.Execution;
 /// location-bearing node passed to either is always the control variable's own expression, never a
 /// synthetic stand-in.
 /// </remarks>
-public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvaluator, ILetCoercionRuntimeSemanticsProvider letCoercionProvider, ISetCoercionRuntimeSemantics setCoercion, IVerboseMessageBuilder formatterService)
+public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvaluator, IOperatorRuntimeSemanticsProvider operators, ISetCoercionRuntimeSemantics setCoercion)
 {
-    private readonly BinaryLetAssignmentOperatorRuntimeSemantics _letAssignment = new(letCoercionProvider, formatterService);
-
     /// <summary>
     /// Evaluates the loop's collection expression — once, ahead of any element assignment.
     /// </summary>
@@ -58,7 +54,7 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
         }
 
         var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
-        return _letAssignment.Evaluate(session, new(), syntheticOperator, new VBSymbolDescValue((Symbol)control), element);
+        return operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue((Symbol)control), element);
     }
 
     /// <summary>

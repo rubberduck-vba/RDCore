@@ -31,7 +31,7 @@ public abstract class OperatorLogicalRuntimeSemanticsTests : OperatorArithmeticR
         ]);
 
     private static readonly VBUnaryOperatorExpressionNode ThrowawayUnary = new(
-        "Not", default, TestLocations.TestLocation,
+        "Not", NodeId, TestLocations.TestLocation,
         [new LiteralExpressionNode(default, TestLocations.TestLocationLHS, new VBLongValue(0))]);
 
     protected static RuntimeSemanticsEvaluationResult Evaluate(

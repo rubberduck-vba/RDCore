@@ -2,17 +2,21 @@
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
@@ -48,10 +52,19 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
         LogicalOperatorSemanticFlags semanticFlags)
         => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
+    protected override OperatorFact? CreateFact(
+        string token, ExpressionNode expression, VBType? effectiveType, LogicalOperatorSemanticFlags flags,
+        StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
+        => new LogicalOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
+
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver, 
         ExpressionNode expression, 
-        OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // lets the base semantics handle this.
+        OperatorEvaluationFrame frame)
+        // MS-VBAL 5.6.9.8.1 negates the bits of an integral value: a non-integral operand is a Long, as the binary logical operators take it.
+        => frame[InputIndex.UnaryOperand].TypeInfo is IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
+            ? DetermineOperatorEffectiveTypeResult.Success(VBLongType.TypeInfo)
+            : DetermineOperatorEffectiveTypeResult.NotApplicable(); // lets the base semantics handle this.
 
     /// <summary>
     /// Evaluates the runtime semantics of a unary logical operator and returns a value of the effective numeric data type.

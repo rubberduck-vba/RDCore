@@ -189,6 +189,28 @@ public static class StatementStaticSemanticsEvaluator
             }
         }
 
+        // RD-VBAL: the graphics statements draw on an object, and a statement with none has no surface to draw on. What the points and the arguments hold
+        // is evaluated all the same, so that a name written in one is a reference the pass knows of.
+        // TODO the coordinates and the colors are numbers: a coordinate that cannot be one is an error the pass does not report yet.
+        if (statement is GraphicsMethodStatementNode graphics)
+        {
+            if (GraphicsStatementStaticSemantics.Evaluate(graphics) is { } graphicsError)
+            {
+                walk.Errors.Add(graphicsError);
+                return;
+            }
+
+            if (!walk.Structural)
+            {
+                foreach (var expression in GraphicsStatementStaticSemantics.Expressions(graphics))
+                {
+                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
+                }
+            }
+
+            return;
+        }
+
         // AssignmentStatementNode needs both Target's and Value's declared types kept around (not just
         // their error status) to run the coercion rule matching its Kind - the generic Inputs pass below
         // only ever checks IsError, so this is handled separately rather than folded into it.
@@ -210,7 +232,9 @@ public static class StatementStaticSemanticsEvaluator
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
             CollectError(valueResult, walk);
 
-            if (targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
+            // MS-VBAL §5.4.3.8: a value let-assigned to an object is assigned to its default member, which is not the coercion of the value to the object.
+            var assignsADefaultMember = assignment.Kind != AssignmentKind.Set && targetResult.Result is VBClassType or VBObjectType;
+            if (targetResult.IsSuccess && valueResult.IsSuccess && !assignsADefaultMember && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
             }

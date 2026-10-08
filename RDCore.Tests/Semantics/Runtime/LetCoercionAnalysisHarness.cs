@@ -1,4 +1,5 @@
 using NSubstitute;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -38,7 +39,7 @@ internal static class LetCoercionAnalysisHarness
     /// <summary>
     /// A provider over every let-coercion strategy the runtime implements.
     /// </summary>
-    public static ILetCoercionRuntimeSemanticsProvider BuildProvider()
+    public static ILetCoercionRuntimeSemanticsProvider BuildProvider(AnalysisObservation? observation = null)
     {
         var formatter = Substitute.For<IVerboseMessageBuilder>();
         var handle = new ProviderHandle();
@@ -58,7 +59,7 @@ internal static class LetCoercionAnalysisHarness
             new VBResizableArrayLetCoercionRuntimeSemantics(handle, formatter),
             new VBResizableByteArrayLetCoercionRuntimeSemantics(handle, formatter),
         ];
-        var provider = new LetCoercionRuntimeSemanticsProvider(strategies, formatter);
+        var provider = new LetCoercionRuntimeSemanticsProvider(strategies, formatter, observation);
         handle.Inner = provider;
         return provider;
     }

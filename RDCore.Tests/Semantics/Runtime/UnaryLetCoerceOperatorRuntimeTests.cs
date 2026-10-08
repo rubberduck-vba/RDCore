@@ -1,5 +1,6 @@
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -56,4 +57,22 @@ public sealed class UnaryLetCoerceOperatorRuntimeTests : OperatorLetCoerceRuntim
         // a coercion to the operand's own type converts nothing, which is the point: no rounding, no
         // widening, no narrowing — only the classification changes.
         => AssertResult<VBDoubleValue>(Evaluate(LetCoerce(), new VBDoubleValue(2.67)), 2.67);
+
+    public static IEnumerable<object[]> ValuesOnlyAVariantHolds()
+    {
+        yield return [VBNullValue.Null];
+        yield return [VBEmptyValue.Empty];
+        yield return [new VBErrorValue(5)];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(ValuesOnlyAVariantHolds))]
+    public void ANullEmptyOrErrorOperand_IsItself(VBTypedValue operand)
+    {
+        // MS-VBAL 5.6.6: the value of a parenthesized expression is the value of the expression it encloses.
+        var result = Evaluate(LetCoerce(), operand);
+
+        Assert.IsNull(result.ErrorInfo);
+        Assert.AreEqual(operand, result.Result);
+    }
 }

@@ -99,6 +99,10 @@ internal sealed class HostExecuteHandler(
         finally
         {
             sessionProvider.Output.Target = NullRuntimeOutput.Instance;
+
+            // what the program held for as long as it ran is released, and was freed in the order it was allocated in: the free memory at the end of
+            // the space is unused again, and what is free afterwards is fragmentation - a hole with something allocated after it.
+            session.Memory.Reclaim();
         }
     }
 

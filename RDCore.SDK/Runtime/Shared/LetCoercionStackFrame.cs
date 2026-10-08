@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Runtime.Shared;
@@ -18,11 +19,13 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <param name="OperandIndex">Encodes the semantic index of the operand being evaluated.</param>
 /// <param name="SourceValue">The <em>source value</em> being let-coerced in this frame.</param>
 /// <param name="DestinationTypeDesc">Describes the <em>destination type</em> of the let-coercion operation. The described data type must be unwrapped from the descriptor.</param>
+/// <param name="Site">The construct that asks for the conversion. Only that construct knows, which is why it states it when it builds the frame.</param>
 public readonly record struct LetCoercionStackFrame(
     SyntaxNodeId NodeId,
     InputIndex OperandIndex,
     VBTypedValue SourceValue,
-    VBTypeDescValue DestinationTypeDesc) : IStackFrame<InputIndex>
+    VBTypeDescValue DestinationTypeDesc,
+    ConversionSite Site = ConversionSite.Unspecified) : IStackFrame<InputIndex>
 {
     SyntaxNodeId IStackFrame.NodeId => NodeId;
     ImmutableArray<VBTypedValue> IStackFrame.Inputs => [SourceValue, DestinationTypeDesc];

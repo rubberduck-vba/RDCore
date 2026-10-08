@@ -4,16 +4,19 @@ using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Runtime.Operators;
@@ -90,6 +93,11 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         ArithmeticOperatorSemanticFlags semanticFlags)
         => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
+    protected sealed override OperatorFact? CreateFact(
+        string token, ExpressionNode expression, VBType? effectiveType, ArithmeticOperatorSemanticFlags flags,
+        StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
+        => new ArithmeticOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
+
     protected abstract DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
@@ -148,8 +156,8 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             VBNullType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType => VBNullType.TypeInfo,
             INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType when rhsType is VBNullType => VBNullType.TypeInfo,
 
-            VBErrorType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType => VBErrorType.TypeInfo,
-            INumericType or VBStringType or VBDateType or VBEmptyType or VBErrorType when rhsType is VBErrorType => VBErrorType.TypeInfo,
+            // the operation of two Error values is evaluated in Error, which its operand validation refuses (ValidateOperand); one Error is a type mismatch.
+            VBErrorType when rhsType is VBErrorType => VBErrorType.TypeInfo,
 
             _ => (VBType?)default
         };
@@ -160,6 +168,13 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
             : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
                 Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [frame[InputIndex.BinaryLeftOperand].TypeInfo.Name, rhsType.Name]))));
     }
+
+    // MS-VBAL 5.6.9.3: "If the value type of any operand is an array, UDT or Error, runtime error 13 (Type mismatch) is raised."
+    protected override LetCoercionResult ValidateOperand(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
+        => frame[index] is VBErrorValue
+            ? LetCoercionResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", frame.Operands.Select(operand => operand.TypeInfo.Name)))))
+            : base.ValidateOperand(resolver, expression, frame, index);
 
     /// <summary>
     /// Evaluates the <see cref="VBNumericType"/> runtime semantics of a <em>binary arithmetic operator</em> 

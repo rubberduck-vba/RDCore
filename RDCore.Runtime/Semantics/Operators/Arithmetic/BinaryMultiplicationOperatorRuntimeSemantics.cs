@@ -40,10 +40,10 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
             VBDateType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType
+                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBEmptyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType
+            VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBEmptyType
                 when frame[InputIndex.BinaryRightOperand].TypeInfo is VBDateType
                 => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
 

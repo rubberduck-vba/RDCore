@@ -218,6 +218,14 @@ public sealed class BinaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSe
     public void Imp_NullAndFalse_IsNull()
         => AssertIsNull(Evaluate(Imp(), VBNullValue.Null, new VBBooleanValue(false)));
 
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.6 Binary 'Imp' Operator")]
+    [DataRow((byte)7, (byte)248)]
+    [DataRow((byte)0, (byte)255)]
+    public void Imp_ByteAndNull_IsTheBitwiseImpOfTheByteAnd0_AsAByte(byte operand, byte expected)
+        // the bits of Not 7 in a Byte are 248, never the -8 of a wider integer.
+        => AssertResult<VBByteValue>(Evaluate(Imp(), new VBByteValue(operand), VBNullValue.Null), expected);
+
     private static void AssertIsNull(RuntimeSemanticsEvaluationResult result)
     {
         Assert.IsNull(result.ErrorInfo);

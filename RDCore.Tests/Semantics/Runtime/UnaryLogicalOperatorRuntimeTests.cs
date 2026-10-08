@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Operators.Logical;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -46,4 +47,21 @@ public sealed class UnaryLogicalOperatorRuntimeTests : OperatorLogicalRuntimeSem
         Assert.IsNull(result.ErrorInfo);
         Assert.IsInstanceOfType<VBNullValue>(result.Result);
     }
+
+    public static IEnumerable<object[]> NonIntegralOperands()
+    {
+        // 2.5 rounds to 2 (banker's rounding), and Not 2 is -3.
+        yield return [new VBSingleValue(2.5f), -3];
+        yield return [new VBDoubleValue(2.5), -3];
+        yield return [new VBCurrencyValue(2.5m), -3];
+        yield return [new VBDecimalValue(2.5m), -3];
+        yield return [new VBDateValue(2), -3];
+        yield return [new VBStringValue("7"), -8];
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.8.1 'Not' Operator")]
+    [DynamicData(nameof(NonIntegralOperands))]
+    public void Not_ANonIntegralOperand_IsTheBitwiseNotOfItAsALong(VBTypedValue operand, int expected)
+        => AssertResult<VBLongValue>(Evaluate(new UnaryNotOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(), Formatter()), operand), expected);
 }

@@ -46,6 +46,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
             new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle),
             new VBBooleanLetCoercionRuntimeSemantics(handle, fmt),
             new VBDateLetCoercionRuntimeSemantics(handle, fmt),
+            new VBNullTypeLetCoercionRuntimeSemantics(fmt),
         ];
         var provider = new LetCoercionRuntimeSemanticsProvider(strategies, fmt);
         handle.Inner = provider;
@@ -164,6 +165,37 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         // the strategy no longer recurses on this second, later call -- confirms only whether the
         // provider's own stack state was reset, not anything about the strategy's own behavior.
         var result = provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, recursiveFrame);
+
+        Assert.IsTrue(result.IsSuccess);
+    }
+
+    public static IEnumerable<object[]> SourcesThatCoerceByTheirOwnRules()
+    {
+        // MS-VBAL 5.5.1.2.10
+        yield return [VBNullValue.Null, VBResizableByteArrayType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+        yield return [VBNullValue.Null, VBErrorType.TypeInfo, VBRuntimeErrorId.InvalidUseOfNull];
+        yield return [VBNullValue.Null, new VBFixedStringType(3), VBRuntimeErrorId.InvalidUseOfNull];
+        // MS-VBAL 5.5.1.2.11
+        yield return [VBEmptyValue.Empty, VBResizableByteArrayType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+        yield return [VBEmptyValue.Empty, VBErrorType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+        // MS-VBAL 5.5.1.2.9
+        yield return [new VBErrorValue(5), VBResizableByteArrayType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+        yield return [new VBErrorValue(5), VBStringType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+        yield return [new VBErrorValue(5), new VBFixedStringType(3), VBRuntimeErrorId.TypeMismatch];
+        yield return [new VBErrorValue(5), VBLongType.TypeInfo, VBRuntimeErrorId.TypeMismatch];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(SourcesThatCoerceByTheirOwnRules))]
+    public void ANullEmptyOrErrorSource_CoercesByItsOwnRules_WhateverTheDestinationIs(VBTypedValue source, VBType destination, VBRuntimeErrorId expected)
+        => AssertError(LetCoercionAnalysisHarness.BuildProvider().EvaluateLetCoercionSemantics(null!, ThrowawayExpression,
+            new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(destination))), expected);
+
+    [TestMethod]
+    public void ANullSource_ToAVariant_IsHeldByIt()
+    {
+        var result = LetCoercionAnalysisHarness.BuildProvider().EvaluateLetCoercionSemantics(null!, ThrowawayExpression,
+            new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, VBNullValue.Null, new VBTypeDescValue(VBVariantType.TypeInfo)));
 
         Assert.IsTrue(result.IsSuccess);
     }

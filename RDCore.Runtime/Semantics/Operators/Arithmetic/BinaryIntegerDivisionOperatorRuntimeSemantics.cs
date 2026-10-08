@@ -43,17 +43,18 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
                 when rhs is VBSingleType or VBDoubleType or VBStringType or VBCurrencyType or VBDateType or VBDecimalType 
                 => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
 
+            // a Boolean is a numeric operand here, the way the table above treats it as an Integer.
             IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
-                when rhs is VBNumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType 
+                when rhs is VBNumericType and not VBLongLongType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBLongType.TypeInfo),
 
-            VBNumericType and not VBLongLongType or VBStringType or VBDateType or VBEmptyType
-                when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType 
+            VBNumericType and not VBLongLongType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
+                when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
                 => DetermineOperatorEffectiveTypeResult.Success(VBLongType.TypeInfo),
 
-            VBLongLongType when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType 
+            VBLongLongType when rhs is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
                 => DetermineOperatorEffectiveTypeResult.Success(VBLongLongType.TypeInfo),
-            VBNumericType or VBStringType or VBDateType or VBEmptyType when rhs is VBLongLongType 
+            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType when rhs is VBLongLongType
                 => DetermineOperatorEffectiveTypeResult.Success(VBLongLongType.TypeInfo),
 
             _ => DetermineOperatorEffectiveTypeResult.NotApplicable()

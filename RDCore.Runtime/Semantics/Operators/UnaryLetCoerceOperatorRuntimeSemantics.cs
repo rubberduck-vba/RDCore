@@ -14,6 +14,7 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -72,11 +73,18 @@ public sealed record class UnaryLetCoerceOperatorRuntimeSemantics(
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
+        // MS-VBAL 5.6.6: Null, Empty and Error are values only a Variant holds, with no declared type to coerce them to: the value is the operand's.
+        if (frame[InputIndex.UnaryOperand] is VBNullValue or VBEmptyValue or VBErrorValue)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(frame[InputIndex.UnaryOperand]);
+        }
+
         var coercionResult = LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression,
             new(NodeId: expression.Identity,
                 OperandIndex: InputIndex.UnaryOperand,
                 SourceValue: frame[InputIndex.UnaryOperand],
-                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType)));
+                DestinationTypeDesc: new VBTypeDescValue(frame.EffectiveType),
+                Site: frame.Site));
 
         return coercionResult.IsSuccess
             ? RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!)

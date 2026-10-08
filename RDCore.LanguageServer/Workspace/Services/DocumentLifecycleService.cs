@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
+using RDCore.SDK.Model.AST.Declarations;
 
 namespace RDCore.LanguageServer.Workspace.Services;
 
@@ -118,6 +119,9 @@ internal sealed class DocumentLifecycleService(
     {
         Supersede(documentUri);
 
+        // the name the host has the module under is read off the text it was defined from, which is gone once the document is.
+        var moduleName = ModuleNameOf(documentUri);
+
         var document = await documents.CloseAsync(documentUri);
         parsing.Invalidate(documentUri);
 
@@ -127,6 +131,30 @@ internal sealed class DocumentLifecycleService(
         if (document is not null)
         {
             ScheduleRefresh(documentUri, publish: false);
+        }
+        else if (moduleName is not null)
+        {
+            // the workspace has no document of it any more, and so no module: what the host holds of it - the variables its lines declared, and the storage
+            // they were given - is not the workspace's either.
+            await DiscardModuleAsync(moduleName);
+        }
+    }
+
+    private string? ModuleNameOf(Uri documentUri)
+        => documents.TryGetDocument(documentUri, out var document) && parsing.TryGetCached(documentUri, out var parse) && parse.SyntaxTree is { } tree
+            ? tree.GetDeclaredName() ?? document.Name
+            : null;
+
+    private async Task DiscardModuleAsync(string moduleName)
+    {
+        try
+        {
+            await symbols.DiscardModuleAsync(moduleName, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // a failure to tell the host is not a failure to close: the document is closed.
+            logger.LogWarning(exception, "🗑️ The host could not be told that module {module} is gone.", moduleName);
         }
     }
 

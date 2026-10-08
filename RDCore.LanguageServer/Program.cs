@@ -8,6 +8,7 @@ using RDCore.SDK.Client;
 // platform capabilities the language server provides to a connected client:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
+[assembly: ProvidesCorePlatformClientCapability<SessionDiscard>]
 [assembly: ProvidesCorePlatformClientCapability<SessionAnalyze>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 namespace RDCore.LanguageServer;

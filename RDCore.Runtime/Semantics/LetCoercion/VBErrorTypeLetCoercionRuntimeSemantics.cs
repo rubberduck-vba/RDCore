@@ -38,7 +38,8 @@ public record class VBErrorTypeLetCoercionRuntimeSemantics(
                     NodeId: expression.Identity,
                     OperandIndex: frame.OperandIndex,
                     SourceValue: frame.SourceValue,
-                    DestinationTypeDesc: new VBTypeDescValue(VBDoubleType.TypeInfo)
+                    DestinationTypeDesc: new VBTypeDescValue(VBDoubleType.TypeInfo),
+                    Site: frame.Site
                 )).Result is VBDoubleValue coerced
                     && (double)coerced.RuntimeValue.BoxedValue >= VBErrorType.MinimumStdErrorValue
                     && (double)coerced.RuntimeValue.BoxedValue <= VBErrorType.MaximumStdErrorValue

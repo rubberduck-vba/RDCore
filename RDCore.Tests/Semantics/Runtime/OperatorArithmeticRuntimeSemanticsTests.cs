@@ -64,8 +64,8 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
     }
 
     /// <summary>
-    /// The real Numeric, String, Date and Boolean let-coercion strategies — for tests that need an
-    /// operand's own let-coercion to genuinely run (and potentially fail), rather than the identity
+    /// The real Numeric, String, Date and Boolean let-coercion strategies, and those of the Empty, Null and Error sources
+    /// — for tests that need an operand's own let-coercion to genuinely run (and potentially fail), rather than the identity
     /// passthrough of <see cref="FakeProvider"/>.
     /// </summary>
     protected static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
@@ -78,6 +78,9 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
             new VBStringLetCoercionRuntimeSemantics(fmt),
             new VBDateLetCoercionRuntimeSemantics(handle, fmt),
             new VBBooleanLetCoercionRuntimeSemantics(handle, fmt),
+            new VBEmptyTypeLetCoercionRuntimeSemantics(fmt),
+            new VBNullTypeLetCoercionRuntimeSemantics(fmt),
+            new VBErrorTypeLetCoercionRuntimeSemantics(handle, fmt),
         ];
         var provider = new LetCoercionRuntimeSemanticsProvider(strategies, fmt);
         handle.Inner = provider;

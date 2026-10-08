@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Facts;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -30,16 +31,15 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// <param name="Expressions">Evaluates the path, file-number and record-length expressions.</param>
 /// <param name="Printing">Applies <strong>§5.4.5.8</strong>'s output rules, whichever target they are aimed at.</param>
 /// <param name="Writing">Applies <strong>§5.4.5.9</strong>'s record format, whichever target it is aimed at.</param>
-/// <param name="Numbers">Coerces them to the types the statement's own clauses declare.</param>
-/// <param name="Strings">Coerces the path expression to <c>String</c>, which the specification requires of it.</param>
+/// <param name="LetCoercion">Coerces them to the types the statement's own clauses declare, and the path expression to <c>String</c>, which the
+/// specification requires of it.</param>
 /// <param name="Assignments">Let-assigns what a reading statement read into the variable it names.</param>
 /// <param name="Reading">Applies <strong>§5.4.5.10</strong>'s input-list rules to the fields of a record.</param>
 public sealed record class FileStatementRuntimeSemantics(
     RuntimeExpressionEvaluator Expressions,
     PrintOutputEvaluator Printing,
     WriteOutputEvaluator Writing,
-    VBNumericLetCoercionTypeRuntimeSemantics Numbers,
-    VBStringLetCoercionRuntimeSemantics Strings,
+    ILetCoercionRuntimeSemanticsProvider LetCoercion,
     LetAssignmentEvaluator Assignments,
     InputListEvaluator Reading)
 {
@@ -617,11 +617,12 @@ public sealed record class FileStatementRuntimeSemantics(
             return false;
         }
 
-        var coerced = Strings.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, new()
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,
             DestinationTypeDesc = new(VBStringType.TypeInfo),
+            Site = ConversionSite.FileStatement,
         });
 
         if (!coerced.IsSuccess)
@@ -702,11 +703,12 @@ public sealed record class FileStatementRuntimeSemantics(
             return false;
         }
 
-        var coerced = Numbers.EvaluateLetCoercion(session.Symbols.Resolver, expression, new()
+        var coerced = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, expression, new()
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,
             DestinationTypeDesc = new(destinationType),
+            Site = ConversionSite.FileStatement,
         });
 
         if (!coerced.IsSuccess)

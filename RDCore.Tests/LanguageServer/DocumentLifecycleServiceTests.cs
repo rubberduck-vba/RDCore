@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
+using RDCore.SDK.Model.AST;
 using System.IO.Abstractions.TestingHelpers;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -231,5 +232,66 @@ public sealed class DocumentLifecycleServiceTests
         Assert.AreEqual("on disk", document.Text);
         _publisher.DidNotReceive().Publish(Mod1, Arg.Any<int?>(), Arg.Is<IReadOnlyList<Diagnostic>>(found => found.Count > 0));
         await _symbols.Received().SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+        await _symbols.DidNotReceiveWithAnyArgs().DiscardModuleAsync(default!, default);
+    }
+
+    // a program a shell loads is a file of the user's, outside the workspace the shell composed: the client's document, and the workspace's no more once it is closed.
+    private static readonly Uri Elsewhere = new(Path.Combine(Path.GetTempPath(), "rdcore-elsewhere", "Program1.rdc"));
+
+    private void TheParseOfTheDocumentIsCached(Uri document)
+    {
+        var parse = new ModuleParser().Parse(document, "Public Sub Foo()\r\nEnd Sub");
+        _parsing.TryGetCached(document, out Arg.Any<ModuleParseResult>()).Returns(call => { call[1] = parse; return true; });
+    }
+
+    [TestMethod]
+    public async Task ADocumentFromOutsideTheWorkspace_IsNotTrackedOnceClosed_ThoughItIsAFile_AndTheHostIsToldItsModuleIsGone()
+    {
+        _files.AddFile(Elsewhere.LocalPath, new MockFileData("10 X = 1"));
+        _sut.Opened(Elsewhere, "10 X = 1", 1);
+        await _sut.WhenRefreshedAsync(Elsewhere);
+        TheParseOfTheDocumentIsCached(Elsewhere);
+
+        await _sut.ClosedAsync(Elsewhere);
+        await _sut.WhenRefreshedAsync(Elsewhere);
+
+        Assert.IsFalse(_documents.TryGetDocument(Elsewhere, out _));
+        await _symbols.Received(1).DiscardModuleAsync("Program1", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ADocumentThatIsNotAFile_TakesItsModuleOutOfTheHost_OnceClosed()
+    {
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        TheParseOfTheDocumentIsCached(Mod1);
+
+        await _sut.ClosedAsync(Mod1);
+
+        await _symbols.Received(1).DiscardModuleAsync("Mod1", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ADocumentThatWasNeverParsed_HasNoModuleInTheHostToTakeOut()
+    {
+        _sut.Opened(Elsewhere, "10 X = 1", 1);
+
+        await _sut.ClosedAsync(Elsewhere);
+
+        await _symbols.DidNotReceiveWithAnyArgs().DiscardModuleAsync(default!, default);
+    }
+
+    [TestMethod]
+    public async Task AHostThatCannotBeToldTheModuleIsGone_DoesNotStopTheDocumentFromClosing()
+    {
+        _sut.Opened(Mod1, "a", 1);
+        await _sut.WhenRefreshedAsync(Mod1);
+        TheParseOfTheDocumentIsCached(Mod1);
+        _symbols.DiscardModuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Throws(new InvalidOperationException("the host is gone"));
+
+        await _sut.ClosedAsync(Mod1);
+
+        Assert.IsFalse(_documents.TryGetDocument(Mod1, out _));
+        _publisher.Received(1).Clear(Mod1);
     }
 }

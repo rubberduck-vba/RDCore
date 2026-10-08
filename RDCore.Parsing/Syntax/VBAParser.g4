@@ -173,10 +173,12 @@ mainBlockStmt :
     | variableStmt
     | whileWendStmt
     | withStmt
-    | lineSpecialForm
     | circleSpecialForm
     | scaleSpecialForm
     | pSetSpecialForm
+    // last of the four: its leading expression is any expression, so `Form1.Scale (0, 0)-(1, 1)` is one too, and an ambiguity is resolved in favor of the
+    // alternative listed first.
+    | lineSpecialForm
     | unqualifiedObjectPrintStmt
     | callStmt
     | nameStmt
@@ -589,9 +591,10 @@ lineSpecialForm : expression whiteSpace ((STEP whiteSpace?)? tuple)?
 	(COMMA whiteSpace? expression? whiteSpace?)?
 	(COMMA whiteSpace? lineSpecialFormOption)?
 ;
-circleSpecialForm : (expression whiteSpace? DOT whiteSpace?)? CIRCLE whiteSpace (STEP whiteSpace?)? tuple whiteSpace? COMMA whiteSpace? expression (whiteSpace? COMMA whiteSpace? expression?)*;
-scaleSpecialForm : (expression whiteSpace? DOT whiteSpace?)? SCALE whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple;
-pSetSpecialForm : (expression whiteSpace? DOT whiteSpace?)? PSET (whiteSpace STEP)? whiteSpace? tuple whiteSpace? (COMMA whiteSpace? expression)?;
+// the object is optional before the dot as well as with it: `.Circle` is the Circle of the object of the enclosing With block.
+circleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? CIRCLE whiteSpace (STEP whiteSpace?)? tuple whiteSpace? COMMA whiteSpace? expression (whiteSpace? COMMA whiteSpace? expression?)*;
+scaleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? SCALE whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple;
+pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace STEP)? whiteSpace? tuple whiteSpace? (COMMA whiteSpace? expression)?;
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
@@ -814,7 +817,6 @@ keyword :
     | PRESERVE
     | PSET
     | PTRSAFE
-    | REM
     | SGN
     | SINGLE
     | SPC
@@ -918,6 +920,7 @@ statementKeyword :
     | PUBLIC
     | RAISEEVENT
     | REDIM
+    | REM
     | RESUME
     | RETURN
     | RSET

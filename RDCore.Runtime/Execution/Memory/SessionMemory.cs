@@ -27,8 +27,9 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
     {
         for (var i = 0; i < _availableSegments.Count; i++)
         {
+            // room to carve a new block from, which is what a segment is available for: the free blocks are the free list's, and were offered first.
             var avlbSegment = _availableSegments[i];
-            if (avlbSegment.Info.AvailableBytes >= size)
+            if (avlbSegment.Info.UncommittedBytes >= size)
             {
                 segment = avlbSegment;
                 return true;
@@ -107,7 +108,7 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
             // checks _memoryMap) and silently no-ops: the block never returns to the free list a second
             // time, so it survives exactly one reuse cycle before leaking permanently.
             address = block.Value.Address;
-            segment.Allocate(block.Value);
+            segment.Reuse(block.Value);
             return true;
         }
         else if (!TryGetAvailableSegment(size, out segment))
@@ -117,12 +118,35 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
         }
 
         var result = segment.TryAllocate(size, out address);
-        if (segment.Info.AvailableBytes < 8)
+        if (segment.Info.UncommittedBytes < 8)
         {
-            _availableSegments.Remove(segment);    
+            _availableSegments.Remove(segment);
         }
 
         return result;
+    }
+
+    public int Reclaim()
+    {
+        var reclaimed = 0;
+        foreach (var segment in _segments)
+        {
+            // the free block that ends where the segment's unused memory begins is unused memory itself; then so is the one before it, if it ended there.
+            var gaveBack = false;
+            while (_freeLists.TryTakeEndingAt(segment, segment.CurrentAddress, out var block))
+            {
+                segment.Retract(block);
+                reclaimed += block.Size;
+                gaveBack = true;
+            }
+
+            if (gaveBack && !_availableSegments.Contains(segment))
+            {
+                _availableSegments.Add(segment);
+            }
+        }
+
+        return reclaimed;
     }
 
     public bool TryFindBlock(MemoryAddress address, out SessionMemoryBlock block)
@@ -143,7 +167,6 @@ internal sealed class SessionMemory : ISessionMemoryAllocator
         {
             // the deallocated block becomes free memory
             _freeLists.Add(block, segment);
-            _availableSegments.Add(segment);
             return true;
         }
 

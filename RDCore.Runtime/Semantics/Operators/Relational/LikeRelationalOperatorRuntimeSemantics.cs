@@ -25,6 +25,9 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
+    // MS-VBAL 5.6.9.6: Like let-coerces both operands to String, whatever a Variant holds.
+    protected override bool RanksVariantNumberBelowString => false;
+
     /// <summary>
     /// MS-VBAL 5.6.9.6: if either operand's value is Null, the result is Null; otherwise both
     /// operands are Let-coerced to String regardless of their own value type — unlike the other

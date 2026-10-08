@@ -44,9 +44,9 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
         // the both-integral case is handled upstream by the bitwise dispatcher; here only Null-operand edges remain.
         if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
         {
+            // the bitwise Imp of the left operand and 0 is in the effective type's representation: ~7 is 248 in a Byte.
             return lhsValue != -1
-                ? RuntimeSemanticsEvaluationResult.Success(
-                    CreateNullOperandTableResult(frame.EffectiveType, EvaluateBitwiseOp((int)lhsValue, 0)))
+                ? EvaluateBitwise(frame.EffectiveType, lhs, frame.EffectiveType.DefaultValue)
                 : EvaluateNullBinaryExpressionResult();
         }
         else if (lhs is VBNullValue && AsNullOperandTableValue(rhs) is double rhsValue)

@@ -366,6 +366,18 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     public IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri)
         => [.. AllSymbols().OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri)];
 
+    // A symbol's Uri is its parent's with the fragment extended by its own name: a symbol is under a module when it is of the same document and its
+    // fragment continues the module's with a dot. VBA names are not case sensitive, and so neither is the comparison.
+    public IReadOnlyList<Symbol> DeclaredIn(Uri moduleUri)
+    {
+        var document = moduleUri.GetLeftPart(UriPartial.Path);
+        var prefix = moduleUri.Fragment.TrimStart('#') + ".";
+
+        return [.. AllSymbols().Where(symbol =>
+            string.Equals(symbol.Uri.GetLeftPart(UriPartial.Path), document, StringComparison.Ordinal)
+            && symbol.Uri.Fragment.TrimStart('#').StartsWith(prefix, StringComparison.OrdinalIgnoreCase))];
+    }
+
     public LexicalScope? ScopeOf(Uri uri) => EnsureScopeTree().TryGetScope(uri, out var scope) ? scope : null;
 
     private IEnumerable<Symbol> AllSymbols()

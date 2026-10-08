@@ -12,6 +12,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
+using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Services.VerboseMessages;
 
@@ -72,23 +73,28 @@ public sealed class RuntimeExecutionPipeline
     /// run's own cancellation — it is what makes a program that will never finish on its own
     /// interruptible.
     /// </param>
+    /// <param name="observer">
+    /// Told of every conversion and operation the pipeline evaluates, as the facts the language core states about the code
+    /// being evaluated. <see langword="null"/> (the default) when the pipeline runs code rather than analyzes it: then nothing
+    /// is observed, and nothing about how the code runs is different.
+    /// </param>
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
         IVerboseMessageBuilder messages,
-        CancellationToken cancellation = default)
+        CancellationToken cancellation = default,
+        IAnalysisObserver? observer = null)
     {
+        // the parts of the pipeline that state facts share one observation, so that describing a fact is not itself observed.
+        var observation = observer is null ? null : new AnalysisObservation(observer);
         var handle = new ProviderHandle();
-        var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, messages);
-        var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle);
-        var stringCoercion = new VBStringLetCoercionRuntimeSemantics(messages);
         var objectCoercion = new VBObjectLetCoercionRuntimeSemantics(handle, messages);
 
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
             [
-                numericCoercion,
-                booleanCoercion,
-                stringCoercion,
+                new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle),
+                new VBBooleanLetCoercionRuntimeSemantics(handle, messages),
+                new VBStringLetCoercionRuntimeSemantics(messages),
                 new VBDateLetCoercionRuntimeSemantics(handle, messages),
                 new VBFixedStringLetCoercionRuntimeSemantics(handle, messages),
                 new VBVariantTypeLetCoercionRuntimeSemantics(handle, messages),
@@ -100,32 +106,34 @@ public sealed class RuntimeExecutionPipeline
                 new VBResizableByteArrayLetCoercionRuntimeSemantics(handle, messages),
                 new VBResizableArrayLetCoercionRuntimeSemantics(handle, messages),
             ],
-            messages);
+            messages,
+            observation);
         handle.Inner = letCoercion;
 
         var setCoercion = new SetCoercionRuntimeSemantics(messages);
-        var expressions = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, messages));
-        var print = new PrintOutputEvaluator(expressions, stringCoercion, numericCoercion);
-        var conditions = new ConditionEvaluator(expressions, booleanCoercion);
-        var assignments = new LetAssignmentEvaluator(letCoercion, messages, expressions);
+        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, messages, observation);
+        var expressions = new RuntimeExpressionEvaluator(operators);
+        var print = new PrintOutputEvaluator(expressions, letCoercion);
+        var conditions = new ConditionEvaluator(expressions, letCoercion);
+        var assignments = new LetAssignmentEvaluator(letCoercion, operators, expressions);
         var files = new FileStatementRuntimeSemantics(
-            expressions, print, new WriteOutputEvaluator(expressions, stringCoercion), numericCoercion, stringCoercion,
+            expressions, print, new WriteOutputEvaluator(expressions), letCoercion,
             assignments, new InputListEvaluator(assignments));
         var statements = new StatementRuntimeSemanticsProvider(
             expressions, assignments, setCoercion, print, conditions, files,
-            new FixedAssignmentRuntimeSemantics(expressions, stringCoercion, assignments),
-            new ArrayStatementRuntimeSemantics(expressions, numericCoercion, assignments),
-            new MidStatementRuntimeSemantics(expressions, stringCoercion, numericCoercion, assignments));
+            new FixedAssignmentRuntimeSemantics(expressions, letCoercion, assignments),
+            new ArrayStatementRuntimeSemantics(expressions, letCoercion, assignments),
+            new MidStatementRuntimeSemantics(expressions, letCoercion, assignments));
 
         var executor = new ProcedureExecutor(
             statements,
             conditions,
             new WithTargetEvaluator(expressions, new WithStatementRuntimeSemantics(setCoercion, letCoercion)),
-            new CaseMatchEvaluator(expressions, letCoercion, messages),
-            new ForLoopEvaluator(expressions, letCoercion, messages),
-            new ForEachEvaluator(expressions, letCoercion, setCoercion, messages),
-            new JumpTableEvaluator(expressions, numericCoercion),
-            new ErrorHandlingEvaluator(expressions, numericCoercion),
+            new CaseMatchEvaluator(expressions, operators),
+            new ForLoopEvaluator(expressions, operators),
+            new ForEachEvaluator(expressions, operators, setCoercion),
+            new JumpTableEvaluator(expressions, letCoercion),
+            new ErrorHandlingEvaluator(expressions, letCoercion),
             cancellation);
 
         // the evaluator needs the invoker, which needs the executor, which needs the evaluator: the
@@ -146,12 +154,13 @@ public sealed class RuntimeExecutionPipeline
         objectCoercion.ProcedureInvoker = invoker;
         objectCoercion.Bindings = bindings;
         objectCoercion.Expressions = expressions;
+        objectCoercion.Session = session;
         expressions.LetCoercionProvider = letCoercion;
         expressions.SetCoercion = setCoercion;
         // an object's lifecycle events run its class's handlers, which is code only this pipeline can run.
         session.Lifecycle = new ClassLifecycle(session, bindings);
         // a fixed-size array is as big as its declaration says, which takes evaluating its bounds: this is what can.
-        session.Symbols.Defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, numericCoercion));
+        session.Symbols.Defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, letCoercion));
 
         return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker);
     }

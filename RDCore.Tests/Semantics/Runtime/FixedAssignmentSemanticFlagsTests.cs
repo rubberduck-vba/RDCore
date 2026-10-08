@@ -53,8 +53,9 @@ public sealed class FixedAssignmentSemanticFlagsTests
         var formatter = Substitute.For<IVerboseMessageBuilder>();
         var strings = new VBStringLetCoercionRuntimeSemantics(formatter);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider([strings], formatter);
-        var expressions = new RuntimeExpressionEvaluator(new OperatorRuntimeSemanticsProvider(letCoercion, formatter));
-        return new FixedAssignmentRuntimeSemantics(expressions, strings, new LetAssignmentEvaluator(letCoercion, formatter, expressions));
+        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, formatter);
+        var expressions = new RuntimeExpressionEvaluator(operators);
+        return new FixedAssignmentRuntimeSemantics(expressions, letCoercion, new LetAssignmentEvaluator(letCoercion, operators, expressions));
     }
 
     private static FixedAssignmentSemanticFlags Analyze(AssignmentKind kind, VBTypedValue target, VBTypedValue source)
