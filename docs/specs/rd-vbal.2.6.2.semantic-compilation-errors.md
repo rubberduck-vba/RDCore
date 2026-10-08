@@ -31,10 +31,14 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |Code|Title|Condition|
 |---|---|---|
 |[`VBC09309`](../diagnostics/vbc09309.md)|Label not defined|a jump names a line label or line number the procedure does not define|
+|[`VBC09310`](../diagnostics/vbc09310.md)|Type mismatch|a value is of a type that cannot be let-coerced to the type it is used as|
 |[`VBC09312`](../diagnostics/vbc09312.md)|Exit Do not within Do...Loop|an `Exit Do` statement is not lexically inside a `Do` loop|
 |[`VBC09313`](../diagnostics/vbc09313.md)|Exit For not within For...Next|an `Exit For` statement is not lexically inside a `For` or `For Each` loop|
 |[`VBC09314`](../diagnostics/vbc09314.md)|Exit Function not allowed in Sub or Property|an `Exit Function` statement is in a `Sub`, or in a `Property Let` or `Property Set` (it is accepted in a `Property Get`, as MS-VBA does)|
 |[`VBC09315`](../diagnostics/vbc09315.md)|Exit Property not allowed in Sub or Function|an `Exit Property` statement is in a `Sub` or a `Function`|
+|[`VBC09316`](../diagnostics/vbc09316.md)|Method or data member not found|a member is accessed on a type known not to have it|
+|[`VBC09317`](../diagnostics/vbc09317.md)|Invalid use of Me|Me is written where there is no object it could be|
+|[`VBC09318`](../diagnostics/vbc09318.md)|With expression outside With block|a leading-dot member has no enclosing With block|
 |[`VBC09319`](../diagnostics/vbc09319.md)|Duplicate label definition|a procedure defines the same line label or line number more than once|
 |[`VBC09320`](../diagnostics/vbc09320.md)|Inconsistent property accessors|a property's Get/Let/Set sharing a name do not together describe one valid property|
 |[`VBC09321`](../diagnostics/vbc09321.md)|Argument required for Property Let or Property Set|a Property Let or Property Set declares no parameters at all|
