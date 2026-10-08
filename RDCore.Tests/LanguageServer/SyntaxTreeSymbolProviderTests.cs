@@ -912,11 +912,56 @@ public sealed class SyntaxTreeSymbolProviderTests
         => Assert.AreEqual(VBTypeNames.VBUnknown, Single<VBConstantMemberSymbol>(Provide("Public Const Answer = 42", new IntrinsicSymbolResolver())).ResolvedType.Name);
 
     [TestMethod]
-    public void AModuleWithADefTypeDirective_LeavesImplicitDeclarationsUndetermined()
-        // which names a Def<Type> covers is not modeled yet: undetermined, not a wrong Variant.
+    [DataRow("DefInt I-N", "Index", VBTypeNames.VBInteger)]
+    [DataRow("DefInt I-N", "index", VBTypeNames.VBInteger)]
+    [DataRow("DefInt N-I", "Index", VBTypeNames.VBInteger)] // a descending span covers the same names (MS-VBAL 5.2.2)
+    [DataRow("defint i-n", "Index", VBTypeNames.VBInteger)]
+    [DataRow("DefInt I-N", "Alpha", VBTypeNames.VBVariant)]
+    [DataRow("DefInt I-N", "Zed", VBTypeNames.VBVariant)]
+    [DataRow("DefStr S", "Name", VBTypeNames.VBVariant)]
+    [DataRow("DefStr S", "Sname", VBTypeNames.VBString)]
+    [DataRow("DefDbl A-Z", "Zed", VBTypeNames.VBDouble)] // the universal span
+    [DataRow("DefBool B", "Flag", VBTypeNames.VBVariant)]
+    [DataRow("DefBool B", "Bit", VBTypeNames.VBBoolean)]
+    [DataRow("DefByte A-B", "Bit", VBTypeNames.VBByte)]
+    [DataRow("DefCur C", "Cost", VBTypeNames.VBCurrency)]
+    [DataRow("DefDate D", "Day", VBTypeNames.VBDate)]
+    [DataRow("DefLng L", "Limit", VBTypeNames.VBLong)]
+    [DataRow("DefLngLng L", "Limit", VBTypeNames.VBLongLong)]
+    [DataRow("DefObj O", "Owner", VBTypeNames.VBObject)]
+    [DataRow("DefSng F", "Factor", VBTypeNames.VBSingle)]
+    [DataRow("DefVar V", "Value", VBTypeNames.VBVariant)]
+    [DataRow("DefInt A-C\r\nDefStr S\r\nDefLng X-Z", "Sname", VBTypeNames.VBString)]
+    [DataRow("DefInt A-C, X, M-P", "Xylo", VBTypeNames.VBInteger)]
+    [DataRow("DefInt A-C, X, M-P", "Nine", VBTypeNames.VBInteger)]
+    [DataRow("DefInt A-C, X, M-P", "Dune", VBTypeNames.VBVariant)]
+    public void ADefTypeDirective_GivesItsTypeToTheNamesItCovers(string directives, string name, string expected)
     {
-        var field = Single<VBModuleFieldVariableMemberSymbol>(Provide("DefInt I-N\r\nPublic Index", new IntrinsicSymbolResolver()));
+        var field = Single<VBModuleFieldVariableMemberSymbol>(Provide($"{directives}\r\nPublic {name}", new IntrinsicSymbolResolver()));
 
-        Assert.AreEqual(VBTypeNames.VBUnknown, field.ResolvedType.Name);
+        Assert.AreEqual(expected, field.ResolvedType.Name);
+    }
+
+    [TestMethod]
+    public void ADefTypeDirective_GivesItsTypeToTheReturnTypeAndTheParametersOfAProcedure()
+    {
+        var symbols = Provide("DefInt I-N\r\nDefStr S\r\nPublic Function Count(Item, Sep, Other)\r\nEnd Function", new IntrinsicSymbolResolver());
+
+        var function = Single<VBFunctionMemberSymbol>(symbols);
+
+        Assert.AreEqual(VBTypeNames.VBVariant, function.ResolvedType.Name); // C: no directive covers it
+        CollectionAssert.AreEqual(
+            new[] { VBTypeNames.VBInteger, VBTypeNames.VBString, VBTypeNames.VBVariant },
+            function.Parameters.Select(parameter => parameter.ResolvedType.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ADeclarationThatNamesItsType_IsNotGivenTheTypeOfADefTypeDirective()
+    {
+        var symbols = Provide("DefInt I-N\r\nPublic Index As String\r\nPublic Item%\r\nPublic Inner", new IntrinsicSymbolResolver());
+
+        CollectionAssert.AreEqual(
+            new[] { VBTypeNames.VBString, VBTypeNames.VBInteger, VBTypeNames.VBInteger },
+            symbols.OfType<VBModuleFieldVariableMemberSymbol>().Select(field => field.ResolvedType.Name).ToArray());
     }
 }

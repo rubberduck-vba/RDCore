@@ -141,6 +141,11 @@ public static class InstructionListLowering
             case PrintStatementNode barePrint when BarePrintStaticSemantics.Evaluate(barePrint, state.Language) is not null:
                 break;
 
+            // a graphics statement with no object to draw on is the method of a form or a report, which the platform has none of: undefined, and so there is
+            // nothing to run.
+            case GraphicsMethodStatementNode graphics when GraphicsStatementStaticSemantics.Evaluate(graphics) is not null:
+                break;
+
             case GoToStatementNode goTo:
                 state.PendingJumps.Add((Emit(state, scope, statement, InstructionKind.Jump), goTo.LabelExpression));
                 break;

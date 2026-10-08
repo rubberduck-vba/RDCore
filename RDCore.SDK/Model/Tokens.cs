@@ -29,6 +29,7 @@ public static class Tokens
     public const string Chr = "Chr";
     public const string ChrB = "ChrB";
     public const string ChrW = "ChrW";
+    public const string Circle = "Circle";
     public const string CInt = "CInt";
     public const string CLng = "CLng";
     public const string CLngLng = "CLngLng";
@@ -164,6 +165,7 @@ public static class Tokens
     public const string Private = "Private";
     public const string Property = "Property";
     public const string Public = "Public";
+    public const string PSet = "PSet";
     public const string Put = "Put";
     public const string RaiseEvent = "RaiseEvent";
     public const string Random = "Random";
@@ -180,6 +182,7 @@ public static class Tokens
     public const string RmDir = "RmDir";
     public const string Rnd = "Rnd";
     public const string RTrim = "RTrim";
+    public const string Scale = "Scale";
     public const string Second = "Second";
     public const string Seek = "Seek";
     public const string Select = "Select";

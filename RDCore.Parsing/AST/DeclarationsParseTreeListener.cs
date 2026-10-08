@@ -875,6 +875,145 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new PrintStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), token, fileNumber, items));
     }
 
+    // The graphics statements (RD-VBAL, see GraphicsMethodStatementNode) are the four "special form" rules of the grammar. Each has the object it draws on in front,
+    // coordinate pairs that are no expressions, and arguments that may be left out between commas - and none of that fits the shape of a call, which is why the
+    // parser used to build nothing at all for them.
+    public override void ExitCircleSpecialForm([NotNull] VBAParser.CircleSpecialFormContext context)
+    {
+        var (target, isWithRelative, arguments) = SplitReceiver(context.DOT(), context.expression());
+        BuildGraphicsStatement(
+            context, Tokens.Circle,
+            target, isWithRelative,
+            context.tuple(), context.CIRCLE().Symbol.TokenIndex, [context.STEP()],
+            second: null, beforeSecond: 0, secondSteps: [],
+            context.COMMA(), arguments, lineOption: null);
+    }
+
+    public override void ExitPSetSpecialForm([NotNull] VBAParser.PSetSpecialFormContext context)
+    {
+        var (target, isWithRelative, arguments) = SplitReceiver(context.DOT(), context.expression());
+        BuildGraphicsStatement(
+            context, Tokens.PSet,
+            target, isWithRelative,
+            context.tuple(), context.PSET().Symbol.TokenIndex, [context.STEP()],
+            second: null, beforeSecond: 0, secondSteps: [],
+            context.COMMA() is { } comma ? [comma] : [], arguments, lineOption: null);
+    }
+
+    public override void ExitScaleSpecialForm([NotNull] VBAParser.ScaleSpecialFormContext context)
+    {
+        var tuples = context.tuple();
+        var (target, isWithRelative, _) = SplitReceiver(context.DOT(), context.expression() is { } receiver ? [receiver] : []);
+        BuildGraphicsStatement(
+            context, Tokens.Scale,
+            target, isWithRelative,
+            tuples.ElementAtOrDefault(0), context.SCALE().Symbol.TokenIndex, [],
+            tuples.ElementAtOrDefault(1), context.MINUS().Symbol.TokenIndex, [],
+            [], [], lineOption: null);
+    }
+
+    // `Line` is not a keyword, so the grammar reads the object and the word together as one expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
+    public override void ExitLineSpecialForm([NotNull] VBAParser.LineSpecialFormContext context)
+    {
+        var callee = context.expression(0);
+
+        // the rule takes any expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
+        if (!callee.GetText().EndsWith(Tokens.Line, StringComparison.OrdinalIgnoreCase))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+            return;
+        }
+
+        (VBABaseParserRuleContext? target, bool isWithRelative) = callee is VBAParser.LExprContext lExpr
+            ? lExpr.lExpression() switch
+            {
+                VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
+                VBAParser.WithMemberAccessExprContext => (null, true),
+                _ => (null, false),
+            }
+            : (null, false);
+
+        var tuples = context.tuple();
+        var steps = context.STEP();
+        var minus = context.MINUS().Symbol.TokenIndex;
+        // the first point is optional, and the second is not: with one tuple it is the second, and it is what follows the minus sign.
+        var hasStart = tuples.Length > 1;
+        BuildGraphicsStatement(
+            context, Tokens.Line,
+            target, isWithRelative,
+            hasStart ? tuples[0] : null, callee.Stop.TokenIndex, steps,
+            tuples.LastOrDefault(), minus, steps,
+            // only the first comma has a color after it: the second one is followed by the B or BF.
+            context.COMMA().Take(1).ToArray(), context.expression().Skip(1).ToArray(), context.lineSpecialFormOption()?.GetText());
+    }
+
+    // What stands before the dot is the object, if anything does; a dot with nothing before it is the object of the enclosing With block. The rest of the
+    // expressions are the statement's own arguments.
+    private static (VBAParser.ExpressionContext? Target, bool IsWithRelative, VBAParser.ExpressionContext[] Remaining) SplitReceiver(
+        ITerminalNode? dot, VBAParser.ExpressionContext[] expressions)
+    {
+        if (dot is null)
+        {
+            return (null, false, expressions);
+        }
+
+        var target = expressions.FirstOrDefault(expression => expression.Start.TokenIndex < dot.Symbol.TokenIndex);
+        return (target, target is null, target is null ? expressions : [.. expressions.Where(expression => expression != target)]);
+    }
+
+    private void BuildGraphicsStatement(
+        VBABaseParserRuleContext context, string token,
+        VBABaseParserRuleContext? target, bool isWithRelative,
+        VBAParser.TupleContext? first, int beforeFirst, ITerminalNode?[] firstSteps,
+        VBAParser.TupleContext? second, int beforeSecond, ITerminalNode?[] secondSteps,
+        ITerminalNode[] commas, VBAParser.ExpressionContext[] expressions, string? lineOption)
+    {
+        var id = GetCurrentNodeId();
+        var capturedTarget = CaptureIsolatedExpression(target);
+        var from = CaptureGraphicsPoint(id.Add(0), first, beforeFirst, firstSteps);
+        var to = CaptureGraphicsPoint(id.Add(1), second, beforeSecond, secondSteps);
+
+        // a malformed statement - a coordinate pair that recovery left without a coordinate, or an object that did not come out as an expression - is still the
+        // source text it was.
+        if ((target is not null && capturedTarget is null)
+            || (first is not null && from is null) || (second is not null && to is null)
+            || (token != Tokens.Line && first is null))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+            return;
+        }
+
+        // an argument is the expression after its own comma; one that is left out leaves no node, so each is found by where it stands between the commas.
+        var arguments = commas.Select((comma, index) =>
+        {
+            var nextComma = index + 1 < commas.Length ? commas[index + 1].Symbol.TokenIndex : int.MaxValue;
+            var written = expressions.FirstOrDefault(e => e.Start.TokenIndex > comma.Symbol.TokenIndex && e.Start.TokenIndex < nextComma);
+            return written is null ? null : CaptureIsolatedExpression(written);
+        }).ToImmutableArray();
+
+        CurrentBuilder.AddChild(new GraphicsMethodStatementNode(
+            id, context.GetSourceLocation(_rootUri), token, capturedTarget, isWithRelative, from, to, arguments, lineOption));
+    }
+
+    // The Step keyword is written before the parenthesis and after whatever comes before the pair, so it is the one that stands between the two.
+    private GraphicsPointNode? CaptureGraphicsPoint(SyntaxNodeId id, VBAParser.TupleContext? tuple, int after, ITerminalNode?[] steps)
+    {
+        if (tuple is null)
+        {
+            return null;
+        }
+
+        var x = CaptureIsolatedExpression(tuple.expression(0));
+        var y = CaptureIsolatedExpression(tuple.expression(1));
+        if (x is null || y is null)
+        {
+            return null;
+        }
+
+        var isRelative = steps.Any(step => step is not null && step.Symbol.TokenIndex > after && step.Symbol.TokenIndex < tuple.Start.TokenIndex);
+        return new GraphicsPointNode(id, tuple.GetSourceLocation(_rootUri), isRelative, x, y);
+    }
+
     // `Open` (MS-VBAL §5.4.5.1) needs its own shape — Mode/Access/Lock are keyword choices, not
     // expressions, so it can't ride KeywordStatementNode like the rest of the file statements.
     public override void ExitOpenStmt([NotNull] VBAParser.OpenStmtContext context)

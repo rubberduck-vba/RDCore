@@ -51,6 +51,8 @@ namespace RDCore.SDK.Model.AST.Abstract;
 [JsonDerivedType(typeof(ForEachStatementNode), "ForEachStatement")]
 [JsonDerivedType(typeof(ForStatementNode), "ForNextStatement")]
 [JsonDerivedType(typeof(GoSubStatementNode), "GoSubStatement")]
+[JsonDerivedType(typeof(GraphicsMethodStatementNode), "GraphicsMethodStatement")]
+[JsonDerivedType(typeof(GraphicsPointNode), "GraphicsPoint")]
 [JsonDerivedType(typeof(GoToStatementNode), "GoToStatement")]
 [JsonDerivedType(typeof(IfBlockStatementNode), "IfBlockStatement")]
 [JsonDerivedType(typeof(ImplementsDirectiveNode), "ImplementsDirective")]
