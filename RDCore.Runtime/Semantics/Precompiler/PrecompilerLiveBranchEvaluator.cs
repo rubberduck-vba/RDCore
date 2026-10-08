@@ -1,6 +1,8 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -8,6 +10,13 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Semantics.Precompiler;
+
+/// <summary>
+/// What evaluating the conditional compilation of a module found out.
+/// </summary>
+/// <param name="DeadRanges">The source ranges of every branch that is not live, in no particular order.</param>
+/// <param name="Errors">The compile errors of the directives: a <c>#Const</c> declared twice, a condition that is not a number or a <c>Boolean</c>.</param>
+public readonly record struct PrecompilerEvaluation(ImmutableArray<SourceRange> DeadRanges, ImmutableArray<VBCompileErrorInfo> Errors);
 
 /// <summary>
 /// Evaluates every <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> block a module's
@@ -27,11 +36,14 @@ namespace RDCore.Runtime.Semantics.Precompiler;
 /// <para>
 /// A <c>#If</c>/<c>#ElseIf</c> condition is evaluated through the same <see cref="RuntimeExpressionEvaluator"/>
 /// every other expression is — a conditional-compilation constant is an ordinary
-/// <see cref="PrecompilerNameExpressionNode"/> that evaluator resolves against the global scope, and
+/// <see cref="PrecompilerNameExpressionNode"/> that evaluator resolves against the module's own <c>#Const</c> directives and then the project's, and
 /// every comparison/logical/arithmetic operator a condition can use already has real runtime semantics
-/// there. When a condition's evaluation is not <see cref="RuntimeSemanticsEvaluationResult.IsSuccess"/>,
-/// this reports no dead range for that whole <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> chain: an earlier
-/// unresolved header could have been the one that mattered, so nothing after it can be trusted either.
+/// there. A condition that cannot be evaluated is a compile error (<see cref="PrecompilerEvaluation.Errors"/>), and this reports no dead range for that whole
+/// <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> chain: an earlier unresolved header could have been the one that mattered, so nothing after it can be trusted either.
+/// </para>
+/// <para>
+/// <strong>MS-VBAL §3.4.1</strong>: every <c>#Const</c> of the module is processed - those in an excluded block too - and binds a constant that every
+/// <c>cc-expression</c> of the module can name, wherever in the module it is written, and that shadows a project-level constant of the same name.
 /// </para>
 /// </remarks>
 public static class PrecompilerLiveBranchEvaluator
@@ -46,33 +58,54 @@ public static class PrecompilerLiveBranchEvaluator
     /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
     /// <returns>The source ranges of every branch that is not live, in no particular order.</returns>
     public static ImmutableArray<SourceRange> GetDeadRanges(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
+        => Evaluate(session, evaluator, context, precompilerTrivia).DeadRanges;
+
+    /// <summary>
+    /// Evaluates the conditional compilation of a module: its <c>#Const</c> directives, then its <c>#If</c> blocks.
+    /// </summary>
+    /// <param name="session">The runtime session <paramref name="evaluator"/> resolves the project's conditional-compilation constants against.</param>
+    /// <param name="evaluator">Evaluates a condition's expression tree.</param>
+    /// <param name="context">The scope a condition's constants resolve from.</param>
+    /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
+    public static PrecompilerEvaluation Evaluate(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
     {
-        var deadRanges = ImmutableArray.CreateBuilder<SourceRange>();
+        var state = new Evaluation(session, evaluator, context);
+        if (precompilerTrivia.IsDefaultOrEmpty)
+        {
+            return new([], []);
+        }
+
         foreach (var node in precompilerTrivia)
         {
-            Visit(node, session, evaluator, context, deadRanges);
+            state.Declare(node);
         }
-        return deadRanges.ToImmutable();
+
+        foreach (var node in precompilerTrivia)
+        {
+            Visit(node, state);
+        }
+
+        return new(state.DeadRanges.ToImmutable(), state.Errors.ToImmutable());
     }
 
-    private static void Visit(SyntaxNode node, IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SourceRange>.Builder deadRanges)
+    private static void Visit(SyntaxNode node, Evaluation state)
     {
         switch (node)
         {
             case PrecompilerIfBlockStatementNode ifBlock:
-                EvaluateIfBlock(ifBlock, session, evaluator, context, deadRanges);
+                EvaluateIfBlock(ifBlock, state);
                 break;
             case PrecompilerTriviaNode trivia:
                 // a live branch's own body may itself contain a nested #Const/#If.
                 foreach (var child in trivia.Children)
                 {
-                    Visit(child, session, evaluator, context, deadRanges);
+                    Visit(child, state);
                 }
                 break;
         }
     }
 
-    private static void EvaluateIfBlock(PrecompilerIfBlockStatementNode ifBlock, IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SourceRange>.Builder deadRanges)
+    private static void EvaluateIfBlock(PrecompilerIfBlockStatementNode ifBlock, Evaluation state)
     {
         var branches = CollectBranches(ifBlock);
         if (branches.Count == 0)
@@ -90,7 +123,7 @@ public static class PrecompilerLiveBranchEvaluator
                 liveIndex = i;
                 break;
             }
-            if (!TryEvaluateBoolean(session, evaluator, context, condition, out var isTrue))
+            if (!state.TryEvaluateCondition(condition, out var isTrue))
             {
                 return;
             }
@@ -109,7 +142,7 @@ public static class PrecompilerLiveBranchEvaluator
             }
             if (branches[i].Body is { } deadBody)
             {
-                deadRanges.Add(deadBody.SourceLocation.Range);
+                state.DeadRanges.Add(deadBody.SourceLocation.Range);
             }
         }
 
@@ -117,7 +150,7 @@ public static class PrecompilerLiveBranchEvaluator
         {
             foreach (var child in liveBody.Children)
             {
-                Visit(child, session, evaluator, context, deadRanges);
+                Visit(child, state);
             }
         }
     }
@@ -149,11 +182,118 @@ public static class PrecompilerLiveBranchEvaluator
     private static ExpressionNode? GetCondition(ImmutableArray<SyntaxNode> children)
         => children is [ExpressionNode condition, ..] ? condition : null;
 
-    private static bool TryEvaluateBoolean(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ExpressionNode condition, out bool value)
+    private sealed class Evaluation
     {
-        value = false;
-        var result = evaluator.Evaluate(session, condition, context);
-        return result.IsSuccess && result.Result is { } typed && TryCoerceBoolean(typed, out value);
+        private readonly IRuntimeSession _session;
+        private readonly RuntimeExpressionEvaluator _evaluator;
+        private readonly RuntimeEvaluationContext _context;
+
+        // every #Const of the module, wherever it is written: a constant binds in the whole module (§3.4.1), so one is evaluated when something names it.
+        private readonly Dictionary<string, ExpressionNode> _declared = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, VBTypedValue> _values = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _evaluating = new(StringComparer.OrdinalIgnoreCase);
+
+        public Evaluation(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context)
+        {
+            _session = session;
+            _evaluator = evaluator;
+            _context = context with { ConditionalConstant = ConstantOf };
+        }
+
+        public ImmutableArray<SourceRange>.Builder DeadRanges { get; } = ImmutableArray.CreateBuilder<SourceRange>();
+
+        public ImmutableArray<VBCompileErrorInfo>.Builder Errors { get; } = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+
+        // §3.4.1: "All <cc-const> directives are processed including those contained in excluded blocks", and the name of each is different.
+        public void Declare(SyntaxNode node)
+        {
+            if (node is PrecompilerConstantDeclarationNode { Children: [PrecompilerNameExpressionNode name, ExpressionNode value, ..] } declaration)
+            {
+                if (!_declared.TryAdd(name.Name, value))
+                {
+                    Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, declaration.SourceLocation, $"'{name.Name}' is declared more than once in this module."));
+                }
+
+                return;
+            }
+
+            // a #Const is a directive of a block; blocks hold blocks.
+            if (node is PrecompilerIfBlockStatementNode or PrecompilerTriviaNode or PrecompilerElseIfBlockStatementNode or PrecompilerElseBlockStatementNode)
+            {
+                foreach (var child in node.Children)
+                {
+                    Declare(child);
+                }
+            }
+        }
+
+        // null when the module declares no such constant, and the name is the project's to bind (or is nothing, which is 0).
+        private VBTypedValue? ConstantOf(string name)
+        {
+            if (_values.TryGetValue(name, out var known))
+            {
+                return known;
+            }
+
+            // a constant that names itself, directly or through others, has nothing to be but what the name means without it.
+            if (!_declared.TryGetValue(name, out var expression) || !_evaluating.Add(name))
+            {
+                return null;
+            }
+
+            try
+            {
+                return _values[name] = TryEvaluate(expression, out var value) ? value : new VBIntegerValue(0);
+            }
+            finally
+            {
+                _evaluating.Remove(name);
+            }
+        }
+
+        public bool TryEvaluateCondition(ExpressionNode condition, out bool isTrue)
+        {
+            isTrue = false;
+            if (!TryEvaluate(condition, out var value))
+            {
+                return false;
+            }
+
+            if (TryCoerceBoolean(value, out isTrue))
+            {
+                return true;
+            }
+
+            Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, condition.Location, "A conditional-compilation condition is a number or a Boolean."));
+            return false;
+        }
+
+        // The value of a cc-expression; or why it has none, as a compile error. An expression the interpreter cannot answer is not an error of the
+        // program's, and is not reported as one.
+        private bool TryEvaluate(ExpressionNode expression, out VBTypedValue value)
+        {
+            value = new VBIntegerValue(0);
+            var result = _evaluator.Evaluate(_session, expression, _context);
+            if (!result.IsSuccess)
+            {
+                if (result.ErrorInfo is { } error)
+                {
+                    Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, error.Description));
+                }
+
+                return false;
+            }
+
+            if (result.Result is VBObjectValue)
+            {
+                // Nothing is an object, and a conditional-compilation expression has none to be.
+                Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfObject, expression.Location, "A conditional-compilation expression is not an object."));
+                return false;
+            }
+
+            value = result.Result!;
+            return true;
+        }
     }
 
     private static bool TryCoerceBoolean(VBTypedValue value, out bool result)

@@ -78,6 +78,7 @@ internal partial class ModuleParser(
             {
                 SyntaxErrors = errorListener.Errors,
                 PrecompilerTrivia = precompilerTrivia,
+                Trivia = listener.Trivia,
             };
         }
         catch (Exception exception)
@@ -101,6 +102,7 @@ internal partial class ModuleParser(
             {
                 SyntaxTree = salvaged,
                 PrecompilerTrivia = precompilerTrivia,
+                Trivia = declarations?.Trivia ?? [],
                 SyntaxErrors = errorListener.Errors.IsEmpty
                     ? [VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
                         SourcePathAnonymizer.Scrub(exception.ToString(), _scrub))]

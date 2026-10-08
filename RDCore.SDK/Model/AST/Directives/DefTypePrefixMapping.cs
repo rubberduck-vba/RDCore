@@ -1,6 +1,13 @@
-﻿namespace RDCore.SDK.Model.AST.Directives;
+namespace RDCore.SDK.Model.AST.Directives;
 
-public record class DefTypeUniversalPrefixMapping() : DefTypePrefixMapping('A', 'Z');
+/// <summary>
+/// The <c>A-Z</c> letter span of a <c>Def&lt;Type&gt;</c> directive (MS-VBAL 5.2.2): the one that covers every name of the module, whatever its first character.
+/// </summary>
+public record class DefTypeUniversalPrefixMapping() : DefTypePrefixMapping('A', 'Z')
+{
+    /// <inheritdoc/>
+    public override bool IsMatch(string identifierName) => !string.IsNullOrEmpty(identifierName);
+}
 
 /// <summary>
 /// Maps a range of prefix characters to a <c>Def&lt;Type&gt;</c> directive.
@@ -15,7 +22,19 @@ public record class DefTypePrefixMapping(char FromCharValue, char? ToCharValue =
     /// <param name="identifierName">The <em>identifier</em> name to match.</param>
     /// <remarks>
     /// If this method returns <c>true</c>, the associated symbol has the implicit data type defined by the corresponding <c>Def&lt;Type&gt;</c> directive.
+    /// <para>
+    /// The span is of letters, whatever their case, and it can be ascending or descending (MS-VBAL 5.2.2): <c>DefInt N-I</c> covers the same names as <c>DefInt I-N</c>.
+    /// </para>
     /// </remarks>
-    public bool IsMatch(string identifierName) 
-        => Enumerable.Range(FromCharValue, (ToCharValue ?? FromCharValue) - FromCharValue + 1).Any(ascii => identifierName[0] == ascii);
+    public virtual bool IsMatch(string identifierName)
+    {
+        if (string.IsNullOrEmpty(identifierName))
+        {
+            return false;
+        }
+
+        var first = char.ToUpperInvariant(identifierName[0]);
+        var (from, to) = (char.ToUpperInvariant(FromCharValue), char.ToUpperInvariant(ToCharValue ?? FromCharValue));
+        return first >= Math.Min(from, to) && first <= Math.Max(from, to);
+    }
 }

@@ -25,5 +25,11 @@ namespace RDCore.Runtime.Semantics;
 /// <c>With</c> holds is a value, and a value carries the object and nothing of the type its variable was declared as. What
 /// a with-relative member is looked up in - a class, or an interface of it (<strong>MS-VBAL §5.3.1.9</strong>) - is decided by that.
 /// </param>
+/// <param name="ConditionalConstant">
+/// The value of the module's own conditional-compilation constant of that name (<strong>MS-VBAL §3.4.1</strong>), or <see langword="null"/> when the module
+/// declares none: what a <c>cc-expression</c> that names one is evaluated with, ahead of the project-level constants that the module's own shadow.
+/// <see langword="null"/> - the default - states no module: only the project's constants are there.
+/// </param>
 public readonly record struct RuntimeEvaluationContext(
-    Uri Scope, VBTypedValue? EnclosingWithTarget = null, ExpressionNode? EnclosingWithTargetExpression = null);
+    Uri Scope, VBTypedValue? EnclosingWithTarget = null, ExpressionNode? EnclosingWithTargetExpression = null,
+    Func<string, VBTypedValue?>? ConditionalConstant = null);
