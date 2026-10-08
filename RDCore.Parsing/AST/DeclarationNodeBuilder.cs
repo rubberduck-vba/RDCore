@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -211,8 +212,9 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     /// The array-dim bounds as expressions, one pair per dimension, which only the listener can walk a subtree into; empty
     /// when the declaration has none.
     /// </param>
+    /// <param name="location">Where the declaration is written, which for the first variable of a statement begins with the keywords in front of it.</param>
     public SyntaxNode BuildVariableDeclaration(
-        VBAParser.VariableSubStmtContext context, AccessModifier modifier, bool isStatic,
+        VBAParser.VariableSubStmtContext context, AccessModifier modifier, bool isStatic, SourceLocation location,
         ImmutableArray<(ExpressionNode? Lower, ExpressionNode? Upper)> boundExpressions = default)
     {
         // the name can be an IDENTIFIER, a keyword (`Dim Name As String`) or a bracketed foreign
@@ -232,13 +234,14 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
         return new VariableDeclarationNode(
             NodeId,
-            context.GetSourceLocation(_rootUri),
+            location,
             name,
             [.. children],
             modifier,
             typeHint,
             isWithEvents,
-            isStatic);
+            isStatic,
+            context.identifier().SourceRange);
     }
 
     // MS-VBAL 5.2.3.1.3 Array Dim: `( [ boundsList ] )`. No boundsList -> dynamic array; each
@@ -265,9 +268,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         return new ArrayBoundsNode(identity, location, [.. bounds]);
     }
 
+    /// <param name="location">Where the declaration is written, which for the first target of a statement begins with the <c>ReDim</c> (and <c>Preserve</c>) in front of it.</param>
     public SyntaxNode BuildRedimDeclaration(
         VBAParser.RedimVariableDeclarationContext context, bool isPreserve, ImmutableArray<RedimDimensionNode> bounds,
-        ExpressionNode? target)
+        ExpressionNode? target, SourceLocation location)
     {
         var (name, typeHint) = RedimTarget(context.expression());
 
@@ -283,7 +287,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
         return new RedimDeclarationNode(
             NodeId,
-            context.GetSourceLocation(_rootUri),
+            location,
             target,
             [.. children],
             isPreserve,
@@ -311,19 +315,21 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             _ => (null, null),
         };
 
-    public SyntaxNode BuildConstDeclaration(VBAParser.ConstSubStmtContext context, ConstKind kind, AccessModifier modifier)
+    /// <param name="location">Where the declaration is written, which for the first constant of a statement begins with the keywords in front of it.</param>
+    public SyntaxNode BuildConstDeclaration(VBAParser.ConstSubStmtContext context, ConstKind kind, AccessModifier modifier, SourceLocation location)
     {
         var typeHint = context.identifier().TypeHint();
         var name = context.identifier().Name();
 
         return new ConstantDeclarationNode(
             NodeId,
-            context.GetSourceLocation(_rootUri),
+            location,
             name,
             kind,
             [.. _children],
             modifier,
-            typeHint);
+            typeHint,
+            context.identifier().SourceRange);
     }
 
     public SyntaxNode BuildConditionalExpression(VBAParser.ExpressionContext context)
@@ -490,8 +496,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     public SyntaxNode BuildCaseElseClause(VBAParser.CaseElseClauseContext context)
         => new CaseElseClauseStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
 
-    public SyntaxNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context)
-        => new AnnotationTriviaNode(NodeId, context.GetSourceLocation(_rootUri), context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
+    public AnnotationTriviaNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context, SourceLocation location)
+        => new(NodeId, location, context.annotationName()?.GetText() ?? string.Empty, [.. _children]);
 
     public SyntaxNode BuildEnumConstDeclaration(VBAParser.EnumerationStmt_ConstantContext context)
     {

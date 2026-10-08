@@ -9,6 +9,20 @@ public record class PrecompilerTriviaNode(SyntaxNodeId Identity, SourceLocation 
 public record class CommentTriviaNode(SyntaxNodeId Identity, SourceLocation SourceLocation, string Value)
     : SyntaxNode(Identity, SourceLocation, []);
 
+/// <summary>
+/// Preserves a part of a class, form or document module's <em>file header</em>: the <c>VERSION 1.0 CLASS</c> line, the <c>Object = "{GUID}#..."</c> references,
+/// or the top-level <c>BEGIN ... END</c> configuration block.
+/// </summary>
+/// <remarks>
+/// None of it is code, but it is source: a faithful tree has to account for it so that a formatter or an exporter can write the module back out as it was read.
+/// Whatever the grammar recognized inside the header is kept as <see cref="Source"/> only, since no consumer binds anything to it.
+/// </remarks>
+/// <param name="Identity">A unique identifier for this specific syntax node.</param>
+/// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the header part.</param>
+/// <param name="Source">The exact original source text of the header part.</param>
+public sealed record class ModuleHeaderTriviaNode(SyntaxNodeId Identity, SourceLocation SourceLocation, string Source)
+    : SyntaxNode(Identity, SourceLocation, []);
+
 public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation SourceLocation, string Name, ImmutableArray<SyntaxNode> Children)
     : SyntaxNode(Identity, SourceLocation, Children);
 
