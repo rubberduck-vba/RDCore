@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.Symbols.Operators;
+using RDCore.SDK.Runtime.Abstract.Execution;
 ﻿using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -242,9 +243,9 @@ public static class ExpressionStaticSemanticsEvaluator
     {
         Symbol? symbol = callee switch
         {
-            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol,
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
-                => context.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope.Uri).Symbol,
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } owner } access when Evaluate(context, owner) is { IsSuccess: true, Result: VBClassType classType }
                 => classType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
                     && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol),
@@ -265,9 +266,9 @@ public static class ExpressionStaticSemanticsEvaluator
     {
         var symbol = callee switch
         {
-            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol,
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
-                => context.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope.Uri).Symbol,
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
             _ => null,
         };
 

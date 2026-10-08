@@ -349,7 +349,16 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Break", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to BREAK IN {0}.
+        /// </summary>
+        public static string Repl_Break_InLine {
+            get {
+                return ResourceManager.GetString("Repl_Break_InLine", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Clears the console content..
         /// </summary>

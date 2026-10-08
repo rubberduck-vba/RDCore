@@ -1,4 +1,6 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
@@ -151,11 +153,48 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateLabelDefinition, label.SourceLocation, label.Name));
                     }
                     break;
-                case StatementNode statement:
-                    EvaluateStatement(context, statement, walk);
+                // a name is declared once in its procedure: the parameters and the variables and constants of the body share one scope, and what a name is
+                // written with - Dim x$ and Dim x% - is how its type is said, not a different name.
+                case VariableDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.SourceLocation);
+                    goto default;
+                case ConstantDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    goto default;
+                case ParameterDeclarationNode { Name: var name } declaration:
+                    ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    goto default;
+                default:
+                    if (child is StatementNode statement)
+                    {
+                        EvaluateStatement(context, statement, walk);
+                    }
+
                     break;
             }
         }
+    }
+
+    private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
+    {
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        if (!walk.DeclaredNames.TryGetValue(name, out var prior))
+        {
+            walk.DeclaredNames.Add(name, prior = []);
+        }
+
+        // a name declared in each branch of a #If block is declared once, however the block evaluates.
+        var blocks = walk.Options.Blocks ?? ConditionalCompilationBlocks.None;
+        if (prior.Any(site => !blocks.AreAlternatives(site, location.Range.Start)))
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, location, $"'{name}' is declared more than once in this procedure."));
+        }
+
+        prior.Add(location.Range.Start);
     }
 
     private static void EvaluateStatement(StaticEvaluationContext context, StatementNode statement, Walk walk)
@@ -544,7 +583,7 @@ public static class StatementStaticSemanticsEvaluator
     // an argument is a variable when it names one: a local, a parameter or a field, not a constant, a procedure or a value.
     private static bool IsVariable(StaticEvaluationContext context, ExpressionNode argument)
         => argument is SimpleNameExpressionNode name
-            && context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol
+            && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol
                 is VBLocalVariableSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol;
 
     // A jump's target operand names a label, not a value, and a label is not a symbol: evaluated as an
@@ -632,7 +671,7 @@ public static class StatementStaticSemanticsEvaluator
     // to that instead.
     private static VBPredeclaredInstanceSymbol? DefaultInstanceNamedBy(StaticEvaluationContext context, ExpressionNode target)
         => target is SimpleNameExpressionNode name
-            ? context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
+            ? context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
             : null;
 
     private static IStaticSemantics? ResolveCoercionRule(AssignmentKind kind) => kind switch
@@ -658,6 +697,9 @@ public static class StatementStaticSemanticsEvaluator
         public HashSet<string> LabelDefinitions { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<ExpressionNode> LabelReferences { get; } = [];
+
+        // the names the walked procedure has declared so far, and where: its parameters, variables and constants share one scope.
+        public Dictionary<string, List<SourcePosition>> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         // the kind of procedure the walked body belongs to, when it is known.
         public MemberKind? Procedure { get; init; }

@@ -592,6 +592,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Type-declaration character does not match declared data type.
+        /// </summary>
+        public static string VBCompileError_TypeDeclarationCharacterDoesNotMatch {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeDeclarationCharacterDoesNotMatch", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
         public static string VBCompileError_NumericLiteralOverflow {

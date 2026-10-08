@@ -256,6 +256,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Break" xml:space="preserve">
     <value>BREAK</value>
   </data>
+  <data name="Repl_Break_InLine" xml:space="preserve">
+    <value>BREAK IN {0}</value>
+  </data>
   <data name="Repl_HelpHint" xml:space="preserve">
     <value>Type HELP for a list of commands.</value>
   </data>

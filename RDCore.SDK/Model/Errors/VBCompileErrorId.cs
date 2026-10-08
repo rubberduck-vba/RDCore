@@ -310,6 +310,12 @@ public enum VBCompileErrorId
     /// 👉 <strong>MS-VBAL §5.4.5.1</strong> states the rule and names no error: the message is the platform's.
     /// </remarks>
     FileAccessNotValidForMode = 9334,
+    /// <summary>
+    /// A name is written with a type-declaration character (<c>%</c>, <c>&amp;</c>, <c>^</c>, <c>!</c>, <c>#</c>, <c>@</c> or <c>$</c>) that is not the type it was
+    /// declared as: <c>x$ = "a"</c> is fine and <c>x% = 42</c> is not, when <c>x</c> is a <c>String</c>.<br/>
+    /// <a href="https://learn.microsoft.com/office/vba/language/reference/user-interface-help/type-declaration-character-does-not-match-declared-data-type">learn.microsoft.com</a>
+    /// </summary>
+    TypeDeclarationCharacterDoesNotMatch = 9335,
 
 
     /***********************************************************************************************

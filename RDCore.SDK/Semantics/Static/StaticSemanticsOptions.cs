@@ -16,9 +16,14 @@ namespace RDCore.SDK.Semantics.Static;
 /// The language the body is written in, which decides which statements exist at all - a bare <c>Print</c> is a statement of a BASIC and of no other
 /// language. <see langword="null"/> - the default - states no language, and so applies no language's rules.
 /// </param>
+/// <param name="Blocks">
+/// The <c>#If</c> blocks of the module, whatever they evaluate to, which say that a name declared in each branch of one is declared once. <see langword="null"/>
+/// - the default - states none: a module with no conditional compilation.
+/// </param>
 public readonly record struct StaticSemanticsOptions(
     ImmutableArray<SourceRange> DeadRanges = default,
-    SupportedLanguage? Language = null)
+    SupportedLanguage? Language = null,
+    ConditionalCompilationBlocks? Blocks = null)
 {
     /// <summary>
     /// <see cref="DeadRanges"/>, never the default (uninitialized) array.
