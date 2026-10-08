@@ -89,11 +89,31 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider statements, ConditionEvaluator conditions, WithTargetEvaluator withTargets, CaseMatchEvaluator cases, ForLoopEvaluator forLoop, ForEachEvaluator forEach, JumpTableEvaluator jumpTable, ErrorHandlingEvaluator errorHandling, CancellationToken cancellation = default)
 {
+    // set once a program that waited for the cancellation was resumed: a cancelled token stays cancelled, and it was one break.
+    private bool _cancellationAcknowledged;
+
     /// <summary>
     /// Runs <paramref name="frame"/> against <paramref name="list"/> from its current <c>Pc</c> until
     /// the outcome is anything other than <c>Next</c>/<c>Branch</c>.
     /// </summary>
     public RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
+    {
+        var outcome = RunInstructions(session, frame, list, context);
+
+        // a statement can stop the program without being one of the two that are for it: a Debug.Assert that fails breaks.
+        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt)
+        {
+            session.Halt.Request(outcome.Kind is RuntimeExecutionOutcomeKind.Halt ? RuntimeHaltKind.End : RuntimeHaltKind.Break);
+        }
+
+        // A program that was stopped inside a call has no answer to give the statement that made the call, and a call without one fails the way a call
+        // fails that the interpreter cannot answer. It was not that: the session says what stopped it, and the procedure that made the call is stopped by it too.
+        return outcome.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+            ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
+            : outcome;
+    }
+
+    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
     {
         var activation = (CallStackFrame)frame;
 
@@ -101,10 +121,33 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
-            // whose own control flow never would - an empty Do…Loop, a GoTo cycle.
-            if (cancellation.IsCancellationRequested)
+            // whose own control flow never would - an empty Do…Loop, a GoTo cycle. It is a break
+            // like a Stop is, which is why it is requested of the session the same way.
+            if (cancellation.IsCancellationRequested && !_cancellationAcknowledged)
             {
+                var location = list.Items[activation.Pc].Node?.SourceLocation;
+
+                // A program that can be resumed waits here, before the instruction it was about to run, and runs it when it is resumed. The cancellation is then
+                // answered: it was one break, and a token that is cancelled stays cancelled, so it is not asked about again.
+                if (session.Halt.TrySuspend(RuntimeHaltKind.Break, location))
+                {
+                    _cancellationAcknowledged = true;
+                    continue;
+                }
+
+                session.Halt.Request(RuntimeHaltKind.Break, location);
                 return RuntimeExecutionOutcome.Break;
+            }
+
+            // a step the program was resumed with ends here, before the instruction it was asked to stop at.
+            if (session.Halt.TakeStep(session.CallStack.Depth))
+            {
+                var stepLocation = list.Items[activation.Pc].Node?.SourceLocation;
+                if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, stepLocation))
+                {
+                    session.Halt.Request(RuntimeHaltKind.Break, stepLocation);
+                    return RuntimeExecutionOutcome.Break;
+                }
             }
 
             var instruction = list.Items[activation.Pc];
@@ -116,6 +159,22 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     var outcome = statements.Execute(session, instructionContext, instruction.Node!);
                     if (outcome.Kind != RuntimeExecutionOutcomeKind.Next)
                     {
+                        // the statement has completed, and what it reports is that the program is to stop after it: a program that can be resumed waits here, between
+                        // this instruction and the next, and goes on from the next.
+                        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break && session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
+                        {
+                            activation.Pc = instruction.Offset + 1;
+                            break;
+                        }
+
+                        // a statement can stop the program without being one of the two that are for it - a Debug.Assert that fails breaks - and it
+                        // stopped it at itself.
+                        if (outcome.Kind is RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt)
+                        {
+                            session.Halt.Request(
+                                outcome.Kind is RuntimeExecutionOutcomeKind.Halt ? RuntimeHaltKind.End : RuntimeHaltKind.Break, instruction.Node?.SourceLocation);
+                        }
+
                         if (InterceptError(session, activation, list, instruction.Offset, outcome) is { } unhandledSimple)
                         {
                             return unhandledSimple;
@@ -290,9 +349,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return RuntimeExecutionOutcome.ExitProcedure;
 
                 case InstructionKind.Halt:
+                    session.Halt.Request(RuntimeHaltKind.End, instruction.Node?.SourceLocation);
                     return RuntimeExecutionOutcome.Halt;
 
                 case InstructionKind.Break:
+                    if (session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
+                    {
+                        activation.Pc = instruction.Offset + 1;
+                        break;
+                    }
+
+                    session.Halt.Request(RuntimeHaltKind.Break, instruction.Node?.SourceLocation);
                     return RuntimeExecutionOutcome.Break;
 
                 default:

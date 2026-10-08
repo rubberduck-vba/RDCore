@@ -30,6 +30,7 @@ internal sealed class RuntimeSession(
     ISessionErrorState errors,
     IFileChannels files,
     ICallStack callStack,
+    ISessionHalt halt,
     IReadOnlyList<ReferencePriorityInfo> references,
     IRuntimeOutput output) : IRuntimeSession
 {
@@ -41,6 +42,7 @@ internal sealed class RuntimeSession(
     public ISessionErrorState Errors { get; init; } = errors;
     public IFileChannels Files { get; init; } = files;
     public ICallStack CallStack { get; init; } = callStack;
+    public ISessionHalt Halt { get; init; } = halt;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
     public IRuntimeOutput Output { get; init; } = output;
 
@@ -95,6 +97,70 @@ internal sealed class RuntimeSession(
             }
         }
     }
+}
+
+internal sealed class SessionHalt : ISessionHalt
+{
+    public RuntimeHaltKind? Pending { get; private set; }
+
+    public SourceLocation? Location { get; private set; }
+
+    public void Request(RuntimeHaltKind kind, SourceLocation? location = null)
+    {
+        // the first request stands: what unwinds a program that is stopping is not another reason to stop it.
+        if (Pending is not null)
+        {
+            return;
+        }
+
+        Pending = kind;
+        Location = location;
+    }
+
+    private StepKind? _step;
+    private int _stepDepth;
+
+    public void Clear()
+    {
+        Pending = null;
+        Location = null;
+        _step = null;
+    }
+
+    public IExecutionGate? Gate { get; set; }
+
+    public void RequestStep(StepKind kind, int callDepth)
+    {
+        _step = kind;
+        _stepDepth = callDepth;
+    }
+
+    public bool TakeStep(int callDepth)
+    {
+        if (_step is not { } step)
+        {
+            return false;
+        }
+
+        var due = step switch
+        {
+            StepKind.Into => true,
+            StepKind.Over => callDepth <= _stepDepth,
+            StepKind.Out => callDepth < _stepDepth,
+            _ => false,
+        };
+
+        if (due)
+        {
+            _step = null;
+        }
+
+        return due;
+    }
+
+    // a program that is already being stopped does not wait again at whatever unwinds it.
+    public bool TrySuspend(RuntimeHaltKind kind, SourceLocation? location)
+        => Pending is null && Gate is { } gate && gate.Suspend(kind, location) is SuspensionDecision.Resume;
 }
 
 /// <summary>
@@ -193,6 +259,13 @@ internal sealed class SessionObjects : ISessionObjects
             return _roots.Remove(instance);
         }
         return false;
+    }
+
+    public void Clear()
+    {
+        _roots.Clear();
+        _terminating.Clear();
+        _subscribers.Clear();
     }
 }
 
@@ -330,6 +403,37 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         table[identity] = symbol;
         _scopeTree = null;
         return true;
+    }
+
+    public void ResetStorage()
+    {
+        // an object goes with the program that made it: nothing of that program is left to run a Terminate.
+        foreach (var instance in _instances.Values)
+        {
+            instance.ReleaseAll();
+        }
+
+        _instances.Clear();
+
+        // a variable of a module, or a global, starts again from what it was defined as. Taken before any of them is touched: freeing and allocating
+        // storage is what the lookup of the next one would otherwise be made over.
+        var variables = _globalSymbols.Values.Concat(_workspaceSymbols.Values)
+            .Where(symbol => symbol is ITypedSymbol && symbol.Kind is SymbolKindExt.Field or SymbolKindExt.Variable && SessionBindings.TryGetAddress(symbol, out _))
+            .ToList();
+        foreach (var variable in variables)
+        {
+            SessionBindings.TryDeallocate(variable);
+            _ = SessionBindings.TryAllocate(variable, DefaultValueOf(variable), out _);
+        }
+
+        // a Static local is allocated by its procedure's first call, and so starts from nothing: the call that comes next allocates it again.
+        var statics = _localSymbols.Values.OfType<VBLocalVariableSymbol>()
+            .Where(symbol => symbol.IsStatic && SessionBindings.TryGetAddress(symbol, out _))
+            .ToList();
+        foreach (var local in statics)
+        {
+            SessionBindings.TryDeallocate(local);
+        }
     }
 
     public bool TryComposeClassModule(

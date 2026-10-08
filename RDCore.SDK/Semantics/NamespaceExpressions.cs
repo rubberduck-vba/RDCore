@@ -39,12 +39,12 @@ public static class NamespaceExpressions
         switch (expression)
         {
             case SimpleNameExpressionNode name:
-                return resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, scope).Symbol is { } named && IsNamespace(named)
+                return resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol is { } named && IsNamespace(named)
                     ? named
                     : null;
 
             case MemberAccessExpressionNode { Owner: { } owner } access when resolver.NamespaceOf(owner, scope) is { } parent:
-                return resolver.ResolveMember(parent, access.Member.IdentifierName, scope).Symbol is { } member && IsNamespace(member)
+                return resolver.ResolveMember(parent, access.Member, scope).Symbol is { } member && IsNamespace(member)
                     ? member
                     : null;
 

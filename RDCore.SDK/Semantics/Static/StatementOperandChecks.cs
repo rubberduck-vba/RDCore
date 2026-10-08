@@ -1,4 +1,5 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
@@ -130,7 +131,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     private bool IsCertainlyNotAVariable(ExpressionNode expression) => expression switch
     {
         LiteralExpressionNode or VBOperatorExpression => true,
-        SimpleNameExpressionNode name => context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol
+        SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol
             is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol,
         _ => false,
     };

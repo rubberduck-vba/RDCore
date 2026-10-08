@@ -65,7 +65,7 @@ public sealed class LetAssignmentEvaluator(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target, out Symbol? symbol)
     {
         symbol = target is SimpleNameExpressionNode simpleName
-            ? session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope).Symbol
+            ? session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol
             : null;
 
         return symbol is not null;

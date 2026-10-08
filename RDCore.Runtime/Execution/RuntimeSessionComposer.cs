@@ -67,6 +67,6 @@ public static class RuntimeSessionComposer
             }
         }
 
-        return new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, references, output ?? NullRuntimeOutput.Instance);
+        return new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance);
     }
 }

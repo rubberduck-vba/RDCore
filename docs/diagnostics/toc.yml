@@ -4,8 +4,20 @@
   href: vbc00001.md
 - name: VBC00042 — Numeric literal overflow
   href: vbc00042.md
+- name: VBC09301 — Ambiguous name detected
+  href: vbc09301.md
+- name: VBC09302 — Variable not defined
+  href: vbc09302.md
+- name: VBC09303 — Duplicate declaration in current scope
+  href: vbc09303.md
+- name: VBC09304 — Invalid use of object
+  href: vbc09304.md
 - name: VBC09309 — Label not defined
   href: vbc09309.md
+- name: VBC09310 — Type mismatch
+  href: vbc09310.md
+- name: VBC09311 — User-defined type not defined
+  href: vbc09311.md
 - name: VBC09312 — Exit Do not within Do...Loop
   href: vbc09312.md
 - name: VBC09313 — Exit For not within For...Next
@@ -14,6 +26,12 @@
   href: vbc09314.md
 - name: VBC09315 — Exit Property not allowed in Sub or Function
   href: vbc09315.md
+- name: VBC09316 — Method or data member not found
+  href: vbc09316.md
+- name: VBC09317 — Invalid use of Me
+  href: vbc09317.md
+- name: VBC09318 — With expression outside With block
+  href: vbc09318.md
 - name: VBC09319 — Duplicate label definition
   href: vbc09319.md
 - name: VBC09320 — Inconsistent property accessors
@@ -46,6 +64,184 @@
   href: vbc09333.md
 - name: VBC09334 — Access not valid for the file mode
   href: vbc09334.md
+- name: VBC09335 — Type-declaration character does not match declared data type
+  href: vbc09335.md
+- name: VBR-0001 — Application-defined or object-defined error
+  href: vbr-0001.md
+- name: VBR00003 — Return without GoSub
+  href: vbr00003.md
+- name: VBR00005 — Invalid procedure call or argument
+  href: vbr00005.md
+- name: VBR00006 — Overflow
+  href: vbr00006.md
+- name: VBR00007 — Out of memory
+  href: vbr00007.md
+- name: VBR00009 — Subscript out of range
+  href: vbr00009.md
+- name: VBR00010 — This array is fixed or temporarily locked
+  href: vbr00010.md
+- name: VBR00011 — Division by zero
+  href: vbr00011.md
+- name: VBR00013 — Type mismatch
+  href: vbr00013.md
+- name: VBR00014 — Out of string space
+  href: vbr00014.md
+- name: VBR00016 — Expression too complex
+  href: vbr00016.md
+- name: VBR00017 — Can't perform requested operation
+  href: vbr00017.md
+- name: VBR00018 — User interrupt occurred
+  href: vbr00018.md
+- name: VBR00020 — Resume without error
+  href: vbr00020.md
+- name: VBR00028 — Out of stack space
+  href: vbr00028.md
+- name: VBR00035 — Sub or Function not defined
+  href: vbr00035.md
+- name: VBR00047 — Too many DLL application clients
+  href: vbr00047.md
+- name: VBR00048 — Error in loading DLL
+  href: vbr00048.md
+- name: VBR00049 — Bad DLL calling convention
+  href: vbr00049.md
+- name: VBR00051 — Internal error
+  href: vbr00051.md
+- name: VBR00052 — Bad file name or number
+  href: vbr00052.md
+- name: VBR00053 — File not found
+  href: vbr00053.md
+- name: VBR00054 — Bad file mode
+  href: vbr00054.md
+- name: VBR00055 — File already open
+  href: vbr00055.md
+- name: VBR00057 — Device I/O error
+  href: vbr00057.md
+- name: VBR00058 — File already exists
+  href: vbr00058.md
+- name: VBR00059 — Bad record length
+  href: vbr00059.md
+- name: VBR00061 — Disk full
+  href: vbr00061.md
+- name: VBR00062 — Input past end of file
+  href: vbr00062.md
+- name: VBR00063 — Bad record number
+  href: vbr00063.md
+- name: VBR00067 — Too many files
+  href: vbr00067.md
+- name: VBR00068 — Device unavailable
+  href: vbr00068.md
+- name: VBR00070 — Permission denied
+  href: vbr00070.md
+- name: VBR00071 — Disk not ready
+  href: vbr00071.md
+- name: VBR00074 — Can't rename with different drive
+  href: vbr00074.md
+- name: VBR00075 — Path/File access error
+  href: vbr00075.md
+- name: VBR00076 — Path not found
+  href: vbr00076.md
+- name: VBR00091 — Object variable or With block variable not set
+  href: vbr00091.md
+- name: VBR00092 — For loop not initialized
+  href: vbr00092.md
+- name: VBR00093 — Invalid pattern string
+  href: vbr00093.md
+- name: VBR00094 — Invalid use of Null
+  href: vbr00094.md
+- name: VBR00096 — Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports
+  href: vbr00096.md
+- name: VBR00097 — Can not call friend function on object which is not an instance of defining class
+  href: vbr00097.md
+- name: VBR00098 — A property or method call cannot include a reference to a private object, either as an argument or as a return value
+  href: vbr00098.md
+- name: VBR00321 — Invalid file format
+  href: vbr00321.md
+- name: VBR00322 — Can't create necessary temporary file
+  href: vbr00322.md
+- name: VBR00325 — Invalid format in resource file
+  href: vbr00325.md
+- name: VBR00380 — Invalid property value
+  href: vbr00380.md
+- name: VBR00381 — Invalid property array index
+  href: vbr00381.md
+- name: VBR00382 — Set not supported at runtime
+  href: vbr00382.md
+- name: VBR00383 — Set not supported (read-only property)
+  href: vbr00383.md
+- name: VBR00385 — Need property array index
+  href: vbr00385.md
+- name: VBR00387 — Set not permitted
+  href: vbr00387.md
+- name: VBR00393 — Get not supported at runtime
+  href: vbr00393.md
+- name: VBR00394 — Get not supported (write-only property)
+  href: vbr00394.md
+- name: VBR00422 — Property not found
+  href: vbr00422.md
+- name: VBR00423 — Property or method not found
+  href: vbr00423.md
+- name: VBR00424 — Object required
+  href: vbr00424.md
+- name: VBR00429 — ActiveX component can't create object
+  href: vbr00429.md
+- name: VBR00430 — Class does not support Automation or does not support expected interface
+  href: vbr00430.md
+- name: VBR00432 — File name or class name not found during Automation operation
+  href: vbr00432.md
+- name: VBR00438 — Object doesn't support this property or method
+  href: vbr00438.md
+- name: VBR00440 — Automation error
+  href: vbr00440.md
+- name: VBR00442 — Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.
+  href: vbr00442.md
+- name: VBR00443 — Automation object does not have a default value
+  href: vbr00443.md
+- name: VBR00445 — Object doesn't support this action
+  href: vbr00445.md
+- name: VBR00446 — Object doesn't support named arguments
+  href: vbr00446.md
+- name: VBR00447 — Object doesn't support current locale setting
+  href: vbr00447.md
+- name: VBR00448 — Named argument not found
+  href: vbr00448.md
+- name: VBR00449 — Argument not optional
+  href: vbr00449.md
+- name: VBR00450 — Wrong number of arguments or invalid property assignment
+  href: vbr00450.md
+- name: VBR00451 — Property let procedure not defined and property get procedure did not return an object
+  href: vbr00451.md
+- name: VBR00452 — Invalid ordinal
+  href: vbr00452.md
+- name: VBR00453 — Specified DLL function not found
+  href: vbr00453.md
+- name: VBR00454 — Code resource not found
+  href: vbr00454.md
+- name: VBR00455 — Code resource lock error
+  href: vbr00455.md
+- name: VBR00457 — This key is already associated with an element of this collection
+  href: vbr00457.md
+- name: VBR00458 — Variable uses an Automation type not supported in Visual Basic
+  href: vbr00458.md
+- name: VBR00459 — Object or class does not support the set of events.
+  href: vbr00459.md
+- name: VBR00460 — Invalid clipboard format
+  href: vbr00460.md
+- name: VBR00461 — Method or data member not found
+  href: vbr00461.md
+- name: VBR00462 — The remote machine does not exist or is unavailable
+  href: vbr00462.md
+- name: VBR00463 — Class not registered on local machine
+  href: vbr00463.md
+- name: VBR00481 — Invalid picture
+  href: vbr00481.md
+- name: VBR00482 — Printer error
+  href: vbr00482.md
+- name: VBR00735 — Can't save file to TEMP
+  href: vbr00735.md
+- name: VBR00744 — Search text not found
+  href: vbr00744.md
+- name: VBR00746 — Replacements too long
+  href: vbr00746.md
 - name: RDC00101 — Implicit declarations enabled
   href: rdc00101.md
 - name: RDC00302 — Obsolete Call statement
