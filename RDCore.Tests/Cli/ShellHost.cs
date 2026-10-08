@@ -85,7 +85,11 @@ internal sealed class ShellHost
     /// </summary>
     public async Task<DiscardSessionResult> DiscardAsync(string? moduleName = null)
         => await new HostDiscardHandler(_provider, NullLogger<HostDiscardHandler>.Instance)
-            .Handle(new HostDiscardParams { ModuleName = moduleName ?? ModuleName }, CancellationToken.None);
+            .Handle(new HostDiscardParams
+            {
+                ModuleName = moduleName ?? ModuleName,
+                ModuleUri = new UriBuilder(_workspaceRoot) { Fragment = moduleName ?? ModuleName }.Uri,
+            }, CancellationToken.None);
 
     private static ReplProgram Program(IEnumerable<(int Number, string Statement)> lines)
     {

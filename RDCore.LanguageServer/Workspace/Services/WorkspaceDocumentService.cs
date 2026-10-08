@@ -369,10 +369,12 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             return null;
         }
 
+        // a document the client opened from outside the workspace is addressed by its own path, and the workspace has no claim on it: it is the client's, and
+        // is gone once the client closes it - whether or not there is a file. (A program a shell loads is one: the file is the user's, not the project's.)
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
         try
         {
-            if (ioFile.Exists(path))
+            if (!ioPath.IsPathRooted(document.RelativePath) && ioFile.Exists(path))
             {
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
@@ -391,7 +393,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             logger.LogWarning(exception, "❌ Document '{uri}' could not be read from disk once the client closed it.", documentUri);
         }
 
-        // not a file, or not one that can be read: there is no document without the client's text.
+        // not the workspace's, not a file, or not one that can be read: there is no document without the client's text.
         _documents.Remove(id);
         documentStateProvider.Forget(id);
         logger.LogInformation("📁 Document '{uri}' was closed by the client and is no longer tracked.", documentUri);

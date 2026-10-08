@@ -200,6 +200,22 @@ public sealed class WorkspaceDocumentLifecycleTests
     }
 
     [TestMethod]
+    public async Task ADocumentFromOutsideTheWorkspace_IsNotTrackedOnceTheClientClosesIt_ThoughItIsAFile()
+    {
+        // the workspace has no claim on it: it is addressed by its own path, and is the client's.
+        var elsewhere = new Uri(Path.Combine(Path.GetTempPath(), "rdcore-elsewhere", "Program1.rdc"));
+        _files.AddFile(elsewhere.LocalPath, new MockFileData("on disk"));
+        var sut = Sut();
+        sut.Open(elsewhere, "the client's text", 1);
+
+        var closed = await sut.CloseAsync(elsewhere);
+
+        Assert.IsNull(closed);
+        Assert.IsFalse(sut.TryGetDocument(elsewhere, out _));
+        Assert.IsFalse(_state.IsTracked(new TextDocumentIdentifier(elsewhere)));
+    }
+
+    [TestMethod]
     public async Task ADocumentThatIsNotAFile_IsNotTrackedOnceTheClientClosesIt()
     {
         var sut = Sut();

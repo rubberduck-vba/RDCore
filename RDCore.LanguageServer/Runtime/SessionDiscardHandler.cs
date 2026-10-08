@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
+using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services;
@@ -16,9 +16,8 @@ namespace RDCore.LanguageServer.Runtime;
 /// but its name is needed to take it out.
 /// </remarks>
 internal sealed class SessionDiscardHandler(
-    IPlatformOrchestrationService orchestration,
-    IPlatformClientCapabilitiesService clientCapabilities,
-    ILogger<SessionDiscardHandler> logger)
+    ISymbolSyncService symbols,
+    IPlatformClientCapabilitiesService clientCapabilities)
     : RDCoreRequestHandler<DiscardSessionParams, DiscardSessionResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
@@ -32,14 +31,6 @@ internal sealed class SessionDiscardHandler(
                 $"The client did not advertise the '{nameof(SessionDiscard)}' platform capability.");
         }
 
-        if (orchestration.RuntimeEnvironment is not { } environment)
-        {
-            logger.LogWarning("rdcore/session/discard: no runtime environment component is registered.");
-            return new DiscardSessionResult();
-        }
-
-        await environment.WaitForReadyAsync(token);
-        return await environment.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
-            new HostDiscardParams { ModuleName = request.ModuleName }, token);
+        return await symbols.DiscardModuleAsync(request.ModuleName, token);
     }
 }

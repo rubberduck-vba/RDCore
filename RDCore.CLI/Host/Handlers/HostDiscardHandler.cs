@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -26,12 +25,7 @@ internal sealed class HostDiscardHandler(
         }
 
         var session = sessionProvider.Session;
-        if (!session.Symbols.TryResolveValue(request.ModuleName, GlobalSymbols.UnresolvedSymbol, out var module) || module is null)
-        {
-            return Task.FromResult(new DiscardSessionResult());
-        }
-
-        var discarded = new ModuleUnloader(session, sessionProvider.Image).Unload(module.Uri);
+        var discarded = new ModuleUnloader(session, sessionProvider.Image).Unload(request.ModuleUri);
 
         // what the module held is released, and was allocated after the rest of the program's: the free memory at the end of the space is unused again.
         session.Memory.Reclaim();

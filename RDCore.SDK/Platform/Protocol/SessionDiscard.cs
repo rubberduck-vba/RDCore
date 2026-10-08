@@ -35,8 +35,14 @@ public record class DiscardSessionParams : IRequest, IRequest<DiscardSessionResu
 public record class HostDiscardParams : IRequest, IRequest<DiscardSessionResult>
 {
     /// <summary>
-    /// The programmatic name of the module. The host finds the module by it, as it does for a request to run one, so that the address the module
-    /// was defined under is the host's to say.
+    /// The address of the module symbol: the one the language server defined the module under, which it derives once and for every request about a
+    /// module. A module that is not the project's - a document the client opened - has no symbol of its own to find by name, and still has
+    /// what it declared.
+    /// </summary>
+    public Uri ModuleUri { get; init; } = default!;
+
+    /// <summary>
+    /// The programmatic name of the module.
     /// </summary>
     public string ModuleName { get; init; } = string.Empty;
 }
