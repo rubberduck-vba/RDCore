@@ -73,6 +73,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         SizeFixedSizeArrays(members);
 
+        // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
+        var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
@@ -90,7 +92,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             // structure of the body.
             var scope = session.Symbols.ScopeOf(procedure.Uri);
             var model = StatementStaticSemanticsEvaluator.Analyze(
-                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language), declaration.MemberKind,
+                procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope));
 
             procedureModels.Add(model);
@@ -98,7 +100,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         }
 
         // a module is valid when what it declares is, as well as every procedure of it.
-        var declarationErrors = DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia))
+        var declarationErrors = DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks)
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver));
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {

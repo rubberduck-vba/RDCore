@@ -85,6 +85,39 @@ public sealed class TypeDeclarationCharacterTests
     }
 
     [TestMethod]
+    public async Task ANameDeclaredInEachBranchOfAConditionalCompilationBlock_IsDeclaredOnce()
+        => Assert.IsEmpty(await ErrorsOfAsync("#Const Flag = 1", "#If Flag Then", "Dim Temp As Long", "#Else", "Dim Temp As Double", "#End If", "Temp = 1"));
+
+    [TestMethod]
+    public async Task ANameDeclaredInEachBranchOfABlockThatCannotBeEvaluated_IsDeclaredOnce_Too()
+    {
+        // a condition that fails to evaluate says which branch is dead of none of them, and the branches are alternatives all the same.
+        var errors = await ErrorsOfAsync("#If 1 / 0 Then", "Dim Temp As Long", "#Else", "Dim Temp As Double", "#End If");
+
+        Assert.IsEmpty(errors);
+    }
+
+    [TestMethod]
+    public async Task ANameDeclaredTwiceInTheLiveBranch_IsADuplicate_WhateverTheOtherBranchDoes()
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([], string.Join("\r\n",
+            "Public Sub Main()", "#If 1 Then", "Dim Temp As Long", "Dim Temp As Long", "#Else", "Dim Temp As Double", "#End If", "End Sub", string.Empty));
+
+        var model = payload.Modules.Single();
+        var error = Assert.ContainsSingle(model.DeclarationErrors.Concat(model.Procedures.SelectMany(procedure => procedure.CompileErrors)).ToArray());
+        Assert.AreEqual(VBCompileErrorId.DuplicateDeclaration, error.Id);
+    }
+
+    [TestMethod]
+    public async Task ANameDeclaredTwiceInABranchThatIsNotCompiled_IsNotAnError()
+    {
+        // an undefined conditional-compilation constant is 0 (MS-VBAL §3.4.2): the branch is excluded, and removed before the language sees it.
+        var errors = await ErrorsOfAsync("#If NothingDefinesThis Then", "Dim Temp As Long", "Dim Temp As Long", "#End If");
+
+        Assert.IsEmpty(errors);
+    }
+
+    [TestMethod]
     public async Task ADifferentName_OrTheSameNameInAnotherProcedure_IsNoDuplicate()
     {
         var payload = await ModuleWorkspace.SemanticsAsync([], string.Join("\r\n",

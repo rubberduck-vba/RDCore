@@ -177,10 +177,24 @@ public static class StatementStaticSemanticsEvaluator
 
     private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
     {
-        if (name.Length > 0 && !walk.DeclaredNames.Add(name))
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        if (!walk.DeclaredNames.TryGetValue(name, out var prior))
+        {
+            walk.DeclaredNames.Add(name, prior = []);
+        }
+
+        // a name declared in each branch of a #If block is declared once, however the block evaluates.
+        var blocks = walk.Options.Blocks ?? ConditionalCompilationBlocks.None;
+        if (prior.Any(site => !blocks.AreAlternatives(site, location.Range.Start)))
         {
             walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, location, $"'{name}' is declared more than once in this procedure."));
         }
+
+        prior.Add(location.Range.Start);
     }
 
     private static void EvaluateStatement(StaticEvaluationContext context, StatementNode statement, Walk walk)
@@ -662,8 +676,8 @@ public static class StatementStaticSemanticsEvaluator
 
         public List<ExpressionNode> LabelReferences { get; } = [];
 
-        // the names the walked procedure has declared so far: its parameters, variables and constants share one scope.
-        public HashSet<string> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+        // the names the walked procedure has declared so far, and where: its parameters, variables and constants share one scope.
+        public Dictionary<string, List<SourcePosition>> DeclaredNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         // the kind of procedure the walked body belongs to, when it is known.
         public MemberKind? Procedure { get; init; }

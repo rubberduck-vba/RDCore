@@ -67,16 +67,16 @@ public sealed class DeclarationErrorTests
     [TestMethod]
     public async Task ANameDeclaredInEachBranchOfAConditionalCompilationBlock_IsDeclaredOnce_WhateverTheBranchesAreWorth()
     {
-        // VBA7 and Mac are constants nothing here defines: the block is not evaluated, and what it declares is still one declaration of each name.
+        // the rule does not evaluate a block, it reads its branches: what the blocks declare is one declaration of each name, whichever branch compiles.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
-            "#If VBA7 Then",
+            "#If NothingDefinesThis Then",
             "Public Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As Long)",
             "#Else",
             "Public Declare Sub Sleep Lib \"kernel32\" (ByVal ms As Long)",
             "#End If",
-            "#If Mac Then",
+            "#If NorThis Then",
             "Public Total As Long",
-            "#ElseIf VBA7 Then",
+            "#ElseIf NorThisEither Then",
             "Public Total As LongLong",
             "#Else",
             "Public Total As Integer",
@@ -89,7 +89,7 @@ public sealed class DeclarationErrorTests
     public async Task ANameDeclaredTwiceInOneBranch_IsADuplicateDeclaration_EvenWhenTheOtherBranchDeclaresItToo()
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
-            "#If Mac Then", "Public Total As Long", "Public Total As Long", "#Else", "Public Total As Integer", "#End If"));
+            "#If NothingDefinesThis Then", "Public Total As Long", "Public Total As Long", "#Else", "Public Total As Integer", "#End If"));
 
         Assert.HasCount(1, errors);
     }
