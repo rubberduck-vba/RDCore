@@ -205,6 +205,16 @@ public interface ISessionSymbols
     IReadOnlyList<VBTypeMemberSymbol> MembersOf(Uri moduleUri);
 
     /// <summary>
+    /// Everything the session has defined under a module, in no particular order: its members, and everything those declare in turn - the
+    /// locals and the parameters of a procedure. Not the module's own symbol.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="MembersOf"/> is the module's declarations; this is every symbol that goes when the module does.
+    /// </remarks>
+    /// <param name="moduleUri">The <see cref="Symbol.Uri"/> of the module symbol.</param>
+    IReadOnlyList<Symbol> DeclaredIn(Uri moduleUri);
+
+    /// <summary>
     /// The lexical scope a symbol's code is found in (<strong>RD-VBAL §2.3.1.2</strong>), over everything the session has defined: what the static
     /// pass resolves the names of a procedure body against.
     /// </summary>

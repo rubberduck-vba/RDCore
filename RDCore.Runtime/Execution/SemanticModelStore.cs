@@ -28,6 +28,21 @@ public sealed class SemanticModelStore
     }
 
     /// <summary>
+    /// Forgets a module's model.
+    /// </summary>
+    /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>
+    /// <returns><see langword="false"/> if the module had none.</returns>
+    public bool Remove(Uri module)
+    {
+        lock (_storing)
+        {
+            var found = _models.ContainsKey(module.AbsoluteUri);
+            _models = _models.Remove(module.AbsoluteUri);
+            return found;
+        }
+    }
+
+    /// <summary>
     /// The model of a module, if its code has been analyzed.
     /// </summary>
     /// <param name="module">The <see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.Uri"/> of the module.</param>
