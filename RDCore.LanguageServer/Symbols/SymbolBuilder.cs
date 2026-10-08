@@ -392,7 +392,7 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
                 // exist, so a standard-library name (Len, Now, vbCrLf) is unbound here and becomes an
                 // implicit Variant rather than resolving. That is this rule applied to an incomplete
                 // name universe, not a different rule; it corrects itself as the universe grows.
-                var resolved = resolver.ResolveValue(reference.IdentifierName, ScopeKind.Local, procedureUri);
+                var resolved = resolver.ResolveValue(reference, ScopeKind.Local, procedureUri);
                 if (!resolved.IsUnbound && !IsOwnLocal(resolved, procedureUri) && !IsOwnModuleVariable(resolved))
                 {
                     continue;

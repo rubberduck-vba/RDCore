@@ -279,7 +279,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
 
         // the target is the expression the array is read from and written back through. A recovered parse can leave the listener with none to
         // capture, and the name is then all there is of it.
-        target ??= new SimpleNameExpressionNode(NodeId.Add(children.Count), context.GetSourceLocation(_rootUri), name);
+        target ??= new SimpleNameExpressionNode(NodeId.Add(children.Count), context.GetSourceLocation(_rootUri), name, typeHint);
 
         return new RedimDeclarationNode(
             NodeId,
@@ -295,8 +295,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         => Indexed(expression).Callee switch
         {
             VBAParser.SimpleNameExprContext simple => (simple.identifier().Name(), simple.identifier().TypeHint()),
-            VBAParser.MemberAccessExprContext member => (member.unrestrictedIdentifier().Name(), null),
-            VBAParser.WithMemberAccessExprContext withMember => (withMember.unrestrictedIdentifier().Name(), null),
+            VBAParser.MemberAccessExprContext member => (member.unrestrictedIdentifier().Name(), member.unrestrictedIdentifier().TypeHint()),
+            VBAParser.WithMemberAccessExprContext withMember => (withMember.unrestrictedIdentifier().Name(), withMember.unrestrictedIdentifier().TypeHint()),
             { } other => (other.GetText(), null),
             _ => (expression?.GetText() ?? string.Empty, null),
         };

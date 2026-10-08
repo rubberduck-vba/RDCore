@@ -198,7 +198,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
 
     private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
         => ReadSymbol(
-            session, context, session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope).Symbol,
+            session, context, session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol,
             nameOfEnclosingFunctionIsItsResult: true);
 
     /// <summary>
@@ -306,7 +306,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     // semantics should have rejected, as it should an unresolved bare name.
     private static Symbol? ResolveNamespaceMember(
         IRuntimeSession session, RuntimeEvaluationContext context, Symbol qualifier, MemberAccessExpressionNode access)
-        => session.Symbols.Resolver.ResolveMember(qualifier, access.Member.IdentifierName, context.Scope).Symbol is { } member
+        => session.Symbols.Resolver.ResolveMember(qualifier, access.Member, context.Scope).Symbol is { } member
             && !NamespaceExpressions.IsNamespace(member) ? member : null;
 
     // null for anything that is not a workspace Const, and for a Const whose declaration carried no
@@ -990,7 +990,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return null;
         }
 
-        var result = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var result = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         return result.Symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
             ? (VBTypeMemberSymbol)result.Symbol
             : null;
@@ -1427,7 +1427,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return false;
         }
 
-        var result = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var result = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         if (result.Symbol is not { } argumentSymbol || argumentSymbol is not ITypedSymbol typed
             || (!parameter.ResolvedType.Equals(typed.ResolvedType) && parameter.ResolvedType is not VBVariantType))
         {

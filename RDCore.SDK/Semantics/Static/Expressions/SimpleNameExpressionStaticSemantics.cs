@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
@@ -34,10 +35,10 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             throw new ArgumentException($"Expected a {nameof(SimpleNameExpressionNode)}.", nameof(expression));
         }
 
-        var result = context.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope.Uri);
+        var result = context.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope.Uri);
         if (result.IsError)
         {
-            return StaticSemanticsEvaluationResult.Error(GetResolutionErrorInfo(expression, simpleName.IdentifierName, result.ErrorId!.Value, result.Candidates));
+            return StaticSemanticsEvaluationResult.Error(GetResolutionErrorInfo(expression, simpleName.WrittenName, result.ErrorId!.Value, result.Candidates));
         }
 
         if (result.IsResolved)
@@ -49,7 +50,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
         // it's a compile error; otherwise it's IVBInferableType's job to narrow the type from use —
         // this rule only ever answers VBUnknownType.
         return context.Scope.EnclosingModuleDirectives()?.Explicit == true
-            ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.VariableNotDefined, expression.Location, simpleName.IdentifierName))
+            ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.VariableNotDefined, expression.Location, simpleName.WrittenName))
             : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
     }
 

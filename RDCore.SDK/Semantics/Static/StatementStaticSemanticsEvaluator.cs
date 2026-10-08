@@ -1,4 +1,5 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
@@ -522,7 +523,7 @@ public static class StatementStaticSemanticsEvaluator
     // an argument is a variable when it names one: a local, a parameter or a field, not a constant, a procedure or a value.
     private static bool IsVariable(StaticEvaluationContext context, ExpressionNode argument)
         => argument is SimpleNameExpressionNode name
-            && context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol
+            && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol
                 is VBLocalVariableSymbol or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol;
 
     // A jump's target operand names a label, not a value, and a label is not a symbol: evaluated as an
@@ -610,7 +611,7 @@ public static class StatementStaticSemanticsEvaluator
     // to that instead.
     private static VBPredeclaredInstanceSymbol? DefaultInstanceNamedBy(StaticEvaluationContext context, ExpressionNode target)
         => target is SimpleNameExpressionNode name
-            ? context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
+            ? context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
             : null;
 
     private static IStaticSemantics? ResolveCoercionRule(AssignmentKind kind) => kind switch
