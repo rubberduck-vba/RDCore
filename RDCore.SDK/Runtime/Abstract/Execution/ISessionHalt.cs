@@ -15,7 +15,9 @@ public enum RuntimeHaltKind
 
     /// <summary>
     /// A <c>Stop</c> statement, or a break asked for from outside - <c>Ctrl+Break</c> at a keyboard, a request cancelled by its client. The program stops
-    /// where it is, and what it did to the session stays: the variables it assigned are there to be looked at.
+    /// where it is, and what it did to the session stays: the variables it assigned are there to be looked at, the module-level ones in the session and the locals
+    /// in the activations that stay on the <see cref="ICallStack"/>, each with the place it stopped at (<see cref="ICallStackFrame.Pc"/>). MS-VBAL 5.4.2.11 has the
+    /// program suspended, with "all variables maintain their state if execution resumes". Nothing resumes it yet: the next program that is started lets go of the stack.
     /// </summary>
     Break,
 }

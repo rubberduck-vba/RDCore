@@ -26,14 +26,29 @@ public static class SessionWipe
     /// <param name="session">The session the program ran in.</param>
     public static void End(IRuntimeSession session)
     {
-        // the activations of a program that was stopped are popped as the stop unwinds; whatever is left is not the program's any more.
-        while (session.CallStack.TryPop(out _))
-        {
-        }
+        Abandon(session);
 
         _ = session.Files.CloseAll();
         session.Errors.Clear();
         session.Objects.Clear();
         session.Symbols.ResetStorage();
+    }
+
+    /// <summary>
+    /// Lets go of the activations of a program that was stopped where it is, so that the next program starts on an empty stack.
+    /// </summary>
+    /// <param name="session">The session the program ran in.</param>
+    /// <remarks>
+    /// A <c>Stop</c> or a break leaves the call stack as it was, so that the locals of every activation can be looked at (MS-VBAL 5.4.2.11). That is all it is for:
+    /// nothing resumes a program from its stack, so a program that is started, or a module that is discarded, abandons it. Only the stack is let go of: the module-level
+    /// variables are the session's and stay as the program made them, and the objects the locals held are the session's too, until it is wiped by an <c>End</c>.
+    /// </remarks>
+    // TODO: the objects only a local of an abandoned activation held keep their reference until the session is wiped; releasing them runs their Terminate, which a program
+    // that is merely abandoned has not asked for - a reference release that does not is the missing half of this.
+    public static void Abandon(IRuntimeSession session)
+    {
+        while (session.CallStack.TryPop(out _))
+        {
+        }
     }
 }

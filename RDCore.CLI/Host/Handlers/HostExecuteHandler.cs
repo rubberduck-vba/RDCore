@@ -94,8 +94,9 @@ internal sealed class HostExecuteHandler(
         sessionProvider.Output.Target = output;
         try
         {
-            // a program starts as one that was never stopped, whatever the one before it did.
+            // a program starts as one that was never stopped, whatever the one before it did: what a Stop left of its activations is let go of.
             session.Halt.Clear();
+            SessionWipe.Abandon(session);
             return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
         }
         finally

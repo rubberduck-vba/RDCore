@@ -1,6 +1,9 @@
 using RDCore.CLI.Host;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Tests.Cli;
 
@@ -160,6 +163,67 @@ public sealed class EndAndStopTests
         Assert.AreEqual(7, run.Total);
         CollectionAssert.AreEqual(new[] { "7" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "unlike an End, a Stop leaves the session as it found it");
     }
+
+    private static long LocalOf(EnvironmentSessionProvider provider, ICallStackFrame frame, string name)
+    {
+        var symbols = provider.Session.Symbols;
+        Assert.IsTrue(symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module));
+        Assert.IsTrue(symbols.TryResolveValue(frame.StaticSymbol.Name, module!, out var resolved));
+        var procedure = (VBProcedureMemberSymbol)resolved!;
+        var local = procedure.Locals.Cast<Symbol>().Concat(procedure.Parameters).Single(symbol => symbol.Name == name);
+        return Convert.ToInt64(frame.GetValue(local).Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public async Task Stop_LeavesTheActivationsOfTheProgramOnTheStack_WithTheirLocals()
+    {
+        var program = Program(
+            "Public Sub Main()",
+            "    Dim outer As Long",
+            "    outer = 5",
+            "    Helper 9",
+            "End Sub",
+            "Private Sub Helper(ByVal arg As Long)",
+            "    Dim inner As Long",
+            "    inner = arg + 1",
+            "    Stop",
+            "End Sub");
+
+        await ModuleWorkspace.InspectAsync(NoClasses, program, async (provider, result, runAgain) =>
+        {
+            var stack = provider.Session.CallStack;
+
+            Assert.AreEqual(ExecutionOutcome.Interrupted, result.Outcome, result.ErrorMessage);
+            Assert.AreEqual(2, stack.Depth);
+            Assert.AreEqual("Helper", stack.Current!.StaticSymbol.Name);
+            Assert.AreEqual(10, LocalOf(provider, stack.Current, "inner"));
+            Assert.AreEqual(9, LocalOf(provider, stack.Current, "arg"));
+            Assert.AreEqual(5, LocalOf(provider, stack.Frames.Last(), "outer"));
+
+            var again = await runAgain();
+
+            Assert.AreEqual(ExecutionOutcome.Interrupted, again.Outcome, again.ErrorMessage);
+            Assert.AreEqual(2, stack.Depth, "a program that is started lets go of the one that was stopped");
+        });
+    }
+
+    [TestMethod]
+    public async Task AProgramThatRunsToItsEnd_LeavesNothingOnTheStack()
+        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Sub Main()", "    Debug.Print 1", "End Sub"), (provider, result, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, result.ErrorMessage);
+            Assert.AreEqual(0, provider.Session.CallStack.Depth);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task End_LeavesNothingOnTheStack()
+        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Sub Main()", "    Helper", "End Sub", "Private Sub Helper()", "    End", "End Sub"), (provider, result, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Halted, result.Outcome, result.ErrorMessage);
+            Assert.AreEqual(0, provider.Session.CallStack.Depth);
+            return Task.CompletedTask;
+        });
 
     [TestMethod]
     public async Task AFailedAssert_BreaksAtItself_AsAStopDoes()

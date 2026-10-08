@@ -126,7 +126,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             ReleaseLocals(frame, GetLocals(procedure));
         }
 
-        Session.CallStack.TryPop(out _);
+        // A program that was stopped by a Stop, or by a break, is suspended and not over (MS-VBAL 5.4.2.11): "all variables maintain their state if execution resumes". Its
+        // activations stay on the stack, innermost on top, each with its locals and the place it stopped at, for as long as the session has not been told to let the program
+        // go (SessionWipe.Abandon). An End is over, and the wipe that follows it pops what is left of it.
+        if (outcome.Kind is not RuntimeExecutionOutcomeKind.Break)
+        {
+            Session.CallStack.TryPop(out _);
+        }
 
         return outcome.Kind switch
         {
