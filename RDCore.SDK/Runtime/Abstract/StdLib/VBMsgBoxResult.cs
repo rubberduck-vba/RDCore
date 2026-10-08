@@ -4,7 +4,7 @@
 /// <strong>MS-VBAL 6.1.1.11 VbMsgBoxResult</strong>
 /// </summary>
 /// <remarks>
-/// These values encode the return value of the <see cref="IStdInteractionModule.StdInteraction__MsgBox"/> function.
+/// These values encode the return value of the <see cref="IStdInteractionModule.MsgBox"/> function.
 /// </remarks>
 [StdLibEnum]
 public enum VBMsgBoxResult

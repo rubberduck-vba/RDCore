@@ -172,6 +172,44 @@ public sealed class WorkspaceSymbolResolverTests
     }
 
     [TestMethod]
+    public void AModuleDeclaringOptionPrivateModule_CarriesItOnTheSynthesizedModuleSymbol()
+    {
+        var target = Module("Internal", "Option Private Module\r\nPublic Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBModuleSymbol>(
+            resolver.ResolveValue("Internal", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsTrue(module.Directives.PrivateModule);
+    }
+
+    [TestMethod]
+    public void AModuleWithoutOptionPrivateModule_IsPublic_AndTheOtherOptionsAreNotItsConcern()
+    {
+        var target = Module("Open", "Option Explicit\r\nOption Base 1\r\nPublic Total As Long\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBModuleSymbol>(
+            resolver.ResolveValue("Open", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsFalse(module.Directives.PrivateModule);
+        Assert.IsTrue(module.Directives.Explicit);
+        Assert.AreEqual(1, module.Directives.Base);
+    }
+
+    [TestMethod]
+    public void OptionPrivateModule_IsNotTakenForAnyOtherOption()
+    {
+        var target = Module("Quiet", "Option Explicit\r\nOption Compare Text\r\n");
+        var resolver = WorkspaceSymbolResolver.Compose(WorkspaceRoot, [target], new IntrinsicSymbolResolver());
+
+        var module = Assert.IsInstanceOfType<VBModuleSymbol>(
+            resolver.ResolveValue("Quiet", ScopeKind.Global, target.Uri).Symbol);
+
+        Assert.IsFalse(module.Directives.PrivateModule);
+    }
+
+    [TestMethod]
     public void AClassModuleWithoutVB_Creatable_DefaultsToCreatable()
         // VBE's own default: a class module that declares no Attribute VB_Creatable is creatable.
     {

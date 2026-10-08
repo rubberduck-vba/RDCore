@@ -74,8 +74,12 @@ internal static class ReplExecution
                 RenderRuntimeError(console, program, result);
                 break;
 
+            // BASIC has always said where it was stopped. A break the host could not place - one that arrived between two statements of nothing the
+            // program wrote - is a break all the same.
             case ExecutionOutcome.Interrupted:
-                console.WriteLine(Resources.Repl_Break);
+                console.WriteLine(program.LineNumberAt(result.ErrorLine) is { } stoppedAt
+                    ? string.Format(Resources.Repl_Break_InLine, stoppedAt)
+                    : Resources.Repl_Break);
                 break;
 
             case ExecutionOutcome.NotFound:

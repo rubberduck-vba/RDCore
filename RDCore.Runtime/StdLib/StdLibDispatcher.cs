@@ -44,7 +44,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// member of it says so when called.
     /// <para>
     /// 🚧 TODO as each module lands: <c>Math</c>, <c>DateTime</c>,
-    /// <c>Interaction</c>, <c>Collection</c>, <c>RegExp</c>, and the constant modules.
+    /// <c>RegExp</c>, and the constant modules.
     /// </para>
     /// </remarks>
     /// <param name="session">The session the implementations read their state from.</param>
@@ -62,6 +62,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdErrClass)] = new ErrObject(session),
             [typeof(IStdConversionModule)] = new StdConversion(session),
             [typeof(IStdHiddenModule)] = new StdHidden(session),
+            [typeof(IStdInteractionModule)] = new StdInteraction(),
             [typeof(IStdCollectionClass)] = new StdCollection(session, enumerators),
             [typeof(IStdEnumVariantClass)] = enumerators,
         });

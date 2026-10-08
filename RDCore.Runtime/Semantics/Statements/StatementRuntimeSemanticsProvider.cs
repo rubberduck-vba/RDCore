@@ -217,7 +217,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         if (targetResult.Symbol is not ITypedSymbol target)
         {
             return RuntimeExecutionOutcome.InternalError;

@@ -31,8 +31,15 @@
 /// <c>0</c> unless the module declares <c>Option Base 1</c>. It is what <c>Dim a(10)</c> and
 /// <c>ReDim a(10)</c> mean by their absent lower bound, so it is a run-time dial and not only a static one.
 /// </param>
+/// <param name="PrivateModule">
+/// Whether the module declares <c>Option Private Module</c> (<strong>MS-VBAL §5.2.1.4</strong>): the module is accessible only within the project that
+/// encloses it, and the meaning of <c>Public</c> for the entities it declares is bounded by that. A module without it is accessible to the projects that
+/// reference its project as well.
+/// 🚧 TODO nothing consumes it yet: it is the fact, carried where the module is, for the resolution of a name across projects to read once it decides what
+/// the platform means by a project reference.
+/// </param>
 public readonly record struct ModuleDirectives(
-    bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary, int Base = 0)
+    bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary, int Base = 0, bool PrivateModule = false)
 {
     /// <summary>
     /// The directives of a module that declares none of them explicitly.

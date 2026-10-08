@@ -42,10 +42,10 @@ public sealed class AnchoredFragmentParseTests
     public void NonZeroAnchor_AppliesItsColumn_ToTheFirstLineOnly()
     {
         // this test's neighbour above read `+ Anchor`, which is what the parser did: the anchor's
-        // column added to every line, so the member's `End Sub` — at the start of the fragment's
-        // second line — reported L6C4 rather than L6C0. The anchor's column is where the fragment
+        // column added to every line, so the member's `End Sub` — on the fragment's second line —
+        // ended the anchor's columns too far to the right. The anchor's column is where the fragment
         // begins on the one line it shares with what precedes it; every line after that begins at the
-        // document's column 0.
+        // document's column 0, and the member ends after the seven characters of `End Sub`.
         const string content = "Public Sub Foo()\r\nEnd Sub";
 
         var anchored = new ModuleParser().Parse(Uri, content, Anchor);
@@ -54,7 +54,7 @@ public sealed class AnchoredFragmentParseTests
         var range = anchored.SyntaxTree!.Children[0].SourceLocation.Range;
         Assert.AreEqual(Anchor, range.Start);
         Assert.AreEqual(Anchor.Line + 1, range.End.Line);
-        Assert.AreEqual(0, range.End.Character);
+        Assert.AreEqual("End Sub".Length, range.End.Character);
     }
 
     [TestMethod]

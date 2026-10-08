@@ -94,6 +94,9 @@ internal sealed class HostExecuteHandler(
         sessionProvider.Output.Target = output;
         try
         {
+            // a program starts as one that was never stopped, whatever the one before it did: what a Stop left of its activations is let go of.
+            session.Halt.Clear();
+            SessionWipe.Abandon(session);
             return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
         }
         finally
@@ -112,6 +115,29 @@ internal sealed class HostExecuteHandler(
     private ExecuteSessionResult Report(
         RuntimeSemanticsEvaluationResult invocation, IRuntimeSession session, RuntimeOutputBuffer output, CancellationToken token)
     {
+        // a program that was stopped is not one that failed: an End is over and leaves nothing of it, and a Stop - or a break asked for from outside, which is what
+        // cancelling the request is - leaves the session as the program made it, with the place it stopped at.
+        if (session.Halt.Pending is { } halt)
+        {
+            var location = session.Halt.Location;
+            session.Halt.Clear();
+
+            if (halt is RuntimeHaltKind.End)
+            {
+                SessionWipe.End(session);
+                return new ExecuteSessionResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
+            }
+
+            return new ExecuteSessionResult
+            {
+                Outcome = ExecutionOutcome.Interrupted,
+                Output = output.Lines,
+                ErrorMessage = "the program was interrupted",
+                ErrorLine = location?.Range.Start.Line ?? -1,
+                ErrorCharacter = location?.Range.Start.Character ?? -1,
+            };
+        }
+
         if (invocation.IsSuccess)
         {
             return new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = output.Lines };
