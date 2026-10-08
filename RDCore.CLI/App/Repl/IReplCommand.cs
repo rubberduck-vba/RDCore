@@ -136,6 +136,14 @@ public interface IReplPlatformClient
     Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server to take a module out of the runtime session: what it declared and what it held. Defining a module again never
+    /// does: the variables a program made outlive it.
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<DiscardSessionResult> DiscardAsync(string moduleName, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server to analyze a module and report what its diagnostics providers found.
     /// </summary>
     /// <param name="source">The complete module source.</param>

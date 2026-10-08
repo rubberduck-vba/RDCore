@@ -11,6 +11,9 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// A break at the keyboard cancels the request, and that cancellation reaches the interpreter loop
 /// itself: a program that loops forever still stops.
 /// </para>
+/// <para>
+/// Like <c>RUN</c> in BASIC, it clears the variables first.
+/// </para>
 /// </remarks>
 internal sealed class RunReplCommand : IReplCommand
 {
@@ -26,6 +29,9 @@ internal sealed class RunReplCommand : IReplCommand
             return ReplCommandResult.Continue;
         }
 
+        // RUN clears the variables, as it does in BASIC: a program starts from nothing, not from what an earlier run - or a line typed at the
+        // prompt - left in them.
+        await ReplExecution.DiscardProgramAsync(context, token);
         await ReplExecution.ExecuteAsync(context, context.Program.ToModuleSource(), ReplProgram.EntryPointName, token);
         return ReplCommandResult.Continue;
     }

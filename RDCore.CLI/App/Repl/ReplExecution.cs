@@ -31,6 +31,25 @@ internal static class ReplExecution
         Render(context.Console, context.Program, result);
     }
 
+    /// <summary>
+    /// Takes the program out of the runtime session: its variables, the storage they were given, and its code.
+    /// </summary>
+    /// <remarks>
+    /// Running a program defines its module in the session, and defining it again never removes what it no longer declares, so a variable a
+    /// program made outlives the program - and the program that replaces it can read it. BASIC clears them with the program (<c>NEW</c>), when
+    /// another is loaded (<c>LOAD</c>) and when it is run (<c>RUN</c>); a line typed at the prompt does none of this, so what an earlier line assigned is
+    /// still there for the next. A platform that cannot discard a module leaves things as they were.
+    /// </remarks>
+    /// <param name="context">The live session.</param>
+    /// <param name="token">Cancelled by a break at the keyboard.</param>
+    public static async Task DiscardProgramAsync(ReplCommandContext context, CancellationToken token)
+    {
+        if (context.Platform.Provides<SessionDiscard>())
+        {
+            await context.Platform.DiscardAsync(ReplProgram.ModuleName, token);
+        }
+    }
+
     private static void Render(IReplConsole console, ReplProgram program, ExecuteSessionResult result)
     {
         foreach (var line in result.Output)

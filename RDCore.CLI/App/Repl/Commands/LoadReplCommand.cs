@@ -39,6 +39,8 @@ internal sealed class LoadReplCommand(IFileSystem fileSystem) : IReplCommand
             return ReplCommandResult.Continue;
         }
 
+        // the program that was there is gone, and so are the variables it made: the one that replaces it starts from nothing.
+        await ReplExecution.DiscardProgramAsync(context, token);
         await context.Document.OpenAsync(path, token);
         return ReplCommandResult.Continue;
     }
