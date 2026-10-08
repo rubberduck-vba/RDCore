@@ -80,6 +80,7 @@ internal sealed class CoreLanguageServerApp(
                             DefineSymbols = new DefineSymbols(true),
                             SessionStatus = new SessionStatus(true),
                             SessionExecute = new SessionExecute(true),
+                            SessionDiscard = new SessionDiscard(true),
                             SessionMemoryAccess = new SessionMemoryAccess(true),
                         }
                     }));
@@ -111,6 +112,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
+        builder.WithHandler<SessionDiscardHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();

@@ -37,6 +37,7 @@ using System.Runtime.CompilerServices;
 // the environment host owns the runtime session, so it answers for its state:
 [assembly: ProvidesCorePlatformClientCapability<SessionStatus>]
 [assembly: ProvidesCorePlatformClientCapability<SessionExecute>]
+[assembly: ProvidesCorePlatformClientCapability<SessionDiscard>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // and it runs the semantic analysis pass over the code it holds, so it answers for what the pass found:
 [assembly: ProvidesCorePlatformClientCapability<SemanticAnalysis>]
@@ -232,6 +233,7 @@ internal class RDCoreConsoleClientApp(
         {
             SessionStatus = new SessionStatus(true),
             SessionExecute = new SessionExecute(true),
+            SessionDiscard = new SessionDiscard(true),
             SessionAnalyze = new SessionAnalyze(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
         },
@@ -393,6 +395,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<DefineSymbolsHandler>()
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
+            .WithHandler<HostDiscardHandler>()
             .WithHandler<HostSemanticsHandler>()
             .WithHandler<HostPeekHandler>()
             .WithHandler<HostPokeHandler>();
