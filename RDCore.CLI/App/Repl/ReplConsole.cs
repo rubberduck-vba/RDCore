@@ -29,8 +29,8 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
     /// <inheritdoc/>
     public void WriteLine(IReadOnlyList<ReplTextRun> runs)
     {
-        var syntax = themes.Theme.Syntax;
-        var markup = string.Concat(runs.Select(run => StyleOf(run.Style, syntax) is { } style
+        var (syntax, splash) = (themes.Theme.Syntax, themes.Theme.Splash);
+        var markup = string.Concat(runs.Select(run => StyleOf(run.Style, syntax, splash) is { } style
             ? $"[{style}]{Markup.Escape(run.Text)}[/]"
             : Markup.Escape(run.Text)));
         console.MarkupLine(markup);
@@ -44,7 +44,7 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
     }
 
     // a style the theme does not name is the plain one, which is what the shell is written in already.
-    private static string? StyleOf(ReplTextStyle style, ThemeSyntaxStyles syntax) => style switch
+    private static string? StyleOf(ReplTextStyle style, ThemeSyntaxStyles syntax, ThemeSplashStyles splash) => style switch
     {
         ReplTextStyle.Keyword => syntax.Keyword,
         ReplTextStyle.Comment => syntax.Comment,
@@ -53,6 +53,8 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
         ReplTextStyle.Identifier => syntax.Identifier,
         ReplTextStyle.IdentifierClass => syntax.IdentifierClass,
         ReplTextStyle.IdentifierConst => syntax.IdentifierConst,
+        ReplTextStyle.SplashLogo => splash.Logo,
+        ReplTextStyle.SplashTitle => splash.Title,
         _ => null,
     };
 }

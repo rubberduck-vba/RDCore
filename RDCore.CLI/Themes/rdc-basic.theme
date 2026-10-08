@@ -99,7 +99,7 @@
   },
 
   "splash": {
-    "logo": "shell-highlight",
-    "title": "shell-highlight-fg"
+    "logo": "#3e61ff",
+    "title": "#ffffff"
   }
 }

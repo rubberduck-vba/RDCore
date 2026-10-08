@@ -85,16 +85,20 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
 
         try
         {
-            // the legacy attributes are set either way: they are the whole frame on a console without
-            // ANSI, and on one with it they keep Console's own idea of the colours consistent with the
-            // terminal defaults for anything that reads them back.
-            Console.BackgroundColor = background.ToNearestConsoleColor();
-            Console.ForegroundColor = foreground.ToNearestConsoleColor();
-
             if (IsAnsiEnabled)
             {
+                // The legacy attributes must stay unset here: Console writes a set attribute out explicitly with the text it writes, as the
+                // palette entry nearest to the colour (dark blue for the C64 blue, bright white for white), which paints the text on a
+                // background that is not the frame's - exactly where there is text, and nowhere else.
+                Console.ResetColor();
                 Console.Out.Write(string.Format(SetBackground, background));
                 Console.Out.Write(string.Format(SetForeground, foreground));
+            }
+            else
+            {
+                // without ANSI the legacy attributes are the whole frame.
+                Console.BackgroundColor = background.ToNearestConsoleColor();
+                Console.ForegroundColor = foreground.ToNearestConsoleColor();
             }
 
             Console.Clear();

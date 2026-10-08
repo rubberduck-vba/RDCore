@@ -1,38 +1,38 @@
 {
   "name": "light",
   "author": "9562-7303 Québec inc.",
-  "version": "0.2",
+  "version": "0.3",
 
   "palette": {
     "shell-bg": "#FFFFFF",
     "shell-fg": "#0C0A50",
     "shell-highlight": "#5f8dd3",
-    "shell-highlight-fg": "#ffffff",
+    "shell-highlight-fg": "#0C0A50",
 
-    "error": "#e95653",
-    "error-bright": "#ff0301",
-    "error-dim": "#b51a17",
-    "error-light": "#e59a99",
+    "error": "#c62828",
+    "error-bright": "#b00020",
+    "error-dim": "#8e3b3b",
+    "error-light": "#e57373",
 
-    "success": "#67d864",
-    "success-bright": "#00fd17",
-    "success-dim": "#2ca329",
-    "success-light": "#9be599",
+    "success": "#2e7d32",
+    "success-bright": "#1b6b1f",
+    "success-dim": "#4c7a4e",
+    "success-light": "#81c784",
 
-    "information": "#64aed8",
-    "information-bright": "#00fefd",
-    "information-dim": "#2977a4",
-    "information-light": "#99c9e5",
+    "information": "#1565c0",
+    "information-bright": "#0d47a1",
+    "information-dim": "#4f78a8",
+    "information-light": "#90b8e0",
 
-    "warning": "#d8b064",
-    "warning-bright": "#fdbf00",
-    "warning-dim": "#a37e29",
-    "warning-light": "#e5cf99",
+    "warning": "#a65f00",
+    "warning-bright": "#7a4500",
+    "warning-dim": "#9a7332",
+    "warning-light": "#d9a85b",
 
-    "trace": "#9898a4",
-    "trace-bright": "#ffffff",
-    "trace-dim": "#62626f",
-    "trace-light": "#b9b9c3"
+    "trace": "#616161",
+    "trace-bright": "#212121",
+    "trace-dim": "#8a8a8a",
+    "trace-light": "#b0b0b0"
   },
 
   "shell": {
@@ -89,17 +89,17 @@
   },
 
   "syntax": {
-    "keyword": "#3e61ff",
-    "comment": "#2ca329",
-    "string": "#e59a99",
-    "number": "#ffffff",
-    "identifier": "#99c9e5",
-    "identifier-class": "#2977a4",
-    "identifier-const": "#a37e29"
+    "keyword": "#0000cc",
+    "comment": "#2e7d32",
+    "string": "#a31515",
+    "number": "#098658",
+    "identifier": "#001080",
+    "identifier-class": "#267f99",
+    "identifier-const": "#795e26"
   },
 
   "splash": {
-    "logo": "shell-highlight",
-    "title": "shell-highlight-fg"
+    "logo": "#3e61ff",
+    "title": "#0C0A50"
   }
 }

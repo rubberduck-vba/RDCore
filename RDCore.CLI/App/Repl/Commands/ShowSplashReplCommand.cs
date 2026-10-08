@@ -3,7 +3,7 @@ using RDCore.SDK.ConsoleIO;
 using System.Collections.Immutable;
 
 namespace RDCore.CLI.App.Repl.Commands;
-66
+
 internal record class ShowSplashReplCommand : IReplCommand
 {
     /// <summary>How far in the background art sits, so the title art overlays it where it is meant to.</summary>
@@ -32,11 +32,11 @@ internal record class ShowSplashReplCommand : IReplCommand
         var logo = Resources.RDCoreSplash_Background
             .Split('\n')
             .SkipLast(1)
-            .Select(line => new ReplTextRun($"{new string(' ', SplashIndent)}{line}", ReplTextStyle.Keyword))
+            .Select(line => new ReplTextRun($"{new string(' ', SplashIndent)}{line}", ReplTextStyle.SplashLogo))
             .ToImmutableArray();
 
         context.Console.WriteLine([.. logo]);
-        context.Console.WriteLine([new ReplTextRun(Resources.RDCoreSplash_Foreground, ReplTextStyle.Number)]);
+        context.Console.WriteLine([new ReplTextRun(Resources.RDCoreSplash_Foreground, ReplTextStyle.SplashTitle)]);
         _writer.WriteSlogan();
         _writer.WriteLegalNotice();
 

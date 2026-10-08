@@ -54,8 +54,8 @@ public sealed class AppThemeTests
         var service = new AppThemeService(options, new AppThemeLoaderService(new FileSystem()), Substitute.For<IConsoleShellFrame>());
         await service.InitializeAsync(CancellationToken.None);
 
-        Assert.IsTrue(service.SetTheme("rdc-default"));
+        Assert.IsTrue(service.SetTheme("dark"));
         Assert.IsFalse(service.SetTheme("does-not-exist"));
-        Assert.AreEqual("rdc-default", service.Theme.Name);
+        Assert.AreEqual("dark", service.Theme.Name);
     }
 }

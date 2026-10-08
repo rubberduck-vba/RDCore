@@ -30,6 +30,12 @@ public enum ReplTextStyle
 
     /// <summary>The name of a constant.</summary>
     IdentifierConst,
+
+    /// <summary>The art behind the title on the splash screen - the theme's <c>splash.logo</c>.</summary>
+    SplashLogo,
+
+    /// <summary>The lettering of the title on the splash screen - the theme's <c>splash.title</c>.</summary>
+    SplashTitle,
 }
 
 /// <summary>
