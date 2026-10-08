@@ -814,7 +814,6 @@ keyword :
     | PRESERVE
     | PSET
     | PTRSAFE
-    | REM
     | SGN
     | SINGLE
     | SPC
@@ -918,6 +917,7 @@ statementKeyword :
     | PUBLIC
     | RAISEEVENT
     | REDIM
+    | REM
     | RESUME
     | RETURN
     | RSET
