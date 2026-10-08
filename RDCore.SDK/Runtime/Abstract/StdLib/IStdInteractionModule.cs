@@ -8,9 +8,9 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// <strong>MS-VBAL 6.1.2.8 Interaction Module</strong>
 /// </summary>
 /// <remarks>
-/// Formalizes the public interface of the standard library <c>VBA.Interaction</c> module.<br/>
-/// ℹ️ <strong>This interface is currently incomplete.</strong>
+/// Formalizes the public interface of the standard library <c>VBA.Interaction</c> module.
 /// </remarks>
+[StdLibModule]
 public interface IStdInteractionModule
 {
     #region 6.1.2.8.1 StdInteraction: Public Functions
@@ -26,7 +26,7 @@ public interface IStdInteractionModule
     /// <param name="callType">The type of member invocation.</param>
     /// <param name="args">Any arguments to be supplied to the member upon invocation.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__CallByName(VBObjectValue objectValue, string procName, VBCallType callType, params VBVariantValue[] args);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> CallByName(VBObjectValue objectValue, VBStringValue procName, VBCallType callType, params VBVariantValue[] args);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.2 Choose</strong>
@@ -39,7 +39,7 @@ public interface IStdInteractionModule
     /// <param name="index">An <see cref="VBIntegerValue"/> between 1 and the number of supplied choices.</param>
     /// <param name="choice">An array containing the values to choose from.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__Choose(VBSingleValue index, params VBVariantValue[] choice);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Choose(VBSingleValue index, params VBVariantValue[] choice);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.3 Command</strong>
@@ -48,7 +48,7 @@ public interface IStdInteractionModule
     /// Gets a <see cref="VBVariantValue"/> containing the <em>command-line arguments</em> (if any) that were used to initiate the execution of the currently running <em>workspace application</em>.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__VCommand();
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Command();
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.3 Command$</strong>
     /// </summary>
@@ -56,7 +56,8 @@ public interface IStdInteractionModule
     /// Gets a <see cref="VBStringValue"/> containing the <em>command-line arguments</em> (if any) that were used to initiate the execution of the currently running <em>workspace application</em>.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__SCommand();
+    [StdLibMember("Command$")]
+    RuntimeSemanticsEvaluationResult<VBStringValue> CommandString();
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.4 CreateObject</strong>
@@ -67,7 +68,7 @@ public interface IStdInteractionModule
     /// <param name="objectClass">A <see cref="VBStringValue"/> containing the <em>application name and class</em> of the object to create.</param>
     /// <param name="serverName">A <see cref="VBStringValue"/> containing the name of the network server where the object will be created.<br/><strong>Optional</strong>: the <em>local machine</em> is used unless specified otherwise.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__CreateObject(VBStringValue objectClass, VBStringValue? serverName = default);
+    RuntimeSemanticsEvaluationResult<VBObjectValue> CreateObject(VBStringValue objectClass, VBStringValue? serverName = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.5 DoEvents</strong>
@@ -77,7 +78,7 @@ public interface IStdInteractionModule
     /// 👉 This function returns an <see cref="VBIntegerValue"/> with an <em>implementation-defined meaning</em>.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__DoEvents();
+    RuntimeSemanticsEvaluationResult<VBIntegerValue> DoEvents();
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.6 Environ</strong>
@@ -87,7 +88,7 @@ public interface IStdInteractionModule
     /// </remarks>
     /// <param name="key">A <see cref="VBStringValue"/>, or a data value that is let-coercible to <see cref="VBLongValue"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__VEnviron(VBVariantValue key);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Environ(VBVariantValue key);
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.6 Environ$</strong>
     /// </summary>
@@ -96,7 +97,8 @@ public interface IStdInteractionModule
     /// </remarks>
     /// <param name="key">A <see cref="VBStringValue"/>, or a data value that is let-coercible to <see cref="VBLongValue"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__SEnviron(VBVariantValue key);
+    [StdLibMember("Environ$")]
+    RuntimeSemanticsEvaluationResult<VBStringValue> EnvironString(VBVariantValue key);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.7 GetAllSettings</strong>
@@ -108,7 +110,7 @@ public interface IStdInteractionModule
     /// <param name="appName">A <see cref="VBStringValue"/> expression containing the name of the application or project whose key settings are requested.</param>
     /// <param name="section">A <see cref="VBStringValue"/> expression containing the name of the configuration section whose key settings are requested.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetAllSettings(VBStringValue appName, VBStringValue section);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> GetAllSettings(VBStringValue appName, VBStringValue section);
     /// <summary>
     /// 🧩 <strong>RD-VBAL 6.1.2.8.1.7.1 GetJsonSettings</strong><br/>
     /// </summary>
@@ -119,7 +121,7 @@ public interface IStdInteractionModule
     /// <param name="key">A <see cref="VBStringValue"/> expression containing the <em>managed configuration path</em> (e.g. <c>"Configuration:ConnectionStrings"</c>) of the configuration section whose key settings are requested.</param>
     /// <param name="config">A <see cref="VBStringValue"/> expression containing the <strong>name of a .json configuration file</strong> associated with the <em>workspace application</em>.<br/><strong>Optional</strong>: The default value of this parameter depends on the current host configuration (normally <c>"appsettings.json"</c>).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetJsonSettings(VBStringValue key, VBStringValue? config = default);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> GetJsonSettings(VBStringValue key, VBStringValue? config = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.8 GetAttr</strong>
@@ -129,7 +131,8 @@ public interface IStdInteractionModule
     /// </remarks>
     /// <param name="pathName">A <see cref="VBStringValue"/> expression containing a file name. May specify a <em>mapped drive</em> and/or a <em>directory/folder path</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetAttr(VBStringValue pathName);
+    [StdLibMember(ReturnType = typeof(VBFileAttribute))]
+    RuntimeSemanticsEvaluationResult<VBLongValue> GetAttr(VBStringValue pathName);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.9 GetObject</strong>
@@ -142,7 +145,7 @@ public interface IStdInteractionModule
     /// <param name="pathName">A <see cref="VBStringValue"/> expression containing the name of the <em>network server</em> where the object will be created.<br/><strong>Optional</strong>: the <em>local machine</em> is used unless specified otherwise.</param>
     /// <param name="className">A <em>qualified</em> <see cref="VBStringValue"/> expression containing the <em>application name</em> and <em>class</em> of the object to create.<br/><strong>Optional</strong> (⚠️ but raises an error given <see cref="VBMissingValue"/>): returns the singleton instance of (the last created) <em>single-instance object</em> given an <em>empty string</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetObject(VBVariantValue? pathName = default, VBVariantValue? className = default);
+    RuntimeSemanticsEvaluationResult<VBObjectValue> GetObject(VBVariantValue? pathName = default, VBVariantValue? className = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.10 GetSetting</strong>
@@ -155,7 +158,7 @@ public interface IStdInteractionModule
     /// <param name="key">A <see cref="VBStringValue"/> expression containing the <em>key</em> of the requested <em>key setting</em> value.</param>
     /// <param name="defaultValue">A <see cref="VBVariantValue"/> expression containing the value to return if no value is set in the key setting.<br/><strong>Optional</strong>: defaults to <see cref="VBStringValue.ZeroLengthString"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetSetting(VBStringValue appName, VBStringValue section, VBStringValue key, VBVariantValue? defaultValue = default);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> GetSetting(VBStringValue appName, VBStringValue section, VBStringValue key, VBVariantValue? defaultValue = default);
     /// <summary>
     /// 🧩 <strong>RD-VBAL 6.1.2.8.1.10.1 GetJsonSetting</strong><br/>
     /// </summary>
@@ -166,7 +169,7 @@ public interface IStdInteractionModule
     /// <param name="config">A <see cref="VBStringValue"/> expression containing the <strong>name of a .json configuration file</strong> associated with the <em>workspace application</em>.<br/><strong>Optional</strong>: The default value of this parameter depends on the current host configuration (normally <c>"appsettings.json"</c>).</param>
     /// <param name="defaultValue">A <see cref="VBVariantValue"/> expression containing the value to return if no value is set in the key setting.<br/><strong>Optional</strong>: defaults to <see cref="VBStringValue.ZeroLengthString"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__GetJsonSetting(VBStringValue key, VBStringValue? config = default, VBVariantValue? defaultValue = default);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> GetJsonSetting(VBStringValue key, VBStringValue? config = default, VBVariantValue? defaultValue = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.11 IIf</strong>
@@ -178,7 +181,7 @@ public interface IStdInteractionModule
     /// </remarks>
     /// <param name="pathName">A <see cref="VBStringValue"/> expression containing a file name. May specify a <em>mapped drive</em> and/or a <em>directory/folder path</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__IIf(VBVariantValue expression, VBVariantValue truePart, VBVariantValue falsePart);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> IIf(VBVariantValue expression, VBVariantValue truePart, VBVariantValue falsePart);
     
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.12 InputBox</strong>
@@ -194,7 +197,7 @@ public interface IStdInteractionModule
     /// <param name="helpFile">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <param name="helpContext">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__InputBox(VBVariantValue prompt, VBVariantValue? title = default, VBVariantValue? defaultValue = default, VBVariantValue? xpos = default, VBVariantValue? ypos = default, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
+    RuntimeSemanticsEvaluationResult<VBStringValue> InputBox(VBVariantValue prompt, VBVariantValue? title = default, VBVariantValue? defaultValue = default, VBVariantValue? xpos = default, VBVariantValue? ypos = default, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.13 MsgBox</strong>
@@ -208,7 +211,8 @@ public interface IStdInteractionModule
     /// <param name="helpFile">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <param name="helpContext">ℹ️ Unsupported legacy proprietary Microsoft help system. This parameter is <strong>out of scope</strong> of this implementation.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__MsgBox(VBVariantValue prompt, VBMsgBoxStyle buttons = VBMsgBoxStyle.VBDefaultButton1, VBVariantValue? title = default, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
+    [StdLibMember(ReturnType = typeof(VBMsgBoxResult))]
+    RuntimeSemanticsEvaluationResult<VBLongValue> MsgBox(VBVariantValue prompt, VBMsgBoxStyle buttons = VBMsgBoxStyle.VBDefaultButton1, VBVariantValue? title = default, VBVariantValue? helpFile = default, VBVariantValue? helpContext = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.14 Partition</strong>
@@ -221,7 +225,7 @@ public interface IStdInteractionModule
     /// <param name="stop">A <see cref="VBLongValue"/> expression containing the <strong>end</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than or equal to</strong> the <c>start</c> value 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>
     /// <param name="interval">A <see cref="VBLongValue"/> expression containing the <strong>interval</strong> of each range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>1</c> 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.15 Shell</strong>
@@ -232,7 +236,7 @@ public interface IStdInteractionModule
     /// <param name="path">A <see cref="VBStringValue"/> expression containing the <em>value</em> to be evaluated against the <em>range</em>.</param>
     /// <param name="windowStyle">A <see cref="VBIntegerValue"/> (<see cref="VBAppWinStyle"/>) expression containing a value that sets the <em>style</em> of the window in which the program is to be executed.<br/><strong>Optional</strong>: <see cref="VBAppWinStyle.VBMinimizedFocus"/> unless specified otherwise.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__Shell(VBVariantValue path, VBAppWinStyle windowStyle = VBAppWinStyle.VBMinimizedFocus);
+    RuntimeSemanticsEvaluationResult<VBDoubleValue> Shell(VBVariantValue path, VBAppWinStyle windowStyle = VBAppWinStyle.VBMinimizedFocus);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.8.1.16 Switch</strong>
@@ -246,19 +250,75 @@ public interface IStdInteractionModule
     /// <item>💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if the expressions aren't properly paired.</item>
     /// </list>
     /// <br/><br/>
-    /// 👉 There seems to be a 🧩<c>VBDeferredValue</c> <em>language core extension</em> opportunity here, too. See: <see cref="StdInteraction__IIf"/>
+    /// 👉 There seems to be a 🧩<c>VBDeferredValue</c> <em>language core extension</em> opportunity here, too. See: <see cref="IIf"/>
     /// </remarks>
     /// <param name="varExpr">A <see cref="VBArrayValue"/> containing <see cref="VBVariantValue"/> elements representing expressions to be evaluated.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdInteraction__Switch(params VBVariantValue[] varExpr);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Switch(params VBVariantValue[] varExpr);
     #endregion
 
     #region 6.1.2.8.2. Public Subroutines
 
-    /****************************************************************************************************
-     * 🎯 The target interface defines this section too.
-     *     👉 THANK YOU for taking the time to write XML documentation for anything you add here.
-    /****************************************************************************************************/
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.8.2.1 AppActivate</strong>
+    /// </summary>
+    /// <remarks>
+    /// Changes the focus to the named application window, without affecting whether it is maximized or minimized.<br/>
+    /// 👉 The title is compared to the title of each running application; with no exact match, any application whose title <em>begins with</em> it is activated.
+    /// </remarks>
+    /// <param name="title">A <see cref="VBStringValue"/> expression containing the title in the title bar of the application window to activate, or the task ID that <see cref="Shell"/> returned.</param>
+    /// <param name="wait">A <see cref="VBBooleanValue"/> expression specifying whether the calling application has the focus before activating another.<br/><strong>Optional</strong>: <c>False</c> unless specified otherwise, which activates the application immediately.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult AppActivate(VBVariantValue title, VBVariantValue? wait = default);
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.8.2.2 Beep</strong>
+    /// </summary>
+    /// <remarks>
+    /// Sounds a tone through the computer's speaker.<br/>
+    /// 👉 The frequency and duration of the beep depend on hardware and system software, and vary among computers. An environment with no speaker to sound it through
+    /// has nothing to do, and that is not an error.
+    /// </remarks>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult Beep();
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.8.2.3 DeleteSetting</strong>
+    /// </summary>
+    /// <remarks>
+    /// Deletes a section or key setting from an application's entry in an <em>implementation-defined application registry</em>.<br/>
+    /// 💥 A run-time error occurs if the section or key setting does not exist.
+    /// </remarks>
+    /// <param name="appName">A <see cref="VBStringValue"/> expression containing the name of the application or project to which the section or key setting applies.</param>
+    /// <param name="section">A <see cref="VBStringValue"/> expression containing the name of the section where the key setting is being deleted.<br/><strong>Optional</strong>: given only the application name, nothing is deleted from it; given the section as well, the section is deleted with all of its key settings.</param>
+    /// <param name="key">A <see cref="VBStringValue"/> expression containing the name of the key setting being deleted.<br/><strong>Optional</strong>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult DeleteSetting(VBStringValue appName, VBStringValue? section = default, VBStringValue? key = default);
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.8.2.4 SaveSetting</strong>
+    /// </summary>
+    /// <remarks>
+    /// Saves or creates an application entry in the application's entry in the <em>implementation-defined application registry</em>.<br/>
+    /// 💥 An error occurs if the key setting can't be saved for any reason.
+    /// </remarks>
+    /// <param name="appName">A <see cref="VBStringValue"/> expression containing the name of the application or project to which the setting applies.</param>
+    /// <param name="section">A <see cref="VBStringValue"/> expression containing the name of the section where the key setting is being saved.</param>
+    /// <param name="key">A <see cref="VBStringValue"/> expression containing the name of the key setting being saved.</param>
+    /// <param name="setting">A <see cref="VBStringValue"/> expression containing the value the key is being set to.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult SaveSetting(VBStringValue appName, VBStringValue section, VBStringValue key, VBStringValue setting);
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.8.2.5 SendKeys</strong>
+    /// </summary>
+    /// <remarks>
+    /// Sends one or more keystrokes to the active window as if typed at the keyboard.
+    /// </remarks>
+    /// <param name="string">A <see cref="VBStringValue"/> expression specifying the keystrokes to send.</param>
+    /// <param name="wait">A <see cref="VBBooleanValue"/> expression specifying the wait mode.<br/><strong>Optional</strong>: <c>False</c> unless specified otherwise, which returns control to the procedure immediately after the keys are sent. With <c>True</c>, the keystrokes <strong>must</strong> be processed before control is returned.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult SendKeys(VBStringValue @string, VBVariantValue? wait = default);
 
     #endregion
 }

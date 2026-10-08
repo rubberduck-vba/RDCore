@@ -80,6 +80,11 @@ public interface IRuntimeSession
     ICallStack CallStack { get; }
 
     /// <summary>
+    /// Whether the program has been stopped by an <c>End</c> or a <c>Stop</c> statement, or from outside, and why.
+    /// </summary>
+    ISessionHalt Halt { get; }
+
+    /// <summary>
     /// The workspace's references in declaration order (<strong>RD-VBAL §2.3.1.2</strong>): index
     /// <c>0</c> appears first and is the lowest precedence (the <c>VBA</c> standard library), so a
     /// later entry shadows it on a global-scope name collision. This is the precedence order only —
@@ -162,6 +167,16 @@ public interface ISessionSymbols
     /// <param name="scope">The scope it was defined in.</param>
     /// <returns><c>false</c> if no symbol with that identity was defined in that scope.</returns>
     bool TryRedefine(Symbol symbol, ScopeKind scope);
+
+    /// <summary>
+    /// Gives every variable of the session the value it was defined with, and discards every object.
+    /// </summary>
+    /// <remarks>
+    /// What an <c>End</c> statement leaves of a program: the declarations stay, and what they held does not. A module-level variable, a <c>Static</c> local and a
+    /// global start again from their type's default (or the dimensions of the array they were declared as), and the live objects are gone as if they had
+    /// never been created - with no <c>Terminate</c> run for any of them, because nothing of the program is left to run it.
+    /// </remarks>
+    void ResetStorage();
 
     /// <summary>
     /// Composes the class module <paramref name="moduleName"/> from the members the session now has defined for it: its
@@ -301,6 +316,11 @@ public interface ISessionObjects
 
     /// <summary>Removes an instance whose reference count has reached zero.</summary>
     bool TryRemoveObject(VBRuntimeObjectId instance);
+
+    /// <summary>
+    /// Forgets every object, with the references that were held to it, whatever their count: the objects of a program that <c>End</c>ed.
+    /// </summary>
+    void Clear();
 
     /// <summary>Records a new reference (root) to an instance.</summary>
     void AddRef(VBRuntimeObjectId instance, IBindingHandle handle);

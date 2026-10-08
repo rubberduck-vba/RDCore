@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -18,8 +19,8 @@ namespace RDCore.SDK.Semantics.Static;
 /// implemented are all errors of a declaration, which no body shows. They are found here, once for the module, and a module model holds them
 /// next to the models of its procedures (<see cref="ModuleSemanticModel.DeclarationErrors"/>).
 /// <list type="bullet">
-/// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>). The
-/// <c>Get</c>, <c>Let</c> and <c>Set</c> accessors of a property are the one declaration of it.</item>
+/// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>). That is a rule of
+/// the declarations as they are written, and not of the symbols they become (<see cref="CheckSyntax"/>).</item>
 /// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant, a
 /// parameter, a function's or a property's result, and a local. Whether it does can only be told once everything the declaration can see is defined,
 /// which is why this rule is one a caller asks for (<see cref="DeclarationRules.DeclaredTypes"/>).</item>
@@ -42,7 +43,6 @@ public static class DeclarationStaticSemanticsEvaluator
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
 
-        CheckDuplicates(members, errors);
         if (rules.HasFlag(DeclarationRules.DeclaredTypes))
         {
             CheckDeclaredTypes(module, members, resolver, errors);
@@ -57,28 +57,65 @@ public static class DeclarationStaticSemanticsEvaluator
         return errors.ToImmutable();
     }
 
-    // an event is checked for its own uniqueness by the rule of events, which says what it is that is declared twice.
-    private static void CheckDuplicates(IReadOnlyList<VBTypeMemberSymbol> members, ImmutableArray<VBCompileErrorInfo>.Builder errors)
+    /// <summary>
+    /// Checks that a name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>), from
+    /// what the module's source declares.
+    /// </summary>
+    /// <remarks>
+    /// Read off the declarations of the syntax tree and not the symbols they become, because a symbol is one per identity: a name declared twice as the same
+    /// kind of thing (<c>Public Total As Long</c> twice, a <c>Sub</c> of one name twice) is, by then, one symbol, and a rule that read symbols could only
+    /// find the names that collide as different kinds. The <c>Get</c>, <c>Let</c> and <c>Set</c> accessors of a property are the one declaration of it; an
+    /// event is checked for its own uniqueness by the rule of events, which says what it is that is declared twice; and a name declared in each branch of a
+    /// <c>#If</c> block is declared once, whichever branch compiles.
+    /// </remarks>
+    /// <param name="module">The parsed module.</param>
+    /// <param name="blocks">The <c>#If</c> blocks of the module, which say which declarations are alternatives of one another.</param>
+    /// <returns>One error for each declaration of a name that is already declared, at the repeated declaration; empty when each is declared once.</returns>
+    public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(ModuleNode module, ConditionalCompilationBlocks blocks)
     {
-        var seen = new Dictionary<string, VBTypeMemberSymbol>(StringComparer.OrdinalIgnoreCase);
-        foreach (var member in members.Where(member => member.ScopeKind is ScopeKind.Module && member is not VBEventMemberSymbol && member.Name.Length > 0))
+        var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+        var seen = new Dictionary<string, List<(MemberKind? Kind, SourceLocation Location)>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var child in module.Children)
         {
-            if (!seen.TryGetValue(member.Name, out var first))
+            var (name, kind) = child switch
             {
-                seen.Add(member.Name, member);
-            }
-            else if (!AreAccessorsOfOneProperty(first, member))
+                VariableDeclarationNode variable => (variable.Name, default(MemberKind?)),
+                ConstantDeclarationNode constant => (constant.Name, default(MemberKind?)),
+                ExternalMemberDeclarationNode external => (external.Name, default(MemberKind?)),
+                MemberDeclarationNode { MemberKind: MemberKind.Event or MemberKind.UserDefinedTypeField } => (string.Empty, default(MemberKind?)),
+                MemberDeclarationNode member => (member.Name, member.MemberKind),
+                _ => (string.Empty, default(MemberKind?)),
+            };
+
+            if (name.Length == 0)
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, new SourceLocation(member.ParentUri, member.SelectionRange),
-                    $"'{member.Name}' is declared more than once in this module."));
+                continue;
             }
+
+            // the name of a type and the name of a value are bound in different contexts (MS-VBAL §5.6.4): an Enum and a property of the one name are
+            // both declared once, and `Property Get PlayerType() As PlayerType` is how code says that.
+            var key = (kind is MemberKind.Enum or MemberKind.UserDefinedType ? "type:" : "value:") + name;
+            if (!seen.TryGetValue(key, out var declarations))
+            {
+                seen.Add(key, declarations = []);
+            }
+
+            if (declarations.Any(prior => !AreOneDeclaration(prior, (kind, child.SourceLocation), blocks)))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, child.SourceLocation, $"'{name}' is declared more than once in this module."));
+            }
+
+            declarations.Add((kind, child.SourceLocation));
         }
+
+        return errors.ToImmutable();
     }
 
-    private static bool AreAccessorsOfOneProperty(VBTypeMemberSymbol first, VBTypeMemberSymbol second)
-        => first.GetType() != second.GetType() && IsAccessor(first) && IsAccessor(second);
+    private static bool AreOneDeclaration((MemberKind? Kind, SourceLocation Location) prior, (MemberKind? Kind, SourceLocation Location) next, ConditionalCompilationBlocks blocks)
+        => blocks.AreAlternatives(prior.Location.Range.Start, next.Location.Range.Start)
+            || (IsAccessor(prior.Kind) && IsAccessor(next.Kind) && prior.Kind != next.Kind);
 
-    private static bool IsAccessor(VBTypeMemberSymbol member) => member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol;
+    private static bool IsAccessor(MemberKind? kind) => kind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
 
     // MS-VBAL §5.6.4: a declared type is bound in the type binding context. A name that did not resolve where the declaration was read, which may have been
     // before what it names was defined, is resolved again as seen from the module: an error is a name that still does not.

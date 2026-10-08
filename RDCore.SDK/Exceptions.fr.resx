@@ -396,6 +396,9 @@
   <data name="VBCompileError_FileAccessNotValidForMode" xml:space="preserve">
     <value>Accès non valide pour le mode du fichier</value>
   </data>
+  <data name="VBCompileError_TypeDeclarationCharacterDoesNotMatch" xml:space="preserve">
+    <value>Le caractère de déclaration de type ne correspond pas au type de données déclaré</value>
+  </data>
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Erreur non spécifiée</value>
   </data>

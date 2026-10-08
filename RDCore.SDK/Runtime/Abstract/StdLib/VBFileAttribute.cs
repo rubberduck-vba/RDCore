@@ -4,7 +4,7 @@
 /// <strong>MS-VBAL 6.1.1.8 VbFileAttribute</strong>
 /// </summary>
 /// <remarks>
-/// This <c>enum</c> is used to encode the return value of the <see cref="IStdInteractionModule.StdInteraction__GetAttr"/> function.<br/>
+/// This <c>enum</c> is used to encode the return value of the <see cref="IStdInteractionModule.GetAttr"/> function.<br/>
 /// 👉 The values of this enum are powers of 2, suggesting they are intended to be combined and used with bitwise logic.
 /// </remarks>
 [Flags]

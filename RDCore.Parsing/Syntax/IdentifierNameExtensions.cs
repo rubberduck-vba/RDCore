@@ -68,4 +68,8 @@ internal static class IdentifierNameExtensions
     // the type-declaration character (%, &, …) on a typed identifier, or null.
     public static string? TypeHint(this VBAParser.IdentifierContext? context)
         => context?.typedIdentifier()?.typeHint()?.GetText();
+
+    // the same on an identifier that may also be a keyword, which has no hint.
+    public static string? TypeHint(this VBAParser.UnrestrictedIdentifierContext? context)
+        => context?.identifier().TypeHint();
 }

@@ -116,8 +116,88 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         => OnEnterParent();
     public override void ExitAttributeStmt([NotNull] VBAParser.AttributeStmtContext context)
         => OnExitParent(builder => builder.BuildAttributeDirective(context));
+    // Trivia - the source that is not code: the file header, comments, annotations - is not a child of the node it sits beside, since it can be anywhere
+    // (after any statement, inside a continued line) and the nodes' own shapes do not make room for it. It is kept apart, in document order, and whatever
+    // expression the walk built inside it (the 1.0 of VERSION 1.0 CLASS, an annotation's argument) is kept with it and not left among the module's nodes.
+    private readonly List<SyntaxNode> _trivia = [];
+    private readonly List<AnnotationTriviaNode> _annotationsOfLine = [];
+
+    /// <summary>The trivia of the module, in the order it is written.</summary>
+    public ImmutableArray<SyntaxNode> Trivia
+        => [.. _trivia.OrderBy(node => node.SourceLocation.Range.Start).ThenByDescending(node => node.SourceLocation.Range.End)];
+
+    private void OnExitTrivia(SyntaxNode node)
+    {
+        // error recovery can fire an Exit with no matching Enter — never pop the module builder.
+        if (_builderStack.Count > 1)
+        {
+            _builderStack.Pop();
+            _trivia.Add(node);
+        }
+    }
+
+    public override void EnterModuleHeader([NotNull] VBAParser.ModuleHeaderContext context)
+        => OnEnterParent();
+    public override void ExitModuleHeader([NotNull] VBAParser.ModuleHeaderContext context)
+        => OnExitTrivia(BuildModuleHeaderTrivia(context));
+    public override void EnterModuleConfigReferences([NotNull] VBAParser.ModuleConfigReferencesContext context)
+        => OnEnterParent();
+    public override void ExitModuleConfigReferences([NotNull] VBAParser.ModuleConfigReferencesContext context)
+        => OnExitTrivia(BuildModuleHeaderTrivia(context));
+    public override void EnterModuleConfig([NotNull] VBAParser.ModuleConfigContext context)
+    {
+        if (context.Parent is not VBAParser.ModuleConfigContext)
+        {
+            OnEnterParent();
+        }
+    }
+    public override void ExitModuleConfig([NotNull] VBAParser.ModuleConfigContext context)
+    {
+        if (context.Parent is not VBAParser.ModuleConfigContext)
+        {
+            OnExitTrivia(BuildModuleHeaderTrivia(context));
+        }
+    }
+    private ModuleHeaderTriviaNode BuildModuleHeaderTrivia(VBABaseParserRuleContext context)
+        => new(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText());
+
+    public override void ExitComment([NotNull] VBAParser.CommentContext context)
+        => _trivia.Add(new CommentTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText()));
+    public override void ExitRemComment([NotNull] VBAParser.RemCommentContext context)
+        => _trivia.Add(new CommentTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText()));
+
+    // An annotation line is a comment, as MS-VBA sees it, and is kept as one; each annotation on it is also a node of its own, inside the comment's range.
+    public override void EnterAnnotation([NotNull] VBAParser.AnnotationContext context)
+        => OnEnterParent();
+    public override void ExitAnnotation([NotNull] VBAParser.AnnotationContext context)
+    {
+        if (_builderStack.Count > 1)
+        {
+            _annotationsOfLine.Add(_builderStack.Pop().BuildAnnotationTriviaNode(context, AnnotationLocation(context)));
+        }
+    }
+    public override void ExitAnnotationList([NotNull] VBAParser.AnnotationListContext context)
+    {
+        _trivia.Add(new CommentTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText()));
+        _trivia.AddRange(_annotationsOfLine);
+        _annotationsOfLine.Clear();
+    }
+
+    // The annotation is what is written from its @ to the end of its name or of its arguments.
+    private SourceLocation AnnotationLocation(VBAParser.AnnotationContext context)
+    {
+        var name = context.annotationName().SourceRange;
+        var end = ((VBABaseParserRuleContext?)context.annotationArgList())?.SourceRange.End ?? name.End;
+        return new(_rootUri, new SourceRange(new SourcePosition(name.Start.Line, Math.Max(0, name.Start.Character - 1)), end));
+    }
+
     public override void ExitOptionBaseStmt([NotNull] VBAParser.OptionBaseStmtContext context)
     {
+        // the number literal was already built as an expression when the walk left it; it is the directive's own operand, not a node of the module.
+        if (CurrentBuilder.PeekLastChildren(1) is [LiteralExpressionNode])
+        {
+            CurrentBuilder.PopLastChildren(1);
+        }
         var location = context.GetSourceLocation(_rootUri);
         // Option Base only accepts a bare 0 or 1; anything else the grammar's numberLiteral admits
         // (hex/oct/float, a suffix, an out-of-range value) is not base 1 and must not throw here.
@@ -220,7 +300,17 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // the bounds of a fixed-size array are constant expressions (MS-VBAL §5.2.3.1.3), which only the listener can walk
         // into nodes. Captured before the declaration's own builder is popped, over a subtree this Exit has already passed.
         var bounds = CaptureDimBounds(context.arrayDim());
-        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic, bounds));
+        var isFirst = (context.Parent as VBAParser.VariableListStmtContext)?.variableSubStmt(0) == context;
+        var location = DeclaratorLocation(context, parent, isFirst);
+        OnExitParent(builder => builder.BuildVariableDeclaration(context, modifier, isStatic, location, bounds));
+    }
+
+    // Where a declarator is written. The keywords of a statement (`Dim`, `Static`, `Private Const`) are in front of the first of its declarators and belong to no other,
+    // so the first one's range begins where the statement does: the source is the text of its nodes, keywords included.
+    private SourceLocation DeclaratorLocation(VBABaseParserRuleContext declarator, VBABaseParserRuleContext? statement, bool isFirst)
+    {
+        var range = declarator.SourceRange;
+        return new(_rootUri, isFirst && statement is not null ? new SourceRange(statement.SourceRange.Start, range.End) : range);
     }
 
     // `dim-spec = [lower-bound "To"] upper-bound`, one per dimension; none for a dynamic array.
@@ -252,7 +342,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         _isCapturingConstantExpression--;
         var parent = context.Parent as VBAParser.ConstStmtContext;
         var modifier = NodeBuilder.ParseAccessModifier(parent?.visibility()?.GetText());
-        OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier));
+        var location = DeclaratorLocation(context, parent, parent?.constSubStmt(0) == context);
+        OnExitParent(builder => builder.BuildConstDeclaration(context, _isInsideProcedure ? ConstKind.Local : ConstKind.ModuleMember, modifier, location));
     }
 
     // one node per `ReDim` target, built wherever the statement parses — no position guard, like
@@ -268,7 +359,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitRedimVariableDeclaration([NotNull] VBAParser.RedimVariableDeclarationContext context)
     {
         // recovery can leave Parent.Parent not pointing at the redimStmt that carries `Preserve`.
-        var isPreserve = (context.Parent?.Parent as VBAParser.RedimStmtContext)?.PRESERVE() is not null;
+        var statement = context.Parent?.Parent as VBAParser.RedimStmtContext;
+        var isPreserve = statement?.PRESERVE() is not null;
+        var location = DeclaratorLocation(context, statement, (context.Parent as VBAParser.RedimDeclarationListContext)?.redimVariableDeclaration(0) == context);
 
         // the bounds are captured here rather than inside the builder because a ReDim's are ordinary
         // run-time expressions (MS-VBAL §5.4.3.3) and only the listener can walk a subtree into nodes. This
@@ -278,7 +371,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         // the target is an expression - `a`, `obj.Buffer`, `.Buffer` - to evaluate for the array it holds and to write the new one back through.
         var target = CaptureIsolatedExpression(IndexedCallee(context.expression()));
 
-        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve, bounds, target));
+        OnExitParent(builder => builder.BuildRedimDeclaration(context, isPreserve, bounds, target, location));
     }
 
     // the callee of an `x(...)` index expression, whichever of the two index shapes it took.
@@ -573,7 +666,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
         var arguments = context.eventArgumentList()?.eventArgument().Select((argument, index) => CaptureEventArgument(id.Add(0).Add(index), argument)) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -875,6 +968,145 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new PrintStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), token, fileNumber, items));
     }
 
+    // The graphics statements (RD-VBAL, see GraphicsMethodStatementNode) are the four "special form" rules of the grammar. Each has the object it draws on in front,
+    // coordinate pairs that are no expressions, and arguments that may be left out between commas - and none of that fits the shape of a call, which is why the
+    // parser used to build nothing at all for them.
+    public override void ExitCircleSpecialForm([NotNull] VBAParser.CircleSpecialFormContext context)
+    {
+        var (target, isWithRelative, arguments) = SplitReceiver(context.DOT(), context.expression());
+        BuildGraphicsStatement(
+            context, Tokens.Circle,
+            target, isWithRelative,
+            context.tuple(), context.CIRCLE().Symbol.TokenIndex, [context.STEP()],
+            second: null, beforeSecond: 0, secondSteps: [],
+            context.COMMA(), arguments, lineOption: null);
+    }
+
+    public override void ExitPSetSpecialForm([NotNull] VBAParser.PSetSpecialFormContext context)
+    {
+        var (target, isWithRelative, arguments) = SplitReceiver(context.DOT(), context.expression());
+        BuildGraphicsStatement(
+            context, Tokens.PSet,
+            target, isWithRelative,
+            context.tuple(), context.PSET().Symbol.TokenIndex, [context.STEP()],
+            second: null, beforeSecond: 0, secondSteps: [],
+            context.COMMA() is { } comma ? [comma] : [], arguments, lineOption: null);
+    }
+
+    public override void ExitScaleSpecialForm([NotNull] VBAParser.ScaleSpecialFormContext context)
+    {
+        var tuples = context.tuple();
+        var (target, isWithRelative, _) = SplitReceiver(context.DOT(), context.expression() is { } receiver ? [receiver] : []);
+        BuildGraphicsStatement(
+            context, Tokens.Scale,
+            target, isWithRelative,
+            tuples.ElementAtOrDefault(0), context.SCALE().Symbol.TokenIndex, [],
+            tuples.ElementAtOrDefault(1), context.MINUS().Symbol.TokenIndex, [],
+            [], [], lineOption: null);
+    }
+
+    // `Line` is not a keyword, so the grammar reads the object and the word together as one expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
+    public override void ExitLineSpecialForm([NotNull] VBAParser.LineSpecialFormContext context)
+    {
+        var callee = context.expression(0);
+
+        // the rule takes any expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
+        if (!callee.GetText().EndsWith(Tokens.Line, StringComparison.OrdinalIgnoreCase))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+            return;
+        }
+
+        (VBABaseParserRuleContext? target, bool isWithRelative) = callee is VBAParser.LExprContext lExpr
+            ? lExpr.lExpression() switch
+            {
+                VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
+                VBAParser.WithMemberAccessExprContext => (null, true),
+                _ => (null, false),
+            }
+            : (null, false);
+
+        var tuples = context.tuple();
+        var steps = context.STEP();
+        var minus = context.MINUS().Symbol.TokenIndex;
+        // the first point is optional, and the second is not: with one tuple it is the second, and it is what follows the minus sign.
+        var hasStart = tuples.Length > 1;
+        BuildGraphicsStatement(
+            context, Tokens.Line,
+            target, isWithRelative,
+            hasStart ? tuples[0] : null, callee.Stop.TokenIndex, steps,
+            tuples.LastOrDefault(), minus, steps,
+            // only the first comma has a color after it: the second one is followed by the B or BF.
+            context.COMMA().Take(1).ToArray(), context.expression().Skip(1).ToArray(), context.lineSpecialFormOption()?.GetText());
+    }
+
+    // What stands before the dot is the object, if anything does; a dot with nothing before it is the object of the enclosing With block. The rest of the
+    // expressions are the statement's own arguments.
+    private static (VBAParser.ExpressionContext? Target, bool IsWithRelative, VBAParser.ExpressionContext[] Remaining) SplitReceiver(
+        ITerminalNode? dot, VBAParser.ExpressionContext[] expressions)
+    {
+        if (dot is null)
+        {
+            return (null, false, expressions);
+        }
+
+        var target = expressions.FirstOrDefault(expression => expression.Start.TokenIndex < dot.Symbol.TokenIndex);
+        return (target, target is null, target is null ? expressions : [.. expressions.Where(expression => expression != target)]);
+    }
+
+    private void BuildGraphicsStatement(
+        VBABaseParserRuleContext context, string token,
+        VBABaseParserRuleContext? target, bool isWithRelative,
+        VBAParser.TupleContext? first, int beforeFirst, ITerminalNode?[] firstSteps,
+        VBAParser.TupleContext? second, int beforeSecond, ITerminalNode?[] secondSteps,
+        ITerminalNode[] commas, VBAParser.ExpressionContext[] expressions, string? lineOption)
+    {
+        var id = GetCurrentNodeId();
+        var capturedTarget = CaptureIsolatedExpression(target);
+        var from = CaptureGraphicsPoint(id.Add(0), first, beforeFirst, firstSteps);
+        var to = CaptureGraphicsPoint(id.Add(1), second, beforeSecond, secondSteps);
+
+        // a malformed statement - a coordinate pair that recovery left without a coordinate, or an object that did not come out as an expression - is still the
+        // source text it was.
+        if ((target is not null && capturedTarget is null)
+            || (first is not null && from is null) || (second is not null && to is null)
+            || (token != Tokens.Line && first is null))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+            return;
+        }
+
+        // an argument is the expression after its own comma; one that is left out leaves no node, so each is found by where it stands between the commas.
+        var arguments = commas.Select((comma, index) =>
+        {
+            var nextComma = index + 1 < commas.Length ? commas[index + 1].Symbol.TokenIndex : int.MaxValue;
+            var written = expressions.FirstOrDefault(e => e.Start.TokenIndex > comma.Symbol.TokenIndex && e.Start.TokenIndex < nextComma);
+            return written is null ? null : CaptureIsolatedExpression(written);
+        }).ToImmutableArray();
+
+        CurrentBuilder.AddChild(new GraphicsMethodStatementNode(
+            id, context.GetSourceLocation(_rootUri), token, capturedTarget, isWithRelative, from, to, arguments, lineOption));
+    }
+
+    // The Step keyword is written before the parenthesis and after whatever comes before the pair, so it is the one that stands between the two.
+    private GraphicsPointNode? CaptureGraphicsPoint(SyntaxNodeId id, VBAParser.TupleContext? tuple, int after, ITerminalNode?[] steps)
+    {
+        if (tuple is null)
+        {
+            return null;
+        }
+
+        var x = CaptureIsolatedExpression(tuple.expression(0));
+        var y = CaptureIsolatedExpression(tuple.expression(1));
+        if (x is null || y is null)
+        {
+            return null;
+        }
+
+        var isRelative = steps.Any(step => step is not null && step.Symbol.TokenIndex > after && step.Symbol.TokenIndex < tuple.Start.TokenIndex);
+        return new GraphicsPointNode(id, tuple.GetSourceLocation(_rootUri), isRelative, x, y);
+    }
+
     // `Open` (MS-VBAL §5.4.5.1) needs its own shape — Mode/Access/Lock are keyword choices, not
     // expressions, so it can't ride KeywordStatementNode like the rest of the file statements.
     public override void ExitOpenStmt([NotNull] VBAParser.OpenStmtContext context)
@@ -1097,7 +1329,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         var location = context.GetSourceLocation(_rootUri);
-        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value));
+        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value, identifier.TypeHint()));
     }
 
     // `lExpression` (MS-VBAL §5.6.10-16) is left-recursive, same as `expression` — every alternative
@@ -1133,7 +1365,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1150,7 +1382,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1167,7 +1399,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1184,7 +1416,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1846,45 +2078,79 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void ExitStatementLabelDefinition([NotNull] VBAParser.StatementLabelDefinitionContext context)
     {
         string? name = default;
-        int? number = default;
         var labelLocation = context.GetSourceLocation(_rootUri);
         var lineNumberLocation = labelLocation;
 
-        if (context.standaloneLineNumberLabel()?.lineNumberLabel() is VBAParser.LineNumberLabelContext numContextA)
+        VBAParser.LineNumberLabelContext? numberContext = null;
+        if (context.standaloneLineNumberLabel() is { } standalone)
         {
-            lineNumberLocation = numContextA.GetSourceLocation(_rootUri);
-            number = LineNumber(numContextA);
+            // `10:` - the colon is part of the label as written.
+            numberContext = standalone.lineNumberLabel();
+            lineNumberLocation = standalone.GetSourceLocation(_rootUri);
         }
-        else if (context.combinedLabels()?.lineNumberLabel() is VBAParser.LineNumberLabelContext numContextB)
+        else if (context.combinedLabels() is { } combined)
         {
-            lineNumberLocation = numContextB.GetSourceLocation(_rootUri);
-            number = LineNumber(numContextB);
-        }
-        else if (context.identifierStatementLabel()?.legalLabelIdentifier()?.identifier() is VBAParser.IdentifierContext labelContextA)
-        {
-            labelLocation = labelContextA.GetSourceLocation(_rootUri);
-            name = labelContextA.GetText();
-        }
-        else if (context.combinedLabels()?.identifierStatementLabel()?.legalLabelIdentifier()?.identifier() is VBAParser.IdentifierContext labelContextB)
-        {
-            labelLocation = labelContextB.GetSourceLocation(_rootUri);
-            name = labelContextB.GetText();
+            numberContext = combined.lineNumberLabel();
+            lineNumberLocation = numberContext.GetSourceLocation(_rootUri);
         }
 
-        if (number.HasValue)
+        var identifierLabel = context.identifierStatementLabel() ?? context.combinedLabels()?.identifierStatementLabel();
+        if (identifierLabel?.legalLabelIdentifier()?.identifier() is { } labelIdentifier)
         {
-            CurrentBuilder.AddChild(new LineNumberNode(GetCurrentNodeId(), lineNumberLocation, number.Value));
+            // `Label:` - the colon is part of the label as written.
+            labelLocation = identifierLabel.GetSourceLocation(_rootUri);
+            name = labelIdentifier.GetText();
+        }
+
+        var number = numberContext is null ? null : LineNumber(numberContext);
+        if (numberContext is not null)
+        {
+            // a line number the language has no such thing as (a fraction) is the text it was and still not nothing.
+            CurrentBuilder.AddChild(number.HasValue
+                ? new LineNumberNode(GetCurrentNodeId(), lineNumberLocation, number.Value)
+                : new UnbuiltStatementTriviaNode(GetCurrentNodeId(), lineNumberLocation, numberContext.GetText(), []));
         }
         if (name is not null)
         {
             CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name));
         }
 
-        // lineNumberLabel is `MINUS? numberLiteral`, so it can carry a sign or a non-decimal token;
-        // only a bare non-negative integer is a line number, anything else contributes no node.
+        // lineNumberLabel is `MINUS? numberLiteral`: VBE can prettify &HFFFFFFFF into -1, which is a legal line number, so a sign and the other radixes are read.
         static int? LineNumber(VBAParser.LineNumberLabelContext context)
-            => context.MINUS() is null && int.TryParse(context.numberLiteral()?.GetText(), out var value)
-                ? value
-                : null;
+        {
+            var text = context.numberLiteral()?.GetText();
+            if (text is null)
+            {
+                return null;
+            }
+
+            long magnitude;
+            if (text.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
+            {
+                text = text[2..].TrimEnd('&');
+                if (!long.TryParse(text, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out magnitude))
+                {
+                    return null;
+                }
+            }
+            else if (text.StartsWith("&O", StringComparison.OrdinalIgnoreCase) || (text.Length > 1 && text[0] == '&' && char.IsDigit(text[1])))
+            {
+                try
+                {
+                    magnitude = Convert.ToInt64(text.TrimStart('&').TrimStart('O', 'o').TrimEnd('&'), 8);
+                }
+                catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+                {
+                    return null;
+                }
+            }
+            else if (!long.TryParse(text, out magnitude))
+            {
+                return null;
+            }
+
+            var value = context.MINUS() is null ? magnitude : -magnitude;
+            return value is >= int.MinValue and <= int.MaxValue ? (int)value : null;
+        }
     }
 }

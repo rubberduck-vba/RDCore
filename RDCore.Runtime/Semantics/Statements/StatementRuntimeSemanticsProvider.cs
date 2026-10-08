@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -102,9 +103,30 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             FileLockStatementNode fileLock => _files.ExecuteLock(session, context, fileLock),
             // MS-VBAL §5.4.2.20: invokes the procedures that handle an event of the object whose code this is.
             KeywordStatementNode { Token: Tokens.RaiseEvent } raise => ExecuteRaiseEvent(session, context, raise),
+            // RD-VBAL: Circle, Line, PSet and Scale are methods of an object that can be drawn on.
+            GraphicsMethodStatementNode graphics => ExecuteGraphics(session, context, graphics),
             CallStatementNode call => ExecuteCall(session, context, call),
             _ => RuntimeExecutionOutcome.InternalError,
         };
+
+    // The object is evaluated, because naming one that is not there is an error of its own; and then it is asked for a method it does not have, because the
+    // objects of the platform are not surfaces. The statement with no object at all never gets here (GraphicsStatementStaticSemantics).
+    // TODO an object that is a drawing surface, a form or a picture box of a document module, is where this draws.
+    private RuntimeExecutionOutcome ExecuteGraphics(IRuntimeSession session, RuntimeEvaluationContext context, GraphicsMethodStatementNode graphics)
+    {
+        if (graphics.Target is { } target)
+        {
+            var result = _expressionEvaluator.Evaluate(session, target, context);
+            if (!result.IsSuccess)
+            {
+                return result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+            }
+        }
+
+        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+            VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, graphics.SourceLocation,
+            $"The object has no {graphics.Token} method: the platform has no surface to draw on."));
+    }
 
     // the parser gives the event's name as the first input, a bare name that is not an expression to evaluate, and the
     // arguments after it.
@@ -195,7 +217,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var targetResult = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         if (targetResult.Symbol is not ITypedSymbol target)
         {
             return RuntimeExecutionOutcome.InternalError;
