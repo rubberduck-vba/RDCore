@@ -312,6 +312,15 @@ public record class SdkServerOptions
     /// This setting is <strong>read-only</strong> and must be explicitly overridden via a command-line argument.
     /// </remarks>
     public bool UnsafeDevMode { get; set; }
+    /// <summary>
+    /// Whether the standard streams of the child processes this server starts are its own to read, instead of the ones it was started with.
+    /// </summary>
+    /// <remarks>
+    /// A child process normally shares the console of the process that starts it. A server whose own standard output carries a protocol (a debug adapter, speaking
+    /// <strong>DAP</strong> over <c>stdio</c>) cannot let anything else write to it - one stray line is a corrupt message - nor let anything else read from its input. When
+    /// this is set, a child's input is closed, and what it writes is logged at <see cref="LogLevel.Trace"/> and goes nowhere else.
+    /// </remarks>
+    public bool CaptureChildOutput { get; set; }
 }
 
 /// <summary>

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
@@ -61,30 +62,7 @@ internal sealed class CoreLanguageServerApp(
         var platform = composition.GetManifest();
         LogIfEnabled(LogLevel.Information, "✅ Acquired platform manifest");
 
-        orchestration
-            .RegisterCoreComponent(factory =>
-                factory.Create(CoreServerComponent.ParsingServer,
-                    new CorePlatformClientCapabilities
-                    {
-                        Parsing = new ParserCapabilities
-                        {
-                            ParseFullDocument = new ParseFullDocument(true)
-                        }
-                    }))
-            .RegisterCoreComponent(factory =>
-                factory.Create(CoreServerComponent.EnvironmentHost,
-                    new CorePlatformClientCapabilities
-                    {
-                        EnvironmentHost = new EnvironmentHostCapabilities
-                        {
-                            DefineSymbols = new DefineSymbols(true),
-                            SessionStatus = new SessionStatus(true),
-                            SessionExecute = new SessionExecute(true),
-                            SessionDiscard = new SessionDiscard(true),
-                            ProgramDebugging = new ProgramDebugging(true),
-                            SessionMemoryAccess = new SessionMemoryAccess(true),
-                        }
-                    }));
+        orchestration.RegisterCorePlatformComponents();
 
         LogIfEnabled(LogLevel.Information, "✅ Registered RDCore platform components");
 
@@ -145,6 +123,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IProgramDebugService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolSyncService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IDocumentLifecycleService>());

@@ -18,6 +18,14 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        // the same platform, spoken to by a debugger client over standard input and output.
+        if (RDCore.LanguageServer.Debugging.DebugAdapterEntry.IsRequested(args))
+        {
+            var adapterCode = await RDCore.LanguageServer.Debugging.DebugAdapterEntry.RunAsync(args);
+            ProcessWatchdog.Arm(adapterCode);
+            return adapterCode;
+        }
+
         var host = new CoreLanguageServerHost();
         int code;
         try

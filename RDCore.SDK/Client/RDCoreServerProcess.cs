@@ -160,6 +160,10 @@ public class RDCoreServerProcess(
 
         _serverProcess = Process.Start(info) ?? throw new ServerNotFoundException(fullPath);
         _waitForExit = _serverProcess.WaitForExitAsync(_tokenSource.Token);
+        if (Options.Value.Server.CaptureChildOutput)
+        {
+            Capture(_serverProcess, System.IO.Path.GetFileName(fullPath));
+        }
 
         // no fixed start-up delay: the caller races the transport connect against WaitForExitAsync().
         // only guard against a process that fails before it is even scheduled.
@@ -193,16 +197,38 @@ public class RDCoreServerProcess(
         return $"-p {clientProcessId} -n {pipeName} -w \"{workspace}\" {languageArgument}-t {trace} {(verbose ? "-v" : null)}";
     }
 
-    private ProcessStartInfo CreateProcessStartInfo(string validPath, string args) => new()
+    // the child's input is closed (nothing it reads is the owner's) and what it writes is logged, so that none of it reaches a stream of ours.
+    private void Capture(Process process, string name)
     {
-        FileName = validPath,
-        WorkingDirectory = FileSystem.Path.GetDirectoryName(validPath),
-        Arguments = args,
-        CreateNoWindow = true,
-        UseShellExecute = false,
+        process.StandardInput.Close();
+        process.OutputDataReceived += (_, line) => LogChildOutput(name, line.Data);
+        process.ErrorDataReceived += (_, line) => LogChildOutput(name, line.Data);
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+    }
 
-        RedirectStandardInput = false,
-        RedirectStandardOutput = false,
-        RedirectStandardError = false
-    };
+    private void LogChildOutput(string name, string? line)
+    {
+        if (line is not null && Logger.IsEnabled(LogLevel.Trace))
+        {
+            Logger.LogTrace("[{child}] {line}", name, line);
+        }
+    }
+
+    private ProcessStartInfo CreateProcessStartInfo(string validPath, string args)
+    {
+        var capture = Options.Value.Server.CaptureChildOutput;
+        return new()
+        {
+            FileName = validPath,
+            WorkingDirectory = FileSystem.Path.GetDirectoryName(validPath),
+            Arguments = args,
+            CreateNoWindow = true,
+            UseShellExecute = false,
+
+            RedirectStandardInput = capture,
+            RedirectStandardOutput = capture,
+            RedirectStandardError = capture,
+        };
+    }
 }
