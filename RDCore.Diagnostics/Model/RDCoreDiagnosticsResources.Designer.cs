@@ -350,6 +350,123 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteCommentSyntax_Message</c>.
+        /// </summary>
+        public static string ObsoleteCommentSyntax_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteCommentSyntax_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteErrorSyntax_Message</c>.
+        /// </summary>
+        public static string ObsoleteErrorSyntax_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteErrorSyntax_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteGlobalModifier_Message</c>.
+        /// </summary>
+        public static string ObsoleteGlobalModifier_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteGlobalModifier_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteLetStatement_Message</c>.
+        /// </summary>
+        public static string ObsoleteLetStatement_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteLetStatement_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteTypeHint_Message</c>; <c>{0}</c> is the name.
+        /// </summary>
+        public static string ObsoleteTypeHint_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteTypeHint_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteWhileWend_Message</c>.
+        /// </summary>
+        public static string ObsoleteWhileWend_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteWhileWend_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ObsoleteOnLocalErrorStatement_Message</c>.
+        /// </summary>
+        public static string ObsoleteOnLocalErrorStatement_Message {
+            get {
+                return ResourceManager.GetString("ObsoleteOnLocalErrorStatement_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ImplementationsShouldBePrivate_Interface_Message</c>; <c>{0}</c> is the member.
+        /// </summary>
+        public static string ImplementationsShouldBePrivate_Interface_Message {
+            get {
+                return ResourceManager.GetString("ImplementationsShouldBePrivate_Interface_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>ImplementationsShouldBePrivate_EventHandler_Message</c>; <c>{0}</c> is the member.
+        /// </summary>
+        public static string ImplementationsShouldBePrivate_EventHandler_Message {
+            get {
+                return ResourceManager.GetString("ImplementationsShouldBePrivate_EventHandler_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>UseMeaningfulIdentifierNames_TooShort_Message</c>; <c>{0}</c> is the name.
+        /// </summary>
+        public static string UseMeaningfulIdentifierNames_TooShort_Message {
+            get {
+                return ResourceManager.GetString("UseMeaningfulIdentifierNames_TooShort_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>UseMeaningfulIdentifierNames_EndsWithDigit_Message</c>; <c>{0}</c> is the name.
+        /// </summary>
+        public static string UseMeaningfulIdentifierNames_EndsWithDigit_Message {
+            get {
+                return ResourceManager.GetString("UseMeaningfulIdentifierNames_EndsWithDigit_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>UseMeaningfulIdentifierNames_NoVowel_Message</c>; <c>{0}</c> is the name.
+        /// </summary>
+        public static string UseMeaningfulIdentifierNames_NoVowel_Message {
+            get {
+                return ResourceManager.GetString("UseMeaningfulIdentifierNames_NoVowel_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string for the message of the diagnostic named <c>HungarianNotation_Message</c>; <c>{0}</c> is the name.
+        /// </summary>
+        public static string HungarianNotation_Message {
+            get {
+                return ResourceManager.GetString("HungarianNotation_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string for the message of the diagnostic named <c>MisleadingByRefParameter_Message</c>; <c>{0}</c> is the parameter.
         /// </summary>
         public static string MisleadingByRefParameter_Message {

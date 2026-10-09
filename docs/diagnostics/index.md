@@ -180,6 +180,16 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00205](rdc00205.md)|Misleading ByRef parameter — ByRef on the value parameter of a property Let or Set|
 |[RDC00206](rdc00206.md)|Not all code paths return a value — a function or property getter with a code path that does not assign its return value|
 |[RDC00302](rdc00302.md)|Obsolete Call statement — a call statement written with the Call keyword|
+|[RDC00303](rdc00303.md)|Obsolete comment syntax — a comment written with the Rem keyword|
+|[RDC00304](rdc00304.md)|Obsolete error syntax — an Error statement|
+|[RDC00305](rdc00305.md)|Obsolete Global modifier — a declaration with the Global modifier|
+|[RDC00306](rdc00306.md)|Obsolete Let statement — an assignment written with the Let keyword|
+|[RDC00307](rdc00307.md)|Obsolete type hint — a name written with a type-declaration character|
+|[RDC00308](rdc00308.md)|Obsolete While…Wend — a loop written While…Wend|
+|[RDC00309](rdc00309.md)|Obsolete On Local Error statement — an error handler set with On Local Error|
+|[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
+|[RDC01001](rdc01001.md)|Use meaningful identifier names — a name too short, ending with a digit, or without a vowel|
+|[RDC01002](rdc01002.md)|Hungarian notation — a name that begins with a prefix that states its type|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

@@ -85,6 +85,16 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.MisleadingByRefParameter, 205),
         (RDCoreDiagnosticId.NotAllPathsReturnValue, 206),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
+        (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
+        (RDCoreDiagnosticId.ObsoleteErrorSyntax, 304),
+        (RDCoreDiagnosticId.ObsoleteGlobalModifier, 305),
+        (RDCoreDiagnosticId.ObsoleteLetStatement, 306),
+        (RDCoreDiagnosticId.ObsoleteTypeHint, 307),
+        (RDCoreDiagnosticId.ObsoleteWhileWend, 308),
+        (RDCoreDiagnosticId.ObsoleteOnLocalErrorStatement, 309),
+        (RDCoreDiagnosticId.ImplementationsShouldBePrivate, 405),
+        (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
+        (RDCoreDiagnosticId.HungarianNotation, 1002),
     ];
 
     [TestMethod]

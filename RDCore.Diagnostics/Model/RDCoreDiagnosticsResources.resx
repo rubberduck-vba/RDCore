@@ -213,6 +213,45 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' n'assigne jamais sa valeur de retour: l'appelant re&#231;oit toujours la valeur par d&#233;faut du type (0, une cha&#238;ne vide, Empty ou Nothing).</value>
   </data>
+  <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
+    <value>Le mot-cl&#233; Rem est obsol&#232;te: un commentaire commence par une apostrophe (').</value>
+  </data>
+  <data name="ObsoleteErrorSyntax_Message" xml:space="preserve">
+    <value>L'instruction Error est obsol&#232;te: Err.Raise soul&#232;ve la m&#234;me erreur.</value>
+  </data>
+  <data name="ObsoleteGlobalModifier_Message" xml:space="preserve">
+    <value>Global est obsol&#232;te: il fait la m&#234;me chose que Public.</value>
+  </data>
+  <data name="ObsoleteLetStatement_Message" xml:space="preserve">
+    <value>Le mot-cl&#233; Let est obsol&#232;te: l'affectation est la m&#234;me sans lui.</value>
+  </data>
+  <data name="ObsoleteTypeHint_Message" xml:space="preserve">
+    <value>'{0}' est &#233;crit avec un caract&#232;re de d&#233;claration de type, ce qui est obsol&#232;te: indiquez son type avec une clause As l&#224; o&#249; il est d&#233;clar&#233;.</value>
+  </data>
+  <data name="ObsoleteWhileWend_Message" xml:space="preserve">
+    <value>While...Wend est obsol&#232;te: Do While...Loop est la m&#234;me boucle, et celle que Exit Do peut quitter.</value>
+  </data>
+  <data name="ObsoleteOnLocalErrorStatement_Message" xml:space="preserve">
+    <value>On Local Error est obsol&#232;te: toute erreur est locale &#224; la proc&#233;dure, donc Local ne dit rien. Utilisez On Error.</value>
+  </data>
+  <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
+    <value>'{0}' impl&#233;mente un membre d'une interface, et est Public: il expose ce membre sur l'interface par d&#233;faut de cette classe, o&#249; il n'a pas sa place. Rendez-le Private.</value>
+  </data>
+  <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
+    <value>'{0}' g&#232;re un &#233;v&#233;nement, et est Public: on peut l'appeler de l'ext&#233;rieur, ce qu'un gestionnaire d'&#233;v&#233;nement ne devrait jamais permettre. Rendez-le Private.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_TooShort_Message" xml:space="preserve">
+    <value>'{0}' est trop court pour dire ce qu'il est: un nom devrait avoir au moins 3 caract&#232;res.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_EndsWithDigit_Message" xml:space="preserve">
+    <value>'{0}' se termine par un chiffre, ce qui dit qu'il est l'un de plusieurs et non ce qui le distingue des autres. Donnez-lui un nom qui dit ce qu'il est.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
+    <value>'{0}' n'a aucune voyelle, et n'est probablement pas un mot. Donnez-lui un nom qui dit ce qu'il est.</value>
+  </data>
+  <data name="HungarianNotation_Message" xml:space="preserve">
+    <value>'{0}' commence par un pr&#233;fixe qui indique son type. Le type est d&#233;clar&#233;: le nom devrait dire ce qu'est la chose, pas de quoi elle est faite.</value>
+  </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
     <value>ByRef n'a aucun effet sur '{0}', le param&#232;tre de valeur d'une propri&#233;t&#233; Let ou Set: il est toujours pass&#233; ByVal.</value>
   </data>

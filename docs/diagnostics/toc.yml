@@ -270,3 +270,23 @@
   href: rdc00206.md
 - name: RDC00302 — Obsolete Call statement
   href: rdc00302.md
+- name: RDC00303 — Obsolete comment syntax
+  href: rdc00303.md
+- name: RDC00304 — Obsolete error syntax
+  href: rdc00304.md
+- name: RDC00305 — Obsolete Global modifier
+  href: rdc00305.md
+- name: RDC00306 — Obsolete Let statement
+  href: rdc00306.md
+- name: RDC00307 — Obsolete type hint
+  href: rdc00307.md
+- name: RDC00308 — Obsolete While…Wend
+  href: rdc00308.md
+- name: RDC00309 — Obsolete On Local Error statement
+  href: rdc00309.md
+- name: RDC00405 — Implementations should be private
+  href: rdc00405.md
+- name: RDC01001 — Use meaningful identifier names
+  href: rdc01001.md
+- name: RDC01002 — Hungarian notation
+  href: rdc01002.md

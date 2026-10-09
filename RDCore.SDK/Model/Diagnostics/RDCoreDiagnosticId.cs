@@ -47,23 +47,23 @@ public enum RDCoreDiagnosticId
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
-    ObsoleteCommentSyntax,
-    //ObsoleteErrorSyntax,
-    ObsoleteGlobalModifier,
-    ObsoleteLetStatement,
-    ObsoleteTypeHint,
-    ObsoleteWhileWend,
-    ObsoleteOnLocalErrorStatement,
+    ObsoleteCommentSyntax = 303, // Rem, outside of a BASIC
+    ObsoleteErrorSyntax = 304, // the Error statement, outside of a BASIC
+    ObsoleteGlobalModifier = 305,
+    ObsoleteLetStatement = 306,
+    ObsoleteTypeHint = 307,
+    ObsoleteWhileWend = 308,
+    ObsoleteOnLocalErrorStatement = 309,
 
     ObsoleteMemberUsage = 401, // members with an @Obsolete annotation
     InvalidAnnotation = 404, // @NotAnAnnotationButParsedLikeOne
 
-    ImplementationsShouldBePrivate,
+    ImplementationsShouldBePrivate = 405,
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
-    HungarianNotation,
+    HungarianNotation = 1002,
 
     EmptyIfBlock,
     EmptyCodeBlock,

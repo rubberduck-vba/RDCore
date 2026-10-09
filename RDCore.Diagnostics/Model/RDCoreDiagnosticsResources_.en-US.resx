@@ -213,6 +213,45 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' never assigns its return value: the caller always gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
+  <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
+    <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
+  </data>
+  <data name="ObsoleteErrorSyntax_Message" xml:space="preserve">
+    <value>The Error statement is obsolete: Err.Raise raises the same error.</value>
+  </data>
+  <data name="ObsoleteGlobalModifier_Message" xml:space="preserve">
+    <value>Global is obsolete: it does the same as Public.</value>
+  </data>
+  <data name="ObsoleteLetStatement_Message" xml:space="preserve">
+    <value>The Let keyword is obsolete: the assignment is the same without it.</value>
+  </data>
+  <data name="ObsoleteTypeHint_Message" xml:space="preserve">
+    <value>'{0}' is written with a type-declaration character, which is obsolete: state its type with an As clause where it is declared.</value>
+  </data>
+  <data name="ObsoleteWhileWend_Message" xml:space="preserve">
+    <value>While...Wend is obsolete: Do While...Loop is the same loop, and the one that Exit Do can leave.</value>
+  </data>
+  <data name="ObsoleteOnLocalErrorStatement_Message" xml:space="preserve">
+    <value>On Local Error is obsolete: every error is local to the procedure, so Local says nothing. Use On Error.</value>
+  </data>
+  <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
+    <value>'{0}' implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private.</value>
+  </data>
+  <data name="ImplementationsShouldBePrivate_EventHandler_Message" xml:space="preserve">
+    <value>'{0}' handles an event, and is Public: it can be called from outside, which an event handler never should be. Make it Private.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_TooShort_Message" xml:space="preserve">
+    <value>'{0}' is too short to say what it is: a name should have at least 3 characters.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_EndsWithDigit_Message" xml:space="preserve">
+    <value>'{0}' ends with a digit, which says it is one of several and not what makes it different from the others. Give it a name that says what it is.</value>
+  </data>
+  <data name="UseMeaningfulIdentifierNames_NoVowel_Message" xml:space="preserve">
+    <value>'{0}' has no vowel, and is unlikely to be a word. Give it a name that says what it is.</value>
+  </data>
+  <data name="HungarianNotation_Message" xml:space="preserve">
+    <value>'{0}' begins with a prefix that states its type. The type is declared: the name should say what the thing is, not what it is made of.</value>
+  </data>
   <data name="MisleadingByRefParameter_Message" xml:space="preserve">
     <value>ByRef has no effect on '{0}', the value parameter of a property Let or Set: it is always passed ByVal.</value>
   </data>

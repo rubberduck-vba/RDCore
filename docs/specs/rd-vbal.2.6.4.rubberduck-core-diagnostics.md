@@ -39,6 +39,16 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00205`](../diagnostics/rdc00205.md)|Misleading ByRef parameter|Information|the syntax tree: `ParameterDeclarationNode.IsByRefIgnored`|
 |[`RDC00206`](../diagnostics/rdc00206.md)|Not all code paths return a value|Warning|`ProcedureSemanticModel.ReturnValue`, from the [`ControlFlowGraph`](../api/RDCore.SDK.Semantics.Flow.ControlFlowGraph.html) of the procedure|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
+|[`RDC00303`](../diagnostics/rdc00303.md)|Obsolete comment syntax|Information|`ModuleSemanticModel.Language` (`SupportedLanguage.UsesClassicBasicSyntax`), and the comments of the syntax tree|
+|[`RDC00304`](../diagnostics/rdc00304.md)|Obsolete error syntax|Information|`ModuleSemanticModel.Language`, and the syntax tree: an `Error` statement|
+|[`RDC00305`](../diagnostics/rdc00305.md)|Obsolete Global modifier|Information|the syntax tree: `AccessModifier.Global`|
+|[`RDC00306`](../diagnostics/rdc00306.md)|Obsolete Let statement|Information|the syntax tree: `AssignmentKind.ExplicitLet`|
+|[`RDC00307`](../diagnostics/rdc00307.md)|Obsolete type hint|Information|the syntax tree: the type hints of declarations; `ExpressionFact.Binding` of the references|
+|[`RDC00308`](../diagnostics/rdc00308.md)|Obsolete While…Wend|Information|the syntax tree: a `WhileWendStatementNode`|
+|[`RDC00309`](../diagnostics/rdc00309.md)|Obsolete On Local Error statement|Information|the syntax tree: `OnErrorGoToStatementNode.IsLocal`|
+|[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
+|[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.MeaningfulNames`|
+|[`RDC01002`](../diagnostics/rdc01002.md)|Hungarian notation|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.HungarianNotation`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same
 extension, from the same model.
