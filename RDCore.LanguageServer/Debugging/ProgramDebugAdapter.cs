@@ -492,7 +492,12 @@ internal sealed class ProgramDebugAdapter(
     public async Task<EvaluateResponse> Handle(EvaluateArguments request, CancellationToken cancellationToken)
     {
         var frame = (int)(request.FrameId ?? 0);
-        var result = await debugging.EvaluateAsync(frame, request.Expression, cancellationToken);
+
+        // the debug console is the immediate window: what is typed there is a statement, run in the frame, and nothing is shown that it does not print (?x, for Debug.Print x).
+        // A watch or a hover is asked for a value, and is never run as a statement.
+        var result = request.Context == EvaluateArgumentsContext.Repl
+            ? await debugging.ExecuteAsync(frame, request.Expression, cancellationToken)
+            : await debugging.EvaluateAsync(frame, request.Expression, cancellationToken);
 
         // what the expression printed is the debug console's, whichever way the value is asked for.
         foreach (var line in result.Output)

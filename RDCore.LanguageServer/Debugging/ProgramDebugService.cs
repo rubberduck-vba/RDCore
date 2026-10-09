@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -60,6 +61,16 @@ internal interface IProgramDebugService
     /// <param name="expression">The expression, as text.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<HostDebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token);
+
+    /// <summary>
+    /// Runs the statement a person typed in an activation of the program that waits, as the immediate window of a procedure that is stopped does.
+    /// </summary>
+    /// <param name="frameId">The activation, by its place on the stack.</param>
+    /// <param name="text">What was typed: one statement. <c>?</c> at the start of it is <c>Debug.Print</c>, as it is in the immediate window, and that is the only way a
+    /// value is shown - <c>x = 5</c> is an assignment, <c>?x = 5</c> is a comparison that is printed, and <c>SomeFunc(5)</c> is a call that prints nothing.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>What the statement printed, or why it was not run.</returns>
+    Task<HostDebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token);
 }
 
 /// <summary>
@@ -182,6 +193,41 @@ internal sealed class ProgramDebugService(
         await environment.WaitForReadyAsync(token);
         return await environment.SendRequestAsync<HostDebugEvaluateParams, HostDebugEvaluateResult>(
             new HostDebugEvaluateParams { FrameId = frameId, Json = PlatformJson.Serialize<ExpressionNode>(value) }, token);
+    }
+
+    public async Task<HostDebugEvaluateResult> ExecuteAsync(int frameId, string text, CancellationToken token)
+    {
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return new HostDebugEvaluateResult { Error = "no runtime environment component is registered" };
+        }
+
+        if (text.Contains('\n') || text.Contains('\r') || string.IsNullOrWhiteSpace(text))
+        {
+            return new HostDebugEvaluateResult { Error = "a statement is one line" };
+        }
+
+        // the immediate window writes a question mark for Debug.Print.
+        var trimmed = text.Trim();
+        var source = trimmed.StartsWith('?') ? $"Debug.Print {trimmed[1..].TrimStart()}" : trimmed;
+
+        // a statement is parsed in a procedure of its own, which is where the parser has statements.
+        var document = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = "Execute" }.Uri;
+        var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Execute()\r\n{source}\r\nEnd Sub\r\n", token);
+        if (!parsed.IsSuccess || parsed.SyntaxTree is null)
+        {
+            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? "this is not a statement" };
+        }
+
+        var statements = parsed.SyntaxTree.Children.OfType<MemberDeclarationNode>().SelectMany(member => member.Children.OfType<StatementNode>()).ToArray();
+        if (statements is not [var statement])
+        {
+            return new HostDebugEvaluateResult { Error = "one statement at a time" };
+        }
+
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostDebugExecuteParams, HostDebugEvaluateResult>(
+            new HostDebugExecuteParams { FrameId = frameId, Json = PlatformJson.Serialize<SyntaxNode>(statement) }, token);
     }
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);

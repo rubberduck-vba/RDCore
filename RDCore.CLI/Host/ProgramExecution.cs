@@ -2,11 +2,16 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
@@ -262,6 +267,56 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// the expression and not the program, and an <c>End</c> is the end of it.
     /// </remarks>
     public HostDebugEvaluateResult Evaluate(RuntimeExecutionPipeline pipeline, int frameId, ExpressionNode expression)
+        => InFrame(frameId, "expression", (session, stack, frame, procedure) =>
+        {
+            RuntimeSemanticsEvaluationResult result;
+            using (stack.Select(frame))
+            {
+                result = pipeline.Expressions.Evaluate(session, expression, new RuntimeEvaluationContext(procedure.Uri));
+            }
+
+            return result.IsSuccess
+                ? (result.Result, null)
+                : (null, result.IsInternalError ? UnevaluableBecause(session, expression, procedure.Uri) : result.ErrorInfo!.Description);
+        });
+
+    /// <summary>
+    /// Runs a statement in an activation of the program that waits, as if it were written in the procedure that activation is of.
+    /// </summary>
+    /// <param name="pipeline">What runs it.</param>
+    /// <param name="frameId">The activation, by its place on the stack.</param>
+    /// <param name="statement">The statement: an assignment, a call, anything a person could type in the Immediate window of a procedure that is stopped.</param>
+    /// <remarks>
+    /// Like <see cref="Evaluate"/>, on the thread of the request with the activation selected, so that its names are the activation's: an assignment to one of its locals
+    /// changes the local the program will go on with. The statement is a body of its own, in an activation of its own that is not on the call stack - the activation
+    /// selected is the program's, and where it waits is not for the statement to move.
+    /// </remarks>
+    public HostDebugEvaluateResult Execute(RuntimeExecutionPipeline pipeline, int frameId, SyntaxNode statement)
+        => InFrame(frameId, "statement", (session, stack, selected, procedure) =>
+        {
+            var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
+            var lowered = InstructionListLowering.Lower(new StatementBlock([statement]), options, MemberKind.Procedure);
+            var scratch = (CallStackFrame)session.Symbols.CreateFrame(selected.NodeId, selected.StaticSymbol, selected.Directives);
+            (scratch.Procedure, scratch.Body) = (procedure, lowered.InstructionList);
+
+            RuntimeExecutionOutcome outcome;
+            using (stack.Select(selected))
+            {
+                outcome = pipeline.Executor.Run(session, scratch, lowered.InstructionList, new RuntimeEvaluationContext(procedure.Uri));
+            }
+
+            return outcome.Kind switch
+            {
+                RuntimeExecutionOutcomeKind.Error => (null, outcome.ErrorInfo!.Description),
+                RuntimeExecutionOutcomeKind.InternalError => (null, "the interpreter cannot run this yet"),
+                _ => (null, null),
+            };
+        });
+
+    // What it takes to run something in an activation of the program that waits, whichever the something is: the program waits, the activation is on its stack, what the
+    // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. Called with nothing locked.
+    private HostDebugEvaluateResult InFrame(
+        int frameId, string what, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
     {
         lock (_sync)
         {
@@ -282,11 +337,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             provider.Output.Target = output;
             try
             {
-                RuntimeSemanticsEvaluationResult result;
-                using (stack.Select(frames[frameId]))
-                {
-                    result = pipeline.Expressions.Evaluate(session, expression, new RuntimeEvaluationContext(procedure.Uri));
-                }
+                var (value, failure) = run(session, stack, frames[frameId], procedure);
 
                 if (session.Halt.Pending is { } halt)
                 {
@@ -294,28 +345,32 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                     if (halt is RuntimeHaltKind.End)
                     {
                         EndSuspended(session, wipe: true);
-                        return Unevaluated("the expression ended the program", output);
+                        return Unevaluated($"the {what} ended the program", output);
                     }
 
-                    return Unevaluated("the expression was stopped by a Stop", output);
+                    return Unevaluated($"the {what} was stopped by a Stop", output);
                 }
 
-                if (result.IsSuccess)
+                if (failure is not null)
                 {
-                    var described = _inspector.Describe(string.Empty, result.Result);
-                    return new HostDebugEvaluateResult
-                    {
-                        Success = true,
-                        Value = described.Value,
-                        Type = described.Type,
-                        Reference = described.Reference,
-                        Output = output.Lines,
-                    };
+                    return Unevaluated(failure, output);
                 }
 
-                return Unevaluated(
-                    result.IsInternalError ? UnevaluableBecause(session, expression, procedure.Uri) : result.ErrorInfo!.Description,
-                    output);
+                if (value is null)
+                {
+                    // a statement has no value: it is done.
+                    return new HostDebugEvaluateResult { Success = true, Output = output.Lines };
+                }
+
+                var described = _inspector.Describe(string.Empty, value);
+                return new HostDebugEvaluateResult
+                {
+                    Success = true,
+                    Value = described.Value,
+                    Type = described.Type,
+                    Reference = described.Reference,
+                    Output = output.Lines,
+                };
             }
             finally
             {

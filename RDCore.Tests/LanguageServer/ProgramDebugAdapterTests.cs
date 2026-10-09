@@ -498,6 +498,64 @@ public sealed class ProgramDebugAdapterTests
     }
 
     [TestMethod]
+    public async Task AStatementTypedInTheDebugConsole_IsRunInTheFrame_AndIsNotEvaluated()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.ExecuteAsync(1, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true }));
+
+        var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 1, Context = EvaluateArgumentsContext.Repl });
+
+        Assert.AreEqual(string.Empty, response.Result);
+        await session.Debugging.DidNotReceiveWithAnyArgs().EvaluateAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AStatementThatFails_IsRefused_WithTheReason()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.ExecuteAsync(0, "k = 1 \\ 0", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "Division by zero" }));
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "k = 1 \\ 0", FrameId = 0, Context = EvaluateArgumentsContext.Repl }));
+
+        StringAssert.Contains(refusal.Message, "Division by zero");
+    }
+
+    [TestMethod]
+    public async Task WhatTheDebugConsoleShows_IsWhatTheStatementPrinted_AndNothingElse()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.ExecuteAsync(0, "?k + 1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Output = [" 8 "] }));
+
+        var response = await session.SendAsync(new EvaluateArguments { Expression = "?k + 1", FrameId = 0, Context = EvaluateArgumentsContext.Repl });
+
+        var output = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual(" 8 \n", output.Output);
+        Assert.AreEqual(OutputEventCategory.Console, output.Category);
+        Assert.AreEqual(string.Empty, response.Result, "a value is shown by printing it");
+    }
+
+    [TestMethod]
+    [DataRow("watch")]
+    [DataRow("hover")]
+    public async Task AWatchOrAHover_IsOnlyEverEvaluated_NeverRunAsAStatement(string kind)
+    {
+        var context = kind == "watch" ? EvaluateArgumentsContext.Watch : EvaluateArgumentsContext.Hover;
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.EvaluateAsync(0, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "False", Type = "Boolean" }));
+
+        var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 0, Context = context });
+
+        Assert.AreEqual("False", response.Result);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ExecuteAsync(default, default!, default);
+    }
+
+    [TestMethod]
     public async Task ATerminate_EndsTheProgram_AndSaysSo()
     {
         await using var session = new Session();
@@ -675,7 +733,7 @@ public sealed class ProgramDebugAdapterTests
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "1", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Integer" }));
 
-        _ = await session.SendAsync(new EvaluateArguments { Expression = "1", Context = EvaluateArgumentsContext.Repl });
+        _ = await session.SendAsync(new EvaluateArguments { Expression = "1", Context = EvaluateArgumentsContext.Watch });
 
         await session.Debugging.Received(1).EvaluateAsync(0, "1", Arg.Any<CancellationToken>());
     }
@@ -701,7 +759,7 @@ public sealed class ProgramDebugAdapterTests
         session.Debugging.EvaluateAsync(0, "Noisy()", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
 
-        _ = await session.SendAsync(new EvaluateArguments { Expression = "Noisy()", FrameId = 0, Context = EvaluateArgumentsContext.Repl });
+        _ = await session.SendAsync(new EvaluateArguments { Expression = "Noisy()", FrameId = 0, Context = EvaluateArgumentsContext.Watch });
 
         var output = await session.NextAsync<OutputEvent>();
         Assert.AreEqual("from the call\n", output.Output);
