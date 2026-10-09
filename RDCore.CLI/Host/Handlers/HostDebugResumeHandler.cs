@@ -18,7 +18,7 @@ internal sealed class HostDebugResumeHandler(
     {
         if (!sessionProvider.IsComposed)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = "there is no runtime session to run in" };
+            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = Resources.Host_NoRuntimeSessionToRunIn };
         }
 
         var result = await sessionProvider.Execution.ResumeAsync(request.Step, token);

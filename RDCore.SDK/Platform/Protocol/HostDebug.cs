@@ -143,6 +143,13 @@ public record class HostDebugBreakpointsResult
 {
     /// <summary>One entry per line asked for.</summary>
     public IReadOnlyList<HostBreakpoint> Breakpoints { get; init; } = [];
+
+    /// <summary>
+    /// Whether the host has the code of the module loaded, so that <see cref="HostBreakpoint.Verified"/> says what a line can have and not only what is not known yet.
+    /// A line that is not verified in a result that is not judged may still become one when the code is loaded; in a result that is judged it is a line that cannot
+    /// have a breakpoint, for the code as it is loaded.
+    /// </summary>
+    public bool Judged { get; init; }
 }
 
 /// <summary>
@@ -259,6 +266,23 @@ public record class HostDebugEvaluateParams : IRequest, IRequest<HostDebugEvalua
     public int FrameId { get; init; }
 
     /// <summary>The <see cref="System.Text.Json"/> representation of the expression, an <c>ExpressionNode</c> (see <see cref="PlatformJson"/>).</summary>
+    public string Json { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/execute</c>: runs a statement in an activation of the program that waits, as if it were written in the procedure that activation is
+/// of - the answer to a line typed in the immediate window of a procedure that is stopped.
+/// </summary>
+/// <remarks>
+/// What it does stays done: an assignment to a local is the value the program goes on with. It is answered as <c>rdcore/host/debug/evaluate</c> is, with no value.
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugExecute, Direction.ClientToServer)]
+public record class HostDebugExecuteParams : IRequest, IRequest<HostDebugEvaluateResult>
+{
+    /// <summary>The activation, by its <see cref="HostStackFrame.Id"/>.</summary>
+    public int FrameId { get; init; }
+
+    /// <summary>The <see cref="System.Text.Json"/> representation of the statement, a <c>SyntaxNode</c> (see <see cref="PlatformJson"/>).</summary>
     public string Json { get; init; } = string.Empty;
 }
 

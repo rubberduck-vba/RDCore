@@ -45,6 +45,12 @@ public interface IEnvironmentSessionProvider
     RuntimeOutputRouter Output { get; }
 
     /// <summary>
+    /// Where the lines of a program run with streamed output are said as they are printed: the lines, and how many lines have been said in all. Whoever owns the
+    /// connection to the language server sets it; a program that asks for its output to be streamed when there is nowhere to say it has it in the answers, as any other.
+    /// </summary>
+    Action<IReadOnlyList<string>, long>? OutputStreamed { get; set; }
+
+    /// <summary>
     /// The composed runtime session.
     /// </summary>
     /// <exception cref="InvalidOperationException">
@@ -91,6 +97,9 @@ public sealed class EnvironmentSessionProvider(
 
     /// <inheritdoc/>
     public RuntimeOutputRouter Output { get; } = new();
+
+    /// <inheritdoc/>
+    public Action<IReadOnlyList<string>, long>? OutputStreamed { get; set; }
 
     /// <inheritdoc/>
     public IRuntimeSession Session => _session ?? throw new InvalidOperationException(

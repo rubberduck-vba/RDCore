@@ -6,12 +6,12 @@ using RDCore.SDK.Services.VerboseMessages;
 namespace RDCore.CLI.Host.Handlers;
 
 /// <summary>
-/// Handles <c>rdcore/host/debug/evaluate</c>: the value of an expression in an activation of the program that waits.
+/// Handles <c>rdcore/host/debug/execute</c>: runs a statement in an activation of the program that waits.
 /// </summary>
-internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessionProvider, IVerboseMessageBuilder messages)
-    : RDCoreRequestHandler<HostDebugEvaluateParams, HostDebugEvaluateResult>
+internal sealed class HostDebugExecuteHandler(IEnvironmentSessionProvider sessionProvider, IVerboseMessageBuilder messages)
+    : RDCoreRequestHandler<HostDebugExecuteParams, HostDebugEvaluateResult>
 {
-    protected override Task<HostDebugEvaluateResult> HandleAsync(HostDebugEvaluateParams request, CancellationToken token)
+    protected override Task<HostDebugEvaluateResult> HandleAsync(HostDebugExecuteParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
@@ -26,17 +26,17 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
             });
         }
 
-        ExpressionNode expression;
+        SyntaxNode statement;
         try
         {
-            expression = PlatformJson.Deserialize<ExpressionNode>(request.Json);
+            statement = PlatformJson.Deserialize<SyntaxNode>(request.Json);
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or InvalidOperationException)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoExpression });
+            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoStatement });
         }
 
         var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages);
-        return Task.FromResult(sessionProvider.Execution.Evaluate(pipeline, request.FrameId, expression));
+        return Task.FromResult(sessionProvider.Execution.Execute(pipeline, request.FrameId, statement));
     }
 }

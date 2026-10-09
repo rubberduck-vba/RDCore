@@ -19,6 +19,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
@@ -412,6 +413,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostDebugStackHandler>()
             .WithHandler<HostDebugVariablesHandler>()
             .WithHandler<HostDebugEvaluateHandler>()
+            .WithHandler<HostDebugExecuteHandler>()
             .WithHandler<HostDebugErrorBreakHandler>()
             .WithHandler<HostDebugTerminateHandler>()
             .WithHandler<HostSemanticsHandler>()
@@ -426,6 +428,13 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .AddSingleton(_ => ExternalServices.GetRequiredService<IVerboseMessageBuilder>());
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
+
+    // what a program run with streamed output prints is told to the language server as it is printed.
+    protected override void OnLanguageServerStarted(ILanguageServer server)
+    {
+        sessionProvider.OutputStreamed = (lines, total) => _ = SendNotificationAsync(new HostOutputNotification { Lines = lines, Total = total }, CancellationToken.None);
+        base.OnLanguageServerStarted(server);
+    }
 
     // composes the runtime session from the workspace the language server initialized against;
     // a load failure is logged, not fatal — the host still completes the handshake.

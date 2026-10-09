@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Text.Json;
 
@@ -593,6 +594,76 @@ End Sub
         Assert.HasCount(2, call.Arguments);
         Assert.AreEqual(1L, IntValue(call.Arguments[0]));
         Assert.AreEqual(2L, IntValue(call.Arguments[1]));
+    }
+
+    [TestMethod]
+    // without `Call`, `Foo(5)` is `Foo (5)` (MS-VBAL 5.4.2.1): the bare call with one argument, which is the grouping of 5 - and not an index
+    // expression, which only `Call` has. The two are the same call.
+    [DataRow("Foo(5)")]
+    [DataRow("Foo (5)")]
+    [DataRow("Foo   (5)")]
+    public void CallStatement_BareWithOneParenthesizedExpression_IsTheBareCallWithThatArgument(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var call = member.Children.OfType<CallStatementNode>().Single();
+
+        Assert.IsFalse(call.IsExplicitCall);
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)call.Callee).IdentifierName);
+        var argument = (VBUnaryOperatorExpressionNode)call.Arguments.Single();
+        Assert.AreEqual(OperatorSymbolNames.UnaryLetCoerceOp, argument.Token);
+        Assert.AreEqual(5L, IntValue((ExpressionNode)argument.Children.Single()));
+    }
+
+    [TestMethod]
+    // anything but one expression in the parentheses is an argument list, and only `Call` has one (MS-VBAL 5.4.2.1) - an empty one too: `Foo()` is a syntax error in
+    // MS-VBA, and is neither dropped to `Foo` nor accepted.
+    [DataRow("Foo()")]
+    [DataRow("obj.Bar()")]
+    [DataRow("Foo(1, 2)")]
+    [DataRow("Foo(x:=1)")]
+    [DataRow("Foo(, 1)")]
+    [DataRow("obj.Bar(1, 2)")]
+    public void CallStatement_WithAnArgumentListInParentheses_AndNoCall_IsASyntaxError(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsFalse(result.IsSuccess, statement);
+        var verbose = result.SyntaxErrors.First().Verbose;
+        StringAssert.Contains(verbose, "Drop the parentheses", "it says to drop the parentheses...");
+        StringAssert.Contains(verbose, "Call keyword", "...or to write Call");
+    }
+
+    [TestMethod]
+    [DataRow("Foo(5)")]
+    [DataRow("Foo 1, 2")]
+    [DataRow("Foo")]
+    [DataRow("Call Foo()")]
+    [DataRow("Call Foo(1, 2)")]
+    [DataRow("Call Foo(x:=1)")]
+    [DataRow("obj.Bar 1, 2")]
+    public void CallStatement_ThatIsWrittenAsVbaWritesIt_IsNotASyntaxError(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsTrue(result.IsSuccess, $"{statement}: {string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose))}");
+    }
+
+    private static ModuleParseResult ParseWithoutExpectation(string statement)
+        => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub DoWork()\r\n{statement}\r\nEnd Sub\r\n");
+
+    [TestMethod]
+    // `Call` is what makes the parentheses an argument list.
+    public void CallStatement_ExplicitWithOneArgument_StaysAnIndexExpression()
+    {
+        var result = ParseInProcedure("Call Foo(5)");
+
+        var call = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<CallStatementNode>().Single();
+
+        Assert.IsTrue(call.IsExplicitCall);
+        Assert.IsInstanceOfType<IndexExpressionNode>(call.Callee);
+        Assert.IsEmpty(call.Arguments);
     }
 
     [TestMethod]

@@ -10,5 +10,5 @@ internal sealed class HostDebugGotoHandler(IEnvironmentSessionProvider sessionPr
     protected override Task<HostDebugGotoResult> HandleAsync(HostDebugGotoParams request, CancellationToken token)
         => Task.FromResult(sessionProvider.IsComposed
             ? sessionProvider.Execution.Goto(request.Line, request.Label)
-            : new HostDebugGotoResult { Reason = "there is no runtime session" });
+            : new HostDebugGotoResult { Reason = Resources.Host_NoRuntimeSession });
 }
