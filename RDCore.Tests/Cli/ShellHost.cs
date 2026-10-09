@@ -74,8 +74,8 @@ internal sealed class ShellHost
     /// <summary>
     /// Runs the program, the way <c>RUN</c> does: defined in the session, then <c>Main</c> invoked.
     /// </summary>
-    public Task<ExecuteSessionResult> RunAsync(IEnumerable<(int Number, string Statement)> lines, bool debug = false)
-        => ExecuteAsync(Program(lines).ToModuleSource(), ReplProgram.EntryPointName, debug);
+    public Task<ExecuteSessionResult> RunAsync(IEnumerable<(int Number, string Statement)> lines, bool debug = false, bool streamOutput = false)
+        => ExecuteAsync(Program(lines).ToModuleSource(), ReplProgram.EntryPointName, debug, streamOutput: streamOutput);
 
     /// <summary>
     /// Runs a line typed at the prompt, the way the shell does: the program and the line, as a second procedure of the module.
@@ -105,7 +105,7 @@ internal sealed class ShellHost
         return program;
     }
 
-    private async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint, bool debug = false, bool immediate = false)
+    private async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint, bool debug = false, bool immediate = false, bool streamOutput = false)
     {
         var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{ModuleName}.bas")), source);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
@@ -135,6 +135,7 @@ internal sealed class ShellHost
                 EntryPoint = entryPoint,
                 Debug = debug,
                 Immediate = immediate,
+                StreamOutput = streamOutput,
             }, CancellationToken.None);
     }
 }

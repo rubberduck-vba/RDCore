@@ -300,6 +300,12 @@
   <data name="VBCompileError_NumericLiteralOverflow_Verbose" xml:space="preserve">
     <value>The numeric literal's value is outside the range of its type.</value>
   </data>
+  <data name="VBCompileError_RaiseEventByVal_Verbose" xml:space="preserve">
+    <value>A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).</value>
+  </data>
+  <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
+    <value>A call that is not written with the Call keyword does not have an argument list in parentheses, not even an empty one. Drop the parentheses (Foo 1, 2 or Foo), or write the Call keyword (Call Foo(1, 2) or Call Foo()). The parentheses of a single argument are not an argument list but the grouping of that argument, which is passed by value (MS-VBAL §5.4.2.1).</value>
+  </data>
   <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
     <value>Invalid use of object</value>
   </data>

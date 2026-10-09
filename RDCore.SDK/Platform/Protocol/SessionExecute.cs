@@ -92,6 +92,12 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteSessionResult>
     /// Whether the entry point is a statement typed at a prompt. See <see cref="ExecuteSessionParams.Immediate"/>.
     /// </summary>
     public bool Immediate { get; init; }
+
+    /// <summary>
+    /// Whether the lines the program prints are said as they are printed (<see cref="HostOutputNotification"/>) instead of with the answer, for the whole of the run:
+    /// the requests that resume the program too. Only a program run under a debugger streams.
+    /// </summary>
+    public bool StreamOutput { get; init; }
 }
 
 /// <summary>
@@ -155,6 +161,12 @@ public record class ExecuteSessionResult
     /// with a trailing <c>;</c>.
     /// </summary>
     public IReadOnlyList<string> Output { get; init; } = [];
+
+    /// <summary>
+    /// How many lines the host has said by notification (<see cref="HostOutputNotification"/>) since it started, when this answer was given. A run that streams has
+    /// said its lines before it answers, and they are not in <see cref="Output"/>; this is what lets the receiver wait for them.
+    /// </summary>
+    public long StreamedLines { get; init; }
 
     /// <summary>
     /// The syntax errors, when <see cref="Outcome"/> is <see cref="ExecutionOutcome.SyntaxError"/>.

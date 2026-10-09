@@ -33,6 +33,7 @@ public sealed class ProgramDebugAdapterTests
 
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
+        public HostOutputRelay Relay { get; } = new();
         public ProgramDebugAdapter Adapter { get; }
         public DebugAdapterServer Server { get; private set; } = default!;
         public DebugAdapterClient Client { get; private set; } = default!;
@@ -58,7 +59,7 @@ public sealed class ProgramDebugAdapterTests
                 {
                     Breakpoints = [.. call.Arg<IReadOnlyList<int>>().Select(line => new HostBreakpoint(line, true))],
                 }));
-            Adapter = new ProgramDebugAdapter(Workspace, Debugging, NullLogger<ProgramDebugAdapter>.Instance);
+            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         public async Task StartAsync(bool linesStartAt1 = true)
@@ -370,6 +371,29 @@ public sealed class ProgramDebugAdapterTests
     }
 
     [TestMethod]
+    public async Task WhatTheProgramPrints_IsSaidAsItPrints_AndBeforeTheProgramIsSaidToHaveStopped()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(
+            new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 12)));
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+        session.Relay.Publish(new HostOutputNotification { Lines = ["first"], Total = 1 });
+
+        var first = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual("first\n", first.Output);
+        Assert.AreEqual(0, session.Pending<StoppedEvent>().Count, "the second line the program printed is not here yet, and it printed it before it stopped");
+
+        session.Relay.Publish(new HostOutputNotification { Lines = ["second"], Total = 2 });
+
+        Assert.AreEqual("second\n", (await session.NextAsync<OutputEvent>()).Output);
+        _ = await session.NextAsync<StoppedEvent>();
+    }
+
+    [TestMethod]
     [DataRow(StepKind.Over, "next")]
     [DataRow(StepKind.Into, "stepIn")]
     [DataRow(StepKind.Out, "stepOut")]
@@ -633,6 +657,40 @@ public sealed class ProgramDebugAdapterTests
         Assert.AreEqual(Path, innermost.Source!.Path);
         Assert.AreEqual("Prog.bas", innermost.Source.Name);
         Assert.AreEqual("Main", stack.StackFrames!.Last().Name);
+    }
+
+    [TestMethod]
+    public async Task AGoSubThatWasNotReturnedFrom_IsAFrameOfItsOwn_WithTheVariablesOfTheActivation()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            Frames =
+            [
+                new HostStackFrame(0, "Helper", "Prog", 20, 4, ReturnLines: [14, 6]),
+                new HostStackFrame(1, "Main", "Prog", 3, 4),
+            ],
+        }));
+        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("k", "7", "Long")] }));
+        session.Debugging.EvaluateAsync(0, "k", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
+
+        var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1 });
+
+        var frames = stack.StackFrames!.ToArray();
+        CollectionAssert.AreEqual(new[] { "Helper", "Helper (GoSub)", "Helper (GoSub)", "Main" }, frames.Select(frame => frame.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { 21, 15, 7, 4 }, frames.Select(frame => frame.Line).ToArray(), "the line the GoSub is on, innermost first");
+        Assert.AreEqual(4, stack.TotalFrames);
+        Assert.AreEqual(4, frames.Select(frame => frame.Id).Distinct().Count());
+
+        var scopes = await session.SendAsync(new ScopesArguments { FrameId = frames[2].Id });
+        var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
+        var evaluated = await session.SendAsync(new EvaluateArguments { Expression = "k", FrameId = frames[1].Id });
+
+        Assert.AreEqual("7", locals.Variables.Single().Value);
+        Assert.AreEqual("7", evaluated.Result);
     }
 
     [TestMethod]

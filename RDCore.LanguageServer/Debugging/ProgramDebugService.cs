@@ -90,7 +90,7 @@ internal sealed class ProgramDebugService(
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = "no runtime environment component is registered" };
+            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         await environment.WaitForReadyAsync(token);
@@ -112,7 +112,7 @@ internal sealed class ProgramDebugService(
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugGotoResult { Reason = "no runtime environment component is registered" };
+            return new HostDebugGotoResult { Reason = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         await environment.WaitForReadyAsync(token);
@@ -169,25 +169,25 @@ internal sealed class ProgramDebugService(
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugEvaluateResult { Error = "no runtime environment component is registered" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         if (expression.Contains('\n') || expression.Contains('\r') || string.IsNullOrWhiteSpace(expression))
         {
-            return new HostDebugEvaluateResult { Error = "an expression is one line" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.ExpressionIsOneLine };
         }
 
         var document = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = "Evaluate" }.Uri;
         var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Evaluate()\r\n__e = {expression}\r\nEnd Sub\r\n", token);
         if (!parsed.IsSuccess || parsed.SyntaxTree is null)
         {
-            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? "this is not an expression" };
+            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? DebuggerMessages.NotAnExpression };
         }
 
         var assignments = Descendants(parsed.SyntaxTree).OfType<AssignmentStatementNode>().ToArray();
         if (assignments is not [{ Value: { } value }])
         {
-            return new HostDebugEvaluateResult { Error = "this is not one expression" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.NotOneExpression };
         }
 
         await environment.WaitForReadyAsync(token);
@@ -199,12 +199,12 @@ internal sealed class ProgramDebugService(
     {
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return new HostDebugEvaluateResult { Error = "no runtime environment component is registered" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.NoRuntimeEnvironment };
         }
 
         if (text.Contains('\n') || text.Contains('\r') || string.IsNullOrWhiteSpace(text))
         {
-            return new HostDebugEvaluateResult { Error = "a statement is one line" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.StatementIsOneLine };
         }
 
         // the immediate window writes a question mark for Debug.Print.
@@ -216,13 +216,13 @@ internal sealed class ProgramDebugService(
         var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Execute()\r\n{source}\r\nEnd Sub\r\n", token);
         if (!parsed.IsSuccess || parsed.SyntaxTree is null)
         {
-            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? "this is not a statement" };
+            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? DebuggerMessages.NotAStatement };
         }
 
         var statements = parsed.SyntaxTree.Children.OfType<MemberDeclarationNode>().SelectMany(member => member.Children.OfType<StatementNode>()).ToArray();
         if (statements is not [var statement])
         {
-            return new HostDebugEvaluateResult { Error = "one statement at a time" };
+            return new HostDebugEvaluateResult { Error = DebuggerMessages.OneStatementAtATime };
         }
 
         await environment.WaitForReadyAsync(token);

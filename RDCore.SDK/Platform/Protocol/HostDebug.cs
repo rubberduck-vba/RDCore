@@ -127,6 +127,13 @@ public record class HostDebugBreakpointsResult
 {
     /// <summary>One entry per line asked for.</summary>
     public IReadOnlyList<HostBreakpoint> Breakpoints { get; init; } = [];
+
+    /// <summary>
+    /// Whether the host has the code of the module loaded, so that <see cref="HostBreakpoint.Verified"/> says what a line can have and not only what is not known yet.
+    /// A line that is not verified in a result that is not judged may still become one when the code is loaded; in a result that is judged it is a line that cannot
+    /// have a breakpoint, for the code as it is loaded.
+    /// </summary>
+    public bool Judged { get; init; }
 }
 
 /// <summary>

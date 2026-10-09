@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
+using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Client;
@@ -48,7 +49,7 @@ internal sealed class SessionExecuteHandler(
 
         if (orchestration.RuntimeEnvironment is not { } environment)
         {
-            return NotFound("no runtime environment component is registered");
+            return NotFound(DebuggerMessages.NoRuntimeEnvironment);
         }
 
         // the module URI comes back from the symbol sync, which derives it from the workspace's own

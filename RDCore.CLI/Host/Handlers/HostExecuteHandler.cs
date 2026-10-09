@@ -35,25 +35,25 @@ internal sealed class HostExecuteHandler(
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(NotFound("there is no runtime session to run in"));
+            return Task.FromResult(NotFound(Resources.Host_NoRuntimeSessionToRunIn));
         }
 
         // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
         if (sessionProvider.Execution.State is ProgramState.Running)
         {
-            return Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "a program is running" });
+            return Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning });
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
         if (payload?.ParseResult.SyntaxTree is null)
         {
-            return Task.FromResult(NotFound("the request carried no parsed module"));
+            return Task.FromResult(NotFound(Resources.Host_RequestCarriedNoParsedModule));
         }
 
         var session = sessionProvider.Session;
         if (!TryResolveModule(session, request.ModuleName, out var module))
         {
-            return Task.FromResult(NotFound($"module '{request.ModuleName}' is not defined in the session"));
+            return Task.FromResult(NotFound(string.Format(Resources.Host_ModuleIsNotDefined, request.ModuleName)));
         }
 
         // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
@@ -70,7 +70,7 @@ internal sealed class HostExecuteHandler(
 
         if (!session.Symbols.TryResolveValue(request.EntryPoint, module, out var entry) || entry is not VBTypeMemberSymbol entryPoint)
         {
-            return Task.FromResult(NotFound($"'{request.ModuleName}.{request.EntryPoint}' is not a procedure of the module"));
+            return Task.FromResult(NotFound(string.Format(Resources.Host_NotAProcedureOfTheModule, request.ModuleName, request.EntryPoint)));
         }
 
         // the pipeline is composed per run: the cancellation is this run's own. For a program under a debugger a cancellation is a break and not the end of the
@@ -82,7 +82,7 @@ internal sealed class HostExecuteHandler(
 
     private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
     {
-        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate);
+        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate, request.StreamOutput);
 
         if (logger.IsEnabled(LogLevel.Information))
         {

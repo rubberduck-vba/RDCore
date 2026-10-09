@@ -43,6 +43,7 @@ public record class ProgramLaunchRequestArguments : LaunchRequestArguments
 internal sealed class ProgramDebugAdapter(
     IDebugWorkspace workspace,
     IProgramDebugService debugging,
+    IHostOutputRelay output,
     ILogger<ProgramDebugAdapter> logger) :
     ILaunchHandler<ProgramLaunchRequestArguments>,
     IConfigurationDoneHandler,
@@ -73,6 +74,10 @@ internal sealed class ProgramDebugAdapter(
     private readonly Dictionary<int, VariableScope> _references = [];
     private readonly Dictionary<string, HashSet<int>> _breakpointLines = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _clientPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, int> _gosubFrames = [];
+
+    // the platform numbers its activations from 0; the frames that stand for GoSubs are numbered above any it could have.
+    private const int FirstGoSubFrameId = 1_000_000;
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     // the library says the adapter is ready to be configured as soon as it is initialized, which is before the workspace is brought up: a client that sets breakpoints
@@ -100,7 +105,19 @@ internal sealed class ProgramDebugAdapter(
     /// Connects the adapter to the client it speaks to, which exists once the transport is open.
     /// </summary>
     /// <param name="server">The server side of the connection with the client.</param>
-    public void Attach(IDebugAdapterServer server) => _server = server;
+    public void Attach(IDebugAdapterServer server)
+    {
+        _server = server;
+
+        // what the program prints is said as it prints.
+        output.Printed += lines =>
+        {
+            foreach (var line in lines)
+            {
+                Say(line + "\n", OutputEventCategory.StandardOutput);
+            }
+        };
+    }
 
     /// <summary>
     /// Takes note of how the client numbers lines and columns.
@@ -118,7 +135,7 @@ internal sealed class ProgramDebugAdapter(
     /// <param name="component">What was lost.</param>
     public Task LostAsync(string component)
     {
-        Say($"the {component} was lost: the program cannot go on.", OutputEventCategory.StandardError);
+        Say(string.Format(DebuggerMessages.ComponentLost, component), OutputEventCategory.StandardError);
         return TerminateAsync(exitCode: 1);
     }
 
@@ -155,7 +172,7 @@ internal sealed class ProgramDebugAdapter(
         _module = request.Module;
         if (string.IsNullOrWhiteSpace(_module))
         {
-            var refusal = Refusal("A launch configuration names the module that has the entry point: \"module\".");
+            var refusal = Refusal(DebuggerMessages.LaunchNeedsModule);
             _ = _opened.TrySetException(refusal);
             throw refusal;
         }
@@ -172,7 +189,7 @@ internal sealed class ProgramDebugAdapter(
 
         if (!workspace.TryGetPath(_module, out _))
         {
-            var refusal = Refusal($"'{_module}' is not a module of the workspace.");
+            var refusal = Refusal(string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, _module));
             _ = _opened.TrySetException(refusal);
             throw refusal;
         }
@@ -187,7 +204,7 @@ internal sealed class ProgramDebugAdapter(
         // configuration follows a launch, which may still be bringing the workspace up; without one there is nothing to wait for.
         if (!_launching)
         {
-            throw Refusal("There is no program to start: launch first.");
+            throw Refusal(DebuggerMessages.NoProgramToStart);
         }
 
         await _opened.Task.WaitAsync(cancellationToken);
@@ -195,7 +212,7 @@ internal sealed class ProgramDebugAdapter(
         {
             if (!_launched || _started)
             {
-                throw Refusal(_started ? "The program was started already." : "There is no program to start: launch first.");
+                throw Refusal(_started ? DebuggerMessages.ProgramStartedAlready : DebuggerMessages.NoProgramToStart);
             }
 
             _started = true;
@@ -220,7 +237,7 @@ internal sealed class ProgramDebugAdapter(
                 {
                     Verified = false,
                     Line = ToClientLine(line),
-                    Message = "this file is not part of the workspace",
+                    Message = DebuggerMessages.FileNotInWorkspace,
                 })),
             };
         }
@@ -228,7 +245,7 @@ internal sealed class ProgramDebugAdapter(
         var result = await debugging.SetBreakpointsAsync(module, requested, cancellationToken);
         lock (_sync)
         {
-            _breakpointLines[module] = [.. requested];
+            _breakpointLines[module] = [.. result.Breakpoints.Where(breakpoint => breakpoint.Verified).Select(breakpoint => breakpoint.Line)];
             _clientPaths[module] = path;
         }
 
@@ -239,7 +256,7 @@ internal sealed class ProgramDebugAdapter(
                 Verified = breakpoint.Verified,
                 Line = ToClientLine(breakpoint.Line),
                 Source = request.Source,
-                Message = breakpoint.Verified ? null : "no statement begins on this line",
+                Message = breakpoint.Verified ? null : DebuggerMessages.NoStatementOnLine,
             })),
         };
     }
@@ -316,6 +333,10 @@ internal sealed class ProgramDebugAdapter(
 
     private async Task ReportAsync(ExecuteSessionResult result)
     {
+        // the lines the program printed came apart from the answer, and are said before what the answer says of the program.
+        await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), _lifetime.Token);
+
+        // what is left in the answer is the line the program left open.
         foreach (var line in result.Output)
         {
             Say(line + "\n", OutputEventCategory.StandardOutput);
@@ -344,7 +365,7 @@ internal sealed class ProgramDebugAdapter(
     private static string Describe(ExecuteSessionResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
-        ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : "Run-time error")} '{result.ErrorNumber}': {result.ErrorMessage}",
+        ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle)} '{result.ErrorNumber}': {result.ErrorMessage}",
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 
@@ -358,8 +379,8 @@ internal sealed class ProgramDebugAdapter(
             (_stepped, _paused) = (false, false);
         }
 
-        var (reason, description) = stepped ? (StoppedEventReason.Step, "Step")
-            : paused ? (StoppedEventReason.Pause, "Paused")
+        var (reason, description) = stepped ? (StoppedEventReason.Step, DebuggerMessages.StopStep)
+            : paused ? (StoppedEventReason.Pause, DebuggerMessages.StopPaused)
             : await WhyStoppedAsync();
 
         _server!.SendStopped(new StoppedEvent
@@ -381,12 +402,12 @@ internal sealed class ProgramDebugAdapter(
             {
                 if (_breakpointLines.TryGetValue(innermost.Module, out var lines) && lines.Contains(innermost.Line))
                 {
-                    return (StoppedEventReason.Breakpoint, "Paused on breakpoint");
+                    return (StoppedEventReason.Breakpoint, DebuggerMessages.StopAtBreakpoint);
                 }
             }
         }
 
-        return (StoppedEventReason.Breakpoint, "Paused on Stop statement");
+        return (StoppedEventReason.Breakpoint, DebuggerMessages.StopAtStopStatement);
     }
 
     private Task TerminateAsync(int exitCode)
@@ -404,40 +425,71 @@ internal sealed class ProgramDebugAdapter(
     // ---- where the program is ----
 
     public Task<ThreadsResponse> Handle(ThreadsArguments request, CancellationToken cancellationToken)
-        => Task.FromResult(new ThreadsResponse { Threads = new Container<DapThread>(new DapThread { Id = ThreadId, Name = "Main" }) });
+        => Task.FromResult(new ThreadsResponse { Threads = new Container<DapThread>(new DapThread { Id = ThreadId, Name = DebuggerMessages.ThreadMain }) });
 
     public async Task<StackTraceResponse> Handle(StackTraceArguments request, CancellationToken cancellationToken)
     {
         var stack = await debugging.StackAsync(cancellationToken);
-        var frames = stack.Frames
-            .Select(frame => new StackFrame
+        var all = new List<StackFrame>();
+        lock (_sync)
+        {
+            _gosubFrames.Clear();
+            foreach (var frame in stack.Frames)
             {
-                Id = frame.Id,
-                Name = frame.Handler is null ? frame.Procedure : $"{frame.Procedure} (in {frame.Handler})",
-                Source = SourceOf(frame.Module),
-                Line = ToClientLine(frame.Line),
-                Column = ToClientColumn(frame.Character),
-            })
-            .Skip((int)(request.StartFrame ?? 0));
+                all.Add(new StackFrame
+                {
+                    Id = frame.Id,
+                    Name = frame.Handler is null ? frame.Procedure : string.Format(DebuggerMessages.FrameInHandler, frame.Procedure, frame.Handler),
+                    Source = SourceOf(frame.Module),
+                    Line = ToClientLine(frame.Line),
+                    Column = ToClientColumn(frame.Character),
+                });
 
+                // a GoSub that was not returned from is a place the activation came to where it is from: a frame of its own, as a call is, which has the activation's variables.
+                foreach (var returnLine in frame.ReturnLines)
+                {
+                    var id = FirstGoSubFrameId + _gosubFrames.Count;
+                    _gosubFrames[id] = frame.Id;
+                    all.Add(new StackFrame
+                    {
+                        Id = id,
+                        Name = string.Format(DebuggerMessages.FrameGoSub, frame.Procedure),
+                        Source = SourceOf(frame.Module),
+                        Line = ToClientLine(returnLine),
+                        Column = ToClientColumn(0),
+                    });
+                }
+            }
+        }
+
+        IEnumerable<StackFrame> frames = all.Skip((int)(request.StartFrame ?? 0));
         if (request.Levels is > 0)
         {
             frames = frames.Take((int)request.Levels.Value);
         }
 
-        return new StackTraceResponse { StackFrames = new Container<StackFrame>(frames), TotalFrames = stack.Frames.Count };
+        return new StackTraceResponse { StackFrames = new Container<StackFrame>(frames), TotalFrames = all.Count };
+    }
+
+    // a frame of the client is an activation of the platform, or a GoSub of one: the variables are those of the activation.
+    private int ActivationOf(long frameId)
+    {
+        lock (_sync)
+        {
+            return _gosubFrames.TryGetValue((int)frameId, out var activation) ? activation : (int)frameId;
+        }
     }
 
     public Task<ScopesResponse> Handle(ScopesArguments request, CancellationToken cancellationToken)
     {
-        var frame = (int)request.FrameId;
+        var frame = ActivationOf(request.FrameId);
         lock (_sync)
         {
             return Task.FromResult(new ScopesResponse
             {
                 Scopes = new Container<Scope>(
-                    new Scope { Name = "Locals", PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Locals, 0)) },
-                    new Scope { Name = "Module", VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Module, 0)) }),
+                    new Scope { Name = DebuggerMessages.ScopeLocals, PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Locals, 0)) },
+                    new Scope { Name = DebuggerMessages.ScopeModule, VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Module, 0)) }),
             });
         }
     }
@@ -491,7 +543,7 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<EvaluateResponse> Handle(EvaluateArguments request, CancellationToken cancellationToken)
     {
-        var frame = (int)(request.FrameId ?? 0);
+        var frame = ActivationOf(request.FrameId ?? 0);
 
         // the debug console is the immediate window: what is typed there is a statement, run in the frame, and nothing is shown that it does not print (?x, for Debug.Print x).
         // A watch or a hover is asked for a value, and is never run as a statement.
@@ -507,7 +559,7 @@ internal sealed class ProgramDebugAdapter(
 
         if (!result.Success)
         {
-            throw Refusal(result.Error ?? "the expression has no value");
+            throw Refusal(result.Error ?? DebuggerMessages.ExpressionHasNoValue);
         }
 
         lock (_sync)
@@ -526,7 +578,7 @@ internal sealed class ProgramDebugAdapter(
     public Task<GotoTargetsResponse> Handle(GotoTargetsArguments request, CancellationToken cancellationToken)
         => Task.FromResult(new GotoTargetsResponse
         {
-            Targets = new Container<GotoTarget>(new GotoTarget { Id = request.Line, Label = $"Line {request.Line}", Line = (int)request.Line }),
+            Targets = new Container<GotoTarget>(new GotoTarget { Id = request.Line, Label = string.Format(DebuggerMessages.GotoTargetLine, request.Line), Line = (int)request.Line }),
         });
 
     public async Task<GotoResponse> Handle(GotoArguments request, CancellationToken cancellationToken)
@@ -534,7 +586,7 @@ internal sealed class ProgramDebugAdapter(
         var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
         if (!moved.Moved)
         {
-            throw Refusal(moved.Reason ?? "the program cannot go on from there");
+            throw Refusal(moved.Reason ?? DebuggerMessages.CannotGoOnFromThere);
         }
 
         // moving the point is not running: the program waits still, and its client is told where.

@@ -61,6 +61,14 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private bool _wipeOnTerminate;
     private TaskCompletionSource _idle = Settled();
     private readonly ProgramInspector _inspector = new(provider);
+    private bool _streaming;
+    private long _streamed;
+
+    // the output of a stretch of the program under a debugger: said as it is printed when the run asked for that and somebody listens, kept for the answer otherwise.
+    private RuntimeOutputBuffer NewSegmentOutput()
+        => _streaming && provider.OutputStreamed is { } stream
+            ? new RuntimeOutputBuffer(line => stream([line], Interlocked.Increment(ref _streamed)))
+            : new RuntimeOutputBuffer();
 
     /// <summary>
     /// Whether a program is running or waits.
@@ -87,19 +95,23 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// Whether the entry point is a statement typed at a prompt. While a program waits it is run alongside it, in the session as the program left it, and the program
     /// waits still: that is how its variables are read and set at a stop. Otherwise it is a run like any other.
     /// </param>
+    /// <param name="streamOutput">
+    /// Whether the program's output is said as it is printed (<see cref="IEnvironmentSessionProvider.OutputStreamed"/>), for the whole of a run under a debugger, and not
+    /// kept for the answers. Ignored for a run that is not.
+    /// </param>
     /// <returns>
     /// How it ended, or where it waits. A program that is suspended is let go of, and not refused: running one is what <c>RUN</c> does, and in BASIC it starts the
     /// program over. A program that is running is refused.
     /// </returns>
     public Task<ExecuteSessionResult> RunAsync(
-        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false)
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false, bool streamOutput = false)
     {
         var session = provider.Session;
         lock (_sync)
         {
             if (_state is ProgramState.Running)
             {
-                return Task.FromResult(Refused("a program is running"));
+                return Task.FromResult(Refused(Resources.Host_AProgramIsRunning));
             }
 
             if (_state is ProgramState.Suspended && immediate)
@@ -115,6 +127,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             _state = ProgramState.Running;
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
+            _streaming = debug && streamOutput;
         }
 
         // a program starts as one that was never stopped, whatever the one before it did: what a Stop left of its activations is let go of.
@@ -138,18 +151,17 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             if (_state is not ProgramState.Suspended || _execution is not { } suspended)
             {
-                return Refused(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return Refused(NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
             {
-                return Refused(
-                    $"{string.Join(", ", changed)} changed while the program waited, and a program is resumed on the code it was suspended with: run it again to pick the changes up");
+                return Refused(string.Format(Resources.Host_ChangedWhileWaiting_Resume, string.Join(", ", changed)));
             }
 
             (execution, _state) = (suspended, ProgramState.Running);
             _inspector.Forget();
-            _output = new RuntimeOutputBuffer();
+            _output = NewSegmentOutput();
             provider.Output.Target = _output;
         }
 
@@ -170,17 +182,17 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             if (_state is not ProgramState.Suspended)
             {
-                return NotMoved(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return NotMoved(NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
             {
-                return NotMoved($"{string.Join(", ", changed)} changed while the program waited: run it again to pick the changes up");
+                return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
 
             if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
             {
-                return NotMoved("the program waits in no procedure");
+                return NotMoved(Resources.Host_WaitsInNoProcedure);
             }
 
             int offset;
@@ -188,12 +200,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 if (!body.TryGetLabelOffset(label, out offset))
                 {
-                    return NotMoved($"the procedure has no label '{label}'");
+                    return NotMoved(string.Format(Resources.Host_NoSuchLabel, label));
                 }
             }
             else if (!body.TryGetOffsetAtLine(line, out offset))
             {
-                return NotMoved("no statement of the procedure begins at that line or after it");
+                return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
             }
 
             frame.MoveTo(offset);
@@ -215,6 +227,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// <param name="moduleName">The programmatic name of the module.</param>
     /// <param name="lines">The zero-based lines of the source. None removes them.</param>
     /// <returns>Each line, and whether a statement of the module's loaded code begins on it.</returns>
+    /// <remarks>
+    /// A breakpoint is where an instruction is, and a line no statement begins on is reported as not verified - nothing would ever wait there, and a client is to drop it.
+    /// Every line is kept all the same, since the code can be loaded again before the program runs (a shell redefines its program at each <c>RUN</c>), and what is
+    /// verified is a fact about the code that is loaded now. Whether it is the code the person means is what <see cref="HostDebugBreakpointsResult.Judged"/> says.
+    /// </remarks>
     public HostDebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<int> lines)
     {
         var session = provider.Session;
@@ -225,7 +242,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
 
         session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, lines);
         var bodies = provider.Image.BodiesOf(module.Uri);
-        return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))] };
+        return new HostDebugBreakpointsResult
+        {
+            Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))],
+            Judged = bodies.Any(),
+        };
     }
 
     /// <summary>
@@ -267,7 +288,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// the expression and not the program, and an <c>End</c> is the end of it.
     /// </remarks>
     public HostDebugEvaluateResult Evaluate(RuntimeExecutionPipeline pipeline, int frameId, ExpressionNode expression)
-        => InFrame(frameId, "expression", (session, stack, frame, procedure) =>
+        => InFrame(frameId, ofAStatement: false, (session, stack, frame, procedure) =>
         {
             RuntimeSemanticsEvaluationResult result;
             using (stack.Select(frame))
@@ -292,7 +313,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// selected is the program's, and where it waits is not for the statement to move.
     /// </remarks>
     public HostDebugEvaluateResult Execute(RuntimeExecutionPipeline pipeline, int frameId, SyntaxNode statement)
-        => InFrame(frameId, "statement", (session, stack, selected, procedure) =>
+        => InFrame(frameId, ofAStatement: true, (session, stack, selected, procedure) =>
         {
             var options = new InstructionLoweringOptions(IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
             var lowered = InstructionListLowering.Lower(new StatementBlock([statement]), options, MemberKind.Procedure);
@@ -308,7 +329,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             return outcome.Kind switch
             {
                 RuntimeExecutionOutcomeKind.Error => (null, outcome.ErrorInfo!.Description),
-                RuntimeExecutionOutcomeKind.InternalError => (null, "the interpreter cannot run this yet"),
+                RuntimeExecutionOutcomeKind.InternalError => (null, Resources.Host_CannotRunYet),
                 _ => (null, null),
             };
         });
@@ -316,20 +337,20 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     // What it takes to run something in an activation of the program that waits, whichever the something is: the program waits, the activation is on its stack, what the
     // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. Called with nothing locked.
     private HostDebugEvaluateResult InFrame(
-        int frameId, string what, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
+        int frameId, bool ofAStatement, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
     {
         lock (_sync)
         {
             var session = provider.Session;
             if (_state is not ProgramState.Suspended)
             {
-                return Unevaluated(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return Unevaluated(NotSuspended(_state));
             }
 
             var frames = session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
             if (frameId < 0 || frameId >= frames.Length || frames[frameId].Procedure is not { } procedure || session.CallStack is not RuntimeCallStack stack)
             {
-                return Unevaluated("there is no such activation");
+                return Unevaluated(Resources.Host_NoSuchActivation);
             }
 
             var output = new RuntimeOutputBuffer();
@@ -345,10 +366,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                     if (halt is RuntimeHaltKind.End)
                     {
                         EndSuspended(session, wipe: true);
-                        return Unevaluated($"the {what} ended the program", output);
+                        return Unevaluated(ofAStatement ? Resources.Host_TheStatementEndedTheProgram : Resources.Host_TheExpressionEndedTheProgram, output);
                     }
 
-                    return Unevaluated($"the {what} was stopped by a Stop", output);
+                    return Unevaluated(ofAStatement ? Resources.Host_TheStatementWasStopped : Resources.Host_TheExpressionWasStopped, output);
                 }
 
                 if (failure is not null)
@@ -388,8 +409,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             .OfType<SimpleNameExpressionNode>()
             .FirstOrDefault(name => !session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, scope).IsResolved);
 
-        return undefined is null ? "the interpreter cannot evaluate this yet" : $"'{undefined.IdentifierName}' is not defined";
+        return undefined is null ? Resources.Host_CannotEvaluateYet : string.Format(Resources.Host_NameIsNotDefined, undefined.IdentifierName);
     }
+
+    // why nothing can be asked of the program that does not wait.
+    private static string NotSuspended(ProgramState state) => state is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended;
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
@@ -517,7 +541,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         lock (_sync)
         {
             execution = _execution = new SuspendableExecution(session);
-            _output = new RuntimeOutputBuffer();
+            _output = NewSegmentOutput();
             provider.Output.Target = _output;
         }
 
@@ -539,8 +563,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
     }
 
-    // where the program is, as the request that ran it up to here answers.
+    // where the program is, as the request that ran it up to here answers - and how many lines it has been said, so that the receiver knows when it has them all.
     private ExecuteSessionResult Segment(IRuntimeSession session, ExecutionStop stop)
+        => SegmentCore(session, stop) with { StreamedLines = Interlocked.Read(ref _streamed) };
+
+    private ExecuteSessionResult SegmentCore(IRuntimeSession session, ExecutionStop stop)
     {
         var output = _output;
         if (!stop.IsSuspended)
@@ -660,7 +687,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 Outcome = ExecutionOutcome.Interrupted,
                 Output = output.Lines,
-                ErrorMessage = "the program was interrupted",
+                ErrorMessage = Resources.Host_TheProgramWasInterrupted,
                 ErrorLine = location?.Range.Start.Line ?? -1,
                 ErrorCharacter = location?.Range.Start.Character ?? -1,
             };
@@ -678,8 +705,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 Outcome = token.IsCancellationRequested ? ExecutionOutcome.Interrupted : ExecutionOutcome.NotImplemented,
                 Output = output.Lines,
                 ErrorMessage = token.IsCancellationRequested
-                    ? "the program was interrupted"
-                    : "the interpreter reached something it cannot run yet",
+                    ? Resources.Host_TheProgramWasInterrupted
+                    : Resources.Host_CannotRunYet,
             };
         }
 

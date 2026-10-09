@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NoRuntimeEnvironment" xml:space="preserve">
+    <value>no runtime environment component is registered</value>
+  </data>
+  <data name="ExpressionIsOneLine" xml:space="preserve">
+    <value>an expression is one line</value>
+  </data>
+  <data name="NotAnExpression" xml:space="preserve">
+    <value>this is not an expression</value>
+  </data>
+  <data name="NotOneExpression" xml:space="preserve">
+    <value>this is not one expression</value>
+  </data>
+  <data name="WorkspaceCouldNotBeLoaded" xml:space="preserve">
+    <value>The workspace '{0}' could not be loaded: {1}</value>
+  </data>
+  <data name="ComponentParsingServer" xml:space="preserve">
+    <value>parsing server</value>
+  </data>
+  <data name="ComponentEnvironmentHost" xml:space="preserve">
+    <value>environment host</value>
+  </data>
+  <data name="NotAModuleOfTheWorkspace" xml:space="preserve">
+    <value>'{0}' is not a module of the workspace</value>
+  </data>
+  <data name="ComponentLost" xml:space="preserve">
+    <value>the {0} was lost: the program cannot go on.</value>
+  </data>
+  <data name="LaunchNeedsModule" xml:space="preserve">
+    <value>A launch configuration names the module that has the entry point: "module".</value>
+  </data>
+  <data name="NoProgramToStart" xml:space="preserve">
+    <value>There is no program to start: launch first.</value>
+  </data>
+  <data name="ProgramStartedAlready" xml:space="preserve">
+    <value>The program was started already.</value>
+  </data>
+  <data name="FileNotInWorkspace" xml:space="preserve">
+    <value>this file is not part of the workspace</value>
+  </data>
+  <data name="NoStatementOnLine" xml:space="preserve">
+    <value>no statement begins on this line</value>
+  </data>
+  <data name="RuntimeErrorTitle" xml:space="preserve">
+    <value>Run-time error</value>
+  </data>
+  <data name="StopStep" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="StopPaused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="StopAtBreakpoint" xml:space="preserve">
+    <value>Paused on breakpoint</value>
+  </data>
+  <data name="StopAtStopStatement" xml:space="preserve">
+    <value>Paused on Stop statement</value>
+  </data>
+  <data name="ThreadMain" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="ScopeLocals" xml:space="preserve">
+    <value>Locals</value>
+  </data>
+  <data name="ScopeModule" xml:space="preserve">
+    <value>Module</value>
+  </data>
+  <data name="FrameInHandler" xml:space="preserve">
+    <value>{0} (in {1})</value>
+  </data>
+  <data name="FrameGoSub" xml:space="preserve">
+    <value>{0} (GoSub)</value>
+  </data>
+  <data name="ExpressionHasNoValue" xml:space="preserve">
+    <value>the expression has no value</value>
+  </data>
+  <data name="GotoTargetLine" xml:space="preserve">
+    <value>Line {0}</value>
+  </data>
+  <data name="CannotGoOnFromThere" xml:space="preserve">
+    <value>the program cannot go on from there</value>
+  </data>
+  <data name="StatementIsOneLine" xml:space="preserve">
+    <value>a statement is one line</value>
+  </data>
+  <data name="NotAStatement" xml:space="preserve">
+    <value>this is not a statement</value>
+  </data>
+  <data name="OneStatementAtATime" xml:space="preserve">
+    <value>one statement at a time</value>
+  </data>
+</root>
