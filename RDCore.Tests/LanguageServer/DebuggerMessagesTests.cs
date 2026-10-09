@@ -44,6 +44,6 @@ public sealed class DebuggerMessagesTests
     {
         Assert.AreEqual("Main", DebuggerMessages.ResourceManager.GetString("ThreadMain", CultureInfo.InvariantCulture));
         Assert.AreEqual("Principal", DebuggerMessages.ResourceManager.GetString("ThreadMain", French));
-        Assert.AreEqual("le programme s'exécute", Resources.ResourceManager.GetString("Host_TheProgramIsRunning", French));
+        Assert.AreEqual("le programme est en cours d'exécution",Resources.ResourceManager.GetString("Host_TheProgramIsRunning", French));
     }
 }

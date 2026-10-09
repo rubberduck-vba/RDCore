@@ -384,10 +384,10 @@
     <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
   </data>
   <data name="Host_AProgramIsRunning" xml:space="preserve">
-    <value>un programme s'exécute</value>
+    <value>un programme est en cours d'exécution</value>
   </data>
   <data name="Host_TheProgramIsRunning" xml:space="preserve">
-    <value>le programme s'exécute</value>
+    <value>le programme est en cours d'exécution</value>
   </data>
   <data name="Host_NoProgramIsSuspended" xml:space="preserve">
     <value>aucun programme n'est interrompu</value>
