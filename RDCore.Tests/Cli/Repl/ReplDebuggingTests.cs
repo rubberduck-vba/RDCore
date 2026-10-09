@@ -301,6 +301,108 @@ public sealed class ReplDebuggingTests
         Assert.IsEmpty(_context.Debugger.Breakpoints);
     }
 
+    // ---- STACK and VARS ----
+
+    [TestMethod]
+    public async Task AStack_SaysWhereEachActivationIs_InTheLinesTheProgramWasTypedIn()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            Frames = [new HostStackFrame(0, "Helper", "Other", 6, 0), new HostStackFrame(1, "Main", "Program", 2, 0)],
+        }));
+
+        await CommandAsync(new StackReplCommand());
+
+        _console.Received().WriteLine("#0 Helper (Other line 7)");
+        _console.Received().WriteLine("#1 Main 20");
+    }
+
+    [TestMethod]
+    public async Task AStack_OfNoProgramThatWaits_SaysSo()
+    {
+        await CommandAsync(new StackReplCommand());
+        await CommandAsync(new VarsReplCommand());
+
+        _console.Received(2).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_NotStopped, null);
+        await _platform.DidNotReceiveWithAnyArgs().GetStackAsync(default);
+    }
+
+    [TestMethod]
+    public async Task AVars_ShowsTheLocalsThenTheModuleVariables_WithTheirTypes()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetVariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        {
+            Variables = [new HostVariable("k", "7", "Long")],
+        }));
+        _platform.GetVariablesAsync(0, HostVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        {
+            Variables = [new HostVariable("X", "42", "Variant/Long"), new HostVariable("Name", "\"hi\"", "String")],
+        }));
+
+        await CommandAsync(new VarsReplCommand());
+
+        Received.InOrder(() =>
+        {
+            _console.WriteLine("k = 7  (Long)");
+            _console.WriteLine("X = 42  (Variant/Long)");
+            _console.WriteLine("Name = \"hi\"  (String)");
+        });
+    }
+
+    [TestMethod]
+    public async Task AVars_ShowsThePartsOfAnArray_UnderIt()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetVariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        {
+            Variables = [new HostVariable("arr", string.Empty, "Long(1 To 2)", Reference: 3)],
+        }));
+        _platform.GetVariablesAsync(0, HostVariableScope.Module, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
+        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<HostVariableScope>(), 3, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        {
+            Variables = [new HostVariable("(1)", "5", "Long"), new HostVariable("(2)", "6", "Long")],
+        }));
+
+        await CommandAsync(new VarsReplCommand());
+
+        Received.InOrder(() =>
+        {
+            _console.WriteLine("arr  (Long(1 To 2))");
+            _console.WriteLine("  (1) = 5  (Long)");
+            _console.WriteLine("  (2) = 6  (Long)");
+        });
+    }
+
+    [TestMethod]
+    public async Task AVars_WithAnActivation_AsksForThatOne()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<HostVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
+
+        await CommandAsync(new VarsReplCommand(), "1");
+
+        await _platform.Received(1).GetVariablesAsync(1, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>());
+        await _platform.Received(1).GetVariablesAsync(1, HostVariableScope.Module, 0, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AVars_OfSomethingThatIsNotAnActivation_IsASyntaxError()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+
+        await CommandAsync(new VarsReplCommand(), "up");
+
+        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "up");
+        await _platform.DidNotReceiveWithAnyArgs().GetVariablesAsync(default, default, default, default);
+    }
+
     [TestMethod]
     public async Task ARun_WhileTheProgramWaits_EndsItAndStartsOverFromTheTop()
     {

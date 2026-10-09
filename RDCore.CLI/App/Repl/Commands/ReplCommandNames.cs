@@ -22,6 +22,8 @@ internal static class ReplCommandNames
     public const string Run = "RUN";
     public const string Save = "SAVE";
     public const string Splash = "SPLASH";
+    public const string Stack = "STACK";
     public const string Step = "STEP";
     public const string Theme = "THEME";
+    public const string Vars = "VARS";
 }

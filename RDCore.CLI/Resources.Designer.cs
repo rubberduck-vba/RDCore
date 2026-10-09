@@ -467,6 +467,24 @@ namespace RDCore.CLI {
             }
         }
         
+        public static string Repl_Stack_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Stack_Summary", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Vars_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Vars_Summary", resourceCulture);
+            }
+        }
+        
+        public static string Repl_NotStopped {
+            get {
+                return ResourceManager.GetString("Repl_NotStopped", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to NOT A PROGRAM ERROR.
         /// </summary>

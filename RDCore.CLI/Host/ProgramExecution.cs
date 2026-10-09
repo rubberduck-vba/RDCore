@@ -52,6 +52,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private bool _terminating;
     private bool _wipeOnTerminate;
     private TaskCompletionSource _idle = Settled();
+    private readonly ProgramInspector _inspector = new(provider);
 
     /// <summary>
     /// Whether a program is running or waits.
@@ -139,6 +140,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             }
 
             (execution, _state) = (suspended, ProgramState.Running);
+            _inspector.Forget();
             _output = new RuntimeOutputBuffer();
             provider.Output.Target = _output;
         }
@@ -216,6 +218,33 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, lines);
         var bodies = provider.Image.BodiesOf(module.Uri);
         return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))] };
+    }
+
+    /// <summary>
+    /// The activations of the program that waits, innermost first.
+    /// </summary>
+    /// <returns>None when no program waits.</returns>
+    public HostDebugStackResult Stack()
+    {
+        lock (_sync)
+        {
+            return _state is ProgramState.Suspended ? _inspector.Stack() : new HostDebugStackResult();
+        }
+    }
+
+    /// <summary>
+    /// The variables of an activation of the program that waits, or the parts of one of them.
+    /// </summary>
+    /// <param name="frameId">The activation, by its place on the stack.</param>
+    /// <param name="scope">Which of its variables.</param>
+    /// <param name="reference">The reference of a variable that has parts, or <c>0</c>.</param>
+    /// <returns>None when no program waits.</returns>
+    public HostDebugVariablesResult Variables(int frameId, HostVariableScope scope, int reference)
+    {
+        lock (_sync)
+        {
+            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new HostDebugVariablesResult();
+        }
     }
 
     /// <summary>
@@ -404,6 +433,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
 
         _state = ProgramState.Idle;
+        _inspector.Forget();
         provider.Output.Target = NullRuntimeOutput.Instance;
         session.Memory.Reclaim();
         _idle.TrySetResult();
@@ -420,6 +450,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         lock (_sync)
         {
             _state = ProgramState.Idle;
+            _inspector.Forget();
             _idle.TrySetResult();
         }
     }

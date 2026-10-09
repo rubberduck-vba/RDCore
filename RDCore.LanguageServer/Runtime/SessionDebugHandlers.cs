@@ -144,3 +144,48 @@ internal static class SessionDebugRelay
         }
     }
 }
+
+/// <summary>
+/// Handles <c>rdcore/session/debug/stack</c>: relays a client's request for the activations of the program that waits.
+/// </summary>
+internal sealed class SessionDebugStackHandler(
+    IPlatformOrchestrationService orchestration,
+    IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<SessionDebugStackParams, HostDebugStackResult>
+{
+    protected override async Task<HostDebugStackResult> HandleAsync(SessionDebugStackParams request, CancellationToken token)
+    {
+        SessionDebugRelay.RequireCapability(clientCapabilities);
+
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return new HostDebugStackResult();
+        }
+
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostDebugStackParams, HostDebugStackResult>(new HostDebugStackParams(), token);
+    }
+}
+
+/// <summary>
+/// Handles <c>rdcore/session/debug/variables</c>: relays a client's request for the variables of an activation of the program that waits.
+/// </summary>
+internal sealed class SessionDebugVariablesHandler(
+    IPlatformOrchestrationService orchestration,
+    IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<SessionDebugVariablesParams, HostDebugVariablesResult>
+{
+    protected override async Task<HostDebugVariablesResult> HandleAsync(SessionDebugVariablesParams request, CancellationToken token)
+    {
+        SessionDebugRelay.RequireCapability(clientCapabilities);
+
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return new HostDebugVariablesResult();
+        }
+
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostDebugVariablesParams, HostDebugVariablesResult>(
+            new HostDebugVariablesParams { FrameId = request.FrameId, Scope = request.Scope, Reference = request.Reference }, token);
+    }
+}

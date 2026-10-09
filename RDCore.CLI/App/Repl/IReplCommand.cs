@@ -200,6 +200,21 @@ public interface IReplPlatformClient
     Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<int> lines, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server for the activations of the program that waits, innermost first.
+    /// </summary>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugStackResult> GetStackAsync(CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server for the variables of an activation of the program that waits, or the parts of one of them.
+    /// </summary>
+    /// <param name="frameId">The activation, by its place on the stack.</param>
+    /// <param name="scope">Which of its variables.</param>
+    /// <param name="reference">The reference of a variable that has parts, or <c>0</c>.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugVariablesResult> GetVariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server to analyze a module and report what its diagnostics providers found.
     /// </summary>
     /// <param name="source">The complete module source.</param>

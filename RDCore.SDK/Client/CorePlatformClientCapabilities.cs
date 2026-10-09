@@ -192,6 +192,12 @@ public static class RDCorePlatformProtocol
     /// </summary>
     public const string HostDebugBreakpoints = "rdcore/host/debug/breakpoints";
 
+    /// <summary>Asks the environment host for the call stack of the program that waits.</summary>
+    public const string HostDebugStack = "rdcore/host/debug/stack";
+
+    /// <summary>Asks the environment host for the variables of an activation of the program that waits.</summary>
+    public const string HostDebugVariables = "rdcore/host/debug/variables";
+
     /// <summary>Asks the language server to resume, or step, the program a client ran under a debugger. See <see cref="HostDebugResume"/>.</summary>
     public const string SessionDebugResume = "rdcore/session/debug/resume";
 
@@ -206,6 +212,12 @@ public static class RDCorePlatformProtocol
 
     /// <summary>Asks the language server to set the lines of a module that a program under a debugger waits at. See <see cref="HostDebugBreakpoints"/>.</summary>
     public const string SessionDebugBreakpoints = "rdcore/session/debug/breakpoints";
+
+    /// <summary>Asks the language server for the call stack of the program that waits. See <see cref="HostDebugStack"/>.</summary>
+    public const string SessionDebugStack = "rdcore/session/debug/stack";
+
+    /// <summary>Asks the language server for the variables of an activation of the program that waits. See <see cref="HostDebugVariables"/>.</summary>
+    public const string SessionDebugVariables = "rdcore/session/debug/variables";
 
     /// <summary>
     /// Asks the environment host to end a program that is running or waits.

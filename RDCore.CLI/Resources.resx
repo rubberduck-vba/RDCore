@@ -373,4 +373,13 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Suspended" xml:space="preserve">
     <value>PROGRAM STOPPED: CONT, STEP, RUN OR NEW</value>
   </data>
+  <data name="Repl_Stack_Summary" xml:space="preserve">
+    <value>Shows the procedures the stopped program is in, innermost first.</value>
+  </data>
+  <data name="Repl_Vars_Summary" xml:space="preserve">
+    <value>Shows the variables of the stopped program: VARS, or VARS 1 for the procedure that called.</value>
+  </data>
+  <data name="Repl_NotStopped" xml:space="preserve">
+    <value>PROGRAM NOT STOPPED</value>
+  </data>
 </root>

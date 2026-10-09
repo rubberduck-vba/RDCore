@@ -135,3 +135,82 @@ public record class HostDebugBreakpointsResult
 /// <param name="Line">The zero-based line it was asked for.</param>
 /// <param name="Verified">Whether a statement of the module's loaded code begins on the line, which is what a program can wait before.</param>
 public record class HostBreakpoint(int Line, bool Verified);
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/stack</c>: the activations of the program that waits, innermost first.
+/// </summary>
+[Method(RDCorePlatformProtocol.HostDebugStack, Direction.ClientToServer)]
+public record class HostDebugStackParams : IRequest, IRequest<HostDebugStackResult>;
+
+/// <summary>
+/// The call stack of a program that waits.
+/// </summary>
+public record class HostDebugStackResult
+{
+    /// <summary>The activations, innermost first. None when no program waits.</summary>
+    public IReadOnlyList<HostStackFrame> Frames { get; init; } = [];
+}
+
+/// <summary>
+/// One activation of a procedure.
+/// </summary>
+/// <param name="Id">Its place on the stack, with <c>0</c> the innermost: what the requests that are about a frame name it by, for as long as the program waits.</param>
+/// <param name="Procedure">The procedure's name.</param>
+/// <param name="Module">The name of the module that declares it.</param>
+/// <param name="Line">The zero-based line of the statement the activation is at: the one it waits before for the innermost, the one that is calling for the others. <c>-1</c> when it is not known.</param>
+/// <param name="Character">The zero-based column of that statement, or <c>-1</c>.</param>
+public record class HostStackFrame(int Id, string Procedure, string Module, int Line, int Character);
+
+/// <summary>
+/// Which variables of a frame.
+/// </summary>
+public enum HostVariableScope
+{
+    /// <summary>The parameters and the local variables of the procedure, and the value it returns.</summary>
+    Locals,
+
+    /// <summary>The variables of the module the procedure is declared in.</summary>
+    Module,
+}
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/variables</c>: the variables of an activation of the program that waits, or the parts of one of them.
+/// </summary>
+[Method(RDCorePlatformProtocol.HostDebugVariables, Direction.ClientToServer)]
+public record class HostDebugVariablesParams : IRequest, IRequest<HostDebugVariablesResult>
+{
+    /// <summary>The activation, by <see cref="HostStackFrame.Id"/>. Ignored when <see cref="Reference"/> is given.</summary>
+    public int FrameId { get; init; }
+
+    /// <summary>Which variables of the activation.</summary>
+    public HostVariableScope Scope { get; init; }
+
+    /// <summary>
+    /// The <see cref="HostVariable.Reference"/> of a variable that has parts - the elements of an array, the fields of a user-defined type - to get them instead.
+    /// <c>0</c> for the variables of <see cref="Scope"/>.
+    /// </summary>
+    public int Reference { get; init; }
+}
+
+/// <summary>
+/// The variables that were asked for.
+/// </summary>
+public record class HostDebugVariablesResult
+{
+    /// <summary>The variables, in the order they are declared in. None when no program waits, or the reference is no longer one.</summary>
+    public IReadOnlyList<HostVariable> Variables { get; init; } = [];
+
+    /// <summary>Whether there are more parts than were listed: a large array is cut short.</summary>
+    public int NotListed { get; init; }
+}
+
+/// <summary>
+/// A variable, or a part of one.
+/// </summary>
+/// <param name="Name">Its name, or <c>(2)</c> for an element and the name of the field for a field.</param>
+/// <param name="Value">Its value as the debugger shows it: a string quoted, a date between <c>#</c>. Empty for a variable whose value is its <see cref="Reference"/>.</param>
+/// <param name="Type">Its type: <c>Long</c>, <c>Variant/String</c>, <c>Long(1 To 3)</c>.</param>
+/// <param name="Reference">
+/// Non-zero if it has parts to ask for, which is valid until the program is resumed or ended.
+/// </param>
+public record class HostVariable(string Name, string Value, string Type, int Reference = 0);

@@ -63,3 +63,26 @@ public record class SessionDebugBreakpointsParams : IRequest, IRequest<HostDebug
     /// <inheritdoc cref="HostDebugBreakpointsParams.Lines"/>
     public IReadOnlyList<int> Lines { get; init; } = [];
 }
+
+/// <summary>
+/// Request for <c>rdcore/session/debug/stack</c>: the activations of the program that waits, innermost first. The language-server side of <see cref="HostDebugStackParams"/>.
+/// </summary>
+[Method(RDCorePlatformProtocol.SessionDebugStack, Direction.ClientToServer)]
+public record class SessionDebugStackParams : IRequest, IRequest<HostDebugStackResult>;
+
+/// <summary>
+/// Request for <c>rdcore/session/debug/variables</c>: the variables of an activation of the program that waits, or the parts of one of them. The language-server side of
+/// <see cref="HostDebugVariablesParams"/>.
+/// </summary>
+[Method(RDCorePlatformProtocol.SessionDebugVariables, Direction.ClientToServer)]
+public record class SessionDebugVariablesParams : IRequest, IRequest<HostDebugVariablesResult>
+{
+    /// <inheritdoc cref="HostDebugVariablesParams.FrameId"/>
+    public int FrameId { get; init; }
+
+    /// <inheritdoc cref="HostDebugVariablesParams.Scope"/>
+    public HostVariableScope Scope { get; init; }
+
+    /// <inheritdoc cref="HostDebugVariablesParams.Reference"/>
+    public int Reference { get; init; }
+}
