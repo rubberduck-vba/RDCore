@@ -518,14 +518,26 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             provider.Output.Target = NullRuntimeOutput.Instance;
         }
 
+        // a program that waits where an error was raised says which: the program is asked why it waits by what it has of the error.
+        var error = session.Halt.StoppedOnError;
         return new ExecuteSessionResult
         {
             Outcome = ExecutionOutcome.Suspended,
             Output = output.Lines,
             ErrorLine = stop.Location?.Range.Start.Line ?? -1,
             ErrorCharacter = stop.Location?.Range.Start.Character ?? -1,
+            ErrorNumber = error?.ErrorId ?? 0,
+            ErrorMessage = error?.Description ?? string.Empty,
+            ErrorCode = error?.ToDiagnosticCode() ?? string.Empty,
+            ErrorTitle = error is null ? string.Empty : error.AsErrorInfo.ToDiagnosticTitle(),
         };
     }
+
+    /// <summary>
+    /// Says which run-time errors a program that runs under a debugger waits at, where they are raised.
+    /// </summary>
+    /// <param name="mode">Which. The session's, and it is still so when the program is started again.</param>
+    public void SetErrorBreak(ErrorBreakMode mode) => provider.Session.Halt.BreakOnErrors = mode;
 
     // ends the program that waits. Called with the lock held.
     private void EndSuspended(IRuntimeSession session, bool wipe)

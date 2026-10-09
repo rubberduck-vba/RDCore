@@ -60,8 +60,16 @@ internal sealed class ProgramDebugAdapter(
     IGotoTargetsHandler,
     IGotoHandler,
     ITerminateHandler,
-    IDisconnectHandler
+    IDisconnectHandler,
+    ISetExceptionBreakpointsHandler,
+    IExceptionInfoHandler
 {
+    /// <summary>The filter of <c>setExceptionBreakpoints</c> that waits at the errors nothing would catch.</summary>
+    internal const string UnhandledErrors = "unhandled";
+
+    /// <summary>The filter of <c>setExceptionBreakpoints</c> that waits at every error where it is raised.</summary>
+    internal const string AllErrors = "all";
+
     /// <summary>The one thread of the program, which is the only one there is.</summary>
     internal const int ThreadId = 1;
 
@@ -90,6 +98,8 @@ internal sealed class ProgramDebugAdapter(
     private bool _launched;
     private bool _started;
     private int _terminated;
+    private ExecuteSessionResult? _stoppedError;
+    private ErrorBreakMode _errorBreak;
 
     private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
 
@@ -244,6 +254,49 @@ internal sealed class ProgramDebugAdapter(
         };
     }
 
+    // ---- errors ----
+
+    public async Task<SetExceptionBreakpointsResponse> Handle(SetExceptionBreakpointsArguments request, CancellationToken cancellationToken)
+    {
+        await _opened.Task.WaitAsync(cancellationToken);
+
+        var filters = request.Filters?.ToArray() ?? [];
+        var mode = filters.Contains(AllErrors) ? ErrorBreakMode.All
+            : filters.Contains(UnhandledErrors) ? ErrorBreakMode.Unhandled
+            : ErrorBreakMode.None;
+
+        lock (_sync)
+        {
+            _errorBreak = mode;
+        }
+
+        await debugging.SetErrorBreakAsync(mode, cancellationToken);
+        return new SetExceptionBreakpointsResponse();
+    }
+
+    public Task<ExceptionInfoResponse> Handle(ExceptionInfoArguments request, CancellationToken cancellationToken)
+    {
+        ExecuteSessionResult? error;
+        ErrorBreakMode mode;
+        lock (_sync)
+        {
+            (error, mode) = (_stoppedError, _errorBreak);
+        }
+
+        if (error is null)
+        {
+            throw Refusal("The program does not wait at an error.");
+        }
+
+        return Task.FromResult(new ExceptionInfoResponse
+        {
+            ExceptionId = error.ErrorCode,
+            Description = error.ErrorMessage,
+            BreakMode = mode is ErrorBreakMode.All ? ExceptionBreakMode.Always : ExceptionBreakMode.Unhandled,
+            Details = new ExceptionDetails { Message = Describe(error), TypeName = error.ErrorTitle },
+        });
+    }
+
     // ---- running ----
 
     public Task<ContinueResponse> Handle(ContinueArguments request, CancellationToken cancellationToken)
@@ -287,6 +340,7 @@ internal sealed class ProgramDebugAdapter(
         {
             _stepped = step is not null;
             _references.Clear();
+            _stoppedError = null;
         }
 
         Run(token => debugging.ResumeAsync(step, token));
@@ -324,7 +378,7 @@ internal sealed class ProgramDebugAdapter(
         switch (result.Outcome)
         {
             case ExecutionOutcome.Suspended:
-                await StoppedAsync();
+                await StoppedAsync(result);
                 break;
             case ExecutionOutcome.Completed:
             case ExecutionOutcome.Halted:
@@ -348,7 +402,7 @@ internal sealed class ProgramDebugAdapter(
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 
-    private async Task StoppedAsync()
+    private async Task StoppedAsync(ExecuteSessionResult result)
     {
         bool stepped;
         bool paused;
@@ -356,6 +410,22 @@ internal sealed class ProgramDebugAdapter(
         {
             (stepped, paused) = (_stepped, _paused);
             (_stepped, _paused) = (false, false);
+            _stoppedError = result.ErrorNumber != 0 ? result : null;
+        }
+
+        // a program that waits where an error was raised says so, whatever it was doing.
+        if (result.ErrorNumber != 0)
+        {
+            var text = Describe(result);
+            _server!.SendStopped(new StoppedEvent
+            {
+                Reason = StoppedEventReason.Exception,
+                Description = text,
+                Text = text,
+                ThreadId = ThreadId,
+                AllThreadsStopped = true,
+            });
+            return;
         }
 
         var (reason, description) = stepped ? (StoppedEventReason.Step, "Step")

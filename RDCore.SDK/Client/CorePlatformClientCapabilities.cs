@@ -201,6 +201,9 @@ public static class RDCorePlatformProtocol
     /// <summary>Asks the environment host for the value of an expression in an activation of the program that waits.</summary>
     public const string HostDebugEvaluate = "rdcore/host/debug/evaluate";
 
+    /// <summary>Asks the environment host to say which run-time errors a program under a debugger waits at, where they are raised.</summary>
+    public const string HostDebugErrorBreak = "rdcore/host/debug/errorBreak";
+
     /// <summary>Asks the language server to resume, or step, the program a client ran under a debugger. See <see cref="HostDebugResume"/>.</summary>
     public const string SessionDebugResume = "rdcore/session/debug/resume";
 

@@ -1069,6 +1069,10 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // says to count it.
         session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!));
 
+        // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
+        // at the statement that did. It goes on from here when it is resumed, to be caught or to end the program as it would have.
+        _ = session.Halt.TrySuspendOnError(outcome.ErrorInfo!, session.CallStack.Frames.OfType<CallStackFrame>().Any(frame => frame.ErrorHandler.Mode is not ErrorHandlingMode.Disabled));
+
         var handler = activation.ErrorHandler;
         switch (handler.Mode)
         {

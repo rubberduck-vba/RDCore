@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -125,6 +126,7 @@ internal sealed class SessionHalt : ISessionHalt
         Pending = null;
         Location = null;
         _step = null;
+        _lastWaitedAt = null;
     }
 
     public IExecutionGate? Gate { get; set; }
@@ -163,6 +165,35 @@ internal sealed class SessionHalt : ISessionHalt
     // a program that is already being stopped does not wait again at whatever unwinds it.
     public bool TrySuspend(RuntimeHaltKind kind, SourceLocation? location)
         => Pending is null && Gate is { } gate && gate.Suspend(kind, location) is SuspensionDecision.Resume;
+
+    public ErrorBreakMode BreakOnErrors { get; set; }
+
+    public IVBRaisableError? StoppedOnError { get; private set; }
+
+    private IVBRaisableError? _lastWaitedAt;
+
+    public bool TrySuspendOnError(IVBRaisableError error, bool handled)
+    {
+        if (BreakOnErrors is ErrorBreakMode.None
+            || (BreakOnErrors is ErrorBreakMode.Unhandled && handled)
+            || ReferenceEquals(_lastWaitedAt, error))
+        {
+            return false;
+        }
+
+        _lastWaitedAt = error;
+
+        // set before the program waits and left until it is resumed: whoever sees the program wait asks why.
+        StoppedOnError = error;
+        try
+        {
+            return TrySuspend(RuntimeHaltKind.Break, error.Location);
+        }
+        finally
+        {
+            StoppedOnError = null;
+        }
+    }
 }
 
 /// <summary>

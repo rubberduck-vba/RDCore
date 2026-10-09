@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
@@ -103,6 +104,45 @@ public interface ISessionHalt
     /// there when the program is started again.
     /// </summary>
     IBreakpointTable Breakpoints { get; }
+
+    /// <summary>
+    /// Which run-time errors a program that runs under a <see cref="Gate"/> waits at, where they are raised. The session's, as <see cref="Breakpoints"/> are: it outlives
+    /// the program and is still there when the program is started again.
+    /// </summary>
+    ErrorBreakMode BreakOnErrors { get; set; }
+
+    /// <summary>
+    /// The error the program waits at, while it waits at one: the program stopped where the error was raised (see <see cref="TrySuspendOnError"/>), and has not yet been
+    /// resumed. <see langword="null"/> otherwise.
+    /// </summary>
+    IVBRaisableError? StoppedOnError { get; }
+
+    /// <summary>
+    /// Offers the program to the <see cref="Gate"/> to wait where an error was raised, if <see cref="BreakOnErrors"/> says it is an error to wait at.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="handled">Whether an activation on the call stack has a handler that would catch it: an <c>On Error GoTo</c> or an <c>On Error Resume Next</c>.</param>
+    /// <returns>
+    /// <see langword="true"/> when the program waited and was resumed, and goes on to deal with the error as it would have. <see langword="false"/> when it did not wait:
+    /// there is no gate, the mode says to go on, the program is being stopped already, or the error was waited at before - the same error travels up the call stack
+    /// through every activation it passes, and is waited at where it was raised and not again.
+    /// </returns>
+    bool TrySuspendOnError(IVBRaisableError error, bool handled);
+}
+
+/// <summary>
+/// Which run-time errors a program under a debugger waits at.
+/// </summary>
+public enum ErrorBreakMode
+{
+    /// <summary>None: an error is dealt with as the program says, and the debugger does not see it.</summary>
+    None,
+
+    /// <summary>The errors that nothing on the call stack has a handler for, and that will end the program.</summary>
+    Unhandled,
+
+    /// <summary>Every error, where it is raised, whatever handler there is to catch it.</summary>
+    All,
 }
 
 /// <summary>

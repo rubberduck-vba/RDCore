@@ -47,6 +47,22 @@ public record class HostDebugTerminateParams : IRequest, IRequest<HostDebugAck>
 }
 
 /// <summary>
+/// Request for <c>rdcore/host/debug/errorBreak</c>: says which run-time errors a program under a debugger waits at, where they are raised - before any handler has
+/// caught them or anything has been unwound.
+/// </summary>
+/// <remarks>
+/// A program that waits at an error is answered as one that waits at a <c>Stop</c> (<see cref="ExecutionOutcome.Suspended"/>), with the error in
+/// <see cref="ExecuteSessionResult.ErrorNumber"/>, <see cref="ExecuteSessionResult.ErrorMessage"/>, <see cref="ExecuteSessionResult.ErrorCode"/> and
+/// <see cref="ExecuteSessionResult.ErrorTitle"/>. Resumed, it deals with the error as it would have.
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
+public record class HostDebugErrorBreakParams : IRequest, IRequest<HostDebugAck>
+{
+    /// <summary>Which errors the program waits at. It is the session's, and it stays until it is said otherwise.</summary>
+    public ErrorBreakMode Mode { get; init; }
+}
+
+/// <summary>
 /// What a request about the program that is being debugged answers when it has no result of its own.
 /// </summary>
 public record class HostDebugAck

@@ -407,6 +407,83 @@ public sealed class ProgramDebugAdapterTests
     }
 
     [TestMethod]
+    public async Task TheAdapter_OffersToWaitAtUnhandledErrors_OrAtAllOfThem()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+
+        var filters = session.Client.ServerSettings.ExceptionBreakpointFilters!.ToArray();
+
+        CollectionAssert.AreEquivalent(new[] { "unhandled", "all" }, filters.Select(filter => filter.Filter).ToArray());
+        Assert.IsTrue(filters.Single(filter => filter.Filter == "unhandled").Default);
+        Assert.IsTrue(session.Client.ServerSettings.SupportsExceptionInfoRequest);
+    }
+
+    [TestMethod]
+    [DataRow("all", ErrorBreakMode.All)]
+    [DataRow("unhandled", ErrorBreakMode.Unhandled)]
+    public async Task TheErrorsTheClientAsksToWaitAt_AreTheErrorsTheProgramWaitsAt(string filter, ErrorBreakMode mode)
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        _ = await session.SendAsync(new SetExceptionBreakpointsArguments { Filters = new Container<string>(filter) });
+
+        await session.Debugging.Received(1).SetErrorBreakAsync(mode, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task NoFilter_IsNoErrorsToWaitAt()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        _ = await session.SendAsync(new SetExceptionBreakpointsArguments { Filters = new Container<string>() });
+
+        await session.Debugging.Received(1).SetErrorBreakAsync(ErrorBreakMode.None, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AProgramThatWaitsAtAnError_IsSaidToHaveStoppedOnAnException_AndTheClientCanAskWhich()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteSessionResult
+        {
+            Outcome = ExecutionOutcome.Suspended,
+            ErrorNumber = 11,
+            ErrorMessage = "Division by zero",
+            ErrorCode = "VBR00011",
+            ErrorTitle = "Run-time error",
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetExceptionBreakpointsArguments { Filters = new Container<string>("all") });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        var stopped = await session.NextAsync<StoppedEvent>();
+        Assert.AreEqual(StoppedEventReason.Exception, stopped.Reason);
+        StringAssert.Contains(stopped.Description, "Division by zero");
+        var info = await session.SendAsync(new ExceptionInfoArguments { ThreadId = 1 });
+        Assert.AreEqual("VBR00011", info.ExceptionId);
+        Assert.AreEqual("Division by zero", info.Description);
+        Assert.AreEqual(ExceptionBreakMode.Always, info.BreakMode);
+    }
+
+    [TestMethod]
+    public async Task ThereIsNoExceptionToAskAbout_WhenTheProgramDoesNotWaitAtAnError()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ExceptionInfoArguments { ThreadId = 1 }));
+
+        StringAssert.Contains(refusal.Message, "error");
+    }
+
+    [TestMethod]
     public async Task APause_AsksTheProgramToStop_AndTheProgramWaitsWithAReasonOfPause()
     {
         await using var session = new Session();

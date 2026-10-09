@@ -60,6 +60,11 @@ internal interface IProgramDebugService
     /// <param name="expression">The expression, as text.</param>
     /// <param name="token">A token that cancels the request.</param>
     Task<HostDebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token);
+
+    /// <summary>Says which run-time errors the program waits at, where they are raised.</summary>
+    /// <param name="mode">Which.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task SetErrorBreakAsync(ErrorBreakMode mode, CancellationToken token);
 }
 
 /// <summary>
@@ -182,6 +187,17 @@ internal sealed class ProgramDebugService(
         await environment.WaitForReadyAsync(token);
         return await environment.SendRequestAsync<HostDebugEvaluateParams, HostDebugEvaluateResult>(
             new HostDebugEvaluateParams { FrameId = frameId, Json = PlatformJson.Serialize<ExpressionNode>(value) }, token);
+    }
+
+    public async Task SetErrorBreakAsync(ErrorBreakMode mode, CancellationToken token)
+    {
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return;
+        }
+
+        await environment.WaitForReadyAsync(token);
+        _ = await environment.SendRequestAsync<HostDebugErrorBreakParams, HostDebugAck>(new HostDebugErrorBreakParams { Mode = mode }, token);
     }
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);

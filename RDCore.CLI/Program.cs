@@ -412,6 +412,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostDebugStackHandler>()
             .WithHandler<HostDebugVariablesHandler>()
             .WithHandler<HostDebugEvaluateHandler>()
+            .WithHandler<HostDebugErrorBreakHandler>()
             .WithHandler<HostDebugTerminateHandler>()
             .WithHandler<HostSemanticsHandler>()
             .WithHandler<HostPeekHandler>()
