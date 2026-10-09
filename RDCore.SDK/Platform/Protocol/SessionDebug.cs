@@ -86,3 +86,17 @@ public record class SessionDebugVariablesParams : IRequest, IRequest<HostDebugVa
     /// <inheritdoc cref="HostDebugVariablesParams.Reference"/>
     public int Reference { get; init; }
 }
+
+/// <summary>
+/// Request for <c>rdcore/session/debug/evaluate</c>: the value of an expression, written as text, in an activation of the program that waits. The language server parses
+/// it and has the host evaluate it. The language-server side of <see cref="HostDebugEvaluateParams"/>.
+/// </summary>
+[Method(RDCorePlatformProtocol.SessionDebugEvaluate, Direction.ClientToServer)]
+public record class SessionDebugEvaluateParams : IRequest, IRequest<HostDebugEvaluateResult>
+{
+    /// <summary>The activation, by its <see cref="HostStackFrame.Id"/>.</summary>
+    public int FrameId { get; init; }
+
+    /// <summary>The expression, as it would be written in the procedure of the activation.</summary>
+    public string Expression { get; init; } = string.Empty;
+}

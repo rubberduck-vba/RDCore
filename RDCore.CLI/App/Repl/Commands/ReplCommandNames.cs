@@ -9,6 +9,8 @@ internal static class ReplCommandNames
     public const string Clear = "CLEAR";
     public const string Cls = "CLS"; // alias for CLEAR
     public const string Cont = "CONT";
+    public const string Eval = "EVAL";
+    public const string Frame = "FRAME";
     public const string Continue = "CONTINUE"; // alias for CONT
     public const string Exit = "EXIT";
     public const string Help = "HELP";

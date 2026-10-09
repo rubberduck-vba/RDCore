@@ -386,6 +386,126 @@ public sealed class ReplDebuggingTests
         });
     }
 
+    // ---- FRAME and EVAL ----
+
+    [TestMethod]
+    public async Task AnEval_ShowsTheValueOfTheExpression_WithItsType_InTheInnermostActivation()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.EvaluateAsync(0, "X * 2", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "84", Type = "Long" }));
+
+        await CommandAsync(new EvalReplCommand(), "X * 2");
+
+        _console.Received().WriteLine("X * 2 = 84  (Long)");
+    }
+
+    [TestMethod]
+    public async Task AnEval_ThatCallsSomethingThatPrints_ShowsWhatItPrinted_First()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.EvaluateAsync(0, "Noisy()", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
+
+        await CommandAsync(new EvalReplCommand(), "Noisy()");
+
+        Received.InOrder(() =>
+        {
+            _console.WriteLine("from the call");
+            _console.WriteLine("Noisy() = 1  (Long)");
+        });
+    }
+
+    [TestMethod]
+    public async Task AnEval_ThatHasNoValue_SaysWhy()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.EvaluateAsync(0, "Nope", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "Variable not defined" }));
+
+        await CommandAsync(new EvalReplCommand(), "Nope");
+
+        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_Eval_Failed, "Variable not defined");
+    }
+
+    [TestMethod]
+    public async Task AnEval_ShowsThePartsOfAnArray_UnderIt()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.EvaluateAsync(0, "arr", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Type = "Long(1 To 2)", Reference = 4 }));
+        _platform.GetVariablesAsync(Arg.Any<int>(), Arg.Any<HostVariableScope>(), 4, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("(1)", "5", "Long")] }));
+
+        await CommandAsync(new EvalReplCommand(), "arr");
+
+        Received.InOrder(() =>
+        {
+            _console.WriteLine("arr  (Long(1 To 2))");
+            _console.WriteLine("  (1) = 5  (Long)");
+        });
+    }
+
+    [TestMethod]
+    public async Task AnEval_WithNoProgramThatWaits_OrNoExpression_DoesNotAsk()
+    {
+        await CommandAsync(new EvalReplCommand(), "X");
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        await CommandAsync(new EvalReplCommand(), "  ");
+
+        await _platform.DidNotReceiveWithAnyArgs().EvaluateAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public async Task AFrame_SelectsTheActivationEvalAndVarsAreAbout()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            Frames = [new HostStackFrame(0, "Helper", "Program", 2, 0), new HostStackFrame(1, "Main", "Program", 1, 0)],
+        }));
+        _platform.EvaluateAsync(1, "k", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
+        _platform.GetVariablesAsync(1, Arg.Any<HostVariableScope>(), Arg.Is(0), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult()));
+
+        await CommandAsync(new FrameReplCommand(), "1");
+        await CommandAsync(new EvalReplCommand(), "k");
+        await CommandAsync(new VarsReplCommand());
+
+        Assert.AreEqual(1, _context.Debugger.SelectedFrame);
+        _console.Received().WriteLine("#1 Main");
+        _console.Received().WriteLine("k = 7  (Long)");
+        await _platform.Received().GetVariablesAsync(1, HostVariableScope.Module, 0, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AFrame_ThatIsNotOnTheStack_IsASyntaxError_AndTheSelectionStays()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult { Frames = [new HostStackFrame(0, "Main", "Program", 1, 0)] }));
+
+        await CommandAsync(new FrameReplCommand(), "3");
+
+        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "3");
+        Assert.AreEqual(0, _context.Debugger.SelectedFrame);
+    }
+
+    [TestMethod]
+    public async Task TheSelectedFrame_IsTheInnermostAgain_WhenTheProgramGoesOn()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _context.Debugger.SelectedFrame = 2;
+        ResumeReturns(SuspendedAt(3));
+
+        await CommandAsync(new ContReplCommand());
+
+        Assert.AreEqual(0, _context.Debugger.SelectedFrame);
+    }
+
     [TestMethod]
     public async Task AVars_ShowsThePartsOfAnArray_UnderIt()
     {

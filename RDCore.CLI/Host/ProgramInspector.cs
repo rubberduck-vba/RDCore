@@ -162,7 +162,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
         }
     }
 
-    private HostVariable Describe(string name, VBTypedValue? value)
+    internal HostVariable Describe(string name, VBTypedValue? value)
     {
         if (value is null)
         {

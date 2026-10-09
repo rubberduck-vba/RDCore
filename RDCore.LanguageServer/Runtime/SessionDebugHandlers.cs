@@ -1,8 +1,13 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
+using RDCore.LanguageServer.Parsing;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 
 namespace RDCore.LanguageServer.Runtime;
@@ -188,4 +193,55 @@ internal sealed class SessionDebugVariablesHandler(
         return await environment.SendRequestAsync<HostDebugVariablesParams, HostDebugVariablesResult>(
             new HostDebugVariablesParams { FrameId = request.FrameId, Scope = request.Scope, Reference = request.Reference }, token);
     }
+}
+
+/// <summary>
+/// Handles <c>rdcore/session/debug/evaluate</c>: parses the expression a client wrote and has the component that owns the runtime session evaluate it in an activation of
+/// the program that waits.
+/// </summary>
+/// <remarks>
+/// The parser parses statements, and an expression is the right-hand side of one: the text is written as the value of an assignment inside a procedure of its own, and the
+/// value is the tree that comes back. Text that is not one expression - a second statement after a <c>:</c>, a line break - is not an expression, and the answer says so
+/// without it reaching the host.
+/// </remarks>
+internal sealed class SessionDebugEvaluateHandler(
+    IPlatformOrchestrationService orchestration,
+    IPlatformClientCapabilitiesService clientCapabilities,
+    IParsingClientService parsing,
+    IOptions<SdkAppOptions> options)
+    : RDCoreRequestHandler<SessionDebugEvaluateParams, HostDebugEvaluateResult>
+{
+    protected override async Task<HostDebugEvaluateResult> HandleAsync(SessionDebugEvaluateParams request, CancellationToken token)
+    {
+        SessionDebugRelay.RequireCapability(clientCapabilities);
+
+        if (orchestration.RuntimeEnvironment is not { } environment)
+        {
+            return new HostDebugEvaluateResult { Error = "no runtime environment component is registered" };
+        }
+
+        if (request.Expression.Contains('\n') || request.Expression.Contains('\r') || string.IsNullOrWhiteSpace(request.Expression))
+        {
+            return new HostDebugEvaluateResult { Error = "an expression is one line" };
+        }
+
+        var document = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = "Evaluate" }.Uri;
+        var parsed = await parsing.ParseFragmentAsync(document, $"Public Sub __Evaluate()\r\n__e = {request.Expression}\r\nEnd Sub\r\n", token);
+        if (!parsed.IsSuccess || parsed.SyntaxTree is null)
+        {
+            return new HostDebugEvaluateResult { Error = parsed.SyntaxErrors.FirstOrDefault()?.Description ?? "this is not an expression" };
+        }
+
+        var assignments = Descendants(parsed.SyntaxTree).OfType<AssignmentStatementNode>().ToArray();
+        if (assignments is not [{ Value: { } value }])
+        {
+            return new HostDebugEvaluateResult { Error = "this is not one expression" };
+        }
+
+        await environment.WaitForReadyAsync(token);
+        return await environment.SendRequestAsync<HostDebugEvaluateParams, HostDebugEvaluateResult>(
+            new HostDebugEvaluateParams { FrameId = request.FrameId, Json = PlatformJson.Serialize<ExpressionNode>(value) }, token);
+    }
+
+    private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 }

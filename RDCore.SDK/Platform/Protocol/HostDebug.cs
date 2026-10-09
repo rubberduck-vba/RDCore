@@ -222,3 +222,46 @@ public record class HostDebugVariablesResult
 /// Non-zero if it has parts to ask for, which is valid until the program is resumed or ended.
 /// </param>
 public record class HostVariable(string Name, string Value, string Type, int Reference = 0);
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/evaluate</c>: the value of an expression in an activation of the program that waits, as if it were written in the procedure it is
+/// an activation of, at the place it waits at.
+/// </summary>
+/// <remarks>
+/// The expression travels as a parsed tree for the reason <see cref="HostExecuteParams.Json"/> does. Its names are looked up from the procedure of the activation - its
+/// locals and parameters, then its module, then the project - and a call in it is made, in the session as it is: what the expression does stays done, as it does in the
+/// immediate window of the VBA editor. A <c>Stop</c> in it stops it and not the program.
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugEvaluate, Direction.ClientToServer)]
+public record class HostDebugEvaluateParams : IRequest, IRequest<HostDebugEvaluateResult>
+{
+    /// <summary>The activation, by its <see cref="HostStackFrame.Id"/>.</summary>
+    public int FrameId { get; init; }
+
+    /// <summary>The <see cref="System.Text.Json"/> representation of the expression, an <c>ExpressionNode</c> (see <see cref="PlatformJson"/>).</summary>
+    public string Json { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// What an expression came to.
+/// </summary>
+public record class HostDebugEvaluateResult
+{
+    /// <summary>Whether the expression had a value. When it did not, <see cref="Error"/> says why.</summary>
+    public bool Success { get; init; }
+
+    /// <summary>The value as a debugger shows it; empty for a value that is its parts.</summary>
+    public string Value { get; init; } = string.Empty;
+
+    /// <summary>Its type.</summary>
+    public string Type { get; init; } = string.Empty;
+
+    /// <summary>Non-zero if the value has parts to ask for with <see cref="HostDebugVariablesParams.Reference"/>.</summary>
+    public int Reference { get; init; }
+
+    /// <summary>Why there is no value: no program waits, no such activation, a name that is not defined, an error the expression raised.</summary>
+    public string? Error { get; init; }
+
+    /// <summary>What a call in the expression printed, one entry per line: output for a debug console, and not the program's.</summary>
+    public IReadOnlyList<string> Output { get; init; } = [];
+}

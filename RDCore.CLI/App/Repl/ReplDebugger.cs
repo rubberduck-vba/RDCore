@@ -49,8 +49,14 @@ public sealed class ReplDebugger
     /// </summary>
     public void ClearBreakpoints() => _breakpoints.Clear();
 
+    /// <summary>
+    /// The activation <c>VARS</c> and <c>EVAL</c> are about, by its place on the stack: the innermost, <c>0</c>, until <c>FRAME</c> selects another. It is the innermost
+    /// again every time the program goes on, since what was selected is then not there.
+    /// </summary>
+    public int SelectedFrame { get; set; }
+
     /// <summary>The program was started or resumed, and the shell waits for it.</summary>
-    public void Running() => (State, StoppedAt) = (ReplDebugState.Running, null);
+    public void Running() => (State, StoppedAt, SelectedFrame) = (ReplDebugState.Running, null, 0);
 
     /// <summary>The program stopped and waits.</summary>
     /// <param name="number">The line number it waits before, when it is known.</param>

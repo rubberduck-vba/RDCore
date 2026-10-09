@@ -1,5 +1,8 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -248,6 +251,97 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     }
 
     /// <summary>
+    /// The value of an expression in an activation of the program that waits.
+    /// </summary>
+    /// <param name="pipeline">What evaluates it.</param>
+    /// <param name="frameId">The activation, by its place on the stack.</param>
+    /// <param name="expression">The expression.</param>
+    /// <remarks>
+    /// The expression is evaluated on the thread of the request, with the activation selected on the call stack: its names are the activation's names, and a call in it
+    /// pushes an activation above, as any call does. The program stays where it waits. Something that stops - a <c>Stop</c> in a procedure the expression calls - stops
+    /// the expression and not the program, and an <c>End</c> is the end of it.
+    /// </remarks>
+    public HostDebugEvaluateResult Evaluate(RuntimeExecutionPipeline pipeline, int frameId, ExpressionNode expression)
+    {
+        lock (_sync)
+        {
+            var session = provider.Session;
+            if (_state is not ProgramState.Suspended)
+            {
+                return Unevaluated(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+            }
+
+            var frames = session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
+            if (frameId < 0 || frameId >= frames.Length || frames[frameId].Procedure is not { } procedure || session.CallStack is not RuntimeCallStack stack)
+            {
+                return Unevaluated("there is no such activation");
+            }
+
+            var output = new RuntimeOutputBuffer();
+            var depth = session.CallStack.Depth;
+            provider.Output.Target = output;
+            try
+            {
+                RuntimeSemanticsEvaluationResult result;
+                using (stack.Select(frames[frameId]))
+                {
+                    result = pipeline.Expressions.Evaluate(session, expression, new RuntimeEvaluationContext(procedure.Uri));
+                }
+
+                if (session.Halt.Pending is { } halt)
+                {
+                    session.Halt.Clear();
+                    if (halt is RuntimeHaltKind.End)
+                    {
+                        EndSuspended(session, wipe: true);
+                        return Unevaluated("the expression ended the program", output);
+                    }
+
+                    return Unevaluated("the expression was stopped by a Stop", output);
+                }
+
+                if (result.IsSuccess)
+                {
+                    var described = _inspector.Describe(string.Empty, result.Result);
+                    return new HostDebugEvaluateResult
+                    {
+                        Success = true,
+                        Value = described.Value,
+                        Type = described.Type,
+                        Reference = described.Reference,
+                        Output = output.Lines,
+                    };
+                }
+
+                return Unevaluated(
+                    result.IsInternalError ? UnevaluableBecause(session, expression, procedure.Uri) : result.ErrorInfo!.Description,
+                    output);
+            }
+            finally
+            {
+                provider.Output.Target = NullRuntimeOutput.Instance;
+                UnwindTo(session, depth);
+            }
+        }
+    }
+
+    // The evaluator answers an internal error for a name nothing defines, since static semantics were to have rejected it. What a person is told is the name: the first
+    // one in the expression that does not resolve from the procedure. An expression every name of which resolves is one the interpreter cannot evaluate.
+    private static string UnevaluableBecause(IRuntimeSession session, ExpressionNode expression, Uri scope)
+    {
+        var undefined = Descendants(expression)
+            .OfType<SimpleNameExpressionNode>()
+            .FirstOrDefault(name => !session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, scope).IsResolved);
+
+        return undefined is null ? "the interpreter cannot evaluate this yet" : $"'{undefined.IdentifierName}' is not defined";
+    }
+
+    private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
+
+    private static HostDebugEvaluateResult Unevaluated(string reason, RuntimeOutputBuffer? output = null)
+        => new() { Error = reason, Output = output?.Lines ?? [] };
+
+    /// <summary>
     /// Stops the program that is running, at the next instruction, so that it waits there.
     /// </summary>
     /// <returns>Whether there was a program under a debugger running.</returns>
@@ -313,6 +407,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private ExecuteSessionResult RunAlongside(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
+        var depth = session.CallStack.Depth;
         provider.Output.Target = output;
         try
         {
@@ -327,6 +422,16 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         finally
         {
             provider.Output.Target = NullRuntimeOutput.Instance;
+            UnwindTo(session, depth);
+        }
+    }
+
+    // A statement or an expression that a Stop stopped leaves the activations it pushed on the stack, as a program that is stopped does, to be looked at. It is not a
+    // program that waits, so they are let go of: the stack is the program's, and is what it was.
+    private static void UnwindTo(IRuntimeSession session, int depth)
+    {
+        while (session.CallStack.Depth > depth && session.CallStack.TryPop(out _))
+        {
         }
     }
 

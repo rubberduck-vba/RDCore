@@ -198,6 +198,9 @@ public static class RDCorePlatformProtocol
     /// <summary>Asks the environment host for the variables of an activation of the program that waits.</summary>
     public const string HostDebugVariables = "rdcore/host/debug/variables";
 
+    /// <summary>Asks the environment host for the value of an expression in an activation of the program that waits.</summary>
+    public const string HostDebugEvaluate = "rdcore/host/debug/evaluate";
+
     /// <summary>Asks the language server to resume, or step, the program a client ran under a debugger. See <see cref="HostDebugResume"/>.</summary>
     public const string SessionDebugResume = "rdcore/session/debug/resume";
 
@@ -218,6 +221,9 @@ public static class RDCorePlatformProtocol
 
     /// <summary>Asks the language server for the variables of an activation of the program that waits. See <see cref="HostDebugVariables"/>.</summary>
     public const string SessionDebugVariables = "rdcore/session/debug/variables";
+
+    /// <summary>Asks the language server for the value of an expression, as text, in an activation of the program that waits. See <see cref="HostDebugEvaluate"/>.</summary>
+    public const string SessionDebugEvaluate = "rdcore/session/debug/evaluate";
 
     /// <summary>
     /// Asks the environment host to end a program that is running or waits.
