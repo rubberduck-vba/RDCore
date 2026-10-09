@@ -337,6 +337,21 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task AStack_SaysWhichHandlerAnActivationIsRunning_BeforeHowItGotThere()
+    {
+        ExecuteReturns(SuspendedAt(3));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            Frames = [new HostStackFrame(0, "Main", "Program", 3, 0, [1], Handler: "900")],
+        }));
+
+        await CommandAsync(new StackReplCommand());
+
+        _console.Received().WriteLine("#0 Main 30 in 900 from 10");
+    }
+
+    [TestMethod]
     public async Task AStack_OfAnActivationInNoGoSub_SaysNothingOfHowItGotThere()
     {
         ExecuteReturns(SuspendedAt(2));

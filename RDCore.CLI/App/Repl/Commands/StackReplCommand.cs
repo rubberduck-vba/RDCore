@@ -10,7 +10,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// The line is the program's own line number where the procedure is the program, and the line of its module where it is a procedure the program called.
 /// <para>
 /// An activation that is inside a <c>GoSub</c> says where it came from, line after line, innermost first: <c>#0 Main 780 from 240 from 590</c>. One that is not
-/// inside any says nothing about it.
+/// inside any says nothing about it. One that an error has brought to its handler says which: <c>#0 Main 910 in 900</c>.
 /// </para>
 /// </remarks>
 internal sealed class StackReplCommand : IReplCommand
@@ -32,7 +32,10 @@ internal sealed class StackReplCommand : IReplCommand
         {
             // and how it got to the line it is at, when it was by a GoSub: from the line of the last one it has not returned from, and the one before that.
             var from = string.Concat(frame.ReturnLines.Select(line => $" from {Where(context.Program, frame.Module, line)}"));
-            context.Console.WriteLine($"#{frame.Id} {frame.Procedure} {Where(context.Program, frame.Module, frame.Line)}{from}".TrimEnd());
+
+            // and, if it was an error that brought it to the handler it is in, the handler: the error itself is for the error metadata to say.
+            var handler = frame.Handler is { Length: > 0 } label ? $" in {label}" : string.Empty;
+            context.Console.WriteLine($"#{frame.Id} {frame.Procedure} {Where(context.Program, frame.Module, frame.Line)}{handler}{from}".TrimEnd());
         }
 
         return ReplCommandResult.Continue;

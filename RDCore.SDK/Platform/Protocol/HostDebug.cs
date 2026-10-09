@@ -163,7 +163,11 @@ public record class HostDebugStackResult
 /// The zero-based lines of the <c>GoSub</c> statements this activation has not <c>Return</c>ed from, innermost first: how it got to the line it is at. It is the GoSub
 /// Resumption List of the activation (<strong>MS-VBAL 5.4.2.14</strong>), and is empty - and so says nothing - for the code that does not use <c>GoSub</c>.
 /// </param>
-public record class HostStackFrame(int Id, string Procedure, string Module, int Line, int Character, IReadOnlyList<int>? ReturnLines = null)
+/// <param name="Handler">
+/// The label of the error handler this activation is running, when an error was caught by an <c>On Error GoTo</c> and the handler has not been left with a
+/// <c>Resume</c> (<strong>MS-VBAL 5.4.4</strong>); <see langword="null"/> otherwise. The error itself is in the error metadata of the session, not here.
+/// </param>
+public record class HostStackFrame(int Id, string Procedure, string Module, int Line, int Character, IReadOnlyList<int>? ReturnLines = null, string? Handler = null)
 {
     /// <summary>The lines of the <c>GoSub</c> statements this activation will return to; none for a procedure that is not in one.</summary>
     public IReadOnlyList<int> ReturnLines { get; init; } = ReturnLines ?? [];
