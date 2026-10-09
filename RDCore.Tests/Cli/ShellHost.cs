@@ -60,6 +60,9 @@ internal sealed class ShellHost
     /// <summary>The session's memory, as the allocator accounts for it.</summary>
     public SessionMemoryInfo Memory => _provider.Session.Memory.Info;
 
+    /// <summary>The provider of the session, for whoever looks at the program that runs in it.</summary>
+    public EnvironmentSessionProvider Provider => _provider;
+
     /// <summary>
     /// Whether the module declares a member of that name, for a name a line of the program assigned.
     /// </summary>
@@ -71,14 +74,14 @@ internal sealed class ShellHost
     /// <summary>
     /// Runs the program, the way <c>RUN</c> does: defined in the session, then <c>Main</c> invoked.
     /// </summary>
-    public Task<ExecuteSessionResult> RunAsync(IEnumerable<(int Number, string Statement)> lines)
-        => ExecuteAsync(Program(lines).ToModuleSource(), ReplProgram.EntryPointName);
+    public Task<ExecuteSessionResult> RunAsync(IEnumerable<(int Number, string Statement)> lines, bool debug = false)
+        => ExecuteAsync(Program(lines).ToModuleSource(), ReplProgram.EntryPointName, debug);
 
     /// <summary>
     /// Runs a line typed at the prompt, the way the shell does: the program and the line, as a second procedure of the module.
     /// </summary>
-    public Task<ExecuteSessionResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement)
-        => ExecuteAsync(Program(lines).ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName);
+    public Task<ExecuteSessionResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement, bool alongside = false)
+        => ExecuteAsync(Program(lines).ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, debug: false, immediate: alongside);
 
     /// <summary>
     /// Takes the program's module out of the session (<c>rdcore/host/discard</c>).
@@ -102,7 +105,7 @@ internal sealed class ShellHost
         return program;
     }
 
-    private async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint)
+    private async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint, bool debug = false, bool immediate = false)
     {
         var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{ModuleName}.bas")), source);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
@@ -130,6 +133,8 @@ internal sealed class ShellHost
                 Json = PlatformJson.Serialize(new HostExecutePayload(_moduleUri, parse)),
                 ModuleName = ModuleName,
                 EntryPoint = entryPoint,
+                Debug = debug,
+                Immediate = immediate,
             }, CancellationToken.None);
     }
 }
