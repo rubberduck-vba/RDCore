@@ -65,8 +65,13 @@ public sealed class NullRuntimeOutput : IRuntimeOutput
 /// result, not streamed somewhere. A line the program left open with a trailing <c>;</c> is part of
 /// <see cref="Lines"/> as soon as it has anything on it, so output that never reached a line break
 /// is still reported.
+/// <para>
+/// A buffer that is given somewhere to say its lines (<c>completed</c>) does not keep them: each is handed over as soon as it is complete, and <see cref="Lines"/> is
+/// what has not been - the line in progress. That is for a caller that wants the output while the program runs, and not with the result.
+/// </para>
 /// </remarks>
-public sealed class RuntimeOutputBuffer : IRuntimeOutput
+/// <param name="completed">Receives each line as it is completed, or <see langword="null"/> to keep them.</param>
+public sealed class RuntimeOutputBuffer(Action<string>? completed = null) : IRuntimeOutput
 {
     private readonly List<string> _lines = [];
     private readonly StringBuilder _current = new();
@@ -85,8 +90,16 @@ public sealed class RuntimeOutputBuffer : IRuntimeOutput
     /// <inheritdoc/>
     public void WriteLine()
     {
-        _lines.Add(_current.ToString());
+        var line = _current.ToString();
         _current.Clear();
+        if (completed is null)
+        {
+            _lines.Add(line);
+        }
+        else
+        {
+            completed(line);
+        }
     }
 }
 

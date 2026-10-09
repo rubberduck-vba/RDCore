@@ -82,7 +82,7 @@ internal sealed class HostExecuteHandler(
 
     private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
     {
-        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate);
+        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate, request.StreamOutput);
 
         if (logger.IsEnabled(LogLevel.Information))
         {

@@ -173,6 +173,12 @@ public static class RDCorePlatformProtocol
     public const string HostDiscard = "rdcore/host/discard";
 
     /// <summary>
+    /// Tells the language server what a program printed, as it prints: a notification from the environment host, sent for a program that was run with
+    /// <see cref="HostExecuteParams.StreamOutput"/>.
+    /// </summary>
+    public const string HostOutput = "rdcore/host/output";
+
+    /// <summary>
     /// Asks the environment host to resume a program that waits at a stop, or to take one step of it.
     /// </summary>
     public const string HostDebugResume = "rdcore/host/debug/resume";
