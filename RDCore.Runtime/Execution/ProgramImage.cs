@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Immutable;
+using System.Text.Json.Serialization.Metadata;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics.Instructions;
 
@@ -83,8 +84,8 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     /// A program that waits at a <c>Stop</c> is resumed only on the code it was suspended with. The fingerprint is taken when it stops and again when it is
     /// asked to go on: what the analysis pass loaded meanwhile is of no matter if the code came out the same, and is the next run's if it did not.
     /// <para>
-    /// The locations of the code are part of it for now, so that a blank line inserted above a procedure is a change; the program waits at an instruction that
-    /// has a place in the source, and the place is where the person looking at it expects to be.
+    /// The locations of the code are not part of it: a blank line inserted above a procedure, or a comment edited, leaves the program the same program. What the
+    /// program reports from then on is a place in the source as it was when the code was loaded.
     /// </para>
     /// </remarks>
     public ImmutableDictionary<string, string> Fingerprints()
@@ -108,7 +109,7 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
                     Append(hash, $"{instruction.Offset}|{instruction.Kind}|{instruction.Target}|{string.Join(',', instruction.Targets)}|{instruction.Else}|{instruction.End}|{instruction.Matching}|{instruction.EnclosingWith}");
                     if (instruction.Node is { } node)
                     {
-                        Append(hash, RDCore.SDK.Platform.Protocol.PlatformJson.Serialize<RDCore.SDK.Model.AST.Abstract.SyntaxNode>(node));
+                        Append(hash, System.Text.Json.JsonSerializer.Serialize<RDCore.SDK.Model.AST.Abstract.SyntaxNode>(node, LocationFree));
                     }
                 }
             }
@@ -117,6 +118,27 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
         }
 
         return fingerprints.ToImmutable();
+    }
+
+    // the options a syntax node travels with, less every property that says where in the source it was written.
+    private static readonly System.Text.Json.JsonSerializerOptions LocationFree = CreateLocationFreeOptions();
+
+    private static System.Text.Json.JsonSerializerOptions CreateLocationFreeOptions()
+    {
+        var options = new System.Text.Json.JsonSerializerOptions(RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.Options);
+        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        {
+            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
+            {
+                _ = typeInfo.Properties.Remove(property);
+            }
+        });
+
+        return options;
+
+        static bool IsLocation(Type type)
+            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
+                && (underlying == typeof(RDCore.SDK.Model.Source.SourceLocation) || underlying == typeof(RDCore.SDK.Model.Source.SourceRange));
     }
 
     private static void Append(System.Security.Cryptography.IncrementalHash hash, string text)

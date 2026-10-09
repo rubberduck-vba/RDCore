@@ -20,7 +20,7 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 internal static class ModuleWorkspace
 {
-    private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace");
+    internal static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-module-workspace");
 
     /// <summary>A class module's source: the header every one has, then <paramref name="body"/>.</summary>
     public static string ClassModule(string name, params string[] body)

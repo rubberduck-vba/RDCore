@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
@@ -33,6 +34,40 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public int Pc { get; set; }
+
+    /// <summary>
+    /// The procedure this is an activation of, with the module that declares it; <see cref="ICallStackFrame.StaticSymbol"/> has only its name and type.
+    /// </summary>
+    public VBTypeMemberSymbol? Procedure { get; set; }
+
+    /// <summary>
+    /// The body this activation runs: what <see cref="Pc"/> is an offset into. Not replaced by loading the module again, which is for the calls made after it - an
+    /// activation goes on with the code it started with.
+    /// </summary>
+    public InstructionList? Body { get; set; }
+
+    private bool _moved;
+
+    /// <summary>
+    /// Moves the program counter to <paramref name="offset"/> of the <see cref="Body"/> while the activation waits at a stop, so that it goes on from there and
+    /// not from where it stopped (<c>Set Next Statement</c>).
+    /// </summary>
+    /// <param name="offset">An offset of the body, or its length for the end of the procedure.</param>
+    public void MoveTo(int offset)
+    {
+        Pc = offset;
+        _moved = true;
+    }
+
+    /// <summary>
+    /// Whether the program counter was moved while the activation waited, which forgets it: the instruction it stopped at is then not the one to go on after.
+    /// </summary>
+    public bool TakeMove()
+    {
+        var moved = _moved;
+        _moved = false;
+        return moved;
+    }
 
     /// <inheritdoc/>
     public VBRuntimeObjectId? Target { get; set; }

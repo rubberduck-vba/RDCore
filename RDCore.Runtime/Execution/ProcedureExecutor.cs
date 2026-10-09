@@ -132,6 +132,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 if (session.Halt.TrySuspend(RuntimeHaltKind.Break, location))
                 {
                     _cancellationAcknowledged = true;
+                    _ = activation.TakeMove();
                     continue;
                 }
 
@@ -148,6 +149,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     session.Halt.Request(RuntimeHaltKind.Break, stepLocation);
                     return RuntimeExecutionOutcome.Break;
                 }
+
+                // waiting before the instruction, the program counter is where the program goes on from, moved or not.
+                _ = activation.TakeMove();
+                if (activation.Pc >= list.Items.Length)
+                {
+                    continue;
+                }
             }
 
             var instruction = list.Items[activation.Pc];
@@ -163,7 +171,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                         // this instruction and the next, and goes on from the next.
                         if (outcome.Kind is RuntimeExecutionOutcomeKind.Break && session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
                         {
-                            activation.Pc = instruction.Offset + 1;
+                            // the program counter may have been moved while the program waited, and then it goes on from where it was moved to.
+                            if (!activation.TakeMove())
+                            {
+                                activation.Pc = instruction.Offset + 1;
+                            }
+
                             break;
                         }
 
@@ -355,7 +368,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 case InstructionKind.Break:
                     if (session.Halt.TrySuspend(RuntimeHaltKind.Break, instruction.Node?.SourceLocation))
                     {
-                        activation.Pc = instruction.Offset + 1;
+                        if (!activation.TakeMove())
+                        {
+                            activation.Pc = instruction.Offset + 1;
+                        }
+
                         break;
                     }
 

@@ -400,6 +400,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<HostDiscardHandler>()
             .WithHandler<HostDebugResumeHandler>()
             .WithHandler<HostDebugPauseHandler>()
+            .WithHandler<HostDebugGotoHandler>()
             .WithHandler<HostDebugTerminateHandler>()
             .WithHandler<HostSemanticsHandler>()
             .WithHandler<HostPeekHandler>()

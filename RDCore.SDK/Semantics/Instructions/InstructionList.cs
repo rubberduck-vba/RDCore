@@ -61,6 +61,38 @@ public sealed class InstructionList
     public bool TryGetOffset(SyntaxNodeId nodeId, out int offset) => _byNode.TryGetValue(nodeId, out offset);
 
     /// <summary>
+    /// Looks up the first instruction a statement of the source line <paramref name="line"/> lowered to, or else the first of the lines after it that has one:
+    /// where a breakpoint on a line, or a move of the program counter to it, lands.
+    /// </summary>
+    /// <param name="line">A zero-based line of the source.</param>
+    /// <param name="offset">The offset of that instruction.</param>
+    /// <returns><c>false</c> when no statement of this body begins at that line or after it.</returns>
+    /// <remarks>
+    /// A statement is where it begins: a line inside a block statement belongs to the statement written on it, and not to the block that opened above it. Several
+    /// instructions may begin on a line (<c>If x Then y</c>, <c>a: b</c>), and the first of them in program order is the one.
+    /// </remarks>
+    public bool TryGetOffsetAtLine(int line, out int offset)
+    {
+        offset = -1;
+        var best = int.MaxValue;
+        foreach (var instruction in Items)
+        {
+            if (instruction.Node is not { } node)
+            {
+                continue;
+            }
+
+            var start = node.SourceLocation.Range.Start.Line;
+            if (start >= line && start < best)
+            {
+                (best, offset) = (start, instruction.Offset);
+            }
+        }
+
+        return offset >= 0;
+    }
+
+    /// <summary>
     /// The <em>line number</em> in effect at <paramref name="offset"/>: the nearest line-number label at or
     /// before it. This is what <c>Erl</c> reports for an error raised there.
     /// </summary>

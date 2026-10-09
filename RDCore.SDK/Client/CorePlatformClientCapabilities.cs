@@ -177,6 +177,11 @@ public static class RDCorePlatformProtocol
     public const string HostDebugPause = "rdcore/host/debug/pause";
 
     /// <summary>
+    /// Asks the environment host to move the point a program that waits goes on from.
+    /// </summary>
+    public const string HostDebugGoto = "rdcore/host/debug/goto";
+
+    /// <summary>
     /// Asks the environment host to end a program that is running or waits.
     /// </summary>
     public const string HostDebugTerminate = "rdcore/host/debug/terminate";

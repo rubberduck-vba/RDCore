@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
@@ -135,6 +136,57 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         var stop = await (step is { } kind ? execution.StepAsync(kind) : execution.ResumeAsync());
         return Segment(session, stop);
     }
+
+    /// <summary>
+    /// Moves the point the program that waits goes on from, within the activation it waits in.
+    /// </summary>
+    /// <param name="line">The zero-based line of the source to go on from. Ignored when <paramref name="label"/> is given.</param>
+    /// <param name="label">A statement label or line number of the procedure to go on from.</param>
+    /// <returns>Where the program goes on from, or why it was not moved.</returns>
+    public HostDebugGotoResult Goto(int line, string? label)
+    {
+        lock (_sync)
+        {
+            if (_state is not ProgramState.Suspended)
+            {
+                return NotMoved(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+            }
+
+            if (ChangedModules() is { Length: > 0 } changed)
+            {
+                return NotMoved($"the code of {string.Join(", ", changed)} changed while the program waited: run it again to pick the changes up");
+            }
+
+            if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
+            {
+                return NotMoved("the program waits in no procedure");
+            }
+
+            int offset;
+            if (label is { Length: > 0 })
+            {
+                if (!body.TryGetLabelOffset(label, out offset))
+                {
+                    return NotMoved($"the procedure has no label '{label}'");
+                }
+            }
+            else if (!body.TryGetOffsetAtLine(line, out offset))
+            {
+                return NotMoved("no statement of the procedure begins at that line or after it");
+            }
+
+            frame.MoveTo(offset);
+            var location = offset < body.Items.Length ? body.Items[offset].Node?.SourceLocation : null;
+            return new HostDebugGotoResult
+            {
+                Moved = true,
+                Line = location?.Range.Start.Line ?? -1,
+                Character = location?.Range.Start.Character ?? -1,
+            };
+        }
+    }
+
+    private static HostDebugGotoResult NotMoved(string reason) => new() { Reason = reason };
 
     /// <summary>
     /// Stops the program that is running, at the next instruction, so that it waits there.

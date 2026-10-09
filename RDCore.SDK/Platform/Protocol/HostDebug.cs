@@ -56,3 +56,48 @@ public record class HostDebugAck
     /// </summary>
     public bool Acted { get; init; }
 }
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/goto</c>: moves the program counter of the activation the program waits in (<c>Set Next Statement</c>), so that it goes on from
+/// there when it is resumed and not from where it stopped. Nothing runs.
+/// </summary>
+/// <remarks>
+/// A program does not always go on from exactly where it stopped: the person looking at it may move the point of execution, or the statement it was to run next may
+/// be one nobody wants run. The target is within the procedure the program waits in, which is the one whose code is in front of whoever asks - a line is a line
+/// of that procedure as it was when the program stopped. Anything else is <see cref="HostDebugGotoResult.Moved"/> false, and the program still waits where it was.
+/// <para>
+/// Moving into or out of a block statement is moving as <c>GoTo</c> does: the state a block keeps (a <c>With</c> object, a <c>For</c> counter) is the state it had.
+/// </para>
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugGoto, Direction.ClientToServer)]
+public record class HostDebugGotoParams : IRequest, IRequest<HostDebugGotoResult>
+{
+    /// <summary>
+    /// The zero-based line of the source to go on from: the first statement that begins on it, or after it. Ignored when <see cref="Label"/> is given.
+    /// </summary>
+    public int Line { get; init; }
+
+    /// <summary>
+    /// A statement label or line number of the procedure to go on from (<c>100</c>, <c>Retry</c>), as a shell that numbers its lines says it. Takes the place of
+    /// <see cref="Line"/>.
+    /// </summary>
+    public string? Label { get; init; }
+}
+
+/// <summary>
+/// Where a program that waits goes on from, after a request to move it.
+/// </summary>
+public record class HostDebugGotoResult
+{
+    /// <summary>Whether the program counter was moved. When it was not, <see cref="Reason"/> says why, and the program waits where it did.</summary>
+    public bool Moved { get; init; }
+
+    /// <summary>Why it was not moved.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>The zero-based line of the statement the program now goes on from, or <c>-1</c> when it was not moved or the statement is the end of the procedure.</summary>
+    public int Line { get; init; } = -1;
+
+    /// <summary>The zero-based column of that statement, or <c>-1</c>.</summary>
+    public int Character { get; init; } = -1;
+}
