@@ -56,6 +56,14 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private bool _wipeOnTerminate;
     private TaskCompletionSource _idle = Settled();
     private readonly ProgramInspector _inspector = new(provider);
+    private bool _streaming;
+    private long _streamed;
+
+    // the output of a stretch of the program under a debugger: said as it is printed when the run asked for that and somebody listens, kept for the answer otherwise.
+    private RuntimeOutputBuffer NewSegmentOutput()
+        => _streaming && provider.OutputStreamed is { } stream
+            ? new RuntimeOutputBuffer(line => stream([line], Interlocked.Increment(ref _streamed)))
+            : new RuntimeOutputBuffer();
 
     /// <summary>
     /// Whether a program is running or waits.
@@ -82,12 +90,16 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// Whether the entry point is a statement typed at a prompt. While a program waits it is run alongside it, in the session as the program left it, and the program
     /// waits still: that is how its variables are read and set at a stop. Otherwise it is a run like any other.
     /// </param>
+    /// <param name="streamOutput">
+    /// Whether the program's output is said as it is printed (<see cref="IEnvironmentSessionProvider.OutputStreamed"/>), for the whole of a run under a debugger, and not
+    /// kept for the answers. Ignored for a run that is not.
+    /// </param>
     /// <returns>
     /// How it ended, or where it waits. A program that is suspended is let go of, and not refused: running one is what <c>RUN</c> does, and in BASIC it starts the
     /// program over. A program that is running is refused.
     /// </returns>
     public Task<ExecuteSessionResult> RunAsync(
-        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false)
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false, bool streamOutput = false)
     {
         var session = provider.Session;
         lock (_sync)
@@ -110,6 +122,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             _state = ProgramState.Running;
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
+            _streaming = debug && streamOutput;
         }
 
         // a program starts as one that was never stopped, whatever the one before it did: what a Stop left of its activations is let go of.
@@ -144,7 +157,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
 
             (execution, _state) = (suspended, ProgramState.Running);
             _inspector.Forget();
-            _output = new RuntimeOutputBuffer();
+            _output = NewSegmentOutput();
             provider.Output.Target = _output;
         }
 
@@ -462,7 +475,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         lock (_sync)
         {
             execution = _execution = new SuspendableExecution(session);
-            _output = new RuntimeOutputBuffer();
+            _output = NewSegmentOutput();
             provider.Output.Target = _output;
         }
 
@@ -484,8 +497,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         }
     }
 
-    // where the program is, as the request that ran it up to here answers.
+    // where the program is, as the request that ran it up to here answers - and how many lines it has been said, so that the receiver knows when it has them all.
     private ExecuteSessionResult Segment(IRuntimeSession session, ExecutionStop stop)
+        => SegmentCore(session, stop) with { StreamedLines = Interlocked.Read(ref _streamed) };
+
+    private ExecuteSessionResult SegmentCore(IRuntimeSession session, ExecutionStop stop)
     {
         var output = _output;
         if (!stop.IsSuspended)

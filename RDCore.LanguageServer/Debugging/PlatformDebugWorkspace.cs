@@ -139,6 +139,7 @@ internal sealed class PlatformDebugWorkspace(
             ModuleName = moduleName,
             EntryPoint = entryPoint,
             Debug = true,
+            StreamOutput = true,
         }, token);
     }
 
