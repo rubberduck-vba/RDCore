@@ -35,8 +35,10 @@ public static class DeclarationUsage
     /// and the parameters and locals of its procedures. Whatever else is among them is not a declaration of one of those kinds, and is left out.
     /// </param>
     /// <param name="procedures">The models of the procedures of the module.</param>
+    /// <param name="roles">What the members of a class module are there for (<see cref="MemberRoles"/>), or <see langword="null"/> when the module is not a class module.</param>
     /// <returns>A fact for each declaration, in the order they are given.</returns>
-    public static ImmutableArray<DeclarationFact> Of(IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures)
+    public static ImmutableArray<DeclarationFact> Of(
+        IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null)
     {
         var models = procedures.ToList();
         var references = new Dictionary<SemanticId, DeclarationReferences>();
@@ -77,7 +79,10 @@ public static class DeclarationUsage
             }
 
             facts.Add(new DeclarationFact(
-                symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted));
+                symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted)
+            {
+                Role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var role) ? role : DeclarationRole.None,
+            });
         }
 
         return facts.ToImmutable();

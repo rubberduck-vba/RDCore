@@ -110,7 +110,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
-            Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members), procedureModels),
+            Declarations = DeclarationUsage.Of(
+                DeclarationUsage.DeclaredBy(members), procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver) : null),
+            Language = session.Environment.Language?.Id,
         };
 
         // kept whether or not the module loads: what is wrong with a module is what is asked after.

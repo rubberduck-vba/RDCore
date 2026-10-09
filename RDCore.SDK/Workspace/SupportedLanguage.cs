@@ -69,6 +69,16 @@ public class SupportedLanguage
     /// module of it cannot state a directive that it has no way to write. Whether a module states it is not something to have an opinion about, then.
     /// </remarks>
     public bool HasOptionExplicit { get; init; } = true;
+
+    /// <summary>
+    /// Whether the language is written in the syntax of classic BASIC: a <c>Rem</c> comment and the <c>Error</c> statement are how it writes a comment and raises an
+    /// error, and not relics of the language it descends from.
+    /// </summary>
+    /// <remarks>
+    /// A BASIC does, since that is what it is. VBA and VB6 keep both for backward compatibility only: <c>'</c> is the comment, and <c>Err.Raise</c> raises an error
+    /// (<strong>MS-VBAL §5.4.4.3</strong>).
+    /// </remarks>
+    public bool UsesClassicBasicSyntax { get; init; }
     /// <summary>The patterns of the files written in the language, as a document filter pattern.</summary>
     public string FilterString => string.Join(";", FileTypes.Select(fileType => $"**/{fileType}").ToArray());
 
@@ -112,6 +122,7 @@ public static class SupportedLanguages
         ImplicitDeclarationScope = ImplicitDeclarationScope.Module,
         HasBarePrint = true,
         HasOptionExplicit = false,
+        UsesClassicBasicSyntax = true,
     };
 
     /// <summary>Every language the platform serves.</summary>

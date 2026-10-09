@@ -71,6 +71,12 @@ public sealed record class ModuleSemanticModel(
     public bool? OptionExplicit { get; init; }
 
     /// <summary>
+    /// The identifier of the language the module is loaded as (<see cref="Workspace.SupportedLanguage.Id"/>): what is idiomatic in a module depends on it, and the
+    /// host is what knows it. <see langword="null"/> when the host has not said.
+    /// </summary>
+    public string? Language { get; init; }
+
+    /// <summary>
     /// How each declaration of the module is used by the module's own code (<see cref="Static.DeclarationUsage"/>): its variables, constants, parameters,
     /// procedures, properties and events, and the variables that were never declared. Empty when the pass had no workspace to resolve names in.
     /// </summary>

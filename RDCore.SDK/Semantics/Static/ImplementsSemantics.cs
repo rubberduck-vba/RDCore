@@ -110,7 +110,7 @@ public static class ImplementsSemantics
 
     // "public variable or method": a procedure, function or property accessor that is public (as one is unless it says
     // otherwise), and a variable that is declared Public. Events, constants and types are neither.
-    private static IEnumerable<VBTypeMemberSymbol> InterfaceMembersOf(VBClassModuleSymbol interfaceClass)
+    internal static IEnumerable<VBTypeMemberSymbol> InterfaceMembersOf(VBClassModuleSymbol interfaceClass)
         => interfaceClass.Members.Where(member => ShapeOf(member) is not null
             ? member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
             : IsVariable(member) && member.AccessModifier is AccessModifier.Public);

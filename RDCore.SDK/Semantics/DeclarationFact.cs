@@ -60,6 +60,27 @@ public readonly record struct DeclarationReferences(int Reads, int Writes, int P
 }
 
 /// <summary>
+/// What a member of a class module is there for, when it is not there on its own account.
+/// </summary>
+public enum DeclarationRole
+{
+    /// <summary>
+    /// A member like any other, or one whose role the pass could not tell.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// It implements a member of an interface the class module <c>Implements</c>, by being named <c>InterfaceName_MemberName</c> (<strong>MS-VBAL §5.3.1.9</strong>).
+    /// </summary>
+    InterfaceImplementation,
+
+    /// <summary>
+    /// It handles an event of a <c>WithEvents</c> variable of the class module, by being named <c>VariableName_EventName</c> (<strong>MS-VBAL §5.3.1.8</strong>).
+    /// </summary>
+    EventHandler,
+}
+
+/// <summary>
 /// What the static pass found out about a declaration.
 /// </summary>
 /// <remarks>
@@ -84,4 +105,11 @@ public sealed record class DeclarationFact(
     AccessModifier Access,
     bool IsImplicit,
     SourceLocation Location,
-    DeclarationReferences? References);
+    DeclarationReferences? References)
+{
+    /// <summary>
+    /// What the declaration is there for, when it implements a member of an interface or handles an event. A role is stated only for a member of a class
+    /// module whose interfaces and event sources the pass resolved; <see cref="DeclarationRole.None"/> is not a statement that it has none otherwise.
+    /// </summary>
+    public DeclarationRole Role { get; init; }
+}
