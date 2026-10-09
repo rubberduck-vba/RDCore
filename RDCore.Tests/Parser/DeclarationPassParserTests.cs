@@ -617,6 +617,40 @@ End Sub
     }
 
     [TestMethod]
+    // anything but one expression in the parentheses is an argument list, and only `Call` has one (MS-VBAL 5.4.2.1).
+    [DataRow("Foo(1, 2)")]
+    [DataRow("Foo(x:=1)")]
+    [DataRow("Foo(, 1)")]
+    [DataRow("obj.Bar(1, 2)")]
+    public void CallStatement_WithAnArgumentListInParentheses_AndNoCall_IsASyntaxError(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsFalse(result.IsSuccess, statement);
+        var verbose = result.SyntaxErrors.First().Verbose;
+        StringAssert.Contains(verbose, "Drop the parentheses", "it says to drop the parentheses...");
+        StringAssert.Contains(verbose, "Call keyword", "...or to write Call");
+    }
+
+    [TestMethod]
+    [DataRow("Foo()")]
+    [DataRow("Foo(5)")]
+    [DataRow("Foo 1, 2")]
+    [DataRow("Foo")]
+    [DataRow("Call Foo(1, 2)")]
+    [DataRow("Call Foo(x:=1)")]
+    [DataRow("obj.Bar 1, 2")]
+    public void CallStatement_ThatIsWrittenAsVbaWritesIt_IsNotASyntaxError(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsTrue(result.IsSuccess, $"{statement}: {string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose))}");
+    }
+
+    private static ModuleParseResult ParseWithoutExpectation(string statement)
+        => new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Sub DoWork()\r\n{statement}\r\nEnd Sub\r\n");
+
+    [TestMethod]
     // `Call` is what makes the parentheses an argument list.
     public void CallStatement_ExplicitWithOneArgument_StaysAnIndexExpression()
     {
