@@ -17,7 +17,8 @@ internal sealed class MultipleDeclarationsAnalyzer : SyntaxTreeAnalyzer
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .Prepend(module)
-            .SelectMany(node => DeclarationStatements.In(node.Children))
+            .SelectMany(node => node.SiblingLists())
+            .SelectMany(siblings => DeclarationStatements.In(siblings))
             .Where(statement => statement.Count > 1)
             .Select(statement => new AnalyzerFinding(
                 RDCoreDiagnosticId.MultipleDeclarations,

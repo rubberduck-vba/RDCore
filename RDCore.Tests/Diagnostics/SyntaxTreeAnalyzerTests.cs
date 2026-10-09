@@ -22,6 +22,57 @@ public sealed class SyntaxTreeAnalyzerTests
 
     private static int[] Lines(AnalyzerFinding[] findings) => [.. findings.Select(finding => finding.Range.Start.Line)];
 
+    // declarations in the blocks of every kind of structured statement: the lines that say `MARK` are the ones an analyzer is expected to find.
+    private const string Nested = """
+        Public Sub Work(ByVal c As Boolean, ByVal n As Long, ByVal target As Object)
+            If c Then
+                Dim a As Integer 'MARK
+            ElseIf Not c Then
+                Dim b As Integer 'MARK
+            Else
+                Dim d As Integer 'MARK
+            End If
+            For n = 1 To 2
+                Dim e As Integer 'MARK
+            Next
+            Do While c
+                Dim f As Integer 'MARK
+            Loop
+            While c
+                Dim g As Integer 'MARK
+            Wend
+            Select Case n
+            Case 1
+                Dim h As Integer 'MARK
+            Case Else
+                Dim j As Integer 'MARK
+            End Select
+            With target
+                Dim k As Integer 'MARK
+            End With
+        End Sub
+        """;
+
+    private static int[] Marked(string source)
+        => [.. source.Split('\n').Select((line, index) => (line, index)).Where(entry => entry.line.Contains("'MARK", StringComparison.Ordinal)).Select(entry => entry.index)];
+
+    [TestMethod]
+    public void ADeclarationInTheBlockOfAStructuredStatement_IsAnalyzedLikeAnyOther()
+        => CollectionAssert.AreEqual(Marked(Nested), Lines(Run(new IntegerDataTypeAnalyzer(), Nested)));
+
+    [TestMethod]
+    public void AVariableWithoutATypeInABlock_IsAVariantToo()
+        => CollectionAssert.AreEqual(
+            Marked(Nested), Lines(Run(new ImplicitVariantDeclarationAnalyzer(), Nested.Replace(" As Integer", string.Empty))));
+
+    [TestMethod]
+    public void SeveralDeclarationsOfOneStatementInABlock_AreOneFinding_AndTheStatementsOfTwoBlocksAreNotOne()
+    {
+        var source = Nested.Replace(" As Integer", ", other As Long");
+
+        CollectionAssert.AreEqual(Marked(Nested), Lines(Run(new MultipleDeclarationsAnalyzer(), source)));
+    }
+
     [TestMethod]
     public void AModuleThatDidNotParse_HasNothingToSayAboutHowItIsWritten()
     {

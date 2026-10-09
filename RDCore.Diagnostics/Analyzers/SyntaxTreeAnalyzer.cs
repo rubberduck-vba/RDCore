@@ -29,21 +29,3 @@ internal abstract class SyntaxTreeAnalyzer : IModuleAnalyzer
     /// <param name="particular">What the occurrence is about: usually a name.</param>
     protected static string Say(string message, string particular) => AnalyzerMessages.Format(message, particular);
 }
-
-internal static class SyntaxNodeScan
-{
-    /// <summary>
-    /// Every node under <paramref name="node"/>, depth first and in the order they are written; not the node itself.
-    /// </summary>
-    public static IEnumerable<SyntaxNode> Descendants(this SyntaxNode node)
-    {
-        foreach (var child in node.Children)
-        {
-            yield return child;
-            foreach (var descendant in child.Descendants())
-            {
-                yield return descendant;
-            }
-        }
-    }
-}
