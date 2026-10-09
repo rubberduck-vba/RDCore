@@ -896,18 +896,21 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             callee = index.Callee;
             arguments = [new VBUnaryOperatorExpressionNode(OperatorSymbolNames.UnaryLetCoerceOp, GetCurrentNodeId(), grouped, [only])];
         }
-        else if (context.CALL() is null && arguments.IsEmpty
-            && callee is IndexExpressionNode { Arguments.Length: > 0 } stray and not { Arguments: [MissingArgumentNode] }
+        else if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments: [MissingArgumentNode] } empty)
+        {
+            // `Foo()` is a list of one argument that is missing, to the grammar, and is the call with none: the empty parentheses are dropped, as the VBE drops them,
+            // and the statement is `Foo`.
+            callee = empty.Callee;
+        }
+        else if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments.Length: > 0 } stray
             && context.lExpression() is VBAParser.IndexExprContext strayContext && strayContext.LPAREN()?.Symbol is { } strayOpen)
         {
             // Anything else in parentheses after the name - two arguments, a named one, a missing one - is an argument list, and without `Call` there is none to write
-            // (MS-VBAL 5.4.2.1). It stays in the tree as it is written, as every statement that is a syntax error does. (`Foo()` is a list of one argument that is
-            // missing, to the grammar, and is the call with none.)
+            // (MS-VBAL 5.4.2.1). It stays in the tree as it is written, as every statement that is a syntax error does.
             _errors.Report(
                 new SourceLocation(_rootUri, new SourceRange(new SourcePosition(strayOpen.Line - 1, strayOpen.Column), stray.Location.Range.End)),
                 VBCompileErrorId.SyntaxError,
-                "A call that is not written with the Call keyword does not have its arguments in parentheses. Drop the parentheses (Foo 1, 2), or write the Call keyword "
-                + "(Call Foo(1, 2)). The parentheses of a single argument are not an argument list but the grouping of that argument, which is passed by value (MS-VBAL §5.4.2.1).");
+                Exceptions.VBCompileError_CallArgumentsNeedCall_Verbose);
         }
 
         CurrentBuilder.AddChild(

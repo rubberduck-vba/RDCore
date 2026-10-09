@@ -597,6 +597,21 @@ End Sub
     }
 
     [TestMethod]
+    // empty parentheses without `Call` are dropped, as the VBE drops them: `Foo()` is `Foo`.
+    [DataRow("Foo()")]
+    [DataRow("Foo")]
+    public void CallStatement_BareWithEmptyParentheses_IsTheBareCallWithNoArguments(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsTrue(result.IsSuccess, string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+        var call = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<CallStatementNode>().Single();
+        Assert.IsFalse(call.IsExplicitCall);
+        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)call.Callee).IdentifierName);
+        Assert.IsEmpty(call.Arguments);
+    }
+
+    [TestMethod]
     // without `Call`, `Foo(5)` is `Foo (5)` (MS-VBAL 5.4.2.1): the bare call with one argument, which is the grouping of 5 - and not an index
     // expression, which only `Call` has. The two are the same call.
     [DataRow("Foo(5)")]

@@ -619,6 +619,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A call that is not written with the Call keyword does not have its arguments in parentheses. Drop the parentheses (Foo 1, 2), or write the Call keyword (Call Foo(1, 2)).
+        /// </summary>
+        public static string VBCompileError_CallArgumentsNeedCall_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_CallArgumentsNeedCall_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to None of the static semantic applicable rules for this operation matched the data type(s) of the provided input(s): {$INPUTS}.
         /// </summary>
         public static string VBCompileError_TypeMismatch_Verbose {
