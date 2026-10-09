@@ -158,11 +158,17 @@ public static class SymbolDescriptorReader
             {
                 var udt = new VBUserDefinedTypeMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return udt;
-                foreach (var field in node.Members.Where(m => m.Kind == SymbolDescriptorKind.UserDefinedTypeField))
+                // the type carries its fields, as the one the language server builds does: whoever binds a name to the type gets the fields with it.
+                var fields = node.Members
+                    .Where(m => m.Kind == SymbolDescriptorKind.UserDefinedTypeField)
+                    .Select(field => ReadUserDefinedTypeField(field, workspaceRoot, udt.Uri, resolveType))
+                    .ToArray();
+                yield return udt with { Members = [.. fields.OfType<VBTypeMemberSymbol>()] };
+                foreach (var field in fields)
                 {
-                    yield return ReadUserDefinedTypeField(field, workspaceRoot, udt.Uri, resolveType);
+                    yield return field;
                 }
+
                 break;
             }
             case SymbolDescriptorKind.UserDefinedTypeField:

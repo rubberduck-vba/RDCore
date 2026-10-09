@@ -38,69 +38,23 @@ internal sealed class DefineSymbolsHandler(
         }
 
         var session = sessionProvider.Session;
-        var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        VBType? ResolveType(string typeName)
-        {
-            if (IntrinsicVBTypes.TryResolve(typeName, out var type))
-            {
-                return type;
-            }
-
-            // the standard library's own declared types are in this session too — the host injects them
-            // into every project whether or not a .rdproj mentions the library (RD-VBAL §6.1) — so
-            // `As VbDayOfWeek` and `As ErrObject` bind here instead of being reported unresolved. A
-            // workspace type may still not be defined yet, since this defines one module at a time, and
-            // stays unresolved exactly as it did before.
-            // resolved as seen from the module being defined, not from the global scope: a standard
-            // module's members reach the project scope, and the project scope is only an ancestor of a
-            // module's own. A request that names no module has no such vantage point, and resolves
-            // intrinsics only.
-            if (request.ModuleUri is { } moduleUri
-                && session.Symbols.Resolver.ResolveType(typeName, ScopeKind.Module, moduleUri) is { IsResolved: true } resolved
-                && DeclaredTypeOf(resolved.Symbol) is { } declared)
-            {
-                return declared;
-            }
-
-            unresolvedTypeNames.Add(typeName);
-            return null;
-        }
 
         ApplyDirectives(session, request);
 
-        var defined = 0;
-        var replaced = 0;
-        var merged = 0;
-        var skipped = new List<string>();
+        var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var (defined, replaced, merged, skipped) = request.CodeOnly
+            ? (0, 0, 0, [])
+            : DefineSymbols(session, request, unresolvedTypeNames, replace: request.Replace);
 
-        // the language server already collapses #If-branch duplicates, but stay defensive: fuse any
-        // that still arrive with the same identity (uri + concrete type) so the session never sees a
-        // colliding define. Property Get/Let/Set share a uri but not a type, so they stay distinct.
-        // a request for the code of a module that was defined by an earlier one defines nothing again.
-        foreach (var group in (request.CodeOnly ? [] : SymbolDescriptorReader.Read(request, ResolveType))
-            .GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
+        // A type that a declaration names is defined by the same request that declares it, and everything is read before anything is defined: so a variable declared as
+        // a user-defined type of its own module was read before the type was there, and kept the name as written. The module is read again, now that it is, and
+        // defined over what it was - as many times as a type can be made of types that were not there either (a type with a field of a type), and no more.
+        if (!request.CodeOnly && (unresolvedTypeNames.Count > 0 || request.Symbols.Any(symbol => symbol.Kind == SymbolDescriptorKind.UserDefinedType)))
         {
-            var sites = group.ToList();
-            merged += sites.Count - 1;
-            var symbol = sites.Find(candidate => candidate is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
-
-            if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
+            for (var pass = 0; pass < MaxTypePasses; pass++)
             {
-                defined++;
-            }
-            else if (request.Replace && session.Symbols.TryRedefine(symbol, symbol.ScopeKind))
-            {
-                // the caller says this module has been re-read, so the newest definition wins: the
-                // previous one may have had different locals, a different declared type, or a body
-                // this one no longer has. A variable declared as it was keeps what it holds - a shell
-                // re-reads the whole module for every line, and a value that did not survive that would
-                // not survive to the next line.
-                replaced++;
-            }
-            else
-            {
-                skipped.Add(symbol.Name);
+                unresolvedTypeNames.Clear();
+                _ = DefineSymbols(session, request, unresolvedTypeNames, replace: true);
             }
         }
 
@@ -127,6 +81,72 @@ internal sealed class DefineSymbolsHandler(
             CodeErrors = loadErrors,
             MergedDefinitions = merged,
         });
+    }
+
+    /// <summary>How many times a module is read again for the types it names: a user-defined type of user-defined types is as deep as its fields.</summary>
+    private const int MaxTypePasses = 3;
+
+    // Reads the module's symbols and defines them, the newest winning when asked to. The language server already collapses #If-branch duplicates, but stay
+    // defensive: fuse any that still arrive with the same identity (uri + concrete type) so the session never sees a colliding define. Property Get/Let/Set
+    // share a uri but not a type, so they stay distinct.
+    private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
+        IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace)
+    {
+        var (defined, replaced, merged, skipped) = (0, 0, 0, new List<string>());
+
+        VBType? ResolveType(string typeName)
+        {
+            if (IntrinsicVBTypes.TryResolve(typeName, out var type))
+            {
+                return type;
+            }
+
+            // the standard library's own declared types are in this session too — the host injects them
+            // into every project whether or not a .rdproj mentions the library (RD-VBAL §6.1) — so
+            // `As VbDayOfWeek` and `As ErrObject` bind here instead of being reported unresolved. A
+            // workspace type may still not be defined yet, since this defines one module at a time, and
+            // stays unresolved until the module is read again.
+            // resolved as seen from the module being defined, not from the global scope: a standard
+            // module's members reach the project scope, and the project scope is only an ancestor of a
+            // module's own. A request that names no module has no such vantage point, and resolves
+            // intrinsics only.
+            if (request.ModuleUri is { } moduleUri
+                && session.Symbols.Resolver.ResolveType(typeName, ScopeKind.Module, moduleUri) is { IsResolved: true } resolved
+                && DeclaredTypeOf(session, resolved.Symbol) is { } declared)
+            {
+                return declared;
+            }
+
+            unresolvedTypeNames.Add(typeName);
+            return null;
+        }
+
+        foreach (var group in SymbolDescriptorReader.Read(request, ResolveType).GroupBy(symbol => (symbol.Uri.ToString(), symbol.GetType())))
+        {
+            var sites = group.ToList();
+            merged += sites.Count - 1;
+            var symbol = sites.Find(candidate => candidate is WorkspaceSymbol { Definitions.IsDefaultOrEmpty: false }) ?? sites[0];
+
+            if (session.Symbols.TryDefine(symbol, symbol.ScopeKind))
+            {
+                defined++;
+            }
+            else if (replace && session.Symbols.TryRedefine(symbol, symbol.ScopeKind))
+            {
+                // the caller says this module has been re-read, so the newest definition wins: the
+                // previous one may have had different locals, a different declared type, or a body
+                // this one no longer has. A variable declared as it was keeps what it holds - a shell
+                // re-reads the whole module for every line, and a value that did not survive that would
+                // not survive to the next line.
+                replaced++;
+            }
+            else
+            {
+                skipped.Add(symbol.Name);
+            }
+        }
+
+        return (defined, replaced, merged, skipped);
     }
 
     // a standard module is a value in the default binding context, and a class module is a type: the name of one binds only
@@ -186,13 +206,13 @@ internal sealed class DefineSymbolsHandler(
         }
     }
 
-    // an `As` clause names a symbol; this is the type that symbol declares. A user-defined type is not
-    // here yet: TODO reconstruct its VBUserDefinedType, which needs the field layout the descriptors do
-    // not carry.
-    private static VBType? DeclaredTypeOf(Symbol? symbol) => symbol switch
+    // an `As` clause names a symbol; this is the type that symbol declares. A user-defined type is its fields, which are symbols of their own in the session once the
+    // type is defined - the descriptors of the type carry them, and they are read and defined with it.
+    private static VBType? DeclaredTypeOf(IRuntimeSession session, Symbol? symbol) => symbol switch
     {
         VBClassModuleSymbol classModule => VBClassType.FromClassModule(classModule),
         VBEnumMemberSymbol { ResolvedType: VBEnumType enumType } => enumType,
+        VBUserDefinedTypeMemberSymbol udt => new VBUserDefinedType(udt, udt.Members),
         _ => null,
     };
 }

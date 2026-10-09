@@ -33,6 +33,7 @@ public sealed class ProgramInspectionTests
         "    Dim arr(1 To 3) As Long, grid(1 To 2, 0 To 1) As Integer",
         "    Dim p As TPoint, o As Object",
         "    Total = 5",
+        "    p.X = 4",
         "    Title = \"hi\"",
         "    n = 7",
         "    s = \"a\"\"b\"",
@@ -62,8 +63,8 @@ public sealed class ProgramInspectionTests
             CollectionAssert.AreEqual(new[] { "Helper", "Main" }, stack.Frames.Select(frame => frame.Procedure).ToArray());
             CollectionAssert.AreEqual(new[] { 0, 1 }, stack.Frames.Select(frame => frame.Id).ToArray());
             Assert.IsTrue(stack.Frames.All(frame => frame.Module == "Program"));
-            Assert.AreEqual(24, stack.Frames[0].Line, "the Stop");
-            Assert.AreEqual(19, stack.Frames[1].Line, "the call to Helper");
+            Assert.AreEqual(25, stack.Frames[0].Line, "the Stop");
+            Assert.AreEqual(20, stack.Frames[1].Line, "the call to Helper");
             return Task.CompletedTask;
         });
 
@@ -152,7 +153,6 @@ public sealed class ProgramInspectionTests
         });
 
     [TestMethod]
-    [Ignore("a local of a user-defined type has the type Unknown in the host (its declared type is not bound to the Type), so it has no fields to list; the formatter lists them when it has")]
     public async Task AUserDefinedType_HasItsFields()
         => await DebugAsync(Source, provider =>
         {
@@ -163,7 +163,7 @@ public sealed class ProgramInspectionTests
             var fields = provider.Execution.Variables(0, HostVariableScope.Locals, p.Reference);
 
             CollectionAssert.AreEqual(new[] { "X", "Y" }, fields.Variables.Select(field => field.Name).ToArray());
-            CollectionAssert.AreEqual(new[] { "0", "0" }, fields.Variables.Select(field => field.Value).ToArray());
+            CollectionAssert.AreEqual(new[] { "4", "0" }, fields.Variables.Select(field => field.Value).ToArray());
             return Task.CompletedTask;
         });
 
