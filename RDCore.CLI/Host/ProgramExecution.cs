@@ -210,6 +210,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// <param name="moduleName">The programmatic name of the module.</param>
     /// <param name="lines">The zero-based lines of the source. None removes them.</param>
     /// <returns>Each line, and whether a statement of the module's loaded code begins on it.</returns>
+    /// <remarks>
+    /// A breakpoint is where an instruction is: a line no statement begins on cannot have one, and is not kept - nothing would ever wait there, and a breakpoint that
+    /// does nothing is a breakpoint the person believes in.
+    /// </remarks>
     public HostDebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<int> lines)
     {
         var session = provider.Session;
@@ -218,9 +222,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, false))] };
         }
 
-        session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, lines);
         var bodies = provider.Image.BodiesOf(module.Uri);
-        return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))] };
+        var breakpoints = lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line))).ToArray();
+        session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, [.. breakpoints.Where(breakpoint => breakpoint.Verified).Select(breakpoint => breakpoint.Line)]);
+        return new HostDebugBreakpointsResult { Breakpoints = breakpoints };
     }
 
     /// <summary>

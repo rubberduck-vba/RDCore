@@ -228,7 +228,7 @@ internal sealed class ProgramDebugAdapter(
         var result = await debugging.SetBreakpointsAsync(module, requested, cancellationToken);
         lock (_sync)
         {
-            _breakpointLines[module] = [.. requested];
+            _breakpointLines[module] = [.. result.Breakpoints.Where(breakpoint => breakpoint.Verified).Select(breakpoint => breakpoint.Line)];
             _clientPaths[module] = path;
         }
 

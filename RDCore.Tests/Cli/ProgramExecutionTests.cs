@@ -545,6 +545,19 @@ public sealed class ProgramExecutionTests
         });
 
     [TestMethod]
+    public async Task ABreakpoint_OnALineWithNoStatement_IsNotKept()
+        => await DebugAsync(Counting, async (provider, _, _) =>
+        {
+            _ = await SetBreakpoints(provider, 0, 99);
+
+            Assert.IsFalse(provider.Session.Halt.Breakpoints.HasAny, "nothing would ever wait there");
+
+            var done = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
+        });
+
+    [TestMethod]
     public async Task ABreakpoint_AtTheLineAStepStopsAt_IsWaitedAtOnce()
         => await DebugAsync(Counting, async (provider, _, _) =>
         {
