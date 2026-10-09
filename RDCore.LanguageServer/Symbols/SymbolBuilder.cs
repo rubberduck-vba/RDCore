@@ -258,8 +258,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var asType = member.Children.OfType<AsTypeExpressionNode>().FirstOrDefault();
         return asType is { IsArrayDef: true }
-            ? ResizableArrayType(ArrayElementType(member.Name, asType, typeHint: null, memberUri))
-            : ImplicitOrDeclaredType(member.Name, asType, typeHint: null, memberUri);
+            ? ResizableArrayType(ArrayElementType(member.Name, asType, member.TypeHint, memberUri))
+            : ImplicitOrDeclaredType(member.Name, asType, member.TypeHint, memberUri);
     }
 
     // `Items() As Long`: the parentheses are on the parameter, the element type is its As clause's.
@@ -267,8 +267,8 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
     {
         var asType = AsTypeOf(parameter);
         return parameter.IsArray || asType is { IsArrayDef: true }
-            ? ResizableArrayType(ArrayElementType(parameter.Name, asType, typeHint: null, memberUri))
-            : ImplicitOrDeclaredType(parameter.Name, asType, typeHint: null, memberUri);
+            ? ResizableArrayType(ArrayElementType(parameter.Name, asType, parameter.TypeHint, memberUri))
+            : ImplicitOrDeclaredType(parameter.Name, asType, parameter.TypeHint, memberUri);
     }
 
     private static AsTypeExpressionNode? AsTypeOf(SyntaxNode node)
