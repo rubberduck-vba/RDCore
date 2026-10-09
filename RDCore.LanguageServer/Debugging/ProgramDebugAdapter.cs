@@ -73,6 +73,10 @@ internal sealed class ProgramDebugAdapter(
     private readonly Dictionary<int, VariableScope> _references = [];
     private readonly Dictionary<string, HashSet<int>> _breakpointLines = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _clientPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, int> _gosubFrames = [];
+
+    // the platform numbers its activations from 0; the frames that stand for GoSubs are numbered above any it could have.
+    private const int FirstGoSubFrameId = 1_000_000;
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     // the library says the adapter is ready to be configured as soon as it is initialized, which is before the workspace is brought up: a client that sets breakpoints
@@ -409,28 +413,59 @@ internal sealed class ProgramDebugAdapter(
     public async Task<StackTraceResponse> Handle(StackTraceArguments request, CancellationToken cancellationToken)
     {
         var stack = await debugging.StackAsync(cancellationToken);
-        var frames = stack.Frames
-            .Select(frame => new StackFrame
+        var all = new List<StackFrame>();
+        lock (_sync)
+        {
+            _gosubFrames.Clear();
+            foreach (var frame in stack.Frames)
             {
-                Id = frame.Id,
-                Name = frame.Handler is null ? frame.Procedure : $"{frame.Procedure} (in {frame.Handler})",
-                Source = SourceOf(frame.Module),
-                Line = ToClientLine(frame.Line),
-                Column = ToClientColumn(frame.Character),
-            })
-            .Skip((int)(request.StartFrame ?? 0));
+                all.Add(new StackFrame
+                {
+                    Id = frame.Id,
+                    Name = frame.Handler is null ? frame.Procedure : $"{frame.Procedure} (in {frame.Handler})",
+                    Source = SourceOf(frame.Module),
+                    Line = ToClientLine(frame.Line),
+                    Column = ToClientColumn(frame.Character),
+                });
 
+                // a GoSub that was not returned from is a place the activation came to where it is from: a frame of its own, as a call is, which has the activation's variables.
+                foreach (var returnLine in frame.ReturnLines)
+                {
+                    var id = FirstGoSubFrameId + _gosubFrames.Count;
+                    _gosubFrames[id] = frame.Id;
+                    all.Add(new StackFrame
+                    {
+                        Id = id,
+                        Name = $"{frame.Procedure} (GoSub)",
+                        Source = SourceOf(frame.Module),
+                        Line = ToClientLine(returnLine),
+                        Column = ToClientColumn(0),
+                    });
+                }
+            }
+        }
+
+        IEnumerable<StackFrame> frames = all.Skip((int)(request.StartFrame ?? 0));
         if (request.Levels is > 0)
         {
             frames = frames.Take((int)request.Levels.Value);
         }
 
-        return new StackTraceResponse { StackFrames = new Container<StackFrame>(frames), TotalFrames = stack.Frames.Count };
+        return new StackTraceResponse { StackFrames = new Container<StackFrame>(frames), TotalFrames = all.Count };
+    }
+
+    // a frame of the client is an activation of the platform, or a GoSub of one: the variables are those of the activation.
+    private int ActivationOf(long frameId)
+    {
+        lock (_sync)
+        {
+            return _gosubFrames.TryGetValue((int)frameId, out var activation) ? activation : (int)frameId;
+        }
     }
 
     public Task<ScopesResponse> Handle(ScopesArguments request, CancellationToken cancellationToken)
     {
-        var frame = (int)request.FrameId;
+        var frame = ActivationOf(request.FrameId);
         lock (_sync)
         {
             return Task.FromResult(new ScopesResponse
@@ -491,7 +526,7 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<EvaluateResponse> Handle(EvaluateArguments request, CancellationToken cancellationToken)
     {
-        var frame = (int)(request.FrameId ?? 0);
+        var frame = ActivationOf(request.FrameId ?? 0);
         var result = await debugging.EvaluateAsync(frame, request.Expression, cancellationToken);
 
         // what the expression printed is the debug console's, whichever way the value is asked for.
