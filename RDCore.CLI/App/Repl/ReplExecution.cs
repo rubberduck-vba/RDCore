@@ -60,6 +60,11 @@ internal static class ReplExecution
             {
                 context.Debugger.Idle();
             }
+            else if (result.Outcome is not (ExecutionOutcome.SyntaxError or ExecutionOutcome.NotFound))
+            {
+                // the program was loaded as it is typed now, so the platform can say which lines a breakpoint can be on, and the others are dropped.
+                await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None, judge: true);
+            }
         }
         catch
         {

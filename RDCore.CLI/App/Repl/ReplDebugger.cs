@@ -74,7 +74,12 @@ public sealed class ReplDebugger
     /// </remarks>
     /// <param name="context">The live session.</param>
     /// <param name="token">A token that cancels the request.</param>
-    public async Task PushBreakpointsAsync(ReplCommandContext context, CancellationToken token)
+    /// <param name="judge">
+    /// Whether the platform's verdict is final: the code it holds is the program as it is typed now, because the program has just been run. A breakpoint on a line no
+    /// statement begins on is then dropped. It is not before: until the program is run the platform holds the program it ran last, and a line typed since has no
+    /// statement in it yet.
+    /// </param>
+    public async Task PushBreakpointsAsync(ReplCommandContext context, CancellationToken token, bool judge = false)
     {
         _ = _breakpoints.RemoveWhere(number => context.Program.IndexOf(number) < 0);
         if (!context.Platform.Provides<ProgramDebugging>())
@@ -82,7 +87,18 @@ public sealed class ReplDebugger
             return;
         }
 
-        var lines = _breakpoints.Select(number => context.Program.SourceLineOf(number)).ToArray();
-        _ = await context.Platform.SetBreakpointsAsync(ReplProgram.ModuleName, lines, token);
+        var numbers = _breakpoints.ToArray();
+        var lines = numbers.Select(number => context.Program.SourceLineOf(number)).ToArray();
+        var result = await context.Platform.SetBreakpointsAsync(ReplProgram.ModuleName, lines, token);
+        if (judge && result.Judged && result.Breakpoints.Count == numbers.Length)
+        {
+            for (var i = 0; i < numbers.Length; i++)
+            {
+                if (!result.Breakpoints[i].Verified)
+                {
+                    _ = _breakpoints.Remove(numbers[i]);
+                }
+            }
+        }
     }
 }

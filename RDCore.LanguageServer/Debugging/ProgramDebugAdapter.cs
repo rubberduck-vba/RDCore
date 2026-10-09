@@ -43,6 +43,7 @@ public record class ProgramLaunchRequestArguments : LaunchRequestArguments
 internal sealed class ProgramDebugAdapter(
     IDebugWorkspace workspace,
     IProgramDebugService debugging,
+    IHostOutputRelay output,
     ILogger<ProgramDebugAdapter> logger) :
     ILaunchHandler<ProgramLaunchRequestArguments>,
     IConfigurationDoneHandler,
@@ -100,7 +101,19 @@ internal sealed class ProgramDebugAdapter(
     /// Connects the adapter to the client it speaks to, which exists once the transport is open.
     /// </summary>
     /// <param name="server">The server side of the connection with the client.</param>
-    public void Attach(IDebugAdapterServer server) => _server = server;
+    public void Attach(IDebugAdapterServer server)
+    {
+        _server = server;
+
+        // what the program prints is said as it prints.
+        output.Printed += lines =>
+        {
+            foreach (var line in lines)
+            {
+                Say(line + "\n", OutputEventCategory.StandardOutput);
+            }
+        };
+    }
 
     /// <summary>
     /// Takes note of how the client numbers lines and columns.
@@ -228,7 +241,7 @@ internal sealed class ProgramDebugAdapter(
         var result = await debugging.SetBreakpointsAsync(module, requested, cancellationToken);
         lock (_sync)
         {
-            _breakpointLines[module] = [.. requested];
+            _breakpointLines[module] = [.. result.Breakpoints.Where(breakpoint => breakpoint.Verified).Select(breakpoint => breakpoint.Line)];
             _clientPaths[module] = path;
         }
 
@@ -316,6 +329,10 @@ internal sealed class ProgramDebugAdapter(
 
     private async Task ReportAsync(ExecuteSessionResult result)
     {
+        // the lines the program printed came apart from the answer, and are said before what the answer says of the program.
+        await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), _lifetime.Token);
+
+        // what is left in the answer is the line the program left open.
         foreach (var line in result.Output)
         {
             Say(line + "\n", OutputEventCategory.StandardOutput);
