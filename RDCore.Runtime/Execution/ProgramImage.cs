@@ -76,6 +76,23 @@ public sealed class ProgramImage : IReadOnlyDictionary<SemanticId, InstructionLi
     public bool IsLoaded(Uri moduleUri) => _modules.ContainsKey(moduleUri.AbsoluteUri);
 
     /// <summary>
+    /// The bodies of the procedures that were loaded for a module.
+    /// </summary>
+    /// <param name="moduleUri">The <see cref="Symbol.Uri"/> of the module symbol.</param>
+    /// <returns>None when nothing has been loaded for it.</returns>
+    public IReadOnlyList<InstructionList> BodiesOf(Uri moduleUri)
+    {
+        ImmutableDictionary<SemanticId, InstructionList> procedures;
+        ImmutableDictionary<string, ImmutableArray<SemanticId>> modules;
+        lock (_loading)
+        {
+            (procedures, modules) = (_procedures, _modules);
+        }
+
+        return modules.TryGetValue(moduleUri.AbsoluteUri, out var keys) ? [.. keys.Select(key => procedures[key])] : [];
+    }
+
+    /// <summary>
     /// What the code of each module is, as a value that is the same for the same code: two images with the same fingerprint of a module run the same program
     /// for that module, and one that differs does not.
     /// </summary>

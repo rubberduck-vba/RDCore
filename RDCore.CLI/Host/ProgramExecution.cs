@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -187,6 +188,25 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     }
 
     private static HostDebugGotoResult NotMoved(string reason) => new() { Reason = reason };
+
+    /// <summary>
+    /// Sets the lines of a module that a program under a debugger waits at.
+    /// </summary>
+    /// <param name="moduleName">The programmatic name of the module.</param>
+    /// <param name="lines">The zero-based lines of the source. None removes them.</param>
+    /// <returns>Each line, and whether a statement of the module's loaded code begins on it.</returns>
+    public HostDebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<int> lines)
+    {
+        var session = provider.Session;
+        if (!session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module) || module is null)
+        {
+            return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, false))] };
+        }
+
+        session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, lines);
+        var bodies = provider.Image.BodiesOf(module.Uri);
+        return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))] };
+    }
 
     /// <summary>
     /// Stops the program that is running, at the next instruction, so that it waits there.

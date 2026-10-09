@@ -97,6 +97,12 @@ public interface ISessionHalt
     /// Asked between every two instructions, and so nothing but a field is looked at when no step was asked for.
     /// </remarks>
     bool TakeStep(int callDepth);
+
+    /// <summary>
+    /// The lines a program that runs under a <see cref="Gate"/> waits at before it runs them. They are the session's, and outlive the program: they are still
+    /// there when the program is started again.
+    /// </summary>
+    IBreakpointTable Breakpoints { get; }
 }
 
 /// <summary>

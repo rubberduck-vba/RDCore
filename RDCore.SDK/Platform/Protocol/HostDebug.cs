@@ -101,3 +101,37 @@ public record class HostDebugGotoResult
     /// <summary>The zero-based column of that statement, or <c>-1</c>.</summary>
     public int Character { get; init; } = -1;
 }
+
+/// <summary>
+/// Request for <c>rdcore/host/debug/breakpoints</c>: sets the lines of a module a program that runs under a debugger waits at before it runs them. Replaces the
+/// breakpoints the module had.
+/// </summary>
+/// <remarks>
+/// A breakpoint is a line of the source and stays on it when the code is loaded again. A module whose code is not loaded yet can be given breakpoints all the same; they
+/// are then not <see cref="HostBreakpoint.Verified"/>, which says they have not been found a statement yet, not that they will not be.
+/// </remarks>
+[Method(RDCorePlatformProtocol.HostDebugBreakpoints, Direction.ClientToServer)]
+public record class HostDebugBreakpointsParams : IRequest, IRequest<HostDebugBreakpointsResult>
+{
+    /// <summary>The programmatic name of the module.</summary>
+    public string ModuleName { get; init; } = string.Empty;
+
+    /// <summary>The zero-based lines of the source. None removes the module's breakpoints.</summary>
+    public IReadOnlyList<int> Lines { get; init; } = [];
+}
+
+/// <summary>
+/// The breakpoints that were set, in the order they were asked for.
+/// </summary>
+public record class HostDebugBreakpointsResult
+{
+    /// <summary>One entry per line asked for.</summary>
+    public IReadOnlyList<HostBreakpoint> Breakpoints { get; init; } = [];
+}
+
+/// <summary>
+/// A breakpoint that was set.
+/// </summary>
+/// <param name="Line">The zero-based line it was asked for.</param>
+/// <param name="Verified">Whether a statement of the module's loaded code begins on the line, which is what a program can wait before.</param>
+public record class HostBreakpoint(int Line, bool Verified);

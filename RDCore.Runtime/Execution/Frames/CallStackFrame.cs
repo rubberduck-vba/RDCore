@@ -46,6 +46,11 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public InstructionList? Body { get; set; }
 
+    /// <summary>
+    /// The offset the program waited before, and is resumed at: a breakpoint there is not waited at again, once.
+    /// </summary>
+    public int WaitedAt { get; set; } = -1;
+
     private bool _moved;
 
     /// <summary>

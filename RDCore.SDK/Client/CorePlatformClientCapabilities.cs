@@ -182,6 +182,11 @@ public static class RDCorePlatformProtocol
     public const string HostDebugGoto = "rdcore/host/debug/goto";
 
     /// <summary>
+    /// Asks the environment host to set the lines of a module that a program under a debugger waits at.
+    /// </summary>
+    public const string HostDebugBreakpoints = "rdcore/host/debug/breakpoints";
+
+    /// <summary>
     /// Asks the environment host to end a program that is running or waits.
     /// </summary>
     public const string HostDebugTerminate = "rdcore/host/debug/terminate";

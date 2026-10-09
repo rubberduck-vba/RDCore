@@ -129,6 +129,8 @@ internal sealed class SessionHalt : ISessionHalt
 
     public IExecutionGate? Gate { get; set; }
 
+    public IBreakpointTable Breakpoints { get; } = new BreakpointTable();
+
     public void RequestStep(StepKind kind, int callDepth)
     {
         _step = kind;

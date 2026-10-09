@@ -133,6 +133,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 {
                     _cancellationAcknowledged = true;
                     _ = activation.TakeMove();
+                    activation.WaitedAt = activation.Pc;
                     continue;
                 }
 
@@ -156,6 +157,30 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 {
                     continue;
                 }
+
+                activation.WaitedAt = activation.Pc;
+            }
+
+            // a breakpoint is waited at before its instruction, once: the program that is resumed from it does not wait there again.
+            var waitedHere = activation.WaitedAt == activation.Pc;
+            activation.WaitedAt = -1;
+            if (!waitedHere && session.Halt.Gate is not null && session.Halt.Breakpoints.HasAny && activation.Procedure is { } owner
+                && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc))
+            {
+                var breakpointLocation = list.Items[activation.Pc].Node?.SourceLocation;
+                if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, breakpointLocation))
+                {
+                    session.Halt.Request(RuntimeHaltKind.Break, breakpointLocation);
+                    return RuntimeExecutionOutcome.Break;
+                }
+
+                _ = activation.TakeMove();
+                if (activation.Pc >= list.Items.Length)
+                {
+                    continue;
+                }
+
+                activation.WaitedAt = activation.Pc;
             }
 
             var instruction = list.Items[activation.Pc];
