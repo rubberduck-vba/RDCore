@@ -89,6 +89,75 @@ public sealed class ProgramInspectionTests
             return Task.CompletedTask;
         });
 
+    private static readonly string Handled = Program(
+        "Public Sub Main()",
+        "    Dim z As Long",
+        "    On Error GoTo Oops",
+        "    z = 1 \\ z",
+        "    Stop",
+        "    Exit Sub",
+        "Oops:",
+        "    Stop",
+        "    Resume Next",
+        "End Sub");
+
+    [TestMethod]
+    public async Task TheStack_SaysWhichHandlerAnActivationIsRunning_UntilItResumes()
+        => await DebugAsync(Handled, async provider =>
+        {
+            Assert.AreEqual("Oops", provider.Execution.Stack().Frames.Single().Handler, "stopped in the handler an error brought it to");
+
+            var resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+
+            Assert.AreEqual(ExecutionOutcome.Suspended, resumed.Outcome, resumed.ErrorMessage);
+            Assert.AreEqual(4, resumed.ErrorLine, "the Stop after the statement that failed");
+            Assert.IsNull(provider.Execution.Stack().Frames.Single().Handler, "and no longer in the handler");
+        });
+
+    [TestMethod]
+    public async Task TheStack_NamesTheHandlerByItsLineNumber_WhenThatIsWhatItIsLabelledWith()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    Dim z As Long",
+            "    On Error GoTo 900",
+            "    z = 1 \\ z",
+            "    Exit Sub",
+            "900 Stop",
+            "End Sub"), provider =>
+        {
+            Assert.AreEqual("900", provider.Execution.Stack().Frames.Single().Handler);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheStack_SaysNothingOfAHandler_WhenAnErrorIsNotBeingHandled()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    On Error GoTo Oops",
+            "    Stop",
+            "    Exit Sub",
+            "Oops:",
+            "End Sub"), provider =>
+        {
+            Assert.IsNull(provider.Execution.Stack().Frames.Single().Handler, "the handler is armed, not running");
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheStack_SaysNothingOfAHandler_ForOnErrorResumeNext()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    Dim z As Long",
+            "    On Error Resume Next",
+            "    z = 1 \\ z",
+            "    Stop",
+            "End Sub"), provider =>
+        {
+            Assert.IsNull(provider.Execution.Stack().Frames.Single().Handler);
+            return Task.CompletedTask;
+        });
+
     [TestMethod]
     public async Task TheStack_OfCodeThatUsesNoGoSub_HasNothingToSayOfHowItGotThere()
         => await DebugAsync(Source, provider =>
