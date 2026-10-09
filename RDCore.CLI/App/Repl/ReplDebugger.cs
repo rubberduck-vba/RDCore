@@ -50,7 +50,7 @@ public sealed class ReplDebugger
     public void ClearBreakpoints() => _breakpoints.Clear();
 
     /// <summary>
-    /// The activation <c>VARS</c> and <c>EVAL</c> are about, by its place on the stack: the innermost, <c>0</c>, until <c>FRAME</c> selects another. It is the innermost
+    /// The activation <c>VARS</c> is about, by its place on the stack: the innermost, <c>0</c>, until <c>FRAME</c> selects another. It is the innermost
     /// again every time the program goes on, since what was selected is then not there.
     /// </summary>
     public int SelectedFrame { get; set; }

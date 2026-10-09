@@ -29,4 +29,17 @@ public sealed class ShellImmediateAtAStopTests
         Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
         CollectionAssert.AreEqual(new[] { "6" }, resumed.Output.Select(line => line.Trim()).ToArray());
     }
+
+    [TestMethod]
+    public async Task AnExpression_PrintedAtAStop_ReadsTheVariablesOfTheProgram_WithNoCommandToAskForThem()
+    {
+        var shell = ShellHost.Compose();
+        var stopped = await shell.RunAsync(Program, debug: true);
+        Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+
+        var typed = await shell.ImmediateAsync(Program, "PRINT X * 2", alongside: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, typed.Outcome, typed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "2" }, typed.Output.Select(line => line.Trim()).ToArray());
+    }
 }

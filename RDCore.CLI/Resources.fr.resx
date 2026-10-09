@@ -380,13 +380,7 @@
   <data name="Repl_NotStopped" xml:space="preserve">
     <value>PROGRAMME NON INTERROMPU</value>
   </data>
-  <data name="Repl_Eval_Summary" xml:space="preserve">
-    <value>Affiche la valeur d'une expression dans le programme interrompu : EVAL K + 1.</value>
-  </data>
   <data name="Repl_Frame_Summary" xml:space="preserve">
-    <value>Choisit la procédure visée par VARS et EVAL : FRAME 1 est celle qui a appelé.</value>
-  </data>
-  <data name="Repl_Eval_Failed" xml:space="preserve">
-    <value>IMPOSSIBLE D'ÉVALUER</value>
+    <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
   </data>
 </root>

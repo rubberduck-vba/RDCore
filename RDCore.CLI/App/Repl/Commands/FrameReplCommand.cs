@@ -4,7 +4,7 @@ using RDCore.SDK.ConsoleIO.Model;
 namespace RDCore.CLI.App.Repl.Commands;
 
 /// <summary>
-/// <c>FRAME</c>: selects the activation of the program that was stopped that <c>VARS</c> and <c>EVAL</c> are about.
+/// <c>FRAME</c>: selects the activation of the program that was stopped that <c>VARS</c> is about.
 /// </summary>
 /// <remarks>
 /// <c>FRAME 1</c> selects the procedure that called the one the program is in, as <c>STACK</c> numbers them; <c>FRAME</c> alone says which is selected. The innermost is

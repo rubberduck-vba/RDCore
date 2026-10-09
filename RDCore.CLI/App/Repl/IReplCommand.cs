@@ -215,14 +215,6 @@ public interface IReplPlatformClient
     Task<HostDebugVariablesResult> GetVariablesAsync(int frameId, HostVariableScope scope, int reference, CancellationToken token);
 
     /// <summary>
-    /// Asks the language server for the value of an expression in an activation of the program that waits.
-    /// </summary>
-    /// <param name="frameId">The activation, by its place on the stack.</param>
-    /// <param name="expression">The expression, as text.</param>
-    /// <param name="token">A token that cancels the request.</param>
-    Task<HostDebugEvaluateResult> EvaluateAsync(int frameId, string expression, CancellationToken token);
-
-    /// <summary>
     /// Asks the language server to analyze a module and report what its diagnostics providers found.
     /// </summary>
     /// <param name="source">The complete module source.</param>
