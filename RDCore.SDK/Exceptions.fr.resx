@@ -300,6 +300,9 @@
   <data name="VBCompileError_NumericLiteralOverflow_Verbose" xml:space="preserve">
     <value>La valeur du littéral numérique est hors des limites de son type.</value>
   </data>
+  <data name="VBCompileError_RaiseEventByVal_Verbose" xml:space="preserve">
+    <value>Un argument de RaiseEvent ne peut pas être écrit avec ByVal : le mot clé n'est valide que dans la liste d'arguments de l'appel d'une procédure externe (MS-VBAL §5.6.13.1).</value>
+  </data>
   <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
     <value>Un appel écrit sans le mot clé Call n'a pas ses arguments entre parenthèses. Supprimez les parenthèses (Foo 1, 2), ou écrivez le mot clé Call (Call Foo(1, 2)). Les parenthèses d'un seul argument ne sont pas une liste d'arguments mais le regroupement de cet argument, qui est passé par valeur (MS-VBAL §5.4.2.1).</value>
   </data>

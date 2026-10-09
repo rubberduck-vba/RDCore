@@ -619,6 +619,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).
+        /// </summary>
+        public static string VBCompileError_RaiseEventByVal_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_RaiseEventByVal_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A call that is not written with the Call keyword does not have its arguments in parentheses. Drop the parentheses (Foo 1, 2), or write the Call keyword (Call Foo(1, 2)).
         /// </summary>
         public static string VBCompileError_CallArgumentsNeedCall_Verbose {

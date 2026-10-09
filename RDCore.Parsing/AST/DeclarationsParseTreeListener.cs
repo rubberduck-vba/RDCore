@@ -683,8 +683,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return expression;
         }
 
-        _errors.Report(argument.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError,
-            "A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).");
+        _errors.Report(argument.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError, Exceptions.VBCompileError_RaiseEventByVal_Verbose);
         return expression is null ? null : new ByValArgumentExpressionNode(id, argument.GetSourceLocation(_rootUri), expression);
     }
 

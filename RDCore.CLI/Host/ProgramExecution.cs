@@ -94,7 +94,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             if (_state is ProgramState.Running)
             {
-                return Task.FromResult(Refused("a program is running"));
+                return Task.FromResult(Refused(Resources.Host_AProgramIsRunning));
             }
 
             if (_state is ProgramState.Suspended && immediate)
@@ -133,13 +133,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             if (_state is not ProgramState.Suspended || _execution is not { } suspended)
             {
-                return Refused(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return Refused(NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
             {
-                return Refused(
-                    $"{string.Join(", ", changed)} changed while the program waited, and a program is resumed on the code it was suspended with: run it again to pick the changes up");
+                return Refused(string.Format(Resources.Host_ChangedWhileWaiting_Resume, string.Join(", ", changed)));
             }
 
             (execution, _state) = (suspended, ProgramState.Running);
@@ -165,17 +164,17 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             if (_state is not ProgramState.Suspended)
             {
-                return NotMoved(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return NotMoved(NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
             {
-                return NotMoved($"{string.Join(", ", changed)} changed while the program waited: run it again to pick the changes up");
+                return NotMoved(string.Format(Resources.Host_ChangedWhileWaiting_Goto, string.Join(", ", changed)));
             }
 
             if (provider.Session.CallStack.Current is not CallStackFrame { Body: { } body } frame)
             {
-                return NotMoved("the program waits in no procedure");
+                return NotMoved(Resources.Host_WaitsInNoProcedure);
             }
 
             int offset;
@@ -183,12 +182,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 if (!body.TryGetLabelOffset(label, out offset))
                 {
-                    return NotMoved($"the procedure has no label '{label}'");
+                    return NotMoved(string.Format(Resources.Host_NoSuchLabel, label));
                 }
             }
             else if (!body.TryGetOffsetAtLine(line, out offset))
             {
-                return NotMoved("no statement of the procedure begins at that line or after it");
+                return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
             }
 
             frame.MoveTo(offset);
@@ -268,13 +267,13 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             var session = provider.Session;
             if (_state is not ProgramState.Suspended)
             {
-                return Unevaluated(_state is ProgramState.Running ? "the program is running" : "no program is suspended");
+                return Unevaluated(NotSuspended(_state));
             }
 
             var frames = session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
             if (frameId < 0 || frameId >= frames.Length || frames[frameId].Procedure is not { } procedure || session.CallStack is not RuntimeCallStack stack)
             {
-                return Unevaluated("there is no such activation");
+                return Unevaluated(Resources.Host_NoSuchActivation);
             }
 
             var output = new RuntimeOutputBuffer();
@@ -294,10 +293,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                     if (halt is RuntimeHaltKind.End)
                     {
                         EndSuspended(session, wipe: true);
-                        return Unevaluated("the expression ended the program", output);
+                        return Unevaluated(Resources.Host_TheExpressionEndedTheProgram, output);
                     }
 
-                    return Unevaluated("the expression was stopped by a Stop", output);
+                    return Unevaluated(Resources.Host_TheExpressionWasStopped, output);
                 }
 
                 if (result.IsSuccess)
@@ -333,8 +332,11 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             .OfType<SimpleNameExpressionNode>()
             .FirstOrDefault(name => !session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, scope).IsResolved);
 
-        return undefined is null ? "the interpreter cannot evaluate this yet" : $"'{undefined.IdentifierName}' is not defined";
+        return undefined is null ? Resources.Host_CannotEvaluateYet : string.Format(Resources.Host_NameIsNotDefined, undefined.IdentifierName);
     }
+
+    // why nothing can be asked of the program that does not wait.
+    private static string NotSuspended(ProgramState state) => state is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended;
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
@@ -605,7 +607,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             {
                 Outcome = ExecutionOutcome.Interrupted,
                 Output = output.Lines,
-                ErrorMessage = "the program was interrupted",
+                ErrorMessage = Resources.Host_TheProgramWasInterrupted,
                 ErrorLine = location?.Range.Start.Line ?? -1,
                 ErrorCharacter = location?.Range.Start.Character ?? -1,
             };
@@ -623,8 +625,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 Outcome = token.IsCancellationRequested ? ExecutionOutcome.Interrupted : ExecutionOutcome.NotImplemented,
                 Output = output.Lines,
                 ErrorMessage = token.IsCancellationRequested
-                    ? "the program was interrupted"
-                    : "the interpreter reached something it cannot run yet",
+                    ? Resources.Host_TheProgramWasInterrupted
+                    : Resources.Host_CannotRunYet,
             };
         }
 

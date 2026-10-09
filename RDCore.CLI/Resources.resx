@@ -385,4 +385,70 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Selects the procedure VARS is about: FRAME 1 is the one that called.</value>
   </data>
+  <data name="Host_AProgramIsRunning" xml:space="preserve">
+    <value>a program is running</value>
+  </data>
+  <data name="Host_TheProgramIsRunning" xml:space="preserve">
+    <value>the program is running</value>
+  </data>
+  <data name="Host_NoProgramIsSuspended" xml:space="preserve">
+    <value>no program is suspended</value>
+  </data>
+  <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
+    <value>{0} changed while the program waited, and a program is resumed on the code it was suspended with: run it again to pick the changes up</value>
+  </data>
+  <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
+    <value>{0} changed while the program waited: run it again to pick the changes up</value>
+  </data>
+  <data name="Host_WaitsInNoProcedure" xml:space="preserve">
+    <value>the program waits in no procedure</value>
+  </data>
+  <data name="Host_NoSuchLabel" xml:space="preserve">
+    <value>the procedure has no label '{0}'</value>
+  </data>
+  <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
+    <value>no statement of the procedure begins at that line or after it</value>
+  </data>
+  <data name="Host_NoSuchActivation" xml:space="preserve">
+    <value>there is no such activation</value>
+  </data>
+  <data name="Host_TheExpressionEndedTheProgram" xml:space="preserve">
+    <value>the expression ended the program</value>
+  </data>
+  <data name="Host_TheExpressionWasStopped" xml:space="preserve">
+    <value>the expression was stopped by a Stop</value>
+  </data>
+  <data name="Host_CannotEvaluateYet" xml:space="preserve">
+    <value>the interpreter cannot evaluate this yet</value>
+  </data>
+  <data name="Host_NameIsNotDefined" xml:space="preserve">
+    <value>'{0}' is not defined</value>
+  </data>
+  <data name="Host_TheProgramWasInterrupted" xml:space="preserve">
+    <value>the program was interrupted</value>
+  </data>
+  <data name="Host_CannotRunYet" xml:space="preserve">
+    <value>the interpreter reached something it cannot run yet</value>
+  </data>
+  <data name="Host_NoRuntimeSession" xml:space="preserve">
+    <value>there is no runtime session</value>
+  </data>
+  <data name="Host_NoRuntimeSessionToRunIn" xml:space="preserve">
+    <value>there is no runtime session to run in</value>
+  </data>
+  <data name="Host_RequestCarriedNoExpression" xml:space="preserve">
+    <value>the request carried no expression</value>
+  </data>
+  <data name="Host_RequestCarriedNoParsedModule" xml:space="preserve">
+    <value>the request carried no parsed module</value>
+  </data>
+  <data name="Host_ModuleIsNotDefined" xml:space="preserve">
+    <value>module '{0}' is not defined in the session</value>
+  </data>
+  <data name="Host_NotAProcedureOfTheModule" xml:space="preserve">
+    <value>'{0}.{1}' is not a procedure of the module</value>
+  </data>
+  <data name="Host_ValueUnavailable" xml:space="preserve">
+    <value>&lt;unavailable&gt;</value>
+  </data>
 </root>

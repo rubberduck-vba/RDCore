@@ -50,11 +50,11 @@ internal sealed class PlatformDebugWorkspace(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            throw new InvalidOperationException($"The workspace '{root}' could not be loaded: {exception.Message}", exception);
+            throw new InvalidOperationException(string.Format(DebuggerMessages.WorkspaceCouldNotBeLoaded, root, exception.Message), exception);
         }
 
-        var parsingServer = BringUpAsync("parsing server", orchestration.ParsingService);
-        var environmentHost = BringUpAsync("environment host", orchestration.RuntimeEnvironment);
+        var parsingServer = BringUpAsync(DebuggerMessages.ComponentParsingServer, orchestration.ParsingService);
+        var environmentHost = BringUpAsync(DebuggerMessages.ComponentEnvironmentHost, orchestration.RuntimeEnvironment);
         await Task.WhenAll(parsingServer, environmentHost).WaitAsync(token);
 
         await parsing.ParseWorkspaceAsync(token);
@@ -125,7 +125,7 @@ internal sealed class PlatformDebugWorkspace(
         if (!_byModule.TryGetValue(moduleName, out var path) || !_byPath.TryGetValue(path, out var entry)
             || !parsing.TryGetCached(entry.Document, out var parse))
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = $"'{moduleName}' is not a module of the workspace" };
+            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
         }
 
         var environment = orchestration.RuntimeEnvironment;

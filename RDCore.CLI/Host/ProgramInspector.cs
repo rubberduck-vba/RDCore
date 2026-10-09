@@ -171,7 +171,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
     {
         if (value is null)
         {
-            return new HostVariable(name, "<unavailable>", string.Empty);
+            return new HostVariable(name, Resources.Host_ValueUnavailable, string.Empty);
         }
 
         var view = DebugValueFormatter.Describe(value);
