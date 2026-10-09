@@ -1082,7 +1082,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             case ErrorHandlingMode.GoTo:
                 // Catching via GoTo resets the activation's own policy to Default - an unhandled second
                 // error inside the handler body itself propagates rather than re-entering the handler.
-                activation.ErrorHandler = new ErrorHandlerState(ErrorHandlingMode.Disabled, null, outcome.ErrorInfo, faultOffset);
+                activation.ErrorHandler = new ErrorHandlerState(ErrorHandlingMode.Disabled, null, outcome.ErrorInfo, faultOffset, HandlerEntry: handler.HandlerTarget);
                 activation.Pc = handler.HandlerTarget!.Value;
                 return null;
 
@@ -1102,7 +1102,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 instruction.Node?.SourceLocation ?? default, Exceptions.VBResume_WithoutError_Verbose));
         }
 
-        activation.ErrorHandler = activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null };
+        activation.ErrorHandler = activation.ErrorHandler with { ActiveError = null, FaultStatementOffset = null, HandlerEntry = null };
         activation.Pc = instruction.Kind switch
         {
             InstructionKind.ResumeCurrentStatement => faultOffset,

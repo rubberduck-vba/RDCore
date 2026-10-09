@@ -51,10 +51,15 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
                         ModuleNameOf(frame),
                         location?.Range.Start.Line ?? -1,
                         location?.Range.Start.Character ?? -1,
-                        ReturnLines(frame));
+                        ReturnLines(frame),
+                        HandlerOf(frame));
                 }),
             ],
         };
+
+    // an activation is in a handler from the error it caught until the Resume that ends it: the label the handler begins at.
+    private static string? HandlerOf(CallStackFrame frame)
+        => frame.ErrorHandler is { ActiveError: not null, HandlerEntry: { } entry } && frame.Body is { } body ? body.LabelAt(entry) : null;
 
     // the GoSub statements the activation has not returned from, innermost first: each return offset is the instruction after its GoSub.
     private static int[] ReturnLines(CallStackFrame frame)

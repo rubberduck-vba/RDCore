@@ -44,11 +44,15 @@ public enum ErrorHandlingMode
 /// The error a handler most recently caught, if any — cleared by a <c>Resume</c> statement. <c>Resume</c>
 /// with no active error is <strong>MS-VBAL §5.4.4.2</strong> error 20, "Resume without error".
 /// </param>
+/// <param name="HandlerEntry">
+/// For an activation that is running the handler an <c>On Error GoTo</c> caught an error with: the offset of the handler, until a <c>Resume</c> ends it. Kept apart from
+/// <paramref name="HandlerTarget"/> because catching resets the policy, and with it where the next error would go. <see langword="null"/> when no handler is running.
+/// </param>
 /// <param name="FaultStatementOffset">
 /// The offset of the instruction whose execution raised <see cref="ActiveError"/> — what a bare
 /// <c>Resume</c> re-executes, and what <c>Resume Next</c> continues past.
 /// </param>
-public readonly record struct ErrorHandlerState(ErrorHandlingMode Mode, int? HandlerTarget, IVBRaisableError? ActiveError, int? FaultStatementOffset)
+public readonly record struct ErrorHandlerState(ErrorHandlingMode Mode, int? HandlerTarget, IVBRaisableError? ActiveError, int? FaultStatementOffset, int? HandlerEntry = null)
 {
     /// <summary>
     /// The state every activation starts with: no handler active, no active error.

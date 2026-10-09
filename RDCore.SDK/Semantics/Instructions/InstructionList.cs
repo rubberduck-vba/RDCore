@@ -53,6 +53,13 @@ public sealed class InstructionList
     public bool TryGetLabelOffset(string label, out int offset) => _labels.TryGetValue(label, out offset);
 
     /// <summary>
+    /// The name of the label that is at <paramref name="offset"/>, the way it was written: where a handler begins is told by its label.
+    /// </summary>
+    /// <param name="offset">A program-counter offset into <see cref="Items"/>.</param>
+    /// <returns>The first label defined there, or <see langword="null"/> when there is none.</returns>
+    public string? LabelAt(int offset) => _labels.FirstOrDefault(label => label.Value == offset).Key;
+
+    /// <summary>
     /// Looks up the offset a source <see cref="StatementNode"/> lowered to, by its stable
     /// <see cref="SyntaxNodeId"/> — the fault-statement identity a breakpoint or a runtime error
     /// anchors to.
