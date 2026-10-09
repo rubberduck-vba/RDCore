@@ -125,6 +125,11 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public void PushGoSubReturn(int returnOffset) => _goSubReturns.Push(returnOffset);
 
     /// <summary>
+    /// The offsets this activation returns to, innermost first: the instruction after each <c>GoSub</c> that has not been <c>Return</c>ed from yet (its GoSub Resumption List).
+    /// </summary>
+    public IReadOnlyCollection<int> GoSubReturns => _goSubReturns;
+
+    /// <summary>
     /// Pops this activation's own GoSub Resumption List and returns the offset a <c>Return</c> statement
     /// branches to.
     /// </summary>

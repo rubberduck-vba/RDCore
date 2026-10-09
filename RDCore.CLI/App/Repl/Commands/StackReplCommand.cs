@@ -8,6 +8,10 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </summary>
 /// <remarks>
 /// The line is the program's own line number where the procedure is the program, and the line of its module where it is a procedure the program called.
+/// <para>
+/// An activation that is inside a <c>GoSub</c> says where it came from, line after line, innermost first: <c>#0 Main 780 from 240 from 590</c>. One that is not
+/// inside any says nothing about it.
+/// </para>
 /// </remarks>
 internal sealed class StackReplCommand : IReplCommand
 {
@@ -26,7 +30,9 @@ internal sealed class StackReplCommand : IReplCommand
         var stack = await context.Platform.GetStackAsync(token);
         foreach (var frame in stack.Frames)
         {
-            context.Console.WriteLine($"#{frame.Id} {frame.Procedure} {Where(context.Program, frame.Module, frame.Line)}".TrimEnd());
+            // and how it got to the line it is at, when it was by a GoSub: from the line of the last one it has not returned from, and the one before that.
+            var from = string.Concat(frame.ReturnLines.Select(line => $" from {Where(context.Program, frame.Module, line)}"));
+            context.Console.WriteLine($"#{frame.Id} {frame.Procedure} {Where(context.Program, frame.Module, frame.Line)}{from}".TrimEnd());
         }
 
         return ReplCommandResult.Continue;

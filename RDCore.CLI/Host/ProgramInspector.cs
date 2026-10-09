@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution.Debugging;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
@@ -49,10 +50,18 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
                         frame.Procedure?.Name ?? frame.StaticSymbol.Name,
                         ModuleNameOf(frame),
                         location?.Range.Start.Line ?? -1,
-                        location?.Range.Start.Character ?? -1);
+                        location?.Range.Start.Character ?? -1,
+                        ReturnLines(frame));
                 }),
             ],
         };
+
+    // the GoSub statements the activation has not returned from, innermost first: each return offset is the instruction after its GoSub.
+    private static int[] ReturnLines(CallStackFrame frame)
+        => frame.Body is not { } body
+            ? []
+            : [.. frame.GoSubReturns
+                .Select(returnOffset => returnOffset - 1 >= 0 && returnOffset - 1 < body.Items.Length ? body.Items[returnOffset - 1].Node?.SourceLocation.Range.Start.Line ?? -1 : -1)];
 
     /// <summary>
     /// The variables of an activation, or the parts of one of them.
@@ -94,7 +103,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
             _ => ([], Enumerable.Empty<Symbol>()),
         };
 
-        foreach (var symbol in parameters.Concat(locals).Where(symbol => symbol is VBParameterSymbol or VBLocalVariableSymbol))
+        foreach (var symbol in InDeclarationOrder(parameters.Concat(locals).Where(symbol => symbol is VBParameterSymbol or VBLocalVariableSymbol)))
         {
             yield return Describe(symbol.Name, ValueOf(frame, symbol));
         }
@@ -112,11 +121,22 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
             yield break;
         }
 
-        foreach (var field in provider.Session.Symbols.MembersOf(procedure.ParentUri).OfType<VBModuleFieldVariableMemberSymbol>())
+        foreach (var field in InDeclarationOrder(provider.Session.Symbols.MembersOf(procedure.ParentUri).OfType<VBModuleFieldVariableMemberSymbol>()))
         {
             yield return Describe(field.Name, ValueOf(frame, field));
         }
     }
+
+    // the order the source declares them in, which is not the order a symbol table keeps them in. An implicit declaration is where the name is first used.
+    private static IEnumerable<TSymbol> InDeclarationOrder<TSymbol>(IEnumerable<TSymbol> symbols) where TSymbol : Symbol
+        => symbols.OrderBy(symbol => RangeOf(symbol).Start.Line).ThenBy(symbol => RangeOf(symbol).Start.Character);
+
+    private static SourceRange RangeOf(Symbol symbol) => symbol switch
+    {
+        BoundTypedSymbol bound => bound.Range,
+        WorkspaceSymbol workspace => workspace.Range,
+        _ => default,
+    };
 
     // a variable that nothing has allocated yet has no value to show.
     private VBTypedValue? ValueOf(CallStackFrame frame, Symbol symbol)

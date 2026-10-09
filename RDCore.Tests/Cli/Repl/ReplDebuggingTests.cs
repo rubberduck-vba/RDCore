@@ -320,6 +320,39 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task AStack_SaysHowAnActivationGotWhereItIs_WhenItIsInsideGoSubs()
+    {
+        ExecuteReturns(SuspendedAt(3));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            // waits before line 30, called by the GoSub of line 20, which the GoSub of line 10 called.
+            Frames = [new HostStackFrame(0, "Main", "Program", 3, 0, [2, 1]), new HostStackFrame(1, "Caller", "Other", 4, 0)],
+        }));
+
+        await CommandAsync(new StackReplCommand());
+
+        _console.Received().WriteLine("#0 Main 30 from 20 from 10");
+        _console.Received().WriteLine("#1 Caller (Other line 5)");
+    }
+
+    [TestMethod]
+    public async Task AStack_OfAnActivationInNoGoSub_SaysNothingOfHowItGotThere()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _platform.GetStackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        {
+            Frames = [new HostStackFrame(0, "Main", "Program", 2, 0)],
+        }));
+
+        await CommandAsync(new StackReplCommand());
+
+        _console.Received().WriteLine("#0 Main 20");
+        _console.DidNotReceive().WriteLine(Arg.Is<string>(line => line.Contains("from")));
+    }
+
+    [TestMethod]
     public async Task AStack_OfNoProgramThatWaits_SaysSo()
     {
         await CommandAsync(new StackReplCommand());
@@ -330,7 +363,7 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
-    public async Task AVars_ShowsTheLocalsThenTheModuleVariables_WithTheirTypes()
+    public async Task AVars_ShowsTheModuleVariablesThenTheLocals_InTheOrderTheyAreDeclaredIn_WithTheirValuesLinedUp()
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
@@ -347,9 +380,9 @@ public sealed class ReplDebuggingTests
 
         Received.InOrder(() =>
         {
-            _console.WriteLine("k = 7  (Long)");
-            _console.WriteLine("X = 42  (Variant/Long)");
+            _console.WriteLine("X    = 42  (Variant/Long)");
             _console.WriteLine("Name = \"hi\"  (String)");
+            _console.WriteLine("k    = 7  (Long)");
         });
     }
 

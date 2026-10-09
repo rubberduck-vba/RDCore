@@ -159,7 +159,15 @@ public record class HostDebugStackResult
 /// <param name="Module">The name of the module that declares it.</param>
 /// <param name="Line">The zero-based line of the statement the activation is at: the one it waits before for the innermost, the one that is calling for the others. <c>-1</c> when it is not known.</param>
 /// <param name="Character">The zero-based column of that statement, or <c>-1</c>.</param>
-public record class HostStackFrame(int Id, string Procedure, string Module, int Line, int Character);
+/// <param name="ReturnLines">
+/// The zero-based lines of the <c>GoSub</c> statements this activation has not <c>Return</c>ed from, innermost first: how it got to the line it is at. It is the GoSub
+/// Resumption List of the activation (<strong>MS-VBAL 5.4.2.14</strong>), and is empty - and so says nothing - for the code that does not use <c>GoSub</c>.
+/// </param>
+public record class HostStackFrame(int Id, string Procedure, string Module, int Line, int Character, IReadOnlyList<int>? ReturnLines = null)
+{
+    /// <summary>The lines of the <c>GoSub</c> statements this activation will return to; none for a procedure that is not in one.</summary>
+    public IReadOnlyList<int> ReturnLines { get; init; } = ReturnLines ?? [];
+}
 
 /// <summary>
 /// Which variables of a frame.

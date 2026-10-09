@@ -69,6 +69,81 @@ public sealed class ProgramInspectionTests
         });
 
     [TestMethod]
+    public async Task TheStack_SaysWhichGoSubsAnActivationIsInside_InnermostFirst()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    GoSub First",
+            "    Exit Sub",
+            "First:",
+            "    GoSub Second",
+            "    Return",
+            "Second:",
+            "    Stop",
+            "    Return",
+            "End Sub"), provider =>
+        {
+            var main = provider.Execution.Stack().Frames.Single();
+
+            Assert.AreEqual(7, main.Line, "the Stop");
+            CollectionAssert.AreEqual(new[] { 4, 1 }, main.ReturnLines.ToArray(), "from the GoSub Second, which the GoSub First called");
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheStack_OfCodeThatUsesNoGoSub_HasNothingToSayOfHowItGotThere()
+        => await DebugAsync(Source, provider =>
+        {
+            Assert.IsTrue(provider.Execution.Stack().Frames.All(frame => frame.ReturnLines.Count == 0));
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheStack_AfterAGoSubReturned_IsNoLongerInsideIt()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    GoSub First",
+            "    Stop",
+            "    Exit Sub",
+            "First:",
+            "    Return",
+            "End Sub"), provider =>
+        {
+            Assert.IsEmpty(provider.Execution.Stack().Frames.Single().ReturnLines);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheVariables_AreInTheOrderTheyAreDeclaredIn_WhateverTheirNames()
+        => await DebugAsync(Program(
+            "Public Zebra As Long",
+            "Public Apple As Long",
+            "Public Sub Main()",
+            "    Dim mango As Long, banana As Long",
+            "    Dim cherry As Long",
+            "    Stop",
+            "End Sub"), provider =>
+        {
+            CollectionAssert.AreEqual(new[] { "Zebra", "Apple" }, provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Select(variable => variable.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "mango", "banana", "cherry" }, provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task TheParameters_ComeBeforeTheLocals()
+        => await DebugAsync(Program(
+            "Public Sub Main()",
+            "    Helper 1, 2",
+            "End Sub",
+            "Private Sub Helper(ByVal zz As Long, ByVal aa As Long)",
+            "    Dim first As Long",
+            "    Stop",
+            "End Sub"), provider =>
+        {
+            CollectionAssert.AreEqual(new[] { "zz", "aa", "first" }, provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
     public async Task TheStack_OfNoProgram_IsEmpty()
         => await DebugAsync(Program("Public Sub Main()", "End Sub"), provider =>
         {
