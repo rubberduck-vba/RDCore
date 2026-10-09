@@ -575,6 +575,8 @@ public sealed class HostExecuteHandlerTests
     [DataRow("Inc x", "x=2", DisplayName = "ByRef, no parentheses: the variable itself")]
     [DataRow("Call Inc(x)", "x=2", DisplayName = "ByRef through Call: still the variable itself")]
     [DataRow("Inc (x)", "x=1", DisplayName = "a parenthesized argument is a value")]
+    [DataRow("Inc(x)", "x=1", DisplayName = "no space: without Call it is Inc (x), the same call")]
+    [DataRow("Inc(x + 0)", "x=1", DisplayName = "no space, any expression")]
     [DataRow("Call Inc((x))", "x=1", DisplayName = "a parenthesized argument inside Call's own parentheses")]
     [DataRow("Inc ((x))", "x=1", DisplayName = "twice parenthesized")]
     [DataRow("Inc x + 0", "x=1", DisplayName = "any other expression is a value too")]

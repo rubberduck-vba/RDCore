@@ -751,5 +751,137 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Warn_ThemingDisabled_Verbose", resourceCulture);
             }
         }
+
+        public static string Host_AProgramIsRunning {
+            get {
+                return ResourceManager.GetString("Host_AProgramIsRunning", resourceCulture);
+            }
+        }
+
+        public static string Host_TheProgramIsRunning {
+            get {
+                return ResourceManager.GetString("Host_TheProgramIsRunning", resourceCulture);
+            }
+        }
+
+        public static string Host_NoProgramIsSuspended {
+            get {
+                return ResourceManager.GetString("Host_NoProgramIsSuspended", resourceCulture);
+            }
+        }
+
+        public static string Host_ChangedWhileWaiting_Resume {
+            get {
+                return ResourceManager.GetString("Host_ChangedWhileWaiting_Resume", resourceCulture);
+            }
+        }
+
+        public static string Host_ChangedWhileWaiting_Goto {
+            get {
+                return ResourceManager.GetString("Host_ChangedWhileWaiting_Goto", resourceCulture);
+            }
+        }
+
+        public static string Host_WaitsInNoProcedure {
+            get {
+                return ResourceManager.GetString("Host_WaitsInNoProcedure", resourceCulture);
+            }
+        }
+
+        public static string Host_NoSuchLabel {
+            get {
+                return ResourceManager.GetString("Host_NoSuchLabel", resourceCulture);
+            }
+        }
+
+        public static string Host_NoStatementAtOrAfterLine {
+            get {
+                return ResourceManager.GetString("Host_NoStatementAtOrAfterLine", resourceCulture);
+            }
+        }
+
+        public static string Host_NoSuchActivation {
+            get {
+                return ResourceManager.GetString("Host_NoSuchActivation", resourceCulture);
+            }
+        }
+
+        public static string Host_TheExpressionEndedTheProgram {
+            get {
+                return ResourceManager.GetString("Host_TheExpressionEndedTheProgram", resourceCulture);
+            }
+        }
+
+        public static string Host_TheExpressionWasStopped {
+            get {
+                return ResourceManager.GetString("Host_TheExpressionWasStopped", resourceCulture);
+            }
+        }
+
+        public static string Host_CannotEvaluateYet {
+            get {
+                return ResourceManager.GetString("Host_CannotEvaluateYet", resourceCulture);
+            }
+        }
+
+        public static string Host_NameIsNotDefined {
+            get {
+                return ResourceManager.GetString("Host_NameIsNotDefined", resourceCulture);
+            }
+        }
+
+        public static string Host_TheProgramWasInterrupted {
+            get {
+                return ResourceManager.GetString("Host_TheProgramWasInterrupted", resourceCulture);
+            }
+        }
+
+        public static string Host_CannotRunYet {
+            get {
+                return ResourceManager.GetString("Host_CannotRunYet", resourceCulture);
+            }
+        }
+
+        public static string Host_NoRuntimeSession {
+            get {
+                return ResourceManager.GetString("Host_NoRuntimeSession", resourceCulture);
+            }
+        }
+
+        public static string Host_NoRuntimeSessionToRunIn {
+            get {
+                return ResourceManager.GetString("Host_NoRuntimeSessionToRunIn", resourceCulture);
+            }
+        }
+
+        public static string Host_RequestCarriedNoExpression {
+            get {
+                return ResourceManager.GetString("Host_RequestCarriedNoExpression", resourceCulture);
+            }
+        }
+
+        public static string Host_RequestCarriedNoParsedModule {
+            get {
+                return ResourceManager.GetString("Host_RequestCarriedNoParsedModule", resourceCulture);
+            }
+        }
+
+        public static string Host_ModuleIsNotDefined {
+            get {
+                return ResourceManager.GetString("Host_ModuleIsNotDefined", resourceCulture);
+            }
+        }
+
+        public static string Host_NotAProcedureOfTheModule {
+            get {
+                return ResourceManager.GetString("Host_NotAProcedureOfTheModule", resourceCulture);
+            }
+        }
+
+        public static string Host_ValueUnavailable {
+            get {
+                return ResourceManager.GetString("Host_ValueUnavailable", resourceCulture);
+            }
+        }
     }
 }

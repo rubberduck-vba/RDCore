@@ -15,12 +15,15 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = "there is no runtime session" });
+            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_NoRuntimeSession });
         }
 
         if (sessionProvider.Execution.State is not ProgramState.Suspended)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = sessionProvider.Execution.State is ProgramState.Running ? "the program is running" : "no program is suspended" });
+            return Task.FromResult(new HostDebugEvaluateResult
+            {
+                Error = sessionProvider.Execution.State is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended,
+            });
         }
 
         ExpressionNode expression;
@@ -30,7 +33,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or InvalidOperationException)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = "the request carried no expression" });
+            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoExpression });
         }
 
         var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages);

@@ -683,8 +683,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return expression;
         }
 
-        _errors.Report(argument.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError,
-            "A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).");
+        _errors.Report(argument.GetSourceLocation(_rootUri), VBCompileErrorId.SyntaxError, Exceptions.VBCompileError_RaiseEventByVal_Verbose);
         return expression is null ? null : new ByValArgumentExpressionNode(id, argument.GetSourceLocation(_rootUri), expression);
     }
 
@@ -884,6 +883,29 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         var arguments = CaptureIsolated(context.argumentList()).Cast<ExpressionNode>().ToImmutableArray();
         var location = context.GetSourceLocation(_rootUri);
+
+        // Without `Call`, a name followed by one parenthesized expression is the bare call with that one argument - `Foo(5)` is `Foo (5)`, whatever is between the name and
+        // the parenthesis: the parentheses are the grouping operator, and not an argument list, which only `Call` has (MS-VBAL 5.4.2.1). The argument is then what
+        // `Foo (5)` has, the result of the grouping, and is passed by value.
+        if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments: [var only] } index
+            && only is not (NamedArgumentNode or MissingArgumentNode or AddressOfExpressionNode)
+            && context.lExpression() is VBAParser.IndexExprContext indexContext && indexContext.LPAREN()?.Symbol is { } open)
+        {
+            var grouped = new SourceLocation(_rootUri, new SourceRange(new SourcePosition(open.Line - 1, open.Column), index.Location.Range.End));
+            callee = index.Callee;
+            arguments = [new VBUnaryOperatorExpressionNode(OperatorSymbolNames.UnaryLetCoerceOp, GetCurrentNodeId(), grouped, [only])];
+        }
+        else if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments.Length: > 0 } stray
+            && context.lExpression() is VBAParser.IndexExprContext strayContext && strayContext.LPAREN()?.Symbol is { } strayOpen)
+        {
+            // Anything else in parentheses after the name - two arguments, a named one, a missing one, and no argument at all: `Foo()` is a list of one argument that is
+            // missing, to the grammar, and it is a syntax error in MS-VBA - is an argument list, and without `Call` there is none to write (MS-VBAL 5.4.2.1). It stays in
+            // the tree as it is written, as every statement that is a syntax error does.
+            _errors.Report(
+                new SourceLocation(_rootUri, new SourceRange(new SourcePosition(strayOpen.Line - 1, strayOpen.Column), stray.Location.Range.End)),
+                VBCompileErrorId.SyntaxError,
+                Exceptions.VBCompileError_CallArgumentsNeedCall_Verbose);
+        }
 
         CurrentBuilder.AddChild(
             AsDebugStatement(GetCurrentNodeId(), location, callee, arguments)

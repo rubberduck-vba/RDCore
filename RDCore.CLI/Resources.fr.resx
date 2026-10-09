@@ -383,4 +383,70 @@
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
   </data>
+  <data name="Host_AProgramIsRunning" xml:space="preserve">
+    <value>un programme s'exécute</value>
+  </data>
+  <data name="Host_TheProgramIsRunning" xml:space="preserve">
+    <value>le programme s'exécute</value>
+  </data>
+  <data name="Host_NoProgramIsSuspended" xml:space="preserve">
+    <value>aucun programme n'est interrompu</value>
+  </data>
+  <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
+    <value>{0} a changé pendant l'attente du programme, et un programme reprend avec le code avec lequel il a été interrompu : relancez-le pour prendre les changements en compte</value>
+  </data>
+  <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
+    <value>{0} a changé pendant l'attente du programme : relancez-le pour prendre les changements en compte</value>
+  </data>
+  <data name="Host_WaitsInNoProcedure" xml:space="preserve">
+    <value>le programme n'attend dans aucune procédure</value>
+  </data>
+  <data name="Host_NoSuchLabel" xml:space="preserve">
+    <value>la procédure n'a pas d'étiquette '{0}'</value>
+  </data>
+  <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
+    <value>aucune instruction de la procédure ne commence à cette ligne ni après</value>
+  </data>
+  <data name="Host_NoSuchActivation" xml:space="preserve">
+    <value>cette activation n'existe pas</value>
+  </data>
+  <data name="Host_TheExpressionEndedTheProgram" xml:space="preserve">
+    <value>l'expression a mis fin au programme</value>
+  </data>
+  <data name="Host_TheExpressionWasStopped" xml:space="preserve">
+    <value>l'expression a été interrompue par un Stop</value>
+  </data>
+  <data name="Host_CannotEvaluateYet" xml:space="preserve">
+    <value>l'interpréteur ne peut pas encore évaluer ceci</value>
+  </data>
+  <data name="Host_NameIsNotDefined" xml:space="preserve">
+    <value>'{0}' n'est pas défini</value>
+  </data>
+  <data name="Host_TheProgramWasInterrupted" xml:space="preserve">
+    <value>le programme a été interrompu</value>
+  </data>
+  <data name="Host_CannotRunYet" xml:space="preserve">
+    <value>l'interpréteur a rencontré quelque chose qu'il ne peut pas encore exécuter</value>
+  </data>
+  <data name="Host_NoRuntimeSession" xml:space="preserve">
+    <value>il n'y a pas de session d'exécution</value>
+  </data>
+  <data name="Host_NoRuntimeSessionToRunIn" xml:space="preserve">
+    <value>il n'y a pas de session d'exécution où exécuter</value>
+  </data>
+  <data name="Host_RequestCarriedNoExpression" xml:space="preserve">
+    <value>la requête ne portait aucune expression</value>
+  </data>
+  <data name="Host_RequestCarriedNoParsedModule" xml:space="preserve">
+    <value>la requête ne portait aucun module analysé</value>
+  </data>
+  <data name="Host_ModuleIsNotDefined" xml:space="preserve">
+    <value>le module '{0}' n'est pas défini dans la session</value>
+  </data>
+  <data name="Host_NotAProcedureOfTheModule" xml:space="preserve">
+    <value>'{0}.{1}' n'est pas une procédure du module</value>
+  </data>
+  <data name="Host_ValueUnavailable" xml:space="preserve">
+    <value>&lt;indisponible&gt;</value>
+  </data>
 </root>

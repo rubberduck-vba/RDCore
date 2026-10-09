@@ -33,6 +33,7 @@ public sealed class ProgramDebugAdapterTests
 
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
+        public HostOutputRelay Relay { get; } = new();
         public ProgramDebugAdapter Adapter { get; }
         public DebugAdapterServer Server { get; private set; } = default!;
         public DebugAdapterClient Client { get; private set; } = default!;
@@ -58,7 +59,7 @@ public sealed class ProgramDebugAdapterTests
                 {
                     Breakpoints = [.. call.Arg<IReadOnlyList<int>>().Select(line => new HostBreakpoint(line, true))],
                 }));
-            Adapter = new ProgramDebugAdapter(Workspace, Debugging, NullLogger<ProgramDebugAdapter>.Instance);
+            Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, NullLogger<ProgramDebugAdapter>.Instance);
         }
 
         public async Task StartAsync(bool linesStartAt1 = true)
@@ -367,6 +368,29 @@ public sealed class ProgramDebugAdapterTests
 
         var stopped = await session.NextAsync<StoppedEvent>();
         StringAssert.Contains(stopped.Description, "Stop");
+    }
+
+    [TestMethod]
+    public async Task WhatTheProgramPrints_IsSaidAsItPrints_AndBeforeTheProgramIsSaidToHaveStopped()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(
+            new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 12)));
+        await session.StartAsync();
+        await session.LaunchAsync();
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+        session.Relay.Publish(new HostOutputNotification { Lines = ["first"], Total = 1 });
+
+        var first = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual("first\n", first.Output);
+        Assert.AreEqual(0, session.Pending<StoppedEvent>().Count, "the second line the program printed is not here yet, and it printed it before it stopped");
+
+        session.Relay.Publish(new HostOutputNotification { Lines = ["second"], Total = 2 });
+
+        Assert.AreEqual("second\n", (await session.NextAsync<OutputEvent>()).Output);
+        _ = await session.NextAsync<StoppedEvent>();
     }
 
     [TestMethod]

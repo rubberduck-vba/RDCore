@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NoRuntimeEnvironment" xml:space="preserve">
+    <value>aucun composant d'environnement d'exécution n'est enregistré</value>
+  </data>
+  <data name="ExpressionIsOneLine" xml:space="preserve">
+    <value>une expression tient sur une ligne</value>
+  </data>
+  <data name="NotAnExpression" xml:space="preserve">
+    <value>ceci n'est pas une expression</value>
+  </data>
+  <data name="NotOneExpression" xml:space="preserve">
+    <value>ceci n'est pas une seule expression</value>
+  </data>
+  <data name="WorkspaceCouldNotBeLoaded" xml:space="preserve">
+    <value>L'espace de travail '{0}' n'a pas pu être chargé : {1}</value>
+  </data>
+  <data name="ComponentParsingServer" xml:space="preserve">
+    <value>serveur d'analyse</value>
+  </data>
+  <data name="ComponentEnvironmentHost" xml:space="preserve">
+    <value>hôte d'environnement</value>
+  </data>
+  <data name="NotAModuleOfTheWorkspace" xml:space="preserve">
+    <value>'{0}' n'est pas un module de l'espace de travail</value>
+  </data>
+  <data name="ComponentLost" xml:space="preserve">
+    <value>le composant « {0} » a été perdu : le programme ne peut pas continuer.</value>
+  </data>
+  <data name="LaunchNeedsModule" xml:space="preserve">
+    <value>Une configuration de lancement nomme le module qui contient le point d'entrée : "module".</value>
+  </data>
+  <data name="NoProgramToStart" xml:space="preserve">
+    <value>Il n'y a aucun programme à démarrer : lancez d'abord.</value>
+  </data>
+  <data name="ProgramStartedAlready" xml:space="preserve">
+    <value>Le programme est déjà démarré.</value>
+  </data>
+  <data name="FileNotInWorkspace" xml:space="preserve">
+    <value>ce fichier ne fait pas partie de l'espace de travail</value>
+  </data>
+  <data name="NoStatementOnLine" xml:space="preserve">
+    <value>aucune instruction ne commence sur cette ligne</value>
+  </data>
+  <data name="RuntimeErrorTitle" xml:space="preserve">
+    <value>Erreur d'exécution</value>
+  </data>
+  <data name="StopStep" xml:space="preserve">
+    <value>Pas</value>
+  </data>
+  <data name="StopPaused" xml:space="preserve">
+    <value>Interrompu</value>
+  </data>
+  <data name="StopAtBreakpoint" xml:space="preserve">
+    <value>Interrompu sur un point d'arrêt</value>
+  </data>
+  <data name="StopAtStopStatement" xml:space="preserve">
+    <value>Interrompu sur une instruction Stop</value>
+  </data>
+  <data name="ThreadMain" xml:space="preserve">
+    <value>Principal</value>
+  </data>
+  <data name="ScopeLocals" xml:space="preserve">
+    <value>Locales</value>
+  </data>
+  <data name="ScopeModule" xml:space="preserve">
+    <value>Module</value>
+  </data>
+  <data name="FrameInHandler" xml:space="preserve">
+    <value>{0} (dans {1})</value>
+  </data>
+  <data name="FrameGoSub" xml:space="preserve">
+    <value>{0} (GoSub)</value>
+  </data>
+  <data name="ExpressionHasNoValue" xml:space="preserve">
+    <value>l'expression n'a pas de valeur</value>
+  </data>
+  <data name="GotoTargetLine" xml:space="preserve">
+    <value>Ligne {0}</value>
+  </data>
+  <data name="CannotGoOnFromThere" xml:space="preserve">
+    <value>le programme ne peut pas continuer à partir de là</value>
+  </data>
+</root>
