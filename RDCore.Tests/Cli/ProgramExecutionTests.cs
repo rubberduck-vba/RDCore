@@ -545,16 +545,27 @@ public sealed class ProgramExecutionTests
         });
 
     [TestMethod]
-    public async Task ABreakpoint_OnALineWithNoStatement_IsNotKept()
+    public async Task ABreakpoint_OnALineWithNoStatement_NeverWaitsTheProgram_AndTheVerdictIsFinal()
         => await DebugAsync(Counting, async (provider, _, _) =>
         {
-            _ = await SetBreakpoints(provider, 0, 99);
+            var set = await SetBreakpoints(provider, 0, 99);
 
-            Assert.IsFalse(provider.Session.Halt.Breakpoints.HasAny, "nothing would ever wait there");
+            Assert.IsTrue(set.Judged, "the code of the module is loaded: a line without a statement is a line that cannot have a breakpoint");
 
             var done = await Resume(provider);
 
             Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
+        });
+
+    [TestMethod]
+    public async Task Breakpoints_OfAModuleThatIsNotLoaded_AreNotJudged()
+        => await DebugAsync(Counting, async (provider, _, _) =>
+        {
+            var set = await new HostDebugBreakpointsHandler(provider)
+                .Handle(new HostDebugBreakpointsParams { ModuleName = "Nothing", Lines = [5] }, CancellationToken.None).WaitAsync(Patience);
+
+            Assert.IsFalse(set.Judged, "there is no code to judge a line by");
+            Assert.IsFalse(set.Breakpoints.Single().Verified);
         });
 
     [TestMethod]

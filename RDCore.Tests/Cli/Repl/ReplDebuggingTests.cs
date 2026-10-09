@@ -52,6 +52,56 @@ public sealed class ReplDebuggingTests
 
     private Task CommandAsync(IReplCommand command, string arguments = "") => command.ExecuteAsync(_context, arguments, CancellationToken.None);
 
+    // ---- breakpoints the platform can say are wrong ----
+
+    [TestMethod]
+    public async Task ABreakpoint_OnALineTheLoadedProgramHasNoStatementOn_IsDropped_OnceTheProgramHasRun()
+    {
+        _ = _context.Debugger.Toggle(10);
+        _ = _context.Debugger.Toggle(20);
+        _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugBreakpointsResult
+            {
+                Breakpoints = [new HostBreakpoint(1, true), new HostBreakpoint(2, false)],
+                Judged = true,
+            }));
+        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+
+        await RunAsync();
+
+        CollectionAssert.AreEqual(new[] { 10 }, _context.Debugger.Breakpoints.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ABreakpoint_IsKept_WhileThePlatformHasNotJudgedIt()
+    {
+        _ = _context.Debugger.Toggle(10);
+        _ = _context.Debugger.Toggle(20);
+        _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugBreakpointsResult
+            {
+                Breakpoints = [new HostBreakpoint(1, false), new HostBreakpoint(2, false)],
+                Judged = false,
+            }));
+        ExecuteReturns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+
+        await RunAsync();
+
+        CollectionAssert.AreEqual(new[] { 10, 20 }, _context.Debugger.Breakpoints.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ABreakpoint_IsNotDropped_BeforeTheProgramHasRun()
+    {
+        _ = _context.Debugger.Toggle(10);
+        _platform.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(1, false)], Judged = true }));
+
+        await CommandAsync(new BreakReplCommand(), "20");
+
+        CollectionAssert.AreEqual(new[] { 10, 20 }, _context.Debugger.Breakpoints.ToArray(), "what the platform holds is the program it ran last, not this one");
+    }
+
     // ---- a program that waits ----
 
     [TestMethod]
@@ -85,7 +135,8 @@ public sealed class ReplDebuggingTests
 
         await RunAsync();
 
-        await _platform.Received(1).SetBreakpointsAsync("Program", Arg.Is<IReadOnlyList<int>>(lines => lines.SequenceEqual(new[] { 3 })), Arg.Any<CancellationToken>());
+        // before the program runs, and again once it has, to hear which of them the loaded program can have.
+        await _platform.Received(2).SetBreakpointsAsync("Program", Arg.Is<IReadOnlyList<int>>(lines => lines.SequenceEqual(new[] { 3 })), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

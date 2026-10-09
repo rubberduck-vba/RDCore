@@ -211,8 +211,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// <param name="lines">The zero-based lines of the source. None removes them.</param>
     /// <returns>Each line, and whether a statement of the module's loaded code begins on it.</returns>
     /// <remarks>
-    /// A breakpoint is where an instruction is: a line no statement begins on cannot have one, and is not kept - nothing would ever wait there, and a breakpoint that
-    /// does nothing is a breakpoint the person believes in.
+    /// A breakpoint is where an instruction is, and a line no statement begins on is reported as not verified - nothing would ever wait there, and a client is to drop it.
+    /// Every line is kept all the same, since the code can be loaded again before the program runs (a shell redefines its program at each <c>RUN</c>), and what is
+    /// verified is a fact about the code that is loaded now. Whether it is the code the person means is what <see cref="HostDebugBreakpointsResult.Judged"/> says.
     /// </remarks>
     public HostDebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<int> lines)
     {
@@ -222,10 +223,13 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             return new HostDebugBreakpointsResult { Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, false))] };
         }
 
+        session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, lines);
         var bodies = provider.Image.BodiesOf(module.Uri);
-        var breakpoints = lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line))).ToArray();
-        session.Halt.Breakpoints.Set(module.Uri.AbsoluteUri, [.. breakpoints.Where(breakpoint => breakpoint.Verified).Select(breakpoint => breakpoint.Line)]);
-        return new HostDebugBreakpointsResult { Breakpoints = breakpoints };
+        return new HostDebugBreakpointsResult
+        {
+            Breakpoints = [.. lines.Select(line => new HostBreakpoint(line, IBreakpointTable.Verify(bodies, line)))],
+            Judged = bodies.Any(),
+        };
     }
 
     /// <summary>
