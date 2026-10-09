@@ -66,6 +66,7 @@ public sealed class ThemeContrastTests
             ["identifier-const"] = theme.Syntax.IdentifierConst,
             ["splash logo"] = theme.Splash.Logo,
             ["splash title"] = theme.Splash.Title,
+            ["breakpoint mark"] = theme.Debug.BreakpointGlyph,
         };
         foreach (var kind in Enum.GetValues<MessageKind>())
         {
@@ -80,5 +81,28 @@ public sealed class ThemeContrastTests
             .ToArray();
 
         Assert.IsEmpty(unreadable, $"{theme.Name}: " + string.Join("; ", unreadable));
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(ThemeResources))]
+    public void ALineOfAListingThatTheDebuggerMarks_CanBeReadOnItsOwnBackground(string resource)
+    {
+        var theme = Load(resource);
+        var shell = new Color(theme.ShellBackground.R, theme.ShellBackground.G, theme.ShellBackground.B);
+
+        var marked = new Dictionary<string, string> { ["breakpoint"] = theme.Debug.Breakpoint, ["current statement"] = theme.Debug.CurrentStatement };
+        var unreadable = marked
+            .Select(line => (line.Key, Token: line.Value, Style: Style.Parse(line.Value)))
+            .Where(line => Contrast(line.Style.Foreground, line.Style.Background) < MinimumContrast)
+            .Select(line => $"{line.Key} ({line.Token}) is {Contrast(line.Style.Foreground, line.Style.Background):0.0}:1")
+            .ToArray();
+
+        Assert.IsEmpty(unreadable, $"{theme.Name}: " + string.Join("; ", unreadable));
+
+        // and the mark has to stand out from the shell it is drawn on, as the background of the line does.
+        foreach (var line in marked)
+        {
+            Assert.IsGreaterThan(1.2, Contrast(Style.Parse(line.Value).Background, shell), $"{theme.Name}: the background of the {line.Key} line is the shell's own");
+        }
     }
 }

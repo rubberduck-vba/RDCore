@@ -40,6 +40,11 @@ internal sealed class ReplShell(
     private CancellationTokenSource? _running;
 
     /// <summary>
+    /// What the shell knows of the program under a debugger. A break at the keyboard pauses a program that runs under one, and cancels what does not.
+    /// </summary>
+    private ReplDebugger? _debugger;
+
+    /// <summary>
     /// Runs the shell until <c>EXIT</c>, end of input, or <paramref name="token"/>.
     /// </summary>
     /// <param name="token">Cancelled when the host is shutting down — a lost language server, say.</param>
@@ -47,6 +52,7 @@ internal sealed class ReplShell(
     {
         using var breakHandler = new ConsoleBreakHandler(OnBreak);
         var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands);
+        _debugger = context.Debugger;
 
         await dispatcher.DispatchAsync(context, "SPLASH", string.Empty, CancellationToken.None);
         await dispatcher.DispatchAsync(context, "MEMORY", string.Empty, CancellationToken.None);
@@ -155,7 +161,7 @@ internal sealed class ReplShell(
         try
         {
             await ReplExecution.ExecuteAsync(
-                context, program.ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, running.Token);
+                context, program.ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, running.Token, immediate: true);
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {
@@ -177,6 +183,14 @@ internal sealed class ReplShell(
     // a break at the prompt is just a break; a break during a command cancels it.
     private void OnBreak()
     {
+        // A program that runs under a debugger is paused, not cancelled: a cancelled request has no answer to say where the program stopped, and the request that
+        // runs it answers when it has.
+        if (_debugger?.State is ReplDebugState.Running)
+        {
+            _ = platform.PauseAsync(CancellationToken.None);
+            return;
+        }
+
         if (_running is { } running)
         {
             running.Cancel();

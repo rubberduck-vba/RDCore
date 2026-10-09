@@ -101,5 +101,11 @@
   "splash": {
     "logo": "#3e61ff",
     "title": "#0C0A50"
+  },
+
+  "debug": {
+    "breakpoint": "#ffffff on #c62828",
+    "breakpoint-glyph": "#c62828",
+    "current-statement": "#000000 on #ffd966"
   }
 }

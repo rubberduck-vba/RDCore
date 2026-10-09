@@ -344,4 +344,31 @@
   <data name="Repl_Clear_Summary" xml:space="preserve">
     <value>Efface le contenu de la console.</value>
   </data>
+  <data name="Repl_Break_Summary" xml:space="preserve">
+    <value>Place ou retire un point d'arrêt à une ligne (BREAK 40). BREAK seul les liste, BREAK CLEAR les retire tous.</value>
+  </data>
+  <data name="Repl_Cont_Summary" xml:space="preserve">
+    <value>Poursuit le programme interrompu, d'où il s'est arrêté ou à partir d'une ligne (CONT 200).</value>
+  </data>
+  <data name="Repl_Step_Summary" xml:space="preserve">
+    <value>Exécute une instruction du programme interrompu : STEP (sans entrer dans les appels), STEP INTO, STEP OUT.</value>
+  </data>
+  <data name="Repl_CantContinue" xml:space="preserve">
+    <value>IMPOSSIBLE DE POURSUIVRE</value>
+  </data>
+  <data name="Repl_Breakpoint_Set" xml:space="preserve">
+    <value>POINT D'ARRÊT PLACÉ À {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_Cleared" xml:space="preserve">
+    <value>POINT D'ARRÊT RETIRÉ À {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_List" xml:space="preserve">
+    <value>POINTS D'ARRÊT : {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_None" xml:space="preserve">
+    <value>AUCUN POINT D'ARRÊT</value>
+  </data>
+  <data name="Repl_Suspended" xml:space="preserve">
+    <value>PROGRAMME INTERROMPU : CONT, STEP, RUN OU NEW</value>
+  </data>
 </root>

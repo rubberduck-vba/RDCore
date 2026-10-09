@@ -17,6 +17,9 @@ internal sealed class NewReplCommand : IReplCommand
 
         // and so are the variables the program made: a new program starts from nothing.
         await ReplExecution.DiscardProgramAsync(context, token);
+
+        // and the breakpoints were on lines of the program that is gone.
+        context.Debugger.ClearBreakpoints();
         return ReplCommandResult.Continue;
     }
 }

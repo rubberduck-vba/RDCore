@@ -138,7 +138,7 @@ public sealed class ReplHighlightingTests
         await new ListReplCommand().ExecuteAsync(context, "", CancellationToken.None);
 
         await _platform.Received(1).OpenDocumentAsync(Arg.Any<Uri>(), "10 Dim x\r\n", Arg.Any<int>(), Arg.Any<CancellationToken>());
-        _console.Received(1).WriteLine(Arg.Is<IReadOnlyList<ReplTextRun>>(runs => runs.Any(run => run.Style == ReplTextStyle.Keyword && run.Text == "Dim")));
+        _console.Received(1).WriteListingLine(Arg.Any<ReplTextRun>(), Arg.Is<IReadOnlyList<ReplTextRun>>(runs => runs.Any(run => run.Style == ReplTextStyle.Keyword && run.Text == "Dim")), ReplLineStyle.Plain);
     }
 
     [TestMethod]
@@ -152,8 +152,8 @@ public sealed class ReplHighlightingTests
 
         await new ListReplCommand().ExecuteAsync(context, "100", CancellationToken.None);
 
-        _console.Received(1).WriteLine(Arg.Is<IReadOnlyList<ReplTextRun>>(runs =>
-            string.Concat(runs.Select(run => run.Text)) == "100 Dim y" && runs.Any(run => run.Style == ReplTextStyle.Keyword && run.Text == "Dim")));
+        _console.Received(1).WriteListingLine(Arg.Any<ReplTextRun>(), Arg.Is<IReadOnlyList<ReplTextRun>>(runs =>
+            string.Concat(runs.Select(run => run.Text)) == " 100 Dim y" && runs.Any(run => run.Style == ReplTextStyle.Keyword && run.Text == "Dim")), ReplLineStyle.Plain);
     }
 
     [TestMethod]
@@ -165,7 +165,7 @@ public sealed class ReplHighlightingTests
 
         await new ListReplCommand().ExecuteAsync(context, "", CancellationToken.None);
 
-        _console.Received(1).WriteLine("10 Dim x");
+        _console.Received(1).WriteListingLine(Arg.Any<ReplTextRun>(), Arg.Is<IReadOnlyList<ReplTextRun>>(runs => string.Concat(runs.Select(run => run.Text)) == " 10 Dim x"), ReplLineStyle.Plain);
     }
 
     [TestMethod]
@@ -176,7 +176,7 @@ public sealed class ReplHighlightingTests
 
         await new ListReplCommand().ExecuteAsync(context, "", CancellationToken.None);
 
-        _console.Received(1).WriteLine("10 Dim x");
+        _console.Received(1).WriteListingLine(Arg.Any<ReplTextRun>(), Arg.Is<IReadOnlyList<ReplTextRun>>(runs => string.Concat(runs.Select(run => run.Text)) == " 10 Dim x"), ReplLineStyle.Plain);
         await _platform.DidNotReceiveWithAnyArgs().GetSemanticTokensAsync(default!, default);
     }
 }

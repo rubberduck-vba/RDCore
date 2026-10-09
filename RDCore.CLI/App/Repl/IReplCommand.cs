@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.CLI.App.Repl;
 
@@ -39,6 +40,12 @@ public interface IReplConsole
     /// <summary>Writes one line made of runs of text, each in the style of the theme it is of.</summary>
     /// <param name="runs">The runs, in order; the line is what they say.</param>
     void WriteLine(IReadOnlyList<ReplTextRun> runs);
+
+    /// <summary>Writes one line of a listing: a margin, and the line itself, which a breakpoint or the statement a stopped program waits before marks as a whole.</summary>
+    /// <param name="margin">The one character of the margin, which is outside the marking.</param>
+    /// <param name="runs">The runs of the line, in order.</param>
+    /// <param name="style">How the whole line is marked, from its first character to the end of the console's width.</param>
+    void WriteListingLine(ReplTextRun margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style);
 
     /// <summary>Writes a themed platform message.</summary>
     /// <param name="kind">The message kind, which selects the icon and accent style.</param>
@@ -144,6 +151,55 @@ public interface IReplPlatformClient
     Task<DiscardSessionResult> DiscardAsync(string moduleName, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server to take a module out of the runtime session like <see cref="DiscardAsync(string, CancellationToken)"/>, and to end the program that
+    /// is running or waits first, wiping the session: what clearing the program means to a program that was stopped.
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="endProgram">Whether the program that is running or waits is ended first.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<DiscardSessionResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to run one procedure of a module like <see cref="ExecuteAsync(string, string, string, CancellationToken)"/>, under a debugger when
+    /// <paramref name="debug"/> is set: a <c>Stop</c> or a breakpoint then answers <see cref="ExecutionOutcome.Suspended"/> and the program waits.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="entryPoint">The parameterless procedure to invoke.</param>
+    /// <param name="debug">Whether the program runs under a debugger.</param>
+    /// <param name="immediate">Whether the entry point is a statement typed at a prompt, which is run alongside a program that waits and leaves it waiting.</param>
+    /// <param name="token">A token that cancels the request. For a program under a debugger a break is <see cref="PauseAsync"/>, not this.</param>
+    Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to go on with the program that waits, to the next place it waits or to its end, or for one step.
+    /// </summary>
+    /// <param name="step">How far, or <see langword="null"/> for as far as it goes.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to stop the program that is running, so that it waits where it is. The request that runs the program answers where.
+    /// </summary>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugAck> PauseAsync(CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to move the point the program that waits goes on from, to a statement label or line number of its procedure.
+    /// </summary>
+    /// <param name="label">The label or line number.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugGotoResult> GotoAsync(string label, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server to set the lines of a module that a program under a debugger waits at.
+    /// </summary>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="lines">The zero-based lines of the module's source.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<int> lines, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server to analyze a module and report what its diagnostics providers found.
     /// </summary>
     /// <param name="source">The complete module source.</param>
@@ -185,7 +241,13 @@ public sealed record class ReplCommandContext(
     IReplConsole Console,
     IReplPlatformClient Platform,
     ReplDocument Document,
-    IReadOnlyList<IReplCommand> Commands);
+    IReadOnlyList<IReplCommand> Commands)
+{
+    /// <summary>
+    /// What the shell knows of the program under a debugger: whether it is running or waits, where, and the lines that have breakpoints.
+    /// </summary>
+    public ReplDebugger Debugger { get; init; } = new();
+}
 
 /// <summary>
 /// A command of the interactive shell — <c>LIST</c>, <c>RUN</c>, <c>EXIT</c> — matched before the

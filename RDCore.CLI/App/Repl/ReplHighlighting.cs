@@ -36,6 +36,24 @@ public enum ReplTextStyle
 
     /// <summary>The lettering of the title on the splash screen - the theme's <c>splash.title</c>.</summary>
     SplashTitle,
+
+    /// <summary>The mark in the margin of a line that has a breakpoint - the theme's <c>debug.breakpoint-glyph</c>.</summary>
+    BreakpointGlyph,
+}
+
+/// <summary>
+/// How a whole line of a listing is marked.
+/// </summary>
+public enum ReplLineStyle
+{
+    /// <summary>It is not.</summary>
+    Plain,
+
+    /// <summary>It has a breakpoint - the theme's <c>debug.breakpoint</c>.</summary>
+    Breakpoint,
+
+    /// <summary>It is the statement the program that was stopped waits before - the theme's <c>debug.current-statement</c>.</summary>
+    CurrentStatement,
 }
 
 /// <summary>

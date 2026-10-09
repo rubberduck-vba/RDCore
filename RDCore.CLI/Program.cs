@@ -130,6 +130,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
             .AddSingleton<IReplCommand, ListReplCommand>()
+            .AddSingleton<IReplCommand, BreakReplCommand>()
+            .AddSingleton<IReplCommand, ContReplCommand>()
+            .AddSingleton<IReplCommand, StepReplCommand>()
             .AddSingleton<IReplCommand, RunReplCommand>()
             .AddSingleton<IReplCommand, AnalyzeReplCommand>()
             .AddSingleton<IReplCommand, PeekReplCommand>()
@@ -236,6 +239,7 @@ internal class RDCoreConsoleClientApp(
             SessionStatus = new SessionStatus(true),
             SessionExecute = new SessionExecute(true),
             SessionDiscard = new SessionDiscard(true),
+            ProgramDebugging = new ProgramDebugging(true),
             SessionAnalyze = new SessionAnalyze(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
         },

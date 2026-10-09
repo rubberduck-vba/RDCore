@@ -33,6 +33,26 @@ public sealed record class ThemeDocument
 
     [JsonPropertyName("splash")]
     public ThemeSplash Splash { get; init; } = new();
+
+    /// <summary>How a listing shows what the debugger knows: the breakpoints, and the statement a program that was stopped waits before.</summary>
+    [JsonPropertyName("debug")]
+    public ThemeDebug Debug { get; init; } = new();
+}
+
+/// <summary>Debugger colours of a listing.</summary>
+public sealed record class ThemeDebug
+{
+    /// <summary>The style of a whole line that has a breakpoint, background included.</summary>
+    [JsonPropertyName("breakpoint")]
+    public string Breakpoint { get; init; } = "white on red";
+
+    /// <summary>The style of the mark in the margin of a line that has a breakpoint, which is on the shell's own background.</summary>
+    [JsonPropertyName("breakpoint-glyph")]
+    public string BreakpointGlyph { get; init; } = "red";
+
+    /// <summary>The style of the whole line of the statement a program that was stopped waits before, background included.</summary>
+    [JsonPropertyName("current-statement")]
+    public string CurrentStatement { get; init; } = "black on yellow";
 }
 
 /// <summary>Shell frame colours.</summary>

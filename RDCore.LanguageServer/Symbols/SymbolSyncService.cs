@@ -76,7 +76,8 @@ internal interface ISymbolSyncService
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>What the host took out; nothing when the host cannot be told.</returns>
-    Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token);
+    /// <param name="endProgram">Whether the program that is running or waits is ended too, and the session wiped: what clearing a program asks (<c>NEW</c>, <c>LOAD</c>).</param>
+    Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false);
 }
 
 internal sealed class SymbolSyncService(
@@ -269,7 +270,7 @@ internal sealed class SymbolSyncService(
         await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Parse, token);
     }
 
-    public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token)
+    public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)
@@ -286,7 +287,7 @@ internal sealed class SymbolSyncService(
 
         var moduleUri = new UriBuilder(new Uri(documents.WorkspaceRoot)) { Fragment = moduleName }.Uri;
         var result = await host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
-            new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName }, token);
+            new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
 
         LogIfEnabled(LogLevel.Information, $"🗑️ {moduleName}: {result.Discarded} symbol(s) discarded.");
         return result;

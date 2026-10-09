@@ -346,4 +346,31 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Clear_Summary" xml:space="preserve">
     <value>Clears the console content.</value>
   </data>
+  <data name="Repl_Break_Summary" xml:space="preserve">
+    <value>Sets or clears a breakpoint at a line (BREAK 40). BREAK alone lists them, BREAK CLEAR removes them all.</value>
+  </data>
+  <data name="Repl_Cont_Summary" xml:space="preserve">
+    <value>Continues the program that was stopped, from where it stopped or from a line (CONT 200).</value>
+  </data>
+  <data name="Repl_Step_Summary" xml:space="preserve">
+    <value>Runs one statement of the program that was stopped: STEP (over calls), STEP INTO, STEP OUT.</value>
+  </data>
+  <data name="Repl_CantContinue" xml:space="preserve">
+    <value>CAN'T CONTINUE</value>
+  </data>
+  <data name="Repl_Breakpoint_Set" xml:space="preserve">
+    <value>BREAKPOINT SET AT {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_Cleared" xml:space="preserve">
+    <value>BREAKPOINT CLEARED AT {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_List" xml:space="preserve">
+    <value>BREAKPOINTS: {0}</value>
+  </data>
+  <data name="Repl_Breakpoint_None" xml:space="preserve">
+    <value>NO BREAKPOINTS</value>
+  </data>
+  <data name="Repl_Suspended" xml:space="preserve">
+    <value>PROGRAM STOPPED: CONT, STEP, RUN OR NEW</value>
+  </data>
 </root>

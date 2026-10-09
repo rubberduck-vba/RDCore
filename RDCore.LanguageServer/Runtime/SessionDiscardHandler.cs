@@ -31,6 +31,6 @@ internal sealed class SessionDiscardHandler(
                 $"The client did not advertise the '{nameof(SessionDiscard)}' platform capability.");
         }
 
-        return await symbols.DiscardModuleAsync(request.ModuleName, token);
+        return await symbols.DiscardModuleAsync(request.ModuleName, token, request.EndProgram);
     }
 }

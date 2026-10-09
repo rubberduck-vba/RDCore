@@ -81,6 +81,7 @@ internal sealed class CoreLanguageServerApp(
                             SessionStatus = new SessionStatus(true),
                             SessionExecute = new SessionExecute(true),
                             SessionDiscard = new SessionDiscard(true),
+                            ProgramDebugging = new ProgramDebugging(true),
                             SessionMemoryAccess = new SessionMemoryAccess(true),
                         }
                     }));
@@ -113,6 +114,11 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionStatusHandler>();
         builder.WithHandler<SessionExecuteHandler>();
         builder.WithHandler<SessionDiscardHandler>();
+        builder.WithHandler<SessionDebugResumeHandler>();
+        builder.WithHandler<SessionDebugPauseHandler>();
+        builder.WithHandler<SessionDebugGotoHandler>();
+        builder.WithHandler<SessionDebugTerminateHandler>();
+        builder.WithHandler<SessionDebugBreakpointsHandler>();
         builder.WithHandler<SessionAnalyzeHandler>();
         builder.WithHandler<SessionPeekHandler>();
         builder.WithHandler<SessionPokeHandler>();

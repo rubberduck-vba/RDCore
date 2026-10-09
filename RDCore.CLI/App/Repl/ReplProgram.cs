@@ -77,6 +77,14 @@ public sealed class ReplProgram
     }
 
     /// <summary>
+    /// Where the line numbered <paramref name="number"/> is in the module the program is run as (<see cref="ToModuleSource"/>), which has the procedure's header
+    /// above the lines: the line of the source a breakpoint on it is on.
+    /// </summary>
+    /// <param name="number">The line number.</param>
+    /// <returns>The zero-based line of the module source, or <c>-1</c> if no such line is in the buffer.</returns>
+    public int SourceLineOf(int number) => IndexOf(number) is var index && index >= 0 ? index + 1 : -1;
+
+    /// <summary>
     /// Removes the line numbered <paramref name="number"/>.
     /// </summary>
     /// <returns><c>false</c> if no such line was in the buffer.</returns>

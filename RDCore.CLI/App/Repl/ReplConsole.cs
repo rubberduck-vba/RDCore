@@ -27,13 +27,38 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
     public void WriteLine(string text = "") => System.Console.Out.WriteLine(text);
 
     /// <inheritdoc/>
-    public void WriteLine(IReadOnlyList<ReplTextRun> runs)
+    public void WriteLine(IReadOnlyList<ReplTextRun> runs) => console.MarkupLine(Markup(runs));
+
+    /// <inheritdoc/>
+    public void WriteListingLine(ReplTextRun margin, IReadOnlyList<ReplTextRun> runs, ReplLineStyle style)
     {
-        var (syntax, splash) = (themes.Theme.Syntax, themes.Theme.Splash);
-        var markup = string.Concat(runs.Select(run => StyleOf(run.Style, syntax, splash) is { } style
-            ? $"[{style}]{Markup.Escape(run.Text)}[/]"
-            : Markup.Escape(run.Text)));
-        console.MarkupLine(markup);
+        var debug = themes.Theme.Debug;
+        var marking = style switch
+        {
+            ReplLineStyle.Breakpoint => debug.Breakpoint,
+            ReplLineStyle.CurrentStatement => debug.CurrentStatement,
+            _ => null,
+        };
+
+        if (marking is null)
+        {
+            console.MarkupLine(Markup([margin, .. runs]));
+            return;
+        }
+
+        // the marking is a background, and runs to the end of the line: the line is filled with spaces up to the width of the console, and what the runs are
+        // coloured in goes over the marking's own foreground and leaves its background be.
+        var width = runs.Sum(run => run.Text.Length);
+        var fill = new string(' ', Math.Max(0, console.Profile.Width - margin.Text.Length - width - 1));
+        console.MarkupLine($"{Markup([margin])}[{marking}]{Markup(runs)}{fill}[/]");
+    }
+
+    private string Markup(IReadOnlyList<ReplTextRun> runs)
+    {
+        var (syntax, splash, debug) = (themes.Theme.Syntax, themes.Theme.Splash, themes.Theme.Debug);
+        return string.Concat(runs.Select(run => StyleOf(run.Style, syntax, splash, debug) is { } style
+            ? $"[{style}]{Spectre.Console.Markup.Escape(run.Text)}[/]"
+            : Spectre.Console.Markup.Escape(run.Text)));
     }
 
     /// <inheritdoc/>
@@ -44,7 +69,7 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
     }
 
     // a style the theme does not name is the plain one, which is what the shell is written in already.
-    private static string? StyleOf(ReplTextStyle style, ThemeSyntaxStyles syntax, ThemeSplashStyles splash) => style switch
+    private static string? StyleOf(ReplTextStyle style, ThemeSyntaxStyles syntax, ThemeSplashStyles splash, ThemeDebugStyles debug) => style switch
     {
         ReplTextStyle.Keyword => syntax.Keyword,
         ReplTextStyle.Comment => syntax.Comment,
@@ -55,6 +80,7 @@ internal sealed class ReplConsole(IConsoleMessageWriter writer, IAnsiConsole con
         ReplTextStyle.IdentifierConst => syntax.IdentifierConst,
         ReplTextStyle.SplashLogo => splash.Logo,
         ReplTextStyle.SplashTitle => splash.Title,
+        ReplTextStyle.BreakpointGlyph => debug.BreakpointGlyph,
         _ => null,
     };
 }

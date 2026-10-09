@@ -158,6 +158,13 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
     /// <inheritdoc/>
     SuspensionDecision IExecutionGate.Suspend(RuntimeHaltKind kind, SourceLocation? location)
     {
+        // Only the program waits. Something else that runs in the session while it does - a statement typed at a stop - and reaches a Stop is stopped by it, as
+        // a program that is not under a debugger is: holding its thread would hold whoever is waiting for the answer, and the program is not its to resume.
+        if (Thread.CurrentThread != _thread)
+        {
+            return SuspensionDecision.Abandon;
+        }
+
         TaskCompletionSource<ExecutionStop> waiting;
         lock (_gate)
         {

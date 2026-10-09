@@ -113,6 +113,12 @@ public class LanguageServerCapabilities
     public SessionExecute SessionExecute { get; set; } = new();
 
     /// <summary>
+    /// If supported, the language server runs the program a client asks it to under a debugger (<c>rdcore/session/execute</c> with <c>Debug</c>), and resumes, steps,
+    /// pauses and ends it over <c>rdcore/session/debug/*</c>.
+    /// </summary>
+    public ProgramDebugging ProgramDebugging { get; set; } = new();
+
+    /// <summary>
     /// If supported, the language server takes a module the client supplied out of the runtime session, over <c>rdcore/session/discard</c>: what it
     /// declared and what it held go, as a program's variables do when the program is cleared.
     /// </summary>
@@ -185,6 +191,21 @@ public static class RDCorePlatformProtocol
     /// Asks the environment host to set the lines of a module that a program under a debugger waits at.
     /// </summary>
     public const string HostDebugBreakpoints = "rdcore/host/debug/breakpoints";
+
+    /// <summary>Asks the language server to resume, or step, the program a client ran under a debugger. See <see cref="HostDebugResume"/>.</summary>
+    public const string SessionDebugResume = "rdcore/session/debug/resume";
+
+    /// <summary>Asks the language server to stop the program that is running. See <see cref="HostDebugPause"/>.</summary>
+    public const string SessionDebugPause = "rdcore/session/debug/pause";
+
+    /// <summary>Asks the language server to move the point the program that waits goes on from. See <see cref="HostDebugGoto"/>.</summary>
+    public const string SessionDebugGoto = "rdcore/session/debug/goto";
+
+    /// <summary>Asks the language server to end the program that is running or waits. See <see cref="HostDebugTerminate"/>.</summary>
+    public const string SessionDebugTerminate = "rdcore/session/debug/terminate";
+
+    /// <summary>Asks the language server to set the lines of a module that a program under a debugger waits at. See <see cref="HostDebugBreakpoints"/>.</summary>
+    public const string SessionDebugBreakpoints = "rdcore/session/debug/breakpoints";
 
     /// <summary>
     /// Asks the environment host to end a program that is running or waits.

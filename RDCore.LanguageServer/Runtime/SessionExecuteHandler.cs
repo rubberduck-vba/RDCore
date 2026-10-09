@@ -76,6 +76,8 @@ internal sealed class SessionExecuteHandler(
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parseResult)),
             ModuleName = request.ModuleName,
             EntryPoint = request.EntryPoint,
+            Debug = request.Debug,
+            Immediate = request.Immediate,
         }, token);
 
         if (logger.IsEnabled(LogLevel.Information))

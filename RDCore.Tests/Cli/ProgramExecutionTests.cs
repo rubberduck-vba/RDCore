@@ -587,4 +587,95 @@ public sealed class ProgramExecutionTests
             provider.Session.Halt.Breakpoints.Set(provider.Session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module) ? module!.Uri.AbsoluteUri : string.Empty, [2]);
             return runAgain().ContinueWith(task => Assert.AreEqual(ExecutionOutcome.Completed, task.Result.Outcome));
         });
+
+    // ---- a statement run while the program waits ----
+
+    private static readonly string WithImmediates = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Total = 1",
+        "    Stop",
+        "    Total = Total + 10",
+        "    Debug.Print Total",
+        "End Sub",
+        "Public Sub Peek()",
+        "    Debug.Print Total",
+        "End Sub",
+        "Public Sub SetTotal()",
+        "    Total = 100",
+        "End Sub",
+        "Public Sub Halting()",
+        "    End",
+        "End Sub",
+        "Public Sub Stopping()",
+        "    Stop",
+        "    Debug.Print \"after\"",
+        "End Sub");
+
+    // what the shell does with a statement typed at a stop: a procedure of the module, run alongside the program that waits.
+    private static Task<ExecuteSessionResult> Alongside(EnvironmentSessionProvider provider, string procedure)
+    {
+        var session = provider.Session;
+        Assert.IsTrue(session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module));
+        Assert.IsTrue(session.Symbols.TryResolveValue(procedure, module!, out var entry));
+        var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>());
+        return provider.Execution.RunAsync(pipeline, (RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol)entry!, debug: false, CancellationToken.None, immediate: true).WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task AStatement_RunWhileTheProgramWaits_SeesTheVariablesAsTheProgramLeftThem_AndTheProgramWaitsStill()
+        => await DebugAsync(WithImmediates, async (provider, _, _) =>
+        {
+            var peeked = await Alongside(provider, "Peek");
+
+            Assert.AreEqual(ExecutionOutcome.Completed, peeked.Outcome, peeked.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "1" }, Lines(peeked));
+            Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
+            Assert.AreEqual(1, provider.Session.CallStack.Depth, "the activation of the program is the only one left on the stack");
+            Assert.AreEqual(0, provider.Session.CallStack.Frames.Count(frame => frame.StaticSymbol.Name == "Peek"));
+        });
+
+    [TestMethod]
+    public async Task AStatement_RunWhileTheProgramWaits_CanChangeTheVariables_AndTheProgramGoesOnWithThem()
+        => await DebugAsync(WithImmediates, async (provider, _, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Alongside(provider, "SetTotal")).Outcome);
+
+            var resumed = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, resumed.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "110" }, Lines(resumed));
+        });
+
+    [TestMethod]
+    public async Task AStatement_ThatStops_IsStoppedByIt_AndDoesNotWaitOrHoldTheProgram()
+        => await DebugAsync(WithImmediates, async (provider, _, _) =>
+        {
+            var stopped = await Alongside(provider, "Stopping");
+
+            Assert.AreEqual(ExecutionOutcome.Interrupted, stopped.Outcome, stopped.ErrorMessage);
+            Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Resume(provider)).Outcome, "and the program goes on");
+        });
+
+    [TestMethod]
+    public async Task AnEnd_RunWhileTheProgramWaits_EndsTheProgram()
+        => await DebugAsync(WithImmediates, async (provider, _, _) =>
+        {
+            var ended = await Alongside(provider, "Halting");
+
+            Assert.AreEqual(ExecutionOutcome.Halted, ended.Outcome);
+            Assert.AreEqual(ProgramState.Idle, provider.Execution.State);
+            Assert.AreEqual(0, provider.Session.CallStack.Depth);
+            Assert.IsNull(provider.Session.Halt.Gate);
+        });
+
+    [TestMethod]
+    public async Task AResume_AfterAProcedureWasAdded_GoesOn()
+        => await DebugAsync(Stopping, async (provider, _, _) =>
+        {
+            Reload(provider, Stopping + "Public Sub Added()\r\nEnd Sub\r\n");
+
+            Assert.AreEqual(ExecutionOutcome.Completed, (await Resume(provider)).Outcome);
+        });
 }

@@ -42,10 +42,16 @@ public record class ExecuteSessionParams : IRequest, IRequest<ExecuteSessionResu
 
     /// <summary>
     /// Whether the program runs under a debugger: a <c>Stop</c>, a failed <c>Debug.Assert</c> or a break does not end the request but suspends the program, and the
-    /// answer is <see cref="ExecutionOutcome.Suspended"/>. It is resumed, stepped or ended by the requests of <see cref="HostDebugResumeParams"/>. Without it a
+    /// answer is <see cref="ExecutionOutcome.Suspended"/>. It is resumed, stepped or ended by the requests of <see cref="SessionDebugResumeParams"/>. Without it a
     /// <c>Stop</c> ends the run as <see cref="ExecutionOutcome.Interrupted"/>, as it always did.
     /// </summary>
     public bool Debug { get; init; }
+
+    /// <summary>
+    /// Whether the entry point is a statement typed at a prompt, to be run in the session as it is. While a program waits at a stop it is run alongside the program,
+    /// which waits still - this is how its variables are read and set - and without it a run while a program waits starts the program over.
+    /// </summary>
+    public bool Immediate { get; init; }
 }
 
 /// <summary>
@@ -81,6 +87,11 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteSessionResult>
     /// Whether the program runs under a debugger. See <see cref="ExecuteSessionParams.Debug"/>.
     /// </summary>
     public bool Debug { get; init; }
+
+    /// <summary>
+    /// Whether the entry point is a statement typed at a prompt. See <see cref="ExecuteSessionParams.Immediate"/>.
+    /// </summary>
+    public bool Immediate { get; init; }
 }
 
 /// <summary>

@@ -32,7 +32,8 @@ internal sealed class RunReplCommand : IReplCommand
         // RUN clears the variables, as it does in BASIC: a program starts from nothing, not from what an earlier run - or a line typed at the
         // prompt - left in them.
         await ReplExecution.DiscardProgramAsync(context, token);
-        await ReplExecution.ExecuteAsync(context, context.Program.ToModuleSource(), ReplProgram.EntryPointName, token);
+        // and it runs under the debugger, when there is one: a STOP or a breakpoint leaves it waiting, and CONT goes on.
+        await ReplExecution.ExecuteAsync(context, context.Program.ToModuleSource(), ReplProgram.EntryPointName, token, debug: true);
         return ReplCommandResult.Continue;
     }
 }

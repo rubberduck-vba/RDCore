@@ -25,6 +25,11 @@ public record class DiscardSessionParams : IRequest, IRequest<DiscardSessionResu
     /// The programmatic name of the module, as it was named when it was run.
     /// </summary>
     public string ModuleName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the program that is running or waits is ended, and the session wiped, before the module goes. See <see cref="HostDiscardParams.EndProgram"/>.
+    /// </summary>
+    public bool EndProgram { get; init; }
 }
 
 /// <summary>

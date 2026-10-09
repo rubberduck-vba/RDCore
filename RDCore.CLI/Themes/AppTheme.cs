@@ -12,6 +12,9 @@ public readonly record struct ThemeSyntaxStyles(
 /// <summary>Resolved style tokens for the splash screen.</summary>
 public readonly record struct ThemeSplashStyles(string Logo, string Title);
 
+/// <summary>Resolved style tokens for what a listing shows of the debugger.</summary>
+public readonly record struct ThemeDebugStyles(string Breakpoint, string BreakpointGlyph, string CurrentStatement);
+
 /// <summary>
 /// A loaded theme. Wraps a <see cref="ThemeDocument"/> and resolves its palette references to
 /// validated Spectre style tokens; supplies the styles the console renderer and the shell frame need.
@@ -80,6 +83,9 @@ public sealed class AppTheme(ThemeDocument document)
 
     /// <summary>The resolved style tokens of the splash screen.</summary>
     public ThemeSplashStyles Splash => new(Resolve(document.Splash.Logo), Resolve(document.Splash.Title));
+
+    /// <summary>The resolved style tokens of what a listing shows of the debugger.</summary>
+    public ThemeDebugStyles Debug => new(Resolve(document.Debug.Breakpoint), Resolve(document.Debug.BreakpointGlyph), Resolve(document.Debug.CurrentStatement));
 
     private static string Key(MessageKind kind) => kind.ToString().ToLowerInvariant();
 

@@ -413,6 +413,60 @@ namespace RDCore.CLI {
             }
         }
         
+        public static string Repl_Break_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Break_Summary", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Cont_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Cont_Summary", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Step_Summary {
+            get {
+                return ResourceManager.GetString("Repl_Step_Summary", resourceCulture);
+            }
+        }
+        
+        public static string Repl_CantContinue {
+            get {
+                return ResourceManager.GetString("Repl_CantContinue", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Breakpoint_Set {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_Set", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Breakpoint_Cleared {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_Cleared", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Breakpoint_List {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_List", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Breakpoint_None {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_None", resourceCulture);
+            }
+        }
+        
+        public static string Repl_Suspended {
+            get {
+                return ResourceManager.GetString("Repl_Suspended", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to NOT A PROGRAM ERROR.
         /// </summary>

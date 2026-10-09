@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using SemanticTokens = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens;
 
@@ -76,6 +77,32 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     /// <inheritdoc/>
     public Task<DiscardSessionResult> DiscardAsync(string moduleName, CancellationToken token)
         => client.SendRequestAsync<DiscardSessionParams, DiscardSessionResult>(new DiscardSessionParams { ModuleName = moduleName }, token);
+
+    /// <inheritdoc/>
+    public Task<DiscardSessionResult> DiscardAsync(string moduleName, bool endProgram, CancellationToken token)
+        => client.SendRequestAsync<DiscardSessionParams, DiscardSessionResult>(new DiscardSessionParams { ModuleName = moduleName, EndProgram = endProgram }, token);
+
+    /// <inheritdoc/>
+    public Task<ExecuteSessionResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token)
+        => client.SendRequestAsync<ExecuteSessionParams, ExecuteSessionResult>(
+            new ExecuteSessionParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint, Debug = debug, Immediate = immediate }, token);
+
+    /// <inheritdoc/>
+    public Task<ExecuteSessionResult> ResumeAsync(StepKind? step, CancellationToken token)
+        => client.SendRequestAsync<SessionDebugResumeParams, ExecuteSessionResult>(new SessionDebugResumeParams { Step = step }, token);
+
+    /// <inheritdoc/>
+    public Task<HostDebugAck> PauseAsync(CancellationToken token)
+        => client.SendRequestAsync<SessionDebugPauseParams, HostDebugAck>(new SessionDebugPauseParams(), token);
+
+    /// <inheritdoc/>
+    public Task<HostDebugGotoResult> GotoAsync(string label, CancellationToken token)
+        => client.SendRequestAsync<SessionDebugGotoParams, HostDebugGotoResult>(new SessionDebugGotoParams { Label = label }, token);
+
+    /// <inheritdoc/>
+    public Task<HostDebugBreakpointsResult> SetBreakpointsAsync(string moduleName, IReadOnlyList<int> lines, CancellationToken token)
+        => client.SendRequestAsync<SessionDebugBreakpointsParams, HostDebugBreakpointsResult>(
+            new SessionDebugBreakpointsParams { ModuleName = moduleName, Lines = lines }, token);
 
     /// <inheritdoc/>
     public Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token)

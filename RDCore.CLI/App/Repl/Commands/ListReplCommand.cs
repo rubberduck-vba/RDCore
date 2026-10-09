@@ -28,18 +28,23 @@ internal sealed class ListReplCommand : IReplCommand
         var lines = context.Program.Lines(from, to).ToArray();
         var width = lines.Length == 0 ? 0 : lines.Max(line => line.Number).ToString().Length;
         var highlighted = lines.Length == 0 ? null : await TokensByLineAsync(context, token);
+        var debugger = context.Debugger;
         foreach (var (number, statement) in lines)
         {
             var text = $"{number} {statement}";
-            var padding = new string(' ', width - number.ToString().Length);
-            if (highlighted is not null && highlighted.TryGetValue(context.Program.IndexOf(number), out var tokens))
-            {
-                context.Console.WriteLine([new ReplTextRun(padding, ReplTextStyle.Plain), .. ReplHighlighter.Runs(text, tokens)]);
-            }
-            else
-            {
-                context.Console.WriteLine(padding + text);
-            }
+
+            // A listing has a margin of one character for the mark of a breakpoint, and a space between it and the line. The line is marked as a whole when it has
+            // one, or is the statement the program that was stopped waits before; the mark in the margin is outside that, on the shell's own background.
+            var hasBreakpoint = debugger.Breakpoints.Contains(number);
+            var waitsBefore = debugger.State is ReplDebugState.Suspended && debugger.StoppedAt == number;
+            var margin = hasBreakpoint ? new ReplTextRun("●", ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
+            var style = waitsBefore ? ReplLineStyle.CurrentStatement : hasBreakpoint ? ReplLineStyle.Breakpoint : ReplLineStyle.Plain;
+
+            var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
+            ReplTextRun[] runs = highlighted is not null && highlighted.TryGetValue(context.Program.IndexOf(number), out var tokens)
+                ? [padding, .. ReplHighlighter.Runs(text, tokens)]
+                : [padding, new ReplTextRun(text, ReplTextStyle.Plain)];
+            context.Console.WriteListingLine(margin, runs, style);
         }
 
         context.Console.WriteLine();
