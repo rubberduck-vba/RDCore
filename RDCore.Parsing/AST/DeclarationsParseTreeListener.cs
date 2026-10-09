@@ -895,17 +895,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             callee = index.Callee;
             arguments = [new VBUnaryOperatorExpressionNode(OperatorSymbolNames.UnaryLetCoerceOp, GetCurrentNodeId(), grouped, [only])];
         }
-        else if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments: [MissingArgumentNode] } empty)
-        {
-            // `Foo()` is a list of one argument that is missing, to the grammar, and is the call with none: the empty parentheses are dropped, as the VBE drops them,
-            // and the statement is `Foo`.
-            callee = empty.Callee;
-        }
         else if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments.Length: > 0 } stray
             && context.lExpression() is VBAParser.IndexExprContext strayContext && strayContext.LPAREN()?.Symbol is { } strayOpen)
         {
-            // Anything else in parentheses after the name - two arguments, a named one, a missing one - is an argument list, and without `Call` there is none to write
-            // (MS-VBAL 5.4.2.1). It stays in the tree as it is written, as every statement that is a syntax error does.
+            // Anything else in parentheses after the name - two arguments, a named one, a missing one, and no argument at all: `Foo()` is a list of one argument that is
+            // missing, to the grammar, and it is a syntax error in MS-VBA - is an argument list, and without `Call` there is none to write (MS-VBAL 5.4.2.1). It stays in
+            // the tree as it is written, as every statement that is a syntax error does.
             _errors.Report(
                 new SourceLocation(_rootUri, new SourceRange(new SourcePosition(strayOpen.Line - 1, strayOpen.Column), stray.Location.Range.End)),
                 VBCompileErrorId.SyntaxError,

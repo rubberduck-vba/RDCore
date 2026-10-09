@@ -304,7 +304,7 @@
     <value>Un argument de RaiseEvent ne peut pas être écrit avec ByVal : le mot clé n'est valide que dans la liste d'arguments de l'appel d'une procédure externe (MS-VBAL §5.6.13.1).</value>
   </data>
   <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
-    <value>Un appel écrit sans le mot clé Call n'a pas ses arguments entre parenthèses. Supprimez les parenthèses (Foo 1, 2), ou écrivez le mot clé Call (Call Foo(1, 2)). Les parenthèses d'un seul argument ne sont pas une liste d'arguments mais le regroupement de cet argument, qui est passé par valeur (MS-VBAL §5.4.2.1).</value>
+    <value>Un appel écrit sans le mot clé Call n'a pas de liste d'arguments entre parenthèses, pas même vide. Supprimez les parenthèses (Foo 1, 2 ou Foo), ou écrivez le mot clé Call (Call Foo(1, 2) ou Call Foo()). Les parenthèses d'un seul argument ne sont pas une liste d'arguments mais le regroupement de cet argument, qui est passé par valeur (MS-VBAL §5.4.2.1).</value>
   </data>
   <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
     <value>Utilisation invalide d'un objet</value>

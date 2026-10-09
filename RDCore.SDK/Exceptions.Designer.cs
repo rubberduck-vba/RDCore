@@ -628,7 +628,7 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to A call that is not written with the Call keyword does not have its arguments in parentheses. Drop the parentheses (Foo 1, 2), or write the Call keyword (Call Foo(1, 2)).
+        ///   Looks up a localized string similar to A call that is not written with the Call keyword does not have an argument list in parentheses, not even an empty one. Drop the parentheses (Foo 1, 2 or Foo), or write the Call keyword (Call Foo(1, 2) or Call Foo()).
         /// </summary>
         public static string VBCompileError_CallArgumentsNeedCall_Verbose {
             get {

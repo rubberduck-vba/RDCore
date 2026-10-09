@@ -597,21 +597,6 @@ End Sub
     }
 
     [TestMethod]
-    // empty parentheses without `Call` are dropped, as the VBE drops them: `Foo()` is `Foo`.
-    [DataRow("Foo()")]
-    [DataRow("Foo")]
-    public void CallStatement_BareWithEmptyParentheses_IsTheBareCallWithNoArguments(string statement)
-    {
-        var result = ParseWithoutExpectation(statement);
-
-        Assert.IsTrue(result.IsSuccess, string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
-        var call = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<CallStatementNode>().Single();
-        Assert.IsFalse(call.IsExplicitCall);
-        Assert.AreEqual("Foo", ((SimpleNameExpressionNode)call.Callee).IdentifierName);
-        Assert.IsEmpty(call.Arguments);
-    }
-
-    [TestMethod]
     // without `Call`, `Foo(5)` is `Foo (5)` (MS-VBAL 5.4.2.1): the bare call with one argument, which is the grouping of 5 - and not an index
     // expression, which only `Call` has. The two are the same call.
     [DataRow("Foo(5)")]
@@ -632,7 +617,10 @@ End Sub
     }
 
     [TestMethod]
-    // anything but one expression in the parentheses is an argument list, and only `Call` has one (MS-VBAL 5.4.2.1).
+    // anything but one expression in the parentheses is an argument list, and only `Call` has one (MS-VBAL 5.4.2.1) - an empty one too: `Foo()` is a syntax error in
+    // MS-VBA, and is neither dropped to `Foo` nor accepted.
+    [DataRow("Foo()")]
+    [DataRow("obj.Bar()")]
     [DataRow("Foo(1, 2)")]
     [DataRow("Foo(x:=1)")]
     [DataRow("Foo(, 1)")]
@@ -648,10 +636,10 @@ End Sub
     }
 
     [TestMethod]
-    [DataRow("Foo()")]
     [DataRow("Foo(5)")]
     [DataRow("Foo 1, 2")]
     [DataRow("Foo")]
+    [DataRow("Call Foo()")]
     [DataRow("Call Foo(1, 2)")]
     [DataRow("Call Foo(x:=1)")]
     [DataRow("obj.Bar 1, 2")]
