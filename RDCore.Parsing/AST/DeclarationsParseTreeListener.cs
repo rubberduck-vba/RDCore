@@ -885,6 +885,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var arguments = CaptureIsolated(context.argumentList()).Cast<ExpressionNode>().ToImmutableArray();
         var location = context.GetSourceLocation(_rootUri);
 
+        // Without `Call`, a name followed by one parenthesized expression is the bare call with that one argument - `Foo(5)` is `Foo (5)`, whatever is between the name and
+        // the parenthesis: the parentheses are the grouping operator, and not an argument list, which only `Call` has (MS-VBAL 5.4.2.1). The argument is then what
+        // `Foo (5)` has, the result of the grouping, and is passed by value.
+        if (context.CALL() is null && arguments.IsEmpty && callee is IndexExpressionNode { Arguments: [var only] } index
+            && only is not (NamedArgumentNode or MissingArgumentNode or AddressOfExpressionNode)
+            && context.lExpression() is VBAParser.IndexExprContext indexContext && indexContext.LPAREN()?.Symbol is { } open)
+        {
+            var grouped = new SourceLocation(_rootUri, new SourceRange(new SourcePosition(open.Line - 1, open.Column), index.Location.Range.End));
+            callee = index.Callee;
+            arguments = [new VBUnaryOperatorExpressionNode(OperatorSymbolNames.UnaryLetCoerceOp, GetCurrentNodeId(), grouped, [only])];
+        }
+
         CurrentBuilder.AddChild(
             AsDebugStatement(GetCurrentNodeId(), location, callee, arguments)
             ?? new CallStatementNode(GetCurrentNodeId(), location, callee, arguments, context.CALL() is not null));
