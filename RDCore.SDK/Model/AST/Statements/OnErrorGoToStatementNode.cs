@@ -17,5 +17,9 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// resolving this against the module's labels must special-case both before treating it as a real
 /// label reference.
 /// </param>
-public record class OnErrorGoToStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode LabelExpression)
+/// <param name="IsLocal">
+/// <c>true</c> when the statement is written <c>On Local Error</c>, the archaic form of <c>On Error</c> (<strong>MS-VBAL §5.4.4.1</strong>): every error is local to the
+/// procedure it is handled in, so the keyword says nothing, and the two statements are the same.
+/// </param>
+public record class OnErrorGoToStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode LabelExpression, bool IsLocal = false)
     : StatementNode(Identity, SourceLocation, [LabelExpression]);

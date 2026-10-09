@@ -24,5 +24,6 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// the parameter is passed by value whatever is written, so its <see cref="ParameterKind"/> is <see cref="ParameterKind.ImplicitByVal"/>, and this is what
 /// remembers that the keyword is there.
 /// </param>
-public record class ParameterDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ParameterKind ParameterKind = ParameterKind.ImplicitByRef, bool IsOptional = false, bool IsParamArray = false, ImmutableArray<SyntaxNode> Children = default, bool IsArray = false, string? TypeHint = null, bool IsByRefIgnored = false)
+/// <param name="NameRange">Where the name is written, with its type-declaration character; <see langword="null"/> when it is not known.</param>
+public record class ParameterDeclarationNode(SyntaxNodeId Identity, SourceLocation Location, string Name, ParameterKind ParameterKind = ParameterKind.ImplicitByRef, bool IsOptional = false, bool IsParamArray = false, ImmutableArray<SyntaxNode> Children = default, bool IsArray = false, string? TypeHint = null, bool IsByRefIgnored = false, SourceRange? NameRange = null)
     : SyntaxNode(Identity, Location, Children);

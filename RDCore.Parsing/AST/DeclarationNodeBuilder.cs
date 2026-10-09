@@ -98,7 +98,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             name,
             MemberKind.UserDefinedTypeField,
-            AccessModifier.Implicit);
+            AccessModifier.Implicit,
+            NameRange: context.reservedNameMemberDeclaration()?.unrestrictedIdentifier().SourceRange ?? context.untypedNameMemberDeclaration()?.untypedIdentifier().SourceRange);
     }
 
     public SyntaxNode BuildEnumDeclaration(VBAParser.EnumerationStmtContext context)
@@ -136,7 +137,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
                     [.. _children],
                     // `Items() As Long`: the parentheses after the name make it an array.
                     context.LPAREN() is not null,
-                    context.unrestrictedIdentifier().TypeHint());
+                    context.unrestrictedIdentifier().TypeHint(),
+                    NameRange: context.unrestrictedIdentifier().SourceRange);
     }
     public SyntaxNode BuildPropertyGetDeclaration(VBAParser.PropertyGetStmtContext context)
     {
@@ -528,6 +530,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             name, 
             ConstKind.EnumMember,
             [.. _children],
-            modifier);
+            modifier,
+            NameRange: context.identifier().SourceRange);
     }
 }

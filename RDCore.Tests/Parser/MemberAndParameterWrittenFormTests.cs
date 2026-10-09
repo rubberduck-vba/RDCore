@@ -1,6 +1,7 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.Tests.Parser;
@@ -73,5 +74,51 @@ public sealed class MemberAndParameterWrittenFormTests
         var module = Parse("Property Let A(ByVal v As Long)\nEnd Property\nProperty Let B(v As Long)\nEnd Property\nSub C(ByRef v As Long)\nEnd Sub\n");
 
         Assert.IsFalse(module.Children.OfType<MemberDeclarationNode>().SelectMany(member => member.Children.OfType<ParameterDeclarationNode>()).Any(parameter => parameter.IsByRefIgnored));
+    }
+
+    [TestMethod]
+    public void AParameter_KnowsWhereItsNameIsWritten()
+    {
+        var module = Parse("Sub Work(ByVal total As Long, Optional text$)\nEnd Sub\n");
+
+        var parameters = Member<MemberDeclarationNode>(module, "Work").Children.OfType<ParameterDeclarationNode>().ToArray();
+        Assert.AreEqual(new SourceRange(new SourcePosition(0, 15), new SourcePosition(0, 20)), parameters[0].NameRange);
+        Assert.AreEqual(new SourceRange(new SourcePosition(0, 39), new SourcePosition(0, 44)), parameters[1].NameRange, "with its type-declaration character");
+    }
+
+    [TestMethod]
+    public void AnEnumMember_AndAUserDefinedTypeField_KnowWhereTheirNamesAreWritten()
+    {
+        var module = Parse("Enum Colors\n    Red\n    Green = 2\nEnd Enum\nType Pt\n    X As Long\n    Name As String\nEnd Type\n");
+
+        var colors = Member<MemberDeclarationNode>(module, "Colors").Children.OfType<ConstantDeclarationNode>().ToArray();
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 4), new SourcePosition(1, 7)), colors[0].NameRange);
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 4), new SourcePosition(2, 9)), colors[1].NameRange);
+
+        var fields = Member<MemberDeclarationNode>(module, "Pt").Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.AreEqual(new SourceRange(new SourcePosition(5, 4), new SourcePosition(5, 5)), fields[0].NameRange);
+        Assert.AreEqual(new SourceRange(new SourcePosition(6, 4), new SourcePosition(6, 8)), fields[1].NameRange);
+    }
+
+    [TestMethod]
+    [DataRow("On Local Error GoTo Handler", true)]
+    [DataRow("on local error goto Handler", true)]
+    [DataRow("On Error GoTo Handler", false)]
+    [DataRow("On Local Error Resume Next", true)]
+    [DataRow("On Error Resume Next", false)]
+    public void OnLocalError_IsKeptAsWritten(string statement, bool local)
+    {
+        var module = Parse($"Sub Work()\n{statement}\nExit Sub\nHandler:\nEnd Sub\n");
+
+        var written = Member<MemberDeclarationNode>(module, "Work").Children
+            .Select(child => child switch
+            {
+                OnErrorGoToStatementNode goTo => (bool?)goTo.IsLocal,
+                OnErrorResumeStatementNode resume => resume.IsLocal,
+                _ => null,
+            })
+            .Single(isLocal => isLocal is not null);
+
+        Assert.AreEqual(local, written);
     }
 }
