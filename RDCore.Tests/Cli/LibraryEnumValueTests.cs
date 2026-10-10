@@ -25,6 +25,21 @@ public sealed class LibraryEnumValueTests
     }
 
     [TestMethod]
+    public async Task AVariableDeclaredAsAnEnumeration_HoldsALong_AndAMemberAssignedToItIsOne()
+    {
+        var output = await RunAsync([], Program(
+            "Dim mode As WidgetMode",
+            "Debug.Print mode",
+            "mode = wgOn",
+            "Debug.Print mode",
+            "mode = 0",
+            "Debug.Print mode + 5"),
+            new WorkspaceLibraries(["Widgets"], new InMemoryLibrarySource(Widgets)));
+
+        CollectionAssert.AreEqual(new[] { "0", "1", "5" }, output);
+    }
+
+    [TestMethod]
     [DataRow("WidgetMode.wgOn", DisplayName = "by the name of its enumeration")]
     [DataRow("Widgets.wgOn", DisplayName = "by the name of its library")]
     [DataRow("Widgets.WidgetMode.wgOn", DisplayName = "by both")]

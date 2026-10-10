@@ -3,8 +3,10 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -263,6 +265,12 @@ public class LetCoercionRuntimeSemanticsProvider(
         while (frame.SourceValue is VBVariantValue { TypedValue: var wrapped })
         {
             frame = frame with { SourceValue = wrapped };
+        }
+
+        // MS-VBAL §5.2.3.4: the members of an enumeration are Longs, and a value of its type is one - what is let-coerced to it is let-coerced to a Long.
+        if (frame.DestinationTypeDesc.Target is VBEnumType)
+        {
+            frame = frame with { DestinationTypeDesc = new VBTypeDescValue(VBLongType.TypeInfo) };
         }
 
         // MS-VBAL §5.5.1.2.13's "Any class -> Any type" and "Nothing -> Any type" rules don't key off

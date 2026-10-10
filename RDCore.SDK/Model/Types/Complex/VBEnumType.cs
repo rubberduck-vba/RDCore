@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 
@@ -21,6 +22,10 @@ public sealed record class VBEnumType(Symbol Symbol, bool IsHidden = false) : VB
     private static readonly Lazy<VBLongValue> _defaultValue = new(() => VBLongType.Zero, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;
 
+    /// <summary>
+    /// A value of an enumeration type is a <c>Long</c> (<strong>MS-VBAL §5.2.3.4</strong>): what a variable declared as the enumeration holds is stored as one.
+    /// </summary>
+    public override VBTypedValue CreateValue(IBindingHandle handle) => new VBLongValue(handle);
 
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; }
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];

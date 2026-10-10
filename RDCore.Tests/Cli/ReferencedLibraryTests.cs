@@ -50,6 +50,23 @@ public sealed class ReferencedLibraryTests
     }
 
     [TestMethod]
+    public async Task AMemberOfAClassThatNamesAClassNotReadYet_OrOneTheLibraryDoesNotDeclare_IsLateBound_NotWrong()
+    {
+        // `Find` returns a Part, which a Gadget names before the Part was read: what is known of the result is not its type, and an operator applied to it is
+        // applied to what it turns out to be, as it is to a member that an extensible class has and does not declare.
+        var errors = await LoadErrorsAsync([], Program(
+            "Public Sub Use()",
+            "Dim g As Widgets.Gadget",
+            "Debug.Print g.Find(\"x\").Owner.Mode + 1",
+            "Debug.Print g.Undeclared & \"!\"",
+            "Debug.Print -g.Find(\"x\").Owner.Mode",
+            "End Sub"),
+            References(new InMemoryLibrarySource(Widgets), "Widgets"));
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    [TestMethod]
     public async Task ALibraryThatIsDependedOn_IsLoadedWithTheOneThatDependsOnIt()
     {
         var errors = await LoadErrorsAsync(

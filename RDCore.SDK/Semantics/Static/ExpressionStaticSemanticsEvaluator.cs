@@ -378,10 +378,20 @@ public static class ExpressionStaticSemanticsEvaluator
             return rightResult;
         }
 
+        // an operand whose type is not known - a member of a library's class that names a class not read yet, a member an extensible class has without declaring
+        // it - is not an operand the operator is wrong for: it is late-bound, and the operator is applied to what it turns out to be.
+        if (leftResult.Result is VBUnknownType || rightResult.Result is VBUnknownType)
+        {
+            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+        }
+
         return ResolveBinaryOperatorRule(binaryOperator.Token) is { } rule
-            ? rule.DetermineDeclaredType(context, expression, leftResult.Result!, rightResult.Result!)
+            ? rule.DetermineDeclaredType(context, expression, AsOperand(leftResult.Result!), AsOperand(rightResult.Result!))
             : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
     }
+
+    // MS-VBAL §5.2.3.4: the members of an enumeration are Longs, and an operand declared as the enumeration is a Long to the operator.
+    private static VBType AsOperand(VBType declared) => declared is VBEnumType ? VBLongType.TypeInfo : declared;
 
     private static StaticSemanticsEvaluationResult EvaluateUnaryOperator(
         StaticEvaluationContext context, ExpressionNode expression, VBUnaryOperatorExpressionNode unaryOperator)
@@ -392,8 +402,14 @@ public static class ExpressionStaticSemanticsEvaluator
             return operandResult;
         }
 
+        // see EvaluateBinaryOperator: an operand that is not known is late-bound, not wrong.
+        if (operandResult.Result is VBUnknownType)
+        {
+            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+        }
+
         return ResolveUnaryOperatorRule(unaryOperator.Token) is { } rule
-            ? rule.DetermineDeclaredType(context, expression, operandResult.Result!)
+            ? rule.DetermineDeclaredType(context, expression, AsOperand(operandResult.Result!))
             : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
     }
 
