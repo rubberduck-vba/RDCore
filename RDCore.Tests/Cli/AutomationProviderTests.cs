@@ -266,10 +266,13 @@ public sealed class AutomationProviderTests
 
     [TestMethod]
     public async Task ADateAndACurrencyTheServerReturns_AreValuesOfTheirDeclaredTypes()
-        => CollectionAssert.AreEqual(new[] { "2026-10-09 12:00:00", "25" }, await Run(
-            "Dim b As New Lab.Beaker",
-            "Debug.Print b.When",
-            "Debug.Print b.Price * 2"));
+        // a date is written as the culture of the environment writes it, which is not the same on every platform: its serial number is what the server sent.
+        => CollectionAssert.AreEqual(
+            new[] { new DateTime(2026, 10, 9, 12, 0, 0).ToOADate().ToString(CultureInfo.InvariantCulture), "25" },
+            await Run(
+                "Dim b As New Lab.Beaker",
+                "Debug.Print CDbl(b.When)",
+                "Debug.Print b.Price * 2"));
 
     [TestMethod]
     public async Task AValueOfAnyTypeIsGivenToAVariantMember_AndReadBackAsTheTypeItWas()
