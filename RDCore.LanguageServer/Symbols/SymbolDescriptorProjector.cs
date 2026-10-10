@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -126,8 +127,16 @@ internal static class SymbolDescriptorProjector
         VBUnresolvedType unresolved => unresolved.DeclaredName,
         null or VBUnknownType or VBVoidType => null,
         VBArrayType array => array.ItemType is VBVoidType ? null : TypeNameOf(array.ItemType),
+        // a name means what the references make it mean, which is not the same in every process that reads it: two libraries can declare a class of
+        // one name, and the one the declaration named is the one that travels (MS-VBAL 5.6.12).
+        VBClassType { Symbol: { } symbol } => Qualified(symbol, type.Name),
+        VBEnumType { Symbol: { } symbol } => Qualified(symbol, type.Name),
         _ => type.Name,
     };
+
+    // a type of a referenced library is named for its library; the standard library's, and the workspace's, by their own.
+    private static string Qualified(Symbol symbol, string name)
+        => symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StdLibSymbolProvider.LibraryName ? $"{library}.{name}" : name;
 
     // what makes the name above an array of it: fixed-size or resizable, and for a fixed-size one the bounds the symbol was
     // declared with (SymbolProperties.ArrayBounds).

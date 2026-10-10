@@ -94,8 +94,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     private static ImmutableArray<VBTypeMemberSymbol> CurrentMembersOf(StaticEvaluationContext context, IVBMemberOwnerType ownerType)
         => ownerType switch
         {
-            VBClassType classType when context.Resolver.ResolveType(classType.Symbol.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol
-                is VBClassModuleSymbol current => current.DefaultInterfaceMembers,
+            VBClassType classType when VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) is { } current => current.DefaultInterfaceMembers,
             VBUserDefinedType udtType when context.Resolver.ResolveType(udtType.Symbol.Name, ScopeKind.Global, udtType.Symbol.ParentUri).Symbol
                 is VBUserDefinedTypeMemberSymbol current => current.Members,
             _ => ownerType.Members,

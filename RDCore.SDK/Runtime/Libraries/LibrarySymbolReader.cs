@@ -143,7 +143,9 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
 
     private VBClassModuleSymbol ReadClass(LibraryDescription library, ClassDescription description, TypeNames types)
     {
-        var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(workspaceRoot, workspaceRoot, description.Name)
+        // a class belongs to the project of its library, and is identified as that project's: two libraries can declare a class of one name (Excel's Application
+        // and the editor's), and a symbol is known by its Uri alone, so they could not be told apart as the workspace's own are.
+        var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(workspaceRoot, new VBProjectSymbol(workspaceRoot, library.Name).Uri, description.Name)
             .With(SymbolProperties.Library, library.Name)
             .With(SymbolProperties.Creatable, description.IsCreatable)
             // a library's classes are the host's, and a host adds members to its objects that the library does not declare.

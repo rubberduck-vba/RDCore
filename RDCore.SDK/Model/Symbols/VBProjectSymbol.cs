@@ -54,6 +54,20 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
         };
     }
 
+    /// <summary>
+    /// Gets the class module a type was built from, as the composition has it now.
+    /// </summary>
+    /// <remarks>
+    /// A declared type carries the class as it was when the type was built, and the class is what its members are read from. It is found by the name it was
+    /// declared with <em>and</em> the library that declared it: the order of the references decides what a bare name means, and this is not a bare name.
+    /// A class of the workspace has no library, and is found by its name as it always was.
+    /// </remarks>
+    /// <param name="resolver">The resolver names are bound by.</param>
+    /// <param name="declared">The class module a type holds.</param>
+    /// <returns>The class as it is now, or <see langword="null"/> when the composition no longer has it.</returns>
+    public static VBClassModuleSymbol? ResolveClass(ISymbolResolver resolver, VBClassModuleSymbol declared)
+        => ResolveQualifiedType(resolver, declared.GetProperty(SymbolProperties.Library), declared.Name, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
+
     // MS-VBAL §5.6.12: "<l-expression> is classified as a procedural module or a type referencing a class defined in a class module", and the module has an
     // accessible UDT or Enum definition of the name. The type is the module's own: a type that the module's scope reaches by being the project's is not the
     // module's, and one that is Private to the module is not accessible to anything outside it.

@@ -100,8 +100,7 @@ public static class ClassModuleEventSemantics
             return null;
         }
 
-        var source = resolver?.ResolveType(declared.Symbol.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol
-            ?? declared.Symbol;
+        var source = (resolver is null ? null : VBProjectSymbol.ResolveClass(resolver, declared.Symbol)) ?? declared.Symbol;
 
         // a Uri's fragment is where a symbol's identity lives, and Uri equality ignores it.
         if (source.Uri.AbsoluteUri == module.Uri.AbsoluteUri)

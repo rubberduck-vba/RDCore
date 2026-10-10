@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.Execution;
@@ -110,8 +111,9 @@ internal sealed class DefineSymbolsHandler(
             // module's members reach the project scope, and the project scope is only an ancestor of a
             // module's own. A request that names no module has no such vantage point, and resolves
             // intrinsics only.
+            // a name qualified by a library is that library's, whatever else the references call by it.
             if (request.ModuleUri is { } moduleUri
-                && session.Symbols.Resolver.ResolveType(typeName, ScopeKind.Module, moduleUri) is { IsResolved: true } resolved
+                && ResolveNamed(session, typeName, moduleUri) is { IsResolved: true } resolved
                 && DeclaredTypeOf(session, resolved.Symbol) is { } declared)
             {
                 return declared;
@@ -147,6 +149,20 @@ internal sealed class DefineSymbolsHandler(
         }
 
         return (defined, replaced, merged, skipped);
+    }
+
+    // `Library.Name` is the type of that library (MS-VBAL 5.6.12) and a bare name is resolved from the module as written; a name that merely contains a dot
+    // and qualifies nothing is looked for as it is.
+    private static SymbolResolutionResult ResolveNamed(IRuntimeSession session, string typeName, Uri moduleUri)
+    {
+        var resolver = session.Symbols.Resolver;
+        if (typeName.IndexOf('.') is > 0 and var dot
+            && VBProjectSymbol.ResolveQualifiedType(resolver, typeName[..dot], typeName[(dot + 1)..], moduleUri) is { IsResolved: true } qualified)
+        {
+            return qualified;
+        }
+
+        return resolver.ResolveType(typeName, ScopeKind.Module, moduleUri);
     }
 
     // a standard module is a value in the default binding context, and a class module is a type: the name of one binds only

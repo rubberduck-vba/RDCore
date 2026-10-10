@@ -302,8 +302,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         // made from: its members at the moment of the reference.
         // A class of a library is looked up by that library, as the name that declared it was qualified or resolved to it: only a name that is not qualified is
         // decided by the order the references are in, and the class here has already been decided.
-        if (VBProjectSymbol.ResolveQualifiedType(
-            session.Symbols.Resolver, classModule.GetProperty(SymbolProperties.Library), classModule.Name, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol current)
+        if (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, classModule) is { } current)
         {
             classModule = current;
         }

@@ -52,7 +52,7 @@ public static class MemberRoles
                 continue;
             }
 
-            var source = resolver.ResolveType(declared.Symbol.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol ?? declared.Symbol;
+            var source = VBProjectSymbol.ResolveClass(resolver, declared.Symbol) ?? declared.Symbol;
             if (source.Uri.AbsoluteUri == module.Uri.AbsoluteUri)
             {
                 continue;
