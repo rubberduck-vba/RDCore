@@ -37,6 +37,55 @@ public enum NativeSlot
 
     /// <summary>A <c>VARIANT</c>.</summary>
     Variant,
+
+    /// <summary>A fixed number of ANSI bytes, inline: a fixed-length <c>String</c> field of a record.</summary>
+    AnsiFixed,
+
+    /// <summary>The address of a record laid out as <see cref="NativeArgument.Record"/> says: a user-defined type.</summary>
+    Record,
+}
+
+/// <summary>
+/// A record a native function is given the address of: the copy of a user-defined type that MS-VBA passes, laid out and filled in by the runtime.
+/// </summary>
+public sealed record class NativeRecord
+{
+    /// <summary>
+    /// The size of the record, in bytes, padding included.
+    /// </summary>
+    public int Size { get; init; }
+
+    /// <summary>
+    /// Every field the record holds a value in, at the offset it is at: a field of a nested record, and an element of an array inline, is a field of its own.
+    /// </summary>
+    public NativeField[] Fields { get; init; } = [];
+}
+
+/// <summary>
+/// A field of a <see cref="NativeRecord"/>.
+/// </summary>
+public sealed record class NativeField
+{
+    /// <summary>
+    /// How many bytes from the start of the record the field begins at.
+    /// </summary>
+    public int Offset { get; init; }
+
+    /// <summary>
+    /// What the field is: a number, a pointer, a <see cref="NativeSlot.AnsiBstr"/> pointer, an <see cref="NativeSlot.AnsiFixed"/> run of bytes or a
+    /// <see cref="NativeSlot.Variant"/>, inline.
+    /// </summary>
+    public NativeSlot Slot { get; init; }
+
+    /// <summary>
+    /// The number of bytes of an <see cref="NativeSlot.AnsiFixed"/> field.
+    /// </summary>
+    public int Length { get; init; }
+
+    /// <summary>
+    /// The value the field holds.
+    /// </summary>
+    public ExternalValue Value { get; init; } = new();
 }
 
 /// <summary>
@@ -79,9 +128,15 @@ public sealed record class NativeArgument
     public ExternalValue Value { get; init; } = new();
 
     /// <summary>
-    /// Whether what the function leaves in the argument is to be told: the argument is a variable, which takes it.
+    /// Whether what the function leaves in the argument is to be told: the argument is a variable, which takes it. What a record's fields were left holding
+    /// is told as an array of them, in the order of <see cref="NativeRecord.Fields"/>.
     /// </summary>
     public bool WritesBack { get; init; }
+
+    /// <summary>
+    /// The record a <see cref="NativeSlot.Record"/> argument is the address of.
+    /// </summary>
+    public NativeRecord? Record { get; init; }
 }
 
 /// <summary>

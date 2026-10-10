@@ -23,6 +23,22 @@ public sealed class DeclareOnLinuxTests
         Assert.AreEqual("rdc", process.ProcessName);
     }
 
+    // a record is passed by the address of a copy of it, and what the function wrote there is the variable's fields: a timeval is two longs, which on a 64-bit
+    // Linux are 64 bits each.
+    [TestMethod]
+    public async Task ARecord_IsFilledInByTheFunction()
+        => CollectionAssert.AreEqual(new[] { "True", "True" }, await RunAsync([], "Attribute VB_Name = \"Program\"\r\n" + string.Join("\r\n",
+            "Private Type TimeValue",
+            "    Seconds As LongLong",
+            "    Microseconds As LongLong",
+            "End Type",
+            "Private Declare PtrSafe Function gettimeofday Lib \"libc.so.6\" (value As TimeValue, ByVal zone As LongPtr) As Long",
+            "Public Sub Main()",
+            "Dim now As TimeValue",
+            "Debug.Print gettimeofday(now, 0) = 0",
+            "Debug.Print now.Seconds > 1700000000",
+            "End Sub") + "\r\n"));
+
     // a function that ends the process that called it is the external host's end, not the session's: the program is told, as error 49, and goes on.
     [TestMethod]
     public async Task AFunctionThatEndsTheProcessThatCalledIt_IsBadDllCallingConvention_AndTheProgramGoesOn()
