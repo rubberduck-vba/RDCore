@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 
-namespace RDCore.Runtime.Execution.External.Native;
+namespace RDCore.External.Native;
 
 /// <summary>
 /// Calls a native function by its address, with a signature that is known only when the program runs.

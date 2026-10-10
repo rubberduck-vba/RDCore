@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using RDCore.External.Native;
 using RDCore.External.Protocol;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Channels;
@@ -27,7 +28,8 @@ namespace RDCore.External.Hosting;
 /// go over a channel of their own (<see cref="CallChannel"/>), on a pipe this process opens before it is connected to.
 /// </para>
 /// <para>
-/// Nothing here is particular to a platform: the servers it reaches are the ones the process was composed with (<see cref="ExternalAutomationService"/>).
+/// Nothing here is particular to a platform: the servers and the libraries it reaches are the ones the process was composed with
+/// (<see cref="ExternalAutomationService"/>, <see cref="NativeCallService"/>).
 /// </para>
 /// </remarks>
 public sealed class ExternalHostApp(
@@ -36,6 +38,7 @@ public sealed class ExternalHostApp(
     IHealthCheckService<ExternalHostApp> healthCheckService,
     ILanguageServerProtocolTransportLayer transportLayer,
     ExternalAutomationService automation,
+    NativeCallService libraries,
     ILogger<ExternalHostApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -79,6 +82,8 @@ public sealed class ExternalHostApp(
 
         _calls = new CallChannel(pipe);
         automation.ServeOn(_calls);
+        libraries.ServeOn(_calls);
+        _calls.Start();
         LogIfEnabled(LogLevel.Information, "🔌 The calls channel is up.");
     }
 

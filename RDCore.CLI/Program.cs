@@ -14,10 +14,13 @@ using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
+using RDCore.External;
 using RDCore.External.Automation;
 using RDCore.External.Client;
 using RDCore.External.Hosting;
+using RDCore.External.Native;
 using RDCore.External.Windows.Automation;
+using RDCore.External.Windows.Native;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -397,7 +400,9 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
                 provider.GetRequiredService<IChildConnectionFactory>().Create,
                 ExternalHost.DefaultExecutable,
                 provider.GetRequiredService<ILogger<ExternalHost>>()))
-            .AddSingleton<IAutomationServer>(provider => new RemoteAutomationServer(provider.GetRequiredService<ExternalHost>()))
+            .AddSingleton(provider => new ExternalWorld(
+                new RemoteAutomationServer(provider.GetRequiredService<ExternalHost>()),
+                new RemoteNativeLibraryHost(provider.GetRequiredService<ExternalHost>())))
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
@@ -419,8 +424,11 @@ internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHost
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         base.ConfigureAdditionalExternalServices(services, configuration);
-        services.AddSingleton(new ExternalAutomationService(
-            OperatingSystem.IsWindows() ? new ComAutomationServer() : UnavailableAutomationServer.Instance));
+        services
+            .AddSingleton(new ExternalAutomationService(
+                OperatingSystem.IsWindows() ? new ComAutomationServer() : UnavailableAutomationServer.Instance))
+            .AddSingleton(new NativeCallService(
+                OperatingSystem.IsWindows() ? new WindowsNativePlatform() : UnsupportedNativePlatform.Instance));
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

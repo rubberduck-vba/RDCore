@@ -444,4 +444,16 @@
   <data name="CallChannel_NoSuchMethod" xml:space="preserve">
     <value>The other process has no method '{0}'.</value>
   </data>
+  <data name="VBDeclare_LibraryNotFound_Verbose" xml:space="preserve">
+    <value>{0} could not be called: the library '{1}' was not found.</value>
+  </data>
+  <data name="VBDeclare_EntryPointNotFound_Verbose" xml:space="preserve">
+    <value>{0} could not be called: the library '{1}' has no entry point '{2}'.</value>
+  </data>
+  <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
+    <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>
+  </data>
+  <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
+    <value>An object cannot be passed to or from a function of a native library yet.</value>
+  </data>
 </root>

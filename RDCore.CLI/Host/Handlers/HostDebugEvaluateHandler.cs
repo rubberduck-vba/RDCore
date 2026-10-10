@@ -36,7 +36,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
             return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoExpression });
         }
 
-        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, automation: sessionProvider.Automation);
+        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, outside: sessionProvider.Outside);
         return Task.FromResult(sessionProvider.Execution.Evaluate(pipeline, request.FrameId, expression));
     }
 }

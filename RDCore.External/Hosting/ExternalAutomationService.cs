@@ -35,7 +35,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
     /// <summary>
     /// Answers the calls of the environment host that come over <paramref name="channel"/>, and raises the events of the servers' objects over it.
     /// </summary>
-    /// <param name="channel">The channel of calls to the environment host; it is started here.</param>
+    /// <param name="channel">The channel of calls to the environment host; it is started by its owner.</param>
     public void ServeOn(CallChannel channel)
     {
         channel.Handle<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, Status);
@@ -48,7 +48,6 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
         channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
         channel.Handle<AutomationReleaseParams, ExternalDoneResult>(ExternalProtocol.AutomationRelease, Release);
         RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
-        channel.Start();
     }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
