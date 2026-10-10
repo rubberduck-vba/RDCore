@@ -201,6 +201,12 @@ public record class SymbolDescriptor
     public ArrayDescriptor? Array { get; init; }
 
     /// <summary>
+    /// The length of a fixed-length <c>String * n</c> (<strong>MS-VBAL §5.2.3.1.4</strong>) - for an array, of its elements - which the name
+    /// <c>String</c> has no room for. <c>null</c> for any other type.
+    /// </summary>
+    public int? FixedLength { get; init; }
+
+    /// <summary>
     /// The source span of the whole declaration — the primary site (the first branch) when the
     /// member has multiple <see cref="Definitions"/>.
     /// </summary>
@@ -328,6 +334,9 @@ public record class LocalDescriptor
 
     /// <summary>The array the variable is, when it is one: see <see cref="SymbolDescriptor.Array"/>.</summary>
     public ArrayDescriptor? Array { get; init; }
+
+    /// <summary>The length of a fixed-length string the variable is, or the elements of the array it is: see <see cref="SymbolDescriptor.FixedLength"/>.</summary>
+    public int? FixedLength { get; init; }
 
     /// <summary>
     /// Whether the declaration carries the <c>Static</c> token (<strong>MS-VBAL §5.4.3.1</strong>):

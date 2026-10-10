@@ -1076,6 +1076,31 @@ End Sub
     }
 
     [TestMethod]
+    // MS-VBAL 5.2.3.1.4: `String * n` keeps its length as written - a number or the name of a constant - for the symbols to make String*n of.
+    public void AFixedLengthString_KeepsItsLength_AsWritten()
+    {
+        const string content = """
+            Private Const Size = 16
+            Private Name As String * 8
+            Private Label As String * Size
+            Private Plain As String
+            """;
+
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), content);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.Length == 0 ? "" : result.SyntaxErrors[0]!.Description);
+
+        string? LengthOf(string name) => result.SyntaxTree!.Children.OfType<SyntaxNode>()
+            .SelectMany(node => node.Children.OfType<VariableDeclarationNode>().Append(node as VariableDeclarationNode))
+            .OfType<VariableDeclarationNode>()
+            .Single(variable => variable.Name == name)
+            .Children.OfType<AsTypeExpressionNode>().Single().FixedLength;
+
+        Assert.AreEqual("8", LengthOf("Name"));
+        Assert.AreEqual("Size", LengthOf("Label"));
+        Assert.IsNull(LengthOf("Plain"));
+    }
+
+    [TestMethod]
     // MS-VBAL 5.4.3.1: a local declared `Static` (or in a `Static` procedure) keeps its value across calls.
     public void LocalDeclaration_CapturesStaticToken()
     {
