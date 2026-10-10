@@ -549,10 +549,26 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
     }
 
+    // A program makes its calls one after the other, so the next one comes as soon as the last one is answered: the apartment looks for it for a moment before it
+    // sleeps, so that a call that comes at once does not have to wake it. A wait that sleeps is the CLR's, which pumps what COM sends the apartment meanwhile.
+    private static readonly TimeSpan Spin = TimeSpan.FromMicroseconds(250);
+
     private void Pump()
     {
-        foreach (var action in _work.GetConsumingEnumerable())
+        while (!_work.IsCompleted)
         {
+            var idle = System.Diagnostics.Stopwatch.GetTimestamp();
+            Action? action;
+            while (!_work.TryTake(out action) && System.Diagnostics.Stopwatch.GetElapsedTime(idle) < Spin)
+            {
+                Thread.SpinWait(20);
+            }
+
+            if (action is null && !_work.TryTake(out action, Timeout.Infinite))
+            {
+                return;
+            }
+
             action();
         }
     }
@@ -617,6 +633,13 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
                 done.Set();
             }
         });
+
+        // most calls are answered at once: the caller looks for the answer for a moment before it sleeps, so that the apartment does not have to wake it.
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (!done.IsSet && System.Diagnostics.Stopwatch.GetElapsedTime(started) < Spin)
+        {
+            Thread.SpinWait(20);
+        }
 
         done.Wait();
         if (failure is not null)
