@@ -92,11 +92,102 @@ public sealed class NativeCallService(INativePlatform platform) : INativeLibrary
                 NativeSlot.AnsiBuffer => PassBuffer(argument, out written),
                 NativeSlot.AnsiBstr => platform.HasAutomationTypes && PassBstr(argument, out written),
                 NativeSlot.Variant => platform.HasAutomationTypes && PassVariant(argument, out written),
+                NativeSlot.Record => PassRecord(argument, out written),
                 _ => PassScalar(argument, out written),
             };
 
             _written.Add(argument.WritesBack ? written : null);
             return passed;
+        }
+
+        // the address of a record, each field written where the runtime laid it out; what the function left in the fields is read back from the same places.
+        private bool PassRecord(NativeArgument argument, out Func<ExternalValue>? written)
+        {
+            written = null;
+            if (argument.Record is not { } record)
+            {
+                return false;
+            }
+
+            var block = Marshal.AllocHGlobal(Math.Max(record.Size, 1));
+            Marshal.Copy(new byte[Math.Max(record.Size, 1)], 0, block, Math.Max(record.Size, 1));
+            var fieldsFreed = new List<Action>();
+            try
+            {
+                if (!record.Fields.All(field => TryWriteField(block + field.Offset, field, fieldsFreed)))
+                {
+                    return false;
+                }
+            }
+            finally
+            {
+                // what a field holds is let go of before the record it is in.
+                _free.AddRange(fieldsFreed);
+                _free.Add(() => Marshal.FreeHGlobal(block));
+            }
+
+            Add(typeof(IntPtr), block);
+            written = () => new ExternalValue
+            {
+                Kind = ExternalValueKind.Array,
+                ElementKind = ExternalValueKind.Variant,
+                LowerBounds = [0],
+                Lengths = [record.Fields.Length],
+                Elements = [.. record.Fields.Select(field => ReadField(block + field.Offset, field))],
+            };
+            return true;
+        }
+
+        private bool TryWriteField(IntPtr at, NativeField field, List<Action> freed)
+        {
+            switch (field.Slot)
+            {
+                case NativeSlot.AnsiFixed:
+                    var bytes = ansi.GetBytes(field.Value.Text ?? string.Empty);
+                    Marshal.Copy(bytes, 0, at, Math.Min(bytes.Length, field.Length));
+                    return true;
+                case NativeSlot.AnsiBstr when platform.HasAutomationTypes:
+                    Marshal.WriteIntPtr(at, platform.AllocateByteString(ansi.GetBytes(field.Value.Text ?? string.Empty)));
+                    freed.Add(() => platform.FreeString(Marshal.ReadIntPtr(at)));
+                    return true;
+                case NativeSlot.Variant when platform.HasAutomationTypes:
+                    try
+                    {
+                        platform.WriteVariant(ExternalValues.FromWire(field.Value, Unhandled), at);
+                    }
+                    catch (NotSupportedException)
+                    {
+                        return false;
+                    }
+
+                    freed.Add(() => platform.ClearVariant(at));
+                    return true;
+                case NativeSlot.AnsiBstr or NativeSlot.Variant:
+                    return false;
+            }
+
+            if (ScalarTypeOf(field.Slot) is not { } slot || Scalar(slot, ExternalValues.FromWire(field.Value, Unhandled)) is not { } value)
+            {
+                return false;
+            }
+
+            Write(at, value);
+            return true;
+        }
+
+        private ExternalValue ReadField(IntPtr at, NativeField field) => field.Slot switch
+        {
+            NativeSlot.AnsiFixed => ExternalValues.ToWire(ReadAnsi(at, field.Length), Unhandled),
+            NativeSlot.AnsiBstr => ExternalValues.ToWire(ansi.GetString(platform.ReadByteString(Marshal.ReadIntPtr(at))), Unhandled),
+            NativeSlot.Variant => Neutral(platform.ReadVariant(at)),
+            _ => ExternalValues.ToWire(Unpointed(Read(at, ScalarTypeOf(field.Slot)!)), Unhandled),
+        };
+
+        private string ReadAnsi(IntPtr at, int length)
+        {
+            var bytes = new byte[length];
+            Marshal.Copy(at, bytes, 0, length);
+            return ansi.GetString(bytes);
         }
 
         // a number, or the address of one: what the function left there is read back as the same native type.

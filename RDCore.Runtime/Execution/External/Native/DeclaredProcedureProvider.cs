@@ -72,11 +72,12 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
 
         var parameters = RuntimeProcedureInvoker.GetParameters(member);
         var arguments = new NativeArgument[parameters.Length];
-        var variables = new (IBindingHandle? Variable, VBType Declared)[parameters.Length];
+        var takeBacks = new Action<ExternalValue>?[parameters.Length];
+        var pointerWidth = session.Environment.Is64Bit ? 8 : 4;
         for (var index = 0; index < parameters.Length; index++)
         {
             var argument = index < request.Arguments.Length ? request.Arguments[index] : VBEmptyValue.Empty.RuntimeValue;
-            if (!TryDescribe(parameters[index], argument, resolver, out arguments[index], out variables[index]))
+            if (!TryDescribe(parameters[index], argument, resolver, pointerWidth, out arguments[index], out takeBacks[index]))
             {
                 return RuntimeSemanticsEvaluationResult.InternalError();
             }
@@ -120,24 +121,25 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         // what the function left in an argument that names a variable is the variable's, as the type the variable is declared.
         for (var index = 0; index < arguments.Length && index < result.Written.Length; index++)
         {
-            if (arguments[index].WritesBack && variables[index] is { Variable: { } variable, Declared: var variableType })
+            if (arguments[index].WritesBack && takeBacks[index] is { } takeBack)
             {
-                variable.SetValue(resolver, Typed(ExternalValues.FromWire(result.Written[index], NoObject), variableType).RuntimeValue);
+                takeBack(result.Written[index]);
             }
         }
 
-        return RuntimeSemanticsEvaluationResult.Success(declared is VBVoidType ? VBVoidValue.Void : Typed(ExternalValues.FromWire(result.Returned, NoObject), declared));
+        return RuntimeSemanticsEvaluationResult.Success(
+            declared is VBVoidType ? VBVoidValue.Void : NativeValues.Typed(ExternalValues.FromWire(result.Returned, NoObject), declared));
 
         RuntimeSemanticsEvaluationResult Failed(VBRuntimeErrorId error, string verbose, params object[] parts)
             => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(error, request.CallSite, string.Format(CultureInfo.CurrentCulture, verbose, parts)));
     }
 
-    // how an argument is handed to the function, and the variable it names, if any, with the type the variable is declared.
+    // how an argument is handed to the function, and what takes back into the variable it names, if it names one, what the function left in it.
     private static bool TryDescribe(
-        VBParameterSymbol parameter, IRuntimeValue argument, ISymbolResolver resolver, out NativeArgument described, out (IBindingHandle? Variable, VBType Declared) named)
+        VBParameterSymbol parameter, IRuntimeValue argument, ISymbolResolver resolver, int pointerWidth, out NativeArgument described, out Action<ExternalValue>? takeBack)
     {
         described = new NativeArgument();
-        named = default;
+        takeBack = null;
 
         // the variable an argument names, when it names one: what the function writes to is written to it.
         IBindingHandle? variable = null;
@@ -156,7 +158,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         // A Variant given a variable of another type is a Variant that holds the variable's value, of its type (MS-VBAL §5.3.1.11).
         var typed = declared switch
         {
-            VBUnknownType => referenced?.CreateValue(new ValueBindingHandle(argument)) ?? TypedOf(argument),
+            VBUnknownType => referenced?.CreateValue(new ValueBindingHandle(argument)) ?? NativeValues.TypedOf(argument),
             VBVariantType when referenced is not null => new VBVariantValue(referenced.CreateValue(new ValueBindingHandle(argument))),
             _ => declared.CreateValue(new ValueBindingHandle(argument)),
         };
@@ -169,6 +171,24 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         {
             return false;
         }
+
+        // a user-defined type is passed by its address, the address of a copy of it the function may write to; what it wrote is the variable's fields
+        // afterwards. MS-VBA passes one no other way.
+        if (typed is VBUserDefinedTypeValue record)
+        {
+            if (!byReference || !NativeRecords.TryDescribe(record, pointerWidth, out var layout, out var takeRecordBack))
+            {
+                return false;
+            }
+
+            described = new NativeArgument { Slot = NativeSlot.Record, ByReference = true, Record = layout, WritesBack = true };
+            takeBack = takeRecordBack;
+            return true;
+        }
+
+        // what the function left in a variable's argument is the variable's, as the type the variable is declared.
+        Action<ExternalValue>? Into(VBType variableType)
+            => variable is null ? null : written => variable.SetValue(resolver, NativeValues.Typed(ExternalValues.FromWire(written, NoObject), variableType).RuntimeValue);
 
         if (declared is VBVariantType)
         {
@@ -186,7 +206,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
             {
                 Slot = NativeSlot.Variant, ByReference = byReference, Value = ExternalValues.ToWire(automation, NoHandle), WritesBack = byReference && variable is not null,
             };
-            named = (variable, referenced ?? VBVariantType.TypeInfo);
+            takeBack = Into(referenced ?? VBVariantType.TypeInfo);
             return true;
         }
 
@@ -204,11 +224,11 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
                 Slot = byReference ? NativeSlot.AnsiBstr : NativeSlot.AnsiBuffer, ByReference = byReference, Value = ExternalValues.ToWire(text.Value, NoHandle),
                 WritesBack = variable is not null,
             };
-            named = (variable, VBStringType.TypeInfo);
+            takeBack = Into(VBStringType.TypeInfo);
             return true;
         }
 
-        if (Scalar(typed) is not var (slot, value))
+        if (NativeValues.Scalar(typed) is not var (slot, value))
         {
             return false;
         }
@@ -217,7 +237,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         {
             Slot = slot, ByReference = byReference, Value = ExternalValues.ToWire(value, NoHandle), WritesBack = byReference && variable is not null,
         };
-        named = (variable, typed.TypeInfo);
+        takeBack = Into(typed.TypeInfo);
         return true;
     }
 
@@ -236,67 +256,6 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         VBVariantType => NativeSlot.Variant,
         _ => null,
     };
-
-    // a number as the native type it is passed as.
-    private static (NativeSlot Slot, object Value)? Scalar(VBTypedValue typed) => typed switch
-    {
-        VBByteValue value => (NativeSlot.Byte, value.Value),
-        VBIntegerValue value => (NativeSlot.Int16, value.Value),
-        VBLongValue value => (NativeSlot.Int32, value.Value),
-        VBLongLongValue value => (NativeSlot.Int64, value.Value),
-        VBLongPtrValue value => (NativeSlot.Pointer, (long)value.Value),
-        VBBooleanValue value => (NativeSlot.Int16, (short)((bool)value.Value ? -1 : 0)),
-        VBSingleValue value => (NativeSlot.Single, value.Value),
-        VBDoubleValue value => (NativeSlot.Double, value.Value),
-        VBDateValue value => (NativeSlot.Double, value.SerialValue),
-        VBCurrencyValue value => (NativeSlot.Int64, value.Value.StoredValue),
-        VBObjectValue value when value.IsNothing() => (NativeSlot.Pointer, 0L),
-        _ => null,
-    };
-
-    // the typed value an argument of an As Any parameter is, from what it is stored as, when it names no variable whose declared type says.
-    private static VBTypedValue? TypedOf(IRuntimeValue argument) => argument switch
-    {
-        VBRuntimeVariantValue variant => variant.WrappedValue,
-        VBRuntimeBooleanValue boolean => new VBBooleanValue((bool)boolean),
-        VBRuntimeCurrencyValue currency => new VBCurrencyValue(currency.Value),
-        VBRuntimeValue<VBRuntimeCurrencyValue> currency => new VBCurrencyValue(currency.Value.Value),
-        VBRuntimeEmptyValue or VBRuntimeNullValue => new VBLongValue(0),
-        VBRuntimeValue<VBRuntimeObjectId> identity => new VBObjectValue(identity.StoredValue),
-        _ => argument.BoxedValue switch
-        {
-            VBTypedValue typed => typed,
-            byte value => new VBByteValue(value),
-            short value => new VBIntegerValue(value),
-            int value => new VBLongValue(value),
-            long value => new VBLongLongValue(value),
-            float value => new VBSingleValue(value),
-            double value => new VBDoubleValue(value),
-            string value => new VBStringValue(value),
-            _ => null,
-        },
-    };
-
-    // the value of a declared type from what the function returned or left, as the native type it was passed as.
-    private static VBTypedValue Typed(object? value, VBType declared)
-    {
-        var invariant = CultureInfo.InvariantCulture;
-        return declared switch
-        {
-            VBByteType => new VBByteValue(Convert.ToByte(value, invariant)),
-            VBIntegerType => new VBIntegerValue(Convert.ToInt16(value, invariant)),
-            VBBooleanType => new VBBooleanValue(Convert.ToInt16(value, invariant) != 0),
-            VBLongType or VBEnumType => new VBLongValue(Convert.ToInt32(value, invariant)),
-            VBLongLongType => new VBLongLongValue(Convert.ToInt64(value, invariant)),
-            VBLongPtrType_x64 or VBLongPtrType_x86 => new VBLongPtrValue(Convert.ToInt64(value, invariant)),
-            VBSingleType => new VBSingleValue(Convert.ToSingle(value, invariant)),
-            VBDoubleType => new VBDoubleValue(Convert.ToDouble(value, invariant)),
-            VBDateType => new VBDateValue(Convert.ToDouble(value, invariant)),
-            VBCurrencyType => new VBCurrencyValue(new VBRuntimeCurrencyValue(Convert.ToInt64(value, invariant)).Value),
-            VBStringType => new VBStringValue(Convert.ToString(value, invariant) ?? string.Empty),
-            _ => AutomationMarshaller.FromAutomation(value, declared, (_, _) => VBObjectValue.Nothing),
-        };
-    }
 
     // what a native call passes is values, never objects: there is no handle for one, either way.
     private static long NoHandle(object value) => throw new AutomationException(unchecked((int)0x80020005), Exceptions.VBDeclare_ObjectNotPassed_Verbose);
