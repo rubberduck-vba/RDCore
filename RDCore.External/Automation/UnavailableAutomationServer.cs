@@ -1,30 +1,19 @@
-﻿using RDCore.SDK.Runtime.Abstract.Execution;
-
-namespace RDCore.Runtime.Execution.External.Automation;
-
-/// <summary>
-/// The automation servers of the machine this process runs on.
-/// </summary>
-/// <remarks>
-/// One to a process, since it is one thing: the machine's. A machine that has none is not an error to have asked for - a program that needs one is told so
-/// when it asks (<see cref="UnavailableAutomationServer"/>), which is also what makes a program that references <c>Excel</c> analyzable anywhere.
-/// </remarks>
-public static class AutomationServers
-{
-    private static readonly Lazy<IAutomationServer> _machine = new(()
-        => OperatingSystem.IsWindows() ? new ComAutomationServer() : new UnavailableAutomationServer(), LazyThreadSafetyMode.ExecutionAndPublication);
-
-    /// <summary>
-    /// The automation servers of this machine.
-    /// </summary>
-    public static IAutomationServer Machine => _machine.Value;
-}
+﻿namespace RDCore.External.Automation;
 
 /// <summary>
 /// The automation servers of a machine that has none.
 /// </summary>
+/// <remarks>
+/// A machine that has none is not an error to have asked for: a program that needs one is told so when it asks, which is also what makes a program that
+/// references <c>Excel</c> analyzable anywhere.
+/// </remarks>
 public sealed class UnavailableAutomationServer : IAutomationServer
 {
+    /// <summary>
+    /// The servers of a machine that has none: there is nothing about them to hold, and one is as good as another.
+    /// </summary>
+    public static UnavailableAutomationServer Instance { get; } = new();
+
     /// <inheritdoc/>
     public bool IsAvailable => false;
 

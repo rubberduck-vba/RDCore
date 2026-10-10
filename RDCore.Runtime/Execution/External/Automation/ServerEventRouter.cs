@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Symbols.Abstract;
+﻿using RDCore.External.Automation;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;

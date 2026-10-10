@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <!-- what the runtime reaches the outside world through: abstractions only, whatever the platform implements them with. -->
+    <ProjectReference Include="..\RDCore.External\RDCore.External.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,11 +1,12 @@
-﻿using System.Collections.Concurrent;
+﻿using RDCore.External.Automation;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
 
-namespace RDCore.Runtime.Execution.External.Automation;
+namespace RDCore.External.Windows.Automation;
 
 /// <summary>
 /// The automation servers of a Windows machine: COM objects, created by the name their class is registered under and called late-bound through

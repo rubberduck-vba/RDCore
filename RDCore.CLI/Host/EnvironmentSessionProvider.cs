@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Execution.External.Automation;
+using RDCore.External.Automation;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
@@ -100,7 +100,7 @@ public sealed class EnvironmentSessionProvider(
     private IRuntimeSession? _session;
 
     /// <inheritdoc/>
-    public IAutomationServer Automation => automationServer ?? AutomationServers.Machine;
+    public IAutomationServer Automation => automationServer ?? MachineAutomation.Server;
 
     /// <inheritdoc/>
     public bool IsComposed => _session is not null;

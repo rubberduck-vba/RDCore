@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model;
+﻿using RDCore.External.Automation;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;

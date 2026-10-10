@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <Authors>9562-7303 Québec inc.</Authors>
+    <Copyright>Copyright © 2026 ${Authors}</Copyright>
+    <Product>RDCore</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the Windows implementations of the outside world's platform-agnostic abstractions: COM automation, and what native calls need of the OS. -->
+    <ProjectReference Include="..\RDCore.External\RDCore.External.csproj" />
+  </ItemGroup>
+
+</Project>

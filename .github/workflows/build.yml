@@ -45,7 +45,7 @@ jobs:
        # instruments, e.g. Spectre.Console), and none of the code generated at build time (ANTLR parsers, regex generators).
        reportgenerator -reports:coverage.cobertura.xml -targetdir:coverage-report \
          -reporttypes:JsonSummary \
-         "-assemblyfilters:+RDCore.SDK;+RDCore.Runtime;+RDCore.LanguageServer;+RDCore.Diagnostics;+RDCore.ParseServer;+rdc" \
+         "-assemblyfilters:+RDCore.SDK;+RDCore.Runtime;+RDCore.External;+RDCore.External.Windows;+RDCore.LanguageServer;+RDCore.Diagnostics;+RDCore.ParseServer;+rdc" \
          "-filefilters:-*/obj/*;-*\\obj\\*"
        pct=$(grep -m1 -oE '"linecoverage": [0-9.]+' coverage-report/Summary.json | grep -oE '[0-9.]+$')
        echo "RDCore product line coverage: ${pct}%"

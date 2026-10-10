@@ -1,6 +1,7 @@
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.External.Automation;
+using RDCore.External.Automation;
 using RDCore.Runtime.Execution.External.Native;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
@@ -89,8 +90,8 @@ public sealed class RuntimeExecutionPipeline
     /// is observed, and nothing about how the code runs is different.
     /// </param>
     /// <param name="automation">
-    /// What reaches the automation servers that the objects of a referenced library are held by; those of the machine the process runs on
-    /// (<see cref="AutomationServers.Machine"/>) unless said otherwise.
+    /// What reaches the automation servers that the objects of a referenced library are held by. The runtime does not know the platform it runs on: its host
+    /// says, and a pipeline it does not say it for reaches none (<see cref="UnavailableAutomationServer"/>).
     /// </param>
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
@@ -235,7 +236,7 @@ public sealed class RuntimeExecutionPipeline
             // the servers' provider is asked first: it answers the members of the standard library's enumerator for the enumerators it holds, and for nothing else of it.
             // A Declare'd procedure is a native library's, and is called when the policy over library imports lets it through.
             : ExternalCallPipeline.For(session,
-                [new AutomationCallProvider(session, automation ?? AutomationServers.Machine), StdLibDispatcher.For(session), new DeclaredProcedureProvider(session)]);
+                [new AutomationCallProvider(session, automation ?? UnavailableAutomationServer.Instance), StdLibDispatcher.For(session), new DeclaredProcedureProvider(session)]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;

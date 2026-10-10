@@ -1,4 +1,5 @@
-﻿using RDCore.Runtime.Execution.External.Automation;
+﻿using RDCore.External.Automation;
+using RDCore.Runtime.Execution.External.Automation;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.VBProject;

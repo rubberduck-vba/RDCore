@@ -1,4 +1,4 @@
-﻿namespace RDCore.Runtime.Execution.External.Automation;
+﻿namespace RDCore.External.Automation;
 
 /// <summary>
 /// How a member of an automation server is reached.
@@ -26,7 +26,7 @@ public enum AutomationInvocation
 /// </summary>
 /// <remarks>
 /// The code is the server's own <c>HRESULT</c>. Which VBA error it is - an Excel <c>1004</c> arrives as <c>0x800A03EC</c> - is decided where the error is
-/// raised (<see cref="AutomationErrors"/>), not by whatever reached the server.
+/// raised, by the runtime, not by whatever reached the server.
 /// </remarks>
 public sealed class AutomationException : Exception
 {
@@ -48,7 +48,7 @@ public sealed class AutomationException : Exception
 /// Everything that touches the automation servers of a machine: creating an object by its name, calling a member by its name, and letting go.
 /// </summary>
 /// <remarks>
-/// The seam under <see cref="AutomationCallProvider"/>, and the only part of it that is not the same on every platform. Everything above it speaks in
+/// The seam under the runtime's calls to the objects of a library, and the only part of them that is not the same on every platform. Everything above it speaks in
 /// neutral values: <see langword="null"/> is an <c>Empty</c> and <see cref="DBNull"/> a <c>Null</c>, <see cref="System.Reflection.Missing"/> an omitted
 /// argument, and a server's object is a handle nothing here looks inside. A <c>Currency</c> is a <see cref="System.Runtime.InteropServices.CurrencyWrapper"/>
 /// and an <c>Error</c> an <see cref="System.Runtime.InteropServices.ErrorWrapper"/>, so that a server told apart the types the language tells apart.

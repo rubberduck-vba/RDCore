@@ -78,6 +78,8 @@
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
     <!-- environment-host mode composes the RD-VBA runtime session; RDCore.Runtime is GPLv3, as is this app. -->
     <ProjectReference Include="..\RDCore.Runtime\RDCore.Runtime.csproj" />
+    <!-- the host composes the session with the outside world of the platform it runs on. -->
+    <ProjectReference Include="..\RDCore.External.Windows\RDCore.External.Windows.csproj" />
   </ItemGroup>
 
 </Project>
