@@ -1325,9 +1325,15 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var qualifier = value.Length > 1 ? value[0] : null;
         var name = value.Last();
 
+        // MS-VBAL 5.2.3.1.4: `String * n` - the length is kept as written, a number or the name of a constant, for the symbols to make a fixed-length string of.
+        var length = context.fieldLength() is { } fieldLength
+            ? (fieldLength.numberLiteral()?.GetText() ?? fieldLength.identifierValue()?.GetText())
+            : null;
+
         OnExpression(new AsTypeExpressionNode(GetCurrentNodeId(), location, name, qualifier,
             AsAutoObject: context.NEW() is not null,
-            IsArrayDef: type.LPAREN() is not null));
+            IsArrayDef: type.LPAREN() is not null,
+            FixedLength: length));
     }
 
     public override void ExitSimpleNameExpr([NotNull] VBAParser.SimpleNameExprContext context)

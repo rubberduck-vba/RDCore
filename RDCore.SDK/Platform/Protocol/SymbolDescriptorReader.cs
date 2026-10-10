@@ -76,7 +76,7 @@ public static class SymbolDescriptorReader
 
     private static IEnumerable<Symbol> Read(SymbolDescriptor node, Uri workspaceRoot, Uri parentUri, Func<string, VBType?> resolveType)
     {
-        VBType Declared(string? typeName) => DeclaredType(typeName, node.Array, resolveType);
+        VBType Declared(string? typeName) => DeclaredType(typeName, node.Array, resolveType, node.FixedLength);
         ImmutableArray<VBParameterSymbol> Parameters(Uri memberUri) => ReadParameters(node, workspaceRoot, memberUri, resolveType);
         ImmutableArray<BoundTypedSymbol> Locals(Uri memberUri) => ReadLocals(node, workspaceRoot, memberUri, resolveType);
 
@@ -218,10 +218,16 @@ public static class SymbolDescriptorReader
     }
 
     // the declared type of a descriptor: the name resolved, which for an array is its element's and which the array descriptor
-    // then makes an array of - fixed-size, or resizable (a resizable Byte array is its own type, RD-VBAL 2.4.1.3).
-    private static VBType DeclaredType(string? typeName, ArrayDescriptor? array, Func<string, VBType?> resolveType)
+    // then makes an array of - fixed-size, or resizable (a resizable Byte array is its own type, RD-VBAL 2.4.1.3). A String with a
+    // length is a fixed-length String (MS-VBAL 5.2.3.1.4).
+    private static VBType DeclaredType(string? typeName, ArrayDescriptor? array, Func<string, VBType?> resolveType, int? fixedLength = null)
     {
         var type = Resolve(typeName, resolveType);
+        if (fixedLength is { } length && type is VBStringType)
+        {
+            type = new VBFixedStringType(length);
+        }
+
         return array switch
         {
             null => type,
@@ -246,7 +252,7 @@ public static class SymbolDescriptorReader
     private static Symbol ReadUserDefinedTypeField(
         SymbolDescriptor field, Uri workspaceRoot, Uri userDefinedTypeUri, Func<string, VBType?> resolveType)
     {
-        var type = Resolve(field.DeclaredTypeName, resolveType);
+        var type = DeclaredType(field.DeclaredTypeName, array: null, resolveType, field.FixedLength);
 
         return new VBUserDefinedTypeFieldSymbol(
             workspaceRoot, userDefinedTypeUri, field.Name, type, field.Range, field.SelectionRange, field.AccessModifier);
@@ -280,7 +286,7 @@ public static class SymbolDescriptorReader
             var variable = new VBLocalVariableSymbol(
                 workspaceRoot, memberUri, local.Name, ScopeKind.Local, local.Range, local.SelectionRange,
                 local.IsStatic,
-                DeclaredType(local.DeclaredTypeName, local.Array, resolveType),
+                DeclaredType(local.DeclaredTypeName, local.Array, resolveType, local.FixedLength),
                 local.DeclaredBy);
             var bounded = (BoundTypedSymbol)WithArrayBounds(variable, local.Array);
             builder.Add(local.IsAutoInstantiated ? (BoundTypedSymbol)bounded.With(SymbolProperties.AutoInstantiated, true) : bounded);
