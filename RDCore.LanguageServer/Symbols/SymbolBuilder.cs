@@ -311,7 +311,61 @@ internal sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind 
             return VBUnknownType.TypeInfo;
         }
 
-        return ResolveTypeName(typeName, handle, asType?.QualifierName);
+        var resolved = ResolveTypeName(typeName, handle, asType?.QualifierName);
+
+        // MS-VBAL 5.2.3.1.4: `String * n` is the type String*n. A length that is not a number nor a constant this can read is the type as written,
+        // which a later pass is the one to report.
+        return asType?.FixedLength is { } length && resolved is VBStringType && FixedLengthOf(length, handle) is { } characters
+            ? new VBFixedStringType(characters)
+            : resolved;
+    }
+
+    // MS-VBAL 5.2.3.1.4: "the data value of its <INTEGER> element or the data value referenced by its <constant-name> Let-coerced to declared type Long" -
+    // a number as written, or a constant whose value is one.
+    private int? FixedLengthOf(string length, Uri handle)
+    {
+        if (TryParseInteger(length, out var written))
+        {
+            return written;
+        }
+
+        var constant = resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol;
+        var value = constant switch
+        {
+            VBConstantMemberSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue,
+            VBLocalConstantSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue,
+            _ => null,
+        };
+
+        return value?.RuntimeValue.BoxedValue is { } number && number is byte or short or int or long or float or double or decimal
+            ? Convert.ToInt32(number, System.Globalization.CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    // an integer literal as VBA writes one: decimal, &H hexadecimal or &O octal, with or without a type-declaration character.
+    private static bool TryParseInteger(string text, out int value)
+    {
+        var digits = text.TrimEnd('%', '&', '^', '!', '#', '@');
+        if (digits.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
+        {
+            return int.TryParse(digits[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
+        if (digits.StartsWith("&O", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                value = Convert.ToInt32(digits[2..], 8);
+                return true;
+            }
+            catch (FormatException)
+            {
+                value = 0;
+                return false;
+            }
+        }
+
+        return int.TryParse(digits, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
     }
 
     // Binds a reserved/declared type name through the resolver, optionally qualified by a project name

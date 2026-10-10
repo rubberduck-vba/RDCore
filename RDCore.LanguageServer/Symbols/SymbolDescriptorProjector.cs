@@ -59,6 +59,7 @@ internal static class SymbolDescriptorProjector
             Scope = symbol.ScopeKind,
             DeclaredTypeName = DeclaredTypeNameOf(accessible),
             Array = ArrayOf(accessible?.ResolvedType, symbol),
+            FixedLength = FixedLengthOf(accessible?.ResolvedType),
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),
@@ -134,6 +135,14 @@ internal static class SymbolDescriptorProjector
         _ => type.Name,
     };
 
+    // the length a fixed-length string travels with, the name String having no room for it - an array's, of its elements.
+    private static int? FixedLengthOf(VBType? type) => type switch
+    {
+        VBFixedStringType fixedString => fixedString.Length,
+        VBArrayType array => FixedLengthOf(array.ItemType),
+        _ => null,
+    };
+
     // a type of a referenced library is named for its library; the standard library's, and the workspace's, by their own.
     private static string Qualified(Symbol symbol, string name)
         => symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StdLibSymbolProvider.LibraryName ? $"{library}.{name}" : name;
@@ -191,6 +200,7 @@ internal static class SymbolDescriptorProjector
                 Name = local.Name,
                 DeclaredTypeName = TypeNameOf(local.ResolvedType),
                 Array = ArrayOf(local.ResolvedType, local),
+                FixedLength = FixedLengthOf(local.ResolvedType),
                 IsStatic = local.IsStatic,
                 IsAutoInstantiated = local.GetProperty(SymbolProperties.AutoInstantiated),
                 DeclaredBy = local.DeclaredBy,

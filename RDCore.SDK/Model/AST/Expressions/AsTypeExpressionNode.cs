@@ -12,7 +12,13 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <param name="QualifierName">The qualifying module or library name, if present.</param>
 /// <param name="AsAutoObject"><c>true</c> if the expression includes a <c>New</c> token, declaring an <em>auto-object</em>.</param>
 /// <param name="IsArrayDef"><c>true</c> if the expression is an array definition.</param>
-public record class AsTypeExpressionNode(SyntaxNodeId Identity, SourceLocation Location, string TypeName, string? QualifierName = default, bool AsAutoObject = false, bool IsArrayDef = false)
+/// <param name="FixedLength">
+/// The length of a fixed-length <c>String * n</c> as written - a number, or the name of a constant (<strong>MS-VBAL §5.2.3.1.4</strong>, <c>&lt;string-length&gt;</c>);
+/// <c>null</c> when there is none.
+/// </param>
+public record class AsTypeExpressionNode(
+    SyntaxNodeId Identity, SourceLocation Location, string TypeName, string? QualifierName = default, bool AsAutoObject = false, bool IsArrayDef = false,
+    string? FixedLength = default)
     : ExpressionNode(Identity, Location, []);
 
 /// <summary>
