@@ -32,7 +32,9 @@ public sealed class UnavailableAutomationServer : IAutomationServer
     public object CreateObject(string progId) => throw Unavailable();
 
     /// <inheritdoc/>
-    public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference) => throw Unavailable();
+    public object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, System.Globalization.CultureInfo culture)
+        => throw Unavailable();
 
     /// <inheritdoc/>
     public string? ClassNameOf(object target) => null;

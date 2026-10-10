@@ -88,7 +88,11 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     /// <param name="byReference">Whether each argument is passed by reference; the same length as <paramref name="arguments"/>.</param>
     /// <returns>What the member returned: <see langword="null"/> for a member that returns nothing, or an <c>Empty</c>.</returns>
     /// <exception cref="AutomationException">The member does not exist, would not accept the arguments, or failed.</exception>
-    object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference);
+    /// <param name="culture">
+    /// The locale the call is made in: how a server reads a number or a date it is given as text, and the language it answers in. The environment's own;
+    /// the invariant culture is a locale no server has, and is made the one that every server has.
+    /// </param>
+    object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, System.Globalization.CultureInfo culture);
 
     /// <summary>
     /// Gets the name a server gives the class of an object, qualified by the library that declares it (<c>Excel._Worksheet</c>), if it gives one.

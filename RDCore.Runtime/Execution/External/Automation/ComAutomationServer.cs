@@ -61,8 +61,8 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     })!;
 
     /// <inheritdoc/>
-    public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference)
-        => OnApartment(() => InvokeMember(target, member, invocation, arguments, byReference));
+    public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+        => OnApartment(() => InvokeMember(target, member, invocation, arguments, byReference, culture));
 
     /// <inheritdoc/>
     public string? ClassNameOf(object target) => OnApartment(() =>
@@ -102,7 +102,13 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     /// </summary>
     public void Dispose() => _work.CompleteAdding();
 
-    private static object? InvokeMember(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference)
+    // what the locale of a call is to a COM server: a language it has installed. The invariant culture's is not one - Excel answers "old format or invalid type
+    // library" to it - so the neutral locale of the environment is the one that every server has, American English.
+    private static CultureInfo LocaleOf(CultureInfo culture)
+        => culture.Equals(CultureInfo.InvariantCulture) ? CultureInfo.GetCultureInfo("en-US") : culture;
+
+    private static object? InvokeMember(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
     {
         // an argument the caller left out at the end is no argument: a property that takes none is not called with some, and an optional one is the same
         // absent either way. A value that is being assigned is the last argument, and always there.
@@ -139,7 +145,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
         try
         {
-            var returned = target.GetType().InvokeMember(member, flags, null, target, passed, modifiers, CultureInfo.InvariantCulture, null);
+            var returned = target.GetType().InvokeMember(member, flags, null, target, passed, modifiers, LocaleOf(culture), null);
             Array.Copy(passed, arguments, count);
             return returned;
         }

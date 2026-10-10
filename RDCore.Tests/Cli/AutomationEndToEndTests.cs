@@ -41,6 +41,42 @@ public sealed class AutomationEndToEndTests
             "Debug.Print d.Exists(\"b\")",
             "Debug.Print d.Exists(\"c\")"));
 
+    /// <summary>
+    /// The object model of a host application, from the sidelines: an Excel of its own is started, a workbook is made, cells are written and read, an enumeration
+    /// member is an argument, and Excel is let go of. Skipped on a machine that does not have Excel.
+    /// </summary>
+    [TestMethod]
+    public async Task Excel_IsAutomated_FromTheSidelines()
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        var output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
+            "Dim app As New Excel.Application",
+            "Dim book As Excel.Workbook",
+            "Set book = app.Workbooks.Add",
+            "Dim sheet As Excel.Worksheet",
+            "Set sheet = book.Worksheets(1)",
+            "sheet.Range(\"A1\").Value = 42",
+            "sheet.Range(\"A2\").Value = \"hi\"",
+            "Debug.Print sheet.Range(\"A1\").Value + 1",
+            "Debug.Print sheet.Cells(2, 1).Value",
+            "Debug.Print sheet.Range(\"A1\").End(xlDown).Address",
+            "book.Close False",
+            "app.Quit") + "\r\nEnd Sub\r\n", libraries);
+
+        CollectionAssert.AreEqual(new[] { "43", "hi", "$A$2" }, output);
+    }
+
     [TestMethod]
     public async Task ADictionary_IsCreatedByNew_AndAnItemIsAssigned()
         => CollectionAssert.AreEqual(new[] { "7" }, await Run(

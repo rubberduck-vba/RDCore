@@ -120,7 +120,7 @@ public sealed class AutomationProviderTests
             return created;
         }
 
-        public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference)
+        public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
         {
             var modifier = new ParameterModifier(Math.Max(arguments.Length, 1));
             for (var index = 0; index < byReference.Length; index++)

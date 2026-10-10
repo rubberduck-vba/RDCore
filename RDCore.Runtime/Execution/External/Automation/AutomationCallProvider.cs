@@ -96,7 +96,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
         // the array the server is given is the one it writes the arguments passed by reference back into.
         var values = passed.Values.ToArray();
-        var result = server.Invoke(target, name, invocation, values, [.. passed.ByReference]);
+        var result = server.Invoke(target, name, invocation, values, [.. passed.ByReference], session.Environment.Culture);
 
         WriteBack(passed, values, parameters, resolver);
 
@@ -149,7 +149,10 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
                 argument = cell.Value;
             }
 
-            var typed = parameter.ResolvedType.CreateValue(new ValueBindingHandle(argument));
+            // MS-VBAL §5.2.3.4: a member of an enumeration is a Long, and so is a value of its type to a server, which knows it as one.
+            var typed = parameter.ResolvedType is VBEnumType
+                ? new VBLongValue(Convert.ToInt32(argument.BoxedValue, System.Globalization.CultureInfo.InvariantCulture))
+                : parameter.ResolvedType.CreateValue(new ValueBindingHandle(argument));
             var converted = AutomationMarshaller.ToAutomation(typed, HandleOf, omitEmpty: parameter.IsOptional && parameter.ResolvedType is VBVariantType);
 
             // only a variable can be written to; one of a type the server cannot write a result of back to (an object, an array) is not told.
