@@ -40,6 +40,12 @@ public sealed class UnavailableAutomationServer : IAutomationServer
     public string? ClassNameOf(object target) => null;
 
     /// <inheritdoc/>
+    public bool MoveNext(object enumerator, out object? current) => throw Unavailable();
+
+    /// <inheritdoc/>
+    public void Reset(object enumerator) => throw Unavailable();
+
+    /// <inheritdoc/>
     public void Release(object handle)
     {
     }

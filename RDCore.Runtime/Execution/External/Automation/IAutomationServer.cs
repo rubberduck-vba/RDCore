@@ -102,4 +102,24 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     /// </remarks>
     /// <param name="target">The handle of the object.</param>
     string? ClassNameOf(object target);
+
+    /// <summary>
+    /// Moves the enumerator an object's enumeration member returned (<c>_NewEnum</c>) to its next member.
+    /// </summary>
+    /// <remarks>
+    /// MS-VBAL §5.4.2.4 leaves the enumeration of an object implementation-defined; for a server's it is an <c>IEnumVARIANT</c>, which a <c>For Each</c> asks
+    /// for each member in turn.
+    /// </remarks>
+    /// <param name="enumerator">The handle of the enumerator.</param>
+    /// <param name="current">The member it moved to.</param>
+    /// <returns><see langword="false"/> when the members have run out.</returns>
+    /// <exception cref="AutomationException">The enumerator failed.</exception>
+    bool MoveNext(object enumerator, out object? current);
+
+    /// <summary>
+    /// Returns an enumerator to before the first member.
+    /// </summary>
+    /// <param name="enumerator">The handle of the enumerator.</param>
+    /// <exception cref="AutomationException">The enumerator cannot be reset.</exception>
+    void Reset(object enumerator);
 }

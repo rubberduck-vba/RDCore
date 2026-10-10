@@ -38,6 +38,16 @@ public sealed class LibraryNamesInTheHostTests
 
         public string? ClassNameOf(object target) => null;
 
+        public bool MoveNext(object enumerator, out object? current)
+        {
+            current = null;
+            return false;
+        }
+
+        public void Reset(object enumerator)
+        {
+        }
+
         public void Release(object handle)
         {
         }

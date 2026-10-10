@@ -54,6 +54,7 @@ public sealed class AutomationProviderTests
                     new MemberDescription { Name = "Price", Kind = MemberKind.PropertyGet, Type = "Currency" },
                     new MemberDescription { Name = "Tag", Kind = MemberKind.PropertyGet, Type = "Variant" },
                     new MemberDescription { Name = "Tag", Kind = MemberKind.PropertyLet, Parameters = [new ParameterDescription { Name = "Value", Type = "Variant", IsByVal = true }] },
+                    new MemberDescription { Name = "_NewEnum", Kind = MemberKind.PropertyGet, Type = "Object", DispId = -4, IsHidden = true },
                 ],
             },
             new ClassDescription
@@ -122,6 +123,12 @@ public sealed class AutomationProviderTests
 
         public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
         {
+            // the enumeration member of a collection, which a plain object has no name for.
+            if (member == "_NewEnum")
+            {
+                return ((System.Collections.IEnumerable)((Beaker)target).Contents).GetEnumerator();
+            }
+
             var modifier = new ParameterModifier(Math.Max(arguments.Length, 1));
             for (var index = 0; index < byReference.Length; index++)
             {
@@ -157,6 +164,15 @@ public sealed class AutomationProviderTests
         };
 
         public void Release(object handle) => Released.Add(handle);
+
+        public bool MoveNext(object enumerator, out object? current)
+        {
+            var moved = ((System.Collections.IEnumerator)enumerator).MoveNext();
+            current = moved ? ((System.Collections.IEnumerator)enumerator).Current : null;
+            return moved;
+        }
+
+        public void Reset(object enumerator) => ((System.Collections.IEnumerator)enumerator).Reset();
     }
 
     private static async Task<(string[] Output, FakeServer Server)> Run(bool allowAutomation, params string[] lines)
@@ -237,6 +253,16 @@ public sealed class AutomationProviderTests
             "Debug.Print v(0)",
             "Debug.Print v(1)",
             "Debug.Print v(2)"));
+
+    [TestMethod]
+    public async Task ForEach_OverAnObjectOfALibrary_IsDrivenByTheEnumeratorTheServerGives()
+        => CollectionAssert.AreEqual(new[] { "a", "2", "True", "done" }, await Run(
+            "Dim b As New Lab.Beaker",
+            "Dim member As Variant",
+            "For Each member In b",
+            "Debug.Print member",
+            "Next",
+            "Debug.Print \"done\""));
 
     [TestMethod]
     public async Task ADateAndACurrencyTheServerReturns_AreValuesOfTheirDeclaredTypes()

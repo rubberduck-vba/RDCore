@@ -231,7 +231,8 @@ public sealed class RuntimeExecutionPipeline
         // with a value that is not known.
         var external = analysis
             ? new ExternalCallPipeline(session, [], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
-            : ExternalCallPipeline.For(session, [StdLibDispatcher.For(session), new AutomationCallProvider(session, automation ?? AutomationServers.Machine)]);
+            // the servers' provider is asked first: it answers the members of the standard library's enumerator for the enumerators it holds, and for nothing else of it.
+            : ExternalCallPipeline.For(session, [new AutomationCallProvider(session, automation ?? AutomationServers.Machine), StdLibDispatcher.For(session)]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;

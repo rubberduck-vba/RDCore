@@ -87,6 +87,67 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     });
 
     /// <inheritdoc/>
+    public bool MoveNext(object enumerator, out object? current)
+    {
+        var member = OnApartment(() =>
+        {
+            // the runtime's binder hands the IEnumVARIANT of an enumeration member over as the managed view of one.
+            if (enumerator is System.Collections.IEnumerator managed)
+            {
+                return managed.MoveNext() ? new Member(managed.Current) : null;
+            }
+
+            if (enumerator is not IEnumVariant native)
+            {
+                throw new AutomationException(TypeMismatch, "The object is not an enumerator.");
+            }
+
+            // IEnumVARIANT::Next(1, ...) fills one element and says how many it filled; S_FALSE is the end of the members.
+            var buffer = new object?[1];
+            var fetched = Marshal.AllocCoTaskMem(sizeof(int));
+            try
+            {
+                Marshal.WriteInt32(fetched, 0);
+                var status = native.Next(1, buffer, fetched);
+                if (status < 0)
+                {
+                    throw new AutomationException(status, "The enumerator failed.");
+                }
+
+                return Marshal.ReadInt32(fetched) == 1 ? new Member(buffer[0]) : null;
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(fetched);
+            }
+        });
+
+        current = member?.Value;
+        return member is not null;
+    }
+
+    /// <inheritdoc/>
+    public void Reset(object enumerator) => OnApartment<object?>(() =>
+    {
+        if (enumerator is System.Collections.IEnumerator managed)
+        {
+            managed.Reset();
+            return null;
+        }
+
+        if (enumerator is not IEnumVariant native)
+        {
+            throw new AutomationException(TypeMismatch, "The object is not an enumerator.");
+        }
+
+        var status = native.Reset();
+        return status < 0 ? throw new AutomationException(status, "The enumerator cannot be reset.") : null;
+    });
+
+    // an element that can be Empty, which is not the absence of one.
+    private sealed record Member(object? Value);
+
+    /// <inheritdoc/>
     public void Release(object handle) => OnApartment<object?>(() =>
     {
         if (Marshal.IsComObject(handle))
@@ -218,6 +279,25 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
 
     // IDispatch, for the one thing the runtime's binder does not offer: asking an object what it is. The members it is declared with are in the order of the
     // interface's table, and the ones that are not called are only there to keep the later ones where they belong.
+    // IEnumVARIANT, which the enumeration member of a server's collection returns.
+    [ComImport]
+    [Guid("00020404-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IEnumVariant
+    {
+        [PreserveSig]
+        int Next(int count, [Out, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct, SizeParamIndex = 0)] object?[] values, IntPtr fetched);
+
+        [PreserveSig]
+        int Skip(int count);
+
+        [PreserveSig]
+        int Reset();
+
+        [PreserveSig]
+        int Clone(out IEnumVariant enumerator);
+    }
+
     [ComImport]
     [Guid("00020400-0000-0000-C000-000000000046")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

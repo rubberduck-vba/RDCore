@@ -63,6 +63,7 @@ public sealed class AutomationEndToEndTests
         var output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
             "Dim app As New Excel.Application",
             "Dim book As Excel.Workbook",
+            "app.SheetsInNewWorkbook = 3",
             "Set book = app.Workbooks.Add",
             "Dim sheet As Excel.Worksheet",
             "Set sheet = book.Worksheets(1)",
@@ -71,11 +72,36 @@ public sealed class AutomationEndToEndTests
             "Debug.Print sheet.Range(\"A1\").Value + 1",
             "Debug.Print sheet.Cells(2, 1).Value",
             "Debug.Print sheet.Range(\"A1\").End(xlDown).Address",
+            "Dim cell As Excel.Range",
+            "For Each cell In sheet.Range(\"A1:A2\")",
+            "Debug.Print cell.Address",
+            "Next",
+            "Dim page As Excel.Worksheet",
+            "For Each page In book.Worksheets",
+            "Debug.Print page.Index",
+            "Next",
             "book.Close False",
             "app.Quit") + "\r\nEnd Sub\r\n", libraries);
 
-        CollectionAssert.AreEqual(new[] { "43", "hi", "$A$2" }, output);
+        CollectionAssert.AreEqual(new[] { "43", "hi", "$A$2", "$A$1", "$A$2", "1", "2", "3" }, output);
     }
+
+    [TestMethod]
+    public async Task ForEach_OverADictionary_VisitsItsKeys_AndOverItsKeysAndItems_ItsArrays()
+        => CollectionAssert.AreEqual(new[] { "a", "b", "a", "b", "1", "2" }, await Run(
+            "Dim d As New Scripting.Dictionary",
+            "d.Add \"a\", 1",
+            "d.Add \"b\", 2",
+            "Dim v As Variant",
+            "For Each v In d",
+            "Debug.Print v",
+            "Next",
+            "For Each v In d.Keys",
+            "Debug.Print v",
+            "Next",
+            "For Each v In d.Items",
+            "Debug.Print v",
+            "Next"));
 
     [TestMethod]
     public async Task ADictionary_IsCreatedByNew_AndAnItemIsAssigned()

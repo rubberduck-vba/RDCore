@@ -12,7 +12,10 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Execution.External.Automation;
 
@@ -40,15 +43,32 @@ namespace RDCore.Runtime.Execution.External.Automation;
 /// <param name="server">What reaches the automation servers of this machine.</param>
 public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationServer server) : IExternalCallProvider
 {
+    // The enumerator that a server's enumeration member returns is an object of the standard library's IEnumVARIANT, whose members the loop calls by name: those are
+    // the library's, and this provider answers them for the enumerators it holds - which is why it comes before the library's own provider.
+    private static readonly string MoveNextKey = EnumeratorKey(nameof(IStdEnumVariantClass.MoveNext));
+    private static readonly string CurrentKey = EnumeratorKey(nameof(IStdEnumVariantClass.Current));
+    private static readonly string ResetKey = EnumeratorKey(nameof(IStdEnumVariantClass.Reset));
+
+    private static string EnumeratorKey(string member)
+        => StdLibSymbolReader.ExternalTargetOf(typeof(IStdEnumVariantClass), typeof(IStdEnumVariantClass).GetMethod(member)!);
+
+    // what the last member the enumerator moved to was: IEnumVARIANT hands a member over once, and the loop reads it after.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, StrongBox<object?>> Moved = [];
+
     /// <inheritdoc/>
-    public bool CanDispatch(ExternalCallRequest request) => request.IsAutomation && server.IsAvailable;
+    public bool CanDispatch(ExternalCallRequest request)
+        => server.IsAvailable && (request.IsAutomation || IsEnumeratorMember(request));
+
+    private bool IsEnumeratorMember(ExternalCallRequest request)
+        => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == MoveNextKey || key == CurrentKey || key == ResetKey)
+        && request.Arguments is [var receiver, ..] && IdentityOf(receiver) is { } identity && HandleOf(identity) is not null;
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
     {
         try
         {
-            return request.IsCreation ? Create(request) : Call(request, resolver);
+            return request.IsCreation ? Create(request) : IsEnumeratorMember(request) ? Enumerate(request) : Call(request, resolver);
         }
         catch (AutomationException failure)
         {
@@ -73,6 +93,31 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
         session.ExternalObjects.Bind(identity, server, server.CreateObject(progId));
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+    }
+
+    // MoveNext, Current and Reset of an enumerator a server made.
+    private RuntimeSemanticsEvaluationResult Enumerate(ExternalCallRequest request)
+    {
+        var enumerator = HandleOf(IdentityOf(request.Arguments[0])!.Value)!;
+        var key = request.Member.GetProperty(SymbolProperties.ExternalTarget);
+
+        if (key == MoveNextKey)
+        {
+            var moved = server.MoveNext(enumerator, out var current);
+            Moved.AddOrUpdate(enumerator, new StrongBox<object?>(current));
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(moved));
+        }
+
+        if (key == ResetKey)
+        {
+            server.Reset(enumerator);
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        // the member is whatever the server handed over: a value, or an object of a class of the libraries - Excel's sheets are enumerated as sheets.
+        var last = Moved.TryGetValue(enumerator, out var box) ? box.Value : null;
+        return RuntimeSemanticsEvaluationResult.Success(
+            AutomationMarshaller.FromAutomation(last, VBVariantType.TypeInfo, (value, declared) => Wrap(value, declared, session.Symbols.Resolver)));
     }
 
     private RuntimeSemanticsEvaluationResult Call(ExternalCallRequest request, ISymbolResolver resolver)
@@ -101,9 +146,26 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         WriteBack(passed, values, parameters, resolver);
 
         // a value is assigned and a member that returns nothing has returned it: neither has anything to read.
-        return RuntimeSemanticsEvaluationResult.Success(invocation is AutomationInvocation.Let or AutomationInvocation.Set
-            ? VBVoidValue.Void
-            : AutomationMarshaller.FromAutomation(result, member.ResolvedType, (value, declared) => Wrap(value, declared, resolver)));
+        if (invocation is AutomationInvocation.Let or AutomationInvocation.Set)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        }
+
+        // MS-VBAL §5.4.2.4: what the enumeration member returns is the enumerator the loop drives, and its class is the standard library's.
+        var enumeration = member.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.NewEnum;
+        return RuntimeSemanticsEvaluationResult.Success(AutomationMarshaller.FromAutomation(
+            result, member.ResolvedType, (value, declared) => enumeration ? WrapEnumerator(value, resolver) : Wrap(value, declared, resolver)));
+    }
+
+    private VBTypedValue WrapEnumerator(object enumerator, ISymbolResolver resolver)
+    {
+        var classModule = Current(resolver, StdLibSymbolProvider.LibraryName, "IEnumVARIANT")
+            ?? throw new AutomationException(unchecked((int)0x80020005), "The standard library has no enumerator to enumerate with.");
+
+        var identity = session.Objects.CreateObject();
+        session.Symbols.CreateInstance(identity, classModule);
+        session.ExternalObjects.Bind(identity, server, enumerator);
+        return new VBObjectValue(identity);
     }
 
     private sealed class PassedArguments
