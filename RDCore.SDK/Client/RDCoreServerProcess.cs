@@ -17,8 +17,11 @@ public interface IRDCoreServerProcess : IDisposable
     /// <summary>
     /// Runs a server executable with command-line arguments mapping the specified <c>LanguageClientSettings</c>.
     /// </summary>
-    /// <param name="hostMode">When <c>true</c>, sets <c>RDCORE_MODE=host</c> in the child environment (rdc.exe runs as the environment host).</param>
-    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false);
+    /// <param name="mode">
+    /// The mode <c>rdc.exe</c> runs in, set as <c>RDCORE_MODE</c> in the child environment: <see cref="RDCoreServerProcess.HostMode"/> for the environment host,
+    /// <see cref="RDCoreServerProcess.ExternalMode"/> for the external host; <see langword="null"/> for a server that is not <c>rdc.exe</c>.
+    /// </param>
+    Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null);
     /// <summary>
     /// Stops awaiting LSP server process exit to restart it.
     /// </summary>
@@ -66,6 +69,10 @@ public enum CoreServerComponent
     /// Application is a platform extension server component.
     /// </summary>
     Extension,
+    /// <summary>
+    /// Application is the external host of an environment host: <c>rdc.exe</c> in external mode, the process that makes a program's calls to the outside world.
+    /// </summary>
+    ExternalHost,
     /// <summary>
     /// Application is a LSP client.
     /// </summary>
@@ -131,7 +138,18 @@ public class RDCoreServerProcess(
 
     public const string ModeEnvironmentVariable = "RDCORE_MODE";
 
-    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, bool hostMode = false)
+    /// <summary>
+    /// The mode <c>rdc.exe</c> runs as the environment host in: the process that owns the runtime session.
+    /// </summary>
+    public const string HostMode = "host";
+
+    /// <summary>
+    /// The mode <c>rdc.exe</c> runs as the external host in: the process that makes the calls a program makes to the outside world - the objects of automation
+    /// servers, the functions of native libraries - so that a failure of the outside world takes down that process, and not the one that owns the session.
+    /// </summary>
+    public const string ExternalMode = "external";
+
+    public Task StartAsync(string relativePath, string pipeName, CancellationTokenSource tokenSource, string? mode = null)
     {
         if (_serverProcess is Process running && !running.HasExited)
         {
@@ -149,9 +167,9 @@ public class RDCoreServerProcess(
         var arguments = ServerArguments(
             Environment.ProcessId, pipeName, workspace, trace, verbose, Options.Value.Workspace.Language);
         var info = CreateProcessStartInfo(fullPath, arguments);
-        if (hostMode)
+        if (mode is not null)
         {
-            info.Environment[ModeEnvironmentVariable] = "host";
+            info.Environment[ModeEnvironmentVariable] = mode;
         }
         if (Logger.IsEnabled(LogLevel.Debug))
         {

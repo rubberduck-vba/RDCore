@@ -14,6 +14,10 @@ using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
+using RDCore.External.Automation;
+using RDCore.External.Client;
+using RDCore.External.Hosting;
+using RDCore.External.Windows.Automation;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -55,9 +59,19 @@ public class Program
     {
         try
         {
+            var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
+
+            // RDCORE_MODE=external (set by the environment host when it launches rdc.exe): run as its external host,
+            // the process that makes the calls a program makes to the outside world.
+            if (string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
+            {
+                using var externalHost = new RDCoreConsoleExternalHost();
+                return await externalHost.RunAsync(args);
+            }
+
             // RDCORE_MODE=host (set by the language server when it launches rdc.exe): run as the RD-VBA
             // environment host, an LSP server. Otherwise rdc.exe is an LSP client (a workspace URI is required).
-            if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), "host", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(mode, RDCoreServerProcess.HostMode, StringComparison.OrdinalIgnoreCase))
             {
                 using var environmentHost = new RDCoreConsoleEnvironmentHost();
                 return await environmentHost.RunAsync(args);
@@ -377,6 +391,13 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
         services
             .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
             .AddVerboseMessages()
+            // the program's calls to the outside world are made by an external host of this one, which is rdc.exe again, in external mode:
+            // whatever the outside world does to that process, this one - and the session it owns - is still there.
+            .AddSingleton(provider => new ExternalHost(
+                provider.GetRequiredService<IChildConnectionFactory>().Create,
+                ExternalHost.DefaultExecutable,
+                provider.GetRequiredService<ILogger<ExternalHost>>()))
+            .AddSingleton<IAutomationServer>(provider => new RemoteAutomationServer(provider.GetRequiredService<ExternalHost>()))
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
 
@@ -384,6 +405,28 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
     {
         builder.AddFile(
             System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.EnvironmentHost.log"),
+            ResolveTraceLevel(configuration));
+        base.ConfigureExternalLogging(services, builder, configuration);
+    }
+}
+
+/// <summary>
+/// <c>rdc.exe</c> in external mode: the external host of an environment host, an LSP server owned and launched by it, that makes the calls its program makes to
+/// the outside world with the servers of the platform it runs on.
+/// </summary>
+internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHostApp>
+{
+    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
+    {
+        base.ConfigureAdditionalExternalServices(services, configuration);
+        services.AddSingleton(new ExternalAutomationService(
+            OperatingSystem.IsWindows() ? new ComAutomationServer() : UnavailableAutomationServer.Instance));
+    }
+
+    protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)
+    {
+        builder.AddFile(
+            System.IO.Path.Combine(PlatformEnvironment.Default.LogsDirectory, "RDCore.ExternalHost.log"),
             ResolveTraceLevel(configuration));
         base.ConfigureExternalLogging(services, builder, configuration);
     }

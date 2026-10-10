@@ -58,9 +58,10 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
     // what the last member the enumerator moved to was: IEnumVARIANT hands a member over once, and the loop reads it after.
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, StrongBox<object?>> Moved = [];
 
+    // which call it is comes first: whether the servers are there can mean starting what reaches them, which no call that is not theirs should do.
     /// <inheritdoc/>
     public bool CanDispatch(ExternalCallRequest request)
-        => server.IsAvailable && (request.IsAutomation || IsEnumeratorMember(request));
+        => (request.IsAutomation || IsEnumeratorMember(request)) && server.IsAvailable;
 
     private bool IsEnumeratorMember(ExternalCallRequest request)
         => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { } key && (key == MoveNextKey || key == CurrentKey || key == ResetKey)

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ObjectReleased" xml:space="preserve">
+    <value>L'objet a été relâché.</value>
+  </data>
+  <data name="ValueCannotCross" xml:space="preserve">
+    <value>Une valeur de type « {0} » ne peut pas passer vers l'hôte externe ou en provenir.</value>
+  </data>
+  <data name="HostStopped" xml:space="preserve">
+    <value>L'hôte externe s'est arrêté pendant l'appel.</value>
+  </data>
+  <data name="HostUnavailable" xml:space="preserve">
+    <value>L'hôte externe n'a pas pu être démarré.</value>
+  </data>
+  <data name="ObjectHostStopped" xml:space="preserve">
+    <value>L'hôte externe qui détenait l'objet s'est arrêté.</value>
+  </data>
+  <data name="HostFailed" xml:space="preserve">
+    <value>L'hôte externe n'a pas pu répondre : {0}</value>
+  </data>
+</root>

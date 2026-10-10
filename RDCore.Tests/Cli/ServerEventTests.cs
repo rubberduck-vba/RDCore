@@ -64,20 +64,6 @@ public sealed class ServerEventTests
         public void Gate() => Gating?.Invoke();
     }
 
-    // the sink as the server sees it, with a way to know that an event has reached it and waits.
-    private sealed class Probe(IAutomationEventSink inner, ManualResetEventSlim waiting) : IAutomationEventSink
-    {
-        public bool IsOpenForEvents => inner.IsOpenForEvents;
-
-        public IDisposable Waiting()
-        {
-            waiting.Set();
-            return inner.Waiting();
-        }
-
-        public void OnEvent(string name, object?[] arguments) => inner.OnEvent(name, arguments);
-    }
-
     private sealed class FakeServer : IAutomationServer
     {
         private readonly Dictionary<object, IAutomationEventSink> _sinks = new(ReferenceEqualityComparer.Instance);
@@ -89,8 +75,6 @@ public sealed class ServerEventTests
         public List<object> Unadvised { get; } = [];
 
         public ManualResetEventSlim Gated { get; } = new();
-
-        public ManualResetEventSlim Parked { get; } = new();
 
         public bool IsAvailable => true;
 
@@ -114,7 +98,7 @@ public sealed class ServerEventTests
         {
             if (_sinks.TryGetValue(valve, out var sink))
             {
-                AutomationEvents.Deliver(sink, name, arguments, synchronous: true, _ => { });
+                sink.OnEvent(new AutomationEvent(name, arguments, isSynchronous: true, _ => { }));
             }
         }
 
@@ -123,7 +107,7 @@ public sealed class ServerEventTests
         {
             if (_sinks.TryGetValue(valve, out var sink))
             {
-                AutomationEvents.Deliver(sink, name, arguments, synchronous: false, time => Thread.Sleep(time));
+                sink.OnEvent(new AutomationEvent(name, arguments, isSynchronous: false, time => Thread.Sleep(time)));
                 Delivered.Set();
             }
         }
@@ -153,7 +137,7 @@ public sealed class ServerEventTests
         {
         }
 
-        public void Advise(object source, IAutomationEventSink sink) => _sinks[source] = new Probe(sink, Parked);
+        public void Advise(object source, IAutomationEventSink sink) => _sinks[source] = sink;
 
         public void Unadvise(object source)
         {

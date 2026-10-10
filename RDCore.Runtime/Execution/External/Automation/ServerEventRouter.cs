@@ -32,14 +32,27 @@ internal sealed class ServerEventRouter(IRuntimeSession session, IAutomationServ
 {
     private readonly ServerObjects _objects = new(session, server);
 
+    // a synchronous event is the answer to the call the program waits for, and is handled inside it; any other waits for the session to be open to it - nothing runs,
+    // or the program pumps - doing meanwhile what is asked of the thread it was raised on.
     /// <inheritdoc/>
-    public bool IsOpenForEvents => session.Turn.IsOpenForEvents;
+    public void OnEvent(AutomationEvent raised)
+    {
+        if (raised.IsSynchronous)
+        {
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments));
+            return;
+        }
 
-    /// <inheritdoc/>
-    public IDisposable Waiting() => session.Turn.Waiting();
+        using (session.Turn.Waiting())
+        {
+            while (!session.Turn.IsOpenForEvents)
+            {
+                raised.Serve(TimeSpan.FromMilliseconds(10));
+            }
 
-    /// <inheritdoc/>
-    public void OnEvent(string name, object?[] arguments) => session.Turn.RunEvent(() => Handle(name, arguments));
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments));
+        }
+    }
 
     private void Handle(string name, object?[] arguments)
     {

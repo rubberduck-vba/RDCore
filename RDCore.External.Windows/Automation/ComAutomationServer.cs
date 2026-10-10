@@ -164,7 +164,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         var receiver = new EventReceiver(
             declaring,
             events,
-            (name, arguments) => AutomationEvents.Deliver(sink, name, arguments, Volatile.Read(ref _inCall) > 0, Serve));
+            (name, arguments) => sink.OnEvent(new AutomationEvent(name, arguments, Volatile.Read(ref _inCall) > 0, Serve)));
         point.Advise(receiver, out var cookie);
         _connections[source] = new Connection(point, cookie, receiver);
         return null;

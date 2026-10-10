@@ -128,7 +128,8 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     /// </summary>
     /// <remarks>
     /// An object that raises none, or that does not say which, is listened to for nothing and is not an error. Every event it raises is handed to
-    /// <paramref name="sink"/> by <see cref="AutomationEvents.Deliver"/>, which is what keeps an event that no call is waiting for from being handled in the middle of a procedure.
+    /// <paramref name="sink"/>, saying whether a call the program waits for raised it, which is what keeps an event that no call is waiting for from being handled in the
+    /// middle of a procedure.
     /// </remarks>
     /// <param name="source">The handle of the object that raises the events.</param>
     /// <param name="sink">Where they go.</param>
@@ -142,69 +143,56 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
 }
 
 /// <summary>
+/// An event that a server's object raised.
+/// </summary>
+/// <param name="name">The name of the event.</param>
+/// <param name="arguments">
+/// What the server raised it with, in the order of the event's parameters. An argument the server passed by reference holds, once the event is handled, what the
+/// procedures left in it - the <c>Cancel</c> of an event that can be cancelled.
+/// </param>
+/// <param name="isSynchronous">
+/// Whether a call that the program is waiting for is what raised it: a <em>synchronous</em> event is the answer to that call, and is handled at once, inside it. Any other
+/// event is <em>asynchronous</em>, and is handled between two activations - when nothing runs, or when the program pumps (<c>DoEvents</c>).
+/// </param>
+/// <param name="serve">
+/// What the thread the server raised the event on does with the time an asynchronous event waits: the calls that are asked of it meanwhile. A program that runs makes
+/// its own calls while the event waits, and blocking the thread they are made on would keep the program from ever reaching the point where the event is handled.
+/// </param>
+public sealed class AutomationEvent(string name, object?[] arguments, bool isSynchronous, Action<TimeSpan> serve)
+{
+    /// <summary>
+    /// The name of the event.
+    /// </summary>
+    public string Name { get; } = name;
+
+    /// <summary>
+    /// What the server raised it with; an argument it passed by reference holds what the handlers left in it once the event is handled.
+    /// </summary>
+    public object?[] Arguments { get; } = arguments;
+
+    /// <summary>
+    /// Whether a call that the program is waiting for is what raised it.
+    /// </summary>
+    public bool IsSynchronous { get; } = isSynchronous;
+
+    /// <summary>
+    /// Waits up to the given time, doing the work that is asked of the thread that raised the event meanwhile.
+    /// </summary>
+    public Action<TimeSpan> Serve { get; } = serve;
+}
+
+/// <summary>
 /// Where the events of a server's object go.
 /// </summary>
 /// <remarks>
-/// The session's side of an event: it is told which event, and with what, on whatever thread the server raised it on.
+/// The session's side of an event, or whatever carries it there: it is told which event, and with what, on whatever thread the server raised it on, and returns once
+/// the event is handled. When that is - at once, or once the session is open to it - is the sink's to decide: the server only says which kind of event it is.
 /// </remarks>
 public interface IAutomationEventSink
 {
     /// <summary>
-    /// Whether an event that no call is waiting for may be handled now - <see cref="ISessionTurn.IsOpenForEvents"/>.
-    /// </summary>
-    bool IsOpenForEvents { get; }
-
-    /// <summary>
-    /// Says that an event that no call is waiting for waits to be handled, until the returned scope is disposed.
-    /// </summary>
-    IDisposable Waiting();
-
-    /// <summary>
     /// Handles an event: the procedures that handle it run, and return.
     /// </summary>
-    /// <param name="name">The name of the event.</param>
-    /// <param name="arguments">
-    /// What the server raised it with, in the order of the event's parameters. An argument the server passed by reference holds, when this returns, what the procedures left
-    /// in it - the <c>Cancel</c> of an event that can be cancelled.
-    /// </param>
-    void OnEvent(string name, object?[] arguments);
-}
-
-/// <summary>
-/// How a server hands an event over.
-/// </summary>
-public static class AutomationEvents
-{
-    /// <summary>
-    /// Hands an event to its sink, when it may be handled.
-    /// </summary>
-    /// <remarks>
-    /// A <em>synchronous</em> event is the answer to a call that was made and is waited for: it is handled at once, inside the call. Any other event is <em>asynchronous</em>,
-    /// and is handled between two activations: it waits until nothing runs, or until the program pumps (<c>DoEvents</c>). It waits on the thread of the server, which has
-    /// the program's own calls to make in the meantime - a program that is running makes them, and blocking the thread they are made on would keep it from ever pumping -
-    /// so <paramref name="serve"/> is what the thread does with the time it waits.
-    /// </remarks>
-    /// <param name="sink">Where the event goes.</param>
-    /// <param name="name">The name of the event.</param>
-    /// <param name="arguments">What the server raised it with.</param>
-    /// <param name="synchronous">Whether a call that the program waits for is what raised it.</param>
-    /// <param name="serve">Waits up to the given time, doing the work that is asked of the thread meanwhile.</param>
-    public static void Deliver(IAutomationEventSink sink, string name, object?[] arguments, bool synchronous, Action<TimeSpan> serve)
-    {
-        if (synchronous)
-        {
-            sink.OnEvent(name, arguments);
-            return;
-        }
-
-        using (sink.Waiting())
-        {
-            while (!sink.IsOpenForEvents)
-            {
-                serve(TimeSpan.FromMilliseconds(10));
-            }
-
-            sink.OnEvent(name, arguments);
-        }
-    }
+    /// <param name="raised">The event.</param>
+    void OnEvent(AutomationEvent raised);
 }

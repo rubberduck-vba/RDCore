@@ -18,4 +18,20 @@
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="ExternalMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ExternalMessages.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="ExternalMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>ExternalMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RDCore.Tests" />
+  </ItemGroup>
+
 </Project>

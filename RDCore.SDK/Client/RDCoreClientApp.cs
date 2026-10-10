@@ -186,7 +186,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             ServerExecutablePath = path,
             PipeName = $"RDCore.{PlatformComponent}{pipeDiscriminator}.Pipe.{Random.Shared.NextInt64()}",
             // the environment host is rdc.exe itself, run in host mode:
-            HostMode = PlatformComponent == CoreServerComponent.EnvironmentHost,
+            Mode = PlatformComponent == CoreServerComponent.EnvironmentHost ? RDCoreServerProcess.HostMode : null,
             // ExpectedComponent is what we are connecting TO (a proxy's PlatformComponent is the child's;
             // the standalone client connects to the language server).
             ExpectedComponent = PlatformComponent == CoreServerComponent.ClientApp ? CoreServerComponent.LanguageServer : PlatformComponent,
