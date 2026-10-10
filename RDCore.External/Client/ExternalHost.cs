@@ -1,10 +1,9 @@
-﻿using MediatR;
-using Microsoft.Extensions.Logging;
-using OmniSharp.Extensions.JsonRpc;
-using OmniSharp.Extensions.LanguageServer.Client;
+﻿using Microsoft.Extensions.Logging;
 using RDCore.External.Protocol;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
+using RDCore.SDK.Platform.Channels;
+using System.IO.Pipes;
 
 namespace RDCore.External.Client;
 
@@ -71,21 +70,27 @@ public sealed class ExternalHost : IDisposable
 
             var connection = _connections();
             var incarnation = new Incarnation(++_incarnations, connection);
+            var pipeName = $"RDCore.{CoreServerComponent.ExternalHost}.Pipe.{Random.Shared.NextInt64()}";
             try
             {
                 connection.ConnectAsync(new ChildConnectionRequest
                 {
                     ServerExecutablePath = _executable,
-                    PipeName = $"RDCore.{CoreServerComponent.ExternalHost}.Pipe.{Random.Shared.NextInt64()}",
+                    PipeName = pipeName,
                     Mode = RDCoreServerProcess.ExternalMode,
                     ExpectedComponent = CoreServerComponent.ExternalHost,
                     // a process that stopped is not started again behind the program's back: what it held is gone, and the next call starts a new one.
                     MaxRestartAttempts = 0,
-                    ConfigureClient = options => Configure(options, incarnation),
+                    ConfigureClient = _ => { },
                     OnPeerExited = incarnation.MarkLost,
                 }, CancellationToken.None).GetAwaiter().GetResult();
 
-                incarnation.IsAutomationAvailable = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(new AutomationStatusParams()).IsAvailable;
+                // the calls go over a pipe of their own, which the process opened before it said it was up.
+                var calls = new NamedPipeClientStream(".", ExternalProtocol.CallsPipeName(pipeName), PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
+                calls.Connect(TimeSpan.FromSeconds(30));
+                incarnation.Attach(new CallChannel(calls), raised => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments });
+
+                incarnation.IsAutomationAvailable = incarnation.Send<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, new AutomationStatusParams()).IsAvailable;
             }
             catch (Exception exception) when (exception is not ExternalHostUnavailableException)
             {
@@ -118,14 +123,6 @@ public sealed class ExternalHost : IDisposable
         }
     }
 
-    // what the external host asks of this end: that an event be handled. A handler is a program, and waits for calls whose events are requests too: it runs on a
-    // thread of its own, so that the thread OmniSharp dispatches requests on is free to dispatch them.
-    private void Configure(LanguageClientOptions options, Incarnation incarnation)
-        => options.OnRequest<AutomationEventParams, AutomationEventResult>(
-            ExternalProtocol.AutomationEvent,
-            (raised, _) => Task.Run(() => AutomationEvent is { } handle ? handle(incarnation, raised) : new AutomationEventResult { Arguments = raised.Arguments }),
-            new JsonRpcHandlerOptions { RequestProcessType = RequestProcessType.Parallel });
-
     /// <summary>
     /// Stops the incarnation that is running, if one is.
     /// </summary>
@@ -147,6 +144,7 @@ public sealed class ExternalHost : IDisposable
         if (stopping is not null)
         {
             stopping.MarkLost();
+            stopping.Calls?.Dispose();
             _ = stopping.Connection.ShutdownAsync().Wait(TimeSpan.FromSeconds(5));
             stopping.Connection.Dispose();
         }
@@ -168,9 +166,27 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     public int Number { get; } = number;
 
     /// <summary>
-    /// The connection to the process.
+    /// The connection to the process: what started it, and says when it stops.
     /// </summary>
     public ChildConnection Connection { get; } = connection;
+
+    /// <summary>
+    /// The channel the calls go over, once it is attached.
+    /// </summary>
+    public CallChannel? Calls { get; private set; }
+
+    /// <summary>
+    /// Attaches the channel the calls go over, and starts it: the process is lost when the channel closes, which it does as soon as the process stops.
+    /// </summary>
+    /// <param name="calls">The channel.</param>
+    /// <param name="onEvent">Handles an event the process raises.</param>
+    public void Attach(CallChannel calls, Func<AutomationEventParams, AutomationEventResult> onEvent)
+    {
+        Calls = calls;
+        calls.Handle(ExternalProtocol.AutomationEvent, onEvent);
+        calls.Start();
+        _ = calls.Closed.ContinueWith(_ => MarkLost(), TaskScheduler.Default);
+    }
 
     /// <summary>
     /// Whether the process has stopped.
@@ -188,29 +204,26 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     public void MarkLost() => _lost.TrySetResult();
 
     /// <summary>
-    /// Sends a request, and waits for the answer - or for the process to stop, which is an answer too.
+    /// Sends a request, and waits for the answer - or for the process to stop, which closes the channel and is an answer too.
     /// </summary>
+    /// <param name="method">The method the request calls.</param>
+    /// <param name="request">What it is called with.</param>
     /// <exception cref="ExternalHostLostException">The process stopped before it answered.</exception>
-    public TResult Send<TParams, TResult>(TParams request) where TParams : IRequest<TResult>
+    /// <exception cref="CallChannelException">The process failed to answer.</exception>
+    public TResult Send<TParams, TResult>(string method, TParams request)
     {
-        if (IsLost)
-        {
-            throw new ExternalHostLostException();
-        }
-
-        var sent = Connection.Client.SendRequest(request, CancellationToken.None);
-        _ = Task.WaitAny(sent, _lost.Task);
-        if (!sent.IsCompleted)
+        if (IsLost || Calls is not { } calls)
         {
             throw new ExternalHostLostException();
         }
 
         try
         {
-            return sent.GetAwaiter().GetResult();
+            return calls.Call<TParams, TResult>(method, request);
         }
-        catch (Exception exception) when (IsLost && exception is not ExternalHostLostException)
+        catch (CallChannelException) when (calls.Closed.IsCompleted)
         {
+            MarkLost();
             throw new ExternalHostLostException();
         }
     }

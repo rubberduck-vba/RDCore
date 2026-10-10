@@ -1,6 +1,4 @@
-﻿using MediatR;
-using OmniSharp.Extensions.JsonRpc;
-using RDCore.External.Automation;
+﻿using RDCore.External.Automation;
 
 namespace RDCore.External.Protocol;
 
@@ -11,6 +9,10 @@ namespace RDCore.External.Protocol;
 /// <remarks>
 /// Every call a program makes to an automation server is one request, answered once the call returns; the program waits for the answer, as it waits for any call.
 /// An event a server raises is a request the other way, answered once the handlers have run.
+/// <para>
+/// The requests go over a channel of their own (<see cref="SDK.Platform.Channels.CallChannel"/>, on the pipe <see cref="CallsPipeName"/> names), not over the
+/// connection that started the external host: a program makes them by the thousand, and each waits for the last.
+/// </para>
 /// <para>
 /// A handler of an event is a program too, and the calls it makes are answered by the thread that is waiting for the event to be handled - the one the server raised it
 /// on, which is the thread such a call has to be made from (<see cref="AutomationRequest.HandlingEvent"/>).
@@ -47,6 +49,12 @@ public static class ExternalProtocol
 
     /// <summary><c>rdcore/external/automation/event</c>: an object raised an event, which the environment host handles.</summary>
     public const string AutomationEvent = "rdcore/external/automation/event";
+
+    /// <summary>
+    /// The name of the pipe the calls go over: the one the external host was started with, which carries its connection to the environment host, and a suffix.
+    /// </summary>
+    /// <param name="pipeName">The name of the pipe the external host was started with.</param>
+    public static string CallsPipeName(string pipeName) => pipeName + ".Calls";
 }
 
 /// <summary>
@@ -106,8 +114,7 @@ public abstract record class AutomationRequest
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
-[Method(ExternalProtocol.AutomationStatus, Direction.ClientToServer)]
-public sealed record class AutomationStatusParams : AutomationRequest, IRequest, IRequest<AutomationStatusResult>;
+public sealed record class AutomationStatusParams : AutomationRequest;
 
 /// <summary>Response for <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
 public sealed record class AutomationStatusResult : ExternalResult
@@ -117,8 +124,7 @@ public sealed record class AutomationStatusResult : ExternalResult
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
-[Method(ExternalProtocol.AutomationCreate, Direction.ClientToServer)]
-public sealed record class AutomationCreateParams : AutomationRequest, IRequest, IRequest<AutomationObjectResult>
+public sealed record class AutomationCreateParams : AutomationRequest
 {
     /// <summary>The programmatic identifier of the class.</summary>
     public string ProgId { get; init; } = string.Empty;
@@ -132,8 +138,7 @@ public sealed record class AutomationObjectResult : ExternalResult
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationInvoke"/>.</summary>
-[Method(ExternalProtocol.AutomationInvoke, Direction.ClientToServer)]
-public sealed record class AutomationInvokeParams : AutomationRequest, IRequest, IRequest<AutomationInvokeResult>
+public sealed record class AutomationInvokeParams : AutomationRequest
 {
     /// <summary>The handle of the object.</summary>
     public long Target { get; init; }
@@ -167,8 +172,7 @@ public sealed record class AutomationInvokeResult : ExternalResult
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationClassName"/>.</summary>
-[Method(ExternalProtocol.AutomationClassName, Direction.ClientToServer)]
-public sealed record class AutomationClassNameParams : AutomationRequest, IRequest, IRequest<AutomationClassNameResult>
+public sealed record class AutomationClassNameParams : AutomationRequest
 {
     /// <summary>The handle of the object.</summary>
     public long Target { get; init; }
@@ -182,8 +186,7 @@ public sealed record class AutomationClassNameResult : ExternalResult
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationMoveNext"/>.</summary>
-[Method(ExternalProtocol.AutomationMoveNext, Direction.ClientToServer)]
-public sealed record class AutomationMoveNextParams : AutomationRequest, IRequest, IRequest<AutomationMoveNextResult>
+public sealed record class AutomationMoveNextParams : AutomationRequest
 {
     /// <summary>The handle of the enumerator.</summary>
     public long Enumerator { get; init; }
@@ -200,40 +203,35 @@ public sealed record class AutomationMoveNextResult : ExternalResult
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationReset"/>.</summary>
-[Method(ExternalProtocol.AutomationReset, Direction.ClientToServer)]
-public sealed record class AutomationResetParams : AutomationRequest, IRequest, IRequest<ExternalDoneResult>
+public sealed record class AutomationResetParams : AutomationRequest
 {
     /// <summary>The handle of the enumerator.</summary>
     public long Enumerator { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationAdvise"/>.</summary>
-[Method(ExternalProtocol.AutomationAdvise, Direction.ClientToServer)]
-public sealed record class AutomationAdviseParams : AutomationRequest, IRequest, IRequest<ExternalDoneResult>
+public sealed record class AutomationAdviseParams : AutomationRequest
 {
     /// <summary>The handle of the object that raises the events.</summary>
     public long Source { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationUnadvise"/>.</summary>
-[Method(ExternalProtocol.AutomationUnadvise, Direction.ClientToServer)]
-public sealed record class AutomationUnadviseParams : AutomationRequest, IRequest, IRequest<ExternalDoneResult>
+public sealed record class AutomationUnadviseParams : AutomationRequest
 {
     /// <summary>The handle of the object that raises the events.</summary>
     public long Source { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationRelease"/>.</summary>
-[Method(ExternalProtocol.AutomationRelease, Direction.ClientToServer)]
-public sealed record class AutomationReleaseParams : AutomationRequest, IRequest, IRequest<ExternalDoneResult>
+public sealed record class AutomationReleaseParams : AutomationRequest
 {
     /// <summary>The handle of the object.</summary>
     public long Handle { get; init; }
 }
 
 /// <summary>Request for <see cref="ExternalProtocol.AutomationEvent"/>, from the external host to the environment host.</summary>
-[Method(ExternalProtocol.AutomationEvent, Direction.ServerToClient)]
-public sealed record class AutomationEventParams : IRequest, IRequest<AutomationEventResult>
+public sealed record class AutomationEventParams
 {
     /// <summary>
     /// The number the external host gave the event: what a call that a handler of it makes says it is made for (<see cref="AutomationRequest.HandlingEvent"/>).

@@ -1,5 +1,6 @@
 ﻿using RDCore.External.Automation;
 using RDCore.External.Protocol;
+using RDCore.SDK.Platform.Channels;
 using System.Collections.Concurrent;
 using System.Globalization;
 
@@ -30,6 +31,25 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
     /// Sends an event to the environment host, and completes once it is handled; set once the connection to it is up.
     /// </summary>
     public Func<AutomationEventParams, Task<AutomationEventResult>>? RaiseOnClient { get; set; }
+
+    /// <summary>
+    /// Answers the calls of the environment host that come over <paramref name="channel"/>, and raises the events of the servers' objects over it.
+    /// </summary>
+    /// <param name="channel">The channel of calls to the environment host; it is started here.</param>
+    public void ServeOn(CallChannel channel)
+    {
+        channel.Handle<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, Status);
+        channel.Handle<AutomationCreateParams, AutomationObjectResult>(ExternalProtocol.AutomationCreate, Create);
+        channel.Handle<AutomationInvokeParams, AutomationInvokeResult>(ExternalProtocol.AutomationInvoke, Invoke);
+        channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);
+        channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
+        channel.Handle<AutomationResetParams, ExternalDoneResult>(ExternalProtocol.AutomationReset, Reset);
+        channel.Handle<AutomationAdviseParams, ExternalDoneResult>(ExternalProtocol.AutomationAdvise, Advise);
+        channel.Handle<AutomationUnadviseParams, ExternalDoneResult>(ExternalProtocol.AutomationUnadvise, Unadvise);
+        channel.Handle<AutomationReleaseParams, ExternalDoneResult>(ExternalProtocol.AutomationRelease, Release);
+        RaiseOnClient = raised => channel.CallAsync<AutomationEventParams, AutomationEventResult>(ExternalProtocol.AutomationEvent, raised);
+        channel.Start();
+    }
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationStatus"/>.</summary>
     public AutomationStatusResult Status(AutomationStatusParams request) => new() { IsAvailable = platform.IsAvailable };

@@ -1023,5 +1023,23 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("ErrorTitle_Application", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The channel to the other process is closed..
+        /// </summary>
+        public static string CallChannel_Closed {
+            get {
+                return ResourceManager.GetString("CallChannel_Closed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The other process has no method &apos;{0}&apos;..
+        /// </summary>
+        public static string CallChannel_NoSuchMethod {
+            get {
+                return ResourceManager.GetString("CallChannel_NoSuchMethod", resourceCulture);
+            }
+        }
     }
 }

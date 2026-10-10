@@ -1,5 +1,4 @@
-﻿using MediatR;
-using RDCore.External.Automation;
+﻿using RDCore.External.Automation;
 using RDCore.External.Protocol;
 using System.Collections.Concurrent;
 using System.Globalization;
@@ -59,7 +58,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
     public object CreateObject(string progId)
     {
         var incarnation = Connect();
-        var created = Send<AutomationCreateParams, AutomationObjectResult>(incarnation, new AutomationCreateParams { ProgId = progId, HandlingEvent = _handlingEvent });
+        var created = Send<AutomationCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.AutomationCreate, new AutomationCreateParams { ProgId = progId, HandlingEvent = _handlingEvent });
         return ObjectOf(incarnation, created.Handle);
     }
 
@@ -68,7 +67,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
     {
         var remote = Live(target);
         var incarnation = remote.Incarnation;
-        var invoked = Send<AutomationInvokeParams, AutomationInvokeResult>(incarnation, new AutomationInvokeParams
+        var invoked = Send<AutomationInvokeParams, AutomationInvokeResult>(incarnation, ExternalProtocol.AutomationInvoke, new AutomationInvokeParams
         {
             Target = remote.Handle,
             Member = member,
@@ -101,7 +100,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
         try
         {
             return Send<AutomationClassNameParams, AutomationClassNameResult>(
-                remote.Incarnation, new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Name;
+                remote.Incarnation, ExternalProtocol.AutomationClassName, new AutomationClassNameParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Name;
         }
         catch (AutomationException)
         {
@@ -114,7 +113,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
     {
         var remote = Live(enumerator);
         var moved = Send<AutomationMoveNextParams, AutomationMoveNextResult>(
-            remote.Incarnation, new AutomationMoveNextParams { Enumerator = remote.Handle, HandlingEvent = _handlingEvent });
+            remote.Incarnation, ExternalProtocol.AutomationMoveNext, new AutomationMoveNextParams { Enumerator = remote.Handle, HandlingEvent = _handlingEvent });
         current = ExternalValues.FromWire(moved.Current, handle => ObjectOf(remote.Incarnation, handle));
         return moved.Moved;
     }
@@ -123,7 +122,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
     public void Reset(object enumerator)
     {
         var remote = Live(enumerator);
-        _ = Send<AutomationResetParams, ExternalDoneResult>(remote.Incarnation, new AutomationResetParams { Enumerator = remote.Handle, HandlingEvent = _handlingEvent });
+        _ = Send<AutomationResetParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationReset, new AutomationResetParams { Enumerator = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>
@@ -131,7 +130,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
     {
         var remote = Live(source);
         _sinks[(remote.Incarnation.Number, remote.Handle)] = sink;
-        _ = Send<AutomationAdviseParams, ExternalDoneResult>(remote.Incarnation, new AutomationAdviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
+        _ = Send<AutomationAdviseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationAdvise, new AutomationAdviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
     /// <inheritdoc/>
@@ -142,7 +141,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
             return;
         }
 
-        _ = Send<AutomationUnadviseParams, ExternalDoneResult>(remote.Incarnation, new AutomationUnadviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
+        _ = Send<AutomationUnadviseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationUnadvise, new AutomationUnadviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
     // an object whose external host stopped is gone already: there is nothing left to let go of.
@@ -164,7 +163,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
 
         try
         {
-            _ = Send<AutomationReleaseParams, ExternalDoneResult>(remote.Incarnation, new AutomationReleaseParams { Handle = remote.Handle, HandlingEvent = _handlingEvent });
+            _ = Send<AutomationReleaseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationRelease, new AutomationReleaseParams { Handle = remote.Handle, HandlingEvent = _handlingEvent });
         }
         catch (AutomationException)
         {
@@ -224,12 +223,12 @@ public sealed class RemoteAutomationServer : IAutomationServer
             ? remote
             : throw new AutomationException(ServerUnavailable, ExternalMessages.ObjectHostStopped);
 
-    private static TResult Send<TParams, TResult>(Incarnation incarnation, TParams request) where TParams : IRequest<TResult> where TResult : ExternalResult
+    private static TResult Send<TParams, TResult>(Incarnation incarnation, string method, TParams request) where TResult : ExternalResult
     {
         TResult result;
         try
         {
-            result = incarnation.Send<TParams, TResult>(request);
+            result = incarnation.Send<TParams, TResult>(method, request);
         }
         catch (ExternalHostLostException lost)
         {

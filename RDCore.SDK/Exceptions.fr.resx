@@ -438,4 +438,10 @@
   <data name="ErrorTitle_Application" xml:space="preserve">
     <value>Erreur applicative</value>
   </data>
+  <data name="CallChannel_Closed" xml:space="preserve">
+    <value>Le canal vers l'autre processus est fermé.</value>
+  </data>
+  <data name="CallChannel_NoSuchMethod" xml:space="preserve">
+    <value>L'autre processus n'a pas de méthode « {0} ».</value>
+  </data>
 </root>

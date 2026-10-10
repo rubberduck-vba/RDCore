@@ -270,11 +270,6 @@ public abstract class RDCoreServerApp(
         // everything else the app wants to do:
         ConfigureHandlers(new RDCoreLanguageServerHandlersConfigurationBuilder(serverOptions));
 
-        if (HandlesRequestsConcurrently)
-        {
-            serverOptions.WithRequestProcessIdentifier(new ParallelRequestProcessIdentifier());
-        }
-
         serverOptions.WithServices(services =>
         {
             services.AddScoped<ILanguageServerFacade>(provider => Server!);
@@ -301,18 +296,6 @@ public abstract class RDCoreServerApp(
 
         LogIfEnabled(LogLevel.Information, TraceMessages.LanguageServerConfigurationCompleted);
     }
-
-    /// <summary>
-    /// Whether every request this server receives is handled as soon as it arrives, while the ones before it are still being handled.
-    /// </summary>
-    /// <remarks>
-    /// A language server handles one request after the other unless a handler says otherwise, which is what keeps an edit and the requests about the
-    /// document it changed in order. A server whose requests are calls that can be waiting on each other - one that is being handled waits for the client,
-    /// whose answer is another request to this server - cannot: the second request would wait for the first, which waits for the second. Such a server
-    /// says so here, and receives every request in parallel; the order of its requests is its client's to keep, by waiting for each before it sends the next.
-    /// <para>🧩 The base implementation returns <see langword="false"/>.</para>
-    /// </remarks>
-    protected virtual bool HandlesRequestsConcurrently => false;
 
     /// <summary>
     /// Configures services with the <c>OmniSharp</c> language server's <strong>internal</strong> service collection.

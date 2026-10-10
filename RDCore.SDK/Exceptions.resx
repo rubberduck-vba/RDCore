@@ -438,4 +438,10 @@
   <data name="ErrorTitle_Application" xml:space="preserve">
     <value>Application error</value>
   </data>
+  <data name="CallChannel_Closed" xml:space="preserve">
+    <value>The channel to the other process is closed.</value>
+  </data>
+  <data name="CallChannel_NoSuchMethod" xml:space="preserve">
+    <value>The other process has no method '{0}'.</value>
+  </data>
 </root>
