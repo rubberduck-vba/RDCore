@@ -1041,5 +1041,41 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("CallChannel_NoSuchMethod", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} could not be called: the library &apos;{1}&apos; was not found..
+        /// </summary>
+        public static string VBDeclare_LibraryNotFound_Verbose {
+            get {
+                return ResourceManager.GetString("VBDeclare_LibraryNotFound_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} could not be called: the library &apos;{1}&apos; has no entry point &apos;{2}&apos;..
+        /// </summary>
+        public static string VBDeclare_EntryPointNotFound_Verbose {
+            get {
+                return ResourceManager.GetString("VBDeclare_EntryPointNotFound_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed..
+        /// </summary>
+        public static string VBDeclare_HostStopped_Verbose {
+            get {
+                return ResourceManager.GetString("VBDeclare_HostStopped_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An object cannot be passed to or from a function of a native library yet..
+        /// </summary>
+        public static string VBDeclare_ObjectNotPassed_Verbose {
+            get {
+                return ResourceManager.GetString("VBDeclare_ObjectNotPassed_Verbose", resourceCulture);
+            }
+        }
     }
 }

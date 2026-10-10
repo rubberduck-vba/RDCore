@@ -1,7 +1,7 @@
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.External.Automation;
-using RDCore.External.Automation;
+using RDCore.External;
 using RDCore.Runtime.Execution.External.Native;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
@@ -89,9 +89,10 @@ public sealed class RuntimeExecutionPipeline
     /// being evaluated. <see langword="null"/> (the default) when the pipeline runs code rather than analyzes it: then nothing
     /// is observed, and nothing about how the code runs is different.
     /// </param>
-    /// <param name="automation">
-    /// What reaches the automation servers that the objects of a referenced library are held by. The runtime does not know the platform it runs on: its host
-    /// says, and a pipeline it does not say it for reaches none (<see cref="UnavailableAutomationServer"/>).
+    /// <param name="outside">
+    /// What a program reaches outside the platform: the automation servers that the objects of a referenced library are held by, and the native libraries that
+    /// <c>Declare</c> statements name. The runtime does not know the platform it runs on: its host says, and a pipeline it does not say it for reaches none
+    /// (<see cref="ExternalWorld.None"/>).
     /// </param>
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
@@ -99,8 +100,8 @@ public sealed class RuntimeExecutionPipeline
         IVerboseMessageBuilder messages,
         CancellationToken cancellation = default,
         IAnalysisObserver? observer = null,
-        IAutomationServer? automation = null)
-        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Run, automation);
+        ExternalWorld? outside = null)
+        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Run, outside);
 
     /// <summary>
     /// Composes the pipeline for <paramref name="session"/>, a session composed to be analyzed (<see cref="RuntimeSessionComposer.ComposeForAnalysis"/>).
@@ -166,7 +167,7 @@ public sealed class RuntimeExecutionPipeline
         CancellationToken cancellation,
         IAnalysisObserver? observer,
         PipelineMode mode,
-        IAutomationServer? automation = null)
+        ExternalWorld? outside = null)
     {
         var analysis = mode is not PipelineMode.Run;
         // the parts of the pipeline that state facts share one observation, so that describing a fact is not itself observed.
@@ -236,7 +237,11 @@ public sealed class RuntimeExecutionPipeline
             // the servers' provider is asked first: it answers the members of the standard library's enumerator for the enumerators it holds, and for nothing else of it.
             // A Declare'd procedure is a native library's, and is called when the policy over library imports lets it through.
             : ExternalCallPipeline.For(session,
-                [new AutomationCallProvider(session, automation ?? UnavailableAutomationServer.Instance), StdLibDispatcher.For(session), new DeclaredProcedureProvider(session)]);
+                [
+                    new AutomationCallProvider(session, (outside ?? ExternalWorld.None).Automation),
+                    StdLibDispatcher.For(session),
+                    new DeclaredProcedureProvider(session, (outside ?? ExternalWorld.None).Libraries),
+                ]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;

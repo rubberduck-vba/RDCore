@@ -49,8 +49,13 @@ internal static class ModuleWorkspace
     /// <param name="Source">Where the descriptions of the libraries are.</param>
     /// <param name="Automation">What the objects of the libraries are held by: the servers of the machine unless a test brings its own.</param>
     /// <param name="AllowAutomation">Whether the environment lets a program use the objects of a library at all.</param>
+    /// <param name="Outside">
+    /// Everything a program reaches outside the platform, for a test that brings an external host of its own - one that it takes down, which the machine's is not
+    /// to be for the tests that run alongside it.
+    /// </param>
     public sealed record WorkspaceLibraries(
-        IReadOnlyList<string> References, ILibrarySource Source, RDCore.External.Automation.IAutomationServer? Automation = null, bool AllowAutomation = true);
+        IReadOnlyList<string> References, ILibrarySource Source, RDCore.External.Automation.IAutomationServer? Automation = null, bool AllowAutomation = true,
+        RDCore.External.ExternalWorld? Outside = null);
 
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
@@ -156,7 +161,9 @@ internal static class ModuleWorkspace
 
         var sessionProvider = new EnvironmentSessionProvider(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true),
-            new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source, libraries?.Automation);
+            new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
+            // a test that brings its own servers brings no libraries of its own: those are the machine's still.
+            libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 

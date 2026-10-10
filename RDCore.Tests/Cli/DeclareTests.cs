@@ -15,11 +15,19 @@ public sealed class DeclareTests
     private static Task<string[]> Run(string declarations, params string[] lines)
         => RunAsync([], $"Attribute VB_Name = \"Program\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", lines)}\r\nEnd Sub\r\n");
 
+    // the function runs in the external host, a process of its own - not the one that owns the session, which a function declared wrongly would take down.
     [TestMethod]
-    public async Task AFunctionThatTakesNothing_IsCalled_AndWhatItReturnsIsALong()
-        => CollectionAssert.AreEqual(new[] { Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture) }, await Run(
+    public async Task AFunctionThatTakesNothing_IsCalled_InAProcessOfItsOwn_AndWhatItReturnsIsALong()
+    {
+        var output = await Run(
             "Private Declare PtrSafe Function GetCurrentProcessId Lib \"kernel32\" () As Long",
-            "Debug.Print GetCurrentProcessId"));
+            "Debug.Print GetCurrentProcessId");
+
+        var caller = int.Parse(output.Single(), System.Globalization.CultureInfo.InvariantCulture);
+        Assert.AreNotEqual(Environment.ProcessId, caller);
+        using var process = System.Diagnostics.Process.GetProcessById(caller);
+        Assert.AreEqual("rdc", process.ProcessName);
+    }
 
     [TestMethod]
     public async Task ASub_IsCalledWithANumberByValue()
@@ -36,20 +44,17 @@ public sealed class DeclareTests
 
     [TestMethod]
     public async Task AStringBufferPassedByValue_TakesWhatTheFunctionWroteIntoIt()
-    {
-        Environment.SetEnvironmentVariable("RDCORE_DECLARE_TEST", "quack");
-
-        // the function writes "quack" and its terminator over the first six of the buffer's eight characters, and the buffer keeps its length.
-        CollectionAssert.AreEqual(new[] { "5", "8", "quack\0" }, await Run(
+        // every process of Windows has OS=Windows_NT: the function writes it and its terminator over the first eleven of the buffer's twelve characters, and
+        // the buffer keeps its length.
+        => CollectionAssert.AreEqual(new[] { "10", "12", "Windows_NT\0" }, await Run(
             "Private Declare PtrSafe Function GetEnvironmentVariable Lib \"kernel32\" Alias \"GetEnvironmentVariableA\" (ByVal lpName As String, ByVal lpBuffer As String, ByVal nSize As Long) As Long",
             "Dim buffer As String",
-            "buffer = \"        \"",
+            "buffer = \"            \"",
             "Dim length As Long",
-            "length = GetEnvironmentVariable(\"RDCORE_DECLARE_TEST\", buffer, 8)",
+            "length = GetEnvironmentVariable(\"OS\", buffer, 12)",
             "Debug.Print length",
             "Debug.Print Len(buffer)",
             "Debug.Print buffer"));
-    }
 
     [TestMethod]
     public async Task ANumberByReference_IsTheVariableTheFunctionWritesTo()
@@ -131,4 +136,26 @@ public sealed class DeclareTests
             "Err.Clear",
             "Debug.Print Nothing2",
             "Debug.Print Err.Number"));
+
+    // what MS-VBA would not survive: a function declared wrongly - here, told to copy from an address that is no memory at all - takes down the process that
+    // called it. That is the external host, not the one that owns the session: the program is told, as error 49, and goes on, and the next call starts another.
+    [TestMethod]
+    public async Task AFunctionThatTakesDownTheProcessThatCalledIt_IsBadDllCallingConvention_AndTheProgramGoesOn()
+    {
+        using var host = RDCore.Tests.External.ExternalHosts.New();
+        var libraries = new WorkspaceLibraries([], new RDCore.Tests.Runtime.Libraries.InMemoryLibrarySource(), Outside: RDCore.Tests.External.ExternalHosts.WorldOf(host));
+
+        var output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\n" + string.Join("\r\n",
+            "Private Declare PtrSafe Sub CopyMemory Lib \"kernel32\" Alias \"RtlMoveMemory\" (ByVal destination As LongPtr, ByVal source As LongPtr, ByVal length As LongPtr)",
+            "Private Declare PtrSafe Function StringLength Lib \"kernel32\" Alias \"lstrlenA\" (ByVal text As String) As Long",
+            "Public Sub Main()",
+            "On Error Resume Next",
+            "CopyMemory 0, 8, 8",
+            "Debug.Print Err.Number",
+            "Err.Clear",
+            "Debug.Print StringLength(\"quack\")",
+            "End Sub") + "\r\n", libraries);
+
+        CollectionAssert.AreEqual(new[] { "49", "5" }, output);
+    }
 }

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
-using RDCore.External.Automation;
+using RDCore.External;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
@@ -72,13 +72,13 @@ public interface IEnvironmentSessionProvider
     ProgramExecution Execution { get; }
 
     /// <summary>
-    /// What reaches the automation servers that the objects of a referenced library are held by: those of the machine this host runs on, unless it was
-    /// given others.
+    /// What a program reaches outside the platform - the automation servers that the objects of a referenced library are held by, and the native libraries
+    /// <c>Declare</c> statements name: those of the machine this host runs on, unless it was given others.
     /// </summary>
     /// <remarks>
     /// Of the host and not of a run, because the objects a program made outlive it in the session and have to be let go of by what made them.
     /// </remarks>
-    IAutomationServer Automation { get; }
+    ExternalWorld Outside { get; }
 
     /// <summary>
     /// Composes the session from a loaded project's module structure and precompiler constants.
@@ -95,12 +95,12 @@ public sealed class EnvironmentSessionProvider(
     IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger,
     ILibrarySource? librarySource = null,
-    IAutomationServer? automationServer = null) : IEnvironmentSessionProvider
+    ExternalWorld? outside = null) : IEnvironmentSessionProvider
 {
     private IRuntimeSession? _session;
 
     /// <inheritdoc/>
-    public IAutomationServer Automation => automationServer ?? MachineAutomation.Server;
+    public ExternalWorld Outside => outside ?? MachineExternal.World;
 
     /// <inheritdoc/>
     public bool IsComposed => _session is not null;
@@ -201,7 +201,7 @@ public sealed class EnvironmentSessionProvider(
         // makes no such call, and nothing is started for it.
         if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
         {
-            Automation.Prepare();
+            Outside.Automation.Prepare();
         }
 
         if (logger.IsEnabled(LogLevel.Information))

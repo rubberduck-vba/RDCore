@@ -1,4 +1,5 @@
 ﻿using RDCore.External.Automation;
+using RDCore.External.Native;
 using RDCore.External.Protocol;
 using System.Collections.Concurrent;
 using System.Globalization;
@@ -230,7 +231,7 @@ public sealed class RemoteAutomationServer : IAutomationServer
         {
             result = incarnation.Send<TParams, TResult>(method, request);
         }
-        catch (ExternalHostLostException lost)
+        catch (ExternalHostStoppedException lost)
         {
             throw new AutomationException(CallFailed, lost.Message);
         }

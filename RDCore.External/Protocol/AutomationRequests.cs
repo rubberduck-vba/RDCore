@@ -50,6 +50,9 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/automation/event</c>: an object raised an event, which the environment host handles.</summary>
     public const string AutomationEvent = "rdcore/external/automation/event";
 
+    /// <summary><c>rdcore/external/native/call</c>: calls a function of a native library, as a <c>Declare</c> names it.</summary>
+    public const string NativeCall = "rdcore/external/native/call";
+
     /// <summary>
     /// The name of the pipe the calls go over: the one the external host was started with, which carries its connection to the environment host, and a suffix.
     /// </summary>

@@ -66,6 +66,14 @@ internal sealed class DefineSymbolsHandler(
         // the module's procedures get their code now that everything they are keyed by is defined.
         var loadErrors = LoadCode(session, request);
 
+        // a module that declares a function of a native library can call it as soon as it runs, and what makes the call is got ready now - in an environment that
+        // lets a program make one at all.
+        if (session.Environment.AllowDllImports
+            && request.Symbols.Any(symbol => symbol.Kind is SymbolDescriptorKind.ExternalProcedure or SymbolDescriptorKind.ExternalFunction))
+        {
+            sessionProvider.Outside.Libraries.Prepare();
+        }
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(

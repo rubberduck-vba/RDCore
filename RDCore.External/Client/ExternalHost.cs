@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using RDCore.External.Native;
 using RDCore.External.Protocol;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -208,13 +209,13 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// </summary>
     /// <param name="method">The method the request calls.</param>
     /// <param name="request">What it is called with.</param>
-    /// <exception cref="ExternalHostLostException">The process stopped before it answered.</exception>
+    /// <exception cref="ExternalHostStoppedException">The process stopped before it answered.</exception>
     /// <exception cref="CallChannelException">The process failed to answer.</exception>
     public TResult Send<TParams, TResult>(string method, TParams request)
     {
         if (IsLost || Calls is not { } calls)
         {
-            throw new ExternalHostLostException();
+            throw new ExternalHostStoppedException();
         }
 
         try
@@ -224,15 +225,10 @@ internal sealed class Incarnation(int number, ChildConnection connection)
         catch (CallChannelException) when (calls.Closed.IsCompleted)
         {
             MarkLost();
-            throw new ExternalHostLostException();
+            throw new ExternalHostStoppedException();
         }
     }
 }
-
-/// <summary>
-/// The external host stopped before it answered a request.
-/// </summary>
-internal sealed class ExternalHostLostException() : Exception(ExternalMessages.HostStopped);
 
 /// <summary>
 /// The external host could not be started.

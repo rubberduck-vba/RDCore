@@ -444,4 +444,16 @@
   <data name="CallChannel_NoSuchMethod" xml:space="preserve">
     <value>L'autre processus n'a pas de méthode « {0} ».</value>
   </data>
+  <data name="VBDeclare_LibraryNotFound_Verbose" xml:space="preserve">
+    <value>{0} n'a pas pu être appelée : la bibliothèque « {1} » est introuvable.</value>
+  </data>
+  <data name="VBDeclare_EntryPointNotFound_Verbose" xml:space="preserve">
+    <value>{0} n'a pas pu être appelée : la bibliothèque « {1} » n'a pas de point d'entrée « {2} ».</value>
+  </data>
+  <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
+    <value>{0} a arrêté le processus qui l'appelait : la fonction est probablement mal déclarée - ses paramètres, leurs types, ou la façon dont ils sont passés.</value>
+  </data>
+  <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
+    <value>Un objet ne peut pas encore être passé à une fonction d'une bibliothèque native, ni en être reçu.</value>
+  </data>
 </root>

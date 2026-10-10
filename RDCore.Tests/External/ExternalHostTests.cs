@@ -1,15 +1,7 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using RDCore.External.Automation;
+﻿using RDCore.External.Automation;
 using RDCore.External.Client;
-using RDCore.SDK.Client;
-using RDCore.SDK.Client.Connection;
-using RDCore.SDK.Platform;
-using RDCore.SDK.Server;
-using RDCore.SDK.Server.Configuration;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO.Abstractions;
 
 namespace RDCore.Tests.External;
 
@@ -24,17 +16,7 @@ public sealed class ExternalHostTests
 {
     private const int ServerUnavailable = unchecked((int)0x800706BA);
 
-    private static ExternalHost NewHost()
-    {
-        var options = Options.Create(new SdkAppOptions());
-        return new ExternalHost(
-            () => new ChildConnection(
-                new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, NullLogger<RDCoreServerProcess>.Instance),
-                new RDCorePlatformDefaultTransportLayer(options),
-                NullLogger<ChildConnection>.Instance),
-            ExternalHost.DefaultExecutable,
-            NullLogger<ExternalHost>.Instance);
-    }
+    private static ExternalHost NewHost() => ExternalHosts.New();
 
     [TestMethod]
     public void TheExternalHost_SaysWhetherThePlatformItRunsOnHasAutomationServers()
