@@ -1,5 +1,6 @@
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
+using RDCore.Runtime.Execution.External.Automation;
 using RDCore.Runtime.StdLib;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
@@ -86,13 +87,18 @@ public sealed class RuntimeExecutionPipeline
     /// being evaluated. <see langword="null"/> (the default) when the pipeline runs code rather than analyzes it: then nothing
     /// is observed, and nothing about how the code runs is different.
     /// </param>
+    /// <param name="automation">
+    /// What reaches the automation servers that the objects of a referenced library are held by; those of the machine the process runs on
+    /// (<see cref="AutomationServers.Machine"/>) unless said otherwise.
+    /// </param>
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
         IVerboseMessageBuilder messages,
         CancellationToken cancellation = default,
-        IAnalysisObserver? observer = null)
-        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Run);
+        IAnalysisObserver? observer = null,
+        IAutomationServer? automation = null)
+        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Run, automation);
 
     /// <summary>
     /// Composes the pipeline for <paramref name="session"/>, a session composed to be analyzed (<see cref="RuntimeSessionComposer.ComposeForAnalysis"/>).
@@ -157,7 +163,8 @@ public sealed class RuntimeExecutionPipeline
         IVerboseMessageBuilder messages,
         CancellationToken cancellation,
         IAnalysisObserver? observer,
-        PipelineMode mode)
+        PipelineMode mode,
+        IAutomationServer? automation = null)
     {
         var analysis = mode is not PipelineMode.Run;
         // the parts of the pipeline that state facts share one observation, so that describing a fact is not itself observed.
@@ -224,7 +231,7 @@ public sealed class RuntimeExecutionPipeline
         // with a value that is not known.
         var external = analysis
             ? new ExternalCallPipeline(session, [], [StdLibDispatcher.For(session), new OutsideWorldCallProvider()])
-            : ExternalCallPipeline.For(session, [StdLibDispatcher.For(session)]);
+            : ExternalCallPipeline.For(session, [StdLibDispatcher.For(session), new AutomationCallProvider(session, automation ?? AutomationServers.Machine)]);
         var bindings = new RuntimeCallableBindingFactory(invoker, external);
         expressions.ProcedureInvoker = invoker;
         expressions.Bindings = bindings;
@@ -239,6 +246,8 @@ public sealed class RuntimeExecutionPipeline
         expressions.SetCoercion = setCoercion;
         // an object's lifecycle events run its class's handlers, which is code only this pipeline can run.
         session.Lifecycle = new ClassLifecycle(session, bindings);
+        // an object of a library's class is made by whatever reaches that library, through the same pipeline as every call into it.
+        session.External = external;
         // a fixed-size array is as big as its declaration says, which takes evaluating its bounds: this is what can.
         var defaults = new DeclaredVariableDefaults(session, new ArrayBoundEvaluator(expressions, letCoercion));
         if (analysis)

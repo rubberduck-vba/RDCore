@@ -1,8 +1,10 @@
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -28,11 +30,40 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// Where the call is written. An external member that raises an error cannot know this for itself, and an
 /// error with no location is one no editor can point at.
 /// </param>
+/// <param name="Creates">
+/// The class of a referenced library that is being instantiated, when this is not a call to a member but the creation of an object (<c>New Excel.Application</c>).
+/// <see cref="Member"/> is then the <c>Initialize</c> of the class's implicit interface, and the only argument is the new object, which the provider binds the
+/// real one to. Creating an object is an external call like any other, and exactly the one a policy wants to see.
+/// </param>
 public sealed record class ExternalCallRequest(
     VBTypeMemberSymbol Member,
     IRuntimeValue[] Arguments,
-    SourceLocation CallSite = default)
+    SourceLocation CallSite = default,
+    VBClassModuleSymbol? Creates = null)
 {
+    /// <summary>
+    /// Whether this call creates an object of a class, rather than calling a member of one.
+    /// </summary>
+    public bool IsCreation => Creates is not null;
+
+    /// <summary>
+    /// The request that creates an object of <paramref name="classModule"/>.
+    /// </summary>
+    /// <param name="classModule">The class of a referenced library to create an object of.</param>
+    /// <param name="created">The new object, which has no external object behind it yet.</param>
+    /// <param name="callSite">Where the creation is written.</param>
+    public static ExternalCallRequest ForCreation(VBClassModuleSymbol classModule, IRuntimeValue created, SourceLocation callSite = default)
+        => new(ClassLifecycleInterface.Initialize, [created], callSite, classModule);
+
+    /// <summary>
+    /// Whether this call is to a referenced library's object model - creating an object of one of its classes, or calling a member of one - which is what
+    /// an administrator means by automation, as distinct from the standard library and from a <c>Declare</c>d import.
+    /// </summary>
+    public bool IsAutomation => IsCreation
+        ? Creates!.GetProperty(SymbolProperties.Library) is { } created && created != StdLibSymbolProvider.LibraryName
+        : Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
+            && Member.GetProperty(SymbolProperties.Library) is { } library && library != StdLibSymbolProvider.LibraryName;
+
     /// <summary>
     /// Whether this call is to a native library a <c>Declare</c> named — the calls an administrator most
     /// wants a say over, since a library call is a way to run arbitrary code.
@@ -59,6 +90,11 @@ public sealed record class ExternalCallRequest(
     /// </remarks>
     public string Describe()
     {
+        if (Creates is { } created)
+        {
+            return $"New {(created.GetProperty(SymbolProperties.Library) is { Length: > 0 } owner ? owner + "." : string.Empty)}{created.Name}";
+        }
+
         var entryPoint = Member switch
         {
             VBExternalFunctionMemberSymbol { Alias: { Length: > 0 } alias } => alias,

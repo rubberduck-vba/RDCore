@@ -1,3 +1,4 @@
+using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.Literals;
 using RDCore.SDK;
@@ -59,6 +60,11 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
 
         var objectId = session.Objects.CreateObject();
         session.Symbols.CreateInstance(objectId, classModule);
+        if (ExternalObjectCreation.Create(session, classModule, objectId, node.SourceLocation) is { } failed)
+        {
+            return failed;
+        }
+
         return RuntimeSemanticsEvaluationResult.Success(new VBObjectValue(objectId));
     }
 }

@@ -31,6 +31,7 @@ public static class SessionWipe
         _ = session.Files.CloseAll();
         session.Errors.Clear();
         session.Objects.Clear();
+        session.ExternalObjects.ReleaseAll();
         session.Symbols.ResetStorage();
     }
 

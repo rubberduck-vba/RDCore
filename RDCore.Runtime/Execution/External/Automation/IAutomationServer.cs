@@ -1,0 +1,101 @@
+namespace RDCore.Runtime.Execution.External.Automation;
+
+/// <summary>
+/// How a member of an automation server is reached.
+/// </summary>
+/// <remarks>
+/// The same four ways that <c>IDispatch::Invoke</c> distinguishes, which is also how a library's description kinds its members.
+/// </remarks>
+public enum AutomationInvocation
+{
+    /// <summary>A method, or a property that takes arguments, is read: <c>DISPATCH_METHOD</c> together with <c>DISPATCH_PROPERTYGET</c>, which is what VBA itself asks for.</summary>
+    Get,
+
+    /// <summary>A method is called; there is no value to read it as.</summary>
+    Method,
+
+    /// <summary>A property is assigned a value (<c>Property Let</c>): <c>DISPATCH_PROPERTYPUT</c>.</summary>
+    Let,
+
+    /// <summary>A property is assigned an object (<c>Property Set</c>): <c>DISPATCH_PROPERTYPUTREF</c>.</summary>
+    Set,
+}
+
+/// <summary>
+/// A failure of an automation server, as it reports one: a status code and what it has to say about it.
+/// </summary>
+/// <remarks>
+/// The code is the server's own <c>HRESULT</c>. Which VBA error it is - an Excel <c>1004</c> arrives as <c>0x800A03EC</c> - is decided where the error is
+/// raised (<see cref="AutomationErrors"/>), not by whatever reached the server.
+/// </remarks>
+public sealed class AutomationException : Exception
+{
+    /// <summary>
+    /// Creates the failure.
+    /// </summary>
+    /// <param name="hResult">The status code the server reported.</param>
+    /// <param name="message">What the server said, if it said anything.</param>
+    /// <param name="source">The name of the server that said it, if it named itself.</param>
+    public AutomationException(int hResult, string? message = null, string? source = null)
+        : base(message)
+    {
+        HResult = hResult;
+        Source = source;
+    }
+}
+
+/// <summary>
+/// Everything that touches the automation servers of a machine: creating an object by its name, calling a member by its name, and letting go.
+/// </summary>
+/// <remarks>
+/// The seam under <see cref="AutomationCallProvider"/>, and the only part of it that is not the same on every platform. Everything above it speaks in
+/// neutral values: <see langword="null"/> is an <c>Empty</c> and <see cref="DBNull"/> a <c>Null</c>, <see cref="System.Reflection.Missing"/> an omitted
+/// argument, and a server's object is a handle nothing here looks inside. A <c>Currency</c> is a <see cref="System.Runtime.InteropServices.CurrencyWrapper"/>
+/// and an <c>Error</c> an <see cref="System.Runtime.InteropServices.ErrorWrapper"/>, so that a server told apart the types the language tells apart.
+/// <para>
+/// The server is also the owner of the objects it made (<see cref="SDK.Runtime.Abstract.Execution.IExternalObjectOwner.Release"/> lets one go): a session outlives
+/// the pipelines that run its programs, so what holds its objects has to be there for all of them, and there is one server to a machine.
+/// </para>
+/// <para>
+/// ⚠️ An implementation is called from whichever thread the pipeline runs on and is responsible for running the server on the thread the server needs.
+/// </para>
+/// </remarks>
+public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObjectOwner
+{
+    /// <summary>
+    /// Whether this machine has automation servers to reach at all.
+    /// </summary>
+    bool IsAvailable { get; }
+
+    /// <summary>
+    /// Creates an object by the name its class is registered under (<c>Scripting.Dictionary</c>).
+    /// </summary>
+    /// <param name="progId">The programmatic identifier of the class.</param>
+    /// <returns>The handle of the new object.</returns>
+    /// <exception cref="AutomationException">The class is not registered here, or the server would not start.</exception>
+    object CreateObject(string progId);
+
+    /// <summary>
+    /// Calls a member of an object by its name.
+    /// </summary>
+    /// <param name="target">The handle of the object.</param>
+    /// <param name="member">The name of the member.</param>
+    /// <param name="invocation">How the member is reached.</param>
+    /// <param name="arguments">
+    /// The arguments in the member's order, a value being assigned last. An argument that is passed by reference and that the server wrote to holds what it
+    /// wrote when this returns.
+    /// </param>
+    /// <param name="byReference">Whether each argument is passed by reference; the same length as <paramref name="arguments"/>.</param>
+    /// <returns>What the member returned: <see langword="null"/> for a member that returns nothing, or an <c>Empty</c>.</returns>
+    /// <exception cref="AutomationException">The member does not exist, would not accept the arguments, or failed.</exception>
+    object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference);
+
+    /// <summary>
+    /// Gets the name a server gives the class of an object, qualified by the library that declares it (<c>Excel._Worksheet</c>), if it gives one.
+    /// </summary>
+    /// <remarks>
+    /// What an object that a member declares to be an <c>Object</c> is an instance of; <see langword="null"/> when the server describes none.
+    /// </remarks>
+    /// <param name="target">The handle of the object.</param>
+    string? ClassNameOf(object target);
+}

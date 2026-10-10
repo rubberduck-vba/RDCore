@@ -68,4 +68,14 @@ public interface IRuntimeEnvironmentProfile
     /// administrator said otherwise.
     /// </summary>
     bool AllowDllImports { get; }
+
+    /// <summary>
+    /// 🎯 Whether a program may create and call the objects of a referenced library - a host application's object model among them (<c>Excel</c>,
+    /// <c>Word</c>, <c>Scripting</c>). <c>true</c> unless an administrator said otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Its own switch, apart from <see cref="AllowDllImports"/>: automating a spreadsheet and calling an arbitrary export are not the same risk, and one
+    /// switch for both would be of no use to anyone who needs one and not the other.
+    /// </remarks>
+    bool AllowAutomation { get; }
 }

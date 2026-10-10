@@ -44,7 +44,7 @@ public sealed record class ExternalCallPipeline(
         IRuntimeSession session,
         IEnumerable<IExternalCallProvider> providers,
         IEnumerable<IExternalCallInterceptor>? interceptors = null)
-        => new(session, [new DllImportPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
+        => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
@@ -76,9 +76,14 @@ public sealed record class ExternalCallPipeline(
     // nothing here can run it. For a library import that is "the library call could not be made", which is
     // what error 48 says; for anything else the platform simply has not got it.
     private static RuntimeSemanticsEvaluationResult Unreachable(ExternalCallRequest request)
-        => RuntimeSemanticsEvaluationResult.Error(request.IsLibraryImport
-            ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.ErrorInLoadingDll, request.CallSite,
-                $"{request.Describe()} could not be called: this platform has no provider for library imports.")
-            : VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
-                $"{request.Describe()} could not be called: nothing here can reach it."));
+        => RuntimeSemanticsEvaluationResult.Error(request switch
+        {
+            { IsLibraryImport: true } => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ErrorInLoadingDll, request.CallSite,
+                $"{request.Describe()} could not be called: this platform has no provider for library imports."),
+            // 429 is what VBA reports for a class it cannot get an object of, and the same for a member of one it cannot reach.
+            { IsAutomation: true } => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ActiveXComponentCantCreateObject, request.CallSite,
+                $"{request.Describe()} could not be made: this platform has no automation servers."),
+            _ => VBRuntimeErrorInfo.For(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, request.CallSite,
+                $"{request.Describe()} could not be called: nothing here can reach it."),
+        });
 }

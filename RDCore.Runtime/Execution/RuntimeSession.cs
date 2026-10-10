@@ -1,4 +1,5 @@
-﻿using RDCore.Runtime.Execution.Frames;
+﻿using RDCore.Runtime.Execution.External;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
@@ -49,6 +50,10 @@ internal sealed class RuntimeSession(
 
     public IObjectLifecycle? Lifecycle { get; set; }
 
+    public ISessionExternalObjects ExternalObjects { get; } = new SessionExternalObjects();
+
+    public IExternalDispatcher? External { get; set; }
+
     public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
     {
         if (Objects.RemoveRef(instance, handle) != 0)
@@ -74,6 +79,9 @@ internal sealed class RuntimeSession(
         // of it handles an event any more.
         ReleaseFieldsOf(instance);
         Objects.DetachSubscriber(instance);
+
+        // an object that something outside the workspace holds is let go of by it when the program lets go: that is the Release of a COM object.
+        ExternalObjects.Release(instance);
 
         return Objects.TryRemoveObject(instance) && Symbols.DestroyInstance(instance);
     }

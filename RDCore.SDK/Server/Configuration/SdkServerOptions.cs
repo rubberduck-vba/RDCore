@@ -228,6 +228,16 @@ public record class SdkEnvironmentOptions
     /// refusal path is exercised whether or not anybody wrote one.
     /// </remarks>
     public bool AllowDllImports { get; set; } = true;
+
+    /// <summary>
+    /// 🎯 Whether a program may create and call the objects of a referenced library, a host application's object model among them. <c>true</c> by default;
+    /// set it <c>false</c> to refuse every such call.
+    /// </summary>
+    /// <remarks>
+    /// Its own switch, apart from <see cref="AllowDllImports"/>: automating a spreadsheet and calling an arbitrary export are not the same risk.
+    /// Finer-grained answers - per library, per member, per caller - are an <c>IExternalCallInterceptor</c>'s job.
+    /// </remarks>
+    public bool AllowAutomation { get; set; } = true;
 }
 
 public record class SdkServerAppOptions

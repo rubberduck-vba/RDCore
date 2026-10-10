@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Semantics.Expressions;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Literals;
@@ -299,13 +300,21 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     {
         // a declared type carries the class as it was when the type was built, and the class is what the instance is
         // made from: its members at the moment of the reference.
-        if (session.Symbols.Resolver.ResolveType(classModule.Name, ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol current)
+        // A class of a library is looked up by that library, as the name that declared it was qualified or resolved to it: only a name that is not qualified is
+        // decided by the order the references are in, and the class here has already been decided.
+        if (VBProjectSymbol.ResolveQualifiedType(
+            session.Symbols.Resolver, classModule.GetProperty(SymbolProperties.Library), classModule.Name, StaticSymbol.GlobalUri).Symbol is VBClassModuleSymbol current)
         {
             classModule = current;
         }
 
         var objectId = session.Objects.CreateObject();
         session.Symbols.CreateInstance(objectId, classModule);
+        if (ExternalObjectCreation.Create(session, classModule, objectId, default) is { } notCreated)
+        {
+            return notCreated;
+        }
+
         var created = new VBObjectValue(objectId);
 
         // the variable holds the object before Initialize runs, as it holds one a Set stored: the handler can already

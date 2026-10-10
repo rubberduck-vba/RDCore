@@ -105,11 +105,14 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
     /// <inheritdoc/>
     /// <remarks>
-    /// A member the standard library declares — which is exactly a member carrying the key the reader stamped
-    /// on it. A member of some other external target carries no such key, and is some other provider's.
+    /// A member the standard library declares — a member carrying the key the reader stamped on it, that no
+    /// other library claims as its own. A referenced library's members carry a key of their own kind and the
+    /// name of the library (<see cref="SymbolProperties.Library"/>); those are its provider's, and answering
+    /// them here would report as unimplemented what only has not been asked of the right provider.
     /// </remarks>
     public bool CanDispatch(ExternalCallRequest request)
-        => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 };
+        => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
+        && request.Member.GetProperty(SymbolProperties.Library) is null or StdLibSymbolProvider.LibraryName;
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)

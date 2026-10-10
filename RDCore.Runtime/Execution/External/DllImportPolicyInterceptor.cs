@@ -16,9 +16,9 @@ namespace RDCore.Runtime.Execution.External;
 /// refused.
 /// </para>
 /// <para>
-/// 🚧 It has no opinion about a COM call into a host application's object model. Automating Excel is not the
+/// It has no opinion about a call into a host application's object model. Automating Excel is not the
 /// same risk as calling an arbitrary export, and lumping them together would make the setting useless to
-/// anyone who needs one and not the other. TODO a policy of its own when a COM provider exists.
+/// anyone who needs one and not the other: that is <see cref="AutomationPolicyInterceptor"/>'s.
 /// </para>
 /// </remarks>
 public sealed class DllImportPolicyInterceptor : IExternalCallInterceptor

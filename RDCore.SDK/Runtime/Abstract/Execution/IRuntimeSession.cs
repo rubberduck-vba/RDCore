@@ -117,6 +117,17 @@ public interface IRuntimeSession
     /// left without raising <c>Terminate</c>.
     /// </remarks>
     IObjectLifecycle? Lifecycle { get; set; }
+
+    /// <summary>
+    /// The objects of this session that something outside the workspace owns, and who owns them.
+    /// </summary>
+    ISessionExternalObjects ExternalObjects { get; }
+
+    /// <summary>
+    /// What reaches everything that is not the workspace's own code, or <see langword="null"/> while nothing can run a call against the session yet. Set by
+    /// whatever composes the execution pipeline. It is what <c>New</c> asks to create an object of a referenced library.
+    /// </summary>
+    IExternalDispatcher? External { get; set; }
 }
 
 /// <summary>
