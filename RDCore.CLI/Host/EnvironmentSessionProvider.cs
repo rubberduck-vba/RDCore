@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External.Automation;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
@@ -71,6 +72,15 @@ public interface IEnvironmentSessionProvider
     ProgramExecution Execution { get; }
 
     /// <summary>
+    /// What reaches the automation servers that the objects of a referenced library are held by: those of the machine this host runs on, unless it was
+    /// given others.
+    /// </summary>
+    /// <remarks>
+    /// Of the host and not of a run, because the objects a program made outlive it in the session and have to be let go of by what made them.
+    /// </remarks>
+    IAutomationServer Automation { get; }
+
+    /// <summary>
     /// Composes the session from a loaded project's module structure and precompiler constants.
     /// Replaces any previously composed session.
     /// </summary>
@@ -84,9 +94,13 @@ public sealed class EnvironmentSessionProvider(
     IRuntimeEnvironmentProfile environment,
     IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger,
-    ILibrarySource? librarySource = null) : IEnvironmentSessionProvider
+    ILibrarySource? librarySource = null,
+    IAutomationServer? automationServer = null) : IEnvironmentSessionProvider
 {
     private IRuntimeSession? _session;
+
+    /// <inheritdoc/>
+    public IAutomationServer Automation => automationServer ?? AutomationServers.Machine;
 
     /// <inheritdoc/>
     public bool IsComposed => _session is not null;

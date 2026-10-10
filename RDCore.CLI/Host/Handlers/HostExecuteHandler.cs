@@ -75,7 +75,7 @@ internal sealed class HostExecuteHandler(
 
         // the pipeline is composed per run: the cancellation is this run's own. For a program under a debugger a cancellation is a break and not the end of the
         // run, which the owner of the program sees to.
-        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, request.Debug ? CancellationToken.None : token);
+        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, request.Debug ? CancellationToken.None : token, automation: sessionProvider.Automation);
 
         return RunAsync(pipeline, entryPoint, request, token);
     }

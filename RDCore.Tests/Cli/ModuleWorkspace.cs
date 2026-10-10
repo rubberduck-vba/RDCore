@@ -47,7 +47,10 @@ internal static class ModuleWorkspace
     /// </summary>
     /// <param name="References">The names of the libraries the project references, in order, after the standard library.</param>
     /// <param name="Source">Where the descriptions of the libraries are.</param>
-    public sealed record WorkspaceLibraries(IReadOnlyList<string> References, ILibrarySource Source);
+    /// <param name="Automation">What the objects of the libraries are held by: the servers of the machine unless a test brings its own.</param>
+    /// <param name="AllowAutomation">Whether the environment lets a program use the objects of a library at all.</param>
+    public sealed record WorkspaceLibraries(
+        IReadOnlyList<string> References, ILibrarySource Source, RDCore.Runtime.Execution.External.Automation.IAutomationServer? Automation = null, bool AllowAutomation = true);
 
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
@@ -150,8 +153,8 @@ internal static class ModuleWorkspace
         }
 
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language), new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance,
-            libraries?.Source);
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true),
+            new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source, libraries?.Automation);
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 

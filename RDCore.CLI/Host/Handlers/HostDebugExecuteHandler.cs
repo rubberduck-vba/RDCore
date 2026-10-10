@@ -36,7 +36,7 @@ internal sealed class HostDebugExecuteHandler(IEnvironmentSessionProvider sessio
             return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoStatement });
         }
 
-        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages);
+        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, automation: sessionProvider.Automation);
         return Task.FromResult(sessionProvider.Execution.Execute(pipeline, request.FrameId, statement));
     }
 }

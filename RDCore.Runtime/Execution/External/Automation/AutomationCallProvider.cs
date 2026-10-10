@@ -93,9 +93,12 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         }
 
         var passed = Arguments(request, parameters, resolver);
-        var result = server.Invoke(target, name, invocation, [.. passed.Values], [.. passed.ByReference]);
 
-        WriteBack(passed, parameters, resolver);
+        // the array the server is given is the one it writes the arguments passed by reference back into.
+        var values = passed.Values.ToArray();
+        var result = server.Invoke(target, name, invocation, values, [.. passed.ByReference]);
+
+        WriteBack(passed, values, parameters, resolver);
 
         // a value is assigned and a member that returns nothing has returned it: neither has anything to read.
         return RuntimeSemanticsEvaluationResult.Success(invocation is AutomationInvocation.Let or AutomationInvocation.Set
@@ -165,11 +168,12 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
     }
 
     // MS-VBAL §5.3.1.11: a reference parameter is the variable the argument names, so a server that wrote to it has written to the variable.
-    private void WriteBack(PassedArguments passed, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters, ISymbolResolver resolver)
+    private void WriteBack(
+        PassedArguments passed, object?[] values, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters, ISymbolResolver resolver)
     {
         foreach (var (parameter, position, address, sent) in passed.Variables)
         {
-            var now = passed.Values[position];
+            var now = values[position];
             if (Equals(sent, now) || !resolver.TryRead(address, out var cell))
             {
                 continue;

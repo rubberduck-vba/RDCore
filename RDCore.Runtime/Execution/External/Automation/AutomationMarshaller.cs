@@ -55,7 +55,7 @@ internal static class AutomationMarshaller
             case VBNullValue:
                 return DBNull.Value;
             case VBBooleanValue boolean:
-                return boolean.Value;
+                return (bool)boolean.Value;
             case VBByteValue @byte:
                 return @byte.Value;
             case VBIntegerValue integer:
@@ -69,7 +69,7 @@ internal static class AutomationMarshaller
             case VBDoubleValue @double:
                 return @double.Value;
             case VBCurrencyValue currency:
-                return new CurrencyWrapper(currency.Value);
+                return new CurrencyWrapper(currency.Value.Value);
             case VBDecimalValue @decimal:
                 return @decimal.Value;
             case VBDateValue date:
