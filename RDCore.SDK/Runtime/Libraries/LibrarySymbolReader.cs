@@ -133,8 +133,9 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
             VBUnknownType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
 
         var constants = description.Members
-            .Select(member => new VBEnumConstMemberSymbol(
-                workspaceRoot, symbol.Uri, member.Name, ScopeKind.Module, SymbolKindExt.EnumMember, SourceRange.Empty, SourceRange.Empty))
+            .Select(member => (VBEnumConstMemberSymbol)new VBEnumConstMemberSymbol(
+                workspaceRoot, symbol.Uri, member.Name, ScopeKind.Module, SymbolKindExt.EnumMember, SourceRange.Empty, SourceRange.Empty)
+                .With(SymbolProperties.EnumValue, member.Value))
             .ToArray();
 
         return (VBEnumMemberSymbol)(symbol with { ResolvedType = new VBEnumType(symbol, constants, description.IsHidden) }).With(SymbolProperties.Library, library.Name);

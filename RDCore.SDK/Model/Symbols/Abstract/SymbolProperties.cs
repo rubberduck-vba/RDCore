@@ -117,6 +117,14 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
     /// <summary>
+    /// The value of a member of an enumeration that something other than the workspace's source declares: the library that stated it, or the standard library.
+    /// </summary>
+    /// <remarks>
+    /// Such a member has no declaration to evaluate (<strong>MS-VBAL §5.2.3.4</strong>) and is allocated no storage, so the value travels with the symbol.
+    /// Absent on a member a workspace declares.
+    /// </remarks>
+    public static readonly SymbolProperty<long> EnumValue = new(nameof(EnumValue));
+    /// <summary>
     /// The name an object of a class of a referenced library is created by from a string - <c>CreateObject("Scripting.Dictionary")</c> - on a class
     /// that can be created.
     /// </summary>

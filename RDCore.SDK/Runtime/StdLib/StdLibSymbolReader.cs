@@ -212,10 +212,11 @@ public sealed class StdLibSymbolReader
             VBUnknownType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
 
         var constants = declaration.GetFields(BindingFlags.Public | BindingFlags.Static)
-            .Select(field => new VBEnumConstMemberSymbol(
+            .Select(field => (VBEnumConstMemberSymbol)new VBEnumConstMemberSymbol(
                 _workspaceRoot, symbol.Uri,
                 field.GetCustomAttribute<StdLibConstantAttribute>()?.Name ?? StdLibNames.ConstantName(field.Name),
-                ScopeKind.Module, SymbolKindExt.EnumMember, SourceRange.Empty, SourceRange.Empty))
+                ScopeKind.Module, SymbolKindExt.EnumMember, SourceRange.Empty, SourceRange.Empty)
+                .With(SymbolProperties.EnumValue, Convert.ToInt64(field.GetRawConstantValue())))
             .ToArray();
 
         return symbol with { ResolvedType = new VBEnumType(symbol, constants) };
