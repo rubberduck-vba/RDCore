@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -89,6 +90,17 @@ public interface ICallStackFrame : IStackFrame
     /// (<strong>MS-VBAL §5.3.1.11</strong>).
     /// </summary>
     bool IsByRefParameter(Symbol symbol);
+
+    /// <summary>
+    /// The declared type of the variable a <c>ByRef</c> parameter of this activation is a second name for, when it is not the parameter's own: a <c>Variant</c>
+    /// parameter given a variable of another type (<strong>MS-VBAL §5.3.1.11</strong>). Such a parameter "is treated as having a declared type of Variant, except when
+    /// used as the &lt;l-expression&gt; within Let-assignment or Set-assignment, in which case it is treated as having the declared type of the argument's referenced
+    /// variable": it reads as a <c>Variant</c> holding a value of this type, and is assigned as this type.
+    /// </summary>
+    /// <param name="symbol">The parameter.</param>
+    /// <param name="declaredType">The declared type of the variable it is bound to.</param>
+    /// <returns><see langword="false"/> for any other symbol, and for a parameter of the same type as its variable.</returns>
+    bool TryGetReferencedType(Symbol symbol, [NotNullWhen(true)] out VBType? declaredType);
 
     /// <summary>
     /// Whether a <c>ByRef</c> parameter of this activation is the variable at <paramref name="address"/> - whether this activation <em>locks</em> it

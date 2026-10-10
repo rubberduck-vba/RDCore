@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -27,6 +28,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     private readonly SymbolAddressTable _addresses = new(Storage);
     private readonly HashSet<SemanticId> _declared = [];
     private readonly Dictionary<SemanticId, MemoryAddress> _byRefAliases = [];
+    private readonly Dictionary<SemanticId, VBType> _referencedTypes = [];
     private readonly Dictionary<int, VBTypedValue> _blockState = [];
     private readonly Dictionary<int, ForLoopState> _forLoopState = [];
     private readonly Dictionary<int, ForEachState> _forEachState = [];
@@ -175,8 +177,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// aliasing, the same variable under a second local name, not a copy: a write inside this activation
     /// is visible to the caller the instant it happens, with no copy-back step needed.
     /// </summary>
+    /// <param name="symbol">The parameter.</param>
+    /// <param name="address">The address of the variable it is a second name for.</param>
+    /// <param name="referencedType">
+    /// The declared type of that variable when the parameter does not have it - a <c>Variant</c> parameter given a variable of another type
+    /// (<see cref="TryGetReferencedType"/>); <see langword="null"/> when it does.
+    /// </param>
     /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame.</exception>
-    public void PushByRef(Symbol symbol, MemoryAddress address)
+    public void PushByRef(Symbol symbol, MemoryAddress address, VBType? referencedType = null)
     {
         if (!_declared.Add(symbol.SemanticId))
         {
@@ -184,7 +192,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         _byRefAliases[symbol.SemanticId] = address;
+        if (referencedType is not null)
+        {
+            _referencedTypes[symbol.SemanticId] = referencedType;
+        }
     }
+
+    /// <inheritdoc/>
+    public bool TryGetReferencedType(Symbol symbol, [NotNullWhen(true)] out VBType? declaredType)
+        => _referencedTypes.TryGetValue(symbol.SemanticId, out declaredType);
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)

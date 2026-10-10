@@ -168,7 +168,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             result = server.Invoke(target, name, invocation, values, [.. passed.ByReference], session.Environment.Culture);
         }
 
-        WriteBack(passed, values, parameters, resolver);
+        WriteBack(passed, values, resolver);
 
         // a value is assigned and a member that returns nothing has returned it: neither has anything to read.
         if (invocation is AutomationInvocation.Let or AutomationInvocation.Set)
@@ -190,9 +190,9 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
         public List<bool> ByReference { get; } = [];
 
-        // where the server wrote an argument that was passed by reference, so the variable it names can be told: the parameter, the argument's
-        // position among the values, the address of the variable, and what it held.
-        public List<(int Parameter, int Position, MemoryAddress Address, object? Sent)> Variables { get; } = [];
+        // where the server wrote an argument that was passed by reference, so the variable it names can be told: the type the variable is declared, the
+        // argument's position among the values, the address of the variable, and what it held.
+        public List<(VBType Declared, int Position, MemoryAddress Address, object? Sent)> Variables { get; } = [];
     }
 
     // the arguments in the order the server takes them. The caller has Let-coerced each to the parameter's declared type, which is what recovers the
@@ -221,16 +221,21 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             }
 
             MemoryAddress? address = null;
+            VBType? referenced = null;
             while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
             {
                 address ??= reference.Value;
+                referenced ??= reference.DeclaredType;
                 argument = cell.Value;
             }
 
+            // MS-VBAL §5.3.1.11: a variable passed to a Variant parameter is the variable, of the type it is declared - which is what the server is given, by reference.
+            var declared = referenced ?? parameter.ResolvedType;
+
             // MS-VBAL §5.2.3.4: a member of an enumeration is a Long, and so is a value of its type to a server, which knows it as one.
-            var typed = parameter.ResolvedType is VBEnumType
+            var typed = declared is VBEnumType
                 ? new VBLongValue(Convert.ToInt32(argument.BoxedValue, System.Globalization.CultureInfo.InvariantCulture))
-                : parameter.ResolvedType.CreateValue(new ValueBindingHandle(argument));
+                : declared.CreateValue(new ValueBindingHandle(argument));
             var converted = AutomationMarshaller.ToAutomation(typed, HandleOf, omitEmpty: parameter.IsOptional && parameter.ResolvedType is VBVariantType);
 
             // only a variable can be written to; one of a type the server cannot write a result of back to (an object, an array) is not told.
@@ -238,7 +243,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
                 && converted is not (Array or null) and not Type and not System.Runtime.InteropServices.DispatchWrapper;
             if (writable)
             {
-                passed.Variables.Add((index, passed.Values.Count, address!.Value, converted));
+                passed.Variables.Add((declared, passed.Values.Count, address!.Value, converted));
             }
 
             passed.Values.Add(converted);
@@ -249,10 +254,9 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
     }
 
     // MS-VBAL §5.3.1.11: a reference parameter is the variable the argument names, so a server that wrote to it has written to the variable.
-    private void WriteBack(
-        PassedArguments passed, object?[] values, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters, ISymbolResolver resolver)
+    private void WriteBack(PassedArguments passed, object?[] values, ISymbolResolver resolver)
     {
-        foreach (var (parameter, position, address, sent) in passed.Variables)
+        foreach (var (variableType, position, address, sent) in passed.Variables)
         {
             var now = values[position];
             if (Equals(sent, now) || !resolver.TryRead(address, out var cell))
@@ -262,7 +266,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
             try
             {
-                var written = AutomationMarshaller.FromAutomation(now, parameters[parameter].ResolvedType, (value, declared) => Wrap(value, declared, resolver));
+                var written = AutomationMarshaller.FromAutomation(now, variableType, (value, declared) => Wrap(value, declared, resolver));
                 cell.SetValue(resolver, written.RuntimeValue);
             }
             catch (AutomationException)

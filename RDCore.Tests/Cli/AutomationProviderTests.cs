@@ -37,6 +37,11 @@ public sealed class AutomationProviderTests
                     },
                     new MemberDescription
                     {
+                        Name = "Level", Kind = MemberKind.Method,
+                        Parameters = [new ParameterDescription { Name = "Amount", Type = "Variant" }],
+                    },
+                    new MemberDescription
+                    {
                         Name = "Pour", Kind = MemberKind.Method, Type = "Variant",
                         Parameters = [new ParameterDescription { Name = "Into", Type = "Variant", IsOptional = true }],
                     },
@@ -81,6 +86,9 @@ public sealed class AutomationProviderTests
         public Beaker Clone() => new() { Volume = Volume };
 
         public void Fill(double amount, ref int spill) => spill = (int)Math.Ceiling(amount);
+
+        // says what it was given, by writing back something of another type.
+        public void Level(ref object? amount) => amount = amount is int whole ? whole * 2.5 : $"({amount?.GetType().Name})";
 
         public string Pour(object? into) => into is Omitted ? "nowhere" : $"into {into}";
 
@@ -218,6 +226,24 @@ public sealed class AutomationProviderTests
             "Dim spill As Long",
             "b.Fill 2.5, spill",
             "Debug.Print spill"));
+
+    // MS-VBAL §5.3.1.11: a variable passed to a Variant parameter is the variable, of its declared type - the server is given a Long, and what it writes is a Long.
+    [TestMethod]
+    public async Task AVariableOfAnotherTypePassedToAVariantByReference_IsGivenAsItsType_AndWrittenBackAsItsType()
+        => CollectionAssert.AreEqual(new[] { "8", "(String)", "7.5" }, await Run(
+            "Dim b As New Lab.Beaker",
+            "Dim n As Long",
+            "n = 3",
+            "b.Level n",
+            "Debug.Print n",
+            "Dim s As String",
+            "s = \"x\"",
+            "b.Level s",
+            "Debug.Print s",
+            "Dim v As Variant",
+            "v = CLng(3)",
+            "b.Level v",
+            "Debug.Print v"));
 
     [TestMethod]
     public async Task AnOptionalArgumentThatIsLeftOut_IsLeftOutForTheServer_AndOneThatIsGiven_IsGiven()

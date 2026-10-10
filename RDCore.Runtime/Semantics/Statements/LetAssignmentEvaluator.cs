@@ -582,8 +582,12 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type is assigned "as having the declared type of the argument's
+        // referenced variable".
+        var referenced = session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var declared) ? declared : null;
+
         // MS-VBAL §5.4.3.8: a value let-assigned to a variable of a class or Object is let-assigned to the default property of the object it holds.
-        if (symbol is ITypedSymbol { ResolvedType: VBClassType or VBObjectType })
+        if ((referenced ?? (symbol as ITypedSymbol)?.ResolvedType) is VBClassType or VBObjectType)
         {
             return AssignDefaultMember(session, context, statement, target, source, value);
         }
@@ -593,7 +597,7 @@ public sealed class LetAssignmentEvaluator(
         // passed directly rather than read back off the node's Children.
         var syntheticOperator = new VBBinaryOperatorExpressionNode(
             OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
-        var result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(symbol), value);
+        var result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(symbol, referenced), value);
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
@@ -610,7 +614,14 @@ public sealed class LetAssignmentEvaluator(
             return evaluated.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
         }
 
-        if (evaluated.Result is not VBObjectValue owner)
+        // a Variant reference parameter bound to an object variable reads as a Variant that holds the object.
+        var held = evaluated.Result;
+        while (held is VBVariantValue { TypedValue: { } wrapped })
+        {
+            held = wrapped;
+        }
+
+        if (held is not VBObjectValue owner)
         {
             return RuntimeExecutionOutcome.InternalError;
         }

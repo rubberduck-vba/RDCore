@@ -15,6 +15,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
@@ -272,6 +273,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
         }
 
         var handle = session.Symbols.Resolver.GetValue(symbol);
+
+        // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type "is treated as having a declared type of Variant": what it reads is a
+        // Variant, holding the variable's value as the type the variable is declared to be.
+        if (session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var referenced))
+        {
+            return Assumed(RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(referenced.CreateValue(handle.ForReading()))));
+        }
+
         var value = typed.ResolvedType.CreateValue(handle.ForReading());
 
         // MS-VBAL §5.2.3.1.4 / §2.5.1: a variable declared As New - a class module's default instance among them - is
@@ -1527,12 +1536,12 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     {
         reference = VBRuntimeReference.NullRef;
 
-        // `As Any` is a parameter of a Declare that takes whatever it is given, a variable of any type by reference.
+        // `As Any` is a parameter of a Declare that takes whatever it is given, a variable of any type by reference - and passes it as the type it is.
         if (external && parameter.ResolvedType is VBUnknownType && argument is SimpleNameExpressionNode anyName
-            && session.Symbols.Resolver.ResolveValue(anyName, ScopeKind.Local, context.Scope).Symbol is { } anySymbol and ITypedSymbol
+            && session.Symbols.Resolver.ResolveValue(anyName, ScopeKind.Local, context.Scope).Symbol is { } anySymbol and ITypedSymbol anyTyped
             && session.Symbols.Resolver.TryGetAddress(anySymbol, out var anyAddress))
         {
-            reference = new VBRuntimeReference(anyAddress);
+            reference = new VBRuntimeReference(anyAddress, DeclaredTypeOf(session, anySymbol, anyTyped.ResolvedType));
             return true;
         }
 
@@ -1559,9 +1568,19 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return false;
         }
 
-        reference = new VBRuntimeReference(address);
+        reference = new VBRuntimeReference(address, ReferencedType(parameter, DeclaredTypeOf(session, argumentSymbol, typed.ResolvedType)));
         return true;
     }
+
+    // MS-VBAL §5.3.1.11: a Variant parameter given a variable of another type is bound to it, and the binding knows what the variable is declared to be - the
+    // binding reads as a Variant, and is assigned as that type. A parameter of the variable's own type needs nothing more than the address.
+    private static VBType? ReferencedType(VBParameterSymbol parameter, VBType variableType)
+        => parameter.ResolvedType is VBVariantType && !variableType.Equals(parameter.ResolvedType) ? variableType : null;
+
+    // the declared type of the variable a name is: its own, unless the name is a reference parameter of the current activation bound to a variable of another
+    // type - which is the variable it hands on when it is passed by reference again.
+    private static VBType DeclaredTypeOf(IRuntimeSession session, Symbol symbol, VBType declared)
+        => session.CallStack.Current is { } current && current.TryGetReferencedType(symbol, out var referenced) ? referenced : declared;
 
     // MS-VBAL §5.3.1.11: a public variable of an object is a variable too, with an address of its own, and a ByRef parameter is a second name for it
     // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property, and the field of a
@@ -1591,7 +1610,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             return false;
         }
 
-        reference = new VBRuntimeReference(address);
+        reference = new VBRuntimeReference(address, ReferencedType(parameter, fieldType));
         return true;
     }
 

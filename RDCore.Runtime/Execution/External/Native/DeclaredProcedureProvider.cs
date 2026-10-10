@@ -125,17 +125,25 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session) : IExtern
         {
             // the variable an argument names, when it names one: what the function writes to is written to it.
             IBindingHandle? variable = null;
+            VBType? referenced = null;
             while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
             {
                 variable = cell;
+                referenced ??= reference.DeclaredType;
                 argument = cell.Value;
             }
 
             var declared = parameter.ResolvedType;
             var byReference = RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind);
 
-            // As Any: the argument is passed the way a parameter of its own type would take it.
-            var typed = declared is VBUnknownType ? TypedOf(argument) : declared.CreateValue(new ValueBindingHandle(argument));
+            // As Any: the argument is passed the way a parameter of its own type would take it - the declared type of the variable it names, or what a value is.
+            // A Variant given a variable of another type is a Variant that holds the variable's value, of its type (MS-VBAL §5.3.1.11).
+            var typed = declared switch
+            {
+                VBUnknownType => referenced?.CreateValue(new ValueBindingHandle(argument)) ?? TypedOf(argument),
+                VBVariantType when referenced is not null => new VBVariantValue(referenced.CreateValue(new ValueBindingHandle(argument))),
+                _ => declared.CreateValue(new ValueBindingHandle(argument)),
+            };
             if (typed is VBVariantValue { TypedValue: var held } && declared is VBUnknownType)
             {
                 typed = held;
@@ -148,7 +156,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session) : IExtern
 
             if (declared is VBVariantType)
             {
-                return PassVariant(typed, byReference, variable, resolver);
+                return PassVariant(typed, byReference, variable, referenced ?? VBVariantType.TypeInfo, resolver);
             }
 
             // vbNullString is "a string whose value is zero" to the function: a null pointer, which a zero-length string is not.
@@ -243,7 +251,8 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session) : IExtern
             return true;
         }
 
-        private bool PassVariant(VBTypedValue typed, bool byReference, IBindingHandle? variable, ISymbolResolver resolver)
+        // what the function leaves in a Variant passed by reference is the variable's afterwards, as the type the variable is declared.
+        private bool PassVariant(VBTypedValue typed, bool byReference, IBindingHandle? variable, VBType variableType, ISymbolResolver resolver)
         {
             if (!OperatingSystem.IsWindows())
             {
@@ -274,7 +283,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session) : IExtern
                 if (variable is not null)
                 {
                     _afterCall.Add(() => variable.SetValue(resolver,
-                        AutomationMarshaller.FromAutomation(Marshal.GetObjectForNativeVariant(buffer), VBVariantType.TypeInfo, (_, _) => VBObjectValue.Nothing).RuntimeValue));
+                        AutomationMarshaller.FromAutomation(Marshal.GetObjectForNativeVariant(buffer), variableType, (_, _) => VBObjectValue.Nothing).RuntimeValue));
                 }
 
                 return true;

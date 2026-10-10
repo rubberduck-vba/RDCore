@@ -229,9 +229,12 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return valueResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(valueResult.ErrorInfo!);
         }
 
+        // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type is Set-assigned as that variable is declared.
+        var declared = session.CallStack.Current is { } frame && frame.TryGetReferencedType((Symbol)target, out var referenced) ? referenced : target.ResolvedType;
+
         // Set-coercion (MS-VBAL §5.5.2.2) is not an operator - the same direct entry point
         // WithStatementRuntimeSemantics already uses for its own With-target coercion.
-        var coercionResult = _setCoercion.EvaluateSetCoercion(session, assignment.Value, valueResult.Result!, target.ResolvedType);
+        var coercionResult = _setCoercion.EvaluateSetCoercion(session, assignment.Value, valueResult.Result!, declared);
         if (!coercionResult.IsSuccess)
         {
             return RuntimeExecutionOutcome.Error(coercionResult.ErrorInfo!);
@@ -256,7 +259,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
 
         // a value is a view of its handle, which is about to be written to: what the variable held is its object's
         // identity as of now.
-        var previous = target.ResolvedType.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
+        var previous = declared.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
 
         // MS-VBAL §5.4.3.9: a WithEvents variable's handlers are detached from the object it holds before the
         // assignment, and attached to the object it is given after it.

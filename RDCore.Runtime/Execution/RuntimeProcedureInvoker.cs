@@ -138,7 +138,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 // storage, set up by RuntimeExpressionEvaluator when it could resolve the argument's own
                 // address. A write inside this activation is visible to the caller instantly; no
                 // copy-back step is needed because nothing was ever copied.
-                frame.PushByRef(parameter, reference.Value);
+                frame.PushByRef(parameter, reference.Value, reference.DeclaredType);
             }
             else
             {

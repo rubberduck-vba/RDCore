@@ -41,6 +41,22 @@ public sealed class AutomationEndToEndTests
             "Debug.Print d.Exists(\"b\")",
             "Debug.Print d.Exists(\"c\")"));
 
+    // the key and the item are Variants passed by reference, given the loop's Long: the dictionary holds Longs (MS-VBAL §5.3.1.11).
+    [TestMethod]
+    public async Task ADictionary_IsFilledWithTheVariablesOfALoop()
+        => CollectionAssert.AreEqual(new[] { "3", "6" }, await Run(
+            "Dim d As New Scripting.Dictionary",
+            "Dim i As Long",
+            "Dim s As Long",
+            "For i = 1 To 3",
+            "d.Add i, i",
+            "Next",
+            "For i = 1 To 3",
+            "s = s + d.Item(i)",
+            "Next",
+            "Debug.Print d.Count",
+            "Debug.Print s"));
+
     /// <summary>
     /// An event Excel raises while a call is made is handled inside the call: the handler of a workbook's <c>BeforeClose</c> cancels it by setting an argument Excel passed
     /// by reference, and Excel finds it set when the handler returns. Skipped on a machine that does not have Excel.
