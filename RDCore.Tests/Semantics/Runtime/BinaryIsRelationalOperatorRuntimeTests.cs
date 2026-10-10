@@ -35,6 +35,22 @@ public sealed class BinaryIsRelationalOperatorRuntimeTests : OperatorRelationalR
     public void ObjectIsNotNothing_False()
         => AssertResult<VBBooleanValue>(Evaluate(Is(), new VBObjectValue(new VBRuntimeObjectId()), VBObjectValue.Nothing), false);
 
+    // MS-VBAL 5.6.9.7: "the declared type of each expression MUST be a specific class, Object or Variant" - a Variant is compared by the object it holds.
+    [TestMethod]
+    public void AVariantThatHoldsTheSameReference_True()
+    {
+        var reference = new VBObjectValue(new VBRuntimeObjectId());
+        AssertResult<VBBooleanValue>(Evaluate(Is(), new VBVariantValue(reference), reference), true);
+    }
+
+    [TestMethod]
+    public void AVariantThatHoldsAnObject_IsNotNothing_False()
+        => AssertResult<VBBooleanValue>(Evaluate(Is(), new VBVariantValue(new VBObjectValue(new VBRuntimeObjectId())), new VBVariantValue(VBObjectValue.Nothing)), false);
+
+    [TestMethod]
+    public void AVariantThatHoldsNoObject_IsObjectRequired()
+        => AssertError(Evaluate(Is(), new VBVariantValue(new VBLongValue(5)), VBObjectValue.Nothing), VBRuntimeErrorId.ObjectRequired);
+
     [TestMethod]
     public void NonObjectLeftHandSide_IsObjectRequired()
         => AssertError(Evaluate(Is(), new VBLongValue(5), VBObjectValue.Nothing), VBRuntimeErrorId.ObjectRequired);

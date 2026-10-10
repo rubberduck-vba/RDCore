@@ -60,8 +60,9 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
-        var lhs = frame[InputIndex.BinaryLeftOperand];
-        var rhs = frame[InputIndex.BinaryRightOperand];
+        // MS-VBAL 5.6.9.7: an operand may be a Variant, and a Variant is compared by the object it holds.
+        var lhs = Held(frame[InputIndex.BinaryLeftOperand]);
+        var rhs = Held(frame[InputIndex.BinaryRightOperand]);
 
         // an operand is comparable by reference identity when it is currently bound to one — true of
         // VBObjectValue/VBNothingValue always, and of a VBVariantValue currently holding an object.
@@ -75,5 +76,15 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         }
 
         return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(lhsReference.StoredValue.Equals(rhsReference.StoredValue)));
+    }
+
+    private static SDK.Model.Values.Abstract.VBTypedValue Held(SDK.Model.Values.Abstract.VBTypedValue operand)
+    {
+        while (operand is VBVariantValue { TypedValue: { } held })
+        {
+            operand = held;
+        }
+
+        return operand;
     }
 }
