@@ -164,6 +164,8 @@ In any case, the role of this abstraction layer is to configure the _capabilitie
 > ```
 >
 > `export-library` takes a file (`scrrun.dll`), the identifier the machine gave the library, or its name; when several versions of a library are registered, the latest is described. `--dependencies` describes the libraries it depends on too, which a project needs in order to reference it.
+>
+> The description is what a project is _checked_ against; what it _runs_ against are the objects of the library on the machine that runs it. `New Scripting.Dictionary` is a real dictionary, and `New Excel.Application` starts a real Excel, driven from the sidelines through its object model. Today that is the automation servers of Windows; elsewhere, a program that creates one of these objects is told that the platform has none (error 429), while the same program is analyzed anywhere. Every such call passes through the same interception chain as any call outside the workspace, and an administrator can refuse them all with `"AllowAutomation": false` in `appsettings.json` (error 70, _Permission denied_).
 
 
 ### Capabilities

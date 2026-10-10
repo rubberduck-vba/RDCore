@@ -300,6 +300,19 @@ public sealed class AutomationProviderTests
             "Debug.Print Err.Number"));
 
     [TestMethod]
+    public async Task AnAnalysisOfTheCode_NeverCreatesOrCallsAnObjectOfAServer()
+    {
+        var server = new FakeServer();
+        var model = await ModelAsync(
+            [],
+            "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nDim b As New Lab.Beaker\r\nb.Volume = 5\r\nDim n As Long\r\nn = b.Volume + 1\r\nFor Each n In b\r\nNext\r\nEnd Sub\r\n",
+            libraries: new WorkspaceLibraries(["Lab"], new InMemoryLibrarySource(Lab), server));
+
+        Assert.IsNotNull(model.Procedures.Single().Runtime, "the code was evaluated");
+        Assert.IsEmpty(server.Created, "and nothing outside the workspace was made, or called, to do it");
+    }
+
+    [TestMethod]
     public async Task WhenTheLastReferenceIsLetGo_TheServerIsToo()
     {
         var (output, server) = await Run(true,

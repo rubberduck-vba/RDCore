@@ -165,6 +165,8 @@ Dans tous les cas, le rôle de ce niveau d'abstraction est de configurer les _ca
 > ```
 >
 > `export-library` accepte un fichier (`scrrun.dll`), l'identifiant que la machine a donné à la bibliothèque, ou son nom; quand plusieurs versions d'une bibliothèque sont enregistrées, la plus récente est décrite. `--dependencies` décrit aussi les bibliothèques dont elle dépend, qu'un projet doit avoir pour la référencer.
+>
+> La description est ce contre quoi un projet est _vérifié_; ce contre quoi il _s'exécute_, ce sont les objets de la bibliothèque sur la machine qui l'exécute. `New Scripting.Dictionary` est un vrai dictionnaire, et `New Excel.Application` démarre un vrai Excel, piloté de l'extérieur par son modèle objet. Aujourd'hui, ce sont les serveurs d'automation de Windows; ailleurs, un programme qui crée un de ces objets apprend que la plateforme n'en a pas (erreur 429), alors que le même programme est analysé n'importe où. Chacun de ces appels passe par la même chaîne d'interception que tout appel à l'extérieur de l'espace de travail, et un administrateur peut tous les refuser avec `"AllowAutomation": false` dans `appsettings.json` (erreur 70, _Permission denied_).
 
 
 ### Capacités
