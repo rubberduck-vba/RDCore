@@ -103,6 +103,11 @@ public sealed class ChildConnection(
     private bool _disposed;
 
     /// <summary>
+    /// The operating-system identifier of the child process; <c>0</c> before it is started.
+    /// </summary>
+    public int ProcessId => serverProcess.ProcessId;
+
+    /// <summary>
     /// The current lifecycle state of the connection.
     /// </summary>
     public ConnectionState State { get; private set; } = ConnectionState.NotStarted;

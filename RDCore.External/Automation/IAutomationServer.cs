@@ -68,6 +68,18 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     bool IsAvailable { get; }
 
     /// <summary>
+    /// Gets ready to be called, without waiting: what reaches the servers and has to be started is started now, in the background, so that the first call a program
+    /// makes does not wait for it.
+    /// </summary>
+    /// <remarks>
+    /// Asked for by a host that knows a program can make such a call - one whose project references a library, in an environment that lets it use one; a host that knows
+    /// none can does not ask, and nothing is started. A server that has nothing to start does nothing.
+    /// </remarks>
+    void Prepare()
+    {
+    }
+
+    /// <summary>
     /// Creates an object by the name its class is registered under (<c>Scripting.Dictionary</c>).
     /// </summary>
     /// <param name="progId">The programmatic identifier of the class.</param>

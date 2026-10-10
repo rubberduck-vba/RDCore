@@ -51,6 +51,10 @@ public sealed class RemoteAutomationServer : IAutomationServer
     /// <inheritdoc/>
     public bool IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsAutomationAvailable;
 
+    // the external host is started on a thread of its own; a call that comes before it is up waits for it as it would have started it.
+    /// <inheritdoc/>
+    public void Prepare() => _ = Task.Run(() => _host.TryConnect(out _));
+
     /// <inheritdoc/>
     public object CreateObject(string progId)
     {

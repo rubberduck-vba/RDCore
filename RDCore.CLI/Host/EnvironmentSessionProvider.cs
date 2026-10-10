@@ -197,6 +197,13 @@ public sealed class EnvironmentSessionProvider(
         ProjectName = project.Name;
         ModuleCount = project.Modules.Length;
 
+        // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
+        // makes no such call, and nothing is started for it.
+        if (environment.AllowAutomation && !referenced.Libraries.IsEmpty)
+        {
+            Automation.Prepare();
+        }
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
