@@ -22,11 +22,15 @@ public abstract record class VBArrayType(VBType ItemType) :
     /// </summary>
     public static VBArrayType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBArrayValue> _defaultValue = new(() => VBResizableArrayValue.Empty, LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
-    /// Gets an empty (uninitialized) <c>VBResizableArrayValue</c>.
+    /// Gets an empty (uninitialized) <c>VBResizableArrayValue</c> of this type's <see cref="ItemType"/>.
     /// </summary>
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+    /// <remarks>
+    /// An array that has no dimensions yet is still an array of what it was declared as: <c>TypeName</c> of a <c>Dim a() As Long</c>
+    /// that nothing has <c>ReDim</c>'d is <c>"Long()"</c>. A fresh one each time, an array's cells being mutable storage that no two
+    /// variables may share.
+    /// </remarks>
+    public override VBTypedValue DefaultValue => new VBResizableArrayValue([], ItemType);
 
     /// <summary>
     /// Recovers the <see cref="VBArrayValue"/> boxed into <paramref name="handle"/> as a

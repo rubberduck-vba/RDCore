@@ -180,12 +180,18 @@ public static class SymbolDescriptorReader
                 var enumSymbol = new VBEnumMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.Enum,
                     VBUnknownType.TypeInfo, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return enumSymbol;
-                foreach (var member in node.Members.Where(m => m.Kind == SymbolDescriptorKind.EnumMember))
-                {
-                    yield return new VBEnumConstMemberSymbol(
+                VBEnumConstMemberSymbol[] members = [.. node.Members
+                    .Where(m => m.Kind == SymbolDescriptorKind.EnumMember)
+                    .Select(member => new VBEnumConstMemberSymbol(
                         workspaceRoot, enumSymbol.Uri, member.Name, member.Scope, SymbolKindExt.EnumMember,
-                        member.Range, member.SelectionRange);
+                        member.Range, member.SelectionRange))];
+
+                // the enum is the type a variable declared `As` it has (MS-VBAL 5.2.3.4): without it, such a variable is of a type nothing knows,
+                // which starts as Empty and refuses the Long it is meant to hold.
+                yield return enumSymbol with { ResolvedType = new VBEnumType(enumSymbol, members) };
+                foreach (var member in members)
+                {
+                    yield return member;
                 }
                 break;
             }

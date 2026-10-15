@@ -18,9 +18,12 @@ public record class VBFixedSizeArrayType(VBType ItemType) : VBArrayType(ItemType
     /// </summary>
     public static new VBArrayType TypeInfo => _instance.Value;
 
-    private static readonly Lazy<VBFixedSizeArrayValue> _defaultValue = new(() => new VBFixedSizeArrayValue([]), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
-    /// Gets an empty (uninitialized) <c>VBFixedSizeArrayType</c>.
+    /// Gets an empty (uninitialized) <c>VBFixedSizeArrayValue</c> of this type's <see cref="VBArrayType.ItemType"/>.
     /// </summary>
-    public override VBTypedValue DefaultValue => _defaultValue.Value;
+    /// <remarks>
+    /// The type does not know the bounds a declaration gives the array - those are the declaration's, which
+    /// <c>IVariableDefaults</c> reads - but it knows what the array is an array of.
+    /// </remarks>
+    public override VBTypedValue DefaultValue => new VBFixedSizeArrayValue([], ItemType);
 }

@@ -1,4 +1,7 @@
 ﻿#pragma warning disable IDE0130 // Namespace does not match folder structure
+using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
+
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
@@ -14,4 +17,9 @@ public sealed record class VBResizableByteArrayType() : VBResizableArrayType(VBB
     /// The <c>Byte()</c> resizable array data type.
     /// </summary>
     public static new VBArrayType TypeInfo => _instance.Value;
+
+    /// <summary>
+    /// Gets an empty (uninitialized) <c>Byte()</c> array: the value that Let-coerces to a zero-length <c>String</c>.
+    /// </summary>
+    public override VBTypedValue DefaultValue => new VBResizableByteArrayValue([]);
 }
