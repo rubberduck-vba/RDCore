@@ -25,11 +25,15 @@ public record class BinaryConcatOperatorStaticSemantics : StaticSemantics
         var lhs = operandDeclaredTypes[(int)InputIndex.BinaryLeftOperand];
         var rhs = operandDeclaredTypes[(int)InputIndex.BinaryRightOperand];
         
+        // 🎯 the specification's table leaves Boolean out of the types that concatenate to a String, which would make `"Done: " & IsEmpty(x)`
+        // a compile error; MS-VBA compiles it, and Let-coerces the Boolean to "True" or "False" like any other simple data value.
         return lhs switch
         {
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBNullType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType
+            VBNumericType or VBBooleanType or VBFixedStringType or VBStringType or VBDateType or VBNullType
+                when rhs is VBNumericType or VBBooleanType or VBFixedStringType or VBStringType or VBDateType
                 => StaticSemanticsEvaluationResult.Success(VBStringType.TypeInfo),
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType when rhs is VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBNullType
+            VBNumericType or VBBooleanType or VBFixedStringType or VBStringType or VBDateType
+                when rhs is VBNumericType or VBBooleanType or VBFixedStringType or VBStringType or VBDateType or VBNullType
                 => StaticSemanticsEvaluationResult.Success(VBStringType.TypeInfo),
 
             VBType and not VBArrayType and not VBUserDefinedType when rhs is VBVariantType

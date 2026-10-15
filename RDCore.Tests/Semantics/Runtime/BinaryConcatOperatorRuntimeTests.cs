@@ -70,9 +70,13 @@ public sealed class BinaryConcatOperatorRuntimeTests : OperatorConcatRuntimeSema
         => AssertResult<VBStringValue>(Evaluate(Concat(), VBNullValue.Null, new VBLongValue(5)), "5");
 
     [TestMethod]
-    public void BooleanOperand_IsTypeMismatch()
-        // see BinaryConcatOperatorEffectiveTypeTests.BooleanOperand_IsTypeMismatch for the spec citation.
-        => AssertError(Evaluate(Concat(), new VBBooleanValue(true), new VBStringValue("x")), VBRuntimeErrorId.TypeMismatch);
+    public void BooleanAndString_ConcatenatesTheBooleansToken()
+        // see BinaryConcatOperatorEffectiveTypeTests.BooleanOperand_IsString: MS-VBA's "x" & True is "xTrue".
+        => AssertResult<VBStringValue>(Evaluate(Concat(), new VBBooleanValue(true), new VBStringValue("x")), "Truex");
+
+    [TestMethod]
+    public void StringAndBoolean_ConcatenatesTheBooleansToken()
+        => AssertResult<VBStringValue>(Evaluate(Concat(), new VBStringValue("x"), new VBBooleanValue(false)), "xFalse");
 
     [TestMethod]
     public void ByteArrayAndByteArray_UninitializedArrays_ConcatenateToEmptyString()

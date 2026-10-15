@@ -97,12 +97,14 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         var rhs = rhsOperand.TypeInfo;
         return lhs switch
         {
-            VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
-                when rhs is VBNumericType or VBStringType or VBDateType or VBEmptyType
+            // 🎯 the specification's table has no Boolean row, which would make `"Done: " & True` a type mismatch; MS-VBA concatenates
+            // it as "Done: True", the Boolean Let-coerced to a String like the rest (MS-VBAL 5.5.1.2.4).
+            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBNullType or VBEmptyType
+                when rhs is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
                     => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
 
-            VBNumericType or VBStringType or VBDateType or VBEmptyType
-                when rhs is VBNumericType or VBStringType or VBDateType or VBNullType or VBEmptyType
+            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
+                when rhs is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBNullType or VBEmptyType
                     => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
 
             // A Byte() array's own TypeInfo always collapses to the generic VBArrayType (VBArrayValue's

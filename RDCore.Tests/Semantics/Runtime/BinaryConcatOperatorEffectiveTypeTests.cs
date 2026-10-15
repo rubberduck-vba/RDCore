@@ -74,14 +74,20 @@ public sealed class BinaryConcatOperatorEffectiveTypeTests : OperatorConcatRunti
     }
 
     [TestMethod]
-    public void BooleanOperand_IsTypeMismatch()
-        // MS-VBAL §5.6.9.4's value-type table lists "any numeric type" but never "Boolean" — confirmed
-        // against the clean Microsoft Learn mirror, not just the locally-garbled table — unlike
-        // arithmetic/relational/logical, which each explicitly special-case Boolean. A narrow,
-        // deliberate divergence from Boolean's usual free numeric coercion elsewhere; flagged here
-        // rather than "fixed", since MS-Office VBA itself is known to accept `True & "x"` — this is a
-        // spec-vs-implementation gap, not an RDCore bug.
-        => Assert.IsNotNull(DetermineEffectiveType(Op(), VBBooleanType.TypeInfo, VBStringType.TypeInfo).ErrorInfo);
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public void BooleanOperand_IsString(bool lhsIsBoolean, bool rhsIsBoolean)
+        // MS-VBAL §5.6.9.4's value-type table lists "any numeric type" but never "Boolean"; MS-VBA concatenates one all the same
+        // (`"x" & True` is "xTrue", checked in Excel), and RD-VBA does what MS-VBA does.
+        => Assert.AreEqual(VBStringType.TypeInfo, DetermineEffectiveType(Op(),
+            lhsIsBoolean ? VBBooleanType.TypeInfo : VBStringType.TypeInfo,
+            rhsIsBoolean ? VBBooleanType.TypeInfo : VBStringType.TypeInfo).Result);
+
+    [TestMethod]
+    public void BooleanAndNull_IsString()
+        // a Null operand contributes nothing to a concatenation with anything that is not Null itself.
+        => Assert.AreEqual(VBStringType.TypeInfo, DetermineEffectiveType(Op(), VBBooleanType.TypeInfo, VBNullType.TypeInfo).Result);
 
     [TestMethod]
     public void ObjectOperand_IsTypeMismatch()
