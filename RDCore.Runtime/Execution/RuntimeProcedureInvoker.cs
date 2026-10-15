@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
@@ -264,6 +265,18 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 : ModuleDirectives.None;
 
     internal static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
+
+    /// <summary>
+    /// The value an optional parameter that declares no default takes when the call supplies no argument for it.
+    /// </summary>
+    /// <remarks>
+    /// A <c>Variant</c> one is Missing (<strong>MS-VBAL §6.1.2.7.1.6</strong>) - the value <c>IsMissing</c> is there to detect, which
+    /// any other value would leave it unable to. Any other declared type cannot hold Missing, and takes its type's default.
+    /// </remarks>
+    internal static VBTypedValue OmittedArgumentValue(VBParameterSymbol parameter)
+        => parameter.ResolvedType is VBVariantType
+            ? new VBVariantValue(VBMissingValue.Missing)
+            : parameter.ResolvedType.DefaultValue;
 
     internal static ImmutableArray<VBParameterSymbol> GetParameters(VBTypeMemberSymbol procedure) => procedure switch
     {

@@ -12,9 +12,15 @@ namespace RDCore.SDK.Model.Types;
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>
 /// 👉 This data type has no declaration semantics and is only indirectly usable as a <c>Variant</c> subtype.
+/// It is a kind of <see cref="VBErrorType"/>: whatever handles an error value handles the <c>Missing</c> one (see <see cref="VBMissingValue"/>).
 /// </remarks>
-public record class VBMissingType() : VBIntrinsicType<int>(VBTypeNames.VBMissing)
+public record class VBMissingType : VBErrorType
 {
+    /// <summary>
+    /// Creates the <c>Missing</c> data type. Use <see cref="TypeInfo"/>.
+    /// </summary>
+    public VBMissingType() : base(VBTypeNames.VBMissing) { }
+
     private static readonly Lazy<VBMissingType> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// The <c>Missing</c> data type.

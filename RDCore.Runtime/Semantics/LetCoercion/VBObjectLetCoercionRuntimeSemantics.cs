@@ -151,7 +151,9 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             }
         }
 
-        return parameter.ResolvedType.DefaultValue;
+        return parameter.DefaultValue is null
+            ? RuntimeProcedureInvoker.OmittedArgumentValue(parameter)
+            : parameter.ResolvedType.DefaultValue;
     }
 
     /// <summary>

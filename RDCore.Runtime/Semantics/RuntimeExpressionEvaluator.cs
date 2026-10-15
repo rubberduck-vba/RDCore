@@ -1485,11 +1485,11 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                     continue;
                 }
 
-                bound[i] = parameter.ResolvedType.DefaultValue.RuntimeValue;
+                bound[i] = RuntimeProcedureInvoker.OmittedArgumentValue(parameter).RuntimeValue;
                 continue;
             }
 
-            var aliased = RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || external && parameter.ResolvedType is VBStringType;
+            var aliased =RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || external && parameter.ResolvedType is VBStringType;
             if (aliased && TryResolveByRefArgument(session, context, argumentNode, parameter, out var reference, external))
             {
                 bound[i] = reference;

@@ -170,8 +170,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         // an argument the caller did not supply is an omitted Optional: the implementation's own default
         // stands in, which for a VBTypedValue parameter is null - the "Missing" its signature declares. The
         // interpreter itself never leaves one out: it fills an omitted Optional with the parameter's default
-        // value - Empty for a Variant, and a typed one's own type's default, such as False, never null - so an
-        // implementation reads null and Empty alike as omitted, and cannot tell a typed one from its default.
+        // value - Missing for a Variant, and a typed one's own type's default, such as False, never null. A Missing
+        // argument is an omitted one, as it is to any COM member, whether the call left it out or passed on a
+        // parameter that was itself omitted; so it is marshalled as null too, and an implementation reads null and
+        // Empty alike as omitted, and cannot tell a typed one from its default.
         if (supplied.Length > parameters.Length)
         {
             return false;
@@ -180,7 +182,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         for (var index = 0; index < parameters.Length; index++)
         {
             var parameter = parameters[index];
-            if (index >= supplied.Length)
+            if (index >= supplied.Length || parameter.IsOptional && TypedValue(supplied[index]) is VBMissingValue)
             {
                 arguments[index] = parameter.HasDefaultValue ? parameter.DefaultValue : null;
                 continue;
