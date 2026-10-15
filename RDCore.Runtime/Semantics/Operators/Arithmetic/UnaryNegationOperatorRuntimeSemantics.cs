@@ -89,8 +89,8 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
             VBDateType dateEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
                 EvaluateRuntimeSemantics(dateEffectiveType, numericOperand, expression),
 
-            VBNullType nullEffectiveType when frame[InputIndex.UnaryOperand] is VBNullValue
-                => RuntimeSemanticsEvaluationResult.Success(nullEffectiveType.DefaultValue),
+            // a Null effective type is Null whatever holds it: a Variant holding Null is no different from Null (MS-VBAL 5.6.9.3.1).
+            VBNullType nullEffectiveType => RuntimeSemanticsEvaluationResult.Success(nullEffectiveType.DefaultValue),
 
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
