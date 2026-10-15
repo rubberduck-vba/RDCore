@@ -81,4 +81,46 @@ public sealed class VBTypedValueEqualityTests
     [TestMethod]
     public void NullBackedStringValues_AreEqual()
         => Assert.AreEqual<VBTypedValue>(new VBStringValue((string)null!), new VBStringValue((string)null!));
+
+    [TestMethod]
+    public void StringsDifferingOnlyInATrailingByte_AreNotEqual()
+    {
+        // the managed value is the whole characters, "A" for all three: the trailing byte has to be part of the identity.
+        var even = new VBStringValue("A");
+        var odd = VBStringValue.FromBytes([0x41, 0x00, 0x42]);
+        var otherOdd = VBStringValue.FromBytes([0x41, 0x00, 0x43]);
+
+        Assert.AreNotEqual<VBTypedValue>(even, odd);
+        Assert.AreNotEqual<VBTypedValue>(odd, otherOdd);
+        Assert.IsFalse(odd == otherOdd);
+        Assert.IsFalse(((IVBTypedValue<VBStringValue, string>)odd).Equals(even)); // interface
+    }
+
+    [TestMethod]
+    public void StringsWithTheSameTrailingByte_AreEqual_AndHashEqual()
+    {
+        VBTypedValue a = VBStringValue.FromBytes([0x41, 0x00, 0x42]);
+        VBTypedValue b = VBStringValue.FromBytes([0x41, 0x00, 0x42]);
+
+        Assert.AreEqual(a, b);
+        Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
+        Assert.IsTrue(((IVBTypedValue<VBStringValue, string>)a).Equals((VBStringValue)b)); // interface
+    }
+
+    [TestMethod]
+    public void VariantsWrappingStringsDifferingOnlyInATrailingByte_AreNotEqual()
+        => Assert.AreNotEqual<VBTypedValue>(
+            new VBVariantValue(new VBStringValue("A")),
+            new VBVariantValue(VBStringValue.FromBytes([0x41, 0x00, 0x42])));
+
+    [TestMethod]
+    public void AnUnboundString_ComparesWithoutThrowing()
+    {
+        // the trailing byte is read through the handle, which an invalid binding refuses: equality must not ask it.
+        VBTypedValue unbound = new VBStringValue(InvalidBindingHandle.Default);
+        _ = unbound.GetHashCode();
+
+        Assert.AreEqual(unbound, new VBStringValue(InvalidBindingHandle.Default));
+        Assert.AreNotEqual<VBTypedValue>(unbound, VBStringValue.FromBytes([0x41]));
+    }
 }

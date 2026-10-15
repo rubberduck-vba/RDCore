@@ -28,12 +28,36 @@ internal static class ModuleWorkspace
     public static string ClassModule(string name, params string[] body)
         => $"VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"{name}\"\r\n{string.Join("\r\n", body)}\r\n";
 
+    /// <summary>A standard module's source: the name every one has, then <paramref name="body"/>.</summary>
+    public static string StandardModule(string name, params string[] body)
+        => $"Attribute VB_Name = \"{name}\"\r\n{string.Join("\r\n", body)}\r\n";
+
     /// <summary>
     /// Runs <c>Program.Main</c> of a workspace of <paramref name="classes"/> and the <c>Program</c> standard module whose source is <paramref name="program"/>.
     /// </summary>
     /// <returns>What it printed, a line each, trimmed.</returns>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program)
         => RunCoreAsync(classes, program, errorsOnly: false);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, in a workspace that has other standard
+    /// modules besides <c>Program</c>.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)> modules, string program)
+        => RunCoreAsync(classes, program, errorsOnly: false, modules: modules);
+
+    /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, when it has other standard modules
+    /// besides <c>Program</c>.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static Task<string[]> LoadErrorsAsync(IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)> modules, string program)
+        => RunCoreAsync(classes, program, errorsOnly: true, modules: modules);
 
     /// <summary>
     /// Loads the workspace of <paramref name="classes"/> and the <c>Program</c> standard module the way <see cref="RunAsync"/> does, and gives the
@@ -69,6 +93,14 @@ internal static class ModuleWorkspace
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
         => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries);
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, in a workspace that has other standard modules besides <c>Program</c>, for a project that
+    /// references libraries, or only the standard library when <paramref name="libraries"/> is <see langword="null"/>.
+    /// </summary>
+    public static Task<string[]> RunAsync(
+        IReadOnlyList<(string Name, string Source)> classes, IReadOnlyList<(string Name, string Source)> modules, string program, WorkspaceLibraries? libraries)
+        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, modules: modules);
 
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host what the semantic analysis pass found out about it, as the language server does.
@@ -139,23 +171,24 @@ internal static class ModuleWorkspace
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
-        WorkspaceLibraries? libraries = null)
+        WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
         var loadErrors = new List<string>();
-        (string Name, string Extension, ModuleType Type, string Source)[] modules =
+        (string Name, string Extension, ModuleType Type, string Source)[] allModules =
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
+            .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
             ("Program", "bas", ModuleType.StdModule, program),
         ];
 
         var project = new ProjectFile(Root, new RDCoreProject
         {
             Name = "Project1",
-            Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
+            Modules = [.. allModules.Select(module => new RDCoreModule { RelativeUri = $"{module.Name}.{module.Extension}" })],
             References = [RDCoreReference.VBStandardLibrary, .. (libraries?.References ?? []).Select(name => new RDCoreReference { Name = name })],
         });
         var files = new Dictionary<string, MockFileData> { [Path.Combine(Root, ProjectFile.FileName)] = new(JsonSerializer.Serialize(project)) };
-        foreach (var module in modules)
+        foreach (var module in allModules)
         {
             files[Path.Combine(Root, $"{module.Name}.{module.Extension}")] = new(module.Source);
         }
@@ -168,7 +201,7 @@ internal static class ModuleWorkspace
         var workspaceRoot = new Uri(Root);
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
-        var parsed = modules.Select(module =>
+        var parsed = allModules.Select(module =>
         {
             var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
             Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");

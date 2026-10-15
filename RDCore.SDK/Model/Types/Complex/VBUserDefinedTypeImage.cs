@@ -1,7 +1,8 @@
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using System.Text;
+using RDCore.SDK.Model.Values.Runtime;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
@@ -33,9 +34,6 @@ public static class VBUserDefinedTypeImage
 
     /// <summary>VBA scales a <c>Currency</c> by 10,000 and stores the result as a 64-bit integer.</summary>
     private const decimal CurrencyScale = 10000m;
-
-    /// <summary>VBA characters are Unicode, so a fixed-length <c>String</c> field is two bytes each.</summary>
-    private static readonly Encoding Characters = Encoding.Unicode;
 
     /// <summary>
     /// The memory image of <paramref name="value"/>: each field's bytes at the offset its layout assigns,
@@ -157,13 +155,16 @@ public static class VBUserDefinedTypeImage
     // by the field's *declared* type, exactly as Decoded reads it back: a cell holds whatever was last
     // assigned to it, and a `String * 4` field assigned an ordinary String still occupies its four characters.
     // The two directions have to agree about the width, and the declared type is the only thing that knows it.
+    // A fixed-length String field is the data of its characters, two bytes each: exactly the bytes, a lone surrogate included,
+    // since no text encoding is involved in laying a string out in memory.
     private static byte[]? Encoded(VBType type, VBTypedValue value, int width) => type switch
     {
-        VBFixedStringType => Fixed(Characters.GetBytes(Text(value)), width),
+        VBFixedStringType => Fixed(VBRuntimeByteStringValue.BytesOf(value.Handle.Value), width),
         VBByteType => [Convert.ToByte(Boxed(value) ?? (byte)0)],
         VBBooleanType => BitConverter.GetBytes(Convert.ToBoolean(Boxed(value) ?? false) ? BooleanTrue : (short)0),
         VBIntegerType => BitConverter.GetBytes(Convert.ToInt16(Boxed(value) ?? (short)0)),
-        VBLongType or VBErrorType => BitConverter.GetBytes(Convert.ToInt32(Boxed(value) ?? 0)),
+        // an Enum field holds a Long (MS-VBAL §5.2.3.4), and its four bytes are the Long's.
+        VBLongType or VBErrorType or VBEnumType => BitConverter.GetBytes(Convert.ToInt32(Boxed(value) ?? 0)),
         VBLongLongType => BitConverter.GetBytes(Convert.ToInt64(Boxed(value) ?? 0L)),
         VBSingleType => BitConverter.GetBytes(Convert.ToSingle(Boxed(value) ?? 0f)),
         // a Currency is a 64-bit integer of ten-thousandths, which is what makes its arithmetic exact.
@@ -173,16 +174,15 @@ public static class VBUserDefinedTypeImage
         _ => null,
     };
 
-    private static string Text(VBTypedValue value) => Boxed(value) as string ?? string.Empty;
-
     private static VBTypedValue Decoded(VBType type, ReadOnlySpan<byte> bytes) => type switch
     {
+        // the width of a fixed-length String field is two bytes per character, so its data is always whole characters.
         VBFixedStringType fixedString => new VBFixedStringValue(fixedString.Length)
-            .WithFixedValue(Characters.GetString(bytes)),
+            .WithFixedValue(VBStringValue.FromBytes(bytes).Value),
         VBByteType => new VBByteValue(bytes[0]),
         VBBooleanType => new VBBooleanValue(BitConverter.ToInt16(bytes) != 0),
         VBIntegerType => new VBIntegerValue(BitConverter.ToInt16(bytes)),
-        VBLongType => new VBLongValue(BitConverter.ToInt32(bytes)),
+        VBLongType or VBEnumType => new VBLongValue(BitConverter.ToInt32(bytes)),
         VBLongLongType => new VBLongLongValue(BitConverter.ToInt64(bytes)),
         VBSingleType => new VBSingleValue(BitConverter.ToSingle(bytes)),
         VBCurrencyType => new VBCurrencyValue(BitConverter.ToInt64(bytes) / CurrencyScale),

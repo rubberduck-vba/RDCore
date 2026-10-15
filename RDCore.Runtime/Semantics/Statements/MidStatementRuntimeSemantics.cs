@@ -9,7 +9,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Facts;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace RDCore.Runtime.Semantics.Statements;
 
@@ -21,8 +20,10 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// <remarks>
 /// The replacement never makes the string longer: it is the least of the <c>length</c> asked for, what is left of the
 /// target from <c>start</c> on, and what the value has to give. The <c>B</c> forms count <em>bytes</em> of the string's
-/// in-memory form - two to a character, as <c>LenB</c> does - so that an odd position splits a character, which is the
-/// point of them. The trailing <c>$</c> changes nothing at run time.
+/// in-memory form - two to a character, as <c>LenB</c> does, and the byte left over of a string whose data is an odd
+/// number of bytes - so that an odd position splits a character, which is the point of them. The other forms count and
+/// replace whole characters through the same bytes, two to a character, so the byte left over is not one of the
+/// characters they count and stays where it is. The trailing <c>$</c> changes nothing at run time.
 /// <para>
 /// The new string is Let-assigned to the target like any other value (<strong>§5.4.3.8</strong>), so the target can be any
 /// variable expression an assignment accepts, and a fixed-length <c>String</c> or a <c>Byte()</c> target is given back in
@@ -55,44 +56,47 @@ public sealed record class MidStatementRuntimeSemantics(
 
         // "If the value of <start> is less than or equal to 0 or greater than the length of <string-argument>, or if
         // <length> is less than 0, runtime error 5" - the length being the one the mode counts in.
-        var unit = mid.IsByteMode ? sizeof(char) : 1;
-        if (start <= 0 || start > (long)target!.Length * unit || length < 0)
+        var targetLength = mid.IsByteMode ? target!.ByteLength : Text(target!).Length;
+        if (start <= 0 || start > targetLength || length < 0)
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.InvalidProcedureCallOrArgument, mid.SourceLocation,
-                $"{(mid.IsByteMode ? "MidB" : "Mid")}: start {start}, length {(length?.ToString() ?? "omitted")}, in a string of {(long)target.Length * unit}"));
+                $"{(mid.IsByteMode ? "MidB" : "Mid")}: start {start}, length {(length?.ToString() ?? "omitted")}, in a string of {targetLength}"));
         }
 
         var replaced = mid.IsByteMode
             ? ReplaceBytes(target, (int)start - 1, length, value!)
-            : Replace(target, (int)start - 1, length, value!);
+            : ReplaceBytes(target, 2 * ((int)start - 1), 2 * CharactersReplaced(target, (int)start - 1, length, value!), value!);
 
-        return Assignments.Assign(session, context, mid, mid.Target, mid.Value, new VBStringValue(replaced));
+        return Assignments.Assign(session, context, mid, mid.Target, mid.Value, replaced);
     }
+
+    private static string Text(VBStringValue value) => value.Handle.Value.BoxedValue as string ?? string.Empty;
 
     // "the next x characters within <string-argument> are replaced by the first x characters of v, where x = the least
     // of the following: <length>, the number of characters in <string-argument> after and including the first character
-    // to replace, or the number of characters in v."
-    private static string Replace(string target, int offset, long? length, string value)
-    {
-        var count = (int)Math.Min(Math.Min(length ?? int.MaxValue, target.Length - offset), value.Length);
-        return string.Concat(target.AsSpan(0, offset), value.AsSpan(0, count), target.AsSpan(offset + count));
-    }
+    // to replace, or the number of characters in v." Those are whole characters of both, two bytes each, and they are
+    // replaced as the bytes they are: what follows the target's last character - the byte left over of a string whose
+    // data is an odd number of bytes - is not one of them, and is left as it is.
+    private static long CharactersReplaced(VBStringValue target, int offset, long? length, VBStringValue value)
+        => Math.Min(Math.Min(length ?? int.MaxValue, Text(target).Length - offset), Text(value).Length);
 
-    // the same in bytes: the string as it is in memory, UTF-16 little-endian, so a byte offset can fall inside a character.
-    private static string ReplaceBytes(string target, int offset, long? length, string value)
+    // the same in bytes: the string's data as it is stored - UTF-16 little-endian code units, and the byte left over of an
+    // odd one - so a byte offset can fall inside a character. They are the string's own bytes (VBStringValue.GetBytes),
+    // not a text encoding of its characters, which would read the lone surrogate an odd offset can make as U+FFFD.
+    private static VBStringValue ReplaceBytes(VBStringValue target, int offset, long? length, VBStringValue value)
     {
-        var bytes = Encoding.Unicode.GetBytes(target);
-        var source = Encoding.Unicode.GetBytes(value);
+        var bytes = target.GetBytes();
+        var source = value.GetBytes();
         var count = (int)Math.Min(Math.Min(length ?? int.MaxValue, bytes.Length - offset), source.Length);
         Array.Copy(source, 0, bytes, offset, count);
-        return Encoding.Unicode.GetString(bytes);
+        return VBStringValue.FromBytes(bytes);
     }
 
     // "The data value of <string-argument> MUST be Let-coercible to String", and so must the value assigned into it.
     private bool TryEvaluateString(
         IRuntimeSession session, RuntimeEvaluationContext context, MidStatementNode mid, ExpressionNode expression,
-        [MaybeNullWhen(false)][NotNullWhen(true)] out string? text, [MaybeNullWhen(false)][NotNullWhen(true)] out RuntimeExecutionOutcome failure)
+        [MaybeNullWhen(false)][NotNullWhen(true)] out VBStringValue? text, [MaybeNullWhen(false)][NotNullWhen(true)] out RuntimeExecutionOutcome failure)
     {
         text = null;
         var evaluated = Expressions.Evaluate(session, expression, context);
@@ -125,7 +129,7 @@ public sealed record class MidStatementRuntimeSemantics(
             return false;
         }
 
-        text = coerced.Result!.Handle.Value.BoxedValue as string ?? string.Empty;
+        text = (VBStringValue)coerced.Result!;
         failure = RuntimeExecutionOutcome.Next;
         return true;
     }

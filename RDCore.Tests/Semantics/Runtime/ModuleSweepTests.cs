@@ -88,6 +88,43 @@ public sealed class ModuleSweepTests
     }
 
     [TestMethod]
+    public async Task WhatTheStandardLibraryReturnsForAnArgumentThatIsNotKnown_IsNotKnown_AndIsNoStatedRunTimeError()
+    {
+        // s is not known, so neither is its length: 300 - Len(s) is not known to overflow a Byte, whatever the length of the string s assumes.
+        var facts = await FactsOfAsync("Dim s As String", "Dim b As Byte", "b = 300 - Len(s)");
+
+        var conversion = Assignment(facts);
+        Assert.IsFalse(conversion.IsValueKnown, "Len(s) is not known when s is not");
+        Assert.IsNull(conversion.Error, "nothing is guaranteed to fail for a string that is not known");
+        Assert.IsFalse(facts.Operations.Any(operation => operation.IsValueKnown), "300 - Len(s) is not known either");
+        Assert.IsTrue(facts.IsFullyAnalyzed);
+    }
+
+    [TestMethod]
+    public async Task WhatTheStandardLibraryReturnsForAnArgumentThatIsNotKnown_IsConvertedLikeAVariableThatIsNotKnown()
+    {
+        // Len returns a Variant, and a Variant that is not known is not known to hold a Long either: 200 + Len(s) is what 200 + v is.
+        var library = Assignment(await FactsOfAsync("Dim s As String", "Dim b As Byte", "b = 200 + Len(s)"));
+        var variable = Assignment(await FactsOfAsync("Dim v As Variant", "Dim b As Byte", "b = 200 + v"));
+
+        Assert.IsFalse(variable.IsValueKnown);
+        Assert.IsFalse(library.IsValueKnown, "200 + Len(s) is not known to fit a Byte");
+        Assert.AreEqual(variable.Source, library.Source);
+        Assert.AreEqual(variable.Flags, library.Flags);
+    }
+
+    [TestMethod]
+    public async Task WhatTheStandardLibraryReturnsForArgumentsThatAreKnown_IsKnown()
+    {
+        var facts = await FactsOfAsync("Dim b As Byte", "b = 300 - Len(\"abc\")");
+
+        var conversion = Assignment(facts);
+        Assert.IsTrue(conversion.IsValueKnown, "the code says what the string is, and so what its length is");
+        Assert.IsNotNull(conversion.Error, "297 does not fit a Byte");
+        Assert.AreEqual(6, conversion.Error.ErrorId);
+    }
+
+    [TestMethod]
     public async Task AMemberOfAClass_IsEvaluatedOnAnInstanceOfIt_WhoseFieldsAreNotKnown()
     {
         var holder = ModuleWorkspace.ClassModule(

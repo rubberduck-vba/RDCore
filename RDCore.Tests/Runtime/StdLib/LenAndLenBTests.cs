@@ -6,6 +6,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Tests.Runtime;
 
@@ -19,7 +22,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 /// The two functions that make a UDT's two sizes observable to a program: <c>Len</c> "returns the size as it
 /// will be written to the file", <c>LenB</c> "the in-memory size, including any implementation-specific
 /// padding between elements". Everything else answers the same for both, except a string, whose characters are
-/// two bytes each.
+/// two bytes each - and whose data can end in one more.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 6.1.2.11.1.22 Len / LenB")]
@@ -65,6 +68,40 @@ public sealed class LenAndLenBTests
         // "LenB can return different values than Len for Unicode strings... LenB returns the number of bytes
         // used to represent that string."
         => Assert.Contains("10", Run([], "Debug.Print LenB(\"Ducky\")")[0]);
+
+    [TestMethod]
+    public void LenB_OfAStringWithAnOddByteCount_CountsEveryByte()
+        // "the number of bytes used to represent that string": three bytes are a character and a byte left over.
+        => Assert.Contains("3", RunWithAnOddString("Debug.Print LenB(S)")[0]);
+
+    [TestMethod]
+    public void Len_OfAStringWithAnOddByteCount_CountsWholeCharacters()
+        // "the number of characters in a string": the byte left over is not one.
+        => Assert.Contains("1", RunWithAnOddString("Debug.Print Len(S)")[0]);
+
+    // S = B with B a Byte() of three elements, 41 00 42: the String of the character "A" and the byte 42. B is given them
+    // before the body runs, so that the body is the statement under test alone.
+    private static IReadOnlyList<string> RunWithAnOddString(string statement)
+    {
+        var bytes = Variable("B", VBResizableByteArrayType.TypeInfo);
+        var array = new VBResizableByteArrayValue([(0, 2)]);
+        byte[] elements = [0x41, 0x00, 0x42];
+        for (var index = 0; index < elements.Length; index++)
+        {
+            array.TrySetElement(new ValueBindingHandle(new VBRuntimeValue<byte>(elements[index])), index);
+        }
+
+        var output = new RuntimeOutputBuffer();
+        var (_, outcome) = RuntimeSourceHarness.Run(
+            fileSystem: null, [bytes, Variable("S", VBStringType.TypeInfo)], output, standardLibrary: true,
+            session => session.Symbols.Resolver.GetValue(bytes).SetValue(
+                session.Symbols.Resolver, new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),
+            "S = B", statement);
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind,
+            $"{outcome.ErrorInfo?.ErrorId} {outcome.ErrorInfo?.Description} | {outcome.ErrorInfo?.Verbose}");
+        return output.Lines;
+    }
 
     [TestMethod]
     public void Len_OfAnEmptyString_IsZero()

@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Text;
 
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -25,15 +26,32 @@ public interface IRuntimeEnvironmentProfile
 
     /// <summary>
     /// The <see cref="CultureInfo"/> for <see cref="Lcid"/> — drives <c>Option Compare Text</c>,
-    /// <c>Like</c>, <c>Format$</c>, and number / date let-coercion to and from <c>String</c>.
+    /// <c>Like</c>, case conversion, <c>Format$</c>, and let-coercion <em>to</em> <c>String</c>: a
+    /// number's decimal symbol, and a date's Short Date and Long Time formats, in the Gregorian calendar
+    /// whatever the culture's own.
     /// </summary>
+    /// <remarks>
+    /// 🚧 Let-coercion <em>from</em> <c>String</c> still reads a number or a date invariantly, so under a
+    /// culture whose decimal symbol is not <c>.</c> the text of a number does not read back as it. TODO
+    /// with the parsers.
+    /// </remarks>
     CultureInfo Culture { get; }
 
     /// <summary>
-    /// The ANSI code page for <c>Byte()</c> ↔ <c>String</c> conversions and the non-Unicode behaviour
-    /// of <c>Chr</c> / <c>Asc</c>.
+    /// The ANSI code page: what a character is as a single byte or two outside a <c>String</c>'s own data —
+    /// the text of a file, and the non-Unicode behaviour of <c>Chr</c> / <c>Asc</c>.
     /// </summary>
+    /// <remarks>
+    /// 👉 Not <c>Byte()</c> ↔ <c>String</c>, which reinterprets the string's own UTF-16 data
+    /// (<strong>MS-VBAL §5.5.1.2.6</strong>) and needs no code page at all.
+    /// </remarks>
     int AnsiCodePage { get; }
+
+    /// <summary>
+    /// The <see cref="Encoding"/> of <see cref="AnsiCodePage"/>: the one encoding the session's files and the
+    /// standard library's character codes share, so that the two cannot disagree about what a byte is.
+    /// </summary>
+    Encoding AnsiEncoding { get; }
 
     /// <summary>
     /// <c>true</c> when the host supports the <c>Option Compare Database</c> directive (Microsoft Access).

@@ -59,7 +59,9 @@ The SDK declarations are the standard library's definition. The standard library
 declarations by [StdLibSymbolReader](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolReader.html).
 
 A standard-library module's members, their names, their parameters and their return types all come from the
-signature an implementation has to satisfy. Each of them is stated once, in that SDK signature.
+signature an implementation has to satisfy. Each of them is stated once, in that SDK signature. A module's constants
+are its public `static readonly` fields, each declared as the value it is
+([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)).
 
 👉 Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
 runtime does not have.
@@ -82,6 +84,7 @@ An attribute states what a declaration's signature cannot express, and is used o
 |[StdLibModuleAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibModuleAttribute.html)|Marks a declaration as a standard-library module, and may name it.|
 |[StdLibClassAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibClassAttribute.html)|Marks a declaration as a standard-library class, and may name it.|
 |[StdLibEnumAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibEnumAttribute.html)|Marks a declaration as a standard-library enum, and may name it. `FormShowConstants` is a name no naming convention recovers, so the attribute states it.|
+|[StdLibConstantAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibConstantAttribute.html)|The name of a constant, a member of an enum or of a module ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)), that no naming convention recovers.|
 |[StdLibMemberAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberAttribute.html)|Any of: a member name no naming convention recovers (for example `Hex` beside `Hex$`); an accessor kind ([StdLibMemberKind](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberKind.html)); a return type that is a _class_ or an _enum_ rather than an intrinsic type; whether the member is hidden; a `VB_UserMemId` (`0` for the default member of a class, `-4` for its enumeration member), which is what a workspace class says with `Attribute Item.VB_UserMemId = 0`.|
 |[StdLibArrayAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibArrayAttribute.html)|The element type of an array parameter (`ValueArray() As Double`), which `VBResizableArrayValue` alone reads as `Variant()`. It is refused on anything but a required `ByVal` array parameter.|
 
@@ -94,6 +97,7 @@ A standard-library name that follows a naming convention needs no attribute:
 |Interface [IStdInformationModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule.html)|Module `Information`|
 |Enum [VBDayOfWeek](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBDayOfWeek.html)|Enum `VbDayOfWeek`|
 |Enum member `VBSunday`|Constant `vbSunday`|
+|Module field `VBCrLf`|Constant `vbCrLf`|
 
 ### No Reference, No Opt-In
 

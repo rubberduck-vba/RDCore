@@ -26,6 +26,16 @@ A module's [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) car
 `ModuleDirectives` is reachable from any scope nested under the module, via
 `LexicalScope.EnclosingModuleDirectives()`.
 
+A class module's directives govern its code as a standard module's do: `Option Explicit` makes an undeclared name in
+the class a compile error, which keeps the class from loading; `Option Compare` is how its relational operators
+compare `String` values, whatever the mode of the module that calls it; and `Option Base` is the lower bound its
+arrays take when they state none. The name of a class binds only in the type binding context
+([**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.expression-binding-contexts.md)), so the host finds the
+module a member belongs to by its name as a value and then as a type
+([SessionSymbolsModuleExtensions](../api/RDCore.SDK.Runtime.Abstract.Execution.SessionSymbolsModuleExtensions.html)`.TryResolveModule`),
+both when it gives the module's symbol its directives and when a new activation takes its frame's directives from
+it.
+
 
 ## 5.2.1.1 Option Compare Directive
 

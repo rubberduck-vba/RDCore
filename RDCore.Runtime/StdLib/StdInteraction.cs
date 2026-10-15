@@ -100,7 +100,8 @@ public sealed class StdInteraction(
             : Fail<VBTypedValue>(converted.Error ?? VBRuntimeErrorId.TypeMismatch, $"A value of type {source.TypeInfo.Name} cannot be converted to {destination}.");
     }
 
-    private static RuntimeSemanticsEvaluationResult<VBTypedValue> ToText(VBTypedValue value) => Convert(value, ValueConversions.ToText, "String");
+    // a String is written in the regional settings of the session's environment, as Let-coercion writes it.
+    private RuntimeSemanticsEvaluationResult<VBTypedValue> ToText(VBTypedValue value) => Convert(value, source => ValueConversions.ToText(source, session.Environment.Culture), "String");
 
     private static RuntimeSemanticsEvaluationResult<VBTypedValue> ToLong(VBTypedValue value) => Convert(value, source => ValueConversions.ToNumeric(source, VBLongType.TypeInfo), "Long");
 
@@ -273,7 +274,7 @@ public sealed class StdInteraction(
     }
 
     // what the argument of a call written in source is Let-coerced to, from the value alone: a Variant takes it as it is, an object is passed as the reference it is.
-    private static RuntimeSemanticsEvaluationResult<VBTypedValue> Coerce(VBVariantValue argument, VBType declared)
+    private RuntimeSemanticsEvaluationResult<VBTypedValue> Coerce(VBVariantValue argument, VBType declared)
     {
         var value = Unwrapped(argument);
         if (declared is VBVariantType)
@@ -284,7 +285,7 @@ public sealed class StdInteraction(
         Func<VBTypedValue, ValueConversionResult>? conversion = value is VBObjectValue ? null : declared switch
         {
             VBNumericType numeric => source => ValueConversions.ToNumeric(source, numeric),
-            VBStringType => ValueConversions.ToText,
+            VBStringType => source => ValueConversions.ToText(source, session.Environment.Culture),
             VBBooleanType => ValueConversions.ToBoolean,
             VBDateType => ValueConversions.ToDate,
             _ => null,
@@ -568,7 +569,7 @@ public sealed class StdInteraction(
         => Write(() => _outside.WorkspaceSettings.Save(key.Value, setting.Value, OptionalText(config)));
 
     // a setting that is not there is the default, which is "" when there is none: a setting is a string, and so is what stands in for one.
-    private static RuntimeSemanticsEvaluationResult<VBVariantValue> Read(Func<string?> read, VBVariantValue? defaultValue)
+    private RuntimeSemanticsEvaluationResult<VBVariantValue> Read(Func<string?> read, VBVariantValue? defaultValue)
     {
         string? value;
         try

@@ -4,6 +4,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using System.Globalization;
+using System.Text;
 
 namespace RDCore.Tests.Runtime;
 
@@ -21,6 +22,19 @@ public sealed class RuntimeEnvironmentProfileTests
         Assert.IsFalse(sut.SupportsOptionCompareDatabase);
         Assert.AreEqual(CultureInfo.InvariantCulture, sut.Culture);
     }
+
+    [TestMethod]
+    public void Default_AnsiEncodingIsWindows1252()
+        => Assert.AreEqual(1252, RuntimeEnvironmentProfile.Default.AnsiEncoding.CodePage);
+
+    [TestMethod]
+    public void AnsiEncoding_IsThatOfTheCodePage()
+        => Assert.AreEqual(1250, new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1250, false).AnsiEncoding.CodePage);
+
+    [TestMethod]
+    public void AnsiEncoding_OfACodePageTheProviderDoesNotSupply_IsLatin1()
+        // 🚧 the code pages .NET builds in are not the provider's to supply, UTF-8 among them: this pins what that does today.
+        => Assert.AreEqual(Encoding.Latin1.CodePage, new RuntimeEnvironmentProfile(Is64Bit: true, 0, 65001, false).AnsiEncoding.CodePage);
 
     [TestMethod]
     public void From_MapsEveryOption()

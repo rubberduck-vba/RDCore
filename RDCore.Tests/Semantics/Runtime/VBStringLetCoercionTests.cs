@@ -1,6 +1,9 @@
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
+using System.Globalization;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -99,31 +102,83 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
     public void BooleanSource_IsTrueOrFalseToken(bool source, string expected)
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBBooleanValue(source), VBStringType.TypeInfo), expected);
 
+    // the dates below are written in the invariant culture, which is the regional settings of a strategy given none: the Long
+    // Time format is HH:mm:ss, and the Short Date format MM/dd/yyyy.
+
     [TestMethod]
     public void DateSource_ZeroDate_IsTimeOnly()
         // MS-VBAL 5.5.1.2.4: "If the day value of the source date is 12/30/1899" — the day value only,
         // not the full serial (fixed 2026-09-12: this used to require the exact zero serial value,
         // which is only midnight on 12/30/1899, missing every other time of day on that same date).
-        => AssertCoercedTo<VBStringValue>(
-            Coerce(Sut(), new VBDateValue(0.5d), VBStringType.TypeInfo),
-            new DateTime(1899, 12, 30, 12, 0, 0).ToLongTimeString());
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), new VBDateValue(0.5d), VBStringType.TypeInfo), "12:00:00");
 
     [TestMethod]
     public void DateSource_NonZeroDate_MidnightTime_IsShortDateOnly()
         // real VBA drops a trailing "12:00:00 AM" from a date-only value.
         => AssertCoercedTo<VBStringValue>(
-            Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1).ToOADate()), VBStringType.TypeInfo),
-            new DateTime(2020, 1, 1).ToShortDateString());
+            Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1).ToOADate()), VBStringType.TypeInfo), "01/01/2020");
 
     [TestMethod]
     public void DateSource_NonZeroDate_NonMidnightTime_IsShortDateAndLongTime()
-    {
         // fixed 2026-09-16: a date with a real time-of-day component (e.g. 3:45:00 PM) used to lose
         // the time entirely — CStr(#1/1/2020 3:45:00 PM#) returned only "1/1/2020".
-        var source = new DateTime(2020, 1, 1, 15, 45, 0);
-        AssertCoercedTo<VBStringValue>(
-            Coerce(Sut(), new VBDateValue(source.ToOADate()), VBStringType.TypeInfo),
-            $"{source.ToShortDateString()} {source.ToLongTimeString()}");
+        => AssertCoercedTo<VBStringValue>(
+            Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1, 15, 45, 0).ToOADate()), VBStringType.TypeInfo),
+            "01/01/2020 15:45:00");
+
+    // MS-VBAL 5.5.1.2.4 writes a number "using the host-defined regional decimal symbol" and a date in "the Short Date format
+    // [and] the Long Time format of the host-defined regional settings": the environment's culture, never the thread's.
+
+    [TestMethod]
+    public void DateSource_IsFormattedByTheEnvironmentsCulture()
+        => AssertCoercedTo<VBStringValue>(
+            Coerce(new VBStringLetCoercionRuntimeSemantics(Formatter(), CultureInfo.GetCultureInfo(1031)),
+                new VBDateValue(new DateTime(2020, 1, 1, 15, 45, 0).ToOADate()), VBStringType.TypeInfo),
+            "01.01.2020 15:45:00");
+
+    [TestMethod]
+    [DataRow(123.45d, "123,45")]
+    [DataRow(-0.5d, "-0,5")]
+    public void NumericSource_UsesTheEnvironmentsDecimalSymbol(double source, string expected)
+        => AssertCoercedTo<VBStringValue>(
+            Coerce(new VBStringLetCoercionRuntimeSemantics(Formatter(), CultureInfo.GetCultureInfo(1031)), new VBDoubleValue(source), VBStringType.TypeInfo),
+            expected);
+
+    [TestMethod]
+    public void NumericSource_InScientificNotation_UsesTheEnvironmentsDecimalSymbol()
+        => AssertCoercedTo<VBStringValue>(
+            Coerce(new VBStringLetCoercionRuntimeSemantics(Formatter(), CultureInfo.GetCultureInfo(1031)), new VBSingleValue(12345678f), VBStringType.TypeInfo),
+            "1,234568E+7");
+
+    [TestMethod]
+    public void DateSource_DoesNotDependOnTheCultureOfTheCallingThread()
+    {
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("en-US").Clone();
+        culture.DateTimeFormat.ShortDatePattern = "yyyy|MM|dd";
+        culture.DateTimeFormat.TimeSeparator = ".";
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = culture;
+        try
+        {
+            AssertCoercedTo<VBStringValue>(
+                Coerce(Sut(), new VBDateValue(new DateTime(2020, 1, 1, 15, 45, 0).ToOADate()), VBStringType.TypeInfo),
+                "01/01/2020 15:45:00");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [TestMethod]
+    public void DateSource_UnderACultureWithAnotherCalendar_IsInTheGregorianCalendar()
+    {
+        // th-TH may write in the Thai Buddhist calendar, where 2020 is 2563; the culture's patterns are kept, its calendar not.
+        var text = ((VBStringValue)Coerce(new VBStringLetCoercionRuntimeSemantics(Formatter(), CultureInfo.GetCultureInfo(1054)),
+            new VBDateValue(new DateTime(2020, 1, 15).ToOADate()), VBStringType.TypeInfo).Result!).Value;
+
+        Assert.Contains("2020", text);
+        Assert.DoesNotContain("2563", text);
     }
 
     [TestMethod]
@@ -131,4 +186,45 @@ public sealed class VBStringLetCoercionTests : LetCoercionRuntimeSemanticsTests
         // fixed 2026-09-16: see VBNumericLetCoercionTests.EmptySource_IsZero for why this was
         // unreachable (MS-VBAL 5.5.1.2.11).
         => AssertCoercedTo<VBStringValue>(Coerce(Sut(), VBEmptyValue.Empty, VBStringType.TypeInfo), "");
+
+    // "a copy of the source string" is a copy of all of its data, not of the characters a managed string can hold.
+
+    [TestMethod]
+    public void StringSource_KeepsItsTrailingByte()
+    {
+        var result = (VBStringValue)Coerce(Sut(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), VBStringType.TypeInfo).Result!;
+
+        Assert.AreEqual("A", result.Value);
+        Assert.AreEqual((byte)0x42, result.TrailingByte);
+    }
+
+    [TestMethod]
+    public void StringSource_TheNullString_StaysTheNullString()
+        => Assert.IsTrue(((VBStringValue)Coerce(Sut(), VBStringValue.VBNullString, VBStringType.TypeInfo).Result!).IsNullString);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.6 Let-coercion to and from a resizable Byte array")]
+    public void ByteArraySource_AnOddCount_KeepsTheTrailingByte()
+    {
+        var result = (VBStringValue)Coerce(Sut(), Bytes(0x41, 0x00, 0x42), VBStringType.TypeInfo).Result!;
+
+        Assert.AreEqual(3, result.ByteLength);
+        CollectionAssert.AreEqual(new byte[] { 0x41, 0x00, 0x42 }, result.GetBytes());
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.6 Let-coercion to and from a resizable Byte array")]
+    public void ByteArraySource_ALoneSurrogate_IsNotReplaced()
+        // 00 D8 is the code unit U+D800 on its own, which a text encoding reads as U+FFFD instead.
+        => AssertCoercedTo<VBStringValue>(Coerce(Sut(), Bytes(0x00, 0xD8), VBStringType.TypeInfo), "\uD800");
+
+    private static VBResizableByteArrayValue Bytes(params byte[] bytes)
+    {
+        var array = new VBResizableByteArrayValue([(0, bytes.Length - 1)]);
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            array.TrySetElement(new ValueBindingHandle(new VBRuntimeValue<byte>(bytes[index])), index);
+        }
+        return array;
+    }
 }

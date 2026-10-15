@@ -28,7 +28,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
 {
-    protected override bool ComparisonOp(string lhs, string rhs, StringComparisonRules rules) => throw new NotSupportedException();
+    protected override bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules) => throw new NotSupportedException();
     protected override bool ComparisonOp<T>(T lhs, T rhs) => throw new NotSupportedException();
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(

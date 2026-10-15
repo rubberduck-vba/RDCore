@@ -306,6 +306,9 @@
   <data name="VBCompileError_DeclaredTypeQualifierNotResolved_Verbose" xml:space="preserve">
     <value>The declared type '{0}' could not be resolved: '{1}' is not a project or a module that this project can see. If it is a library, it may be missing from the references of the project.</value>
   </data>
+  <data name="VBCompileError_DeclaredTypeIsAProceduralModule_Verbose" xml:space="preserve">
+    <value>The declared type '{0}' is a procedural module, not a type.</value>
+  </data>
   <data name="VBCompileError_RaiseEventByVal_Verbose" xml:space="preserve">
     <value>A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).</value>
   </data>

@@ -619,6 +619,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The declared type '{0}' is a procedural module, not a type.
+        /// </summary>
+        public static string VBCompileError_DeclaredTypeIsAProceduralModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DeclaredTypeIsAProceduralModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The declared type '{0}' could not be resolved.
         /// </summary>
         public static string VBCompileError_DeclaredTypeNotResolved_Verbose {

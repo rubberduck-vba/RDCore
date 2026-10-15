@@ -2,9 +2,9 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Globalization;
-using System.Text;
 
 namespace RDCore.Runtime.Semantics.Conversion;
 
@@ -15,22 +15,36 @@ public static partial class ValueConversions
     /// <c>String</c>, any numeric type, <c>Boolean</c>, <c>Date</c>, <c>Empty</c> (<strong>§5.5.1.2.11</strong>),
     /// or <c>Byte()</c> (<strong>§5.5.1.2.6</strong>).
     /// </summary>
+    /// <remarks>
+    /// A number is written with the regional decimal symbol, and a date in the regional Short Date and Long Time
+    /// formats: §5.5.1.2.4's "host-defined regional settings", which are <paramref name="culture"/>'s. The thread's
+    /// own culture is never read.
+    /// </remarks>
     /// <param name="source">The value, unwrapped from any <c>Variant</c> that held it.</param>
-    public static ValueConversionResult ToText(VBTypedValue source) => source switch
+    /// <param name="culture">The regional settings to write a number or a date in; the invariant culture when none is given.</param>
+    public static ValueConversionResult ToText(VBTypedValue source, CultureInfo? culture = null) => source switch
     {
-        // result is a copy of the source string.
-        VBStringValue text => ValueConversionResult.Success(new VBStringValue(text.Value)),
+        // result is a copy of the source string: its runtime value, which is immutable, so the copy has every byte of
+        // its data - a trailing byte included - and a copy of vbNullString is vbNullString.
+        VBStringValue text => ValueConversionResult.Success(new VBStringValue(new ValueBindingHandle(text.RuntimeValue))),
 
-        VBNumericTypedValue number => ValueConversionResult.Success(new VBStringValue(NumberToText(number))),
+        VBNumericTypedValue number => ValueConversionResult.Success(new VBStringValue(NumberToText(number, culture ?? CultureInfo.InvariantCulture))),
 
         VBBooleanValue boolean => ValueConversionResult.Success(new VBStringValue((bool)boolean.Value ? Tokens.True : Tokens.False)),
 
-        VBDateValue date => ValueConversionResult.Success(new VBStringValue(FormatDate(date.Value))),
+        VBDateValue date => ValueConversionResult.Success(new VBStringValue(FormatDate(date.Value, culture ?? CultureInfo.InvariantCulture))),
 
         // MS-VBAL 5.5.1.2.11: "The result is a 0-length string."
         VBEmptyValue => ValueConversionResult.Success(VBStringValue.ZeroLengthString),
 
-        VBArrayValue { ItemType: VBByteType } bytes => ValueConversionResult.Success(new VBStringValue(FromBytes(bytes))),
+        // MS-VBAL 5.5.1.2.6: "The binary data within the source Byte array is interpreted as if it represents the
+        // implementation-defined binary format used to store String data [...] This coercion never raises a runtime
+        // error. If the byte array is uninitialized, the result is a 0-length string." RDCore's format is UTF-16LE code
+        // units and, when the data is an odd number of bytes, the byte left over after them, so every byte array is one
+        // and every byte of it is kept: the specification's "?" for data that "cannot be represented on the current
+        // platform", and its discarded "trailing bytes leftover", describe formats that cannot hold some of them.
+        VBArrayValue { ItemType: VBByteType } bytes
+            => ValueConversionResult.Success(VBStringValue.FromBytes(VBByteArrayCoercionHelpers.Flatten(bytes))),
 
         VBNullValue => ValueConversionResult.Failure(VBRuntimeErrorId.InvalidUseOfNull),
 
@@ -40,37 +54,42 @@ public static partial class ValueConversions
         _ => ValueConversionResult.NotApplicable,
     };
 
-    // MS-VBAL 5.5.1.2.6: "The binary data within the source Byte array is interpreted as if it
-    // represents the implementation-defined binary format used to store String data [...] The result
-    // is the string produced. This coercion never raises a runtime error. If the byte array is
-    // uninitialized, the result is a 0-length string. [...] Any trailing bytes leftover at the end of
-    // the byte array that could not be interpreted are discarded." .NET's own String storage already
-    // is that binary format (UTF-16LE), and every 2-byte pairing is a valid .NET char - the spec's "?"
-    // fallback for a byte sequence that "cannot be represented on the current platform" describes other
-    // hosts whose internal string encoding isn't UTF-16; it has no unrepresentable case to fall back to
-    // here, so Encoding.Unicode.GetString (dropping an unpaired trailing byte) satisfies the rule as-is.
-    private static string FromBytes(VBArrayValue byteArraySource)
-    {
-        var bytes = VBByteArrayCoercionHelpers.Flatten(byteArraySource);
-        return Encoding.Unicode.GetString(bytes[..(bytes.Length - bytes.Length % 2)]);
-    }
-
     // MS-VBAL 5.5.1.2.4: if the day value of the source date is 12/30/1899, only the date's time is
     // converted (Long Time format) — compares DateTime.Date rather than requiring the exact zero serial value,
     // since every time of day on 12/30/1899 is itself a "day value" of 12/30/1899. Otherwise the source date's
     // full date and time value is converted (Short Date format); when the time-of-day is exactly midnight that
     // full value has nothing to add, so only the date prints — real VBA drops a trailing "12:00:00 AM" from a
     // date-only value.
-    private static string FormatDate(DateTime value) => value.Date == VBDateType.Zero.Value.Date
-        ? value.ToLongTimeString()
-        : value.TimeOfDay == TimeSpan.Zero
-            ? value.ToShortDateString()
-            : $"{value.ToShortDateString()} {value.ToLongTimeString()}";
-
-    private static string NumberToText(VBNumericTypedValue value)
+    private static string FormatDate(DateTime value, CultureInfo culture)
     {
-        var cultureInfo = CultureInfo.InvariantCulture;
+        var format = DateFormatOf(culture);
+        return value.Date == VBDateType.Zero.Value.Date
+            ? value.ToString("T", format)
+            : value.TimeOfDay == TimeSpan.Zero
+                ? value.ToString("d", format)
+                : $"{value.ToString("d", format)} {value.ToString("T", format)}";
+    }
 
+    // the formats of the culture, in the Gregorian calendar whatever calendar the culture writes in by default: MS-VBA's
+    // Calendar setting is "vbCalGreg 0 Use Gregorian calendar (default)", and MS-VBAL 6.1.2.4.2.1 gives the setting (the
+    // session's ISessionClock.Calendar) to "subsequent calls to the functions defined in section 6.1.2.4" only, so a
+    // let-coercion writes in the Gregorian calendar whatever it is: under th-TH a date is written with th-TH's patterns and
+    // 2020 is 2020, not 2563. A culture that offers no Gregorian calendar at all keeps its own.
+    private static DateTimeFormatInfo DateFormatOf(CultureInfo culture)
+    {
+        if (culture.Calendar is GregorianCalendar
+            || culture.OptionalCalendars.OfType<GregorianCalendar>().FirstOrDefault() is not { } gregorian)
+        {
+            return culture.DateTimeFormat;
+        }
+
+        var format = (DateTimeFormatInfo)culture.DateTimeFormat.Clone();
+        format.Calendar = gregorian;
+        return format;
+    }
+
+    private static string NumberToText(VBNumericTypedValue value, CultureInfo cultureInfo)
+    {
         // BoxedValue's CLR type tracks the source's own numeric type (int for Long, short for
         // Integer, ...), not always double — a direct (double) unboxing cast throws for anything
         // that isn't already a boxed double. AsDouble widens through Convert.ToDouble instead.

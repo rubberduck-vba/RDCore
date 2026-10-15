@@ -35,6 +35,34 @@ public sealed class DeclareRecordTests
             $"Debug.Print (clock.wYear = {DateTime.UtcNow.Year})",
             "Debug.Print clock.wMonth >= 1 And clock.wMonth <= 12"));
 
+    // the type of another module travels to the host with that module's name, and the copy is laid out from the type the variable has, whichever name
+    // the declaration used.
+    [TestMethod]
+    public async Task ARecordOfAnotherModule_IsFilledInByTheFunction()
+        => CollectionAssert.AreEqual(new[] { "True", "True" }, await RunAsync(
+            [],
+            [("Mod2", StandardModule("Mod2",
+                "Public Type SYSTEMTIME",
+                "    wYear As Integer",
+                "    wMonth As Integer",
+                "    wDayOfWeek As Integer",
+                "    wDay As Integer",
+                "    wHour As Integer",
+                "    wMinute As Integer",
+                "    wSecond As Integer",
+                "    wMilliseconds As Integer",
+                "End Type"))],
+            string.Join("\r\n",
+                "Attribute VB_Name = \"Program\"",
+                "Private Declare PtrSafe Sub GetSystemTime Lib \"kernel32\" (lpSystemTime As Mod2.SYSTEMTIME)",
+                "Public Sub Main()",
+                "Dim clock As SYSTEMTIME",
+                "GetSystemTime clock",
+                $"Debug.Print (clock.wYear = {DateTime.UtcNow.Year})",
+                "Debug.Print clock.wMonth >= 1 And clock.wMonth <= 12",
+                "End Sub",
+                "")));
+
     // the classic: a fixed-length String is 128 ANSI bytes in the copy, so the size the function is told is Len of the type, 148 - as the A flavour expects.
     [TestMethod]
     [Ignore("String * n is dropped when the syntax tree is built: a fixed-length string is declared as a variable-length one")]

@@ -234,10 +234,10 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             if (local is not VBLocalVariableSymbol variable)
             {
                 // VBLocalConstantSymbol (a local Const): MS-VBAL's own value is a compile-time
-                // substitution, never a runtime address - nothing yet threads a local Const's own
-                // initializer expression to where the runtime could evaluate it. A documented,
-                // deliberate gap, not a silent misread: reading one still resolves to InternalError,
-                // exactly as it already does today.
+                // substitution, never a runtime address - the symbol carries its declaration's own
+                // expression, and RuntimeExpressionEvaluator folds that at each use site, so there is
+                // nothing here to hoist. One that carries no expression has no value to read at all,
+                // and reading it resolves to InternalError.
                 continue;
             }
 
@@ -255,14 +255,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
     }
 
-    // the module a procedure is declared in is its symbol's parent. A procedure whose parent is not a
-    // module symbol — one the session has no module for — runs under the defaults, which is what every
-    // activation used to do.
+    // the module a procedure is declared in is its symbol's parent, a standard module or a class module,
+    // whose name binds only as a type. A procedure whose parent is not a module symbol — one the session
+    // has no module for — runs under the defaults, which is what every activation used to do.
     private ModuleDirectives DeclaringModuleDirectives(VBTypeMemberSymbol procedure)
-        => Session.Symbols.TryResolveValue(procedure.ParentUri.Fragment.TrimStart('#'), GlobalSymbols.UnresolvedSymbol, out var parent)
-            && parent is VBModuleSymbol module
-                ? module.Directives
-                : ModuleDirectives.None;
+        => Session.Symbols.TryResolveModule(procedure.ParentUri.Fragment.TrimStart('#'), out var module)
+            ? module.Directives
+            : ModuleDirectives.None;
 
     internal static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 

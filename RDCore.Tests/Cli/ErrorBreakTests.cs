@@ -17,16 +17,19 @@ public sealed class ErrorBreakTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private static readonly string Unhandled = Program(
+    // Main calls a procedure that faults at the program's seventh line, the sixth counted from 0.
+    private static string Faulting(string statement) => Program(
         "Public Sub Main()",
         "    Helper",
         "    Debug.Print \"after\"",
         "End Sub",
         "Private Sub Helper()",
         "    Dim z As Long",
-        "    Debug.Print 5 \\ z",
+        "    " + statement,
         "    Debug.Print \"never\"",
         "End Sub");
+
+    private static readonly string Unhandled = Faulting("Debug.Print 5 \\ z");
 
     private static readonly string Handled = Program(
         "Public Sub Main()",
@@ -76,6 +79,69 @@ public sealed class ErrorBreakTests
 
             Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
             Assert.AreEqual(11, resumed.ErrorNumber);
+        });
+
+    [TestMethod]
+    [DataRow("Debug.Print CInt(\"x\")", DisplayName = "a conversion")]
+    [DataRow("Debug.Print Hex(\"x\")", DisplayName = "a conversion with a $ twin")]
+    [DataRow("Debug.Print Chr(-1)", DisplayName = "a member the dispatcher answers for")]
+    public async Task AnErrorALibraryMemberRaises_IsWaitedAt_TheStatementThatCalledIt(string statement)
+        => await RunAsync(Faulting(statement), ErrorBreakMode.Unhandled, debug: true, (provider, stopped) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.AreEqual(6, stopped.ErrorLine, "the statement that called the member");
+            var stack = provider.Execution.Stack().Frames;
+            Assert.AreEqual("Helper", stack[0].Procedure);
+            Assert.AreEqual(6, stack[0].Line);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public async Task AProgramThatWaitedAtALibraryError_IsNotWaitedAtAgainAsItUnwinds()
+        => await RunAsync(Faulting("Debug.Print CInt(\"x\")"), ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+
+            // the caller the error unwinds into is given the error that was waited at, which already says where it is.
+            var resumed = await ResumeAsync(provider);
+
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
+            Assert.AreEqual(6, resumed.ErrorLine);
+        });
+
+    [TestMethod]
+    public async Task AnErrorAtANext_IsWaitedAtOnce_AndNotAgainAtTheCallAsItUnwinds()
+        => await RunAsync(Program(
+            "Public Sub Main()",
+            "    Helper",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Sub Helper()",
+            "    Dim i As Long",
+            "    GoTo Skip",
+            "    For i = 1 To 2",
+            "Skip:",
+            "    Next",
+            "End Sub"), ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>
+        {
+            // a Next is no statement of its own, and its error is at the For it closes.
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.AreEqual(92, stopped.ErrorNumber);
+            Assert.AreEqual(7, stopped.ErrorLine, "the For");
+
+            var resumed = await ResumeAsync(provider);
+
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, resumed.Outcome, resumed.ErrorMessage);
+            Assert.AreEqual(7, resumed.ErrorLine);
+        });
+
+    [TestMethod]
+    public async Task AnErrorALibraryMemberRaises_NotUnderADebugger_EndsTheRunAtTheStatementThatCalledIt()
+        => await RunAsync(Faulting("Debug.Print CInt(\"x\")"), ErrorBreakMode.None, debug: false, (provider, done) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, done.Outcome, done.ErrorMessage);
+            Assert.AreEqual(6, done.ErrorLine, "the statement in Helper, not the call in Main");
+            return Task.CompletedTask;
         });
 
     [TestMethod]

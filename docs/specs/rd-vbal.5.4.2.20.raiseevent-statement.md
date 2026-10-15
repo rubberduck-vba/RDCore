@@ -34,6 +34,10 @@ Compatibility follows the static rules for each mapped parameter of procedure in
 |`ByRef`, a specific class or `Object`|An object of a specific class or `Object`.|
 |`ByRef`, `Variant`|An argument of any type.|
 
+An `Enum` is the declared type `Long` ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)),
+so a variable of an `Enum` is of exactly the declared type of a `ByRef` parameter declared `Long` or as another `Enum`, and
+a `Long` variable of one declared as an `Enum`.
+
 > [!NOTE]
 > **Interpretation.** The static text asks for an exact type match of a `ByRef` parameter without saying what the argument is.
 > The runtime semantics of the same section is that an argument that is a value (a literal, an operator's result) is Let-assigned to

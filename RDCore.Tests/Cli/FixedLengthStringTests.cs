@@ -43,6 +43,21 @@ public sealed class FixedLengthStringTests
             "Debug.Print \"[\" & t.Name & \"]\""));
 
     [TestMethod]
+    [TestCategory("MS-VBAL 5.4.3.6 LSet Statement")]
+    public async Task LSetBetweenRecords_KeepsALoneSurrogateInAFieldOfOneCharacter()
+        // a record is copied "as stored in memory", so the field keeps its data, 00 D8, whatever character that makes: the Byte()
+        // gives the field a lone surrogate, and the Byte() it is read back into has the same two bytes, not FD FF.
+        => CollectionAssert.AreEqual(new[] { "0", "216" }, await Run(
+            "Private Type Tag\r\n    Code As String * 1\r\nEnd Type\r\nPrivate A As Tag\r\nPrivate B As Tag\r\nPrivate Data() As Byte",
+            "ReDim Data(1)",
+            "Data(1) = &HD8",
+            "A.Code = Data",
+            "LSet B = A",
+            "Data = B.Code",
+            "Debug.Print Data(0)",
+            "Debug.Print Data(1)"));
+
+    [TestMethod]
     public async Task TheElementsOfAnArray_AreEachAsLongAsTheyAreDeclared()
         => CollectionAssert.AreEqual(new[] { "[abc]", "3" }, await Run(
             string.Empty,

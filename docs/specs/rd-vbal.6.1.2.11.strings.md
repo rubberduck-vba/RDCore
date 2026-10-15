@@ -88,7 +88,7 @@ one function with two exceptions (strings and UDTs), rather than two functions.
 
 |Expression|`Len`|`LenB`|
 |---|---|---|
-|A `String`|Its number of characters.|Two bytes per character.|
+|A `String`|Its number of whole characters.|"the number of bytes used to represent that string": two per character, and one more for a trailing byte ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).|
 |A fixed-length `String`|Its declared length.|Twice its declared length.|
 |`Null`|`Null`|`Null`|
 |Any other scalar|The bytes it occupies.|The same as `Len`: the bytes it occupies.|

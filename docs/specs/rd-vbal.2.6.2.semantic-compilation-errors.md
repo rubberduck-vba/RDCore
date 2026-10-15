@@ -53,7 +53,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09330`](../diagnostics/vbc09330.md)|Invalid implemented member|an implemented name declaration is not the kind of declaration its member is, or its parameters or type are not equivalent|
 |[`VBC09331`](../diagnostics/vbc09331.md)|Sub or Function not defined|a statement the language the code is written in does not have: a bare `Print` outside the platform's BASIC|
 |[`VBC09332`](../diagnostics/vbc09332.md)|Exit Sub not allowed in Function or Property|an `Exit Sub` statement is in a `Function` or a property|
-|[`VBC09333`](../diagnostics/vbc09333.md)|Variable required|an expression that is certainly not a variable (a literal, an operator's result, a constant) is the target of a `Mid` statement, or the variable a `Line Input #`, `Input #` or `Get` reads into|
+|[`VBC09333`](../diagnostics/vbc09333.md)|Variable required|an expression that is certainly not a variable (a literal, an operator's result, a constant, a function of the library) is the target of an assignment (`Let`, `Set`, `LSet`, `RSet`; but a `Let` may assign to a function of the library whose declared type is a class, `Object` or `Variant`), of a `Mid` statement or of a `ReDim` statement, the control variable of a `For` or `For Each` loop, or the variable a `Line Input #`, `Input #` or `Get` reads into; or a constant is an element of an `Erase` statement|
 |[`VBC09334`](../diagnostics/vbc09334.md)|Access not valid for the file mode|the `Access` clause of an `Open` statement is not one its `For` mode allows|
 |[`VBC09335`](../diagnostics/vbc09335.md)|Type-declaration character does not match declared data type|a name is written with the type-declaration character of a type other than the one it was declared as|
 
@@ -65,11 +65,11 @@ This specification refers to the following semantic compilation errors on other 
 
 |Code|`VBCompileErrorId`|Condition|See|
 |---|---|---|---|
-|`VBC09301`|`AmbiguousName`|A name resolves in more than one enclosing scope (members promoted from different modules or references). The reference must qualify the name.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
+|`VBC09301`|`AmbiguousName`|Within one tier of the project or global scope, a name resolves to more than one symbol of the highest rank: members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. The symbols of two libraries never share a rank. The reference must qualify the name. A declared type whose name ties this way is `VBC09311` instead.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09302`|`VariableNotDefined`|An unresolved simple name. The static-semantics layer consumes the module's `ModuleDirectives` to decide whether such a name is a deferred `VBUnknownType` or this error.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09303`|`DuplicateDeclaration`|A name is declared more than once within one module or procedure.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09304`|`InvalidUseOfObject`|`Set Widget = New Widget` or `Set Widget = Nothing`, for a predeclared class `Widget`.|[**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)|
-|`VBC09311`|`UserDefinedTypeNotDefined`|An unknown type should raise this error; verbose diagnostic messages should help clarify its meaning.|[**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)|
+|`VBC09311`|`UserDefinedTypeNotDefined`|An unknown type should raise this error, and so does a declared type that names a procedural module; verbose diagnostic messages should help clarify its meaning.|[**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md), [**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions)|
 
 An appropriate compile-time error should be issued for a duplicate declaration and for an ambiguous name. The symbol resolver reports the error kind; the caller, which knows where the reference is, builds the located diagnostic.
 

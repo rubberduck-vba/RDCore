@@ -118,12 +118,13 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     /// <remarks>
     /// An Error is the one argument that is not simply converted: "the String data value consisting of
     /// <c>Error</c> followed by a single space character followed by the String that is the result of the Long
-    /// error code … Let-coerced to String" (<strong>MS-VBAL §6.1.2.3.1.12</strong>).
+    /// error code … Let-coerced to String" (<strong>MS-VBAL §6.1.2.3.1.12</strong>). Anything else is written in the
+    /// regional settings of the session's environment, as Let-coercion writes it.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBStringValue> CStr(VBVariantValue expression)
         => Unwrapped(expression) is VBErrorValue error
             ? Succeed(new VBStringValue($"Error {ErrorCodeText(error)}"))
-            : Convert<VBStringValue>(expression, ValueConversions.ToText, nameof(String), errorAsCode: false);
+            : Convert<VBStringValue>(expression, source => ValueConversions.ToText(source, session.Environment.Culture), nameof(String), errorAsCode: false);
 
     /// <inheritdoc/>
     /// <remarks>"The argument data value is returned" (<strong>MS-VBAL §6.1.2.3.1.13</strong>).</remarks>
@@ -327,9 +328,10 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             case VBErrorValue error:
                 return Succeed(new VBStringValue($"Error {ErrorCodeText(error)}"));
 
-            // "If the value type of Number is Date, the returned value is the result of Let-coercing Number to String."
+            // "If the value type of Number is Date, the returned value is the result of Let-coercing Number to String" -
+            // in the regional settings of the session's environment, as Let-coercion writes it.
             case VBDateValue:
-                return Convert<VBStringValue>(number, ValueConversions.ToText, nameof(String), errorAsCode: false);
+                return Convert<VBStringValue>(number, source => ValueConversions.ToText(source, session.Environment.Culture), nameof(String), errorAsCode: false);
 
             // "If the data value of Number is any numeric value type, let S be the result of Let-coercing Number to
             // String using "." as the decimal separator" - which the conversion does, in the invariant culture.
@@ -349,15 +351,16 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     // its first character, otherwise the result is S."
     private static RuntimeSemanticsEvaluationResult<VBStringValue> Text(VBTypedValue number, bool nonNegative)
     {
-        var text = ValueConversions.ToText(number);
+        var text = ValueConversions.ToText(number, CultureInfo.InvariantCulture);
         return text.Value is VBStringValue s
             ? Succeed(new VBStringValue(nonNegative ? " " + s.Value : s.Value))
             : Fail<VBStringValue>(text.Error ?? VBRuntimeErrorId.TypeMismatch, "The number has no text.");
     }
 
-    // MS-VBAL 6.1.2.3.1.12: the String that is the result of the Long error code Let-coerced to String.
+    // MS-VBAL 6.1.2.3.1.12: the String that is the result of the Long error code Let-coerced to String - a whole number,
+    // which no regional setting writes differently, so it is written invariantly whatever the session's environment.
     private static string ErrorCodeText(VBErrorValue error)
-        => ValueConversions.ToText(new VBLongValue(error.Value)).Value is VBStringValue code ? code.Value : string.Empty;
+        => ValueConversions.ToText(new VBLongValue(error.Value), CultureInfo.InvariantCulture).Value is VBStringValue code ? code.Value : string.Empty;
 
     [GeneratedRegex(@"^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eEdD][+-]?[0-9]+)?", RegexOptions.CultureInvariant)]
     private static partial Regex LeadingNumber();

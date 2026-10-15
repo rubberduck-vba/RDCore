@@ -15,6 +15,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Globalization;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -29,11 +30,23 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// destination) is dispatched by those destination types instead, and lives in
 /// <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/>, <see cref="VBBooleanLetCoercionRuntimeSemantics"/>
 /// and <see cref="VBDateLetCoercionRuntimeSemantics"/> respectively, for that same reason.
+/// <para>
+/// 👉 A number or a date is written in the regional settings of the session's environment (<see cref="Culture"/>):
+/// the culture of the thread the interpreter happens to run on is never read.
+/// </para>
 /// </remarks>
+/// <param name="FormatterService">Builds the verbose message of an error.</param>
+/// <param name="Culture">The regional settings a number or a date is written in; the invariant culture when none is given.</param>
 public record class VBStringLetCoercionRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService)
+    IVerboseMessageBuilder FormatterService,
+    CultureInfo? Culture = null)
     : LetCoercionRuntimeSemantics<VBStringType>(FormatterService)
 {
+    /// <summary>
+    /// The culture a number or a date is written in.
+    /// </summary>
+    public CultureInfo EffectiveCulture => Culture ?? CultureInfo.InvariantCulture;
+
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,
         ExpressionNode expression,
@@ -41,7 +54,7 @@ public record class VBStringLetCoercionRuntimeSemantics(
     {
         frame = WithoutVariant(frame);
         return frame.DestinationTypeDesc.Target is VBStringType
-            ? FromConversion(ValueConversions.ToText(frame.SourceValue), expression, frame)
+            ? FromConversion(ValueConversions.ToText(frame.SourceValue, EffectiveCulture), expression, frame)
             : LetCoercionResult.NotApplicable(frame);
     }
 

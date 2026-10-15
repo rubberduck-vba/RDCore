@@ -23,7 +23,15 @@ The target name of a `ReDim` statement decides what the statement is:
 |Target name|The `ReDim` statement is|
 |---|---|
 |Resolves to a local, a parameter, or a module field|A re-dimension of an existing array.|
+|Resolves to a constant (`ReDim Limit(1)`, for `Const Limit = 10`)|Invalid: the name a `ReDim` matches is the _redimensioned variable_ (**MS-VBAL §5.4.3.3**), and a constant is not one. [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).|
 |Unqualified, and resolves to nothing|An implicit declaration.|
+
+> [!NOTE]
+> **Not implemented.** The declaration pass looks an unqualified `ReDim` target up among the procedure's names and its
+> module's, not the library's nor another module's: a target only the library or another module declares
+> (`ReDim vbCrLf(1)`, `ReDim Left(1)`, or `ReDim Limit(1)` for another module's `Public Const Limit`) is an implicit
+> declaration of a local array, where **MS-VBAL §5.4.3.3** makes the member the name matches the redimensioned
+> variable: a constant or a function can't be one, and another module's array is the one to redimension.
 
 For an implicit `ReDim` declaration:
 

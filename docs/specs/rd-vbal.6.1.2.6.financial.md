@@ -58,8 +58,10 @@ default too, where MS-VBA would coerce it to `0`: nothing can tell the two apart
 
 > [!NOTE]
 > **Not implemented.** A `String` optional argument is not coerced, even one that reads as a number: it is error `13`.
-> The call site coerces a `String` argument to a required `Double` parameter with the session's regional settings, and
-> the module does not take the session.
+> The call site Let-coerces a `String` argument to a required `Double` parameter, which reads the number invariantly for
+> now ([**RD-VBAL §5.5.1.2.4**](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)). An optional one is a `Variant`
+> the module would have to coerce itself, and the module does not take the session, whose regional settings that reading
+> is to follow.
 
 
 ## Iteration

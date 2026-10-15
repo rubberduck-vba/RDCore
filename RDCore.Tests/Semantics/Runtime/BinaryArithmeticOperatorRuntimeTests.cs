@@ -61,6 +61,17 @@ public sealed class BinaryArithmeticOperatorRuntimeTests : OperatorArithmeticRun
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
+    public void Addition_StringsWithTrailingBytes_ConcatenateByteForByte()
+    {
+        // two Strings are concatenated by +, the same way & concatenates them: one byte each is one character.
+        var result = (VBStringValue)Evaluate(Add(), VBStringValue.FromBytes([0x41]), VBStringValue.FromBytes([0x42])).Result!;
+
+        CollectionAssert.AreEqual(new byte[] { 0x41, 0x42 }, result.GetBytes());
+        Assert.IsNull(result.TrailingByte);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.3.2 Binary '+' Operator")]
     public void Addition_NumericAndNull_IsNull()
         // fixed 2026-09-16: a Numeric+Null pair resolves an effective type of Null (MS-VBAL 5.6.9.3),
         // but the pipeline still tried to Let-coerce the non-null 5 operand TOWARD that Null

@@ -26,6 +26,14 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 |An `Error` value|`#ERROR n#`, where `n` is the error value's number.|
 |`Date`|`#yyyy-mm-dd hh:mm:ss#`|
 
+A `Variant` is written as the value it holds, through a `Variant` within a `Variant`: a `Boolean`, `Null`, `Error`,
+`Date` or number held in a `Variant` takes the form of its own type above, as **MS-VBAL §5.4.5.9**'s rules are about
+an output expression's data value.
+
+The spellings are fixed, whatever the regional settings of the session's environment: a number's decimal separator is
+`.`, and a date's separators and year are those above, in the Gregorian calendar. They are the spellings `Input #`
+reads back.
+
 ## Implementation
 
 `Write #` writes through the channel's character output surface,

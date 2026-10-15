@@ -26,7 +26,8 @@ split of the `Mid`/`Mid$` function overloads, which matters for static semantics
 ## Static Semantics
 
 The declared type of the target MUST be `String` or `Variant` (**MS-VBAL §5.4.3.5**); another is a `TypeMismatch`. The target is a variable: a literal, an operator's
-result or a constant is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).
+result, a constant (by its name, or qualified by its project, its module or the library `Enum` that declares it) or a function of the library (`Mid(Left, 1, 1) = "x"`) is
+[`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).
 
 The position and the length are used as the runtime semantics uses them - as `Long` - and the value as a `String`, so each has to be Let-coercible to that
 ([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)).
@@ -55,9 +56,31 @@ string: the number of characters replaced, `x`, is the least of the `length` ask
 |Spelling|Counts in|
 |---|---|
 |`Mid`, `Mid$`|Characters.|
-|`MidB`, `MidB$`|Bytes of the string's in-memory form, two to a character, as `LenB` counts. A position can fall inside a character, which is split.|
+|`MidB`, `MidB$`|Bytes of the string's in-memory form, as `LenB` counts them: two to a character, and the trailing byte of a string whose data is an odd number of bytes. A position can fall inside a character, which is split.|
 
 The `$` suffix changes nothing at run time.
+
+Both modes replace the target's own bytes ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)),
+and no text encoding takes part:
+
+- `MidB` copies the first bytes of the value over the target's bytes from byte `start` on. A `start` may be the
+  trailing byte, which `LenB` counts. A byte written over half of a character is kept as written, even when the pair
+  it makes is a lone surrogate.
+- `Mid` copies the first `2x` bytes of the value over the target's bytes from byte `2(start - 1)` on. A trailing byte
+  of the target follows its last whole character, so it is not one of the `x` characters replaced, and stays.
+
+With `s` holding the bytes `41 00 42` (the character `A` and a trailing byte):
+
+|Statement|`s` afterwards|
+|---|---|
+|`MidB(s, 3, 1) = "Z"`|`41 00 5A`|
+|`Mid(s, 1, 1) = "Z"`|`5A 00 42`|
+|`Mid(s, 1) = "ZQ"`|`5A 00 42`: `s` has one character, so one is replaced.|
+
+> [!NOTE]
+> 🎯 **RD-VBAL differs from MS-VBA** in the last row, as the VB6 runtime runs it. That runtime copies bytes up to the
+> target's byte length rather than whole characters, and writes `51`, the first byte of `Q`, over the trailing byte.
+> **MS-VBAL §5.4.3.5** replaces characters, and a trailing byte is not one, so RD-VBA leaves it. The other rows agree.
 
 ## Implementation
 

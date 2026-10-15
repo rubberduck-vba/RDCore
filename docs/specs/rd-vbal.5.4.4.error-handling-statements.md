@@ -27,6 +27,22 @@ Each activation carries a single
 target, the active error, and the fault-statement offset. The error-handling modes are described in
 [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md).
 
+### Where an error is located
+
+An error carries the location of what raised it, and that is where it is reported: the line of a run that ends with
+it, where the debugger waits, and `Erl`
+([**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)). A standard-library member cannot know where it was called from, so an error it raises, such as `CInt("x")`'s type
+mismatch or `Err.Raise`'s error, has no location of its own.
+
+`InterceptError` gives an error that has no location the location of the statement that faulted, before the error
+reaches the session's error state and the debugger. That located error is the one every handler state holds and the
+one that propagates to the caller, so the error is waited at once, at its own statement, and not again at the
+statement that called the procedure. An error that already has a location keeps it: an operator's error is located at
+its own expression. The located error takes the statement's start column.
+
+The `Next` of a `For` or `For Each` loop has no statement of its own, so an error there, such as error 92, is located
+at the `For` it closes.
+
 ## Unhandled errors
 
 An error that no handler catches propagates out of the activation; see

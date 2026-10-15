@@ -15,6 +15,10 @@ reports it as [VBC09326](../diagnostics/vbc09326.md). It decides by the name alo
 `WithEvents` variable's name and an underscore is no handler, and neither is one named for a variable that is not
 `WithEvents`; neither is checked.
 
+An `Enum`'s name in an `<as-type>` clause means the declared type `Long`, so an `Enum` and `Long`, or two `Enum`s, are
+the same type here: a handler whose parameter is declared `Long` handles an event whose parameter is an `Enum`
+([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).
+
 ## Runtime Semantics
 
 A handler is invoked by `RaiseEvent` ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)) on the object that holds the event's source in the `WithEvents` variable, with that object as its target: its `Me` is the object that owns the variable, not the source.

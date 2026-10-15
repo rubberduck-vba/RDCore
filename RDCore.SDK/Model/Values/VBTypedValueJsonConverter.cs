@@ -13,7 +13,8 @@ namespace RDCore.SDK.Model.Values;
 /// 👉 The only <see cref="VBTypedValue"/> that crosses a process boundary is the one an AST resolves
 /// for a <em>literal</em> — always a compile-time scalar or a sentinel. Reference-valued kinds
 /// (objects, arrays, UDTs, Variants) carry identity / storage semantics, never appear in an AST, and
-/// are rejected here.
+/// are rejected here. So is a <c>String</c> with a trailing byte: no literal is half a character, so one here is a bug
+/// upstream rather than a value to carry.
 /// </remarks>
 public sealed class VBTypedValueJsonConverter : JsonConverter<VBTypedValue>
 {
@@ -72,6 +73,9 @@ public sealed class VBTypedValueJsonConverter : JsonConverter<VBTypedValue>
             case VBCurrencyValue v: writer.WriteNumber(ValueProperty, v.Value.Value); break;
             case VBDecimalValue v: writer.WriteNumber(ValueProperty, v.Value); break;
             case VBDateValue v: writer.WriteNumber(ValueProperty, v.SerialValue); break;
+            case VBStringValue { TrailingByte: not null }:
+                // a literal is whole characters; writing only those would change the value, not serialize it.
+                throw new JsonException("A String with a trailing byte is not a serializable literal value (a literal is always whole characters).");
             case VBStringValue v: writer.WriteString(ValueProperty, v.Value); break;
             case VBErrorValue v: writer.WriteNumber(ValueProperty, v.Value); break;
             case VBNullValue or VBEmptyValue or VBMissingValue or VBUnknownValue or VBVoidValue or VBNothingValue:

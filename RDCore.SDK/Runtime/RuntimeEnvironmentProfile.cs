@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Globalization;
+using System.Text;
 
 namespace RDCore.SDK.Runtime;
 
@@ -8,7 +9,7 @@ namespace RDCore.SDK.Runtime;
 /// </summary>
 /// <param name="Is64Bit">Whether the environment is 64-bit.</param>
 /// <param name="Lcid">The environment LCID; <c>0</c> for the invariant locale.</param>
-/// <param name="AnsiCodePage">The ANSI code page for <c>Byte()</c> ↔ <c>String</c>.</param>
+/// <param name="AnsiCodePage">The ANSI code page of the text of a file and of <c>Chr</c> / <c>Asc</c>.</param>
 /// <param name="SupportsOptionCompareDatabase">Whether <c>Option Compare Database</c> is supported.</param>
 /// <param name="DatabaseCompare">The comparison mode <c>Option Compare Database</c> stands for; <c>Text</c> unless said otherwise.</param>
 /// <param name="ErlLineNumbering">What <c>Erl</c> counts as a line; the document line unless said otherwise.</param>
@@ -32,7 +33,7 @@ public sealed record class RuntimeEnvironmentProfile(
     public Workspace.SupportedLanguage Language => SourceLanguage ?? Workspace.SupportedLanguages.RDVBA;
 
     /// <summary>
-    /// A 64-bit, current-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
+    /// A 64-bit, invariant-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
     /// design-time and tests.
     /// </summary>
     public static IRuntimeEnvironmentProfile Default { get; } = new RuntimeEnvironmentProfile(
@@ -49,4 +50,11 @@ public sealed record class RuntimeEnvironmentProfile(
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// 🚧 The provider supplies only the code pages .NET does not build in, so a code page it does build in (65001, 28591,
+    /// 20127, 1200) is Latin-1 here, the same as one that does not exist. TODO.
+    /// </remarks>
+    public Encoding AnsiEncoding => CodePagesEncodingProvider.Instance.GetEncoding(AnsiCodePage) ?? Encoding.Latin1;
 }

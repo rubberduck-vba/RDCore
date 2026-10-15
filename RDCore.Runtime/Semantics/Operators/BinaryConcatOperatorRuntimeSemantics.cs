@@ -138,8 +138,10 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame) =>
         frame.EffectiveType switch
         {
+            // MS-VBAL 5.6.9.4 appends the right operand's data to the left's, which is all of their bytes: a trailing
+            // byte on the left pairs with the first byte on the right.
             VBStringType => RuntimeSemanticsEvaluationResult.Success(
-                new VBStringValue($"{StringOperand(frame[InputIndex.BinaryLeftOperand])}{StringOperand(frame[InputIndex.BinaryRightOperand])}")),
+                VBStringValue.Concat(StringOperand(frame[InputIndex.BinaryLeftOperand]), StringOperand(frame[InputIndex.BinaryRightOperand]))),
 
             VBNullType => EvaluateNullBinaryExpressionResult(),
 
@@ -151,7 +153,8 @@ public record class BinaryConcatOperatorRuntimeSemantics(
     /// effective type (RD-VBAL 5.6.9.2), so a String-effective-type evaluation can still see a
     /// surviving <see cref="VBNullValue"/> operand — e.g. <c>Null &amp; "x"</c>, whose value type is
     /// String per MS-VBAL §5.6.9.4's table (only <c>Null &amp; Null</c> resolves to <c>Null</c>). Such
-    /// an operand contributes an empty string rather than being cast as a <see cref="VBStringValue"/>.
+    /// an operand contributes the zero-length string, whose data is no bytes at all, rather than being cast
+    /// as a <see cref="VBStringValue"/>.
     /// </summary>
-    private static string StringOperand(VBTypedValue operand) => operand is VBStringValue value ? value.Value! : string.Empty;
+    private static VBStringValue StringOperand(VBTypedValue operand) => operand as VBStringValue ?? VBStringValue.ZeroLengthString;
 }

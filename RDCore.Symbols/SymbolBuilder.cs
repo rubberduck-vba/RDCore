@@ -459,10 +459,11 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
                 // "if all tiers have no matches". An ambiguous or otherwise erroneous lookup IS a
                 // match — one the reference has to qualify — so only a genuinely unbound name declares
-                // anything. NOTE the resolver's universe is smaller than VBA's until library symbols
-                // exist, so a standard-library name (Len, Now, vbCrLf) is unbound here and becomes an
-                // implicit Variant rather than resolving. That is this rule applied to an incomplete
-                // name universe, not a different rule; it corrects itself as the universe grows.
+                // anything. NOTE the resolver's universe is smaller than VBA's until the library declares
+                // all of itself: Len and vbCrLf resolve, but a standard-library name it does not declare
+                // yet (vbBlue) is unbound here and becomes an implicit Variant rather than resolving.
+                // That is this rule applied to an incomplete name universe, not a different rule; it
+                // corrects itself as the universe grows.
                 var resolved = resolver.ResolveValue(reference, ScopeKind.Local, procedureUri);
                 if (!resolved.IsUnbound && !IsOwnLocal(resolved, procedureUri) && !IsOwnModuleVariable(resolved))
                 {

@@ -96,6 +96,20 @@ public sealed class SessionMemoryAccessTests
     }
 
     [TestMethod]
+    public void Poke_AFixedLengthString_CanSpellALoneSurrogate()
+    {
+        // one space is 20 00; a D8 in its high byte makes the code unit U+D820 on its own, and the bytes that spell it
+        // read back as they were written, not as the replacement character's FD FF. A variable-length String cannot be
+        // used here: it is allocated at vbNullString's size, which is no bytes.
+        var (session, _, address) = WithField(new VBFixedStringType(1));
+
+        Assert.IsTrue(session.Storage.TryPoke(address + 1, 0xD8));
+
+        Assert.IsTrue(session.Storage.TryPeek(address + 1, out var high));
+        Assert.AreEqual((byte)0xD8, high);
+    }
+
+    [TestMethod]
     public void AnAddressWithNothingAllocatedAtIt_IsReportedAsSuch_NotGuessedAt()
     {
         var (session, _, address) = WithField(VBLongType.TypeInfo);

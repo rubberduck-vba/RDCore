@@ -13,6 +13,11 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
 ## Static Semantics
 
+The target is a variable, a property or an unbound member: **MS-VBAL §5.4.3.9** makes the statement invalid when it
+"is classified as something other than a variable, property or unbound member". A constant or a function of the
+library (`Set Err = Nothing`, `Set Left = Nothing`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`); see
+[**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
+
 It is invalid for the default instance variable to be the target of a `Set` assignment, whatever is assigned to it
 ([**MS-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/189fb41b-cc3a-4999-a6d2-ba89f72d2870)).
 

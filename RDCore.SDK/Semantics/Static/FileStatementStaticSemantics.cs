@@ -125,7 +125,7 @@ public static class FileStatementStaticSemantics
 
             case Tokens.LineInput when inputs is [var fileNumber, var variable]:
                 FileNumber(checks, fileNumber);
-                checks.RequireVariable(variable, "The target of a Line Input statement");
+                checks.RequireVariable(variable, "The target of a Line Input statement", "5.4.5.6");
                 checks.RequireStringOrVariant(variable, checks.TypeOf(variable), "The target of a Line Input statement");
                 return true;
 
@@ -133,7 +133,7 @@ public static class FileStatementStaticSemantics
                 FileNumber(checks, fileNumber);
                 foreach (var variable in variables)
                 {
-                    checks.RequireVariable(variable, "An input variable");
+                    checks.RequireVariable(variable, "An input variable", "5.4.5.10");
                     checks.RequireNotAnObject(variable, checks.TypeOf(variable), "An input variable", throughUserDefinedTypes: false);
                 }
                 return true;
@@ -153,7 +153,7 @@ public static class FileStatementStaticSemantics
                 {
                     checks.TypeOf(record);
                 }
-                checks.RequireVariable(variable, "The target of a Get statement");
+                checks.RequireVariable(variable, "The target of a Get statement", "5.4.5.12");
                 checks.RequireNotAnObject(variable, checks.TypeOf(variable), "The target of a Get statement", throughUserDefinedTypes: true);
                 return true;
 

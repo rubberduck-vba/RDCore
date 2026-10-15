@@ -10,6 +10,8 @@ An _execution session_'s services are rooted at an
 |Exposes|Description|
 |---|---|
 |`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). It also sets the default value of the `#If Win64` pre-compiler constant. `#If VBA7` does not depend on it: the environment host defaults `VBA7` to true in either bitness. A `.rdproj` `#Const` or a `--define` argument overrides these defaults.|
+|`Environment.Culture`|The regional settings of the environment, which its `Lcid` selects; `0` is the invariant culture. A number or a date let-coerced to `String` is written in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)).|
+|`Environment.AnsiEncoding`|The `Encoding` of the environment's `AnsiCodePage`: what a character is as one or two bytes outside a `String`'s own data, which the session's files are written and read in. Let-coercion between `String` and `Byte()` takes no code page ([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).|
 |`References`|The workspace's project and library references ([References](#references), below).|
 |The three session services|`ISessionMemoryAllocator`, `ISessionSymbols` and `ISessionObjects` ([Services](#services), below).|
 
@@ -56,11 +58,14 @@ Name resolution across referenced projects and libraries shall consult the order
 name. The name-resolution algorithm itself is a separate concern from the list
 ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
-> [!NOTE]
-> **Not implemented.** Reference-priority ordering within the global scope is not implemented. The ordering is
-> carried on `IRuntimeSession.References`, but nothing consults it. A name that matches symbols from more than one
-> reference is reported as **VBC09301** _Ambiguous name_ (see
-> [Duplicate and ambiguous names](rd-vbal.2.3.1.3.name-resolution.md#duplicate-and-ambiguous-names)).
+Name resolution takes that order from the libraries the project loads, not from this list: each symbol of a
+referenced library carries the rank of its library (`SymbolProperties.LibraryPriority`, from
+`ReferencedLibraries.Priorities`, which follows the order of the references), and `ScopeTreeSymbolResolver` ranks the
+candidates of one tier of the lookup order by it, so a name that two libraries declare means the symbol of the one
+referenced later ([Reference priority](rd-vbal.2.3.1.3.name-resolution.md#reference-priority)). The symbols of two
+libraries never share a rank. Only symbols of one tier that do, such as the members of two procedural modules of the
+workspace that both declare the name, are reported as **VBC09301** _Ambiguous name_ (see
+[Duplicate and ambiguous names](rd-vbal.2.3.1.3.name-resolution.md#duplicate-and-ambiguous-names)).
 
 ## ISymbolProvider
 

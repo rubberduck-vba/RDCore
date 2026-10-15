@@ -120,6 +120,24 @@ public sealed class ImplicitNarrowingConversionAnalyzerTests
     }
 
     [TestMethod]
+    public async Task WhatTheStandardLibraryReturnsForAnArgumentThatIsNotKnown_IsReportedLikeAVariableThatIsNotKnown()
+    {
+        var findings = await FindAsync("""
+            Attribute VB_Name = "Program"
+            Option Explicit
+            Public Sub Work(ByVal v As Variant, ByVal n As Long)
+                Dim b As Byte
+                b = 200 + n
+                b = 200 + CLng(v)
+                b = 200 + Len("abc")
+            End Sub
+            """);
+
+        // 200 + n and 200 + CLng(v) are Longs that are not known to fit; 200 + Len("abc") is 203, which does.
+        CollectionAssert.AreEqual(new[] { 4, 5 }, Lines(findings));
+    }
+
+    [TestMethod]
     public void AProcedureThatWasNotEvaluated_HasNothingToReport()
     {
         var uri = TestUri.TestModuleUri();

@@ -1,4 +1,8 @@
+using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Misc;
 using RDCore.Parsing;
+using RDCore.Parsing.Syntax;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
@@ -2306,6 +2310,237 @@ End Sub
 
         Assert.IsEmpty(member.Children.OfType<DebugStatementNode>());
         Assert.IsInstanceOfType<ObjectPrintExpressionNode>(member.Children.OfType<CallStatementNode>().Single().Callee);
+    }
+
+    [TestMethod]
+    // an output list is a list of expressions, and `x = 0` is one: the statement is no Let of 0 to `Debug.Print x`, the target of a Let being an
+    // l-expression (MS-VBAL 5.4.3.8), and an object's Print with an output list none.
+    [DataRow("Debug.Print x = 0", DisplayName = "a variable")]
+    [DataRow("Debug.Print G(0) = 0", DisplayName = "the result of a function")]
+    [DataRow("Debug.Print x.y = 0", DisplayName = "a member")]
+    [DataRow("Debug.Print (x) = 0", DisplayName = "in parentheses after a space")]
+    [DataRow("Debug.Print x = 0 ' note", DisplayName = "before a comment")]
+    [DataRow("Debug.Print _\r\n    x = 0", DisplayName = "after a line continuation")]
+    [DataRow("Debug.Print _\r\n    (x) = 0", DisplayName = "in parentheses after a line continuation")]
+    [DataRow("Debug _\r\n.Print x = 0", DisplayName = "after a line continuation before the dot")]
+    [DataRow("Debug. _\r\nPrint x = 0", DisplayName = "after a line continuation after the dot")]
+    public void DebugPrint_OfAnEquality_IsADebugPrintOfTheComparison(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<DebugPrintStatementNode>().Single();
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // a label is no part of the statement that follows it. A label begins a line, which the indented statement of ParseInProcedure does not.
+    [DataRow("10 Debug.Print x = 0")]
+    [DataRow("lbl: Debug.Print x = 0")]
+    public void DebugPrint_OfAnEqualityAfterALabel_IsADebugPrintOfTheComparison(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+
+        Assert.IsTrue(result.IsSuccess, statement);
+        var print = member.Children.OfType<DebugPrintStatementNode>().Single();
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    public void DebugPrint_OfAnEqualityAfterOtherItems_KeepsEveryItem()
+    {
+        var result = ParseInProcedure("Debug.Print a; b = c");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = member.Children.OfType<DebugPrintStatementNode>().Single();
+
+        Assert.HasCount(3, print.Items);
+        Assert.AreEqual(";", print.Items[1].Separator);
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items[2].Value!).Token);
+    }
+
+    [TestMethod]
+    public void DebugPrint_OfAnEqualityInEitherBranchOfASingleLineIf_IsADebugPrintOfTheComparison()
+    {
+        var result = ParseInProcedure("If x Then Debug.Print a = b Else Debug.Print c = d");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var ifStmt = member.Children.OfType<InlineIfStatementNode>().Single();
+
+        foreach (var body in new[] { ifStmt.ThenBody, ifStmt.ElseBody! })
+        {
+            var print = body.Children.OfType<DebugPrintStatementNode>().Single();
+            Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+        }
+    }
+
+    [TestMethod]
+    // what follows the line continuation is the output list, and a member of the With object is the first operand in it.
+    public void DebugPrint_OfAnEqualityOfAWithMemberOnTheNextLine_IsADebugPrintOfTheComparison()
+    {
+        var result = ParseInProcedure("With obj\r\nDebug.Print _\r\n    .Foo = 0\r\nEnd With");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var withStatement = member.Children.OfType<WithStatementNode>().Single();
+        var print = withStatement.Body.Children.OfType<DebugPrintStatementNode>().Single();
+
+        Assert.IsEmpty(withStatement.Body.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // a module with a syntax error is parsed again in the parser's full LL mode, and the predicate that keeps the statement from being a Let holds there as well.
+    public void DebugPrint_OfAnEqualityInAModuleWithASyntaxError_IsADebugPrintOfTheComparison()
+    {
+        var result = ParseWithoutExpectation("Debug.Print x = 0\r\nx = = 1");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+
+        Assert.IsFalse(result.IsSuccess);
+        var print = member.Children.OfType<DebugPrintStatementNode>().Single();
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // with letStmt no longer viable, nothing else matches these, and the first pass of ModuleParser - SLL, which bails at the first syntax error - reads them; a
+    // module it bails on is parsed again in full LL, so the tests through ModuleParser pass either way.
+    [DataRow("Debug.Print x = 0")]
+    [DataRow("Debug.Print a; b = c")]
+    [DataRow("Debug.Print _\n    x = 0")]
+    [DataRow("Sheet1.Print x = 0")]
+    public void AnObjectPrintOfAnEquality_ParsesInTheSllPass(string statement)
+    {
+        var parser = new VBAParser(new CommonTokenStream(new VBALexer(new AntlrInputStream($"Public Sub DoWork()\n{statement}\nEnd Sub\n"))))
+        {
+            ErrorHandler = new BailErrorStrategy(),
+        };
+        parser.Interpreter.PredictionMode = PredictionMode.Sll;
+        parser.RemoveErrorListeners();
+
+        try
+        {
+            parser.startRule();
+        }
+        catch (ParseCanceledException exception)
+        {
+            Assert.Fail($"SLL bailed on {statement}: {exception.InnerException?.GetType().Name}");
+        }
+    }
+
+    [TestMethod]
+    [DataRow("Sheet1.Print x = 0")]
+    [DataRow("Me.Print x = 0")]
+    public void AnObjectPrintOfAComparison_OnAnythingElse_IsACallStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = (ObjectPrintExpressionNode)member.Children.OfType<CallStatementNode>().Single().Callee;
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // whitespace after `Print` begins the output list, a line continuation as much as a space: what is on the next line is the first operand of an expression of
+    // the list - and not the arguments of an index of `obj.Print`, a member of it or a dictionary access on it.
+    [DataRow("(1) = 5")]
+    [DataRow(".Foo = 5")]
+    [DataRow("!k = 5")]
+    public void AnObjectPrintOfAComparison_AfterALineContinuation_IsACallStatement(string nextLine)
+    {
+        var result = ParseInProcedure($"obj.Print _\r\n    {nextLine}");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = (ObjectPrintExpressionNode)member.Children.OfType<CallStatementNode>().Single().Callee;
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // a `.Print` with nothing before the dot is the member of the With object, which has no output list: what follows the line continuation goes on with the
+    // target of the Let, as it would after a member of any other name.
+    [DataRow("(1) = 5", typeof(IndexExpressionNode))]
+    [DataRow(".Foo = 5", typeof(MemberAccessExpressionNode))]
+    [DataRow("!k = 5", typeof(DictionaryAccessExpressionNode))]
+    public void AWithMemberNamedPrint_AfterALineContinuation_IsTheTargetOfALet(string nextLine, Type target)
+    {
+        var result = ParseInProcedure($"With obj\r\n.Print _\r\n    {nextLine}\r\nEnd With");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var withStatement = member.Children.OfType<WithStatementNode>().Single();
+        var assignment = withStatement.Body.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.IsEmpty(withStatement.Body.Children.OfType<CallStatementNode>());
+        Assert.AreEqual(AssignmentKind.ImplicitLet, assignment.Kind);
+        Assert.IsInstanceOfType(assignment.Target, target);
+    }
+
+    [TestMethod]
+    // with nothing between the last separator of the output list and the `=`, the `=` is in no expression, and the statement is no Let either.
+    [DataRow("Debug.Print x; = 5")]
+    [DataRow("Debug.Print x, = 5")]
+    public void AnObjectPrintWhoseOutputListEndsInASeparator_FollowedByAnEqualSign_IsASyntaxError(string statement)
+    {
+        var result = ParseWithoutExpectation(statement);
+
+        Assert.IsFalse(result.IsSuccess, statement);
+        Assert.IsEmpty(result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<AssignmentStatementNode>(), statement);
+    }
+
+    [TestMethod]
+    // a Tab or Spc clause before the `=` is still in an output list, so the statement is no Let. MS-VBAL reserves neither name (3.3.5.2), so each of these is
+    // also an output list with an equality in it (`Tab(2) = 5`, the clause `Tab` and then `(2) = 5`); which one it is, is left to the parser's full LL pass.
+    [DataRow("Debug.Print Tab(2) = 5")]
+    [DataRow("Debug.Print Spc(2) = 5")]
+    [DataRow("Debug.Print Tab = 5")]
+    [DataRow("Debug.Print x; Tab(2) = 5")]
+    public void AnObjectPrintWithATabOrSpcClauseBeforeAnEqualSign_IsNoLet(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.ContainsSingle(member.Children.OfType<DebugPrintStatementNode>());
+    }
+
+    [TestMethod]
+    // `Let` says what the statement is, whatever its target.
+    public void AnExplicitLet_OfAnObjectPrint_IsALetAllTheSame()
+    {
+        var result = ParseInProcedure("Let Debug.Print x = 0");
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.ExplicitLet, assignment.Kind);
+        Assert.IsInstanceOfType<ObjectPrintExpressionNode>(assignment.Target);
+    }
+
+    [TestMethod]
+    // with nothing between `Print` and the `=`, a line continuation aside, there is no output list, and the statement is the Let it reads as.
+    [DataRow("obj.Print = 5")]
+    [DataRow("obj.Print _\r\n    = 5")]
+    public void APrintMemberWithNoOutputList_IsTheTargetOfALet(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.ImplicitLet, assignment.Kind);
+        Assert.IsEmpty(((ObjectPrintExpressionNode)assignment.Target).Items);
+    }
+
+    [TestMethod]
+    // with no whitespace after `Print` there is no output list either, and what follows goes on with the target of the Let; `Debug.Print(x) = 0` is such a Let,
+    // of 0 to an index of `Debug.Print`. A `.Print` after the `=` is in the value, and not the target.
+    [DataRow("obj.Print(1) = 5", typeof(IndexExpressionNode))]
+    [DataRow("obj.Print.y = 5", typeof(MemberAccessExpressionNode))]
+    [DataRow("x = Debug.Print y", typeof(SimpleNameExpressionNode))]
+    public void ALetWithNoOutputListInItsTarget_StaysALet(string statement, Type target)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var assignment = member.Children.OfType<AssignmentStatementNode>().Single();
+
+        Assert.AreEqual(AssignmentKind.ImplicitLet, assignment.Kind);
+        Assert.IsInstanceOfType(assignment.Target, target);
     }
 
     [TestMethod]

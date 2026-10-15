@@ -75,7 +75,11 @@ Resolving an omitted _lower bound_ against `Option Base` is specified in
 A declared type name binds in the _type binding context_. With the
 [CompositeSymbolResolver](../api/RDCore.SDK.Model.Symbols.CompositeSymbolResolver.html), a module's `As SomeType`
 binds to a sibling module's `Type` or `Enum`, or to a class, not only to a reserved data-type name
-([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
+([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)). A name that binds an `Enum` type, of the
+workspace or of a library, declares a `Long` ([**RD-VBAL §5.2.3.4** Enum Declarations](#5234-enum-declarations)). A
+name that binds a procedural module, the project's or a library's, is not a type (**MS-VBAL §5.6.16.7**), and the
+declaration is [VBC09311](../diagnostics/vbc09311.md) _User-defined type not defined_. A type of the project ranks
+ahead of a library's procedural module of the same name ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#lookup-order)).
 
 **MS-VBAL §5.2.3.1.4**: the type specified in an `As New` clause must be a named class, and must be creatable unless
 it is declared in the same project.
@@ -138,6 +142,48 @@ resolvable without qualification.
 
 A public `Enum` declared in a class module reaches the project scope. A class module's other members need an
 instance to be reached through, but a declared type (an Enum or a user-defined type) needs none.
+
+**MS-VBAL §5.2.3.4**: "When an enum name (possibly qualified by a project) appears in an `<as-type>` clause of any
+declaration, the meaning is the same as if the enum name was replaced with the declared type Long." A variable, a
+field, a parameter or a function's result declared as an `Enum` - of the enclosing module, of another module
+(`As Mod2.Colour`), of a class module, or of a library - holds a `Long`: 0 until it is assigned, and a value assigned to
+it is let-coerced to `Long` (`c = 1.7` stores 2). The type is `VBEnumType`, whose value is a `Long`. An `Enum` symbol
+carries its type, with its members, whether a library or the workspace declares it: the environment host reads an
+`Enum` of the workspace with its type (`SymbolDescriptorReader`). A member's value is read from its own symbol, not from
+the type. A declaration that names an `Enum` of the workspace has the type only once the host has defined the module
+that declares the `Enum` (below).
+
+Since an `Enum`'s name means the declared type `Long`, an `Enum` and `Long`, or two `Enum`s, of the workspace or of a
+library, are the same declared type where these match two declared types (`VBEnumType.AsDeclaredType`: `Long` for
+an `Enum`, any other type itself):
+
+|Where|What is matched|
+|---|---|
+|An event handler ([**RD-VBAL §5.3.1.8**](rd-vbal.5.3.1.8.event-handler-declarations.md))|Each parameter and the event's.|
+|An implemented name declaration ([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md))|Each parameter, the result, or what a property carries, and the interface member's.|
+|A `ByRef` argument of a call ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)) or of a `RaiseEvent` ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md))|The parameter and the variable it is given, which it is bound to rather than given a copy of.|
+
+An `Integer` and a `Long` are not the same declared type, and only the type itself is mapped, not an array's element
+type (below). A record stores a field of an `Enum` as the `Long` it holds, four bytes: in memory, which `LSet`
+between records copies ([**RD-VBAL §5.4.3.6**](rd-vbal.5.4.3.6.lset-statement.md)), and in a file, which `Put`
+writes and `Get` reads ([**RD-VBAL §5.4.5.11**](rd-vbal.5.4.5.11.put-statement.md)).
+
+> [!NOTE]
+> **Not implemented.** A member of an `Enum` the workspace declares has no value yet, so reading one stops the run
+> ([**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md)); a variable of the `Enum` holds what is
+> assigned to it.
+>
+> A member of a variable of an `Enum` (`c.cRed`) is not refused when the module loads, though the variable is a `Long`,
+> which has no members: it stops the run, as a member of a `Long` variable does.
+>
+> The host defines the modules of the workspace one at a time, so a declaration that names an `Enum` of the workspace,
+> bare or qualified, in a module the host defines before the module that declares the `Enum` keeps no type: assigning
+> to it raises error 13, Type mismatch, and reading it raises error 51, Internal error, where a variable of a
+> user-defined type of such a module stops the run.
+>
+> An array's element type is not mapped: an array of an `Enum` given to a `ByRef` array parameter of `Long`, or an
+> array of `Long` given to one of an `Enum`, is not bound to the parameter, and copying it to the parameter raises
+> error 13, Type mismatch.
 
 
 ## 5.2.3.5 External Procedure Declaration

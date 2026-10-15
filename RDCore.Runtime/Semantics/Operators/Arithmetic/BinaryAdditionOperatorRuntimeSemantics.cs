@@ -86,6 +86,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
         return RuntimeSemanticsEvaluationResult.InternalError();
     }
 
+    // a String + is the same concatenation as &: every byte of the left operand's data, then every byte of the right's.
     private static RuntimeSemanticsEvaluationResult EvaluateBinaryExpressionResult(VBStringValue lhs, VBStringValue rhs)
-        => RuntimeSemanticsEvaluationResult.Success(new VBStringValue($"{lhs.Value}{rhs.Value}"));
+        => RuntimeSemanticsEvaluationResult.Success(VBStringValue.Concat(lhs, rhs));
 }

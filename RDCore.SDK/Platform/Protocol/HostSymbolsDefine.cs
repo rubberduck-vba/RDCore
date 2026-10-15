@@ -188,9 +188,11 @@ public record class SymbolDescriptor
 
     /// <summary>
     /// The declared type's name — from an <c>As</c> clause or a type-declaration character — or
-    /// <c>null</c> when there is none, or the type reference is not a simple name (a qualified name
-    /// or an array definition needs a later semantic pass). For an array, the name of its <em>element</em> type, and
-    /// <see cref="Array"/> says what kind of array it is.
+    /// <c>null</c> when there is none, or the type is not known (an array definition needs a later semantic pass).
+    /// A type of a referenced library other than the standard library (VBA) carries the library's name, and a
+    /// user-defined type or an Enum of another module of the workspace the module's (<c>Mod2.TRec</c>), which the host
+    /// resolves within that library or module. A type of the standard library carries its own name.
+    /// For an array, the name of its <em>element</em> type, and <see cref="Array"/> says what kind of array it is.
     /// </summary>
     public string? DeclaredTypeName { get; init; }
 

@@ -28,7 +28,7 @@ public static class MidStatementStaticSemantics
         var checks = new StatementOperandChecks(context);
 
         var targetType = checks.TypeOf(mid.Target);
-        checks.RequireVariable(mid.Target, "The target of a Mid statement");
+        checks.RequireVariable(mid.Target, "The target of a Mid statement", "5.4.3.5");
         checks.RequireStringOrVariant(mid.Target, targetType, "The target of a Mid statement");
 
         checks.RequireLetCoercible(mid.Start, checks.TypeOf(mid.Start), VBLongType.TypeInfo);

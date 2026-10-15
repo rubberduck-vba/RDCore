@@ -37,11 +37,17 @@ public sealed class PrintOutputEvaluatorTests
     /// <summary>
     /// Runs <paramref name="body"/> as the body of a procedure and returns everything it printed.
     /// </summary>
-    private static IReadOnlyList<string> Print(params string[] body)
+    private static IReadOnlyList<string> Print(params string[] body) => Print(lcid: 0, body);
+
+    /// <summary>
+    /// Runs <paramref name="body"/> as the body of a procedure in an environment of the locale <paramref name="lcid"/>, and returns
+    /// everything it printed.
+    /// </summary>
+    private static IReadOnlyList<string> Print(int lcid, params string[] body)
     {
         var output = new RuntimeOutputBuffer();
         var session = RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [], [new Provider([])], output);
+            new RuntimeEnvironmentProfile(Is64Bit: true, lcid, 1252, false), [], [new Provider([])], output);
 
         var pipeline = RuntimeExecutionPipeline.Create(
             session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
@@ -134,4 +140,16 @@ public sealed class PrintOutputEvaluatorTests
     [TestMethod]
     public void AnExpression_IsEvaluatedBeforeItIsPrinted()
         => CollectionAssert.AreEqual(new[] { " 7 " }, Print("Debug.Print 3 + 4").ToArray());
+
+    [TestMethod]
+    [DataRow(0, "01/01/2020 15:45:00")]
+    [DataRow(1031, "01.01.2020 15:45:00")]
+    public void APrintedDate_IsInTheShortDateFormatOfTheEnvironment(int lcid, string expected)
+        // "a Date ... is Let-coerced to String": the environment's regional settings, the invariant ones at locale 0.
+        => CollectionAssert.AreEqual(new[] { expected }, Print(lcid, "Debug.Print #1/1/2020 3:45:00 PM#").ToArray());
+
+    [TestMethod]
+    public void AConcatenatedDate_IsInTheShortDateFormatOfTheEnvironment()
+        // & Let-coerces its operands through the provider, whose String strategy is the one the environment's culture reaches.
+        => CollectionAssert.AreEqual(new[] { "01.01.2020 15:45:00" }, Print(1031, "Debug.Print \"\" & #1/1/2020 3:45:00 PM#").ToArray());
 }

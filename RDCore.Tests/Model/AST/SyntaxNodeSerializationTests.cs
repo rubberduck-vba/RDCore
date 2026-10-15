@@ -225,6 +225,19 @@ public sealed class SyntaxNodeSerializationTests
     }
 
     [TestMethod]
+    public void AByteOddString_IsNotASerializableLiteral()
+    {
+        // no literal is half a character: writing only the whole ones would change the value rather than carry it.
+        static LiteralExpressionNode Literal(VBStringValue value) => new(new("file:///t.bas", [0]), TestLocations.TestLocation, value);
+
+        Assert.Throws<JsonException>(() => JsonSerializer.Serialize<SyntaxNode>(Literal(VBStringValue.FromBytes([0x41, 0x00, 0x42])), Options));
+
+        var json = JsonSerializer.Serialize<SyntaxNode>(Literal(new VBStringValue("A")), Options);
+        var back = (LiteralExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(json, Options)!;
+        Assert.AreEqual("A", ((VBStringValue)back.StaticValue).Value);
+    }
+
+    [TestMethod]
     public void ParsedModuleWithConstantsAndPrecompilerTrivia_RoundTripsStably()
     {
         const string content = """

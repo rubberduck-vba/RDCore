@@ -9,12 +9,59 @@
 |---|---|---|
 |[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `ImplicitLet` or `ExplicitLet`)|`Simple`|`[Let] lExpression = expression`. The `Target` of an `AssignmentStatementNode` is always an `lExpression`; see [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).|
 
+The target of an implicit Let is never the `Print` of an object with an output list, since an l-expression has none: `Debug.Print x = 0` is the
+print of the comparison `x = 0` ([**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md)). `Let Debug.Print x = 0`, with
+the explicit `Let`, is still a Let statement whose target is an `ObjectPrintExpressionNode`, and it does not run.
+
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
 ## Static Semantics
 
 For a predeclared class `Widget`, `Widget.Size = 3` is valid: it assigns a member of the object the default
 instance variable holds. See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) (`VB_PredeclaredId`).
+
+The target is a variable, a property, or the result of the function or property the statement is in. **MS-VBAL
+§5.4.3.8** makes the statement invalid when the target "is classified as a value" and its declared type is not a class
+or `Object`, which is so of a constant, or is classified as a function that is not the enclosing procedure and whose
+declared type is not a class, `Object` or `Variant`. Assigning to a constant - one the standard library declares
+(`vbCrLf`, `vbSunday`), a `Const` of a module or of a procedure, or a member of an `Enum`, by its name, qualified by its
+project or its module, or qualified by the `Enum` that declares it, a library's or the workspace's
+(`VbDayOfWeek.vbSunday`, `Colour.Red`) - or to a function of the library whose declared type is not a class, `Object`
+or `Variant` (`Left$ = "x"`, a `String`) is
+[`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`), and the module does not load. So is a constant or a
+function of the library, whatever its declared type, as the target of a `Set` statement, which must be a variable, a
+property or an unbound member (**MS-VBAL §5.4.3.9**), and as the target of an `LSet` or an `RSet` statement or the
+control variable of a `For` or a `For Each` loop, each of which must be a variable (**MS-VBAL §5.6.16.6**; see
+[**RD-VBAL §5.6.16.6** Bound Variable Expressions](rd-vbal.5.6.16.constrained-expressions.md#56166-bound-variable-expressions)):
+`Set Left = Nothing` and `LSet Err = "x"` are refused, though `Left` returns a `Variant` and `Err` an object.
+
+A function of the library whose declared type is a class, `Object` or `Variant` is not refused as the target of a `Let`
+statement, since **MS-VBAL §5.4.3.8** admits it: it assigns the value to an object's default member (`Err = 5`), and
+has the statement raise error `450` when it runs for a `Variant` (`Left = "x"`, `Array = 5`). A function of the workspace
+assigned inside its own body is its result, and is not refused; nor is a property, nor a variable named like a member of
+the library. A name written with a type-declaration character is what its identifier names (**MS-VBAL §5.6.10**):
+after `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused.
+
+> [!NOTE]
+> **Not implemented.** A function of the library whose declared type is `Variant`, let-assigned to (`Left = "x"`), does
+> not raise error `450` when it runs: the statement fails in the host rather than raising a run-time error, and
+> qualified by its module (`Strings.Left = "x"`) it stops as not yet implemented.
+
+> [!NOTE]
+> **Not implemented.** A function of the library that returns an object, let-assigned to (`Err = 5`), does not
+> assign the object's default member yet: the statement raises error `438`.
+
+> [!NOTE]
+> **Not implemented.** A function of the workspace or a `Declare`d function assigned from outside its own body
+> (`F = 6` in another procedure) is not refused, though **MS-VBAL §5.4.3.8** makes the statement invalid when its
+> declared type is not a class, `Object` or `Variant`. It does not run: it fails in the host rather than raising a
+> run-time error.
+
+> [!NOTE]
+> **Not implemented.** When it runs, a name written with a type-declaration character still finds the library's
+> member named with that character before what its identifier names (see [`VBC09335`](../diagnostics/vbc09335.md)):
+> after `Dim Left$`, `Left$ = "x"` assigns to the library's `Left$`, and fails in the host rather than raising a
+> run-time error.
 
 ## Runtime Semantics
 

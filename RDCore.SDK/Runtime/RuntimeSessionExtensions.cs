@@ -58,13 +58,7 @@ public static class RuntimeSessionExtensions
     /// </remarks>
     /// <param name="session">The session the code is executing in.</param>
     public static OptionCompare CurrentCompareMode(this IRuntimeSession session)
-    {
-        var declared = session.CallStack.Current?.Directives.Compare ?? OptionCompare.Binary;
-
-        return declared != OptionCompare.Database
-            ? declared
-            : session.Environment.DatabaseCompare == OptionCompare.Binary ? OptionCompare.Binary : OptionCompare.Text;
-    }
+        => Resolve(session, session.CallStack.Current?.Directives.Compare ?? OptionCompare.Binary);
 
     /// <summary>
     /// How the relational operators compare <c>String</c> values at the point of the session's execution (<strong>MS-VBAL §5.6.9.5</strong>):
@@ -72,5 +66,23 @@ public static class RuntimeSessionExtensions
     /// </summary>
     /// <param name="session">The session the code is executing in.</param>
     public static StringComparisonRules CurrentStringComparison(this IRuntimeSession session)
-        => new(session.CurrentCompareMode(), session.Environment.Culture);
+        => session.StringComparisonIn(session.CurrentCompareMode());
+
+    /// <summary>
+    /// How <c>String</c> values compare in <paramref name="mode"/>, collated by the regional settings of the session's environment: what a
+    /// library member that is told which comparison to make compares with.
+    /// </summary>
+    /// <remarks>
+    /// 👉 <see cref="OptionCompare.Database"/> is resolved the way a module's own is (<see cref="IRuntimeEnvironmentProfile.DatabaseCompare"/>).
+    /// </remarks>
+    /// <param name="session">The session the code is executing in.</param>
+    /// <param name="mode">The comparison mode.</param>
+    public static StringComparisonRules StringComparisonIn(this IRuntimeSession session, OptionCompare mode)
+        => new(Resolve(session, mode), session.Environment.Culture);
+
+    // Option Compare Database compares as the environment says it does; the other two are what they say.
+    private static OptionCompare Resolve(IRuntimeSession session, OptionCompare mode)
+        => mode != OptionCompare.Database
+            ? mode
+            : session.Environment.DatabaseCompare == OptionCompare.Binary ? OptionCompare.Binary : OptionCompare.Text;
 }

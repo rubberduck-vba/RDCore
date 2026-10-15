@@ -35,6 +35,13 @@ public sealed class LetCoercionStaticSemanticsTests : StaticSemanticsTests
         return external ? new VBExternalUserDefinedType(symbol, []) : new VBUserDefinedType(symbol, []);
     }
 
+    private static VBEnumType Enum(string name, params string[] members)
+    {
+        var uri = TestUri.TestModuleUri();
+        var symbol = new VBEnumMemberSymbol(uri, uri, name, ScopeKind.Module, SymbolKindExt.Enum, VBUnknownType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        return new VBEnumType(symbol, members.Select(member => new VBEnumConstMemberSymbol(uri, symbol.Uri, member, ScopeKind.Module, SymbolKindExt.EnumMember, SourceRange.Empty, SourceRange.Empty)));
+    }
+
     private static VBClassType ClassWithDefaultMember(VBType? defaultMemberResolvedType)
     {
         var uri = TestUri.TestModuleUri("TestClass");
@@ -81,6 +88,12 @@ public sealed class LetCoercionStaticSemanticsTests : StaticSemanticsTests
     [TestMethod]
     public void BooleanToNumeric_IsValid()
         => AssertValid(VBBooleanType.TypeInfo, VBLongType.TypeInfo);
+
+    [TestMethod]
+    public void IntegerToEnum_IsValid()
+        // MS-VBAL §5.2.3.4: an enum name in an as-type clause means the declared type Long - which the runtime coerces
+        // to (LetCoercionRuntimeSemanticsProvider), so the two halves agree.
+        => AssertValid(VBIntegerType.TypeInfo, Enum("Colour", "Red", "Green"));
 
     // --- "Any type" -> "Any fixed-size array" is invalid. ---
 

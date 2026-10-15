@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Globalization;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -28,6 +29,14 @@ public sealed class ExplicitConversionFunctionTests
             session.Errors.Current.Returns(error);
         }
 
+        return new StdConversion(session);
+    }
+
+    // a session whose environment writes in German: a ',' for the decimal symbol, and dd.MM.yyyy for a date.
+    private static StdConversion InGerman()
+    {
+        var session = Substitute.For<IRuntimeSession>();
+        session.Environment.Culture.Returns(CultureInfo.GetCultureInfo(1031));
         return new StdConversion(session);
     }
 
@@ -110,6 +119,19 @@ public sealed class ExplicitConversionFunctionTests
     public void CStr_OfAnErrorIsErrorAndItsCode()
         // MS-VBAL 6.1.2.3.1.12: "Error" followed by a single space and the code as a String.
         => Assert.AreEqual("Error 13", ValueOf(Conversion().CStr(Variant(new VBErrorValue(13)))).Value);
+
+    [TestMethod]
+    public void CStr_WritesANumberInTheEnvironmentsRegionalSettings()
+        // CStr is Let-coercion to String, which uses "the host-defined regional decimal symbol".
+        => Assert.AreEqual("2,5", ValueOf(InGerman().CStr(Variant(new VBDoubleValue(2.5)))).Value);
+
+    [TestMethod]
+    public void CStr_WritesADateInTheEnvironmentsRegionalSettings()
+        => Assert.AreEqual("15.01.2020", ValueOf(InGerman().CStr(Variant(new VBDateValue(new DateTime(2020, 1, 15).ToOADate())))).Value);
+
+    [TestMethod]
+    public void CStr_OfAnError_IsTheSameInAnyRegionalSettings()
+        => Assert.AreEqual("Error 5", ValueOf(InGerman().CStr(Variant(new VBErrorValue(5)))).Value);
 
     [TestMethod]
     public void CStr_OfNullIsInvalidUseOfNull()
@@ -275,6 +297,17 @@ public sealed class ExplicitConversionFunctionTests
     [TestMethod]
     public void Str_OfAnErrorIsErrorAndItsCode()
         => Assert.AreEqual("Error 5", ValueOf(Conversion().StrStr(Variant(new VBErrorValue(5)))).Value);
+
+    [TestMethod]
+    public void Str_OfANumber_UsesADotWhateverTheRegionalSettings()
+        // "Let-coercing Number to String using "." as the decimal separator".
+        => Assert.AreEqual(" 2.5", ValueOf(InGerman().StrStr(Variant(new VBDoubleValue(2.5)))).Value);
+
+    [TestMethod]
+    public void Str_OfADate_IsItsLetCoercionToString()
+        // "If the value type of Number is Date, the returned value is the result of Let-coercing Number to String" - which is
+        // written in the regional settings, as CStr's is.
+        => Assert.AreEqual("15.01.2020", ValueOf(InGerman().StrStr(Variant(new VBDateValue(new DateTime(2020, 1, 15).ToOADate())))).Value);
 
     [TestMethod]
     public void Str_OfNullIsNullButStrDollarRaises()

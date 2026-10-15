@@ -28,7 +28,7 @@ declaration by declaration, including their return types and their `Optional` pa
 |6.1.2.3.1.9|[CLngLng](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4ca05bda-57b1-4f0f-bdc8-74febb84a1bb)||
 |6.1.2.3.1.10|[CLngPtr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/39e8676c-5beb-4f2f-b7ac-8f4e832c5d62)|See [§6.1.2.3.1.10](#6123110-clngptr).|
 |6.1.2.3.1.11|[CSng](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f4161bc8-127a-4ecc-99e8-b6bb964e277d)||
-|6.1.2.3.1.12|[CStr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/0fff7d08-82fc-43bd-bc75-4782cfa2f08d)||
+|6.1.2.3.1.12|[CStr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/0fff7d08-82fc-43bd-bc75-4782cfa2f08d)|A number or a date is written in the regional settings of the session's environment, as let-coercion writes it ([**RD-VBAL §5.5.1.2.4**](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). The error code of `Error n` is a whole number, written the same in any culture. A `String` is copied, every byte of its data.|
 |6.1.2.3.1.13|[CVar](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/6b423db1-cc79-4d28-9c4e-301d7781d41e)||
 |6.1.2.3.1.14|[CVErr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/7a7facef-2f52-4d08-918e-63bf6a9261ed)||
 |6.1.2.3.1.15|[Error / Error$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/54992525-5c6f-4768-86ab-b97f3d0e2705)||
@@ -36,7 +36,7 @@ declaration by declaration, including their return types and their `Optional` pa
 |6.1.2.3.1.17|[Hex / Hex$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b5f1801d-2e68-418b-b9db-1803368f012f)||
 |6.1.2.3.1.18|[Int](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/db6d8be7-82cd-423c-83cb-3e6eff0a3363)||
 |6.1.2.3.1.19|[Oct / Oct$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f8c3018b-7005-4e1d-9c3b-6caea2a2625e)||
-|6.1.2.3.1.20|[Str / Str$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c4ecaf21-da57-4f88-b5db-0276dd0693de)||
+|6.1.2.3.1.20|[Str / Str$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c4ecaf21-da57-4f88-b5db-0276dd0693de)|A number is written with `.` as the decimal separator, in any culture. A date is "the result of Let-coercing Number to String", in the regional settings of the session's environment, as `CStr` writes it.|
 |6.1.2.3.1.21|[Val](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/6dff8d10-d573-43ad-8197-ca8cd509acf1)||
 
 ### 6.1.2.3.1.10 CLngPtr

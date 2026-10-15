@@ -4,6 +4,7 @@ using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -67,7 +68,17 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
         }
     }
 
-    protected override bool ComparisonOp(string lhs, string rhs, StringComparisonRules rules)
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Like is a match of characters against a pattern of characters, so it reads the characters of each operand: a trailing byte is
+    /// not one, and is not seen.
+    /// <para>
+    /// 🚧 Whether MS-VBA's <c>Like</c> sees a trailing byte is yet to be run against MS-VBA.
+    /// </para>
+    /// </remarks>
+    protected override bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules) => Matches(lhs.Value, rhs.Value, rules);
+
+    private static bool Matches(string lhs, string rhs, StringComparisonRules rules)
     {
         var pattern = ToRegex(rhs);
         if (!rules.IgnoresCase)

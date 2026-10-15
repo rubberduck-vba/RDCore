@@ -78,9 +78,12 @@ procedural or class module, is a candidate.
 |Procedural module|Yes|Yes|Yes|
 |Project|Yes|Yes|Yes|
 
-`ResolveType` applies the order of precedence user-defined type, Enum type, class or procedural module, project.
-It starts its lookup from the enclosing module. Because of this, a local, parameter or constant can neither be
-bound by `ResolveType` nor hide the type it shadows.
+`ResolveType` starts its lookup from the enclosing module, in the order given under [Lookup order](#lookup-order).
+Because of this, a local, parameter or constant can neither be bound by `ResolveType` nor hide the type it shadows.
+A procedural module and a project are candidates of `ResolveType`, because **MS-VBAL §5.6.10** lists them in the
+type binding context, but neither is a type: a declared type that binds a procedural module is
+[VBC09311](../diagnostics/vbc09311.md) _User-defined type not defined_
+([**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions)).
 
 ### Qualified type names
 
@@ -93,6 +96,18 @@ In a qualified type name `A.B`, the lookup is positional
 |`A`, the qualifier|A namespace: the project, or a procedural or class module.|`ResolveQualifier`|
 
 Neither a user-defined type nor an Enum type is a candidate for the qualifier, because neither can contain a type.
+
+When the qualifier is a procedural or class module, `B` is that module's own user-defined type or Enum type, `Public`
+unless the name is written in the module itself
+([**MS-VBAL §5.6.12** Member Access Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af3a4059-3059-4e79-8aa5-685324fb266a)),
+whatever else the project or a library calls `B`. With a procedural module `Helpers` and `Public Enum Helpers` in
+`Mod2`, `Mod2.Helpers` is the Enum, where a bare `Helpers` is the module; with `Public Type TRec` in both `Mod2` and
+`Mod3`, `Mod2.TRec` is `Mod2`'s, where a bare `TRec` does not resolve; and with `Public Type Collection` in `Mod2`,
+`Mod2.Collection` is the type, where a bare `Collection` is the `VBA` library's class (see the note under
+[Lookup order](#lookup-order)). The language server sends a user-defined type or an Enum type that another module
+declares to the environment host with that module's name (`Mod2.TRec`), so that the host, which resolves the name
+again, binds the type the language server bound. A type of the module being defined is sent by its bare name, which
+order 1 of the type binding context binds first.
 
 ### Class names and predeclared instances
 
@@ -119,7 +134,7 @@ variable or field that is itself named `Widget` hides the default instance of cl
 |The bound `Symbol`|The name binds to that symbol.|
 |Unbound|The name is declared nowhere visible.|
 |**VBC09303** _Duplicate declaration_|A compile-time error: the name is declared more than once within one module or procedure. The colliding declarations are attached.|
-|**VBC09301** _Ambiguous name_|A compile-time error: the name resolves in more than one enclosing scope (members promoted from different modules or references), and the reference must qualify the name. The colliding declarations are attached.|
+|**VBC09301** _Ambiguous name_|A compile-time error: within one tier of the project or global scope, the name resolves to more than one symbol of the highest rank (members of two modules of the workspace - of a class module, only a public Enum or user-defined type and that Enum's members - or of two modules of one library; see [Reference priority](#reference-priority)), and the reference must qualify the name. The colliding declarations are attached.|
 
 The symbol resolver reports the error _kind_. The caller, which knows where the reference is, builds the located
 diagnostic ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).
@@ -139,6 +154,37 @@ Identifier name lookups are done in this order (the heaps are described in
 |2|The _static locals heap_|Locally scoped, but preserves its value between calls ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|
 |3|The _workspace heap_|Workspace-scoped.|
 |4|The _global heap_|Globally-scoped.|
+
+In the default binding context, a name that a member of one of the project's procedural modules and a procedural
+module of a referenced library both have - a `Public Strings` variable of another module, and the library's `Strings`
+module - is the project's member. **MS-VBAL §5.6.10** ranks the members of the enclosing project's procedural modules
+before a referenced project's procedural modules, and those before the members of a referenced project's modules (the
+`VBA` library's `Constants` module before Excel's Enum `Constants`). The library's module is what the name means when
+no procedural module of the project has an accessible member of that name (`Strings.LenB("ab")`). A class module's
+predeclared instance of that name does not count: it ranks after the library's module, so the name is still the
+module.
+
+In the type binding context, `ResolveType` looks a name up in this order (**MS-VBAL §5.6.10**):
+
+|Order|A name that refers to|
+|---|---|
+|1|A user-defined type or Enum type declared at the module level of the enclosing module.|
+|2|The enclosing project, a referenced project, a procedural or class module of the enclosing project, or a class module of a referenced library.|
+|3|An accessible user-defined type or Enum type of another module of the enclosing project.|
+|4|A procedural module of a referenced library.|
+|5|An accessible user-defined type or Enum type of a module of a referenced library; of two libraries, the one referenced later.|
+
+A type of the project named like a library's procedural module - another module's `Public Type Strings` - is
+therefore the type, and the library's module is what the name means only when the project has no type of that name.
+A library's procedural module ranks before a library's types: with Excel referenced, `As Constants` names the `VBA`
+library's `Constants` module, which is not a type, and Excel's Enum is `Excel.Constants`
+([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)).
+
+> [!NOTE]
+> **Not implemented.** A class module of a referenced library ranks with the enclosing project's modules (order 2),
+> ahead of a type of another module of the project, where **MS-VBAL §5.6.10** ranks it with a referenced library's
+> procedural modules (order 4). With another module's `Public Type Collection`, `As Collection` is still the `VBA`
+> library's `Collection` class.
 
 ## Scope tree
 
@@ -232,7 +278,15 @@ How a `SimpleNameExpression`'s declared type is determined from a `ResolveValue`
 |Condition|Compile-time error|
 |---|---|
 |Multiple symbols match a specified name within one _module_ or _procedure_ scope.|**VBC09303** _Duplicate declaration_|
-|Multiple symbols match a specified name across the _project_ or _global_ scope (members promoted from different modules or references).|**VBC09301** _Ambiguous name_: the reference must qualify the name.|
+|Multiple symbols of one tier of the _project_ or _global_ scope match a specified name and share the highest rank ([Reference priority](#reference-priority)): members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. Every loaded library has a rank of its own, so the symbols of two libraries never share it.|**VBC09301** _Ambiguous name_: the reference must qualify the name.|
+
+> [!NOTE]
+> **Not implemented.** A declared type whose name ties this way is not reported as **VBC09301**: the declaration is
+> [VBC09311](../diagnostics/vbc09311.md) _User-defined type not defined_ ("The declared type 'TRec' could not be
+> resolved"), as for a name nothing declares. So it is with `Public Type TRec` in both `Mod2` and `Mod3`, or in a class
+> module and a procedural module, and with `Public Enum Colours` in a class module and a procedural module, for
+> `Dim t As TRec` or `Dim c As Colours`. Qualified by its module, the type resolves
+> ([Qualified type names](#qualified-type-names)).
 
 An appropriate compile-time error ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)) should
 be issued for a duplicate declaration and for an ambiguous name
@@ -263,10 +317,17 @@ flags_ ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-fl
 **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics
 ([**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md)).
 
-> [!NOTE]
-> **Not implemented.** Reference-priority ordering within the global scope is not implemented. The ordering is
-> carried on `IRuntimeSession.References`, but nothing consults it. A name that matches symbols from more than one
-> reference is reported as **VBC09301** _Ambiguous name_ (see [Duplicate and ambiguous names](#duplicate-and-ambiguous-names)).
+`ScopeTreeSymbolResolver` consults the priority within one tier of the lookup order above: the tier comes first, and
+the priority decides only among the candidates of one tier. The symbols of a referenced library carry its rank
+(`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`), and when a name matches symbols of more
+than one library in one tier of the project or global scope, the name means the symbol of the library that ranks
+highest: a library the project references later ranks above one it references before, a library loaded only because
+another depends on it ranks below every library the project references, and the `VBA` library, whose symbols carry no
+rank, ranks lowest of all. Within a tier, a symbol of the workspace ranks above every library's; across tiers it need
+not, since a class module of a referenced library ranks ahead of a type of another module of the project (orders 2
+and 3 of the type binding context). Only symbols of one tier that share the highest rank, such as the members of two
+procedural modules of the workspace that both declare the name, are reported as **VBC09301** _Ambiguous name_ (see
+[Duplicate and ambiguous names](#duplicate-and-ambiguous-names)).
 
 ## Resolver implementations
 

@@ -35,6 +35,20 @@ Strategy dispatch is keyed on the destination type. It selects the right strateg
 because the `Variant`'s `TypeInfo` mirrors its wrapped value's
 ([**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](#551212-let-coercion-to-variant)).
 
+A `Null`, `Empty` or `Error` source is the exception: **MS-VBAL §5.5.1.2.9**–**11** key their rules on the source, so
+the provider dispatches it to the strategy of its own type. It does so for any destination except a `Variant` and a
+fixed-size array, which those rules leave out ("any type except a fixed-size array or `Variant`"). No strategy is
+keyed on a fixed-size array, so a `Null`, `Empty` or `Error` source let-coerced to one is the provider's
+`TypeMismatch` (13). Static semantics refuses any let-coercion into a fixed-size array
+([LetCoercionStaticSemantics](../api/RDCore.SDK.Semantics.Static.LetCoercionStaticSemantics.html)), so this case is
+reached only by a direct call of the provider.
+
+`LetCoercionRuntimeSemanticsProvider.Analyze` asks the destination's strategy, which says nothing about a `Null`
+source. The provider itself flags a `Null` source whose coercion raises an error as
+[ConversionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)`.Failed`, whether the `Null`
+is the source or the value a `Variant` source holds: `L = Null` and `L = v`, with `v` a `Variant` holding `Null` and
+`L` a `Long`, are both a failed coercion. An `Error` source is not flagged `Failed`.
+
 
 ## Coercion frame stack
 
@@ -171,6 +185,45 @@ conversions and coercions to `String` ([**RD-VBAL §2.5.2.1.1** Numeric Values](
 |[VBSingleValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBSingleValue.html)|[VBSingleType](../api/RDCore.SDK.Model.Types.VBSingleType.html)|7|
 |[VBDoubleValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBDoubleValue.html)|[VBDoubleType](../api/RDCore.SDK.Model.Types.VBDoubleType.html)|15|
 
+A `String` source is let-coerced to "a copy of the source string": its runtime value, every byte of its data, a
+trailing byte included ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)). A
+copy of `vbNullString` is `vbNullString`. An assignment `u = s`, a `ByVal` argument, a parenthesized `(s)` and
+`CStr(s)` all copy it this way.
+
+### Regional settings
+
+**MS-VBAL §5.5.1.2.4** writes a number "using the host-defined regional decimal symbol", and a date in the regional
+Short Date and Long Time formats. RD-VBA's regional settings are the culture of the session's environment,
+[IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)`.Culture`,
+which its `Lcid` selects. `Lcid` is bound from `appsettings.json`, like the rest of the runtime profile
+([**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)). A let-coercion never reads the culture of the
+thread the interpreter runs on.
+
+|`Lcid`|A number|A date|
+|---|---|---|
+|`0` (the default)|The invariant culture: `.` is the decimal symbol.|The invariant culture: `01/30/2026 14:00:00`, wherever the interpreter runs.|
+|Any other|That culture's decimal symbol: `2,5` under `1031` (German).|That culture's Short Date and Long Time formats, in the Gregorian calendar.|
+
+A date is written in the Gregorian calendar whatever the culture's own default: under `th-TH`, the year 2020 is
+written as 2020, in `th-TH`'s patterns. A culture that offers no Gregorian calendar keeps its own.
+
+Every let-coercion to `String` writes in the session's culture: an assignment, `&`, an argument, `Print`, `LSet`,
+`RSet`, `Open`'s path, the `Mid` statement, and `CStr`
+([**RD-VBAL §6.1.2.3** Conversion Module](rd-vbal.6.1.2.3.conversion-module.md)). `Write #` writes fixed spellings
+instead ([**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md)).
+
+> [!NOTE]
+> **Not implemented.** Let-coercion _from_ `String` reads a number or a date invariantly, whatever the culture. Under
+> a culture whose decimal symbol is a comma, `CStr(2.5)` is `"2,5"`, which does not read back as `2.5`.
+
+👉 What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
+literal, whatever the culture.
+
+👉 The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
+`vbUseSystemDayOfWeek` and `vbUseSystem`: `Weekday`, `DatePart` and `DateDiff` take the first day of the week from it,
+and `DatePart` the first week of the year
+([**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md)).
+
 
 ## 5.5.1.2.5 Let-coercion to String \* length (fixed-length strings)
 
@@ -189,6 +242,18 @@ This section corresponds to [**MS-VBAL §5.5.1.2.5** Let-coercion to String * le
 semantics, which allow implicit conversion to and from
 [VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)
 ([**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)).
+
+Both directions reinterpret the string's own data, "the implementation-defined binary format used to store String
+data" ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)), and no text encoding
+or code page takes part:
+
+|Source|Destination|Result|
+|---|---|---|
+|`Byte()`|`String`|Every byte of the array, the elements in order: two bytes to a character, and a trailing byte when the array has an odd number of elements. A pair of bytes that is a lone surrogate is kept as one: `00 D8` is `U+D800`. An uninitialized array is a 0-length string.|
+|`String`|`Byte()`|Every byte of the string's data: an odd string gives an odd number of elements, and `U+D800` gives `00 D8`.|
+
+👉 RD-VBA's format can hold any number of bytes, so the "?" **MS-VBAL §5.5.1.2.6** substitutes for data that cannot
+be represented, and the trailing bytes it discards, never arise: every byte of the array is kept.
 
 
 ## 5.5.1.2.7 Let-coercion to and from non-Byte arrays

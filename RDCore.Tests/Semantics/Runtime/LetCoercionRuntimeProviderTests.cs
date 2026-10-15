@@ -1,7 +1,12 @@
 ﻿using NSubstitute;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
@@ -60,6 +65,21 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         return BuildProvider().EvaluateLetCoercionSemantics(null!, ThrowawayExpression, frame);
     }
 
+    // the provider over every strategy the runtime implements, where the destination a source is coerced to is the whole
+    // point: the one above has only four, and a destination none of them handles is a type mismatch for any source.
+    private static LetCoercionResult CoerceWithEveryStrategy(VBTypedValue source, VBType destination)
+    {
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, source, new VBTypeDescValue(destination));
+        return LetCoercionAnalysisHarness.BuildProvider().EvaluateLetCoercionSemantics(null!, ThrowawayExpression, frame);
+    }
+
+    private static VBUserDefinedType Udt(string name)
+    {
+        var uri = TestUri.TestModuleUri();
+        var symbol = new VBUserDefinedTypeMemberSymbol(uri, uri, name, ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        return new VBUserDefinedType(symbol, []);
+    }
+
     [TestMethod]
     public void Dispatch_ANullSource_IsInvalidUseOfNull_NotAnInternalError()
     {
@@ -115,6 +135,139 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         builder.Received().AddLetCoercionFlags(
             ConversionSemanticFlags.LetCoerced, InputIndex.CoercionSourceValue);
     }
+
+    #region a Null or Error source, whatever it is coerced to
+
+    // MS-VBAL 5.5.1.2.9 and 5.5.1.2.10 key off the source, so the provider hands a Null or an Error source to the strategy
+    // of its own type for any destination but a Variant; ANullEmptyOrErrorSource_CoercesByItsOwnRules_WhateverTheDestinationIs
+    // pins some of the rows. These pin the destinations it leaves out: the scalar ones, an Object (where 5.5.1.2.13's last row
+    // would say Object required), a resizable array of another element type and a UDT, and a fixed-size array, which neither
+    // rule covers.
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    [DataRow("Long")]
+    [DataRow("Integer")]
+    [DataRow("String")]
+    [DataRow("Boolean")]
+    [DataRow("Date")]
+    [DataRow("Double")]
+    [DataRow("Object")] // where 5.5.1.2.13's last row would say Object required (424)
+    public void Dispatch_ANullSource_ToADestinationThatCannotHoldIt_IsInvalidUseOfNull(string type)
+    {
+        VBType destination = type switch
+        {
+            "Long" => VBLongType.TypeInfo,
+            "Integer" => VBIntegerType.TypeInfo,
+            "String" => VBStringType.TypeInfo,
+            "Boolean" => VBBooleanType.TypeInfo,
+            "Date" => VBDateType.TypeInfo,
+            "Double" => VBDoubleType.TypeInfo,
+            _ => VBObjectType.TypeInfo,
+        };
+
+        // "Null -> Any other type except a fixed-size array or Variant: Runtime error 94 (Invalid use of Null) is raised."
+        AssertError(CoerceWithEveryStrategy(VBNullValue.Null, destination), VBRuntimeErrorId.InvalidUseOfNull);
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Dispatch_ANullSource_ToAResizableArrayOrUserDefinedType_IsTypeMismatch()
+    {
+        AssertError(CoerceWithEveryStrategy(VBNullValue.Null, new VBResizableArrayType(VBLongType.TypeInfo)), VBRuntimeErrorId.TypeMismatch);
+        AssertError(CoerceWithEveryStrategy(VBNullValue.Null, new VBResizableByteArrayType()), VBRuntimeErrorId.TypeMismatch);
+        AssertError(CoerceWithEveryStrategy(VBNullValue.Null, Udt("Point")), VBRuntimeErrorId.TypeMismatch);
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Dispatch_ANullSource_ToAFixedSizeArray_IsStillTypeMismatch()
+        // neither rule covers a fixed-size array and no strategy is keyed on one, so this stays the provider's own type
+        // mismatch rather than the Null strategy's not applicable, which the provider reports as internal error 51.
+        => AssertError(CoerceWithEveryStrategy(VBNullValue.Null, new VBFixedSizeArrayType(VBLongType.TypeInfo)), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.9 Let-coercion to and from Error")]
+    public void Dispatch_AnErrorSource_ToAFixedSizeArray_IsStillTypeMismatch()
+        => AssertError(CoerceWithEveryStrategy(new VBErrorValue(5), new VBFixedSizeArrayType(VBLongType.TypeInfo)), VBRuntimeErrorId.TypeMismatch);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Dispatch_AVariantHoldingNull_ToAFixedLengthString_IsInvalidUseOfNull()
+        => AssertError(CoerceWithEveryStrategy(new VBVariantValue(VBNullValue.Null), new VBFixedStringType(3)), VBRuntimeErrorId.InvalidUseOfNull);
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Dispatch_ANullSource_ToAVariant_IsStillNull()
+    {
+        var result = CoerceWithEveryStrategy(VBNullValue.Null, VBVariantType.TypeInfo);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo is null ? "" : ((VBRuntimeErrorId)result.ErrorInfo.ErrorId).ToString());
+        Assert.IsInstanceOfType<VBNullValue>(((VBVariantValue)result.Result!).TypedValue);
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.9 Let-coercion to and from Error")]
+    public void Dispatch_AnErrorSource_ToAVariant_IsStillAnError()
+    {
+        var result = CoerceWithEveryStrategy(new VBErrorValue(5), VBVariantType.TypeInfo);
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo is null ? "" : ((VBRuntimeErrorId)result.ErrorInfo.ErrorId).ToString());
+        Assert.IsInstanceOfType<VBErrorValue>(((VBVariantValue)result.Result!).TypedValue);
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.9 Let-coercion to and from Error")]
+    [DataRow("Currency")]
+    [DataRow("Boolean")]
+    [DataRow("Date")]
+    [DataRow("Long()")]
+    [DataRow("UDT")]
+    [DataRow("Object")] // where 5.5.1.2.13's last row would say Object required (424)
+    public void Dispatch_AnErrorSource_ToAnyDestinationButAVariant_IsTypeMismatch(string type)
+    {
+        VBType destination = type switch
+        {
+            "Currency" => VBCurrencyType.TypeInfo,
+            "Boolean" => VBBooleanType.TypeInfo,
+            "Date" => VBDateType.TypeInfo,
+            "Long()" => new VBResizableArrayType(VBLongType.TypeInfo),
+            "UDT" => Udt("Point"),
+            _ => VBObjectType.TypeInfo,
+        };
+
+        // "Error -> Any type except a fixed-size array or Variant: Runtime error 13 (Type mismatch) is raised."
+        AssertError(CoerceWithEveryStrategy(new VBErrorValue(5), destination), VBRuntimeErrorId.TypeMismatch);
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Analyze_ANullSource_IsFlaggedAsTheFailedNullOperand()
+    {
+        // the error is the Null strategy's, but the strategy asked to analyze the coercion is the Long's, which says
+        // nothing about a Null: it is the provider that knows the operand whose coercion fails is the Null one.
+        var builder = new LetCoercionSemanticContextFlagsBuilder();
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, VBNullValue.Null, new VBTypeDescValue(VBLongType.TypeInfo));
+
+        LetCoercionAnalysisHarness.BuildProvider().Analyze(null!, builder, ThrowawayExpression, frame);
+
+        var flags = builder.LetCoercionFlagsOf(InputIndex.CoercionSourceValue);
+        Assert.IsTrue(flags.HasFlag(ConversionSemanticFlags.NullOperand | ConversionSemanticFlags.Failed), flags.ToString());
+    }
+
+    [TestMethod]
+    [TestCategory("RD-VBAL §5.5.1.2.10 Let-coercion from Null")]
+    public void Analyze_ANullSource_ToAVariant_IsNotAFailure()
+    {
+        var builder = new LetCoercionSemanticContextFlagsBuilder();
+        var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, VBNullValue.Null, new VBTypeDescValue(VBVariantType.TypeInfo));
+
+        LetCoercionAnalysisHarness.BuildProvider().Analyze(null!, builder, ThrowawayExpression, frame);
+
+        Assert.IsFalse(builder.LetCoercionFlagsOf(InputIndex.CoercionSourceValue).HasFlag(ConversionSemanticFlags.Failed));
+    }
+
+    #endregion
 
     [TestMethod]
     public void RecursiveReEntry_WithTheSameFrame_IsOutOfStackSpace()

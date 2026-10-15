@@ -69,6 +69,75 @@ public abstract class VBABaseParser : Parser
         return token.Text is { Length: > 0 } text && (char.IsLetter(text[0]) || text[0] == '_' || text[0] == '[');
     }
 
+    // Whether the statement that begins with the next token is the Print of an object with an output list (`Debug.Print x = 0`): an output list is no part of an
+    // l-expression, so that is never the target of a Let. Only the tokens before the first `=` outside parentheses and brackets can be the target. Outside them,
+    // the lExpression rule has whitespace in two places only: a line continuation (mandatoryLineContinuation, and the whitespace whitespaceIndexExpr allows after
+    // one), and the whitespace that begins the output list of objectPrintExpr. So whitespace after the `.Print` of an object, a line continuation included, begins
+    // an output list - which is how objectPrintExpr reads `obj.Print _` with `(1)` on the next line - unless what follows it is the `=` of the Let or the end of the
+    // statement. A `.Print` with nothing before it is the member of a With block's object (withMemberAccessExpr), which has no output list: with `(1) = 5` after a
+    // line continuation, it is the Let it reads as. The scan stops at a colon, a comment or the end of the line, so in a single-line If it can go on past an Else,
+    // which does no harm: the `=` of a Let comes before it.
+    // Should lExpression have whitespace anywhere else outside parentheses, this has to know of it.
+    protected bool IsObjectPrintWithOutputList()
+    {
+        // the tokens are read by their index in the stream, and not with La(i), which walks i tokens on each call and would make the scan quadratic in the length
+        // of the statement. Get reads only the tokens the stream holds, so it is filled first, once: after that, Fill does nothing.
+        (_input as BufferedTokenStream)?.Fill();
+        var start = _input.Index;
+        var depth = 0;
+        for (var i = start; !IsStatementEnd(TokenTypeAt(i)); i++)
+        {
+            switch (TokenTypeAt(i))
+            {
+                case VBALexer.LPAREN:
+                case VBALexer.L_SQUARE_BRACKET:
+                    depth++;
+                    break;
+                case VBALexer.RPAREN:
+                case VBALexer.R_SQUARE_BRACKET:
+                    depth--;
+                    break;
+                case VBALexer.EQ when depth == 0:
+                    return false;
+                case VBALexer.DOT when depth == 0 && i > start && IsPrintWithOutputList(i + 1):
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // `i` is the index of the token after a dot.
+    private bool IsPrintWithOutputList(int i)
+    {
+        if (TokenTypeAt(i) == VBALexer.LINE_CONTINUATION)
+        {
+            i++;
+            while (TokenTypeAt(i) == VBALexer.WS)
+            {
+                i++;
+            }
+        }
+        if (TokenTypeAt(i) != VBALexer.PRINT)
+        {
+            return false;
+        }
+
+        var whiteSpaceStart = ++i;
+        while (TokenTypeAt(i) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+        {
+            i++;
+        }
+        var next = TokenTypeAt(i);
+        return i > whiteSpaceStart && next != VBALexer.EQ && !IsStatementEnd(next);
+    }
+
+    // the type of the token at an index of the stream, and EOF past the end of what it holds.
+    private int TokenTypeAt(int index)
+        => index < _input.Size ? _input.Get(index).Type : TokenConstants.Eof;
+
+    private static bool IsStatementEnd(int tokenType)
+        => tokenType is -1 or VBALexer.NEWLINE or VBALexer.COLON or VBALexer.SINGLEQUOTE or VBALexer.REM;
+
     protected bool IsTokenType(int actual, params int[] expectedOptions)
     {
         foreach (int expected in expectedOptions)

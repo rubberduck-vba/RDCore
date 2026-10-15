@@ -13,6 +13,13 @@
 
 The declared type of each `erase-element` must be an array or a `Variant`.
 
+An `erase-element` is "classified as a variable, property, function or unbound member" (**MS-VBAL §5.4.3.4**): a
+constant (`Erase vbCrLf`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`). A function is not refused.
+
+> [!NOTE]
+> **Not implemented.** An `erase-element` that is a function of the library (`Erase Left`) fails in the host when it
+> runs, rather than raising a run-time error.
+
 ## Runtime Semantics
 
 `Erase` is `ReDim`'s opposite: `ReDim` gives a resizable array its dimensions, and `Erase` takes them away

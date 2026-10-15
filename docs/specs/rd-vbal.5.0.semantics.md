@@ -179,7 +179,7 @@ model of each procedure, so that it is valid only when both are.
 |Rule|Reported as|
 |---|---|
 |A name is declared once in the scope of a module; the accessors of a property are the one declaration of it.|`DuplicateDeclaration`|
-|A declared type is a name that resolves to a type (**MS-VBAL §5.6.4**): of a variable, constant, parameter, result or local.|`UserDefinedTypeNotDefined`: _The declared type 'Missing' could not be resolved._|
+|A declared type is a name that resolves to a type (**MS-VBAL §5.6.4**): of a variable, constant, parameter, result or local variable. A name that resolves to a procedural module does not resolve to a type (**MS-VBAL §5.6.16.7**), and the type of a field of a user-defined type or of a local constant is refused for that alone: a name that does not resolve is not checked there. The declarations not checked yet are listed under [**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions).|`UserDefinedTypeNotDefined`: _The declared type 'Missing' could not be resolved._, or _The declared type 'Strings' is a procedural module, not a type._|
 |What a class module declares about events (**MS-VBAL §5.2.4.3**, `§5.2.3.1.2`, `§5.3.1.8`).|`ClassModuleEventSemantics`|
 |What its `Implements` directives require of it (**MS-VBAL §5.2.4.2**, `§5.3.1.9`).|`ImplementsSemantics`|
 
@@ -234,6 +234,14 @@ and are `null` otherwise, which says the references are not known, and not that 
 
 An analyzer reads what is stated, and has nothing to say about what is not. Which declarations are worth a diagnostic is its
 to say.
+
+The same holds for what the analysis states about a value. A procedure is analyzed without knowing how it will be called,
+so a value can be _not known_ ([VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html)`.IsIndeterminate`),
+and what is derived from a value that is not known is not known either. The standard library runs for real in an analysis,
+given the value an argument's type assumes in place of one that is not known, so what a call made with an argument that is
+not known returns is not known, whichever procedure is called. A call made with no argument, or with arguments that are all
+known, returns what the procedure returned. The facts the analysis states as it evaluates the code, and when it states a
+run-time error, are described under [**RD-VBAL §2.6.4** Runtime facts](rd-vbal.2.6.4.rubberduck-core-diagnostics.md#runtime-facts).
 
 A statement inside an excluded `#If` branch is not analyzed and defines no label (**MS-VBAL §3.4.2**). Lowering a body to
 instructions ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)) reports exactly these errors, by calling

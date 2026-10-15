@@ -139,7 +139,12 @@ storage is supported. See [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1
    declared type is `Variant`.
 
 These two shapes (an exact declared-type match, or a `Variant` parameter) are the two that **MS-VBAL §5.3.1.11**
-allows a plain reference binding for without a class/`Object` copy-back.
+allows a plain reference binding for without a class/`Object` copy-back. An `Enum` is the declared type `Long`
+([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)), so a variable of an `Enum`
+exactly matches a parameter declared `Long` or as another `Enum`, and a `Long` variable a parameter of an `Enum`. An
+array of an `Enum` does not match an array parameter of `Long`, nor an array of `Long` one of an `Enum`: the element
+type is not mapped, so the array falls to the copy, and an array let-coerced to an array of another element type
+raises error 13, Type mismatch.
 
 |Parameter|Argument|Binding|
 |---|---|---|

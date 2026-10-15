@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Static;
@@ -73,10 +74,12 @@ internal static class ParameterLists
     };
 
     /// <summary>
-    /// Whether two declared types are the same one. A type that is not known is not a type that differs.
+    /// Whether two declared types are the same one. A type that is not known is not a type that differs, and an enumeration is the declared type
+    /// <c>Long</c> (<see cref="VBEnumType.AsDeclaredType"/>).
     /// </summary>
     public static bool SameType(VBType left, VBType right)
-        => left is VBUnknownType || right is VBUnknownType || string.Equals(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
+        => left is VBUnknownType || right is VBUnknownType
+            || string.Equals(VBEnumType.AsDeclaredType(left).Name, VBEnumType.AsDeclaredType(right).Name, StringComparison.OrdinalIgnoreCase);
 
     // the implicit Me every member of a class module has at parameter 0 is not a parameter of its parameter list.
     private static ImmutableArray<VBParameterSymbol> WithoutMe(ImmutableArray<VBParameterSymbol> parameters)

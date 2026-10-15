@@ -1,6 +1,8 @@
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -37,10 +39,8 @@ public sealed class BinaryConcatOperatorRuntimeTests : OperatorConcatRuntimeSema
 
     [TestMethod]
     public void DateAndString_CoercesDateOperandToString()
-    {
-        var date = new VBDateValue(2);
-        AssertResult<VBStringValue>(Evaluate(Concat(), date, new VBStringValue("x")), $"{date.Value.ToShortDateString()}x");
-    }
+        // the date written in the regional settings of the String coercion, which are invariant here.
+        => AssertResult<VBStringValue>(Evaluate(Concat(), new VBDateValue(2), new VBStringValue("x")), "01/01/1900x");
 
     [TestMethod]
     public void NullAndNull_IsNull()
@@ -77,6 +77,48 @@ public sealed class BinaryConcatOperatorRuntimeTests : OperatorConcatRuntimeSema
     [TestMethod]
     public void StringAndBoolean_ConcatenatesTheBooleansToken()
         => AssertResult<VBStringValue>(Evaluate(Concat(), new VBStringValue("x"), new VBBooleanValue(false)), "xFalse");
+
+    // MS-VBAL 5.6.9.4: "the result is the left operand's data followed by the right operand's" - all of their bytes, so
+    // a trailing byte on the left is the low byte of the first character after it.
+
+    [TestMethod]
+    public void StringWithATrailingByte_AndAnother_PairTheirBytes()
+    {
+        var result = (VBStringValue)Evaluate(Concat(), VBStringValue.FromBytes([0x41]), VBStringValue.FromBytes([0x42])).Result!;
+
+        Assert.AreEqual("\u4241", result.Value);
+        Assert.IsNull(result.TrailingByte);
+    }
+
+    [TestMethod]
+    public void StringWithATrailingByte_AndText_ShiftsTheText()
+        // 41 then "x" (78 00) is 41 78 00: the character U+7841 and a trailing 00.
+        => CollectionAssert.AreEqual(new byte[] { 0x41, 0x78, 0x00 },
+            ((VBStringValue)Evaluate(Concat(), VBStringValue.FromBytes([0x41]), new VBStringValue("x")).Result!).GetBytes());
+
+    [TestMethod]
+    public void ByteArrayAndByteArray_OneByteEach_ConcatenateByteForByte()
+    {
+        // each array is a String of one byte, which is no character at all; together they are one.
+        var result = (VBStringValue)Evaluate(Concat(), ByteArrayOf(0x41), ByteArrayOf(0x42)).Result!;
+
+        Assert.AreEqual(2, result.ByteLength);
+        Assert.AreEqual("\u4241", result.Value);
+    }
+
+    [TestMethod]
+    public void Null_AndAStringWithATrailingByte_KeepsTheByte()
+        => Assert.AreEqual(1, ((VBStringValue)Evaluate(Concat(), VBNullValue.Null, VBStringValue.FromBytes([0x41])).Result!).ByteLength);
+
+    private static VBResizableByteArrayValue ByteArrayOf(params byte[] bytes)
+    {
+        var array = new VBResizableByteArrayValue([(0, bytes.Length - 1)]);
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            array.TrySetElement(new ValueBindingHandle(new VBRuntimeValue<byte>(bytes[index])), index);
+        }
+        return array;
+    }
 
     [TestMethod]
     public void ByteArrayAndByteArray_UninitializedArrays_ConcatenateToEmptyString()

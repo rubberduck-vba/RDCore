@@ -84,7 +84,8 @@ which [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.Sta
 |The variable of a `Get`|A variable, declared as the data of a `Put` is.|§5.4.5.12|
 |Each operand of a `Name`|Let-coercible to `String`. ([**RD-VBAL §5.4.5.13**](rd-vbal.5.4.5.13.name-statement.md); not in MS-VBAL.)|-|
 
-Only an expression that is certainly not a variable is reported as one ([`VBC09333`](../diagnostics/vbc09333.md)): a literal, an operator's result, a constant.
+Only an expression that is certainly not a variable is reported as one ([`VBC09333`](../diagnostics/vbc09333.md)): a literal, an operator's result, a constant (by its name,
+or qualified by its project, its module or the library `Enum` that declares it), a function of the library (`Line Input #1, Left$`).
 
 ## Implementation
 

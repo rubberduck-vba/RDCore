@@ -129,6 +129,13 @@ public class LetCoercionRuntimeSemanticsProvider(
         LetCoercionStackFrame frame,
         LetCoercionResult? evaluated)
     {
+        // MS-VBAL §5.2.3.4: what is let-coerced to an enumeration is let-coerced to a Long, and is analyzed as the coercion it
+        // is evaluated as (Coerce): no strategy is keyed on an enumeration, and the facts are those of the Long's.
+        if (frame.DestinationTypeDesc.Target is VBEnumType)
+        {
+            frame = frame with { DestinationTypeDesc = new VBTypeDescValue(VBLongType.TypeInfo) };
+        }
+
         var coercionResult = LetCoercionResult.NotApplicable(frame);
         var context = new LetCoercionAnalysisContext(expression.Identity, coercionResult, 0);
 
@@ -143,7 +150,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             builder.AddOnError(coercionResult.ErrorInfo?.AsErrorInfo);
 
             // 3. add flags about the basic facts of the coercion operation:
-            AnalyzeConversionOperation(builder, expression, frame);
+            AnalyzeConversionOperation(builder, expression, frame, coercionResult);
 
             // 4. let the applicable **sealed** strategy implementation have a say:
             context = context.Merge(strategy.Analyze(builder, resolver, expression, frame, coercionResult));
@@ -160,7 +167,8 @@ public class LetCoercionRuntimeSemanticsProvider(
     private static void AnalyzeConversionOperation(
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
-        LetCoercionStackFrame frame)
+        LetCoercionStackFrame frame,
+        LetCoercionResult coercionResult)
     {
         // the caller's own frame is used directly rather than reading it back off the strategy's
         // LetCoercionResult: a strategy's Success()/Error() call is not required to attach one (most
@@ -169,6 +177,26 @@ public class LetCoercionRuntimeSemanticsProvider(
         // whether the coercion is Implicit or Explicit is not known here: it is the operation that asks for it that says.
         builder.AddLetCoercionFlags(ConversionSemanticFlags.LetCoerced | SourceOperandFlagOf(frame.SourceValue), frame.OperandIndex);
         builder.AddLetCoercionFlags(OperandPositionFlags.Of(expression, frame.OperandIndex), frame.OperandIndex);
+
+        // MS-VBAL 5.5.1.2.10 keys off the source: a Null the destination cannot hold is the operand whose coercion fails.
+        // The Null strategy that raises the error says so in its own analysis, but the strategy asked to analyze a coercion
+        // is the destination's, which says nothing about a Null. A Variant that holds the Null is the same source: the
+        // coercion unwraps it before it picks a strategy, and so does this.
+        if (Unwrapped(frame.SourceValue) is VBNullValue && coercionResult.ErrorInfo is not null)
+        {
+            builder.AddLetCoercionFlags(ConversionSemanticFlags.Failed, frame.OperandIndex);
+        }
+    }
+
+    // the value a Variant holds, however deeply it is wrapped: what the coercion itself is about (see Coerce).
+    private static VBTypedValue Unwrapped(VBTypedValue value)
+    {
+        while (value is VBVariantValue { TypedValue: { } wrapped })
+        {
+            value = wrapped;
+        }
+
+        return value;
     }
 
     // what the source is, whichever destination type it is coerced to: a strategy is chosen by the destination, so a
@@ -301,7 +329,9 @@ public class LetCoercionRuntimeSemanticsProvider(
             VBObjectValue => TryGetStrategy(VBObjectType.TypeInfo, out strategy),
 
             // MS-VBAL §5.5.1.2.9-11: so do a Null, an Empty and an Error source, to any destination but a Variant that holds them.
-            VBNullValue or VBEmptyValue or VBErrorValue when frame.DestinationTypeDesc.Target is not VBVariantType
+            // Their rules leave a fixed-size array out as they do a Variant ("except a fixed-size array or Variant"), and no
+            // strategy is keyed on one, so it stays the type mismatch below rather than a strategy that is not applicable.
+            VBNullValue or VBEmptyValue or VBErrorValue when frame.DestinationTypeDesc.Target is not VBVariantType and not VBFixedSizeArrayType
                 => TryGetStrategy(frame.SourceValue.TypeInfo, out strategy),
 
             _ => TryGetStrategy(frame.DestinationTypeDesc.Target, out strategy),

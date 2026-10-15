@@ -312,6 +312,33 @@ public sealed class ProgramInspectionTests
         });
 
     [TestMethod]
+    public async Task AVariableOfAnEnumOfTheWorkspace_IsTheLongItHolds_AsOneOfALibrarysEnumIs()
+        => await DebugAsync(Program(
+            "Private Enum Colour",
+            "    cRed = 1",
+            "End Enum",
+            "Private shade As Colour",
+            "Public Sub Main()",
+            "    Dim c As Colour, d As VbDayOfWeek",
+            "    c = 2",
+            "    d = 3",
+            "    shade = 1",
+            "    Stop",
+            "End Sub"), provider =>
+        {
+            // without the type the host reads with the Enum, the variable showed as Empty, of type Unknown.
+            var locals = Named(provider.Execution.Variables(0, HostVariableScope.Locals, 0));
+            var module = Named(provider.Execution.Variables(0, HostVariableScope.Module, 0));
+
+            Assert.AreEqual("2", locals["c"].Value);
+            Assert.AreEqual("Long", locals["c"].Type);
+            Assert.AreEqual(locals["d"].Type, locals["c"].Type, "a variable of a library's Enum shows the same type");
+            Assert.AreEqual("1", module["shade"].Value);
+            Assert.AreEqual("Long", module["shade"].Type);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
     public async Task APartOfAValue_ThatIsNoReferenceAnyMore_IsNothing()
         => await DebugAsync(Source, provider =>
         {

@@ -51,6 +51,9 @@ variable-length `String`, and harmless on one.
 `LSet` and `RSet` differ only in which end pads: `LSet` is left-aligned and `RSet` is right-aligned. Both truncate
 from the same end.
 
+Both count characters: a trailing byte of the value is not one, and is not part of the result
+([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).
+
 |Value, compared with the target's width|`LSet`|`RSet`|
 |---|---|---|
 |Shorter|Left-aligned: padded at the end.|Right-aligned: padded at the start.|
@@ -68,6 +71,15 @@ between two UDTs is how VBA emulates a union.
    `Integer`s.
 4. A destination field that the source's image does not reach is set to its declared type's default value, rather
    than being filled with half a value.
+
+A field of an `Enum` is stored in the image as the `Long` it holds, four bytes, and is read back as one
+([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)): a field of an `Enum` and a
+`Long` field at the same offset copy into each other.
+
+A fixed-length `String` field is stored in the image as its characters, inline, two bytes each: the string's own data
+([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)), not a text encoding of it.
+Its bytes are copied exactly, so a field that holds a lone surrogate (`U+D800`, `00 D8`) holds it after the copy. A
+fixed-length `String` field's width is two bytes per character, so what is read back is always whole characters.
 
 A variable-length `String` member is not part of the byte image:
 

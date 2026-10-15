@@ -20,9 +20,14 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
 /// The comparison mode of a module (MS-VBAL 5.2.1.1) decides how the relational operators compare <c>String</c> values
-/// (MS-VBAL 5.6.9.5): by the code of each character in binary mode, regardless of case in text mode. The mode is the one of the
-/// module the executing procedure is declared in, which the session says; <c>Option Compare Database</c> is what the platform says.
+/// (MS-VBAL 5.6.9.5): by their data in binary mode - the code of each character, then a trailing byte - and regardless of case in
+/// text mode, where a trailing byte only breaks a tie. The mode is the one of the module the executing procedure is declared in,
+/// which the session says; <c>Option Compare Database</c> is what the platform says.
 /// </summary>
+/// <remarks>
+/// 👉 Binary mode's other reading, the byte image, is behind <see cref="StringComparisonRules.BinaryModeComparesByteImages"/>: it
+/// orders every string here the same way, these being ASCII or differing only in a trailing byte.
+/// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.2.1.1 Option Compare Directive")]
 public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
@@ -52,12 +57,21 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     private static BinaryLtRelationalOperatorRuntimeSemantics Lt() => new(LetCoercionAnalysisHarness.BuildProvider(), Formatter());
 
     private static bool Equal(IRuntimeSession session, string left, string right)
+        => Equal(session, new VBStringValue(left), new VBStringValue(right));
+
+    private static bool Equal(IRuntimeSession session, VBStringValue left, VBStringValue right)
         => (bool)((VBBooleanValue)Eq().Evaluate(session, new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(),
-            ThrowawayExpression, new VBStringValue(left), new VBStringValue(right)).Result!).Value!;
+            ThrowawayExpression, left, right).Result!).Value!;
 
     private static bool LessThan(IRuntimeSession session, string left, string right)
+        => LessThan(session, new VBStringValue(left), new VBStringValue(right));
+
+    private static bool LessThan(IRuntimeSession session, VBStringValue left, VBStringValue right)
         => (bool)((VBBooleanValue)Lt().Evaluate(session, new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(),
-            ThrowawayExpression, new VBStringValue(left), new VBStringValue(right)).Result!).Value!;
+            ThrowawayExpression, left, right).Result!).Value!;
+
+    // "A" followed by the byte 42: the data of ChrW(65) & ChrB(66).
+    private static VBStringValue AWithATrailingByte(byte first = 0x41) => VBStringValue.FromBytes([first, 0x00, 0x42]);
 
     private static ComparisonOperatorSemanticFlags Analyze(IRuntimeSession session, string left, string right)
     {
@@ -103,6 +117,21 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     public void OptionCompareDatabase_IsNeverTheModeAnOperationRunsIn()
         => Assert.AreNotEqual(OptionCompare.Database, SessionIn(OptionCompare.Database, OptionCompare.Database).CurrentCompareMode());
 
+    [TestMethod]
+    public void StringComparisonIn_TakesTheModeGiven_AndTheEnvironmentsCulture()
+    {
+        // what a library member told which comparison to make compares with: the mode it is told, whatever the module's, and
+        // the environment's collation.
+        var rules = SessionIn(OptionCompare.Binary, lcid: 1055).StringComparisonIn(OptionCompare.Text);
+
+        Assert.AreEqual(0, rules.Comparer.Compare("i", "İ"), "Turkish's dotted capital I is the capital of i");
+    }
+
+    [TestMethod]
+    public void StringComparisonIn_Database_ResolvesTheWayAModulesDoes()
+        => Assert.AreEqual(OptionCompare.Binary,
+            SessionIn(declared: null, databaseCompare: OptionCompare.Binary).StringComparisonIn(OptionCompare.Database).Mode);
+
     #endregion
 
     #region evaluating a comparison
@@ -135,6 +164,30 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
         Assert.IsFalse(Equal(SessionIn(OptionCompare.Database, OptionCompare.Binary), "a", "A"));
     }
 
+    [TestMethod]
+    public void InBinaryMode_AStringWithATrailingByte_IsAfterTheSameCharactersWithout()
+    {
+        Assert.IsTrue(LessThan(SessionIn(OptionCompare.Binary), new VBStringValue("A"), AWithATrailingByte()));
+        Assert.IsFalse(Equal(SessionIn(OptionCompare.Binary), new VBStringValue("A"), AWithATrailingByte()));
+    }
+
+    [TestMethod]
+    public void InTextMode_StringsEqualButForATrailingByte_AreNotEqual()
+        // text mode relaxes case, and an extra byte is not a difference in case.
+        => Assert.IsFalse(Equal(SessionIn(OptionCompare.Text), new VBStringValue("a"), AWithATrailingByte()));
+
+    [TestMethod]
+    public void InTextMode_StringsThatDifferInCase_WithTheSameTrailingByte_AreEqual()
+        => Assert.IsTrue(Equal(SessionIn(OptionCompare.Text), AWithATrailingByte(first: 0x61), AWithATrailingByte()));
+
+    [TestMethod]
+    public void InTextMode_ALoneSurrogate_ComparesWithoutThrowing()
+    {
+        // a String's data is any code units at all; the environment's collation has to take a lone surrogate in its stride.
+        Assert.IsTrue(Equal(SessionIn(OptionCompare.Text), "\uD800", "\uD800"));
+        Assert.IsFalse(Equal(SessionIn(OptionCompare.Text), "\uD800", "a"));
+    }
+
     #endregion
 
     #region the regional settings of the environment (MS-VBAL 5.6.9.5: text mode compares "according to the platform's host-defined regional settings")
@@ -142,9 +195,12 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     private const int Turkish = 1055; // tr-TR: the dotted capital İ (U+0130) is the capital of i.
 
     private static bool Like(IRuntimeSession session, string text, string pattern)
+        => Like(session, new VBStringValue(text), new VBStringValue(pattern));
+
+    private static bool Like(IRuntimeSession session, VBStringValue text, VBStringValue pattern)
         => (bool)((VBBooleanValue)new LikeRelationalOperatorRuntimeSemantics(LetCoercionAnalysisHarness.BuildProvider(), Formatter())
             .Evaluate(session, new BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>(), ThrowawayExpression,
-                new VBStringValue(text), new VBStringValue(pattern)).Result!).Value!;
+                text, pattern).Result!).Value!;
 
     [TestMethod]
     public void InTextMode_TheCaseOfALetter_IsThatOfTheEnvironmentsCulture()
@@ -166,6 +222,10 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
         Assert.IsFalse(Equal(SessionIn(OptionCompare.Binary, lcid: Turkish), "i", "İ"));
         Assert.IsFalse(Like(SessionIn(OptionCompare.Binary, lcid: Turkish), "i", "İ"));
     }
+
+    [TestMethod]
+    public void LikeInTextMode_DoesNotSeeATrailingByte()
+        => Assert.IsTrue(Like(SessionIn(OptionCompare.Text), AWithATrailingByte(first: 0x61), new VBStringValue("A")));
 
     [TestMethod]
     public void LikeInTextMode_DoesNotChangeTheCultureOfTheCallingThread()

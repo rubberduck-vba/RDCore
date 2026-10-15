@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using System.Globalization;
@@ -48,6 +49,10 @@ internal static class NativeValues
         VBRuntimeValue<VBRuntimeCurrencyValue> currency => new VBCurrencyValue(currency.Value.Value),
         VBRuntimeEmptyValue or VBRuntimeNullValue => new VBLongValue(0),
         VBRuntimeValue<VBRuntimeObjectId> identity => new VBObjectValue(identity.StoredValue),
+        // a String is the runtime value that holds its data, as the standard library's dispatcher reads one: vbNullString's
+        // managed value is null, which no case of the managed value takes, and the String bound to it is passed as the null
+        // pointer it is.
+        IRuntimeValue<string> text => new VBStringValue(new ValueBindingHandle(text)),
         _ => argument.BoxedValue switch
         {
             VBTypedValue typed => typed,
@@ -57,7 +62,6 @@ internal static class NativeValues
             long value => new VBLongLongValue(value),
             float value => new VBSingleValue(value),
             double value => new VBDoubleValue(value),
-            string value => new VBStringValue(value),
             _ => null,
         },
     };

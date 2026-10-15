@@ -80,6 +80,11 @@ public sealed class LikeRelationalOperatorRuntimeTests : OperatorRelationalRunti
         => AssertError(Evaluate(Like(), new VBStringValue("a"), new VBStringValue("[abc")), VBRuntimeErrorId.InvalidPatternString);
 
     [TestMethod]
+    public void ATrailingByte_IsInvisible()
+        // Like matches characters against a pattern of characters, and a trailing byte is not a character.
+        => AssertResult<VBBooleanValue>(Evaluate(Like(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), new VBStringValue("A")), true);
+
+    [TestMethod]
     public void EitherOperandNull_ResultIsNull()
     {
         var result = Evaluate(Like(), VBNullValue.Null, new VBStringValue("a*"));

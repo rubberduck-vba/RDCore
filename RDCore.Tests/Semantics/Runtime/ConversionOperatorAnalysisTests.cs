@@ -136,6 +136,31 @@ public sealed class ConversionOperatorAnalysisTests : LetCoercionRuntimeSemantic
     }
 
     [TestMethod]
+    public void AnAssignmentOfANull_ToALong_IsAFailedCoercion_ReportingInvalidUseOfNull()
+    {
+        // MS-VBAL 5.5.1.2.10 keys off the source: the error is the Null's own rule, and the coercion that fails is the Null
+        // operand's.
+        var (session, field) = SessionWithField(VBLongType.TypeInfo);
+
+        var context = Assign(session, field, VBNullValue.Null);
+
+        Assert.IsTrue(context.Flags.HasFlag(ConversionSemanticFlags.Failed | ConversionSemanticFlags.NullOperand));
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, context.Errors.Single().ErrorId);
+    }
+
+    [TestMethod]
+    public void AnAssignmentOfAVariantHoldingANull_ToALong_IsAFailedCoercion()
+    {
+        // the coercion unwraps a Variant before the Null's own rule raises the error, so the Null it holds fails as a Null does.
+        var (session, field) = SessionWithField(VBLongType.TypeInfo);
+
+        var context = Assign(session, field, new VBVariantValue(VBNullValue.Null));
+
+        Assert.IsTrue(context.Flags.HasFlag(ConversionSemanticFlags.Failed));
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, context.Errors.Single().ErrorId);
+    }
+
+    [TestMethod]
     public void AnAssignmentOfAnObject_ToALong_IsFlaggedAsAnObjectOperand()
     {
         var (session, field) = SessionWithField(VBLongType.TypeInfo);

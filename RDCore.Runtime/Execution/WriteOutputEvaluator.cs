@@ -100,6 +100,9 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
 
     // "#yyyy-mm-dd hh:mm:ss#. Hours are specified in 24-hour form." A value at the origin date is a time and
     // nothing more; a value at midnight is a date and nothing more; the origin at midnight is a date.
+    // The spelling is the specification's, like the '.' of a number: in a custom format ':' is the time separator of
+    // the formatting culture and the year is its calendar's, so the thread's culture would write th-TH's 2563 for
+    // 2020 - which Input # then reads back, invariantly, as another date.
     private static string DateString(VBDateValue value)
     {
         var moment = DateTime.FromOADate(Convert.ToDouble(value.Handle.Value.BoxedValue));
@@ -108,17 +111,25 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
 
         return (isOriginDate, isMidnight) switch
         {
-            (true, true) => $"#{DateOrigin:yyyy-MM-dd}#",
-            (true, false) => $"#{moment:HH:mm:ss}#",
-            (false, true) => $"#{moment:yyyy-MM-dd}#",
-            _ => $"#{moment:yyyy-MM-dd HH:mm:ss}#",
+            (true, true) => $"#{DateOrigin.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}#",
+            (true, false) => $"#{moment.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}#",
+            (false, true) => $"#{moment.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}#",
+            _ => $"#{moment.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}#",
         };
     }
 
-    // a Variant's own TypeInfo mirrors whatever it wraps, so a pattern match on it would answer for the
-    // wrapped value's type while the value in hand is still the Variant. Unwrap first, always.
+    // a Variant's own wrapped value is what is written; the wrapper never is. Neither its TypeInfo, which
+    // mirrors what it wraps, nor its storage, which boxes the wrapped value's managed value and not the typed
+    // value, says what is in hand - TypedValue does, through as many Variants as it takes.
     private static VBTypedValue Unwrapped(VBTypedValue value)
-        => value is VBVariantValue && value.Handle.Value.BoxedValue is VBTypedValue wrapped ? wrapped : value;
+    {
+        while (value is VBVariantValue { TypedValue: var wrapped })
+        {
+            value = wrapped;
+        }
+
+        return value;
+    }
 
     private static bool IsTrue(VBBooleanValue value) => Convert.ToBoolean(value.Handle.Value.BoxedValue);
 

@@ -32,6 +32,15 @@ member `VBSunday` is the constant `vbSunday`.
 Because an enum member is placed through its enum, an enum member such as `vbSunday` is a name on its own, resolvable
 without qualification ([**RD-VBAL §5.2.3.4** Enum Declarations](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).
 
+An enum member is a constant: it has no storage, and its value, a `Long`, is on its symbol, where a use of it reads
+it.
+
+> [!NOTE]
+> **Not implemented.** A constant that has no value to read, and an enum's own name evaluated as a value
+> (`Debug.Print VbCompareMethod`), are not evaluated: reading one reports `InternalError`, and the run stops as not
+> yet implemented. A constant has no value when it is a member of an `Enum` the workspace declares, whose symbol is
+> given no value yet, or a `Const` declared with no expression.
+
 
 ## 6.1.1.16 VbVarType
 

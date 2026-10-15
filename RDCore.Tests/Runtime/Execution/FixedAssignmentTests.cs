@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -228,6 +229,37 @@ public sealed class FixedAssignmentTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
         Assert.AreEqual("abcd", session.Record("B")["Code"]!.Handle.Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void LSet_ARecordWithAFixedLengthString_KeepsALoneSurrogate()
+    {
+        // the field's bytes are its data, 00 D8, whatever character they make: a text encoding would have written the replacement
+        // character's FD FF instead. No literal can spell a lone surrogate, so a variable is given one before the body runs.
+        var type = Udt("TNamed", ("Code", new VBFixedStringType(1)));
+        VBModuleFieldVariableMemberSymbol[] symbols = [Variable("A", type), Variable("B", type), Variable("S", VBStringType.TypeInfo)];
+
+        var (session, outcome) = RuntimeSourceHarness.Run(fileSystem: null, symbols, output: null, standardLibrary: false,
+            arranged => arranged.Symbols.Resolver.GetValue(symbols[2]).SetValue(arranged.Symbols.Resolver, new VBRuntimeValue<string>("\uD800")),
+            "A.Code = S", "LSet B = A");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("\uD800", new IRuntimeSessionValues(session, symbols).Record("B")["Code"]!.Handle.Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void LSet_AFixedLengthStringAfterAByte_KeepsItsCharacters()
+    {
+        // a fixed-length String aligns to one, so after a Byte it sits at an odd offset: its characters are read back from bytes
+        // that do not start on a character boundary of the image.
+        var type = Udt("TFlagged", ("Flag", VBByteType.TypeInfo), ("Code", new VBFixedStringType(2)));
+        var (outcome, _, session) = Run([("A", type), ("B", type)],
+            "A.Flag = 7", "A.Code = \"hi\"", "LSet B = A");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        var record = session.Record("B");
+        Assert.AreEqual(7, FieldOf(record, "Flag"));
+        Assert.AreEqual("hi", record["Code"]!.Handle.Value.BoxedValue);
     }
 
     [TestMethod]

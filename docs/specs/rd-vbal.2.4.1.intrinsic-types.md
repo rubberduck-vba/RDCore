@@ -67,6 +67,24 @@ The string types are:
 - `VBStringType`
 - `VBFixedStringType`
 
+The data of a string is its UTF-16 code units, two bytes each, little-endian. That data can also be an odd number of
+bytes: a `Byte()` of any length let-coerces to a `String`
+([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).
+A `System.String` cannot hold half a code unit, so the byte left over after the last whole character is held beside
+it: the runtime value of such a string is a
+[VBRuntimeByteStringValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeByteStringValue.html), its whole characters
+and its trailing byte. A string of whole characters keeps the plain runtime value it has always had.
+[VBStringValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html) gives the data of either as bytes
+(`GetBytes`, `ByteLength`), and makes a `String` of any bytes (`FromBytes`), every byte kept, a lone surrogate
+included. Two strings that differ only in a trailing byte are different values.
+
+|Reads a `String` as|Where|
+|---|---|
+|Its bytes, a trailing byte included|`LenB`; let-coercion to `String` from a `String` (a copy) and to and from `Byte()`; `&`, and `+` between two `String`s; the relational operators; the `MidB` statement, and the `Mid` statement, which keeps a trailing byte it does not replace; a standard-library member's `String` argument.|
+|Its whole characters|`Len`; `Print`, `Print #`, `Write #` and `Put`; the numeric, `Boolean` and `Date` conversions; `LSet`, `RSet` and a fixed-length `String`; `Like`; a `Declare`d procedure's `String` argument, and the `String` and `String * n` fields of a record passed to one; a `String` passed to an automation server.|
+
+👉 The debugger shows a `String`'s characters: a trailing byte is not displayed.
+
 ## 2.4.1.3 VBArrayType
 
 _Array types_ include the following implementations of `VBArrayType`:

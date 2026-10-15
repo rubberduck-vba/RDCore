@@ -17,6 +17,7 @@ Relational operators compare in the effective type, and yield a
 |Integral|The effective type's own representation: for example `Long` as a 32-bit `int`, and `LongLong` as a 64-bit `long`.|
 |`Boolean`|A 64-bit integer (`long`).|
 |Fixed-point (`Currency`, `Decimal`)|`decimal`|
+|`String`|The data of the strings, in the module's comparison mode. See [String comparison](#string-comparison).|
 
 |Condition|Run-time error|
 |---|---|
@@ -54,6 +55,28 @@ other a numeric value:
 The short-circuit runs before normal coercion because normal coercion would otherwise try, and fail, to coerce the
 `String` to a number. Because the case is reduced to synthetic ranks, the `Variant` String/Numeric case needs no
 separate evaluation path.
+
+### String comparison
+
+Each of the six operators compares two `String` operands as
+[StringComparisonRules](../api/RDCore.SDK.Runtime.StringComparisonRules.html)`.Compare` orders them, against `0`.
+`Compare` is the one place a `String` order is defined, and `Select Case` compares through the same operators. It
+compares in the comparison mode of the module ([**RD-VBAL §5.2.1.1** Option Compare Directive](rd-vbal.5.2.1.option-directives.md#5211-option-compare-directive)),
+and sees every byte of a string's data, a trailing byte included
+([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).
+
+|Mode|Two `String`s compare by|
+|---|---|
+|Binary|Their data: the code units, in order, then a trailing byte. A string whose code units begin another's, followed by more, is greater. Between the same code units, no trailing byte is less than any, and two trailing bytes compare by value.|
+|Text|Their characters regardless of case, according to the environment's regional settings. A trailing byte is not text: it only breaks a tie between two strings that are equal regardless of case, the same way.|
+
+🎯 **MS-VBAL §5.6.9.5** compares "each byte of the implementation-specific representation of the string data". Binary
+mode compares the code units of that data rather than its bytes one by one. The two find the same strings equal, and
+order alike any two strings whose characters are all below `U+0100`. Where they differ, RD-VBA's representation is
+little-endian: `"Ł"` (`41 01`) is greater than `"B"` (`42 00`) by code unit, and would be less byte by byte.
+
+`Like` matches characters against a pattern of characters, and a trailing byte is not one
+([**RD-VBAL §5.6.9.6** Like Operator](rd-vbal.5.6.9.6.like-operator.md)).
 
 ## 5.6.9.5.1 = Operator
 

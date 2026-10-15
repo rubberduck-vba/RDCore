@@ -16,7 +16,8 @@ namespace RDCore.SDK.Semantics.Static;
 
 /// <summary>
 /// The checks that the operands of a statement are held to, which the statements that have them
-/// (<see cref="MidStatementStaticSemantics"/>, <see cref="FileStatementStaticSemantics"/>) state once instead of each of them restating.
+/// (<see cref="MidStatementStaticSemantics"/>, <see cref="FileStatementStaticSemantics"/>, and the assignments and the <c>For</c> loops
+/// <see cref="StatementStaticSemanticsEvaluator"/> walks) state once instead of each of them restating.
 /// </summary>
 /// <remarks>
 /// Each check reports into a list rather than returning on the first error, because the operands of a statement are largely independent of one
@@ -116,23 +117,122 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     /// "The expression MUST be classified as a variable" (<strong>MS-VBAL §5.6.1</strong>).
     /// </summary>
     /// <remarks>
-    /// Only what is certainly not a variable is rejected: a literal, an operator's result, and a name that is a constant. A member access, an
-    /// index and the rest are not told apart here, since which of them is a variable depends on what they resolve to.
+    /// Only what is certainly not a variable is rejected: a literal, an operator's result, a constant - by its name, qualified by the project or the
+    /// module that declares it, or qualified by its Enum - and a function of a library. A member access, an index and the rest are not told apart
+    /// here, since which of them is a variable depends on what they resolve to. A function of the workspace is not rejected either: inside its own
+    /// body its name is its result, which is assigned to, and one assigned from outside its body is not judged here. Nor is a property, nor a
+    /// variable named like a library's member, which is what the name resolves to - written with a type character too (<c>Left$</c> after
+    /// <c>Dim Left$</c>), since a name is matched by its identifier (<strong>MS-VBAL §5.6.10</strong>).
     /// </remarks>
-    public void RequireVariable(ExpressionNode expression, string role)
+    /// <param name="expression">The operand.</param>
+    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
+    /// <param name="section">The section of MS-VBAL that requires a variable there, which the message cites, if any.</param>
+    public void RequireVariable(ExpressionNode expression, string role, string? section = null)
+        => Report(expression, NotAVariable(expression, LibraryFunctions.None), $"{role} must be a variable", section);
+
+    /// <summary>
+    /// What <see cref="RequireVariable"/> requires, of the target of a <c>Let</c> statement: a function of a library whose declared type is a class,
+    /// <c>Object</c> or <c>Variant</c> will do as well. <strong>MS-VBAL §5.4.3.8</strong> makes the statement invalid when the target "is classified
+    /// as a function, does not refer to the enclosing procedure, and the declared type of &lt;l-expression&gt; is any type except a class or Object or
+    /// Variant": <c>Left = "x"</c> is valid, and raises error 450 when it runs; <c>Left$ = "x"</c> is not.
+    /// </summary>
+    /// <param name="expression">The target.</param>
+    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
+    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
+    public void RequireLetTarget(ExpressionNode expression, string role, string section)
+        => Report(expression, NotAVariable(expression, LibraryFunctions.OfAClassObjectOrVariant), $"{role} must be a variable", section);
+
+    /// <summary>
+    /// "MUST be classified as a variable, property, function or unbound member", as an element of an <c>Erase</c> statement is
+    /// (<strong>MS-VBAL §5.4.3.4</strong>): anything but a value.
+    /// </summary>
+    /// <remarks>
+    /// What <see cref="RequireVariable"/> rejects, but a function of a library: a literal, an operator's result and a constant are values.
+    /// </remarks>
+    /// <param name="expression">The operand.</param>
+    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
+    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
+    public void RequireNotAValue(ExpressionNode expression, string role, string section)
+        => Report(expression, NotAVariable(expression, LibraryFunctions.Any), $"{role} must be a variable, a property or a function", section);
+
+    // which of a library's functions an operand may be.
+    private enum LibraryFunctions
     {
-        if (IsCertainlyNotAVariable(expression))
+        // none: what is to be a variable is never a function.
+        None,
+
+        // one whose declared type is a class, Object or Variant: the target of a Let statement (MS-VBAL §5.4.3.8).
+        OfAClassObjectOrVariant,
+
+        // any: an element of an Erase statement (MS-VBAL §5.4.3.4).
+        Any,
+    }
+
+    private void Report(ExpressionNode expression, string? what, string requirement, string? section)
+    {
+        if (what is not null)
         {
             _errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, expression.Location,
-                $"{role} must be a variable."));
+                $"{requirement}, and this is {what}{(section is null ? string.Empty : $" (MS-VBAL §{section})")}."));
         }
     }
 
-    private bool IsCertainlyNotAVariable(ExpressionNode expression) => expression switch
+    // what an expression that is certainly not a variable is, in words; null for one that may be - and for a function of a library that will do.
+    private string? NotAVariable(ExpressionNode expression, LibraryFunctions functions) => expression switch
     {
-        LiteralExpressionNode or VBOperatorExpression => true,
-        SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol
-            is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol,
+        LiteralExpressionNode => "a literal",
+        VBOperatorExpression => "the result of an operator",
+        SimpleNameExpressionNode name => NotAVariable(Named(name), functions),
+        // MS-VBAL §5.6.12: a member of a project or a procedural module is the member it resolves to in the namespace.
+        MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+            => NotAVariable(context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol, functions),
+        // and a member of an Enum is one of its constants (MS-VBAL §5.2.3.4); a name that is none of them is not found, which is another error.
+        MemberAccessExpressionNode { Owner: { } owner } access
+            when ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsSuccess: true, Result: VBEnumType enumType }
+            && enumType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)) is { } constant
+            => $"the constant {constant.Name}",
+        _ => null,
+    };
+
+    // what a simple name is. MS-VBAL §5.6.10 matches a name by its identifier, and only then judges its type character: a typed name (Left$) whose
+    // identifier is a declaration of the workspace - a variable, a parameter, a procedure - is that declaration, even where the name as written finds
+    // the library's member named with the character. An identifier that names no one declaration (two modules declare it) gets no verdict here:
+    // which of them it is, is not known, and the library's member is not what it names.
+    private Symbol? Named(SimpleNameExpressionNode name)
+    {
+        var symbol = context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol;
+        if (name.TypeHint is { Length: > 0 } && symbol is VBFunctionMemberSymbol && IsOfALibrary(symbol))
+        {
+            var identified = context.Resolver.ResolveValue(name.IdentifierName, ScopeKind.Local, context.Scope.Uri);
+            if (identified.Symbol is { } declaration)
+            {
+                return IsOfALibrary(declaration) ? symbol : declaration;
+            }
+
+            if (!identified.IsUnbound)
+            {
+                return null;
+            }
+        }
+
+        return symbol;
+    }
+
+    private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
+
+    private static string? NotAVariable(Symbol? symbol, LibraryFunctions functions) => symbol switch
+    {
+        VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol => $"the constant {symbol.Name}",
+        VBFunctionMemberSymbol function when function.GetProperty(SymbolProperties.Library) is { } library && !Admits(functions, function)
+            => $"the function {function.Name} of the {library} library",
+        _ => null,
+    };
+
+    // whether a function of a library will do. A declared type that is not known yet (a library's class named before it is read) may be a class.
+    private static bool Admits(LibraryFunctions functions, VBFunctionMemberSymbol function) => functions switch
+    {
+        LibraryFunctions.Any => true,
+        LibraryFunctions.OfAClassObjectOrVariant => function.ResolvedType is VBClassType or VBObjectType or VBVariantType or VBUnknownType,
         _ => false,
     };
 }

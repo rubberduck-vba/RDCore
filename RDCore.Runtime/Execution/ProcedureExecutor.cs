@@ -1141,9 +1141,6 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         return null;
     }
 
-    // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that
-    // could produce an Error outcome routes through here before the executor loop decides whether to
-    // actually stop. Returns null when an active handler caught it (activation.Pc/ErrorHandler already
     // 🎯 What Erl reports. MS-VBA answers with the last line-number label it passed, which is only ever the
     // truth for code that numbers every line; the document line is the truth for any code at all, and is
     // what an environment reports unless its workspace depends on MS-VBA's own behaviour.
@@ -1159,14 +1156,30 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         return error.Location.Range.Start.Line + 1;
     }
 
-    // updated - the loop keeps running); returns `outcome` unchanged otherwise (no active handler, or a
-    // non-Error outcome - propagate/stop exactly as if this interception point didn't exist).
+    // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that
+    // could produce an Error outcome routes through here before the executor loop decides whether to
+    // actually stop. Returns null when an active handler caught it (activation.Pc/ErrorHandler already
+    // updated - the loop keeps running); returns `outcome` otherwise (no active handler, or a non-Error
+    // outcome - propagate/stop exactly as if this interception point didn't exist), its error given the
+    // faulting statement's location when it had none.
     private static RuntimeExecutionOutcome? InterceptError(
         IRuntimeSession session, CallStackFrame activation, InstructionList list, int faultOffset, RuntimeExecutionOutcome outcome)
     {
         if (outcome.Kind != RuntimeExecutionOutcomeKind.Error)
         {
             return outcome;
+        }
+
+        // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
+        // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
+        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and the For
+        // it closes is the nearest. The error that propagates is that one: a caller it unwinds into finds it located and leaves it be,
+        // and a debugger that waited at it does not wait at it again.
+        var faulting = list.Items[faultOffset];
+        var node = faulting.Node ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node : null);
+        if (outcome.ErrorInfo!.Location is { Uri: null } && node?.SourceLocation is { Uri: not null } statement)
+        {
+            outcome = RuntimeExecutionOutcome.Error((IVBRaisableError)(outcome.ErrorInfo.AsErrorInfo with { Location = statement }));
         }
 
         // every run-time error reaches the session's error state, handled or not: MS-VBAL §6.1.3.2's

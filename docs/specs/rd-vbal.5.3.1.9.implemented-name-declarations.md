@@ -21,9 +21,16 @@ correspond to its member as [VBC09330](../diagnostics/vbc09330.md):
 |A function, or a `Property Get`|The same declared type.|
 
 A procedure that begins with an interface's prefix but is not named for one of its members is not an implemented name declaration, and is not
-checked. Only a default of a parameter that is a literal is compared.
+checked. Only a default of a parameter that is a literal is compared, a parameter of an `Enum` included. As an `Enum` and `Long`
+are the same declared type (below), `Optional ByVal d As Long = 3` implements `Optional ByVal d As VbDayOfWeek = 3`, and
+`Optional ByVal d As VbDayOfWeek = 4` does not implement `Optional ByVal d As Long = 3`, as two `Long` parameters with those
+defaults do not correspond.
 
 Which of them a module needs is [VBC09329](../diagnostics/vbc09329.md): see [**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md).
+
+An `Enum`'s name in an `<as-type>` clause means the declared type `Long`, so an `Enum` and `Long`, or two `Enum`s, are the same declared
+type here: a parameter, a result or a property declared `Long` implements one the interface member declares as an `Enum`
+([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).
 
 The `Class` interface that every class module implements is the one whose members need no implemented name declaration: each has an
 implementation of its own (`SymbolProperties.DefaultImplementation`), and `VBClassModuleSymbol.IsImplemented` says a member is implemented when

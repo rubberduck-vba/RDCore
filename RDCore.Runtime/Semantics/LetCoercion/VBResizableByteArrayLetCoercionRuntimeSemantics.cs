@@ -12,7 +12,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
-using System.Text;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -35,11 +34,11 @@ public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
                     => LetCoercionResult.Success(CopyOf(byteArraySource)),
 
             // MS-VBAL 5.5.1.2.6: "a copy of the implementation-defined binary data used to store the
-            // String value, excluding any prefixed length and/or end marker" - .NET's own String
-            // storage already is UTF-16LE with no such prefix/marker, so Encoding.Unicode.GetBytes IS
-            // that binary format verbatim; no separate "exclude the marker" step is needed.
+            // String value, excluding any prefixed length and/or end marker" - the string's own data, which
+            // has no prefix or end marker to exclude: every code unit, a lone surrogate's included, and a
+            // trailing byte when there is one, so an odd string gives an odd number of elements.
             VBStringValue stringSourceValue when frame.DestinationTypeDesc.Target is VBResizableByteArrayType
-                => LetCoercionResult.Success(FromBytes(Encoding.Unicode.GetBytes(stringSourceValue.Value))),
+                => LetCoercionResult.Success(FromBytes(stringSourceValue.GetBytes())),
 
             // MS-VBAL 5.5.1.2.6: "Runtime error 13 (Type mismatch) is raised."
             VBNumericTypedValue or VBBooleanValue or VBDateValue when frame.DestinationTypeDesc.Target is VBResizableByteArrayType

@@ -30,9 +30,11 @@ namespace RDCore.SDK.Model.Symbols;
 /// context — as that instance, a variable of the class's type.
 /// <para>
 /// A name-resolution service only — the value-binding members throw, matching the intent of a
-/// design-time resolver that holds no run-time bindings. Ordering referenced projects and libraries
-/// by their <c>.rdproj</c> priority within the global scope, and reporting an ambiguous name as a
-/// coded compile-time error rather than an unbound result, are later work.
+/// design-time resolver that holds no run-time bindings. Where the candidates of one tier of the project or
+/// global scope are of different projects, the workspace's own shadow every library's, and a library shadows
+/// one whose reference ranks below it in the project (<see cref="SymbolProperties.LibraryPriority"/>);
+/// candidates that still share the top rank are an ambiguous name, a result that carries
+/// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
 /// </para>
 /// </remarks>
 /// <param name="scopeTree">The tree to resolve against.</param>
@@ -42,11 +44,17 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// Resolves <paramref name="name"/> in the default binding context, as seen from the scope the
     /// symbol at <paramref name="handle"/> belongs to. The tiers, in order of precedence
     /// (<strong>MS-VBAL §5.6.10</strong>): the enclosing procedure; the enclosing module; the enclosing
-    /// project itself, or a procedural module in it; an accessible member of another procedural module of
-    /// the project; then whatever else the global scope declares, which includes a class module's
-    /// predeclared instance. Neither a user-defined type nor a class module is a candidate in any tier.
-    /// <paramref name="scope"/> is not consulted.
+    /// project itself, a referenced project, or a procedural module of the enclosing project; an accessible
+    /// member of another procedural module of the project; a procedural module of a referenced project (a
+    /// library's); an accessible member of a library's procedural module; then whatever else the global scope
+    /// declares, which includes a class module's predeclared instance. Neither a user-defined type nor a class
+    /// module is a candidate in any tier. <paramref name="scope"/> is not consulted.
     /// </summary>
+    /// <remarks>
+    /// The project scope holds the members of the enclosing project's procedural modules and those of every library's
+    /// alike, so it is two tiers, the enclosing project's (a symbol of no <see cref="SymbolProperties.Library"/>) and then the
+    /// libraries': a library's procedural module ranks between them, after the project's own members and before its own.
+    /// </remarks>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
@@ -64,8 +72,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
         (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
         [
-            (global, IsProjectOrProceduralModule),
-            (project, IsValueDeclaration),
+            (global, symbol => symbol is VBProjectSymbol || symbol is VBStandardModuleSymbol && !IsOfALibrary(symbol)),
+            (project, symbol => IsValueDeclaration(symbol) && !IsOfALibrary(symbol)),
+            (global, symbol => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol)),
+            (project, symbol => IsValueDeclaration(symbol) && IsOfALibrary(symbol)),
             (global, symbol => IsValueDeclaration(symbol) && !IsProjectOrProceduralModule(symbol)),
         ];
 
@@ -83,11 +93,18 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// <summary>
     /// Resolves <paramref name="name"/> in the type binding context, as seen from the scope the symbol
     /// at <paramref name="handle"/> belongs to. The tiers, in order of precedence
-    /// (<strong>MS-VBAL §5.6.4</strong>): a user-defined type or Enum declared at the level of the
-    /// enclosing module; then the enclosing project itself, or a procedural or class module in it; then
-    /// an accessible user-defined type or Enum declared in another module of the project. The procedure
-    /// scope is never consulted — no local is a type. <paramref name="scope"/> is not consulted.
+    /// (<strong>MS-VBAL §5.6.4</strong>, <strong>§5.6.10</strong>): a user-defined type or Enum declared at the level of the
+    /// enclosing module; then the enclosing project itself, a referenced project, a procedural or class module of the
+    /// enclosing project, or a library's class; then an accessible user-defined type or Enum declared in another module of
+    /// the project; then a procedural module of a referenced project (a library's); then a user-defined type or Enum of a
+    /// library. The procedure scope is never consulted — no local is a type. <paramref name="scope"/> is not consulted.
     /// </summary>
+    /// <remarks>
+    /// The project scope holds the types of the enclosing project's modules and those of every library's alike, so it is two
+    /// tiers, as it is for <see cref="ResolveValue"/>: a library's procedural module ranks between them, after the project's own
+    /// types and before the libraries'. A library's class keeps its place among the enclosing project's modules, ahead of the
+    /// project's own types, where §5.6.10 ranks it with the library's procedural modules.
+    /// </remarks>
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => ResolveType(name, handle, _ => true);
 
     /// <summary>
@@ -103,11 +120,15 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     private SymbolResolutionResult ResolveType(string name, Uri handle, Func<Symbol, bool> isOfProject)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
+        var global = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
+        var project = origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project);
         (LexicalScope? Tier, Func<Symbol, bool> IsCandidate)[] tiers =
         [
             (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Module), IsTypeDeclaration),
-            (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global), IsProjectOrModule),
-            (origin.FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Project), IsTypeDeclaration),
+            (global, symbol => IsProjectOrModule(symbol) && !IsALibrarysProceduralModule(symbol)),
+            (project, symbol => IsTypeDeclaration(symbol) && !IsOfALibrary(symbol)),
+            (global, IsALibrarysProceduralModule),
+            (project, symbol => IsTypeDeclaration(symbol) && IsOfALibrary(symbol)),
         ];
 
         foreach (var (tier, isCandidate) in tiers)
@@ -292,6 +313,11 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     private static bool IsConditionalConstant(Symbol symbol) => symbol is PrecompilerConstantSymbol;
 
     private static bool IsProjectOrProceduralModule(Symbol symbol) => symbol is VBProjectSymbol or VBStandardModuleSymbol;
+
+    // a library's symbol says which library it is of; the enclosing project's say none, as Shadowing reads them.
+    private static bool IsOfALibrary(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is not null;
+
+    private static bool IsALibrarysProceduralModule(Symbol symbol) => symbol is VBStandardModuleSymbol && IsOfALibrary(symbol);
 
     private static bool IsTypeDeclaration(Symbol symbol) => symbol is VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
 

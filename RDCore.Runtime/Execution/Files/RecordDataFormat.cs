@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Text;
@@ -281,7 +282,7 @@ internal static class RecordDataFormat
             VBBooleanType => new VBBooleanValue(BitConverter.ToInt16(bytes) != 0),
             VBByteType => new VBByteValue(bytes[0]),
             VBIntegerType => new VBIntegerValue(BitConverter.ToInt16(bytes)),
-            VBLongType => new VBLongValue(BitConverter.ToInt32(bytes)),
+            VBLongType or VBEnumType => new VBLongValue(BitConverter.ToInt32(bytes)),
             VBErrorType => new VBErrorValue(BitConverter.ToInt32(bytes)),
             VBLongLongType => new VBLongLongValue(BitConverter.ToInt64(bytes)),
             VBSingleType => new VBSingleValue(BitConverter.ToSingle(bytes)),
@@ -334,7 +335,8 @@ internal static class RecordDataFormat
         VBByteType => 1,
         // "If the data value of the Boolean is True, then the two bytes are FF FF" - two, not one.
         VBBooleanType or VBIntegerType => 2,
-        VBLongType or VBSingleType or VBErrorType => 4,
+        // an Enum holds a Long (MS-VBAL §5.2.3.4), which is what Put writes of it.
+        VBLongType or VBSingleType or VBErrorType or VBEnumType => 4,
         VBCurrencyType or VBDateType or VBDoubleType or VBLongLongType => 8,
         VBDecimalType => 16,
         _ => null,

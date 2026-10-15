@@ -182,6 +182,32 @@ public sealed class BinaryRelationalOperatorRuntimeTests : OperatorRelationalRun
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_StringsDifferingOnlyInATrailingByte_False()
+        // MS-VBAL 5.6.9.5: in binary mode "each byte of the implementation-specific representation of the string data is compared";
+        // the characters are the same, the data is not.
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), new VBStringValue("A")), false);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.4 Binary '>' Operator")]
+    public void GreaterThan_AStringWithATrailingByte_VsTheSameStringWithout_True()
+        => AssertResult<VBBooleanValue>(Evaluate(Gt(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), new VBStringValue("A")), true);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
+    public void Equal_AnOddOnlyString_VsZeroLengthString_False()
+        // ChrB(65) has no whole character, but it has a byte of data where "" has none.
+        => AssertResult<VBBooleanValue>(Evaluate(Eq(), VBStringValue.FromBytes([0x41]), new VBStringValue("")), false);
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.5 Binary '<=' Operator")]
+    public void LessThanOrEqual_TrailingBytes_AreOrderedByValue()
+    {
+        AssertResult<VBBooleanValue>(Evaluate(LtEq(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), VBStringValue.FromBytes([0x41, 0x00, 0x43])), true);
+        AssertResult<VBBooleanValue>(Evaluate(LtEq(), VBStringValue.FromBytes([0x41, 0x00, 0x43]), VBStringValue.FromBytes([0x41, 0x00, 0x42])), false);
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.5.1 Binary '=' Operator")]
     public void Equal_Boolean_SameValue_True()
         => AssertResult<VBBooleanValue>(Evaluate(Eq(), new VBBooleanValue(true), new VBBooleanValue(true)), true);
 

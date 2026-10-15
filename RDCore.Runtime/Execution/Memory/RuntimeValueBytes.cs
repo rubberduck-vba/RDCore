@@ -1,5 +1,5 @@
 using RDCore.SDK.Model.Values.Runtime;
-using System.Text;
+using System.Runtime.InteropServices;
 
 namespace RDCore.Runtime.Execution.Memory;
 
@@ -27,6 +27,8 @@ internal static class RuntimeValueBytes
         // a Boolean boxes as an Int32 but occupies two bytes (MS-VBAL §2.1), so it is matched on its
         // own runtime type rather than on what it boxes to.
         VBRuntimeBooleanValue boolean => BitConverter.GetBytes(boolean.StoredValue),
+        // a String with an odd number of bytes holds the last one beside its characters.
+        VBRuntimeByteStringValue odd => VBRuntimeByteStringValue.BytesOf(odd),
         _ => OfBoxed(value.BoxedValue),
     };
 
@@ -45,8 +47,9 @@ internal static class RuntimeValueBytes
         // a Date is a Double in memory, which is exactly why a POKE into one is a rich way to break it.
         DateTime date => BitConverter.GetBytes(date.ToOADate()),
         decimal @decimal => decimal.GetBits(@decimal).SelectMany(BitConverter.GetBytes).ToArray(),
-        // VBA strings are UTF-16, so two bytes per character.
-        string text => Encoding.Unicode.GetBytes(text),
+        // a String's data is its UTF-16 code units, two bytes each, read as they are rather than encoded: a lone
+        // surrogate is two bytes like any other. vbNullString's managed value is null, so it has no image at all.
+        string text => MemoryMarshal.AsBytes(text.AsSpan()).ToArray(),
         _ => null,
     };
 
@@ -60,6 +63,7 @@ internal static class RuntimeValueBytes
     {
         // MS-VBAL Boolean is two bytes, and anything non-zero is True.
         VBRuntimeBooleanValue => new VBRuntimeBooleanValue(BitConverter.ToInt16(bytes)),
+        VBRuntimeByteStringValue => VBRuntimeByteStringValue.FromBytes(bytes),
         _ => FromBoxed(value.BoxedValue, bytes),
     };
 
@@ -77,7 +81,7 @@ internal static class RuntimeValueBytes
         double => new VBRuntimeValue<double>(BitConverter.ToDouble(bytes)),
         DateTime => FromOADate(BitConverter.ToDouble(bytes)),
         decimal => FromDecimalBits(bytes),
-        string => new VBRuntimeValue<string>(Encoding.Unicode.GetString(bytes)),
+        string => VBRuntimeByteStringValue.FromBytes(bytes),
         _ => null,
     };
 

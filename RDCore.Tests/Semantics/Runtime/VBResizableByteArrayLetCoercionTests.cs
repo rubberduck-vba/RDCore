@@ -43,6 +43,17 @@ public sealed class VBResizableByteArrayLetCoercionTests : LetCoercionRuntimeSem
     }
 
     [TestMethod]
+    public void StringSource_WithATrailingByte_CoercesToAnOddLengthArray()
+        => CollectionAssert.AreEqual(new byte[] { 0x41, 0x00, 0x42 },
+            BytesOf(Coerce(Sut(), VBStringValue.FromBytes([0x41, 0x00, 0x42]), VBResizableByteArrayType.TypeInfo)));
+
+    [TestMethod]
+    public void StringSource_ALoneSurrogate_CoercesToItsOwnTwoBytes()
+        // U+D800 on its own is the bytes 00 D8, not the FD FF of the replacement character a text encoding writes.
+        => CollectionAssert.AreEqual(new byte[] { 0x00, 0xD8 },
+            BytesOf(Coerce(Sut(), new VBStringValue("\uD800"), VBResizableByteArrayType.TypeInfo)));
+
+    [TestMethod]
     public void NumericSource_IsTypeMismatch()
         => AssertError(Coerce(Sut(), new VBLongValue(5), VBResizableByteArrayType.TypeInfo), VBRuntimeErrorId.TypeMismatch);
 

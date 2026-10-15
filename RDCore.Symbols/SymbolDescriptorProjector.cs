@@ -17,10 +17,10 @@ namespace RDCore.Symbols;
 /// constants, user-defined-<c>Type</c> fields) are nested under their owner.
 /// </summary>
 /// <remarks>
-/// A declared type reaches the descriptor as a name only when it resolved — an intrinsic today. A
-/// project or library type is <see cref="VBUnknownType"/> on both sides for now, so its name is not
-/// carried (it would be redundant); the descriptor's <see cref="SymbolDescriptor.DeclaredTypeName"/>
-/// is <c>null</c>.
+/// A declared type reaches the descriptor as a name (<see cref="SymbolDescriptor.DeclaredTypeName"/>), which the host resolves again in its
+/// own session (TypeNameOf): an intrinsic type, a class of the workspace and a type of the standard library (VBA) by their own name, a type of
+/// any other referenced library with the library's name, a user-defined type or an Enum of another module of the workspace with that module's
+/// name, and a name that did not resolve as it was written. A type that is not known has no name to carry, and the descriptor's is <c>null</c>.
 /// </remarks>
 public static class SymbolDescriptorProjector
 {
@@ -42,12 +42,12 @@ public static class SymbolDescriptorProjector
                 // the whole module's projection over one stray symbol.
                 continue;
             }
-            builder.Add(Describe(symbol, kind, childrenByParent[symbol.Uri.ToString()]));
+            builder.Add(Describe(symbol, kind, childrenByParent[symbol.Uri.ToString()], moduleKey));
         }
         return builder.ToImmutable();
     }
 
-    private static SymbolDescriptor Describe(Symbol symbol, SymbolDescriptorKind kind, IEnumerable<Symbol> children)
+    private static SymbolDescriptor Describe(Symbol symbol, SymbolDescriptorKind kind, IEnumerable<Symbol> children, string moduleKey)
     {
         var accessible = symbol as AccessibleTypedSymbol;
 
@@ -57,19 +57,19 @@ public static class SymbolDescriptorProjector
             Kind = kind,
             AccessModifier = accessible?.AccessModifier ?? RDCore.SDK.Model.AccessModifier.Implicit,
             Scope = symbol.ScopeKind,
-            DeclaredTypeName = DeclaredTypeNameOf(accessible),
+            DeclaredTypeName = DeclaredTypeNameOf(accessible, moduleKey),
             Array = ArrayOf(accessible?.ResolvedType, symbol),
             FixedLength = FixedLengthOf(accessible?.ResolvedType),
             Range = accessible?.Range ?? default,
             SelectionRange = accessible?.SelectionRange ?? default,
             Definitions = DefinitionsOf(symbol),
-            Parameters = ParametersOf(symbol),
-            Locals = LocalsOf(symbol, children),
-            Constants = ConstantsOf(symbol, children),
+            Parameters = ParametersOf(symbol, moduleKey),
+            Locals = LocalsOf(symbol, children, moduleKey),
+            Constants = ConstantsOf(symbol, children, moduleKey),
             IsWithEvents = symbol.GetProperty(SymbolProperties.WithEvents),
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
-            Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, []))],
+            Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, [], moduleKey))],
             External = ExternalOf(symbol),
         };
     }
@@ -117,17 +117,19 @@ public static class SymbolDescriptorProjector
         _ => null,
     };
 
-    private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol)
-        => symbol is null ? null : TypeNameOf(symbol.ResolvedType);
+    private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol, string moduleKey)
+        => symbol is null ? null : TypeNameOf(symbol.ResolvedType, moduleKey);
 
     // the name a declared type travels as: the type's own, and for an array its element's - the kind of array and how it is
     // sized are the array descriptor's. A type that is not known has no name to carry, and one that did not resolve carries the
-    // name it was written with, which the host resolves again once it has the whole workspace.
-    private static string? TypeNameOf(VBType? type) => type switch
+    // name it was written with, which the host resolves again once it has the whole workspace. The module being projected is
+    // moduleKey (see OfAnotherModule).
+    private static string? TypeNameOf(VBType? type, string moduleKey) => type switch
     {
         VBUnresolvedType unresolved => unresolved.DeclaredName,
         null or VBUnknownType or VBVoidType => null,
-        VBArrayType array => array.ItemType is VBVoidType ? null : TypeNameOf(array.ItemType),
+        VBArrayType array => array.ItemType is VBVoidType ? null : TypeNameOf(array.ItemType, moduleKey),
+        _ when OfAnotherModule(type, moduleKey) is { } qualified => qualified,
         // a name means what the references make it mean, which is not the same in every process that reads it: two libraries can declare a class of
         // one name, and the one the declaration named is the one that travels (MS-VBAL 5.6.12).
         VBClassType { Symbol: { } symbol } => Qualified(symbol, type.Name),
@@ -143,9 +145,29 @@ public static class SymbolDescriptorProjector
         _ => null,
     };
 
-    // a type of a referenced library is named for its library; the standard library's, and the workspace's, by their own.
+    // a type of a referenced library is named for its library, and the standard library's by its own. A class of the workspace travels by its own
+    // name too; a user-defined type or an Enum of another module of the workspace is OfAnotherModule's.
     private static string Qualified(Symbol symbol, string name)
         => symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StdLibSymbolProvider.LibraryName ? $"{library}.{name}" : name;
+
+    // a user-defined type or an Enum that another module of the workspace declares travels with the name of that module, and the host resolves it within
+    // that module (MS-VBAL 5.6.12). By its bare name the host would bind it again, from the module being defined, and get whatever ranks first there under
+    // that name: a procedural module of the project, a library's class, or another module's type of that name. A type of the module being projected keeps
+    // its bare name, which the host binds to the module's own type first, a Private one included.
+    private static string? OfAnotherModule(VBType type, string moduleKey) => type switch
+    {
+        VBUserDefinedType { Symbol: { } symbol } => OfAnotherModule(symbol, moduleKey),
+        VBEnumType { Symbol: { } symbol } => OfAnotherModule(symbol, moduleKey),
+        _ => null,
+    };
+
+    // a symbol of the workspace carries no library, and the module that declares a type is its parent: the fragment of the workspace's root.
+    private static string? OfAnotherModule(Symbol symbol, string moduleKey)
+        => symbol.GetProperty(SymbolProperties.Library) is null
+            && symbol.ParentUri.ToString() != moduleKey
+            && Uri.UnescapeDataString(symbol.ParentUri.Fragment.TrimStart('#')) is { Length: > 0 } module
+                ? $"{module}.{symbol.Name}"
+                : null;
 
     // what makes the name above an array of it: fixed-size or resizable, and for a fixed-size one the bounds the symbol was
     // declared with (SymbolProperties.ArrayBounds).
@@ -169,7 +191,7 @@ public static class SymbolDescriptorProjector
     // a procedure's Dim/Static variables. Parameters are not among them: they are their own descriptor
     // array, and VBParameterSymbol derives from VBLocalVariableSymbol, so they would otherwise be
     // projected twice and allocated twice on every activation.
-    private static ImmutableArray<LocalDescriptor> LocalsOf(Symbol symbol, IEnumerable<Symbol> children)
+    private static ImmutableArray<LocalDescriptor> LocalsOf(Symbol symbol, IEnumerable<Symbol> children, string moduleKey)
     {
         var declared = symbol switch
         {
@@ -198,7 +220,7 @@ public static class SymbolDescriptorProjector
             builder.Add(new LocalDescriptor
             {
                 Name = local.Name,
-                DeclaredTypeName = TypeNameOf(local.ResolvedType),
+                DeclaredTypeName = TypeNameOf(local.ResolvedType, moduleKey),
                 Array = ArrayOf(local.ResolvedType, local),
                 FixedLength = FixedLengthOf(local.ResolvedType),
                 IsStatic = local.IsStatic,
@@ -215,7 +237,7 @@ public static class SymbolDescriptorProjector
     // so neither belongs on Locals: what the host needs is the declaration's expression, to substitute
     // at each use site. A local Const never travelled at all before this, so a procedure that declared
     // one could not resolve its own name.
-    private static ImmutableArray<ConstantDescriptor> ConstantsOf(Symbol symbol, IEnumerable<Symbol> children)
+    private static ImmutableArray<ConstantDescriptor> ConstantsOf(Symbol symbol, IEnumerable<Symbol> children, string moduleKey)
     {
         // a module-level constant is the descriptor, not a child of one; a local constant reaches here
         // the same two ways a local variable does (see LocalsOf).
@@ -250,7 +272,10 @@ public static class SymbolDescriptorProjector
             builder.Add(new ConstantDescriptor
             {
                 Name = constant.Name,
-                DeclaredTypeName = type is VBUnknownType or VBVoidType ? null : type.Name,
+                // the name travels as a variable's does: as it was written when it did not resolve, so that the host can say it is not a type, and a
+                // referenced library's type with the library's name, as another module's Enum has its module's, so that the host resolves that type and not
+                // what the bare name binds first.
+                DeclaredTypeName = TypeNameOf(type, moduleKey),
                 Value = value,
                 Range = (constant as WorkspaceSymbol)?.Range ?? default,
                 SelectionRange = (constant as WorkspaceSymbol)?.SelectionRange ?? default,
@@ -259,7 +284,7 @@ public static class SymbolDescriptorProjector
         return builder.ToImmutable();
     }
 
-    private static ImmutableArray<ParameterDescriptor> ParametersOf(Symbol symbol)
+    private static ImmutableArray<ParameterDescriptor> ParametersOf(Symbol symbol, string moduleKey)
     {
         var parameters = symbol switch
         {
@@ -286,7 +311,7 @@ public static class SymbolDescriptorProjector
                 // a ParamArray is its own kind of parameter, and what it holds is the host's to make.
                 DeclaredTypeName = parameter is ParamArrayParameterSymbol
                     ? parameter.ResolvedType is VBUnknownType or VBVoidType ? null : parameter.ResolvedType.Name
-                    : TypeNameOf(parameter.ResolvedType),
+                    : TypeNameOf(parameter.ResolvedType, moduleKey),
                 Array = parameter is ParamArrayParameterSymbol ? null : ArrayOf(parameter.ResolvedType, parameter),
                 Range = parameter.Range,
             });

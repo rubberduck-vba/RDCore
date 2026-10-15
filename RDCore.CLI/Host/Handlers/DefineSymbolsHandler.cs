@@ -173,27 +173,11 @@ internal sealed class DefineSymbolsHandler(
         return resolver.ResolveType(typeName, ScopeKind.Module, moduleUri);
     }
 
-    // a standard module is a value in the default binding context, and a class module is a type: the name of one binds only
-    // in the type binding context (MS-VBAL 5.6.4), unless the class has a default instance.
-    private static bool TryResolveModule(IRuntimeSession session, string moduleName, out Symbol module)
-    {
-        if ((session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var resolved)
-                || session.Symbols.TryResolveType(moduleName, GlobalSymbols.UnresolvedSymbol, out resolved))
-            && resolved is VBModuleSymbol)
-        {
-            module = resolved;
-            return true;
-        }
-
-        module = GlobalSymbols.UnresolvedSymbol;
-        return false;
-    }
-
     private ImmutableArray<string> LoadCode(IRuntimeSession session, DefineSymbolsParams request)
     {
         if (request.ParseResultJson.Length == 0
             || PlatformJson.Deserialize<ModuleParseResult>(request.ParseResultJson) is not { } parseResult
-            || !TryResolveModule(session, request.ModuleName, out var module))
+            || !session.Symbols.TryResolveModule(request.ModuleName, out var module))
         {
             return [];
         }
@@ -211,11 +195,12 @@ internal sealed class DefineSymbolsHandler(
     // Option directives are not known until the language server sends them here. They are what an
     // activation of one of the module's procedures runs under - Option Compare decides how its
     // relational operators compare Strings, Option Base what `Dim a(10)` means - and both were read off
-    // a frame that was never given any, so both silently took their default.
+    // a frame that was never given any, so both silently took their default. A class module is found
+    // as the code that is loaded finds it, by a name that binds only as a type; otherwise its code is
+    // checked and runs as if it stated none of them, Option Explicit included.
     private static void ApplyDirectives(IRuntimeSession session, DefineSymbolsParams request)
     {
-        if (!session.Symbols.TryResolveValue(request.ModuleName, GlobalSymbols.UnresolvedSymbol, out var resolved)
-            || resolved is not VBModuleSymbol module
+        if (!session.Symbols.TryResolveModule(request.ModuleName, out var module)
             || module.Directives == request.Directives)
         {
             return;

@@ -1,8 +1,16 @@
 using RDCore.Runtime.Execution;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using System.Globalization;
 using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Runtime.Files;
@@ -21,9 +29,15 @@ public sealed class FileStatementTests
 {
     private const string Root = "/ws";
 
+    private static readonly Uri Workspace = TestUri.WorkspaceRoot();
+
     private static (IRuntimeSession Session, RuntimeExecutionOutcome Outcome) Run(
         MockFileSystem fileSystem, params string[] body)
         => RuntimeSourceHarness.Run(fileSystem, [], body);
+
+    private static VBModuleFieldVariableMemberSymbol Variable(string name, VBType type)
+        => new(Workspace, RuntimeSourceHarness.ModuleUri, name, ScopeKind.Module, type,
+            SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
 
     private static MockFileSystem WithFile(string path, string content = "")
         => new(new Dictionary<string, MockFileData> { [path] = new(content) });
@@ -206,6 +220,74 @@ public sealed class FileStatementTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
         Assert.AreEqual("1.5,2\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_ADate_IsSpelledTheSameWhateverTheThreadCulture()
+    {
+        // "#yyyy-mm-dd hh:mm:ss#": the specification's spelling, like the '.' of a number. Under a culture with another
+        // calendar and another time separator it is still the Gregorian year and a ':', or Input # reads back another date.
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("th-TH").Clone();
+        culture.DateTimeFormat.TimeSeparator = ".";
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = culture;
+        try
+        {
+            var fileSystem = WithFile($"{Root}/out.txt");
+
+            var (_, outcome) = Run(fileSystem,
+                $"Open \"{Root}/out.txt\" For Output As #1",
+                "Write #1, #1/15/2020 1:45:00 PM#, #1/15/2020#",
+                "Close #1");
+
+            Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+            Assert.AreEqual("#2020-01-15 13:45:00#,#2020-01-15#\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [TestMethod]
+    [DataRow("True", "#TRUE#")]
+    [DataRow("Null", "#NULL#")]
+    [DataRow("1.5", "1.5")]
+    [DataRow("\"a\"", "\"a\"")]
+    public void Write_OfAVariant_SpellsTheValueItHolds(string value, string expected)
+    {
+        // the output string rules are about the data value, and a Variant's data value is the one it holds: a
+        // Variant holding True is #TRUE#, not the quoted text of whatever its storage boxes. A String came out
+        // right either way - quoted as a String, or quoted as the "otherwise" case - and has to stay right.
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = RuntimeSourceHarness.Run(fileSystem, [Variable("V", VBVariantType.TypeInfo)],
+            $"V = {value}",
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, V",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual($"{expected}\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Write_OfAVariantHoldingAnError_SpellsItsNumber()
+    {
+        // the Variant is given its Error value before the body runs, so that Write # is all the body does with it.
+        var fileSystem = WithFile($"{Root}/out.txt");
+        var variable = Variable("V", VBVariantType.TypeInfo);
+
+        var (_, outcome) = RuntimeSourceHarness.Run(
+            fileSystem, [variable], output: null, standardLibrary: false,
+            session => session.Symbols.Resolver.GetValue(variable).SetValue(
+                session.Symbols.Resolver, new VBVariantValue(new VBErrorValue(5)).RuntimeValue),
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Write #1, V",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("#ERROR 5#\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
     [TestMethod]

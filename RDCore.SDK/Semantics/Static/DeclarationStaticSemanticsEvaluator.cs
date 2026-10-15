@@ -21,8 +21,10 @@ namespace RDCore.SDK.Semantics.Static;
 /// <list type="bullet">
 /// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>). That is a rule of
 /// the declarations as they are written, and not of the symbols they become (<see cref="CheckSyntax"/>).</item>
-/// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant, a
-/// parameter, a function's or a property's result, and a local. Whether it does can only be told once everything the declaration can see is defined,
+/// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant of the
+/// module, a parameter, a function's or a property's result, and a local variable. A name that resolves to a procedural module does not: a module is not a
+/// type (<strong>MS-VBAL §5.6.16.7</strong>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
+/// refused there, and a name that does not resolve is not. Whether a name resolves can only be told once everything the declaration can see is defined,
 /// which is why this rule is one a caller asks for (<see cref="DeclarationRules.DeclaredTypes"/>).</item>
 /// <item>A class module is also checked for what it declares about events (<see cref="ClassModuleEventSemantics"/>) and for what its
 /// <c>Implements</c> directives require (<see cref="ImplementsSemantics"/>).</item>
@@ -118,7 +120,8 @@ public static class DeclarationStaticSemanticsEvaluator
     private static bool IsAccessor(MemberKind? kind) => kind is MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
 
     // MS-VBAL §5.6.4: a declared type is bound in the type binding context. A name that did not resolve where the declaration was read, which may have been
-    // before what it names was defined, is resolved again as seen from the module: an error is a name that still does not.
+    // before what it names was defined, is resolved again as seen from the module: an error is a name that still does not, or one that is a procedural
+    // module, which the declaration could not have read as a type either.
     private static void CheckDeclaredTypes(
         Symbol module, IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
@@ -126,15 +129,24 @@ public static class DeclarationStaticSemanticsEvaluator
         {
             CheckDeclaredType(module, member, member.SelectionRange, member.ParentUri, resolver, errors);
 
+            // a field of a user-defined type is the type's, not the module's, and comes with it. Only a procedural module is refused as its type: a name that
+            // does not resolve is not checked there, and loads as it did before a field's type was checked at all.
+            foreach (var field in member is VBUserDefinedTypeMemberSymbol { Members.IsDefault: false } userDefinedType ? userDefinedType.Members : [])
+            {
+                CheckDeclaredType(module, field, field.SelectionRange, member.ParentUri, resolver, errors, onlyAModule: true);
+            }
+
             foreach (var parameter in ParametersOf(member))
             {
                 CheckDeclaredType(module, parameter, parameter.SelectionRange, member.ParentUri, resolver, errors,
                     mayBeAny: member is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol);
             }
 
+            // a local constant's type is refused only for a procedural module, as a field's is: a name that does not resolve loads, as it did when the
+            // language server sent that name as no type at all.
             foreach (var local in LocalsOf(member))
             {
-                CheckDeclaredType(module, local, local.SelectionRange, member.ParentUri, resolver, errors);
+                CheckDeclaredType(module, local, local.SelectionRange, member.ParentUri, resolver, errors, onlyAModule: local is VBLocalConstantSymbol);
             }
         }
     }
@@ -154,10 +166,12 @@ public static class DeclarationStaticSemanticsEvaluator
         _ => [],
     };
 
+    // onlyAModule: the declaration is refused only when its type is a procedural module, and a name that does not resolve is left alone.
     private static void CheckDeclaredType(
-        Symbol module, Symbol declared, SourceRange range, Uri document, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors, bool mayBeAny = false)
+        Symbol module, Symbol declared, SourceRange range, Uri document, ISymbolResolver resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors,
+        bool mayBeAny = false, bool onlyAModule = false)
     {
-        if (declared is not ITypedSymbol { ResolvedType: var type } || Unresolved(type) is not { } name || Resolves(name, module, resolver)
+        if (declared is not ITypedSymbol { ResolvedType: var type } || Unresolved(type) is not { } name
             // `As Any` is a type only of a parameter of an external procedure, which takes whatever it is given (MS-VBAL §5.2.3.5 leaves its parameters to the
             // implementation).
             || mayBeAny && string.Equals(name, VBTypeNames.VBAny, StringComparison.OrdinalIgnoreCase))
@@ -165,13 +179,29 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
+        var bound = Bind(name, module, resolver);
+        if (bound is TypeNameBinding.IsAType || onlyAModule && bound is not TypeNameBinding.IsAProceduralModule)
+        {
+            return;
+        }
+
         // a qualifier that is nothing this project can see is most likely a library that is not referenced: the error says so, where the name alone would not.
+        // A procedural module is a name the type binding context binds (MS-VBAL §5.6.10), so the name did resolve, to something that is not a type.
         var qualifier = name.LastIndexOf('.') is >= 0 and var split ? name[..split] : null;
-        var verbose = qualifier is not null && resolver.ResolveQualifier(qualifier, ScopeKind.Global, module.Uri).Symbol is null
-            ? string.Format(Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, name, qualifier)
-            : string.Format(Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, name);
+        var verbose = bound is TypeNameBinding.IsAProceduralModule
+            ? string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name)
+            : qualifier is not null && resolver.ResolveQualifier(qualifier, ScopeKind.Global, module.Uri).Symbol is null
+                ? string.Format(Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, name, qualifier)
+                : string.Format(Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, name);
 
         errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, new SourceLocation(document, range), verbose));
+    }
+
+    private enum TypeNameBinding
+    {
+        IsAType,
+        IsAProceduralModule,
+        DoesNotResolve,
     }
 
     // the name a declared type was written with, when it did not resolve; for an array, its element's.
@@ -182,13 +212,21 @@ public static class DeclarationStaticSemanticsEvaluator
         _ => null,
     };
 
-    private static bool Resolves(string name, Symbol module, ISymbolResolver resolver)
+    // MS-VBAL §5.6.16.7: "A <defined-type-expression> is invalid if it is not classified as a type", and a name that binds a procedural module, the
+    // project's or a library's, is classified as a procedural module (§5.6.10).
+    private static TypeNameBinding Bind(string name, Symbol module, ISymbolResolver resolver)
     {
         var split = name.LastIndexOf('.');
         var (qualifier, typeName) = split < 0 ? ((string?)null, name) : (name[..split], name[(split + 1)..]);
+        if (qualifier is null && IntrinsicVBTypes.IsIntrinsic(typeName))
+        {
+            return TypeNameBinding.IsAType;
+        }
 
-        return qualifier is null && IntrinsicVBTypes.IsIntrinsic(typeName)
-            || VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri).IsResolved;
+        var result = VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri);
+        return !result.IsResolved ? TypeNameBinding.DoesNotResolve
+            : result.Symbol is VBStandardModuleSymbol ? TypeNameBinding.IsAProceduralModule
+            : TypeNameBinding.IsAType;
     }
 }
 

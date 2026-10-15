@@ -4,6 +4,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -301,8 +302,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         VBRuntimeHResult error => new VBErrorValue(Convert.ToInt32(error.BoxedValue)),
         // an object is the identity of one: what the argument is the storage of, as with the rest.
         VBRuntimeValue<VBRuntimeObjectId> identity => new VBObjectValue(identity.StoredValue),
-        // vbNullString is a String bound to no characters at all, and boxes nothing: it is the default the interpreter fills an omitted Optional String with.
-        VBRuntimeValue<string> { StoredValue: null } => VBStringValue.VBNullString,
+        // a String is the runtime value that holds its data, and the typed value is bound to that same one rather
+        // than rebuilt from its managed value: vbNullString's is null and boxes nothing - it is the default the
+        // interpreter fills an omitted Optional String with - and an odd string's holds a byte beside it.
+        IRuntimeValue<string> text => new VBStringValue(new ValueBindingHandle(text)),
         _ => argument.BoxedValue switch
         {
             // a Variant stores the whole typed value it wraps, and an array and a UDT are each boxed around
@@ -317,7 +320,6 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             float value => new VBSingleValue(value),
             double value => new VBDoubleValue(value),
             decimal value => new VBCurrencyValue(value),
-            string value => new VBStringValue(value),
             _ => null,
         },
     };

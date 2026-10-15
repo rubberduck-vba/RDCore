@@ -30,6 +30,11 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// cannot express — an accessor kind, a <c>$</c>-suffixed name, a class or enumeration return type — is
 /// stated by <see cref="StdLibMemberAttribute"/>.
 /// <para>
+/// A constant is declared as the value it is: an enumeration's are its members, and a module's are its
+/// <c>static readonly</c> fields of a <see cref="VBTypedValue"/> type, each read as a <c>Public Const</c>
+/// of that type. Either way the symbol carries the value, which is what a use site folds.
+/// </para>
+/// <para>
 /// 🚧 A member whose declared type is another standard-library <em>class</em> resolves only because
 /// classes are read before the modules that return them, which is enough for
 /// <c>Information.Err() As ErrObject</c>. The <c>RegExp</c> family is mutually referential
@@ -113,8 +118,9 @@ public sealed class StdLibSymbolReader
     /// </param>
     /// <exception cref="InvalidOperationException">
     /// A marked declaration is not expressible as a VBA symbol — a parameter or return type that is
-    /// neither an intrinsic value nor a marked enumeration or class, or an element type stated for a
-    /// parameter that is not a required ByVal array. That is a mistake in the declaration rather than a
+    /// neither an intrinsic value nor a marked enumeration or class, an element type stated for a
+    /// parameter that is not a required ByVal array, or a module's public static field that is not a
+    /// <c>static readonly</c> intrinsic value. That is a mistake in the declaration rather than a
     /// condition to degrade over: the symbol it would produce would be declared as a type nothing can
     /// bind.
     /// </exception>
@@ -252,13 +258,41 @@ public sealed class StdLibSymbolReader
         var module = new VBStandardModuleSymbol(_workspaceRoot, _workspaceRoot, name);
 
         // a standard module's members are separate symbols parented to it, which is what promotes the
-        // non-Private ones to the project scope so that `IsNumeric(x)` resolves unqualified. A hidden module's
-        // are hidden, which is a flag of each member and leaves them resolving just the same.
+        // non-Private ones to the project scope so that `IsNumeric(x)` resolves unqualified - and
+        // `vbCrLf`, a constant being a member like any other. A hidden module's procedures are hidden,
+        // which is a flag of each member and leaves them resolving just the same.
         var members = MembersOf(declaration)
             .Select(method => ReadMember(method, module.Uri, ScopeKind.Module, enumTypes, classTypes, attribute.IsHidden))
+            .Concat(ConstantsOf(declaration).Select(field => ReadConstant(field, module.Uri)))
             .ToArray();
 
         return (module, members);
+    }
+
+    // in declaration order, for the same reason as Marked.
+    private static FieldInfo[] ConstantsOf(Type declaration)
+        => [.. declaration.GetFields(BindingFlags.Public | BindingFlags.Static).OrderBy(field => field.MetadataToken)];
+
+    private VBConstantMemberSymbol ReadConstant(FieldInfo field, Uri moduleUri)
+    {
+        var name = field.GetCustomAttribute<StdLibConstantAttribute>()?.Name ?? StdLibNames.ConstantName(field.Name);
+
+        // the declared value is the constant, so it has to be one: a VBTypedValue that nothing can
+        // reassign. A C# const is a primitive, whose VBA type would be a guess - a C# long is a VBA
+        // LongLong, so a `const long` meaning a Long says the wrong thing - and a field that is not
+        // readonly is not a constant at all.
+        if (!field.IsInitOnly || !IntrinsicVBTypes.TryResolveValueType(field.FieldType, out var type))
+        {
+            throw new InvalidOperationException(
+                $"'{field.Name}' in '{field.DeclaringType?.Name}' is not a constant a standard-library module can " +
+                $"declare: a module constant is a static readonly field of a {nameof(VBTypedValue)} implementation.");
+        }
+
+        // Public: a Const with no access modifier is not visible outside its module (MS-VBAL §5.2.3), and
+        // this one has to reach the project scope to resolve unqualified, as the module's procedures do.
+        return new VBConstantMemberSymbol(
+            _workspaceRoot, moduleUri, name, ScopeKind.Module, type, SourceRange.Empty, SourceRange.Empty,
+            AccessModifier.Public, LiteralOf((VBTypedValue)field.GetValue(null)!, moduleUri));
     }
 
     private Symbol ReadMember(
@@ -431,13 +465,18 @@ public sealed class StdLibSymbolReader
     //
     // MS-VBAL 5.3.1.5 defines a default as a constant expression, which is what the symbol carries; a
     // library parameter's is written in C# rather than in VBA source, and a literal node over the value
-    // it already is says exactly that — with the member's own uri for a location, there being no source
-    // position to point at.
+    // it already is says exactly that.
     private static ExpressionNode? DefaultValueOf(ParameterInfo parameter, Uri memberUri)
         => parameter is { IsOptional: true, DefaultValue: { } value } && parameter.ParameterType.IsEnum
-            ? new LiteralExpressionNode(
-                new SyntaxNodeId(memberUri.AbsolutePath, []),
-                new SourceLocation(memberUri, SourceRange.Empty),
-                new VBLongValue(Convert.ToInt32(value)))
+            ? LiteralOf(new VBLongValue(Convert.ToInt32(value)), memberUri)
             : null;
+
+    // a constant expression written in C# rather than in VBA source - a parameter's default, a module
+    // constant's value - is the value it already is, so a literal node over that value is the whole of it:
+    // with the uri of the symbol that declares it for a location, there being no source position to point at.
+    private static LiteralExpressionNode LiteralOf(VBTypedValue value, Uri declaringUri)
+        => new(
+            new SyntaxNodeId(declaringUri.AbsolutePath, []),
+            new SourceLocation(declaringUri, SourceRange.Empty),
+            value);
 }

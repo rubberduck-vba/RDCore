@@ -53,9 +53,9 @@ public sealed class StdStrings : IStdStringsModule
     /// The number of <em>bytes</em> a value occupies (<strong>MS-VBAL §6.1.2.11.1.22</strong>).
     /// </summary>
     /// <remarks>
-    /// "<c>LenB</c> will return the same value as <c>Len</c>, except for strings or UDTs": a string's
-    /// characters are two bytes each, and a UDT's "in-memory size, including any implementation-specific
-    /// padding between elements" is what <see cref="VBUserDefinedTypeLayout"/> lays out.
+    /// "<c>LenB</c> will return the same value as <c>Len</c>, except for strings or UDTs": a string's is
+    /// "the number of bytes used to represent that string", and a UDT's "in-memory size, including any
+    /// implementation-specific padding between elements" is what <see cref="VBUserDefinedTypeLayout"/> lays out.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> LenB(VBVariantValue expression)
         => Measure(expression, inMemory: true);
@@ -82,8 +82,8 @@ public sealed class StdStrings : IStdStringsModule
         // a fixed-length String is its declared length, whatever it currently holds.
         VBFixedStringValue fixedString => inMemory ? 2 * fixedString.Length : fixedString.Length,
         // "Returns a Long containing the number of characters in a string", and LenB "returns the number of
-        // bytes used to represent that string" - two per character, VBA strings being Unicode.
-        VBStringValue text => inMemory ? 2 * text.Length : text.Length,
+        // bytes used to represent that string" - every byte of its data, a trailing one included.
+        VBStringValue text => inMemory ? text.ByteLength : text.Length,
         // the two UDT sizes: LenB's is the padded in-memory one the value reports, Len's is the unpadded
         // concatenation a record is written from.
         VBUserDefinedTypeValue udt => inMemory ? udt.Size : SerializedSize(udt),

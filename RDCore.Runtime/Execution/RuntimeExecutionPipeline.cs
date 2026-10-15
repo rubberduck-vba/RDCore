@@ -179,7 +179,8 @@ public sealed class RuntimeExecutionPipeline
             [
                 new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle),
                 new VBBooleanLetCoercionRuntimeSemantics(handle, messages),
-                new VBStringLetCoercionRuntimeSemantics(messages),
+                // every number and date Let-coerced to String is written in the environment's regional settings.
+                new VBStringLetCoercionRuntimeSemantics(messages, session.Environment.Culture),
                 new VBDateLetCoercionRuntimeSemantics(handle, messages),
                 new VBFixedStringLetCoercionRuntimeSemantics(handle, messages),
                 new VBVariantTypeLetCoercionRuntimeSemantics(handle, messages),

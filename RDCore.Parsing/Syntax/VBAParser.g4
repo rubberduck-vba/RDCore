@@ -444,7 +444,13 @@ booleanExpression : expression;
 
 implementsStmt : IMPLEMENTS whiteSpace expression;
 
-letStmt : (LET whiteSpace)? lExpression whiteSpace? EQ whiteSpace? expression;
+// 5.4.3.8 Let Statement
+// The target is an l-expression (MS-VBAL 5.6), which has no output list, but the lExpression rule has one (objectPrintExpr). Without the predicate,
+// `Debug.Print x = 0` would be a Let of 0 to `Debug.Print x`, letStmt being listed before callStmt, instead of the Print of x = 0. With `Let`, it is a Let.
+letStmt :
+    LET whiteSpace lExpression whiteSpace? EQ whiteSpace? expression
+    | {!IsObjectPrintWithOutputList()}? lExpression whiteSpace? EQ whiteSpace? expression
+;
 
 lsetStmt : LSET whiteSpace expression whiteSpace? EQ whiteSpace? expression;
 

@@ -31,7 +31,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService)
     : BinaryOperatorRuntimeSemantics<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
 {
-    protected abstract bool ComparisonOp(string lhs, string rhs, StringComparisonRules rules);
+    /// <summary>
+    /// Compares two operands already let-coerced to <c>String</c>, as <paramref name="rules"/> say: whole values rather than their
+    /// characters, since a trailing byte is part of what binary mode compares (<see cref="StringComparisonRules.Compare"/>).
+    /// </summary>
+    protected abstract bool ComparisonOp(VBStringValue lhs, VBStringValue rhs, StringComparisonRules rules);
 
     /// <summary>
     /// Compares two operands already let-coerced to the same numeric effective type, in that type's
@@ -306,8 +310,9 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         else if (frame.EffectiveType is VBStringType)
         {
             // MS-VBAL 5.6.9.5: in a module compared in text mode the strings are compared regardless of case, according to the
-            // regional settings of the environment; otherwise, by the code of each character.
-            var result = ComparisonOp(((VBStringValue)lhs).Value!, ((VBStringValue)rhs).Value!, frame.Comparison);
+            // regional settings of the environment; otherwise, by "each byte of the implementation-specific representation of the
+            // string data" - a trailing byte included, which is why the values are compared and not their characters.
+            var result = ComparisonOp((VBStringValue)lhs, (VBStringValue)rhs, frame.Comparison);
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(result));
         }
         else if (frame.EffectiveType is VBCurrencyType)
