@@ -13,6 +13,8 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 /// <summary>
@@ -25,30 +27,7 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs * rhs);
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver,
-        BinaryArithmeticOperatorSemanticContext context,
-        ExpressionNode expression,
-        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBCurrencyType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            VBSingleType or VBDoubleType or VBFixedStringType or VBStringType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBCurrencyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            VBDateType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBEmptyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            VBNumericType or VBFixedStringType or VBStringType or VBDateType or VBEmptyType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBDateType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+    protected override string Operator => Tokens.MultiplicationOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

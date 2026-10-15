@@ -19,6 +19,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Context;
+using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
@@ -98,75 +99,30 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         StringComparisonRules comparison, bool isValueKnown, VBErrorInfo? error)
         => new ArithmeticOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
 
-    protected abstract DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver,
-        BinaryArithmeticOperatorSemanticContext context,
-        ExpressionNode expression,
-        OperatorEvaluationFrame frame);
+    /// <summary>
+    /// The operator: one of the <c>Tokens</c> arithmetic operators, which is what its <see cref="OperationPlan"/> is made for.
+    /// </summary>
+    protected abstract string Operator { get; }
 
+    /// <remarks>
+    /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each pair of value types and kept: the table of the specification
+    /// is the planner's, and is not consulted again for every evaluation.
+    /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
         ISymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context, 
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
     {
-        var result = DetermineArithmeticOperatorEffectiveType(resolver, (BinaryArithmeticOperatorSemanticContext)context, expression, frame);
-        if (result.IsApplicable)
-        {
-            // a more specialized implementation is in charge.
-            return result;
-        }
+        var leftType = frame[InputIndex.BinaryLeftOperand].TypeInfo;
+        var rightType = frame[InputIndex.BinaryRightOperand].TypeInfo;
+        var plan = OperationPlanner.ForValues(Operator, leftType, rightType);
 
-        var rhsType = frame[InputIndex.BinaryRightOperand].TypeInfo;
-        // the base rules are the verbatim specifications for
-        // binary operators (5.6.9.3 runtime semantics):
-        var effectiveType = frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBByteType when rhsType is VBByteType or VBEmptyType => VBByteType.TypeInfo,
-            VBByteType or VBEmptyType when rhsType is VBByteType => VBByteType.TypeInfo,
-
-            VBBooleanType or VBIntegerType when rhsType is VBByteType or VBBooleanType or VBIntegerType or VBEmptyType => VBIntegerType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType or VBEmptyType when rhsType is VBBooleanType or VBIntegerType => VBIntegerType.TypeInfo,
-            VBEmptyType when rhsType is VBEmptyType => VBIntegerType.TypeInfo,
-
-            VBLongType when rhsType is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType => VBLongType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBEmptyType when rhsType is VBLongType => VBLongType.TypeInfo,
-
-            VBLongLongType when rhsType is IIntegralNumericType or VBEmptyType => VBLongLongType.TypeInfo,
-            IIntegralNumericType or VBEmptyType when rhsType is VBLongLongType => VBLongLongType.TypeInfo,
-
-            VBSingleType when rhsType is VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType => VBSingleType.TypeInfo,
-            VBByteType or VBBooleanType or VBIntegerType or VBSingleType or VBEmptyType when rhsType is VBSingleType => VBSingleType.TypeInfo,
-
-            VBSingleType when rhsType is VBLongType or VBLongLongType => VBDoubleType.TypeInfo,
-            VBLongType or VBLongLongType when rhsType is VBSingleType => VBDoubleType.TypeInfo,
-            VBDoubleType or VBStringType when rhsType is IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBEmptyType => VBDoubleType.TypeInfo,
-            IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBEmptyType when rhsType is VBDoubleType or VBStringType => VBDoubleType.TypeInfo,
-
-            VBCurrencyType when rhsType is IIntegralNumericType or IFloatingPointNumericType or VBCurrencyType or VBStringType or VBEmptyType => VBCurrencyType.TypeInfo,
-            IIntegralNumericType or IFloatingPointNumericType or VBStringType or VBEmptyType when rhsType is VBCurrencyType => VBCurrencyType.TypeInfo,
-
-            // date values are let-coerced to VBDoubleValue
-            VBDateType when rhsType is IIntegralNumericType or IFloatingPointNumericType or VBCurrencyType or VBStringType or VBDateType or VBEmptyType => VBDateType.TypeInfo,
-            IIntegralNumericType or IFloatingPointNumericType or VBCurrencyType or VBStringType or VBDateType or VBEmptyType when rhsType is VBDateType => VBDateType.TypeInfo,
-
-            VBDecimalType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType => VBDecimalType.TypeInfo,
-            INumericType or VBStringType or VBDateType or VBEmptyType when rhsType is VBDecimalType => VBDecimalType.TypeInfo,
-
-            VBNullType when rhsType is INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType => VBNullType.TypeInfo,
-            INumericType or VBStringType or VBDateType or VBEmptyType or VBNullType when rhsType is VBNullType => VBNullType.TypeInfo,
-
-            // the operation of two Error values is evaluated in Error, which its operand validation refuses (ValidateOperand); one Error is a type mismatch.
-            VBErrorType when rhsType is VBErrorType => VBErrorType.TypeInfo,
-
-            _ => (VBType?)default
-        };
-
-        return effectiveType is not null
+        return plan.EffectiveType is { } effectiveType
             ? DetermineOperatorEffectiveTypeResult.Success(effectiveType)
             // if no effective type can be determined, it's a type mismatch error:
             : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
-                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [frame[InputIndex.BinaryLeftOperand].TypeInfo.Name, rhsType.Name]))));
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", [leftType.Name, rightType.Name]))));
     }
 
     // MS-VBAL 5.6.9.3: "If the value type of any operand is an array, UDT or Error, runtime error 13 (Type mismatch) is raised."

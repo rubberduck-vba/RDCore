@@ -15,6 +15,8 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 /// <summary>
@@ -29,19 +31,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs)
         => T.CreateChecked(Math.Pow(double.CreateChecked(lhs), double.CreateChecked(rhs)));
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver, 
-        BinaryArithmeticOperatorSemanticContext context, 
-        ExpressionNode expression, 
-        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            // a Boolean is a numeric operand here, as it is an Integer one in the standard arithmetic table.
-            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
-                when frame[InputIndex.BinaryRightOperand].TypeInfo is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+    protected override string Operator => Tokens.PowerOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

@@ -13,6 +13,8 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 public record class BinarySubtractionOperatorRuntimeSematics(
@@ -22,11 +24,7 @@ public record class BinarySubtractionOperatorRuntimeSematics(
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs - rhs);
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver,
-        BinaryArithmeticOperatorSemanticContext context,
-        ExpressionNode expression,
-        OperatorEvaluationFrame frame) => DetermineOperatorEffectiveTypeResult.NotApplicable(); // no operator-specific overrides
+    protected override string Operator => Tokens.SubtractionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

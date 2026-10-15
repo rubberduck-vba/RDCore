@@ -14,6 +14,8 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 /// <summary>
@@ -26,17 +28,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
 {
     protected sealed override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs + rhs);
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver, 
-        BinaryArithmeticOperatorSemanticContext context, 
-        ExpressionNode expression, 
-        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBStringType when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBStringType
-                => DetermineOperatorEffectiveTypeResult.Success(VBStringType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+    protected override string Operator => Tokens.AdditionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

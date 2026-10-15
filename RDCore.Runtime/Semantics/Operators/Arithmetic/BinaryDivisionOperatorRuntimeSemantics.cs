@@ -16,6 +16,8 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 /// <summary>
@@ -28,26 +30,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => lhs / rhs;
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver, 
-        BinaryArithmeticOperatorSemanticContext context, 
-        ExpressionNode expression, 
-        OperatorEvaluationFrame frame) => frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType
-                when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBEmptyType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            VBDoubleType or VBStringType or VBCurrencyType or VBDateType
-                when frame[InputIndex.BinaryRightOperand].GetTargetType() is INumericType or VBStringType or VBDateType or VBEmptyType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            INumericType or VBStringType or VBDateType or VBEmptyType
-                when frame[InputIndex.BinaryRightOperand].GetTargetType() is VBDoubleType or VBStringType or VBCurrencyType or VBDateType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBDoubleType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+    protected override string Operator => Tokens.DivisionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

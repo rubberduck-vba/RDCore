@@ -13,6 +13,8 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Services.VerboseMessages;
 
+using RDCore.SDK.Model;
+
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 /// <summary>
@@ -25,41 +27,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => lhs / rhs;
 
-    protected override DetermineOperatorEffectiveTypeResult DetermineArithmeticOperatorEffectiveType(
-        ISymbolResolver resolver, 
-        BinaryArithmeticOperatorSemanticContext context, 
-        ExpressionNode expression, 
-        OperatorEvaluationFrame frame) 
-    {
-        var rhs = frame[InputIndex.BinaryRightOperand].TypeInfo;
-        return frame[InputIndex.BinaryLeftOperand].TypeInfo switch
-        {
-            VBByteType when rhs is VBEmptyType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
-            VBEmptyType when rhs is VBByteType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
-        
-            VBBooleanType or VBIntegerType 
-                when rhs is VBSingleType or VBDoubleType or VBStringType or VBCurrencyType or VBDateType or VBDecimalType 
-                => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
-
-            // a Boolean is a numeric operand here, the way the table above treats it as an Integer.
-            IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
-                when rhs is VBNumericType and not VBLongLongType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBLongType.TypeInfo),
-
-            VBNumericType and not VBLongLongType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
-                when rhs is IFloatingPointNumericType or IFixedPointNumericType or VBStringType or VBDateType
-                => DetermineOperatorEffectiveTypeResult.Success(VBLongType.TypeInfo),
-
-            VBLongLongType when rhs is VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType
-                => DetermineOperatorEffectiveTypeResult.Success(VBLongLongType.TypeInfo),
-            VBNumericType or VBBooleanType or VBStringType or VBDateType or VBEmptyType when rhs is VBLongLongType
-                => DetermineOperatorEffectiveTypeResult.Success(VBLongLongType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
-    }
+    protected override string Operator => Tokens.IntegerDivisionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
         ISymbolResolver resolver,

@@ -14,6 +14,10 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Semantics.Plans;
 
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
@@ -25,15 +29,21 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
     IVerboseMessageBuilder FormatterService) 
     : UnaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
 {
+    /// <remarks>
+    /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each value type and kept. The plan is the whole answer - a
+    /// type mismatch included - so the table every unary operator falls back on is not consulted for a negation.
+    /// </remarks>
     protected override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
         ISymbolResolver resolver,
         ExpressionNode expression,
-        OperatorEvaluationFrame frame) => frame[InputIndex.UnaryOperand].TypeInfo switch
-        {
-            VBByteType  => DetermineOperatorEffectiveTypeResult.Success(VBIntegerType.TypeInfo),
-
-            _ => DetermineOperatorEffectiveTypeResult.NotApplicable()
-        };
+        OperatorEvaluationFrame frame)
+    {
+        var operandType = frame[InputIndex.UnaryOperand].TypeInfo;
+        return OperationPlanner.ForValue(Tokens.NegationOp, operandType).EffectiveType is { } effectiveType
+            ? DetermineOperatorEffectiveTypeResult.Success(effectiveType)
+            : DetermineOperatorEffectiveTypeResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
+                Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", operandType.Name)));
+    }
 
     protected override T EvaluateNumericOp<T>(T operand) => checked(-operand);
 
