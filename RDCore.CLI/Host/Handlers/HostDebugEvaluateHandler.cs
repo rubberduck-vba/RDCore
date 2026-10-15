@@ -37,6 +37,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
         }
 
         var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, outside: sessionProvider.Outside);
-        return Task.FromResult(sessionProvider.Execution.Evaluate(pipeline, request.FrameId, expression));
+        // what it runs may open a dialog that waits for an answer over this very connection: it runs on a thread of its own, and not on the one that reads it.
+        return ProgramExecution.OffTheConnection(() => sessionProvider.Execution.Evaluate(pipeline, request.FrameId, expression));
     }
 }

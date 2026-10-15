@@ -65,6 +65,21 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     private long _streamed;
     private bool _inTurn;
 
+    // a statement or an expression runs alongside the program that waits, in its session and on its stack: nothing else resumes, moves, ends or runs beside the program
+    // until it is done. Set and cleared with the lock held; the code itself runs with nothing locked (OffTheConnection).
+    private bool _alongside;
+
+    /// <summary>
+    /// Runs program code on a thread of its own, and not on the thread of the request that asked for it.
+    /// </summary>
+    /// <remarks>
+    /// The thread of a request is the thread that reads the connection: a handler is called on it, and a handler that does not return until a program is over keeps
+    /// it for as long. A program that waits for an answer over the same connection - a <c>MsgBox</c> the client answers - then waits for an answer nothing reads, and
+    /// a <c>$/cancelRequest</c> that would stop it is not read either. Code that runs for as long as a program pleases runs here instead.
+    /// </remarks>
+    internal static Task<T> OffTheConnection<T>(Func<T> run)
+        => Task.Factory.StartNew(run, CancellationToken.None, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+
     // gives the turn back when the program is over. Called with the lock held, or by what ends the program.
     private void LeaveTurn(IRuntimeSession session)
     {
@@ -120,14 +135,15 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         var session = provider.Session;
         lock (_sync)
         {
-            if (_state is ProgramState.Running)
+            if (_state is ProgramState.Running || _alongside)
             {
                 return Task.FromResult(Refused(Resources.Host_AProgramIsRunning));
             }
 
             if (_state is ProgramState.Suspended && immediate)
             {
-                return Task.FromResult(RunAlongside(session, pipeline, entryPoint, token));
+                _alongside = true;
+                return OffTheConnection(() => RunAlongside(session, pipeline, entryPoint, token));
             }
 
             if (_state is ProgramState.Suspended)
@@ -153,7 +169,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         session.Halt.Clear();
         SessionWipe.Abandon(session);
 
-        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : Task.FromResult(RunToTheEnd(session, pipeline, entryPoint, token));
+        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnection(() => RunToTheEnd(session, pipeline, entryPoint, token));
     }
 
     /// <summary>
@@ -168,9 +184,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         SuspendableExecution execution;
         lock (_sync)
         {
-            if (_state is not ProgramState.Suspended || _execution is not { } suspended)
+            if (_state is not ProgramState.Suspended || _alongside || _execution is not { } suspended)
             {
-                return Refused(NotSuspended(_state));
+                return Refused(_alongside ? Resources.Host_TheProgramIsRunning : NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
@@ -199,9 +215,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     {
         lock (_sync)
         {
-            if (_state is not ProgramState.Suspended)
+            if (_state is not ProgramState.Suspended || _alongside)
             {
-                return NotMoved(NotSuspended(_state));
+                return NotMoved(_alongside ? Resources.Host_TheProgramIsRunning : NotSuspended(_state));
             }
 
             if (ChangedCode() is { Length: > 0 } changed)
@@ -302,7 +318,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="expression">The expression.</param>
     /// <remarks>
-    /// The expression is evaluated on the thread of the request, with the activation selected on the call stack: its names are the activation's names, and a call in it
+    /// The expression is evaluated with the activation selected on the call stack: its names are the activation's names, and a call in it
     /// pushes an activation above, as any call does. The program stays where it waits. Something that stops - a <c>Stop</c> in a procedure the expression calls - stops
     /// the expression and not the program, and an <c>End</c> is the end of it.
     /// </remarks>
@@ -327,7 +343,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="statement">The statement: an assignment, a call, anything a person could type in the Immediate window of a procedure that is stopped.</param>
     /// <remarks>
-    /// Like <see cref="Evaluate"/>, on the thread of the request with the activation selected, so that its names are the activation's: an assignment to one of its locals
+    /// Like <see cref="Evaluate"/>, with the activation selected, so that its names are the activation's: an assignment to one of its locals
     /// changes the local the program will go on with. The statement is a body of its own, in an activation of its own that is not on the call stack - the activation
     /// selected is the program's, and where it waits is not for the statement to move.
     /// </remarks>
@@ -354,31 +370,43 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         });
 
     // What it takes to run something in an activation of the program that waits, whichever the something is: the program waits, the activation is on its stack, what the
-    // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. Called with nothing locked.
+    // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. The program is claimed with the lock held
+    // (_alongside), and the something runs with nothing locked, so that a request that asks about the program while it runs - while a dialog it opened waits for its
+    // answer - is answered rather than waiting for it. Called on a thread of its own by the handlers (OffTheConnection).
     private HostDebugEvaluateResult InFrame(
         int frameId, bool ofAStatement, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
     {
+        IRuntimeSession session;
+        CallStackFrame selected;
+        VBTypeMemberSymbol procedure;
+        RuntimeCallStack stack;
         lock (_sync)
         {
-            var session = provider.Session;
-            if (_state is not ProgramState.Suspended)
+            session = provider.Session;
+            if (_state is not ProgramState.Suspended || _alongside)
             {
-                return Unevaluated(NotSuspended(_state));
+                return Unevaluated(_alongside ? Resources.Host_TheProgramIsRunning : NotSuspended(_state));
             }
 
             var frames = session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
-            if (frameId < 0 || frameId >= frames.Length || frames[frameId].Procedure is not { } procedure || session.CallStack is not RuntimeCallStack stack)
+            if (frameId < 0 || frameId >= frames.Length || frames[frameId].Procedure is not { } activated || session.CallStack is not RuntimeCallStack callStack)
             {
                 return Unevaluated(Resources.Host_NoSuchActivation);
             }
 
-            var output = new RuntimeOutputBuffer();
-            var depth = session.CallStack.Depth;
-            provider.Output.Target = output;
-            try
-            {
-                var (value, failure) = run(session, stack, frames[frameId], procedure);
+            (selected, procedure, stack) = (frames[frameId], activated, callStack);
+            _alongside = true;
+        }
 
+        var output = new RuntimeOutputBuffer();
+        var depth = session.CallStack.Depth;
+        provider.Output.Target = output;
+        try
+        {
+            var (value, failure) = run(session, stack, selected, procedure);
+
+            lock (_sync)
+            {
                 if (session.Halt.Pending is { } halt)
                 {
                     session.Halt.Clear();
@@ -412,10 +440,14 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                     Output = output.Lines,
                 };
             }
-            finally
+        }
+        finally
+        {
+            provider.Output.Target = NullRuntimeOutput.Instance;
+            UnwindTo(session, depth);
+            lock (_sync)
             {
-                provider.Output.Target = NullRuntimeOutput.Instance;
-                UnwindTo(session, depth);
+                _alongside = false;
             }
         }
     }
@@ -473,6 +505,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
                 case ProgramState.Idle:
                     return false;
 
+                // what runs alongside the program is let finish: it is short, and it is what the program would be ended in the middle of.
+                case ProgramState.Suspended when _alongside:
+                    return false;
+
                 case ProgramState.Suspended:
                     EndSuspended(provider.Session, wipe);
                     return true;
@@ -498,10 +534,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
 
     // ---- a statement typed while the program waits ----
 
-    // Run on the thread of the request, above the activations of the program that waits, which are the session's and stay as they are. It cannot wait at a Stop
-    // of its own (the gate holds only the thread of the program), so it is stopped by one, as a run that is not under a debugger is. An End in it is the end of the
-    // program: the one that waits is ended with the session wiped, which is what End does. Called with the lock held, and so nothing else resumes or ends the
-    // program meanwhile.
+    // Run above the activations of the program that waits, which are the session's and stay as they are. It cannot wait at a Stop of its own (the gate holds only
+    // the thread of the program), so it is stopped by one, as a run that is not under a debugger is. An End in it is the end of the program: the one that waits is
+    // ended with the session wiped, which is what End does. Called with _alongside set and nothing locked, on a thread of its own (OffTheConnection): nothing else
+    // resumes or ends the program meanwhile, and a request that asks whether one could is answered while it runs - a dialog it opens included.
     private ExecuteSessionResult RunAlongside(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {
         var output = new RuntimeOutputBuffer();
@@ -512,7 +548,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             var result = Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, []), session, output, token);
             if (result.Outcome is ExecutionOutcome.Halted)
             {
-                EndSuspended(session, wipe: true);
+                lock (_sync)
+                {
+                    EndSuspended(session, wipe: true);
+                }
             }
 
             return result;
@@ -521,6 +560,10 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
         {
             provider.Output.Target = NullRuntimeOutput.Instance;
             UnwindTo(session, depth);
+            lock (_sync)
+            {
+                _alongside = false;
+            }
         }
     }
 
