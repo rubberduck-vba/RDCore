@@ -679,7 +679,9 @@ expression :
     | expression whiteSpace? EQV whiteSpace? expression                                             # logicalEqvOp
     | expression whiteSpace? IMP whiteSpace? expression                                             # logicalImpOp
     | literalExpression                                                                             # literalExpr
-    | {!IsTokenType(TokenTypeAtRelativePosition(2),LPAREN)}? builtInType                            # builtInTypeExpr
+    // MS-VBAL 3.3.5.2: Date is a <reserved-name> as well as a <reserved-type-identifier>, and a value is what it names in an expression - the Date property
+    // of the library - as a simple name like any other; a type is no value, and only follows TypeOf...Is, where an intrinsic type is no type it can be.
+    | {!IsTokenType(TokenTypeAtRelativePosition(2),LPAREN) && !IsTokenType(TokenTypeAtRelativePosition(1),DATE)}? builtInType   # builtInTypeExpr
     | lExpression                                                                                   # lExpr
 ;
 

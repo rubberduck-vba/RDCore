@@ -43,7 +43,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// list somebody can read. An interface absent from it is a module nothing implements yet, and every
     /// member of it says so when called.
     /// <para>
-    /// 🚧 TODO as each module lands: <c>Math</c>, <c>DateTime</c>,
+    /// 🚧 TODO as each module lands: <c>Math</c>,
     /// <c>RegExp</c>, and the constant modules.
     /// </para>
     /// </remarks>
@@ -59,6 +59,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
             [typeof(IStdStringsModule)] = new StdStrings(),
             [typeof(IStdFinancialModule)] = new StdFinancial(),
+            [typeof(IStdDateTimeModule)] = new StdDateTime(session),
             [typeof(IStdErrClass)] = new ErrObject(session),
             [typeof(IStdConversionModule)] = new StdConversion(session),
             [typeof(IStdHiddenModule)] = new StdHidden(session),

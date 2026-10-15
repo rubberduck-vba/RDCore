@@ -1,5 +1,6 @@
-﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
@@ -8,239 +9,244 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// <strong>MS-VBAL 6.1.2.4 DateTime Module</strong>
 /// </summary>
 /// <remarks>
-/// Formalizes the public interface of the standard library <c>VBA.DateTime</c> module.<br/>
+/// Formalizes the public interface of the standard library <c>VBA.DateTime</c> module.
+/// <para>
+/// A function the specification declares with no <c>As</c> clause returns a <c>Variant</c>, which holds the type its description says: <c>DateDiff</c> a
+/// <c>Long</c>, <c>DatePart</c> and the date-part functions an <c>Integer</c>, <c>DateAdd</c>, <c>DateSerial</c> and <c>TimeSerial</c> a <c>Date</c>.
+/// The functions work in the calendar the <see cref="Calendar()"/> property says, and the properties read the session's clock
+/// (<see cref="ISessionClock"/>).
+/// </para>
 /// </remarks>
+[StdLibModule]
 public interface IStdDateTimeModule
 {
     /// <summary>
-    /// Formalizes the valid <see cref="VBStringValue"/> <c>interval</c> parameter values.
+    /// The valid <c>Interval</c> arguments of <see cref="DateAdd"/>, <see cref="DateDiff"/> and <see cref="DatePart"/>; compared without regard to case.
     /// </summary>
     /// <remarks>
     /// 💥 Any other value raises run-time error 5 <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.
     /// </remarks>
-    internal static class StdDateIntervals
+    public static class Intervals
     {
+        /// <summary>Year.</summary>
         public const string Year = "yyyy";
+        /// <summary>Quarter.</summary>
         public const string Quarter = "q";
+        /// <summary>Month.</summary>
         public const string Month = "m";
+        /// <summary>Day of year.</summary>
         public const string DayOfYear = "y";
+        /// <summary>Day.</summary>
         public const string Day = "d";
+        /// <summary>Weekday.</summary>
         public const string Weekday = "w";
+        /// <summary>Week.</summary>
         public const string Week = "ww";
+        /// <summary>Hour.</summary>
         public const string Hour = "h";
+        /// <summary>Minute.</summary>
         public const string Minute = "n";
+        /// <summary>Second.</summary>
         public const string Second = "s";
     }
 
-    #region 6.1.2.4.1 StdDateTime: Public Functions
+    #region 6.1.2.4.1 Public Functions
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.1 DateAdd</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.1 DateAdd</strong> Gets a date to which a number of intervals of time is added.
     /// </summary>
     /// <remarks>
-    /// Returns the result of adding or subtracting a specified time interval from a base date.<br/>
-    /// The valid <c>interval</c> parameter values are defined in <see cref="StdDateIntervals"/>.
+    /// The result is never an invalid date: one month after January 31 is the last day of February. A result before the year 100 raises error 5.
     /// </remarks>
-    /// <param name="interval">A <em>string data value</em> that specifies the interval of time to add.</param>
-    /// <param name="date">A <em>date data value</em> to which the interval is added.</param>
-    /// <param name="number">The number of intervals to add. Can be positive (future) or negative (past). Rounded to the nearest whole number if not an <em>integral numeric value</em>.</param>
+    /// <param name="interval">The interval of time to add (<see cref="Intervals"/>).</param>
+    /// <param name="number">How many intervals to add: positive for the future, negative for the past; rounded to the nearest whole number.</param>
+    /// <param name="date">The date the intervals are added to.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdDateTime__DateAdd(VBStringValue interval, VBDoubleValue number, VBVariantValue date);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> DateAdd(VBStringValue interval, VBDoubleValue number, VBVariantValue date);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.2 DateDiff</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.2 DateDiff</strong> Gets the number of intervals of time between two dates.
     /// </summary>
     /// <remarks>
-    /// Returns the result of adding or subtracting a specified time interval from a base date.<br/>
+    /// The count is of the boundaries of the interval between the two: from December 31 to the January 1 after it is one year. A week (<c>"w"</c>) is counted
+    /// on the day of the week <paramref name="date1"/> falls on, and a calendar week (<c>"ww"</c>) on <paramref name="firstDayOfWeek"/>; either counts
+    /// <paramref name="date2"/> and not <paramref name="date1"/>. Negative when <paramref name="date1"/> is the later of the two.
     /// </remarks>
-    /// <param name="interval">A <em>string data value</em> that specifies the interval of time to use to calculate the difference between <c>date1</c> and <c>date2</c>.</param>
-    /// <param name="date1">The first date to use in the calculation.</param>
-    /// <param name="date2">The second date to use in the calculation.</param>
-    /// <param name="firstDayOfWeek">A constant that specifies the <em>first day of the week</em>. This parameter is optional (default: <see cref="VBDayOfWeek.VBSunday"/>).</param>
-    /// <param name="firstWeekofYear">A constant that specifies the <em>first week of the year</em>. This parameter is optional (default: <see cref="VBFirstWeekOfYear.VBFirstJan1"/>).</param>
+    /// <param name="interval">The interval of time to count (<see cref="Intervals"/>).</param>
+    /// <param name="date1">The date counted from.</param>
+    /// <param name="date2">The date counted to.</param>
+    /// <param name="firstDayOfWeek">The first day of the week. Sunday when unspecified.</param>
+    /// <param name="firstWeekOfYear">The first week of the year. The week of January 1 when unspecified.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdDateTime__DateDiff(VBStringValue interval, VBVariantValue date1, VBVariantValue date2, VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday, VBFirstWeekOfYear firstWeekofYear = VBFirstWeekOfYear.VBFirstJan1);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> DateDiff(
+        VBStringValue interval, VBVariantValue date1, VBVariantValue date2,
+        VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday, VBFirstWeekOfYear firstWeekOfYear = VBFirstWeekOfYear.VBFirstJan1);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.3 DatePart</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.3 DatePart</strong> Gets one part of a date, in the units of the current calendar.
     /// </summary>
-    /// <remarks>
-    /// Returns the result of adding or subtracting a specified time interval from a base date.<br/>
-    /// </remarks>
-    /// <param name="interval">A <em>string data value</em> that specifies the interval of time to use to calculate the difference between <c>date1</c> and <c>date2</c>.</param>
-    /// <param name="date1">The first date to use in the calculation.</param>
-    /// <param name="date2">The second date to use in the calculation.</param>
-    /// <param name="firstDayOfWeek">A constant that specifies the <em>first day of the week</em>. This parameter is optional (default: <see cref="VBDayOfWeek.VBSunday"/>).</param>
-    /// <param name="firstWeekofYear">A constant that specifies the <em>first week of the year</em>. This parameter is optional (default: <see cref="VBFirstWeekOfYear.VBFirstJan1"/>).</param>
+    /// <param name="interval">The part of the date to get (<see cref="Intervals"/>).</param>
+    /// <param name="baseDate">The date the part is taken from.</param>
+    /// <param name="firstDayOfWeek">The first day of the week. Sunday when unspecified.</param>
+    /// <param name="firstWeekOfYear">The first week of the year. The week of January 1 when unspecified.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult StdDateTime__DatePart(VBStringValue interval, VBVariantValue date1, VBVariantValue date2, VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday, VBFirstWeekOfYear firstWeekofYear = VBFirstWeekOfYear.VBFirstJan1);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> DatePart(
+        VBStringValue interval, VBVariantValue baseDate,
+        VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday, VBFirstWeekOfYear firstWeekOfYear = VBFirstWeekOfYear.VBFirstJan1);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.4 DateSerial</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.4 DateSerial</strong> Gets the date of a year, a month and a day.
     /// </summary>
     /// <remarks>
-    /// Returns a <see cref="VBDateValue"/> from a specified <c>year</c>, <c>month</c>, and <c>day</c>.<br/>
+    /// A month or a day outside its range carries into the next larger unit: day 35 is a month and some days on, day 0 the last day of the month before. A year
+    /// from 0 to 99 is a two-digit year: 0 to 29 are 2000 to 2029, and 30 to 99 are 1930 to 1999 (Hijri: 1400 to 1499).
     /// </remarks>
-    /// <param name="year">A <see cref="VBIntegerValue"/> representing the year of the date value.</param>
-    /// <param name="month">A <see cref="VBIntegerValue"/> representing the month of the date value.</param>
-    /// <param name="day">A <see cref="VBIntegerValue"/> representing the day of the date value.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__DateSerial(VBIntegerValue year, VBIntegerValue month, VBIntegerValue day);
+    /// <param name="year">The year, from 100 to 9999.</param>
+    /// <param name="month">The month.</param>
+    /// <param name="day">The day.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> DateSerial(VBIntegerValue year, VBIntegerValue month, VBIntegerValue day);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.5 DateValue</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.5 DateValue</strong> Gets the date a string says, without its time.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBDateValue"/> from a specified <see cref="VBStringValue"/>.<br/>
-    /// </remarks>
-    /// <param name="date">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__DateValue(VBVariantValue date);
+    /// <param name="date">A date, from January 1, 100 to December 31, 9999; it may have a time too.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> DateValue(VBStringValue date);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.6 Day</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.6 Day</strong> Gets the day of the month of a date, from 1 to 31; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> representing the <strong>day of the month</strong>.<br/>
-    /// </remarks>
-    /// <param name="date">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Day(VBVariantValue date);
+    /// <param name="date">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Day(VBVariantValue date);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.7 Hour</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.7 Hour</strong> Gets the hour of the day of a date, from 0 to 23; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> between 0 and 23 representing the <strong>hour of the day</strong>.<br/>
-    /// </remarks>
-    /// <param name="time">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Hour(VBVariantValue time);
+    /// <param name="time">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Hour(VBVariantValue time);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.8 Minute</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.8 Minute</strong> Gets the minute of the hour of a date, from 0 to 59; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> between 0 and 59 representing the <strong>minute of the hour</strong>.<br/>
-    /// </remarks>
-    /// <param name="time">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Minute(VBVariantValue time);
+    /// <param name="time">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Minute(VBVariantValue time);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.9 Month</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.9 Month</strong> Gets the month of the year of a date, from 1 to 12; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> between 1 and 12 representing the <strong>month of the year</strong>.<br/>
-    /// </remarks>
-    /// <param name="date">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Month(VBVariantValue date);
+    /// <param name="date">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Month(VBVariantValue date);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.10 Second</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.10 Second</strong> Gets the second of the minute of a date, from 0 to 59; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> between 0 and 59 representing the <strong>second of the minute</strong>.<br/>
-    /// </remarks>
-    /// <param name="time">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Second(VBVariantValue time);
+    /// <param name="time">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Second(VBVariantValue time);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.11 TimeSerial</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.11 TimeSerial</strong> Gets the time of an hour, a minute and a second.
     /// </summary>
     /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/> holding a <c>date</c> containing the <em>time</em> for a specific <c>hour</c>, <c>minute</c>, and <c>second</c>.<br/>
+    /// A minute or a second outside its range carries into the next larger unit: 75 minutes is an hour and 15 minutes.
     /// </remarks>
-    /// <param name="hour">An integer between 0 and 23 representing the hour of the day.</param>
-    /// <param name="minute">An integer between 0 and 59 representing the minute of the hour.</param>
-    /// <param name="second">An integer between 0 and 59 representing the second of the minute.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__TimeSerial(VBIntegerValue hour, VBIntegerValue minute, VBIntegerValue second);
+    /// <param name="hour">The hour, from 0 to 23.</param>
+    /// <param name="minute">The minute.</param>
+    /// <param name="second">The second.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> TimeSerial(VBIntegerValue hour, VBIntegerValue minute, VBIntegerValue second);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.12 TimeValue</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.12 TimeValue</strong> Gets the time a string says, without its date.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/> (<see cref="VBDateValue"/>) truncated of its <em>date</em> portion.<br/>
-    /// </remarks>
-    /// <param name="time">A <em>time value</em> to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__TimeValue(VBStringValue time);
+    /// <param name="time">A time, from 0:00:00 to 23:59:59; it may have a date too.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> TimeValue(VBStringValue time);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.13 WeekDay</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.13 Weekday</strong> Gets the day of the week of a date, counted from <paramref name="firstDayOfWeek"/> as 1; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns an <see cref="VBVariantValue"/> (<see cref="VBIntegerValue"/>) representing the <em>day of the week</em> of a specified <see cref="VBDateValue"/>.<br/>
-    /// </remarks>
-    /// <param name="date">A value that is <em>let-coercible</em>to a <see cref="VBDateValue"/>.</param>
-    /// <param name="firstDayOfWeek">A constant that specifies the <em>first day of the week</em>. This parameter is optional (default: <see cref="VBDayOfWeek.VBSunday"/>).</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__WeekDay(VBVariantValue date, VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday);
+    /// <param name="date">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <param name="firstDayOfWeek">The first day of the week. Sunday when unspecified.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Weekday(VBVariantValue date, VBDayOfWeek firstDayOfWeek = VBDayOfWeek.VBSunday);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.1.14 Year</strong>
+    /// <strong>MS-VBAL 6.1.2.4.1.14 Year</strong> Gets the year of a date, from 100 to 9999; <c>Null</c> of <c>Null</c>.
     /// </summary>
-    /// <remarks>
-    /// Returns a <see cref="VBVariantValue"/>/<see cref="VBIntegerValue"/> representing the <strong>year</strong>.<br/>
-    /// </remarks>
-    /// <param name="date">A value that is <em>let-coercible</em> to a <see cref="VBDateValue"/>, holding a date value to be represented.</param>
-    RuntimeSemanticsEvaluationResult StdDateTime__Year(VBVariantValue date);
+    /// <param name="date">A value that is let-coercible to a <c>Date</c>.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Year(VBVariantValue date);
     #endregion
 
-    #region 6.1.2.4.2 StdDateTime: Properties
+    #region 6.1.2.4.2 Public Properties
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.1 Calendar</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.1 Calendar</strong> Gets the calendar the functions of the module work in.
     /// </summary>
-    /// <remarks>
-    /// Gets or sets the <see cref="VBCalendar"/> to use for subsequent calls to <c>VBA.DateTime</c> module functions.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getCalendar();
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet, ReturnType = typeof(VBCalendar))]
+    RuntimeSemanticsEvaluationResult<VBLongValue> Calendar();
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.1 Calendar</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.1 Calendar</strong> Sets the calendar the functions of the module work in.
     /// </summary>
-    /// <remarks>
-    /// Gets or sets the <see cref="VBCalendar"/> to use for subsequent calls to <c>VBA.DateTime</c> module functions.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__setCalendar(VBCalendar value);
+    /// <param name="value">The calendar.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyLet)]
+    RuntimeSemanticsEvaluationResult Calendar(VBCalendar value);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.2 Date</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.2 Date</strong> Gets the current date of the system, without its time.
     /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBVariantValue"/> (<see cref="VBDateValue"/>) holding the current system date.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getDate();
-    /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.2 Date$</strong>
-    /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBStringValue"/> holding a string representation of the current system date.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getDateStr();
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Date();
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.3 Now</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.2 Date$</strong> Gets the current date of the system as a 10-character string, <c>mm-dd-yyyy</c>, in the current calendar.
     /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBDateValue"/> holding the current system date and time.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getNow();
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("Date$", Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBStringValue> DateStr();
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.4 Time</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.3 Now</strong> Gets the current date and time of the system.
     /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBVariantValue"/> (<see cref="VBDateValue"/>) holding the current system time.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getTime();
-    /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.4 Time$</strong>
-    /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBStringValue"/> holding a string representation of the current system time.
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getTimeStr();
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Now();
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.4.2.5 Timer</strong>
+    /// <strong>MS-VBAL 6.1.2.4.2.4 Time</strong> Gets the current time of the system, without its date.
     /// </summary>
-    /// <remarks>
-    /// Gets a <see cref="VBSingleValue"/> representing the <strong>number of seconds</strong> elapsed since midnight.<br/>
-    /// 👉 The <em>sub-second</em> resolution is <strong>implementation-dependant</strong>; MS-VBAL resolution measures ticks (15ms).
-    /// </remarks>
-    RuntimeSemanticsEvaluationResult StdDateTime__getTimer();
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBVariantValue> Time();
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.4.2.4 Time$</strong> Gets the current time of the system as an 8-character string, <c>hh:mm:ss</c>.
+    /// </summary>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember("Time$", Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBStringValue> TimeStr();
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.4.2.4 Time</strong> Sets the time of the system: of the session's clock (<see cref="ISessionClock"/>), never the machine's.
+    /// </summary>
+    /// <param name="value">A value that is let-coercible to a <c>Date</c>: its time is the time set.</param>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyLet)]
+    RuntimeSemanticsEvaluationResult Time(VBVariantValue value);
+
+    /// <summary>
+    /// <strong>MS-VBAL 6.1.2.4.2.5 Timer</strong> Gets the number of seconds elapsed since midnight, with its fraction.
+    /// </summary>
+    /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    RuntimeSemanticsEvaluationResult<VBSingleValue> Timer();
     #endregion
 }

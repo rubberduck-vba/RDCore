@@ -957,17 +957,17 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     /// <param name="session">The session the call runs in.</param>
     /// <param name="context">The scope the arguments are written in.</param>
     /// <param name="accessor">The accessor.</param>
-    /// <param name="receiver">The object it is invoked on.</param>
+    /// <param name="receiver">The object it is invoked on; <see langword="null"/> for a property of a standard module, which is invoked on none.</param>
     /// <param name="indexArguments">The arguments written between the property's name and the assignment.</param>
     /// <param name="value">The value assigned, which is Let- or Set-coerced to the type of the accessor's value parameter.</param>
     /// <param name="source">The expression the value came from, for the location of an error.</param>
     /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
     public RuntimeSemanticsEvaluationResult InvokeAssignment(
-        IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol accessor, IRuntimeValue receiver,
+        IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol accessor, IRuntimeValue? receiver,
         ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(accessor);
-        parameters = parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
+        parameters = receiver is not null && parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
         if (ProcedureInvoker is null || LetCoercionProvider is null || parameters.IsEmpty)
         {
             // static semantics rejects a Property Let or Set with no value parameter (VBC09321).
@@ -1015,7 +1015,7 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             coerced = letResult.Result!;
         }
 
-        IRuntimeValue[] callArguments = [receiver, .. arguments, coerced.RuntimeValue];
+        IRuntimeValue[] callArguments = receiver is null ? [.. arguments, coerced.RuntimeValue] : [receiver, .. arguments, coerced.RuntimeValue];
         return Bindings is { } bindings
             ? bindings.ForMember(accessor).Call(session.Symbols.Resolver, callArguments)
             : ProcedureInvoker.Invoke(accessor, session.Symbols.Resolver, callArguments);

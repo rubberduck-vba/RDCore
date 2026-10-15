@@ -72,6 +72,11 @@ public interface IRuntimeSession
     IFileChannels Files { get; }
 
     /// <summary>
+    /// The calendar and the clock of the standard library's <c>DateTime</c> module (<strong>MS-VBAL §6.1.2.4.2</strong>), which outlive the call that sets them.
+    /// </summary>
+    ISessionClock Clock { get; }
+
+    /// <summary>
     /// The session's call stack — pushing and popping an <see cref="ICallStackFrame"/> per procedure
     /// activation is what makes a procedure's locals and parameters visible through
     /// <see cref="ISessionSymbols"/>'s <see cref="ISessionSymbols.Resolver"/> (<strong>RD-VBAL

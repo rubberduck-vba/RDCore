@@ -11,7 +11,7 @@ namespace RDCore.Runtime.Execution;
 /// in the order the program would have let go of it. Doing it as an unwinding would be the wrong model, and a dangerous one - a <c>Terminate</c> is code,
 /// and code runs against the session as it is, which is the session the program was in the middle of.
 /// <para>
-/// So it is a wipe, and it is atomic in the one sense that counts: the variables, the objects and the files go together, and the declarations and the code stay.
+/// So it is a wipe, and it is atomic in the one sense that counts: the variables, the objects, the files and the time a program set go together, and the declarations and the code stay.
 /// A session that <c>End</c>ed is ready to run the program again from the start.
 /// </para>
 /// <para>
@@ -33,6 +33,7 @@ public static class SessionWipe
         session.Objects.Clear();
         session.ExternalObjects.ReleaseAll();
         session.Symbols.ResetStorage();
+        session.Clock.Reset();
     }
 
     /// <summary>

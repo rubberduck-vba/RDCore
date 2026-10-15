@@ -43,6 +43,7 @@ internal sealed class RuntimeSession(
     public ISessionObjects Objects { get; init; } = objects;
     public ISessionErrorState Errors { get; init; } = errors;
     public IFileChannels Files { get; init; } = files;
+    public ISessionClock Clock { get; init; } = new SessionClock(TimeProvider.System);
     public ICallStack CallStack { get; init; } = callStack;
     public ISessionHalt Halt { get; init; } = halt;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;

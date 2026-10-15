@@ -622,6 +622,13 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // MS-VBAL §5.4.3.8: a property is assigned by invoking its Property Let with the value - a property of a module, the workspace's or the library's
+        // (Calendar, Time), as much as one of an object. It has no storage of its own for the value to be written to.
+        if (symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+        {
+            return AssignProperty(session, context, statement, (VBTypeMemberSymbol)symbol, target, source, value);
+        }
+
         // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type is assigned "as having the declared type of the argument's
         // referenced variable".
         var referenced = session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var declared) ? declared : null;
@@ -644,6 +651,43 @@ public sealed class LetAssignmentEvaluator(
             : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
     }
 
+    // the Property Let of the name, of the module that declares the property: invoked on the object whose code this is when the module is a class, and on
+    // nothing when it is a standard module. A property with no Let whose Get returns an object assigns the default member of that object (MS-VBAL §5.4.3.8),
+    // and one whose Get does not is error 451.
+    private RuntimeExecutionOutcome AssignProperty(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, VBTypeMemberSymbol property,
+        ExpressionNode target, ExpressionNode source, VBTypedValue value)
+    {
+        var accessor = property as VBPropertyLetMemberSymbol
+            ?? session.Symbols.MembersOf(property.ParentUri).OfType<VBPropertyLetMemberSymbol>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Name, property.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (accessor is null)
+        {
+            return property is VBPropertyGetMemberSymbol { ResolvedType: VBClassType or VBObjectType or VBVariantType }
+                ? AssignDefaultMember(session, context, statement, target, source, value)
+                : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                    VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, target.Location, $"'{property.Name}' has no Property Let."));
+        }
+
+        IRuntimeValue? receiver = null;
+        if (RuntimeProcedureInvoker.GetParameters(accessor) is [{ Name: Tokens.Me }, ..])
+        {
+            var me = expressions.Evaluate(session, new InstanceExpressionNode(target.Identity, target.Location), context);
+            if (!me.IsSuccess)
+            {
+                return me.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(me.ErrorInfo!);
+            }
+
+            receiver = me.Result!.RuntimeValue;
+        }
+
+        var invocation = expressions.InvokeAssignment(session, context, accessor, receiver, [], value, source, isSet: false);
+        return invocation.IsSuccess ? RuntimeExecutionOutcome.Next
+            : invocation.IsInternalError ? RuntimeExecutionOutcome.InternalError
+            : RuntimeExecutionOutcome.Error(invocation.ErrorInfo!);
+    }
+
     // the object the target holds is assigned the way `target.Default = value` would be: an object of a class with no default member is error 438.
     private RuntimeExecutionOutcome AssignDefaultMember(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value)
@@ -661,9 +705,11 @@ public sealed class LetAssignmentEvaluator(
             held = wrapped;
         }
 
+        // a variable of a class always holds an object, or Nothing: what does not is the value of a Property Get that has no Let to be assigned with.
         if (held is not VBObjectValue owner)
         {
-            return RuntimeExecutionOutcome.InternalError;
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, target.Location, "The property has no Property Let, and its Property Get returned no object."));
         }
 
         if (owner.IsNothing())
