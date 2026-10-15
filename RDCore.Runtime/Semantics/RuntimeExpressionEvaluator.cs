@@ -1481,7 +1481,21 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
                         return foldResult;
                     }
 
-                    bound[i] = foldResult.Result!.RuntimeValue;
+                    // the default is the value the parameter takes, so it is Let-coerced to the parameter's declared type like an argument
+                    // would be: `Optional w As Variant = 5` holds an Integer in a Variant, `Optional n As Long = 7` a Long.
+                    var defaultFrame = new LetCoercionStackFrame(declaredDefault.Identity, InputIndex.CoercionSourceValue,
+                        foldResult.Result!, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+                    var defaultCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, declaredDefault, defaultFrame);
+                    if (!defaultCoercion.IsApplicable)
+                    {
+                        return RuntimeSemanticsEvaluationResult.InternalError();
+                    }
+                    if (!defaultCoercion.IsSuccess)
+                    {
+                        return RuntimeSemanticsEvaluationResult.Error(defaultCoercion.ErrorInfo!);
+                    }
+
+                    bound[i] = defaultCoercion.Result!.RuntimeValue;
                     continue;
                 }
 
@@ -1577,7 +1591,9 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     // unbox it correctly once RuntimeProcedureInvoker pushes it onto the callee's frame.
     private ParamArrayCollectResult CollectParamArrayArguments(IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> argumentNodes)
     {
-        var array = new VBFixedSizeArrayValue(argumentNodes.IsEmpty ? [] : [(0, argumentNodes.Length - 1)]);
+        // a ParamArray that collects nothing is still an array of one dimension, with no elements: UBound of it is -1 (whatever Option Base says,
+        // it is 0-based), and IsMissing of it is True, as MS-VBA has it.
+        var array = new VBFixedSizeArrayValue([(0, argumentNodes.Length - 1)]);
         for (var i = 0; i < argumentNodes.Length; i++)
         {
             var argumentResult = EvaluateIndexArgument(session, argumentNodes[i], context);

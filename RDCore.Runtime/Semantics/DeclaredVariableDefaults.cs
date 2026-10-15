@@ -31,6 +31,21 @@ namespace RDCore.Runtime.Semantics;
 /// <param name="bounds">Reduces a bound to an integer.</param>
 public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBoundEvaluator bounds) : IVariableDefaults
 {
+    // MS-VBAL 5.3.1.5: the declared default is the value the parameter takes, so it is Let-coerced to the parameter's declared type - a Variant
+    // parameter holds it in a Variant. Null when it cannot be reduced or coerced.
+    private VBTypedValue? DeclaredDefaultOf(VBParameterSymbol parameter, SDK.Model.AST.Abstract.ExpressionNode declaredDefault)
+    {
+        if (bounds.Expressions.Fold(session, parameter, declaredDefault) is not { } folded)
+        {
+            return null;
+        }
+
+        var frame = new SDK.Runtime.Shared.LetCoercionStackFrame(declaredDefault.Identity, SDK.Semantics.InputIndex.CoercionSourceValue,
+            folded, new SDK.Model.Values.Meta.VBTypeDescValue(parameter.ResolvedType), SDK.Semantics.Facts.ConversionSite.Argument);
+        var coerced = bounds.LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, declaredDefault, frame);
+        return coerced.IsSuccess ? coerced.Result : null;
+    }
+
     /// <inheritdoc/>
     public VBTypedValue DefaultValueOf(Symbol variable)
     {
@@ -38,7 +53,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
         {
             // a declared default that cannot be reduced falls back to the type's own, which is what every optional parameter got before declared defaults travelled at all.
             return parameter.DefaultValue is { } declaredDefault
-                ? bounds.Expressions.Fold(session, parameter, declaredDefault) ?? parameter.ResolvedType.DefaultValue
+                ? DeclaredDefaultOf(parameter, declaredDefault) ?? parameter.ResolvedType.DefaultValue
                 : Execution.RuntimeProcedureInvoker.OmittedArgumentValue(parameter);
         }
 

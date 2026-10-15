@@ -64,7 +64,7 @@ internal static class ObjectDefaultMember
         for (var index = 1; index < parameters.Length; index++)
         {
             arguments[index] = parameters[index] is ParamArrayParameterSymbol
-                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([])))
+                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])))
                 : omitted(parameters[index]).RuntimeValue;
         }
 

@@ -150,12 +150,7 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         }));
 
     public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName)
-    {
-        var value = ValueOf(varName);
-        return value.IsSuccess
-            ? Succeed(new VBLongValue((int)VarTypeOf(value.Result!)))
-            : RuntimeSemanticsEvaluationResult<VBLongValue>.Error(value.ErrorInfo!);
-    }
+        => Succeed(new VBLongValue((int)VarTypeOf(ValueOf(varName))));
 
     // a Variant that holds a Variant holds what that one does.
     private static VBTypedValue Unwrapped(VBTypedValue value)
@@ -170,26 +165,32 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
 
     // MS-VBAL 5.5.1.2.13: an object stands for what its default member returns, read once - a default member that returns an object leaves
     // an object. One that has no default member it can call with no arguments stands for itself.
-    private RuntimeSemanticsEvaluationResult<VBTypedValue> ValueOf(VBTypedValue argument)
+    // A default member that fails is not an error of the function's: MS-VBA answers as if the object had no default member to call - VarType
+    // 9, every Is function False - and leaves the failure in Err, where a program that looks finds it, without raising it to a handler.
+    private VBTypedValue ValueOf(VBTypedValue argument)
     {
         var value = Unwrapped(argument);
         if (value is not VBObjectValue reference || ObjectDefaultMember.Call(session, reference) is not { } called)
         {
-            return Succeed(value);
+            return value;
         }
 
-        return called.IsSuccess
-            ? Succeed(Unwrapped(called.Result is VBTypedValue typed ? typed : value))
-            : RuntimeSemanticsEvaluationResult<VBTypedValue>.Error(called.ErrorInfo!);
+        if (!called.IsSuccess)
+        {
+            // an error raised by workspace code was set on Err as it was raised; one a library member reported was not.
+            if (called.ErrorInfo is { } failure && session.Errors.Number != failure.ErrorId)
+            {
+                session.Errors.Raise(failure);
+            }
+
+            return value;
+        }
+
+        return Unwrapped(called.Result is VBTypedValue typed ? typed : value);
     }
 
     private RuntimeSemanticsEvaluationResult<VBBooleanValue> Test(VBVariantValue arg, Func<VBTypedValue, bool> test)
-    {
-        var value = ValueOf(arg);
-        return value.IsSuccess
-            ? Answer(test(value.Result!))
-            : RuntimeSemanticsEvaluationResult<VBBooleanValue>.Error(value.ErrorInfo!);
-    }
+        => Answer(test(ValueOf(arg)));
 
     private VBVarType VarTypeOf(VBTypedValue value) => value switch
     {
