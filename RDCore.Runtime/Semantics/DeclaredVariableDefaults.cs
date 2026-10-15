@@ -2,6 +2,7 @@ using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -18,6 +19,10 @@ namespace RDCore.Runtime.Semantics;
 /// bound is the module's <c>Option Base</c>. A resizable array has none until a <c>ReDim</c> gives it some, but it is an array of
 /// the element type it was declared with all the same.
 /// <para>
+/// An optional parameter a call omits starts as its declared default, a constant expression (<strong>MS-VBAL §5.3.1.5</strong>) reduced
+/// by the same fold a <c>Const</c>'s is; one that declares none starts as Missing when it is a <c>Variant</c>.
+/// </para>
+/// <para>
 /// 🚧 TODO a bound that cannot be reduced - a non-constant expression, an upper bound below the lower - is a compile error that
 /// nothing reports yet; the array is left with no dimensions, which is what it was before bounds reached the host at all.
 /// </para>
@@ -29,6 +34,14 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
     /// <inheritdoc/>
     public VBTypedValue DefaultValueOf(Symbol variable)
     {
+        if (variable is VBParameterSymbol { IsOptional: true } parameter)
+        {
+            // a declared default that cannot be reduced falls back to the type's own, which is what every optional parameter got before declared defaults travelled at all.
+            return parameter.DefaultValue is { } declaredDefault
+                ? bounds.Expressions.Fold(session, parameter, declaredDefault) ?? parameter.ResolvedType.DefaultValue
+                : Execution.RuntimeProcedureInvoker.OmittedArgumentValue(parameter);
+        }
+
         var type = ((ITypedSymbol)variable).ResolvedType;
         if (type is not VBArrayType array || array is VBResizableByteArrayType)
         {

@@ -18,7 +18,8 @@ namespace RDCore.Runtime.Semantics;
 /// declared type (and, for an array, of the shape it is declared with).
 /// </para>
 /// <para>
-/// A parameter is not a variable that starts as anything: it is bound to its argument.
+/// A parameter is not a variable that starts as anything: it is bound to its argument. The one exception is an optional one whose argument the
+/// call omits, which starts as its declared default - a constant, which the call that runs gives it, so it is known.
 /// </para>
 /// </remarks>
 /// <param name="declared">Says what a variable is declared as: an array, its dimensions.</param>
@@ -32,5 +33,5 @@ public sealed class AnalysisDefaults(IVariableDefaults declared) : IVariableDefa
     }
 
     private static bool IsMadeByTheCodeThatRuns(Symbol variable)
-        => variable.ScopeKind is ScopeKind.Instance || variable is VBLocalVariableSymbol { IsStatic: false };
+        => variable.ScopeKind is ScopeKind.Instance || variable is VBLocalVariableSymbol { IsStatic: false } or VBParameterSymbol;
 }

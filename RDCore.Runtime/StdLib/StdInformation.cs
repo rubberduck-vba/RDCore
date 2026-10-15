@@ -1,6 +1,10 @@
+using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -8,15 +12,20 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using static RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule;
 
 namespace RDCore.Runtime.StdLib;
 
 /// <inheritdoc cref="IStdInformationModule"/>
 /// <remarks>
-/// 🚧 Only <see cref="Erl"/> is implemented. Every other member returns the error a member nothing
-/// implements returns, which is what VBA itself says about a call it has no answer for — the symbol
-/// resolves, the call is well-formed, and the platform has not got the code. The declarations are what say
-/// the shape each one has to satisfy, so filling them in adds no plumbing.
+/// Every answer here was checked against MS-VBA itself, which is the reference wherever the specification's tables are silent,
+/// garbled or wrong; the members' own remarks say where each of those departs from the specification's text, and why.
+/// <para>
+/// The functions that look at the <em>value</em> of their argument - <c>VarType</c> and the <c>Is</c> functions but
+/// <c>IsObject</c> and <c>IsMissing</c> - look at an object's default member's value (<strong>MS-VBAL §5.5.1.2.13</strong>), read once:
+/// <c>VarType(Err)</c> is <c>Err.Number</c>'s, and an Excel cell holding nothing <c>IsEmpty</c>. The functions that look at the
+/// argument itself - <c>TypeName</c>, <c>IsObject</c> - never call it.
+/// </para>
 /// </remarks>
 /// <param name="session">The session whose state these members report on.</param>
 public sealed class StdInformation(IRuntimeSession session) : IStdInformationModule
@@ -24,19 +33,15 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     // the error object is one object for the life of the session (MS-VBAL 6.1.3.2), so it has one identity.
     private readonly VBRuntimeObjectId _errorObject = session.Objects.CreateObject();
 
-    /// <summary>
-    /// The error every member that is declared but not written yet returns.
-    /// </summary>
-    /// <remarks>
-    /// TODO one per member as they land. Deliberately an error rather than a plausible value: a
-    /// <c>TypeName</c> that answered <c>"Empty"</c> for everything would be worse than one that says it
-    /// cannot answer.
-    /// </remarks>
-    private static RuntimeSemanticsEvaluationResult<TValue> NotImplemented<TValue>(string member)
+    private static RuntimeSemanticsEvaluationResult<TValue> Succeed<TValue>(TValue value)
         where TValue : VBTypedValue
-        => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, default,
-            $"'{member}' is declared but not implemented yet."));
+        => RuntimeSemanticsEvaluationResult<TValue>.Success(value);
+
+    private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId id, string verbose)
+        where TValue : VBTypedValue
+        => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(id, default, verbose));
+
+    private static RuntimeSemanticsEvaluationResult<VBBooleanValue> Answer(bool value) => Succeed(new VBBooleanValue(value));
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.3.2</strong> The error object: one object for the life of the session, registered as an
@@ -50,13 +55,14 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
             var declared = session.Symbols.Resolver.ResolveType("ErrObject", ScopeKind.Global, StaticSymbol.GlobalUri).Symbol;
             if (declared is not VBClassModuleSymbol errorClass)
             {
-                return NotImplemented<VBObjectValue>(nameof(Err));
+                return Fail<VBObjectValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
+                    "The standard library's 'ErrObject' class is not defined in this session.");
             }
 
             session.Symbols.CreateInstance(_errorObject, errorClass);
         }
 
-        return RuntimeSemanticsEvaluationResult<VBObjectValue>.Success(new VBObjectValue(_errorObject));
+        return Succeed(new VBObjectValue(_errorObject));
     }
 
     /// <summary>
@@ -68,33 +74,180 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
     /// asks, inside a handler, the activation it happened in has been unwound.
     /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBLongValue> Erl()
-        => RuntimeSemanticsEvaluationResult<VBLongValue>.Success(
-            new VBLongValue(checked((int)session.Errors.LineNumber)));
+        => Succeed(new VBLongValue(checked((int)session.Errors.LineNumber)));
 
-    public RuntimeSemanticsEvaluationResult<VBLongValue> IMEStatus() => NotImplemented<VBLongValue>(nameof(IMEStatus));
+    /// <summary>
+    /// <c>vbIMEModeNoControl</c>: the platform has no Input Method Editor to report on, which is what MS-VBA answers on a host whose
+    /// language uses none.
+    /// </summary>
+    public RuntimeSemanticsEvaluationResult<VBLongValue> IMEStatus() => Succeed(new VBLongValue((int)VBIMEStatus.VBIMEModeNoControl));
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsArray(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsArray));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsArray(VBVariantValue arg)
+        => Test(arg, value => value is VBArrayValue);
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsDate(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsDate));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsDate(VBVariantValue arg)
+        => Test(arg, value => value switch
+        {
+            VBDateValue => true,
+            VBStringValue text => ValueConversions.TryInterpretDate(text.Value, out _),
+            _ => false,
+        });
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsEmpty(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsEmpty));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsEmpty(VBVariantValue arg)
+        => Test(arg, value => value is VBEmptyValue);
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsError(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsError));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsError(VBVariantValue arg)
+        => Test(arg, value => value is VBErrorValue);
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsMissing(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsMissing));
+    // a zero-element Variant array is how a ParamArray that collected nothing arrives, and MS-VBA says it is missing.
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsMissing(VBVariantValue arg)
+        => Answer(Unwrapped(arg) switch
+        {
+            VBMissingValue => true,
+            VBArrayValue { Length: 0, IsInitialized: true, ItemType: VBVariantType } => true,
+            _ => false,
+        });
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNull(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsNull));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNull(VBVariantValue arg)
+        => Test(arg, value => value is VBNullValue);
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNumeric(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsNumeric));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsNumeric(VBVariantValue arg)
+        => Test(arg, value => value switch
+        {
+            // MS-VBAL 5.5.1.2.11: Empty is 0, whatever it is coerced to.
+            VBEmptyValue or VBBooleanValue => true,
+            VBDateValue => false,
+            VBNumericTypedValue => true,
+            VBStringValue text => ValueConversions.ToNumeric(text, VBDoubleType.TypeInfo).IsSuccess,
+            _ => false,
+        });
 
-    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsObject(VBVariantValue arg) => NotImplemented<VBBooleanValue>(nameof(IsObject));
+    public RuntimeSemanticsEvaluationResult<VBBooleanValue> IsObject(VBVariantValue arg)
+        => Answer(Unwrapped(arg) is VBObjectValue);
 
-    public RuntimeSemanticsEvaluationResult<VBLongValue> QBColor(VBIntegerValue color) => NotImplemented<VBLongValue>(nameof(QBColor));
+    public RuntimeSemanticsEvaluationResult<VBLongValue> QBColor(VBIntegerValue color)
+        => StdInformationQBColors.TryGetQBColorRGBValue((StdInformationQBColor)color.Value, out var rgb)
+            ? Succeed(new VBLongValue(rgb))
+            : Fail<VBLongValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, $"QBColor takes a color from 0 to 15, not {color.Value}.");
 
     public RuntimeSemanticsEvaluationResult<VBLongValue> RGB(VBIntegerValue red, VBIntegerValue green, VBIntegerValue blue)
-        => NotImplemented<VBLongValue>(nameof(RGB));
+    {
+        if (red.Value < 0 || green.Value < 0 || blue.Value < 0)
+        {
+            return Fail<VBLongValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, "A color component cannot be negative.");
+        }
 
-    public RuntimeSemanticsEvaluationResult<VBStringValue> TypeName(VBVariantValue arg) => NotImplemented<VBStringValue>(nameof(TypeName));
+        return Succeed(new VBLongValue(Math.Min((int)blue.Value, 255) * 65536 + Math.Min((int)green.Value, 255) * 256 + Math.Min((int)red.Value, 255)));
+    }
 
-    public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName) => NotImplemented<VBLongValue>(nameof(VarType));
+    public RuntimeSemanticsEvaluationResult<VBStringValue> TypeName(VBVariantValue arg)
+        => Succeed(new VBStringValue(Unwrapped(arg) switch
+        {
+            VBObjectValue reference => ClassNameOf(reference),
+            VBArrayValue array => $"{ElementTypeName(array.ItemType)}()",
+            VBUserDefinedTypeValue record => record.TypeInfo.Name,
+            var value => NameOf(VarTypeOf(value)),
+        }));
+
+    public RuntimeSemanticsEvaluationResult<VBLongValue> VarType(VBVariantValue varName)
+    {
+        var value = ValueOf(varName);
+        return value.IsSuccess
+            ? Succeed(new VBLongValue((int)VarTypeOf(value.Result!)))
+            : RuntimeSemanticsEvaluationResult<VBLongValue>.Error(value.ErrorInfo!);
+    }
+
+    // a Variant that holds a Variant holds what that one does.
+    private static VBTypedValue Unwrapped(VBTypedValue value)
+    {
+        while (value is VBVariantValue variant)
+        {
+            value = variant.TypedValue;
+        }
+
+        return value;
+    }
+
+    // MS-VBAL 5.5.1.2.13: an object stands for what its default member returns, read once - a default member that returns an object leaves
+    // an object. One that has no default member it can call with no arguments stands for itself.
+    private RuntimeSemanticsEvaluationResult<VBTypedValue> ValueOf(VBTypedValue argument)
+    {
+        var value = Unwrapped(argument);
+        if (value is not VBObjectValue reference || ObjectDefaultMember.Call(session, reference) is not { } called)
+        {
+            return Succeed(value);
+        }
+
+        return called.IsSuccess
+            ? Succeed(Unwrapped(called.Result is VBTypedValue typed ? typed : value))
+            : RuntimeSemanticsEvaluationResult<VBTypedValue>.Error(called.ErrorInfo!);
+    }
+
+    private RuntimeSemanticsEvaluationResult<VBBooleanValue> Test(VBVariantValue arg, Func<VBTypedValue, bool> test)
+    {
+        var value = ValueOf(arg);
+        return value.IsSuccess
+            ? Answer(test(value.Result!))
+            : RuntimeSemanticsEvaluationResult<VBBooleanValue>.Error(value.ErrorInfo!);
+    }
+
+    private VBVarType VarTypeOf(VBTypedValue value) => value switch
+    {
+        // an array's own type says only that it is one: what it is an array of is the value's.
+        VBArrayValue array => VBVarType.VBArray | ElementVarType(array.ItemType),
+        VBObjectValue reference => !reference.IsNothing() && session.Symbols.TryGetInstance(reference.Value, out var instance)
+            ? instance.ClassModule.VarType()
+            : VBVarType.VBObject,
+        VBLongPtrValue => LongPtrVarType,
+        _ => value.TypeInfo.VarType(),
+    };
+
+    private VBVarType ElementVarType(VBType elementType) => elementType switch
+    {
+        VBLongPtrType_x64 or VBLongPtrType_x86 => LongPtrVarType,
+        _ => elementType.VarType(),
+    };
+
+    // a LongPtr is the integer a pointer is on the platform the session runs as.
+    private VBVarType LongPtrVarType => session.Environment.Is64Bit ? VBVarType.VBLongLong : VBVarType.VBLong;
+
+    // MS-VBA names an array of objects "Object()" whatever class its elements are declared as.
+    private string ElementTypeName(VBType elementType) => elementType switch
+    {
+        VBUserDefinedType record => record.Name,
+        _ => NameOf(ElementVarType(elementType)),
+    };
+
+    // "The name of the object type" is its class's, which a reference does not carry: the instance it refers to does.
+    private string ClassNameOf(VBObjectValue reference)
+    {
+        if (reference.IsNothing())
+        {
+            return "Nothing";
+        }
+
+        return session.Symbols.TryGetInstance(reference.Value, out var instance) ? instance.ClassModule.Name : "Unknown";
+    }
+
+    // MS-VBAL 6.1.2.7.1.12's table, by the subtype each name is the name of.
+    private static string NameOf(VBVarType varType) => varType switch
+    {
+        VBVarType.VBEmpty => "Empty",
+        VBVarType.VBNull => "Null",
+        VBVarType.VBInteger => "Integer",
+        VBVarType.VBLong => "Long",
+        VBVarType.VBSingle => "Single",
+        VBVarType.VBDouble => "Double",
+        VBVarType.VBCurrency => "Currency",
+        VBVarType.VBDate => "Date",
+        VBVarType.VBString => "String",
+        VBVarType.VBObject => "Object",
+        VBVarType.VBError => "Error",
+        VBVarType.VBBoolean => "Boolean",
+        VBVarType.VBVariant => "Variant",
+        VBVarType.VBDecimal => "Decimal",
+        VBVarType.VBByte => "Byte",
+        VBVarType.VBLongLong => "LongLong",
+        _ => "Unknown",
+    };
 }

@@ -40,14 +40,33 @@ public static partial class ValueConversions
             ? ValueConversionResult.Success(new VBDateValue(converted.Value))
             : number;
 
+    /// <summary>
+    /// Interprets <paramref name="text"/> as a date, a time, or both - the first of the two ways a <c>String</c> Let-coerces to a
+    /// <c>Date</c> (<strong>MS-VBAL §5.5.1.2.4</strong>), the other being to read it as a number.
+    /// </summary>
+    /// <remarks>
+    /// <c>IsDate</c> asks this alone: a string that is a date only by being a number is not one to it.
+    /// </remarks>
+    /// <param name="text">The string.</param>
+    /// <param name="date">The date it reads as, when it reads as one.</param>
+    /// <returns><see langword="false"/> when the string is not a date or a time.</returns>
+    public static bool TryInterpretDate(string? text, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBDateValue? date)
+    {
+        // 🚧 TODO MS-VBA reads a date string by the host's regional settings and its own grammar (day/month order swapped when the
+        // month would be out of range, a month name anywhere, two-part dates without a year, and more): .NET's invariant parse is an
+        // approximation of it, which disagrees on a few strings.
+        date = DateTime.TryParse(text, CultureInfo.InvariantCulture, out var dateValue) ? new VBDateValue(dateValue.ToOADate()) : null;
+        return date is not null;
+    }
+
     // MS-VBAL 5.5.1.2.4: try date/time/time/date interpretation first; otherwise, if the string can be
     // interpreted as a number or currency value within Double's magnitude range, convert that Double
     // to Date. A Double-conversion overflow is reported as Type mismatch (13), not Overflow (6).
     private static ValueConversionResult StringToDate(string? text)
     {
-        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, out var dateValue))
+        if (TryInterpretDate(text, out var date))
         {
-            return ValueConversionResult.Success(new VBDateValue(dateValue.ToOADate()));
+            return ValueConversionResult.Success(date);
         }
 
         if (StringToNumeric(text, VBDoubleType.TypeInfo).Value is not VBDoubleValue number)

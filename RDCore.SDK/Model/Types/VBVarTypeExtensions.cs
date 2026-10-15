@@ -43,9 +43,13 @@ public static class VBVarTypeExtensions
         VBMissingType => VBVarType.VBError,
         VBErrorType => VBVarType.VBError,
         VBUserDefinedType => VBVarType.VBUserDefinedType,
+        // MS-VBAL 5.2.3.4: an enum's members are Long constants, and a variable declared as the enum holds a Long.
+        VBEnumType => VBVarType.VBLong,
         VBArrayType array => VBVarType.VBArray | array.ItemType.VarType(),
         VBClassType classType => classType.Symbol.VarType(),
         VBObjectType => VBVarType.VBObject,
+        // a class named before its module is composed is still a class: what it holds is an object reference.
+        VBDeferredClassType => VBVarType.VBObject,
         _ => VBVarType.VBEmpty,
     };
 

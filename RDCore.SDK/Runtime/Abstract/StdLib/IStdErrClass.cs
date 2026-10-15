@@ -132,10 +132,11 @@ public interface IStdErrClass
     /// <strong>MS-VBAL 6.1.3.2.2.5 Number</strong> Gets a <see cref="VBLongValue"/> containing an error code.
     /// </summary>
     /// <remarks>
-    /// 👉 <strong>Default member</strong>: this member is invoked by <see cref="VBObjectType"/> <em>implicit let-coercion</em> semantics.
+    /// 👉 <strong>Default member</strong> (<see cref="Model.WellKnownDispIds.Value"/>): this member is invoked by <see cref="VBObjectType"/>
+    /// <em>implicit let-coercion</em> semantics, and it is the value <c>VarType(Err)</c> and <c>IsNumeric(Err)</c> look at.
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    [StdLibMember(Kind = StdLibMemberKind.PropertyGet)]
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet, UserMemId = Model.WellKnownDispIds.Value)]
     RuntimeSemanticsEvaluationResult<VBLongValue> Number();
 
     /// <summary>

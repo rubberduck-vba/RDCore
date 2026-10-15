@@ -1509,12 +1509,13 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
             // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
             // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
-            // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns.
+            // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
+            // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
             if (SetCoercion is { } setCoercion
-                && argumentResult.Value.Result is VBObjectValue
+                && HeldObject(argumentResult.Value.Result) is { } passedObject
                 && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType)
             {
-                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, argumentResult.Value.Result!, parameter.ResolvedType);
+                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
                 if (!setResult.IsSuccess)
                 {
                     return RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
@@ -1608,6 +1609,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     }
 
     private readonly record struct ArgumentMapResult(ExpressionNode?[]? Mapped, ImmutableArray<ExpressionNode> ParamArrayArguments, RuntimeSemanticsEvaluationResult? Error);
+
+    // the object a value is, or a Variant holds - however many Variants deep.
+    private static VBObjectValue? HeldObject(VBTypedValue? value) => value switch
+    {
+        VBObjectValue reference => reference,
+        VBVariantValue variant => HeldObject(variant.TypedValue),
+        _ => null,
+    };
 
     // MS-VBAL §5.3.1.11 argument mapping. A trailing ParamArray parameter collects every positional
     // argument from its own position onward instead of mapping 1:1 - never targetable by name, and

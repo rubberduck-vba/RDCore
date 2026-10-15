@@ -16,10 +16,15 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 public interface IStdInformationModule
 {
     /// <summary>
-    /// Holds the <em>data values</em> corresponding to each <em>legacy</em> 16-bit <c>QBColor</c> value.
+    /// Holds the <em>data values</em> corresponding to each <em>legacy</em> 16-bit <c>QBColor</c> value
+    /// (<strong>MS-VBAL §6.1.2.7.1.10</strong>'s table).
     /// </summary>
     /// <remarks>
+    /// 👉 A VBA color is <c>&amp;HBBGGRR</c>: red is the least-significant byte, so <c>Red</c> is <c>&amp;H80</c> and <c>Blue</c> is
+    /// <c>&amp;H800000</c>.
+    /// <para>
     /// 💥 Any other value raises run-time error 5 <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.
+    /// </para>
     /// </remarks>
     public static class StdInformationQBColors
     {
@@ -27,17 +32,17 @@ public interface IStdInformationModule
         public const int Blue = 0x800000;
         public const int Green = 0x008000;
         public const int Cyan = 0x808000;
-        public const int Red = 0x800000;
-        public const int Majenta = 0x800080;
-        public const int Yellow = 0x808000;
+        public const int Red = 0x000080;
+        public const int Magenta = 0x800080;
+        public const int Yellow = 0x008080;
         public const int White = 0xC0C0C0;
         public const int Gray = 0x808080;
         public const int LightBlue = 0xFF0000;
         public const int LightGreen = 0x00FF00;
         public const int LightCyan = 0xFFFF00;
-        public const int LightRed = 0xFF0000;
-        public const int LightMajenta = 0xFF00FF;
-        public const int LightYellow = 0xFFFF00;
+        public const int LightRed = 0x0000FF;
+        public const int LightMagenta = 0xFF00FF;
+        public const int LightYellow = 0x00FFFF;
         public const int BrightWhite = 0xFFFFFF;
 
         internal static Dictionary<StdInformationQBColor, int> QBColorRGBValues = new()
@@ -47,7 +52,7 @@ public interface IStdInformationModule
             [StdInformationQBColor.Green] = Green,
             [StdInformationQBColor.Cyan] = Cyan,
             [StdInformationQBColor.Red] = Red,
-            [StdInformationQBColor.Majenta] = Majenta,
+            [StdInformationQBColor.Magenta] = Magenta,
             [StdInformationQBColor.Yellow] = Yellow,
             [StdInformationQBColor.White] = White,
             [StdInformationQBColor.Gray] = Gray,
@@ -55,7 +60,7 @@ public interface IStdInformationModule
             [StdInformationQBColor.LightGreen] = LightGreen,
             [StdInformationQBColor.LightCyan] = LightCyan,
             [StdInformationQBColor.LightRed] = LightRed,
-            [StdInformationQBColor.LightMajenta] = LightMajenta,
+            [StdInformationQBColor.LightMagenta] = LightMagenta,
             [StdInformationQBColor.LightYellow] = LightYellow,
             [StdInformationQBColor.BrightWhite] = BrightWhite
         };
@@ -74,7 +79,7 @@ public interface IStdInformationModule
         Green = 2,
         Cyan = 3,
         Red = 4,
-        Majenta = 5,
+        Magenta = 5,
         Yellow = 6,
         White = 7,
         Gray = 8,
@@ -82,7 +87,7 @@ public interface IStdInformationModule
         LightGreen = 10,
         LightCyan = 11,
         LightRed = 12,
-        LightMajenta = 13,
+        LightMagenta = 13,
         LightYellow = 14,
         BrightWhite = 15
     }
@@ -137,7 +142,12 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.2 IsArray</strong>
     /// </summary>
     /// <remarks>
-    /// Tests a provided value to check if it is a <see cref="VBArrayValue"/>.
+    /// Tests a provided value to check if it is a <see cref="VBArrayValue"/>, whether it has any elements or not.
+    /// <para>
+    /// 👉 An object is tested by the value of its default member (<strong>MS-VBAL §5.5.1.2.13</strong>), which is how MS-VBA tests
+    /// every argument of the <c>Is</c> functions save <c>IsObject</c> and <c>IsMissing</c>: an object whose default member returns an
+    /// array is an array here, and an error its default member raises is raised.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -147,7 +157,16 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.3 IsDate</strong>
     /// </summary>
     /// <remarks>
-    /// Tests a provided value to check if it is a <see cref="VBDateValue"/>.
+    /// Tests a provided value to check if it is a <see cref="VBDateValue"/>, or a <see cref="VBStringValue"/> that can be Let-coerced
+    /// to one (<strong>MS-VBAL §5.5.1.2.4</strong>). A number is not a date, though it Let-coerces to one.
+    /// <para>
+    /// 🎯 A string that Let-coerces to a <c>Date</c> only by being read as a number - <c>"2000"</c>, <c>"1"</c> - is not a date either:
+    /// MS-VBA says <c>False</c> for it, the specification's wording notwithstanding, and so does RD-VBA. It is a date where it reads as a
+    /// date or a time.
+    /// </para>
+    /// <para>
+    /// 👉 An object is tested by the value of its default member, as in <see cref="IsArray"/>.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -158,6 +177,10 @@ public interface IStdInformationModule
     /// </summary>
     /// <remarks>
     /// Tests a provided value to check if it is a <see cref="VBEmptyValue"/>.
+    /// <para>
+    /// 👉 An object is tested by the value of its default member, as in <see cref="IsArray"/>: an Excel cell that holds nothing is
+    /// empty.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -167,7 +190,10 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.5 IsError</strong>
     /// </summary>
     /// <remarks>
-    /// Tests a provided value to check if it is a <see cref="VBErrorValue"/>.
+    /// Tests a provided value to check if it is a <see cref="VBErrorValue"/> - the Missing value being one.
+    /// <para>
+    /// 👉 An object is tested by the value of its default member, as in <see cref="IsArray"/>.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -178,7 +204,14 @@ public interface IStdInformationModule
     /// </summary>
     /// <remarks>
     /// Tests a provided value to check if it is a <see cref="VBMissingValue"/>.<br/>
-    /// 👉 The value can only be a <see cref="VBMissingValue"/> if it is the <see cref="VBVariantValue"/> of an <strong>optional parameter that was not supplied</strong>.
+    /// 👉 The value can only be a <see cref="VBMissingValue"/> if it is the <see cref="VBVariantValue"/> of an <strong>optional parameter that was not supplied</strong>,
+    /// or a copy of one: a <c>Variant</c> assigned from it, or another optional parameter it is passed on to.
+    /// <para>
+    /// 🎯 <strong>A <c>Variant</c> array with no elements is missing too.</strong> The specification says <c>IsMissing</c> "always returns
+    /// <c>False</c>" for a <c>ParamArray</c>; MS-VBA returns <c>True</c> for one that collected no arguments, and for any other
+    /// zero-element <c>Variant</c> array it is given - <c>IsMissing(Array())</c> - and so does RD-VBA. A <c>ParamArray</c> that
+    /// collected any argument is not missing.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -189,6 +222,9 @@ public interface IStdInformationModule
     /// </summary>
     /// <remarks>
     /// Tests a provided value to check if it is a <see cref="VBNullValue"/>.
+    /// <para>
+    /// 👉 An object is tested by the value of its default member, as in <see cref="IsArray"/>.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -198,7 +234,15 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.8 IsNumeric</strong>
     /// </summary>
     /// <remarks>
-    /// Tests a provided value to check if it is a <see cref="VBNumericTypedValue"/>.
+    /// Tests a provided value to check if it is a <see cref="VBNumericTypedValue"/> or a <see cref="VBBooleanValue"/>.
+    /// <para>
+    /// 🎯 The specification lists only the numeric value types and <c>Boolean</c>. MS-VBA also says <c>True</c> for <c>Empty</c>,
+    /// and for a <see cref="VBStringValue"/> that can be Let-coerced to a <c>Double</c> (<strong>MS-VBAL §5.5.1.2.4</strong>) -
+    /// <c>"1e3"</c>, <c>" -1 "</c> - and so does RD-VBA. A <c>Date</c> is not numeric, though it Let-coerces to a number.
+    /// </para>
+    /// <para>
+    /// 👉 An object is tested by the value of its default member, as in <see cref="IsArray"/>.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -208,7 +252,8 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.9 IsObject</strong>
     /// </summary>
     /// <remarks>
-    /// Tests a provided value to check if it is a <see cref="VBObjectValue"/>.
+    /// Tests a provided value to check if it is a <see cref="VBObjectValue"/> - <c>Nothing</c> included. Unlike the other <c>Is</c>
+    /// functions, it never reads an object's default member.
     /// </remarks>
     /// <param name="arg">The data value to be tested</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -228,7 +273,13 @@ public interface IStdInformationModule
     /// <strong>MS-VBAL 6.1.2.7.1.11 RGB</strong>
     /// </summary>
     /// <remarks>
-    /// Gets a <see cref="VBLongValue"/> representing a RGB color value from its specified parts.
+    /// Gets a <see cref="VBLongValue"/> representing a RGB color value from its specified parts: <c>blue * 65536 + green * 256 + red</c>.
+    /// <para>
+    /// 🎯 The specification's formula takes <c>max(x, 255)</c> of each part, which would make every color white: it means the smaller
+    /// of the two. A part above 255 counts as 255, and a negative part raises run-time error 5
+    /// (<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>), as in MS-VBA. Each argument is Let-coerced to <c>Integer</c>
+    /// first, so a fractional part rounds to even and one outside the <c>Integer</c> range overflows.
+    /// </para>
     /// </remarks>
     /// <param name="red">A value in the <see cref="VBByteValue"/> range (0-255) representing the <strong>red</strong> component of the color.</param>
     /// <param name="green">A value in the <see cref="VBByteValue"/> range (0-255) representing the <strong>green</strong> component of the color.</param>
@@ -242,6 +293,13 @@ public interface IStdInformationModule
     /// <remarks>
     /// Gets the name of the <em>data type</em> of the specified value.<br/>
     /// 👉 If the provided value is a <see cref="VBArrayValue"/>, the returned string contains the <em>item data type</em> of the array appended with a pair of empty parentheses, e.g. <c>"Byte()"</c> for an array of <see cref="VBByteValue"/> items.
+    /// <para>
+    /// An object is named by its class - a workspace class module's name, <c>"Collection"</c>, <c>"ErrObject"</c>, or the name a
+    /// referenced library gives the class, such as <c>"Dictionary"</c> - whatever the variable holding it was declared as; and
+    /// <c>Nothing</c> is <c>"Nothing"</c>. Its default member is never read. An array of objects is <c>"Object()"</c> whatever class its
+    /// elements are declared as, as MS-VBA has it; an array of an <c>Enum</c> is <c>"Long()"</c>, and a <c>LongPtr</c> is named for the
+    /// type it is on the platform, <c>"LongLong"</c> on a 64-bit one.
+    /// </para>
     /// </remarks>
     /// <param name="arg">The data value to name the type of.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
@@ -253,6 +311,12 @@ public interface IStdInformationModule
     /// <remarks>
     /// Gets the <em>subtype</em> of the specified <see cref="VBVariantValue"/>.<br/>
     /// 👉 An array's subtype is <see cref="VBVarType.VBArray"/> combined with the <em>item data type</em> of the array, e.g. <c>8209</c> for an array of <see cref="VBByteValue"/> items.
+    /// <para>
+    /// An object reports the subtype of its default member's value (<strong>MS-VBAL §5.5.1.2.13</strong>), as MS-VBA documents and
+    /// does: <c>VarType(Err)</c> is <see cref="VBVarType.VBLong"/>, being <c>Err.Number</c>'s. That value is not read again when it
+    /// is itself an object. An object whose class has no default member callable with no arguments - <c>Nothing</c>, a
+    /// <c>Collection</c> - is <see cref="VBVarType.VBObject"/>, and an error its default member raises is raised.
+    /// </para>
     /// </remarks>
     /// <param name="varName">The data value to report the subtype of.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
