@@ -113,7 +113,7 @@ public sealed class DeclareRecordTests
     // and a fixed-length String inline - the copy is laid out the same way both ways. Inner is 16 bytes (a Byte, then a Double at 8); Outer puts it at 8, its
     // array at 24, its 4 ANSI characters at 36, and is 40 bytes in all.
     [TestMethod]
-    [Ignore("an element of a fixed-size array field of a user-defined type cannot be assigned yet, and String * n is dropped when the syntax tree is built")]
+    [Ignore("A fixed-size array field of a user-defined type is not an array yet: the symbol builder types `Values(1 To 3) As Long` as a Long, and the record's field defaults have no bounds to allocate it with.")]
     public async Task ANestedRecord_AFixedArrayAndAFixedString_AreLaidOutAsTheyAreInMemory_BothWays()
         => CollectionAssert.AreEqual(new[] { "7", "9", "2.5", "10 20 30", "duck" }, await Run(
             string.Join("\r\n",
