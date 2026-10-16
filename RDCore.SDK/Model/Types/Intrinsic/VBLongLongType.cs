@@ -52,4 +52,7 @@ public record class VBLongLongType() : VBNumericType<long>(VBTypeNames.VBLongLon
 
     public override VBNumericTypedValue CreateValue(double value) => new VBLongLongValue(Convert.ToInt64(value));
     public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBLongLongValue(handle);
+
+    // the Double nearest the largest LongLong is 2^63, which is past it: it is left out. The smallest, -2^63, is a Double.
+    public override bool Holds(double value) => value >= ManagedMinValue && value < ManagedMaxValue;
 }

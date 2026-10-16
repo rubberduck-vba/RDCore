@@ -36,12 +36,12 @@ public record class BinaryOrLogicalOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
+        if (AsNullOperandTableValue(lhs) is long lhsValue && rhs is VBNullValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, lhsValue));
         }
 
-        if (AsNullOperandTableValue(rhs) is double rhsValue && lhs is VBNullValue)
+        if (AsNullOperandTableValue(rhs) is long rhsValue && lhs is VBNullValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, rhsValue));
         }

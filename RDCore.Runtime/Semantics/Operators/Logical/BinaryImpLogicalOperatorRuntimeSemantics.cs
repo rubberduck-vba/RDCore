@@ -45,14 +45,14 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
         var rhs = frame[InputIndex.BinaryRightOperand];
 
         // the both-integral case is handled upstream by the bitwise dispatcher; here only Null-operand edges remain.
-        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
+        if (AsNullOperandTableValue(lhs) is long lhsValue && rhs is VBNullValue)
         {
             // the bitwise Imp of the left operand and 0 is in the effective type's representation: ~7 is 248 in a Byte.
             return lhsValue != -1
                 ? EvaluateBitwise(frame.EffectiveType, lhs, frame.EffectiveType.DefaultValue)
                 : EvaluateNullBinaryExpressionResult();
         }
-        else if (lhs is VBNullValue && AsNullOperandTableValue(rhs) is double rhsValue)
+        else if (lhs is VBNullValue && AsNullOperandTableValue(rhs) is long rhsValue)
         {
             return rhsValue != 0
                 ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, rhsValue))

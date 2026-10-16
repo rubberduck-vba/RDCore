@@ -47,14 +47,14 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         var lhs = frame[InputIndex.BinaryLeftOperand];
         var rhs = frame[InputIndex.BinaryRightOperand];
 
-        if (AsNullOperandTableValue(lhs) is double lhsValue && rhs is VBNullValue)
+        if (AsNullOperandTableValue(lhs) is long lhsValue && rhs is VBNullValue)
         {
             return lhsValue == 0
                 ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, 0))
                 : RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
         }
 
-        if (AsNullOperandTableValue(rhs) is double rhsValue && lhs is VBNullValue)
+        if (AsNullOperandTableValue(rhs) is long rhsValue && lhs is VBNullValue)
         {
             return rhsValue == 0
                 ? RuntimeSemanticsEvaluationResult.Success(CreateNullOperandTableResult(frame.EffectiveType, 0))

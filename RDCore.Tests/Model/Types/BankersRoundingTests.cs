@@ -15,6 +15,7 @@ public sealed class BankersRoundingTests
     [DataRow(2.67, 3)]  // regression: used to truncate to 2
     [DataRow(-2.67, -3)]
     [DataRow(1.0, 1)]
-    public void RoundsToNearestIntegerTiesToEven(double input, int expected)
+    [DataRow(3000000000.5, 3000000000)] // past the range of an int
+    public void RoundsToNearestIntegerTiesToEven(double input, double expected)
         => Assert.AreEqual(expected, VBNumericType.BankersRounding(input));
 }

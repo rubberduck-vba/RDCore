@@ -90,6 +90,18 @@ public static partial class ValueConversions
 
     private static string NumberToText(VBNumericTypedValue value, CultureInfo cultureInfo)
     {
+        // MS-VBAL 5.5.1.2.4: the maximum number of integral significant figures of "any integral or fixed-point type" is infinite - normal notation, with
+        // every digit of the integer part, which a Double does not have of a LongLong past 2^53, nor of a Decimal.
+        if (WholeValueOf(value) is { } whole)
+        {
+            return whole.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (FixedValueOf(value) is { } fixedPoint)
+        {
+            return FixedPointToText(fixedPoint, cultureInfo.NumberFormat.NumberDecimalSeparator);
+        }
+
         // BoxedValue's CLR type tracks the source's own numeric type (int for Long, short for
         // Integer, ...), not always double — a direct (double) unboxing cast throws for anything
         // that isn't already a boxed double. AsDouble widens through Convert.ToDouble instead.
@@ -131,6 +143,40 @@ public static partial class ValueConversions
         return integerPartDigitCount > significantIntegerDigits
             ? ToScientificNotation(numericValue, significantIntegerDigits, dot)
             : ToNormalNotation(numericValue, significantIntegerDigits, dot);
+    }
+
+    // MS-VBAL 5.5.1.2.4, for a Currency or a Decimal: every digit of the integer part, then "as many digits as possible of the fractional part of the
+    // number such that a maximum of 15 integer and fractional digits are printed total with trailing zeros removed" - counted, for a number with no integer
+    // part, from its first digit that is not 0, as a Double's are. The last digit is rounded half away from zero, as a Double's is.
+    private static string FixedPointToText(decimal value, string decimalSeparator)
+    {
+        const int maximumDigits = 15;
+        if (value == 0)
+        {
+            return VBStringValue.Zero;
+        }
+
+        var absoluteValue = Math.Abs(value);
+        var integerPart = decimal.Truncate(absoluteValue);
+        int fractionalDigits;
+        if (integerPart > 0)
+        {
+            fractionalDigits = Math.Max(0, maximumDigits - integerPart.ToString(CultureInfo.InvariantCulture).Length);
+        }
+        else
+        {
+            var leadingZeros = 0;
+            for (var scaled = absoluteValue * 10; scaled < 1; scaled *= 10)
+            {
+                leadingZeros++;
+            }
+
+            fractionalDigits = Math.Min(28, leadingZeros + maximumDigits);
+        }
+
+        var rounded = Math.Round(absoluteValue, fractionalDigits, MidpointRounding.AwayFromZero);
+        var digits = rounded.ToString(fractionalDigits == 0 ? "0" : $"0.{new string('#', fractionalDigits)}", CultureInfo.InvariantCulture);
+        return $"{(value < 0 ? "-" : string.Empty)}{digits.Replace(".", decimalSeparator)}";
     }
 
     // MS-VBAL 5.5.1.2.4: "as many digits as possible of the fractional part of the number such that a

@@ -48,4 +48,7 @@ public sealed record class VBDecimalType() : VBNumericType<decimal>(VBTypeNames.
 
     public override VBNumericTypedValue CreateValue(double value) => new VBDecimalValue(Convert.ToDecimal(value));
     public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBDecimalValue(handle);
+
+    // neither bound is a Double: the Double nearest each is ±2^96, which is past it, and is left out.
+    public override bool Holds(double value) => value > ManagedMinValue && value < ManagedMaxValue;
 }

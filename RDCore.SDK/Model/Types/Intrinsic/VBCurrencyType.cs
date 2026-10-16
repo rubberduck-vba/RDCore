@@ -48,4 +48,12 @@ public record class VBCurrencyType() : VBNumericType<VBRuntimeCurrencyValue>(VBT
 
     public override VBNumericTypedValue CreateValue(double value) => new VBCurrencyValue(Convert.ToDecimal(value));
     public override VBTypedValue CreateValue(RDCore.SDK.Model.Values.Bindings.IBindingHandle handle) => new VBCurrencyValue(handle);
+
+    // neither bound is a Double, and a value is made of the Decimal a Double converts to, rounded to 15 significant digits - which can be past a bound
+    // when the Double is not. The Decimal is what is compared.
+    public override bool Holds(double value)
+        => double.IsFinite(value) && Math.Abs(value) < 1e16
+            && Convert.ToDecimal(value) is var converted
+            && converted >= VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMinValue.Value.Value
+            && converted <= VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMaxValue.Value.Value;
 }

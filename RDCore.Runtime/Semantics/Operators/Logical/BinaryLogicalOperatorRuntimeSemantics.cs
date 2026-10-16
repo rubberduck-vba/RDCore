@@ -1,5 +1,6 @@
 ﻿using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Values.Meta;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -74,13 +75,13 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// The operand's value for the MS-VBAL 5.6.9.8 binary Null-operand tables, which treat Boolean
     /// as an integral value via its -1/0 representation (RD-VBAL §5.0.2.1) — the same convention
     /// <see cref="BooleanBits"/> already applies for the both-integral bitwise fast path.
-    /// <see langword="null"/> for any operand the tables don't classify as integral.
+    /// <see langword="null"/> for any operand the tables don't classify as integral. The value is the whole number it is, which a LongLong past 2^53 is not
+    /// as a Double.
     /// </summary>
-    protected static double? AsNullOperandTableValue(VBTypedValue value) => value switch
+    protected static long? AsNullOperandTableValue(VBTypedValue value) => value switch
     {
-        VBBooleanValue b => b.Value.StoredValue != 0 ? -1d : 0d,
-        VBNumericTypedValue n when n.TypeInfo is IIntegralNumericType => n.AsDouble,
-        _ => null,
+        VBBooleanValue b => b.Value.StoredValue != 0 ? -1L : 0L,
+        _ => ValueConversions.WholeValueOf(value),
     };
 
     /// <summary>
@@ -89,8 +90,11 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// for the bitwise step, but the operator's result is Let-coerced back), the effective
     /// <see cref="VBNumericType"/>'s own representation of <paramref name="value"/> otherwise.
     /// </summary>
-    protected static VBTypedValue CreateNullOperandTableResult(VBType effectiveType, double value) =>
-        effectiveType is VBBooleanType ? new VBBooleanValue(value != 0) : ((VBNumericType)effectiveType).CreateValue(value);
+    /// <remarks>
+    /// The value is an operand let-coerced to the effective type, or 0: it is within the range of the type.
+    /// </remarks>
+    protected static VBTypedValue CreateNullOperandTableResult(VBType effectiveType, long value) =>
+        effectiveType is VBBooleanType ? new VBBooleanValue(value != 0) : ValueConversions.FromWhole(value, (VBNumericType)effectiveType).Value!;
 
     protected override OperatorAnalysisContext<LogicalOperatorSemanticFlags> CreateAnalysisContext(
         SyntaxNode node, 

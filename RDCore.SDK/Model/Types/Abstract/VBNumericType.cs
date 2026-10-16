@@ -37,14 +37,16 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// that the least-significant digit is even.
     /// </summary>
     /// <param name="value">The floating-point numeric value to be rounded.</param>
-    public static int BankersRounding(double value) => (int)Math.Round(value, MidpointRounding.ToEven);
+    /// <returns>The nearest whole number, as a <see cref="double"/>: a whole number past the range of an <see cref="int"/> is still the one it rounds to.</returns>
+    public static double BankersRounding(double value) => Math.Round(value, MidpointRounding.ToEven);
     /// <summary>
     /// Implements <strong>MS-VBAL 5.5.1.2.1.1</strong> Banker's Rounding.
     /// A midpoint rounding scheme also known as "round-to-even" rounds to the nearest rounded value such
     /// that the least-significant digit is even.
     /// </summary>
     /// <param name="value">The numeric value to be rounded.</param>
-    public static int BankersRounding(VBNumericTypedValue value) => BankersRounding(value.AsDouble);
+    /// <returns>The nearest whole number, as a <see cref="double"/>.</returns>
+    public static double BankersRounding(VBNumericTypedValue value) => BankersRounding(value.AsDouble);
 
     /// <summary>
     /// A helper function to test if a given source numeric value is within the range of a destination data type.
@@ -53,6 +55,17 @@ public abstract record class VBNumericType(string Name, Type ManagedType) : VBIn
     /// <param name="destination">The data type to check conversion eligibility against.</param>
     /// <returns><c>true</c> if the value can legally be used with the destination type, <c>false otherwise</c>.</returns>
     /// <remarks>If this function returns <c>false</c>, the caller should throw a <c>VBRuntimeErrorOverflowException.</c></remarks>
-    public static bool IsWithinRange(double source, VBNumericType destination) =>
-        source >= destination.ManagedMinValue && source <= destination.ManagedMaxValue;
+    public static bool IsWithinRange(double source, VBNumericType destination) => destination.Holds(source);
+
+    /// <summary>
+    /// Whether a <see cref="double"/> is within the range of this type (<strong>MS-VBAL 5.5.1.2.1</strong>): one a value of this type can be made of
+    /// (<see cref="CreateValue(double)"/>) without leaving the range.
+    /// </summary>
+    /// <param name="value">The value. <c>NaN</c> is within no range.</param>
+    /// <remarks>
+    /// 👉 The base is within <see cref="ManagedMinValue"/> and <see cref="ManagedMaxValue"/>, both included, which is right for a type whose bounds are
+    /// <see cref="double"/> values. A type whose bound is not one has, as its <see cref="ManagedMaxValue"/> or <see cref="ManagedMinValue"/>, the
+    /// <see cref="double"/> nearest it, which can be past it: that type overrides this, and leaves out such a bound.
+    /// </remarks>
+    public virtual bool Holds(double value) => value >= ManagedMinValue && value <= ManagedMaxValue;
 }

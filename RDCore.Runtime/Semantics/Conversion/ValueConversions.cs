@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -88,20 +89,22 @@ public static partial class ValueConversions
     {
         VBStringType => StringToNumeric(((VBStringValue)source).Value, destination),
 
-        // if the source value is within the range of the destination type, the result is a copy of the value.
-        IIntegralNumericType => Ranged(((VBNumericTypedValue)source).AsDouble, destination)
-            ? ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble))
-            : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
+        // if the source value is within the range of the destination type, the result is a copy of the value: a whole number is converted as the whole
+        // number it is, which a LongLong past 2^53 is not as a Double.
+        IIntegralNumericType when WholeValueOf(source) is { } whole => FromWhole(whole, destination),
+
+        // a Currency or a Decimal is converted as the decimal number it is, which has digits a Double does not.
+        IFixedPointNumericType when FixedValueOf(source) is { } fixedPoint => FromFixed(fixedPoint, destination),
 
         // if the source value is finite and within the range of the destination type, the result is the value
         // converted to an integer using Banker's Rounding.
-        IFloatingPointNumericType or IFixedPointNumericType when destination is IIntegralNumericType
+        IFloatingPointNumericType when destination is IIntegralNumericType
             => Ranged(((VBNumericTypedValue)source).AsDouble, destination)
                 ? ValueConversionResult.Success(destination.CreateValue(VBNumericType.BankersRounding((VBNumericTypedValue)source)))
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
 
-        // Double -> Single, Currency -> Decimal, and so on.
-        IFloatingPointNumericType or IFixedPointNumericType
+        // Double -> Single, Single -> Currency, and so on.
+        IFloatingPointNumericType
             => Ranged(((VBNumericTypedValue)source).AsDouble, destination)
                 ? ValueConversionResult.Success(destination.CreateValue(((VBNumericTypedValue)source).AsDouble))
                 : ValueConversionResult.Failure(VBRuntimeErrorId.Overflow),
@@ -131,6 +134,68 @@ public static partial class ValueConversions
 
     private static bool Ranged(double value, VBNumericType destination) => VBNumericType.IsWithinRange(value, destination);
 
+    /// <summary>
+    /// Converts a whole number to the numeric type <paramref name="destination"/> (<strong>MS-VBAL §5.5.1.2.1</strong>): if it is within the range of the
+    /// type, the result is a copy of the value - exactly, in an integral or fixed-point type, and rounded to the nearest value a floating-point type holds.
+    /// </summary>
+    /// <param name="value">The whole number.</param>
+    /// <param name="destination">The numeric type to convert to.</param>
+    public static ValueConversionResult FromWhole(long value, VBNumericType destination) => destination switch
+    {
+        VBByteType => value is >= byte.MinValue and <= byte.MaxValue ? ValueConversionResult.Success(new VBByteValue((byte)value)) : Overflow,
+        VBIntegerType => value is >= short.MinValue and <= short.MaxValue ? ValueConversionResult.Success(new VBIntegerValue((short)value)) : Overflow,
+        VBLongType => value is >= int.MinValue and <= int.MaxValue ? ValueConversionResult.Success(new VBLongValue((int)value)) : Overflow,
+        VBLongLongType => ValueConversionResult.Success(new VBLongLongValue(value)),
+        IFixedPointNumericType => FromFixed(value, destination),
+        _ => Ranged(value, destination) ? ValueConversionResult.Success(destination.CreateValue(value)) : Overflow,
+    };
+
+    // a decimal number to a numeric type: for an integral type, a number within its range is rounded to a whole number by Banker's rounding, which a
+    // number within the range always rounds to one within it.
+    private static ValueConversionResult FromFixed(decimal value, VBNumericType destination) => destination switch
+    {
+        IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest)
+            => value >= lowest && value <= highest ? FromWhole((long)Math.Round(value, MidpointRounding.ToEven), destination) : Overflow,
+        VBCurrencyType => value >= CurrencyMinValue && value <= CurrencyMaxValue ? ValueConversionResult.Success(new VBCurrencyValue(value)) : Overflow,
+        VBDecimalType => ValueConversionResult.Success(new VBDecimalValue(value)),
+        _ => Ranged((double)value, destination) ? ValueConversionResult.Success(destination.CreateValue((double)value)) : Overflow,
+    };
+
+    private static ValueConversionResult Overflow => ValueConversionResult.Failure(VBRuntimeErrorId.Overflow);
+
+    // the smallest and largest whole numbers of an integral type.
+    private static (long Lowest, long Highest) WholeRangeOf(VBNumericType integral) => integral switch
+    {
+        VBByteType => (byte.MinValue, byte.MaxValue),
+        VBIntegerType => (short.MinValue, short.MaxValue),
+        VBLongType => (int.MinValue, int.MaxValue),
+        _ => (long.MinValue, long.MaxValue),
+    };
+
+    private static decimal CurrencyMinValue => VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMinValue.Value.Value;
+    private static decimal CurrencyMaxValue => VBRuntimeValue<VBRuntimeCurrencyValue>.CurrencyMaxValue.Value.Value;
+
+    /// <summary>
+    /// The whole number an integral value (a Byte, an Integer, a Long or a LongLong) is, exactly; <see langword="null"/> for any other value.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    public static long? WholeValueOf(VBTypedValue value) => value switch
+    {
+        VBByteValue byteValue => byteValue.Value,
+        VBIntegerValue integer => integer.Value,
+        VBLongValue longValue => longValue.Value,
+        VBLongLongValue longLong => longLong.Value,
+        _ => null,
+    };
+
+    // the decimal number a fixed-point value is; null for one that is not one of the fixed-point types.
+    private static decimal? FixedValueOf(VBTypedValue value) => value switch
+    {
+        VBCurrencyValue currency => currency.Value.Value,
+        VBDecimalValue decimalValue => decimalValue.Value,
+        _ => null,
+    };
+
     private static ValueConversionResult StringToNumeric(string? text, VBNumericType destination)
     {
         var match = NumericCoercionStringPattern().Match(text ?? string.Empty);
@@ -146,6 +211,17 @@ public static partial class ValueConversions
             out var interpretedValue))
         {
             return ValueConversionResult.Failure(VBRuntimeErrorId.TypeMismatch);
+        }
+
+        // a number written without an exponent is the decimal number it is written as, when a Decimal holds it: "9223372036854775807" is the largest
+        // LongLong, which no Double is.
+        if (!match.Groups["exponent"].Success && decimal.TryParse(
+            match.Groups["mantissa"].Value.Replace(" ", string.Empty),
+            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+            CultureInfo.InvariantCulture,
+            out var writtenValue))
+        {
+            return FromFixed(writtenValue, destination);
         }
 
         var scaledValue = interpretedValue;
