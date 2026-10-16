@@ -50,6 +50,7 @@ public sealed class ConstantValueTests
     [DataRow("Private Const C As Integer = 2.5", "2 Integer", DisplayName = "A Double literal, As Integer: Banker's rounding")]
     [DataRow("Private Const C As String = 5", "5 String", DisplayName = "An Integer literal, As String")]
     [DataRow("Private Const C& = 1", "1 Long", DisplayName = "A type character")]
+    [DataRow("Private Enum Colour\r\nRed\r\nEnd Enum\r\nPrivate Const C As Colour = 1.5", "2 Long", DisplayName = "As an Enum of the module: Long")]
     public async Task AConstantDeclaredWithAType_IsItsValueLetCoercedToThatType(string declaration, string expected)
         => CollectionAssert.AreEqual(new[] { expected }, await RunAsync([], Program(declaration, "Debug.Print C & \" \" & TypeName(C)")));
 

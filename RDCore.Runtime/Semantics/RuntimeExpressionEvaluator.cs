@@ -679,12 +679,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // MS-VBAL 5.2.3.2: "the constant binding of a constant ... is the data value of the <constant-expression> Let-coerced to the declared
     // type of the constant" - which, without an As clause or a type character, is the expression's own, so there is nothing to coerce to.
-    // MS-VBAL 5.2.3.4: an Enum member's expression is "coerced to value type Long". A parameter's default is coerced by its call instead.
+    // MS-VBAL 5.2.3.4: an Enum member's expression is "coerced to value type Long", and an Enum named in an As clause means Long. A
+    // parameter's default is coerced by its call instead.
     private static VBType? DeclaredTypeOfConstant(Symbol constant) => constant switch
     {
         VBEnumConstMemberSymbol => VBLongType.TypeInfo,
-        VBConstantMemberSymbol { ResolvedType: not VBUnknownType and var declared } => declared,
-        VBLocalConstantSymbol { ResolvedType: not (null or VBUnknownType) and var declared } => declared,
+        VBConstantMemberSymbol { ResolvedType: not VBUnknownType and var declared } => VBEnumType.AsDeclaredType(declared),
+        VBLocalConstantSymbol { ResolvedType: not (null or VBUnknownType) and var declared } => VBEnumType.AsDeclaredType(declared),
         _ => null,
     };
 
