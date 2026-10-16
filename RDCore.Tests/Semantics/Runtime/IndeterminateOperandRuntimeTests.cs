@@ -21,7 +21,8 @@ namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
 /// An operation or a let-coercion of an indeterminate operand yields an indeterminate value, and raises nothing: an error it would raise for the value
-/// the operand assumes is not known to happen. Known operands are evaluated as they always are.
+/// the operand assumes is not known to happen - but for a type mismatch the types of the operands decide, which is raised whatever they hold
+/// (<see cref="VBRuntimeErrorInfo.IsDecidedByTypes"/>). Known operands are evaluated as they always are.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §5.0.3 Semantic Analysis")]
@@ -69,7 +70,7 @@ public sealed class IndeterminateOperandRuntimeTests : LetCoercionRuntimeSemanti
     ];
 
     [TestMethod]
-    public void EveryBinaryOperator_OfIndeterminateOperandsOfEveryDeclaredType_YieldsAnIndeterminateValue()
+    public void EveryBinaryOperator_OfIndeterminateOperandsOfEveryDeclaredType_YieldsAnIndeterminateValue_OrTheMismatchTheirTypesDecide()
     {
         var failures = new List<string>();
         foreach (var token in BinaryTokens)
@@ -79,9 +80,15 @@ public sealed class IndeterminateOperandRuntimeTests : LetCoercionRuntimeSemanti
                 foreach (var right in DeclaredTypes)
                 {
                     var result = Binary(token, Unknown(left), Unknown(right));
-                    if (!result.IsSuccess || !result.Result!.IsIndeterminate)
+                    var decided = left is not (VBVariantType or VBObjectType) && right is not (VBVariantType or VBObjectType)
+                        && SDK.Semantics.Plans.OperationPlanner.ForValues(token, left, right).IsTypeMismatch;
+                    var expected = decided
+                        ? result.ErrorInfo is VBRuntimeErrorInfo { ErrorId: (int)VBRuntimeErrorId.TypeMismatch, IsDecidedByTypes: true }
+                        : result.IsSuccess && result.Result!.IsIndeterminate;
+                    if (!expected)
                     {
-                        failures.Add($"{left.Name} {token} {right.Name}: {(result.IsSuccess ? "a known value" : $"error {result.ErrorInfo?.ErrorId}")}");
+                        failures.Add($"{left.Name} {token} {right.Name}: {(result.IsSuccess ? $"a{(result.Result!.IsIndeterminate ? "n indeterminate" : " known")} value" : $"error {result.ErrorInfo?.ErrorId}")}"
+                            + (decided ? ", where its types decide a type mismatch" : string.Empty));
                     }
                 }
             }

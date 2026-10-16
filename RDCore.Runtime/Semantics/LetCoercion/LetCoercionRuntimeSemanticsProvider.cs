@@ -290,17 +290,31 @@ public class LetCoercionRuntimeSemanticsProvider(
         LetCoercionStackFrame frame)
     {
         var result = Coerce(resolver, expression, frame);
+        if (!frame.SourceValue.IsIndeterminate || result.ErrorInfo?.ErrorId == (int)VBRuntimeErrorId.InternalError)
+        {
+            return result;
+        }
+
+        // a type mismatch the type of the source decides is raised whatever value it holds: it is known to happen, and is kept.
+        if (result.ErrorInfo is VBRuntimeErrorInfo { ErrorId: (int)VBRuntimeErrorId.TypeMismatch } mismatch && IsDecidedByType(frame))
+        {
+            return result with { ErrorInfo = mismatch with { IsDecidedByTypes = true } };
+        }
 
         // an indeterminate source coerces to an indeterminate value; what it raises for the value it assumes is not known to happen.
-        return frame.SourceValue.IsIndeterminate && result.ErrorInfo?.ErrorId != (int)VBRuntimeErrorId.InternalError
-            ? result with
-            {
-                IsApplicable = true,
-                Result = (result.IsSuccess ? result.Result! : frame.DestinationTypeDesc.Target.DefaultValue).AsIndeterminate(),
-                ErrorInfo = null,
-            }
-            : result;
+        return result with
+        {
+            IsApplicable = true,
+            Result = (result.IsSuccess ? result.Result! : frame.DestinationTypeDesc.Target.DefaultValue).AsIndeterminate(),
+            ErrorInfo = null,
+        };
     }
+
+    // whether the type of a source that is not known is enough to say the coercion is a type mismatch: its plan is one (MS-VBAL 5.5.1.2) - but for a Variant
+    // whose value is not known, whose type is not either, and an object, which is let-coerced by what its default member returns.
+    private static bool IsDecidedByType(LetCoercionStackFrame frame)
+        => frame.SourceValue is not (VBVariantValue or VBObjectValue)
+            && ConversionPlanner.ForValue(ValueTypeOf(frame.SourceValue), frame.DestinationTypeDesc.Target).IsTypeMismatch;
 
     private LetCoercionResult Coerce(
         ISymbolResolver resolver,

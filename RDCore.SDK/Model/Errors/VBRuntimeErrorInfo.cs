@@ -22,6 +22,17 @@ public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
     /// </remarks>
     public string ToDiagnosticCode() => $"VBR{ErrorId:00000}";
 
+    /// <summary>
+    /// Whether the error is raised whatever values the operation is given: decided by their types alone - a <c>Byte()</c> let-coerced to a <c>Long</c> is
+    /// a type mismatch, whatever bytes it holds (<strong>MS-VBAL 5.5.1.2.6</strong>).
+    /// </summary>
+    /// <remarks>
+    /// An analysis evaluates code with values it assumes, and states none of the errors those raise: what an assumed value raises is not known to happen.
+    /// An error decided by the types is, which is why it is stated all the same - the evaluation of an operation on a value that is not known keeps it, and
+    /// an instruction whose evaluation assumed something reports it.
+    /// </remarks>
+    public bool IsDecidedByTypes { get; init; }
+
     /// <inheritdoc/>
     public VBErrorInfo AsErrorInfo => this;
 

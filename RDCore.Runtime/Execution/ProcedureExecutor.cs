@@ -216,8 +216,10 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             complete &= outcome is not { Kind: RuntimeExecutionOutcomeKind.InternalError };
 
             // the error of an instruction whose evaluation assumed nothing is the code's: the instruction raises it whenever it runs. One that assumed
-            // something may have raised the assumption's error instead, and says nothing about the code.
-            if (observation is not null && outcome is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo: { } error } && observation.Assumptions == assumedBefore)
+            // something may have raised the assumption's error instead, and says nothing about the code - but for an error the types decide, which is
+            // raised whatever was assumed (VBRuntimeErrorInfo.IsDecidedByTypes).
+            if (observation is not null && outcome is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo: { } error }
+                && (observation.Assumptions == assumedBefore || error is VBRuntimeErrorInfo { IsDecidedByTypes: true }))
             {
                 observation.OnError(error);
             }
