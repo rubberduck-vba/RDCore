@@ -54,8 +54,16 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     /// The project scope holds the members of the enclosing project's procedural modules and those of every library's
     /// alike, so it is two tiers, the enclosing project's (a symbol of no <see cref="SymbolProperties.Library"/>) and then the
     /// libraries': a library's procedural module ranks between them, after the project's own members and before its own.
+    /// <para>
+    /// A name is resolved once for each place it is looked up from, and the tree keeps the resolution (<see cref="ScopeTree.ValueResolutions"/>): code that
+    /// reads a variable a million times resolves its name once.
+    /// </para>
     /// </remarks>
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
+        => scopeTree.ValueResolutions.GetOrAdd(new ScopeTree.ValueResolutionKey(name, scope, handle.AbsoluteUri),
+            static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
+
+    private SymbolResolutionResult ResolveValueOnce(string name, Uri handle)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
 

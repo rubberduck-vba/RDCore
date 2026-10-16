@@ -57,6 +57,44 @@ public sealed class ScopeTreeSymbolResolverTests
         => new(ScopeTreeBuilder.Build(symbols));
 
     [TestMethod]
+    public void AName_IsResolvedOnce_ForEachPlaceItIsLookedUpFrom()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "temp");
+        var tree = ScopeTreeBuilder.Build([module, procedure, local]);
+
+        // a resolver is cheap to make again; what it resolved is the tree's, and is not resolved again - in any case, the name being the same name.
+        var first = new ScopeTreeSymbolResolver(tree).ResolveValue("temp", ScopeKind.Unallocated, procedure.Uri);
+        var second = new ScopeTreeSymbolResolver(tree).ResolveValue("TEMP", ScopeKind.Unallocated, procedure.Uri);
+
+        Assert.AreSame(local, first.Symbol);
+        Assert.AreEqual(first, second);
+        Assert.HasCount(1, tree.ValueResolutions);
+
+        // another place is another lookup: from the module, the procedure's local is not in scope.
+        Assert.IsFalse(new ScopeTreeSymbolResolver(tree).ResolveValue("temp", ScopeKind.Unallocated, module.Uri).IsResolved);
+        Assert.HasCount(2, tree.ValueResolutions);
+    }
+
+    [TestMethod]
+    public void WhatATreeResolved_IsTrueOfThatTree_AndAnotherTreeResolvesAgain()
+    {
+        // a symbol table that changes builds another tree: a local declared since shadows the field, and the tree before still has the field.
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var field = Field(module.Uri, "count");
+        var before = ScopeTreeBuilder.Build([module, procedure, field]);
+        Assert.AreSame(field, new ScopeTreeSymbolResolver(before).ResolveValue("count", ScopeKind.Unallocated, procedure.Uri).Symbol);
+
+        var local = Local(procedure.Uri, "count");
+        var after = ScopeTreeBuilder.Build([module, procedure, field, local]);
+
+        Assert.AreSame(local, new ScopeTreeSymbolResolver(after).ResolveValue("count", ScopeKind.Unallocated, procedure.Uri).Symbol);
+        Assert.AreSame(field, new ScopeTreeSymbolResolver(before).ResolveValue("count", ScopeKind.Unallocated, procedure.Uri).Symbol);
+    }
+
+    [TestMethod]
     public void Resolve_BindsALocal_FromItsProcedure()
     {
         var module = Module("Mod1");
