@@ -34,7 +34,6 @@ public sealed class TypeHintedNameTests
 
         Assert.AreEqual(hint, written.TypeHint);
         Assert.AreEqual(name + hint, written.WrittenName);
-        CollectionAssert.AreEqual(new[] { name + hint, name }, written.LookupNames.ToArray(), "as written first, and then as the declaration of the identifier");
     }
 
     [TestMethod]
@@ -43,7 +42,7 @@ public sealed class TypeHintedNameTests
         var written = Names("x = y").Single(candidate => candidate.IdentifierName == "y");
 
         Assert.IsNull(written.TypeHint);
-        CollectionAssert.AreEqual(new[] { "y" }, written.LookupNames.ToArray());
+        Assert.AreEqual("y", written.WrittenName);
     }
 
     [TestMethod]

@@ -12,8 +12,8 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// <remarks>
 /// <c>Environ$</c> and <c>Environ</c> are two members of the library, one that answers a <c>String</c> and one that answers a <c>Variant</c>, and a call that
 /// resolved the first to the second would be analysed, and run, with the wrong type. A simple name finds the library's member named with the character whenever its
-/// identifier binds a member of the library, or nothing (<see cref="ResolveValue"/>); a member after a dot is looked for as it was written first
-/// (<see cref="SimpleNameExpressionNode.LookupNames"/>), and only when the owner has no member of that name is it the member of the identifier.
+/// identifier binds a member of the library, or nothing (<see cref="ResolveValue"/>); a member after a dot is looked for as it was written first, and only when
+/// the owner has no member of that name is it the member of the identifier (<see cref="ResolveMember"/>).
 /// </remarks>
 public static class SymbolResolverNameExtensions
 {
@@ -59,12 +59,24 @@ public static class SymbolResolverNameExtensions
     /// <summary>
     /// Resolves a member written as <paramref name="member"/> of <paramref name="owner"/>, as <see cref="ISymbolResolver.ResolveMember"/> would.
     /// </summary>
+    /// <remarks>
+    /// A member written with a type-declaration character is looked for as written first, because a member of the library can be named with one
+    /// (<c>Strings.Left$</c>), and is a different member from the one without it. Failing that it is the member of the identifier, which a field declared
+    /// <c>Public n%</c> is: its symbol is <c>n</c>, and <c>%</c> is how its type was said. When neither is declared, the answer is that the identifier is not.
+    /// </remarks>
     /// <param name="resolver">The resolver.</param>
     /// <param name="owner">The symbol whose member it is.</param>
     /// <param name="member">The name of the member, with the type-declaration character it was written with.</param>
     /// <param name="handle">The <see cref="Symbol.Uri"/> the member is resolved from.</param>
     public static SymbolResolutionResult ResolveMember(this ISymbolResolver resolver, Symbol owner, SimpleNameExpressionNode member, Uri handle)
-        => ResolveFirst(member, lookup => resolver.ResolveMember(owner, lookup, handle));
+    {
+        if (member.TypeHint is { Length: > 0 } && resolver.ResolveMember(owner, member.WrittenName, handle) is { IsUnbound: false } written)
+        {
+            return written;
+        }
+
+        return resolver.ResolveMember(owner, member.IdentifierName, handle);
+    }
 
     // a member of the standard library, the only one that declares twins: a symbol carrying the key its reader stamps, that no other library claims as its
     // own - the same test the standard library's dispatcher answers a call by. A referenced library's members carry a key of their own kind and the name of
@@ -72,20 +84,4 @@ public static class SymbolResolverNameExtensions
     private static bool IsLibraryMember(Symbol symbol)
         => symbol.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
         && symbol.GetProperty(SymbolProperties.Library) is null or StdLibSymbolProvider.LibraryName;
-
-    // the first name that is anything but unbound; and if none is, the last answer there was, which is that the bare name is not declared.
-    private static SymbolResolutionResult ResolveFirst(SimpleNameExpressionNode name, Func<string, SymbolResolutionResult> resolve)
-    {
-        var result = default(SymbolResolutionResult);
-        foreach (var lookup in name.LookupNames)
-        {
-            result = resolve(lookup);
-            if (!result.IsUnbound)
-            {
-                return result;
-            }
-        }
-
-        return result;
-    }
 }

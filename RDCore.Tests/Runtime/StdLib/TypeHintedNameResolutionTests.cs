@@ -65,6 +65,33 @@ public sealed class TypeHintedNameResolutionTests
     }
 
     [TestMethod]
+    public void AMemberAfterADot_IsFoundAsItWasWritten_First()
+    {
+        var module = new VBStandardModuleSymbol(Workspace, Workspace, "Program");
+        var session = Compose(module);
+        var strings = Resolve(session, Name("Strings", null), module.Uri);
+
+        var hinted = session.Symbols.Resolver.ResolveMember(strings, Name("Left", "$"), module.Uri).Symbol!;
+
+        Assert.AreEqual("Left$", hinted.Name);
+        Assert.AreEqual(VBStringType.TypeInfo, ((VBFunctionMemberSymbol)hinted).ResolvedType);
+    }
+
+    [TestMethod]
+    public void AMemberAfterADot_WrittenWithAHint_IsTheMemberOfTheIdentifier_WhenNoneIsNamedWithIt()
+    {
+        // Program.n%: the field is n.
+        var module = new VBStandardModuleSymbol(Workspace, Workspace, "Program");
+        var n = new VBModuleFieldVariableMemberSymbol(
+            Workspace, module.Uri, "n", ScopeKind.Module, VBIntegerType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        var session = Compose(module, n);
+
+        var resolved = session.Symbols.Resolver.ResolveMember(module, Name("n", "%"), module.Uri).Symbol!;
+
+        Assert.AreEqual("n", resolved.Name);
+    }
+
+    [TestMethod]
     public void AHintedNameNothingDeclares_IsUnbound_NotTheMemberWithoutTheHint()
     {
         var module = new VBStandardModuleSymbol(Workspace, Workspace, "Program");

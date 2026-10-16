@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <para>
 /// 👉 The <em>type-declaration character</em> a name is written with is part of what was written, and of what it means: <c>Environ$</c> is not <c>Environ</c>. They are
 /// two members of the library with two signatures (a <c>String</c> and a <c>Variant</c>), and a name that lost its <c>$</c> on the way to being resolved would be
-/// given the type of the one it is not. See <see cref="LookupNames"/>.
+/// given the type of the one it is not. See <see cref="Runtime.Abstract.Execution.SymbolResolverNameExtensions"/>.
 /// </para>
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
@@ -26,29 +26,4 @@ public sealed record class SimpleNameExpressionNode(SyntaxNodeId Identity, Sourc
     /// The name as it was written: the identifier name followed by its type-declaration character, if it has one.
     /// </summary>
     public string WrittenName => IdentifierName + TypeHint;
-
-    /// <summary>
-    /// The names a resolver is asked for, in the order it is asked.
-    /// </summary>
-    /// <remarks>
-    /// A name written with a type-declaration character is looked for as written first, because a member of the library can be named with one (<c>Left$</c>,
-    /// <c>Environ$</c>), and is a different member from the one without it. Failing that it is the declaration of that name, which a variable declared
-    /// <c>Dim n%</c> is: its symbol is <c>n</c>, and <c>%</c> is how its type was said.
-    /// <para>
-    /// 👉 This is the order a member after a dot is looked for in. A simple name is matched by its identifier first, through the tiers, and is looked for as
-    /// written only when the identifier binds a member of the library or nothing (<see cref="RDCore.SDK.Runtime.Abstract.Execution.SymbolResolverNameExtensions.ResolveValue"/>).
-    /// </para>
-    /// </remarks>
-    public IEnumerable<string> LookupNames
-    {
-        get
-        {
-            if (TypeHint is { Length: > 0 })
-            {
-                yield return WrittenName;
-            }
-
-            yield return IdentifierName;
-        }
-    }
 }
