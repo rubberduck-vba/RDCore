@@ -1,7 +1,7 @@
 Attribute VB_Name = "Arrays"
 Option Explicit
 ' Writing every element of an array, then reading every element back.
-' 30000 elements: a fixed-size array with a bound past 32767 cannot be indexed yet (pinned in KnownGapsFoundByBenchTests).
+' 30000 elements: the size the recorded baselines were measured with.
 
 Private Const Size As Long = 30000
 

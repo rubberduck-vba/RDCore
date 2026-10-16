@@ -13,7 +13,7 @@ namespace RDCore.Runtime.Semantics.Statements;
 /// (<strong>§5.2.3.1.3</strong>) alike.
 /// </summary>
 /// <param name="Expressions">Evaluates the bound expression.</param>
-/// <param name="LetCoercion">Let-coerces the bound to <c>Integer</c>, the type a subscript is.</param>
+/// <param name="LetCoercion">Let-coerces the bound to <c>Long</c>, the type a bound is.</param>
 public sealed record class ArrayBoundEvaluator(
     RuntimeExpressionEvaluator Expressions,
     ILetCoercionRuntimeSemanticsProvider LetCoercion)
@@ -22,8 +22,9 @@ public sealed record class ArrayBoundEvaluator(
     /// Evaluates a bound.
     /// </summary>
     /// <remarks>
-    /// "dynamic-lower-bound = integer-expression" - a bound is Let-coerced to Integer like any other subscript, so a Double bound
-    /// rounds rather than being refused.
+    /// "dynamic-lower-bound = integer-expression", whose value is "the value of its &lt;expression&gt; Let-coerced to Long"
+    /// (<strong>MS-VBAL §5.6.16.4</strong>), as a fixed-size array's bounds are (<strong>§5.2.3.1.3</strong>): a Double bound rounds rather
+    /// than being refused, and a bound past the range of an Integer is no overflow.
     /// </remarks>
     /// <param name="session">The session the expression is evaluated in.</param>
     /// <param name="context">The scope its names resolve from.</param>
@@ -57,7 +58,7 @@ public sealed record class ArrayBoundEvaluator(
         {
             NodeId = expression.Identity,
             SourceValue = evaluated.Result!,
-            DestinationTypeDesc = new(VBIntegerType.TypeInfo),
+            DestinationTypeDesc = new(VBLongType.TypeInfo),
             Site = ConversionSite.Subscript,
         });
 
