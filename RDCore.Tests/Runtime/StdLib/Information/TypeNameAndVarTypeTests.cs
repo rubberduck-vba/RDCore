@@ -149,7 +149,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf(declaration, string.Empty, "C", typeName, varType);
 
     [TestMethod]
-    [Ignore("A Const declared As a type keeps the type of its value: the fold does not Let-coerce the value to the declared type (MS-VBAL 5.2.3.2).")]
     public Task OfATypedConstant_IsItsDeclaredType()
         => AssertTypeOf("Private Const C As Long = 1", string.Empty, "C", "Long", "3");
 
@@ -210,8 +209,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf("Public Enum Colour\r\n    Red = 1\r\nEnd Enum\r\nPrivate x As Colour", string.Empty, "x", "Long", "3");
 
     [TestMethod]
-    [Ignore("A workspace Enum's members have no value on the host: the descriptor carries no value expression for them, and reading one throws " +
-        "'No runtime binding exists yet' out of SymbolAddressTable (MS-VBAL 5.2.3.4).")]
     [DataRow("Red")]
     [DataRow("Colour.Red")]
     public Task OfAWorkspaceEnumMember_IsLong(string expression)

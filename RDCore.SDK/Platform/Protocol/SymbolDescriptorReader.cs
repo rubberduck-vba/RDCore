@@ -184,7 +184,7 @@ public static class SymbolDescriptorReader
                     .Where(m => m.Kind == SymbolDescriptorKind.EnumMember)
                     .Select(member => new VBEnumConstMemberSymbol(
                         workspaceRoot, enumSymbol.Uri, member.Name, member.Scope, SymbolKindExt.EnumMember,
-                        member.Range, member.SelectionRange))];
+                        member.Range, member.SelectionRange, member.EnumValue))];
 
                 // the enum is the type a variable declared `As` it has (MS-VBAL 5.2.3.4): without it, such a variable is of a type nothing knows,
                 // which starts as Empty and refuses the Long it is meant to hold.
@@ -198,7 +198,7 @@ public static class SymbolDescriptorReader
             case SymbolDescriptorKind.EnumMember:
                 yield return new VBEnumConstMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.EnumMember,
-                    node.Range, node.SelectionRange);
+                    node.Range, node.SelectionRange, node.EnumValue);
                 break;
 
             case SymbolDescriptorKind.ModuleField:

@@ -61,4 +61,10 @@ public enum ConversionSite
 
     /// <summary>The object expression of a <c>With</c> block, coerced to the default member it denotes when it is a value.</summary>
     WithTarget,
+
+    /// <summary>
+    /// The value of a <c>Const</c> declaration, coerced to the constant's declared type (<strong>MS-VBAL 5.2.3.2</strong>), or of an
+    /// <c>Enum</c> member, coerced to <c>Long</c> (<strong>MS-VBAL 5.2.3.4</strong>).
+    /// </summary>
+    ConstantDeclaration,
 }

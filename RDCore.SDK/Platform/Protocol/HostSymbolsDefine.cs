@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
 using System.Collections.Immutable;
 
@@ -287,6 +288,16 @@ public record class SymbolDescriptor
     /// user-defined-<c>Type</c> fields.
     /// </summary>
     public ImmutableArray<SymbolDescriptor> Members { get; init; } = [];
+
+    /// <summary>
+    /// How an <c>Enum</c> member's value is declared (<strong>MS-VBAL §5.2.3.4</strong>); <c>null</c> unless <see cref="Kind"/> is
+    /// <see cref="SymbolDescriptorKind.EnumMember"/>.
+    /// </summary>
+    /// <remarks>
+    /// Like a constant's (<see cref="ConstantDescriptor.Value"/>), the expression travels rather than a value: the host is where the
+    /// evaluator that reduces it lives.
+    /// </remarks>
+    public EnumMemberValue? EnumValue { get; init; }
 
     /// <summary>
     /// <c>Declare</c>-statement metadata; <c>null</c> unless <see cref="Kind"/> is

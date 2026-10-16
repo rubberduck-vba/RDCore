@@ -17,5 +17,9 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
-public sealed record class VBEnumConstMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange) 
+/// <param name="DeclaredValue">
+/// How a workspace <c>Enum</c> declares the member's value (<strong>MS-VBAL §5.2.3.4</strong>); <c>null</c> for a member of a library's
+/// enumeration, whose value the library states as <see cref="SymbolProperties.EnumValue"/> instead.
+/// </param>
+public sealed record class VBEnumConstMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, SourceRange Range, SourceRange SelectionRange, EnumMemberValue? DeclaredValue = null)
     : VBReturningMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, VBLongType.TypeInfo, Range, SelectionRange, AccessModifier.Implicit) { }

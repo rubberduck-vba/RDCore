@@ -70,6 +70,7 @@ public static class SymbolDescriptorProjector
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, [], moduleKey))],
+            EnumValue = (symbol as VBEnumConstMemberSymbol)?.DeclaredValue,
             External = ExternalOf(symbol),
         };
     }

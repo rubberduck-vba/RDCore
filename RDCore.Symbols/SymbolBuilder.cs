@@ -146,14 +146,24 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             VBUnknownType.TypeInfo, range, range, node.AccessModifier);
     }
 
-    // Enum members parent to the enum symbol, not the module.
+    // Enum members parent to the enum symbol, not the module. MS-VBAL 5.2.3.4: a member without an expression is 1 greater than the one
+    // before it, and the first is 0 - so each carries the nearest expression at or before it and how far it is past that one.
     public IEnumerable<Symbol> BuildEnumMembers(MemberDeclarationNode enumNode, Uri enumUri)
     {
+        ExpressionNode? baseValue = null;
+        var offset = 0;
         foreach (var member in enumNode.Children.OfType<ConstantDeclarationNode>())
         {
+            if (ConstantExpressionOf(member) is { } expression)
+            {
+                baseValue = expression;
+                offset = 0;
+            }
+
             var range = RangeOf(member);
             yield return new VBEnumConstMemberSymbol(
-                workspaceRoot, enumUri, member.Name, memberScope, SymbolKindExt.EnumMember, range, range);
+                workspaceRoot, enumUri, member.Name, memberScope, SymbolKindExt.EnumMember, range, range, new EnumMemberValue(baseValue, offset));
+            offset++;
         }
     }
 

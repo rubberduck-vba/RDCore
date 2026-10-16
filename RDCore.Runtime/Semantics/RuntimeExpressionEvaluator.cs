@@ -276,10 +276,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return Assumed(RuntimeSemanticsEvaluationResult.Success(new VBLongValue(unchecked((int)enumValue))));
         }
 
+        if (symbol is VBEnumConstMemberSymbol { DeclaredValue: { } declaredValue } workspaceMember)
+        {
+            return EnumMemberValueOf(session, workspaceMember, declaredValue);
+        }
+
         // a constant with no value to fold or state has no storage either, so there is nothing below for it to read:
-        // a workspace Enum member, whose value nothing gives its symbol yet, a Const that carries no expression, and
-        // an Enum's own name evaluated as a value. Each is an interpreter gap, not a program error, and GetValue would
-        // throw for want of a binding.
+        // a Const that carries no expression, and an Enum's own name evaluated as a value. Each is an interpreter gap,
+        // not a program error, and GetValue would throw for want of a binding.
         if (symbol is { Kind: SymbolKindExt.Constant or SymbolKindExt.EnumMember or SymbolKindExt.Enum })
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
@@ -673,6 +677,59 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
     }
 
+    // MS-VBAL 5.2.3.2: "the constant binding of a constant ... is the data value of the <constant-expression> Let-coerced to the declared
+    // type of the constant" - which, without an As clause or a type character, is the expression's own, so there is nothing to coerce to.
+    // MS-VBAL 5.2.3.4: an Enum member's expression is "coerced to value type Long". A parameter's default is coerced by its call instead.
+    private static VBType? DeclaredTypeOfConstant(Symbol constant) => constant switch
+    {
+        VBEnumConstMemberSymbol => VBLongType.TypeInfo,
+        VBConstantMemberSymbol { ResolvedType: not VBUnknownType and var declared } => declared,
+        VBLocalConstantSymbol { ResolvedType: not (null or VBUnknownType) and var declared } => declared,
+        _ => null,
+    };
+
+    private RuntimeSemanticsEvaluationResult CoerceConstant(IRuntimeSession session, ExpressionNode value, VBTypedValue folded, VBType declaredType)
+    {
+        if (LetCoercionProvider is null)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var frame = new LetCoercionStackFrame(value.Identity, InputIndex.CoercionSourceValue,
+            folded, new VBTypeDescValue(declaredType), ConversionSite.ConstantDeclaration);
+        var coercion = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, value, frame);
+        if (!coercion.IsApplicable)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        return coercion.IsSuccess
+            ? RuntimeSemanticsEvaluationResult.Success(coercion.Result!)
+            : RuntimeSemanticsEvaluationResult.Error(coercion.ErrorInfo!);
+    }
+
+    // MS-VBAL 5.2.3.4: a member of a workspace Enum is the nearest expression at or before it, as a Long, plus how far past that member it
+    // is - or that distance alone, the first member being 0. The expression is written in the Enum's module, and its names bind from there.
+    private RuntimeSemanticsEvaluationResult EnumMemberValueOf(IRuntimeSession session, VBEnumConstMemberSymbol member, EnumMemberValue declared)
+    {
+        long value = declared.Offset;
+        if (declared.BaseValue is { } expression)
+        {
+            var folded = FoldConstant(session, new RuntimeEvaluationContext(member.ParentUri), member, expression);
+            if (!folded.IsSuccess)
+            {
+                return folded;
+            }
+
+            value += ((VBLongValue)folded.Result!).Value;
+        }
+
+        return value <= int.MaxValue
+            ? Assumed(RuntimeSemanticsEvaluationResult.Success(new VBLongValue((int)value)))
+            : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.Overflow, declared.BaseValue?.Location ?? default,
+                Exceptions.VBRuntimeError_ArithmeticOverflow));
+    }
+
     private RuntimeSemanticsEvaluationResult FoldConstant(IRuntimeSession session, RuntimeEvaluationContext context, Symbol constant, ExpressionNode value)
     {
         var id = constant.SemanticId;
@@ -693,6 +750,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         try
         {
             var result = Evaluate(session, value, context);
+            if (result.IsSuccess && DeclaredTypeOfConstant(constant) is { } declaredType)
+            {
+                result = CoerceConstant(session, value, result.Result!, declaredType);
+            }
+
             if (result.IsSuccess)
             {
                 _foldedConstants[id] = result.Result!;
