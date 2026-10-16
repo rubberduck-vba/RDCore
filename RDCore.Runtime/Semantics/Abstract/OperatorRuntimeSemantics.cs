@@ -217,7 +217,7 @@ where TFlags : struct, Enum
     /// <param name="context">The semantic context of this operation, built by <c>Analyze</c>.</param>
     /// <param name="expression">The expression the operation is evaluated for, whose identity and location are the operation's.</param>
     /// <param name="site">The construct that asks for the operation, which is the site of the conversions of its operands.</param>
-    /// <param name="inputs">The operands.</param>
+    /// <param name="inputs">The operands. The evaluation reads them where they are, and does not copy them: they are not to be changed while it runs.</param>
     /// <remarks>
     /// 👉 An operator expression is its own site (<see cref="ConversionSite.OperatorOperand"/>). A <c>Case</c> comparison or the
     /// increment of a <c>For</c> loop is an operation of the same operators that is not an operator expression of its own in source,
@@ -230,7 +230,7 @@ where TFlags : struct, Enum
         ConversionSite site,
         params VBTypedValue[] inputs)
     {
-        var frame = new OperatorEvaluationFrame(expression.Identity, [.. inputs], VBUnknownType.TypeInfo, session.CurrentStringComparison(), site);
+        var frame = new OperatorEvaluationFrame(expression.Identity, ImmutableCollectionsMarshal.AsImmutableArray(inputs), VBUnknownType.TypeInfo, session.CurrentStringComparison(), site);
         return Evaluate(session.Symbols.Resolver, context, expression, frame);
     }
 

@@ -10,6 +10,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Services.VerboseMessages;
@@ -134,7 +135,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         => token switch
         {
             // an assignment states the conversion of its source, which is a fact of its own: it is not an operation to state.
-            OperatorSymbolNames.BinaryAssignmentValueOp => _letAssignment.EvaluateAtSite(session, new(), expression, ConversionSite.Assignment, left, right),
+            OperatorSymbolNames.BinaryAssignmentValueOp => _letAssignment.EvaluateAtSite(session, Empty<ConversionOperationSemanticContext>.Context, expression, ConversionSite.Assignment, left, right),
             Tokens.AdditionOp => Evaluate(_addition, session, token, expression, site, left, right),
             Tokens.SubtractionOp => Evaluate(_subtraction, session, token, expression, site, left, right),
             Tokens.MultiplicationOp => Evaluate(_multiplication, session, token, expression, site, left, right),
@@ -170,6 +171,12 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
+    // the context an operation is evaluated in when nothing has analyzed it: a context is immutable, and an empty one is the same for every operation.
+    private static class Empty<TContext> where TContext : new()
+    {
+        public static readonly TContext Context = new();
+    }
+
     // the one place an operation is evaluated: what the evaluation says is the operation's, and is stated as it is, once the
     // operation is done, so that what is observed is what ran.
     private RuntimeSemanticsEvaluationResult Evaluate<TContext, TFlags>(
@@ -182,7 +189,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
     {
-        var result = semantics.EvaluateAtSite(session, new TContext(), expression, site, operands);
+        var result = semantics.EvaluateAtSite(session, Empty<TContext>.Context, expression, site, operands);
         if (_observation is { IsSuspended: false } observation)
         {
             // describing the operation evaluates it again, operands and all: those conversions are not the code's.
