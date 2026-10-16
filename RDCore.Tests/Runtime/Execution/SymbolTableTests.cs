@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 
 namespace RDCore.Tests.Runtime.Execution;
@@ -40,6 +41,25 @@ public sealed class SymbolTableTests
 
         Assert.IsEmpty(table.All());
         Assert.IsFalse(table.ScopeTree.TryGetScope(module.Uri, out _));
+    }
+
+    [TestMethod]
+    public void ItsNames_ResolveAgainstTheTableAsItIs_WhenTheNameIsLookedUp()
+    {
+        // the resolver keeps the one it made for the tree, and makes another when a change builds another tree.
+        var table = new SymbolTable();
+        var names = table.Names;
+        var first = Module("Module1");
+        table.TryAdd(first, first.ScopeKind);
+        Assert.AreSame(first, names.ResolveValue("Module1", ScopeKind.Global, first.Uri).Symbol);
+        Assert.IsTrue(names.ResolveValue("Module2", ScopeKind.Global, first.Uri).IsUnbound);
+
+        var second = Module("Module2");
+        table.TryAdd(second, second.ScopeKind);
+
+        Assert.AreSame(second, names.ResolveValue("Module2", ScopeKind.Global, first.Uri).Symbol);
+        table.Remove(first, first.ScopeKind);
+        Assert.IsTrue(names.ResolveValue("Module1", ScopeKind.Global, second.Uri).IsUnbound);
     }
 
     [TestMethod]

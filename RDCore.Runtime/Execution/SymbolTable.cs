@@ -165,29 +165,49 @@ internal sealed class SymbolTable
     };
 
     /// <summary>
-    /// The name-lookup half of a session's resolver: walks a fresh <see cref="ScopeTreeSymbolResolver"/>
-    /// over the table's always-current scope tree. Cheap to rebuild per call —
-    /// <see cref="ScopeTree"/> itself is the memoized, expensive part.
+    /// The name-lookup half of a session's resolver: a <see cref="ScopeTreeSymbolResolver"/> over the table's always-current scope tree.
     /// </summary>
+    /// <remarks>
+    /// A resolver holds nothing but its tree, so the one made for a tree resolves every name looked up in it, until a declaration changes and the table
+    /// builds another tree. The tree and its resolver are kept together, so a thread that reads them while another replaces them reads a pair.
+    /// </remarks>
     private sealed class LiveScopeResolver(SymbolTable owner) : ISymbolResolver
     {
+        private sealed record class TreeResolver(ScopeTree Tree, ScopeTreeSymbolResolver Resolver);
+
+        private TreeResolver? _current;
+
+        private ScopeTreeSymbolResolver Resolver
+        {
+            get
+            {
+                var tree = owner.ScopeTree;
+                if (_current is not { } current || !ReferenceEquals(current.Tree, tree))
+                {
+                    _current = current = new TreeResolver(tree, new ScopeTreeSymbolResolver(tree));
+                }
+
+                return current.Resolver;
+            }
+        }
+
         public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveValue(name, scope, handle);
+            => Resolver.ResolveValue(name, scope, handle);
 
         public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveType(name, scope, handle);
+            => Resolver.ResolveType(name, scope, handle);
 
         public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveQualifier(name, scope, handle);
+            => Resolver.ResolveQualifier(name, scope, handle);
 
         public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveProjectType(project, name);
+            => Resolver.ResolveProjectType(project, name);
 
         public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveConditionalConstant(name, scope, handle);
+            => Resolver.ResolveConditionalConstant(name, scope, handle);
 
         public SymbolResolutionResult ResolveMember(Symbol qualifier, string name, Uri handle)
-            => new ScopeTreeSymbolResolver(owner.ScopeTree).ResolveMember(qualifier, name, handle);
+            => Resolver.ResolveMember(qualifier, name, handle);
 
         public IBindingHandle GetValue(Symbol symbol)
             => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");
