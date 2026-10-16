@@ -1,27 +1,16 @@
-﻿using System.Diagnostics;
+﻿namespace RDCore.SDK.Runtime.Shared;
 
-namespace RDCore.SDK.Runtime.Shared;
-
+/// <summary>
+/// The let-coercions being evaluated, innermost first: a coercion that would push a frame already on the stack is recursive.
+/// </summary>
+/// <remarks>
+/// The stack is seldom more than a frame or two deep, and empty when most coercions begin, so it is searched rather than hashed: hashing a frame hashes
+/// the value it coerces, which boxes it, three times for every coercion. A frame is only pushed when it is not on the stack already, so no two frames on
+/// it are equal.
+/// </remarks>
 public sealed class LetCoercionStackManager : StackManager<LetCoercionStackFrame>
 {
-    private readonly HashSet<LetCoercionStackFrame> _frameHash = [];
+    protected sealed override bool OnBeforeTryPush(LetCoercionStackFrame frame) => !Contains(frame);
 
-    protected sealed override void OnStackCleared() => _frameHash.Clear();
-    
-    protected sealed override bool OnBeforeTryPush(LetCoercionStackFrame frame) => !_frameHash.Contains(frame);
-    protected sealed override void OnPushed(LetCoercionStackFrame frame)
-    {
-        _frameHash.Add(frame);
-        Debug.Assert(_frameHash.Count == Depth);
-    }
-
-    protected sealed override bool OnBeforeTryPop() => _frameHash.Count > 0;
-
-    protected sealed override void OnFramePopped(LetCoercionStackFrame frame)
-    {
-        Debug.Assert(_frameHash.Contains(frame));
-        _frameHash.Remove(frame);
-
-        Debug.Assert(_frameHash.Count == Depth);
-    }
+    protected sealed override bool OnBeforeTryPop() => Depth > 0;
 }

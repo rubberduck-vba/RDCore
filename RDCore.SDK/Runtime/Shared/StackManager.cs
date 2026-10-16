@@ -23,6 +23,11 @@ public abstract class StackManager<TFrame>
     public IReadOnlyCollection<TFrame> Frames => _frameStack;
 
     /// <summary>
+    /// Whether a frame equal to <paramref name="frame"/> is on the managed stack.
+    /// </summary>
+    protected bool Contains(TFrame frame) => _frameStack.Contains(frame);
+
+    /// <summary>
     /// Clears the managed stack.
     /// </summary>
     public void Clear()
