@@ -65,7 +65,6 @@ public sealed class DeclareRecordTests
 
     // the classic: a fixed-length String is 128 ANSI bytes in the copy, so the size the function is told is Len of the type, 148 - as the A flavour expects.
     [TestMethod]
-    [Ignore("String * n is dropped when the syntax tree is built: a fixed-length string is declared as a variable-length one")]
     public async Task AFixedLengthStringField_IsItsAnsiBytesInline_AsTheAnsiFlavourOfAFunctionExpects()
         => CollectionAssert.AreEqual(new[] { "148", "True", "2", "True" }, await Run(
             string.Join("\r\n",

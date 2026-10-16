@@ -118,22 +118,18 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf(string.Empty, string.Empty, expression, typeName, varType);
 
     [TestMethod]
-    [Ignore("Not of a Boolean evaluates to an Integer: the Not operator's effective type for a Boolean operand is wrong (MS-VBAL 5.6.9.8.1 keeps it Boolean).")]
     public Task OfNotTrue_IsABoolean()
         => AssertTypeOf(string.Empty, string.Empty, "Not True", "Boolean", "11");
 
     [TestMethod]
-    [Ignore("Date - Date evaluates to a Date: the subtraction operator's effective type for two Date operands is wrong (MS-VBAL 5.6.9.3.3 makes it a Double).")]
     public Task OfADateLessADate_IsADouble()
         => AssertTypeOf(string.Empty, string.Empty, "#1/2/2000# - #1/1/2000#", "Double", "5");
 
     [TestMethod]
-    [Ignore("Null + 1 does not load: the static semantics of + reject a Null literal operand (MS-VBAL 5.6.9.3 gives it the declared type Variant).")]
     public Task OfNullPlusOne_IsNull()
         => AssertTypeOf(string.Empty, string.Empty, "Null + 1", "Null", "1");
 
     [TestMethod]
-    [Ignore("Empty + 1 does not load: the static semantics of + reject an Empty literal operand (MS-VBAL 5.6.9.3 gives it the declared type Variant).")]
     [DataRow("Empty + 1", "Integer", "2")]
     [DataRow("Empty + Empty", "Integer", "2")]
     [DataRow("Empty + 1.5", "Double", "5")]
@@ -164,7 +160,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf(string.Empty, string.Empty, expression, typeName, varType);
 
     [TestMethod]
-    [Ignore("vbNullString and vbCrLf are not defined: the standard library's Constants module has no symbols yet.")]
     [DataRow("vbNullString", "String", "8")]
     [DataRow("vbCrLf", "String", "8")]
     public Task OfALibraryConstant(string expression, string typeName, string varType)
