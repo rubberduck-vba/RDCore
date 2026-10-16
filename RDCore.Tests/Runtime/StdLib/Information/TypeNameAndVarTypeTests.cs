@@ -336,7 +336,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf("Private v As Variant", "ReDim v(1) As Long", "v", "Long()", "8195");
 
     [TestMethod]
-    [Ignore("Split is not implemented in the standard library's Strings module.")]
     public Task OfSplit_IsAStringArray()
         => AssertTypeOf(string.Empty, string.Empty, "Split(\"a,b\", \",\")", "String()", "8200");
 

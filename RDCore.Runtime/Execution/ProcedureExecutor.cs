@@ -707,7 +707,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var counterResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var counterResult = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         if (counterResult.Symbol is not { } counterSymbol)
         {
             return RuntimeExecutionOutcome.InternalError;
@@ -832,7 +832,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var controlResult = session.Symbols.Resolver.ResolveValue(simpleName.IdentifierName, ScopeKind.Local, context.Scope);
+        var controlResult = session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope);
         if (controlResult.Symbol is not ITypedSymbol control)
         {
             return RuntimeExecutionOutcome.InternalError;

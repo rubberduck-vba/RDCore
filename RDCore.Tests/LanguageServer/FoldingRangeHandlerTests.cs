@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -116,5 +117,31 @@ public sealed class FoldingRangeHandlerTests
 
         Assert.IsNotNull(ranges);
         Assert.IsNotEmpty(ranges);
+    }
+
+    [TestMethod]
+    public async Task ACallWithADollarTypeHint_FoldsTheSameRegions()
+    {
+        // a name's type-declaration character rides on its node, which reaches the language server as the parse server's
+        // JSON: a document calling Hex$ still parses cleanly, reads back, and folds as the same document calling Hex.
+        var typed = await FoldsOfAsync("    Debug.Print Hex$(255)", "    Hex$ 255");
+        var untyped = await FoldsOfAsync("    Debug.Print Hex(255)", "    Hex 255");
+
+        Assert.IsNotEmpty(typed);
+        CollectionAssert.AreEqual(untyped, typed);
+    }
+
+    // the folds of a one-procedure module with the body given, after the parse has been through the wire format.
+    private async Task<string[]> FoldsOfAsync(params string[] body)
+    {
+        var parsed = PlatformJsonEnvelope.Of(Parse(["Attribute VB_Name = \"Mod1\"", "Public Sub Alpha()", .. body, "End Sub"]))
+            .Unwrap<ModuleParseResult>();
+        Assert.IsTrue(parsed.IsSuccess, string.Join("; ", parsed.SyntaxErrors.Select(error => error.Verbose)));
+        WorkspaceContains(Document);
+        _parsing.ParseDocumentAsync(DocUri, Arg.Any<CancellationToken>()).Returns(parsed);
+
+        var ranges = await Sut().Handle(Request(), CancellationToken.None);
+
+        return [.. ranges!.Select(range => $"{range.StartLine}:{range.StartCharacter}-{range.EndLine}:{range.EndCharacter} {range.Kind}")];
     }
 }

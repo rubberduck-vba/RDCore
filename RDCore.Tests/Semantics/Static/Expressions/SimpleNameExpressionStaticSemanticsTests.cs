@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Semantics.Static.Expressions;
 
@@ -45,6 +46,12 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
     private static SimpleNameExpressionNode NameOf(string identifier)
         => new(new(TestUri.TestModuleUri().AbsolutePath, [42]), TestLocations.TestLocation, identifier);
+
+    private static SimpleNameExpressionNode TypedNameOf(string identifier, string typeHint)
+        => new(new(TestUri.TestModuleUri().AbsolutePath, [42]), TestLocations.TestLocation, identifier, typeHint);
+
+    // the standard library's declarations as a session is given them: promoted to the project scope the way a workspace module's members are, and ranked below them.
+    private static IReadOnlyList<Symbol> Library() => [.. new StdLibSymbolProvider(Root).ProvideSymbols()];
 
     private static StaticEvaluationContext ContextAt(Uri scopeUri, params Symbol[] symbols)
     {
@@ -198,6 +205,142 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.AmbiguousName, result.ErrorInfo!.VBCompileErrorId);
+    }
+
+    [TestMethod]
+    [DataRow("Left")]
+    [DataRow("Hex")]
+    public void ATypedName_ResolvesToTheStringTwin_ReturnsString(string name)
+    {
+        // the library declares its $ functions as members of their own, named with the character, each returning a
+        // String where its twin returns a Variant.
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [module, procedure, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf(name, "$"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        Assert.AreEqual(VBStringType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    [DataRow("Left")]
+    [DataRow("Hex")]
+    public void AnUntypedName_ResolvesToTheVariantMember_ReturnsVariant(string name)
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [module, procedure, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, NameOf(name));
+
+        Assert.AreEqual(VBVariantType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void ATypedNameWithoutATwin_MatchesTheNameItself()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [module, procedure, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Len", "$"));
+
+        // MS-VBAL 5.6.10: "If <name> specifies a type character, and this type character's associated type does not match
+        // the declared type of the match, the simple name expression is invalid" - the match is Len, which returns a Variant.
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.Contains("'Len' is declared as Variant", result.ErrorInfo.Verbose);
+    }
+
+    [TestMethod]
+    public void ATypedVariableName_ResolvesTheVariable()
+    {
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "s") with { ResolvedType = VBStringType.TypeInfo };
+        var context = ContextAt(procedure.Uri, [module, procedure, local, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("s", "$"));
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        Assert.AreEqual(VBStringType.TypeInfo, result.Result);
+    }
+
+    [TestMethod]
+    public void ATypedUnresolvedName_UnderOptionExplicit_IsAVariableNotDefinedError()
+    {
+        var module = Module("Mod1", explicitOption: true);
+        var context = ContextAt(module.Uri, [module, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Nope", "$"));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.VariableNotDefined, result.ErrorInfo!.VBCompileErrorId);
+        Assert.Contains("Nope$", result.ErrorInfo.Verbose, "the diagnostic quotes the name as it was written");
+    }
+
+    [TestMethod]
+    public void ATypedNameSharingALocalsName_MatchesTheLocal()
+    {
+        // MS-VBAL 5.6.10 picks "the first tier where the name value of <name> matches", and the character is not part of
+        // the name value: a local named Left is what Left$ means in its procedure, as it is what Left means. Only a name
+        // that binds the library's member, or nothing, finds the library's twin instead. The character is then judged
+        // against the local's Long, which it does not match - so it is the local that was matched, not the library's Left$.
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var local = Local(procedure.Uri, "Left") with { ResolvedType = VBLongType.TypeInfo };
+        var context = ContextAt(procedure.Uri, [module, procedure, local, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Left", "$"));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
+    }
+
+    [TestMethod]
+    public void ATypedNameSharingAPublicNameOfAnotherModule_MatchesThatName()
+    {
+        // the workspace's own names outrank the library's at the project tier, so a public Left in another module is what
+        // Left means - and Left$, which binds through the same tiers, with it: the character is judged against its Long.
+        var other = Module("Other");
+        var otherLeft = Function(other.Uri, "Left", VBLongType.TypeInfo) with { AccessModifier = AccessModifier.Public };
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [other, otherLeft, module, procedure, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Left", "$"));
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
+    }
+
+    [TestMethod]
+    public void ATypedNameSharingAReferencedLibrarysName_MatchesThatName()
+    {
+        // a member of a referenced library carries the key and the library name its reader stamps, and a library referenced
+        // after VBA outranks it: that Left is what Left means, and so what Left$ means. The standard library's Left$ stands in
+        // for the standard library's own Left only, so the character is judged against the referenced library's Long. No
+        // referenced library declares a member by its bare name yet (a class's members are an object's); one whose module
+        // does is built here as its reader would stamp it.
+        const string widgets = "Widgets";
+        var gadgets = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Gadgets")
+            .With(SymbolProperties.Library, widgets).With(SymbolProperties.LibraryPriority, 1);
+        var widgetsLeft = (Function(gadgets.Uri, "Left", VBLongType.TypeInfo) with { AccessModifier = AccessModifier.Public })
+            .With(SymbolProperties.Library, widgets).With(SymbolProperties.LibraryPriority, 1)
+            .With(SymbolProperties.ExternalTarget, "Widgets.Gadgets.Left/method");
+        var module = Module("Mod1");
+        var procedure = Procedure(module.Uri, "DoWork");
+        var context = ContextAt(procedure.Uri, [gadgets, widgetsLeft, module, procedure, .. Library()]);
+
+        var result = SimpleNameExpressionStaticSemantics.Instance.DetermineDeclaredType(context, TypedNameOf("Left", "$"));
+
+        Assert.IsTrue(result.IsError, "the standard library's Left$ stood in for another library's Left");
+        Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
     }
 
     [TestMethod]

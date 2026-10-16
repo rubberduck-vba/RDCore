@@ -1,8 +1,10 @@
 using RDCore.External;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -45,8 +47,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// list somebody can read. An interface absent from it is a module nothing implements yet, and every
     /// member of it says so when called.
     /// <para>
-    /// 🚧 TODO as each module lands: <c>Math</c>,
-    /// <c>RegExp</c>, and the constant modules.
+    /// 🚧 TODO as each module lands: <c>Math</c> and <c>RegExp</c>. A constant module needs no implementation: its
+    /// constants are substituted where they are used, never called.
     /// </para>
     /// </remarks>
     /// <param name="session">The session the implementations read their state from.</param>
@@ -64,7 +66,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         {
             [typeof(IStdInformationModule)] = new StdInformation(session),
             [typeof(IStdFileSystemModule)] = new StdFileSystem(session),
-            [typeof(IStdStringsModule)] = new StdStrings(),
+            [typeof(IStdStringsModule)] = new StdStrings(session),
             [typeof(IStdFinancialModule)] = new StdFinancial(),
             [typeof(IStdDateTimeModule)] = new StdDateTime(session),
             [typeof(IStdErrClass)] = new ErrObject(session),
@@ -173,15 +175,19 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         // a member of a class is called on an object, which arrives as the implicit Me at parameter 0. The
         // library's classes keep no state in the receiver - the error object is a view of the session's - so the
         // implementation is written without it, and it is the arguments after it that marshal.
-        var supplied = HasReceiver(request.Member) ? request.Arguments[1..] : request.Arguments;
+        var hasReceiver = HasReceiver(request.Member);
+        var supplied = hasReceiver ? request.Arguments[1..] : request.Arguments;
+        var symbols = RuntimeProcedureInvoker.GetParameters(request.Member);
+        symbols = hasReceiver ? symbols.RemoveAt(0) : symbols;
 
-        // an argument the caller did not supply is an omitted Optional: the implementation's own default
-        // stands in, which for a VBTypedValue parameter is null - the "Missing" its signature declares. The
-        // interpreter itself never leaves one out: it fills an omitted Optional with the parameter's default
-        // value - Missing for a Variant, and a typed one's own type's default, such as False, never null. A Missing
-        // argument is an omitted one, as it is to any COM member, whether the call left it out or passed on a
-        // parameter that was itself omitted; so it is marshalled as null too, and an implementation reads null and
-        // Empty alike as omitted, and cannot tell a typed one from its default.
+        // a call from source never leaves an argument out: the interpreter fills an omitted Optional with what
+        // an omitted argument gives it (RuntimeExpressionEvaluator.OmittedArgument) - its declared default, Missing
+        // for a Variant that declares none, a typed one's own type's default, never null. A direct caller can stop
+        // short, and what it left out is filled from the symbol (TryOmit). A Missing argument is an omitted one, as
+        // it is to any COM member, whether the call left it out or passed on a parameter that was itself omitted; so
+        // it is filled the same way, which for a VBTypedValue parameter that states no default is null - the
+        // "Missing" its signature declares. An explicit Empty is passed as it is: whether it is omitted is the
+        // implementation's to say.
         if (supplied.Length > parameters.Length)
         {
             return false;
@@ -190,9 +196,13 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         for (var index = 0; index < parameters.Length; index++)
         {
             var parameter = parameters[index];
-            if (index >= supplied.Length || parameter.IsOptional && TypedValue(supplied[index]) is VBMissingValue)
+            if (index >= supplied.Length || (parameter.IsOptional && TypedValue(supplied[index]) is VBMissingValue))
             {
-                arguments[index] = parameter.HasDefaultValue ? parameter.DefaultValue : null;
+                if (!TryOmit(parameter, index < symbols.Length ? symbols[index] : null, out arguments[index]))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
@@ -202,6 +212,35 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             }
         }
 
+        return true;
+    }
+
+    // what a direct caller left out or passed as Missing, filled the way the interpreter fills it, short of what only the interpreter can reduce. A ParamArray is
+    // the empty array a call that passes it nothing collects (MS-VBAL 5.3.1.11's bounds 0 to -1). A required parameter is refused, as a call
+    // from source that omits it is (error 5 here, where a call from source is 449 before it gets this far), and the member is not
+    // called. An optional one takes the default its symbol states as a literal - an enumeration constant, or a StdLibDefaultAttribute's
+    // value, so that Split told nothing is told Limit -1, as it would be from source - and otherwise the implementation's own default:
+    // null, the "Missing" its signature declares.
+    private static bool TryOmit(ParameterInfo parameter, VBParameterSymbol? symbol, out object? omitted)
+    {
+        omitted = null;
+        if (parameter.GetCustomAttribute<ParamArrayAttribute>() is not null)
+        {
+            omitted = System.Array.CreateInstance(parameter.ParameterType.GetElementType()!, 0);
+            return true;
+        }
+
+        if (!parameter.IsOptional)
+        {
+            return false;
+        }
+
+        if (parameter.DefaultValue is null && symbol?.DefaultValue is LiteralExpressionNode { StaticValue: { } stated })
+        {
+            return TryMarshal(stated.RuntimeValue, parameter.ParameterType, out omitted);
+        }
+
+        omitted = parameter.HasDefaultValue ? parameter.DefaultValue : null;
         return true;
     }
 

@@ -25,6 +25,8 @@ The following standard-library topics are described with their module or class:
 |🧩 `ErrObject.StackTrace`|[**RD-VBAL §6.1.3.2.2.7** StackTrace](rd-vbal.6.1.3.2.err-class.md#613227-stacktrace)|
 |🧩 `Information.Erl`|[**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)|
 |`Strings.Len` / `Strings.LenB`|[**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)|
+|The `$` functions of the `Strings` module, and how a name written with a type-declaration character binds one|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#string-returning-twins)|
+|An omitted `Compare`, which is the calling module's `Option Compare`|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)|
 |The VBScript RegExp 5.5 class modules|[**RD-VBAL §6.2** VBScript Regular Expressions](rd-vbal.6.2.vbscript-regexp.md)|
 
 
@@ -44,6 +46,9 @@ An argument of a standard-library call reaches the member as follows:
    ([VBRuntimeVariantValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html)), not from its
    `BoxedValue`. A `Variant`'s own `BoxedValue` unwraps all the way to the managed value
    ([**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)).
+
+An argument the call leaves out is filled in before the member is reached, from the member's declaration
+([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#standard-library-calls)).
 
 The declared type of an argument survives external dispatch, because each intrinsic type stores its own exact
 managed type: a `short` for `Integer` and an `int` for `Long`
@@ -87,6 +92,8 @@ An attribute states what a declaration's signature cannot express, and is used o
 |[StdLibConstantAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibConstantAttribute.html)|The name of a constant, a member of an enum or of a module ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)), that no naming convention recovers.|
 |[StdLibMemberAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberAttribute.html)|Any of: a member name no naming convention recovers (for example `Hex` beside `Hex$`); an accessor kind ([StdLibMemberKind](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberKind.html)); a return type that is a _class_ or an _enum_ rather than an intrinsic type; whether the member is hidden; a `VB_UserMemId` (`0` for the default member of a class, `-4` for its enumeration member), which is what a workspace class says with `Attribute Item.VB_UserMemId = 0`.|
 |[StdLibArrayAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibArrayAttribute.html)|The element type of an array parameter (`ValueArray() As Double`), which `VBResizableArrayValue` alone reads as `Variant()`. It is refused on anything but a required `ByVal` array parameter.|
+|[StdLibDefaultAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibDefaultAttribute.html)|The default of a typed optional parameter (`Optional Limit As Long = -1`), which C# cannot state: a `VBLongValue? = default` parameter states no default at all. It is read into a literal of the parameter's declared type, and refused on a required parameter, a `ParamArray`, an enum (whose C# default states it already), a `Variant`, and a value of the wrong type or out of its type's range.|
+|[StdLibOptionCompareAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibOptionCompareAttribute.html)|A `Compare` parameter that, left out, is the calling module's `Option Compare` rather than its declared default ([**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)). It is refused on anything but an optional `ByVal` `VbCompareMethod` parameter.|
 
 ### Naming Conventions
 

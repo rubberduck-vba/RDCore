@@ -105,8 +105,12 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
         // IProcedureInvoker.Invoke itself has no default-argument filling - the call site is expected to
         // supply a full, parameters.Length-sized array (RuntimeExpressionEvaluator.InvokeProcedure's own
-        // MapArguments already does exactly this before calling Invoke).
-        var arguments = ObjectDefaultMember.ArgumentsOf(defaultMember, value, DefaultValueOf);
+        // MapArguments already does exactly this before calling Invoke). An omitted argument whose default
+        // cannot be its parameter's value is the error a call that omits it raises, and the member is not called.
+        if (ObjectDefaultMember.ArgumentsOf(defaultMember, value, parameter => OmittedArgumentOf(session, parameter), out var arguments) is { } omittedError)
+        {
+            return LetCoercionResult.Error(omittedError.ErrorInfo!);
+        }
 
         // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
         var invocation = Bindings is { } bindings
@@ -117,25 +121,16 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             : LetCoercionResult.Error(invocation.ErrorInfo!);
     }
 
-    // MS-VBAL 5.3.1.5: a parameter's <default-value> is a constant expression, reduced by the same fold
-    // a Const's own is. A default that cannot be reduced - nothing composed to reduce it with, or an
-    // expression the fold could not evaluate - falls back to the declared type's default, which is what
-    // every optional parameter got before declared defaults travelled at all.
-    private VBTypedValue DefaultValueOf(VBParameterSymbol parameter)
-    {
-        if (parameter.DefaultValue is { } declared && Expressions is { } expressions && Session is { } session)
-        {
-            var folded = expressions.Fold(session, parameter, declared);
-            if (folded is not null)
-            {
-                return folded;
-            }
-        }
-
-        return parameter.DefaultValue is null
-            ? RuntimeProcedureInvoker.OmittedArgumentValue(parameter)
-            : parameter.ResolvedType.DefaultValue;
-    }
+    // MS-VBAL 5.3.1.11: an omitted argument takes what it takes on any call - its default, reduced and Let-coerced to the
+    // parameter's type unless it is Nothing - which is the evaluator's to say (RuntimeExpressionEvaluator.OmittedArgument).
+    // With nothing composed to reduce it with, a declared default falls back to the declared type's, which is what every
+    // optional parameter got before declared defaults travelled at all.
+    private RuntimeSemanticsEvaluationResult OmittedArgumentOf(IRuntimeSession session, VBParameterSymbol parameter)
+        => Expressions is { } expressions
+            ? expressions.OmittedArgument(session, parameter)
+            : RuntimeSemanticsEvaluationResult.Success(parameter.DefaultValue is null
+                ? RuntimeProcedureInvoker.OmittedArgumentValue(parameter)
+                : parameter.ResolvedType.DefaultValue);
 
     /// <summary>
     /// 💥 Creates and returns a new <see cref="RuntimeSemanticsEvaluationResult"/> with a <see cref="VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet"/> error.

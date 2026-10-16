@@ -117,6 +117,17 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<string> ExternalTarget = new(nameof(ExternalTarget));
     /// <summary>
+    /// Whether an optional <c>Compare</c> parameter that a call omits takes the <c>Option Compare</c> of the calling module rather than
+    /// its declared default (<strong>MS-VBAL §6.1.2.11</strong>: "if omitted, it uses the &lt;option-compare-directive&gt; of the calling
+    /// module").
+    /// </summary>
+    /// <remarks>
+    /// Set by whatever contributed the symbol - the standard library's reader, off <c>StdLibOptionCompareAttribute</c> - because a
+    /// declaration's <c>= vbBinaryCompare</c> says nothing of it. Absent on every parameter a workspace declares: a workspace procedure's
+    /// omitted argument takes its declared default.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> DefaultsToOptionCompare = new(nameof(DefaultsToOptionCompare));
+    /// <summary>
     /// The value of a member of an enumeration that something other than the workspace's source declares: the library that stated it, or the standard library.
     /// </summary>
     /// <remarks>

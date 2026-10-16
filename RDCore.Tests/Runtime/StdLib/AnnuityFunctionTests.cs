@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.Tests.Cli;
 using System.Globalization;
 
 namespace RDCore.Tests.Runtime.StdLib;
@@ -353,6 +354,22 @@ public sealed class AnnuityFunctionTests
         => Assert.AreEqual(0.1, ValueOf(Financial.Rate(new(2), new(210), new(-100), Variant(-320))), IteratedAccuracy);
 
     [TestMethod]
+    public void Rate_WithAMissingGuess_StartsFromTenPercent()
+        // Missing is an omitted argument, whoever passes it on.
+        => Assert.AreEqual(0.1, ValueOf(Financial.Rate(new(2), new(210), new(-100), Variant(-320), Variant(0), new(VBMissingValue.Missing))), IteratedAccuracy);
+
+    [TestMethod]
+    public void Rate_WithAnExplicitEmptyGuess_StartsFromZero()
+        // Empty is not an omitted argument but a value, which as a number is 0 (MS-VBAL 5.5.1.2.11): a guess of 0,
+        // which finds the annuity's other root.
+        => Assert.AreEqual(0, ValueOf(Financial.Rate(new(2), new(210), new(-100), Variant(-320), Variant(0), new(VBEmptyValue.Empty))), IteratedAccuracy);
+
+    [TestMethod]
+    public void Pmt_WithAnExplicitEmptyFutureValueAndDue_IsTheSameAsLeavingThemOut()
+        // Empty is 0, and 0 is what an omitted FV or Due is assumed to be.
+        => AreClose(202.90066747797752, Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(VBEmptyValue.Empty), new(VBEmptyValue.Empty)));
+
+    [TestMethod]
     [DataRow(48, -200, 8000, 0, -0.8, 0.007701472488202044)]
     [DataRow(360, -1073.64, 200000, 0, 1.02, 0.004166644536345542)]
     [DataRow(360, -1073.64, 200000, 0, 1.91, 0.004166644536345542)]
@@ -414,7 +431,7 @@ public sealed class AnnuityFunctionTests
     [TestMethod]
     public void Pmt_FromSource_TakesIntegerArgumentsAndOmittedOptionals()
         // 48 and -8000 are Integer literals, Let-coerced to the Double parameters at the call site; FV and Due are
-        // left out, and arrive as the Empty an omitted Variant is.
+        // left out, and arrive as the null an omitted argument is.
         => IsPrinted(202.90066747797752, Run("Debug.Print Pmt(0.1 / 12, 48, -8000)"));
 
     [TestMethod]
@@ -427,8 +444,33 @@ public sealed class AnnuityFunctionTests
 
     [TestMethod]
     public void Rate_FromSource_StartsFromTheDefaultGuess()
-        // the omitted guess arrives as Empty, and read as a number it would be 0 - which finds the other root, 0.
+        // the omitted guess arrives as null, and the default stands in for it - where a guess of 0 finds the other
+        // root, 0.
         => Assert.AreEqual(0.1, PrintedNumber(Run("Debug.Print Rate(2, 210, -100, -320)")), IteratedAccuracy);
+
+    [TestMethod]
+    public void Rate_FromSource_WithAnExplicitEmptyGuess_StartsFromZero()
+        => Assert.AreEqual(0, PrintedNumber(Run("Debug.Print Rate(2, 210, -100, -320, , Empty)")), IteratedAccuracy);
+
+    [TestMethod]
+    public async Task Rate_FromSource_OfAGuessPassedOn_TellsAnOmittedOneFromAnExplicitEmpty()
+    {
+        // an omitted Optional Variant is Missing, and passed on it is still an omitted argument; an explicit Empty
+        // passed on through the same parameter is a guess of 0.
+        var printed = await ModuleWorkspace.RunAsync([], ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Private Function RateFrom(Optional guess As Variant) As Double",
+            "    RateFrom = Rate(2, 210, -100, -320, , guess)",
+            "End Function",
+            "Public Sub Main()",
+            "    Debug.Print RateFrom()",
+            "    Debug.Print RateFrom(Empty)",
+            "End Sub"));
+
+        Assert.HasCount(2, printed, string.Join(" | ", printed));
+        Assert.AreEqual(0.1, double.Parse(printed[0], CultureInfo.InvariantCulture), IteratedAccuracy);
+        Assert.AreEqual(0, double.Parse(printed[1], CultureInfo.InvariantCulture), IteratedAccuracy);
+    }
 
     [TestMethod]
     [DataRow("Debug.Print Pmt(0.05, 0, 1000)")]

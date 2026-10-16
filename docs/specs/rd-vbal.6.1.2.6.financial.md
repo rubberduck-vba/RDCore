@@ -51,10 +51,13 @@ Every optional argument of the module is declared `Variant` with no default. The
 omitted one stands for in its description instead: `0` for a present value and for `Due`, `0.1` for a `Guess`, `2` for
 a `Factor`, and `0` for a future value.
 
-The interpreter fills an omitted optional with its declared type's default value, which for a `Variant` is `Empty`, so
-`Empty` is what means omitted ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument
-Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)). An explicit `Empty` therefore takes the
-default too, where MS-VBA would coerce it to `0`: nothing can tell the two apart until _Missing_ is modelled.
+The interpreter fills an omitted `Variant` optional with Missing, and the module is given that, and a caller's own
+Missing passed on, as left out ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument
+Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#standard-library-calls)). An explicit `Empty`
+is not left out: it is `0`, as `Empty` Let-coerced to a `Double` is
+([**RD-VBAL §5.5.1.2.11**](rd-vbal.5.5.1.2.runtime-semantics.md#551211-let-coercion-from-empty)). That changes a
+result only where the default is not `0`: an explicit `Empty` `Guess` to `Rate` or `IRR` is a guess of `0`, and an
+explicit `Empty` `Factor` to `DDB` is a factor of `0`, which is error `5`.
 
 > [!NOTE]
 > **Not implemented.** A `String` optional argument is not coerced, even one that reads as a number: it is error `13`.

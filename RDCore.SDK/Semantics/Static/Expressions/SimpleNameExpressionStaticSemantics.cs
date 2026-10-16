@@ -13,7 +13,9 @@ namespace RDCore.SDK.Semantics.Static.Expressions;
 /// <summary>
 /// MS-VBAL 5.6.10 Simple Name Expressions (static semantics).
 /// The declared type of a <em>simple name expression</em> is the declared type of the entity its
-/// identifier resolves to (<strong>RD-VBAL §2.3.1.2</strong> for the resolution order itself).
+/// identifier resolves to (<strong>RD-VBAL §2.3.1.2</strong> for the resolution order itself). A name written with a
+/// <em>type-declaration character</em> (<c>Left$</c>) binds as <see cref="SymbolResolverNameExtensions.ResolveValue"/>
+/// describes.
 /// </summary>
 public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantics
 {

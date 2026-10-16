@@ -34,6 +34,10 @@ public sealed record class SimpleNameExpressionNode(SyntaxNodeId Identity, Sourc
     /// A name written with a type-declaration character is looked for as written first, because a member of the library can be named with one (<c>Left$</c>,
     /// <c>Environ$</c>), and is a different member from the one without it. Failing that it is the declaration of that name, which a variable declared
     /// <c>Dim n%</c> is: its symbol is <c>n</c>, and <c>%</c> is how its type was said.
+    /// <para>
+    /// 👉 This is the order a member after a dot is looked for in. A simple name is matched by its identifier first, through the tiers, and is looked for as
+    /// written only when the identifier binds a member of the library or nothing (<see cref="RDCore.SDK.Runtime.Abstract.Execution.SymbolResolverNameExtensions.ResolveValue"/>).
+    /// </para>
     /// </remarks>
     public IEnumerable<string> LookupNames
     {

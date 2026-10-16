@@ -895,11 +895,11 @@ public sealed class StdFinancial : IStdFinancialModule
     // past e^700 the 1 is lost in the rounding anyway, and e^x itself would soon overflow.
     private static double LogMagnitudeOfExpM1(double x) => x > 700 ? x : Math.Log(Math.Abs(ExpM1(x)));
 
-    // an omitted Optional arrives as Empty - the interpreter fills it with a Variant's default value - or as
-    // null from a caller that leaves it out altogether, and both stand for the value the specification says an
-    // omitted one is. So does an explicit Empty, where VBA would coerce it to 0: nothing can tell the two apart
-    // until the interpreter passes Missing for an omitted optional. Anything else is coerced to a Double the way
-    // a Let-coercion would, except a String.
+    // an omitted Optional arrives as null - the dispatcher passes null for an argument the call left out, and for
+    // a Missing one, such as an omitted Optional Variant passed on - and stands for the value the specification
+    // says an omitted one is. An explicit Empty is not an omitted argument but a value: it is 0, as it would be
+    // Let-coerced to a Double parameter. Anything else is coerced to a Double the way a Let-coercion would, except
+    // a String.
     // 🚧 TODO: a String is error 13 here, where the call site Let-coerces a String argument to a required Double
     // parameter: parsing one takes the session's regional settings, and this module does not take the session.
     private static bool TryReadOptional(
@@ -911,7 +911,12 @@ public sealed class StdFinancial : IStdFinancialModule
 
         switch (Unwrapped(argument))
         {
-            case null or VBEmptyValue or VBMissingValue:
+            case null or VBMissingValue:
+                return true;
+            case VBEmptyValue:
+                // MS-VBAL 5.5.1.2.11: Empty Let-coerced to a numeric type is 0 - so an explicit Empty Guess is a
+                // guess of 0, and an explicit Empty Factor is one DDB cannot depreciate by.
+                number = 0;
                 return true;
             case VBNumericTypedValue numeric:
                 number = numeric.AsDouble;

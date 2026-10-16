@@ -40,7 +40,8 @@ statement, since **MS-VBAL §5.4.3.8** admits it: it assigns the value to an obj
 has the statement raise error `450` when it runs for a `Variant` (`Left = "x"`, `Array = 5`). A function of the workspace
 assigned inside its own body is its result, and is not refused; nor is a property, nor a variable named like a member of
 the library. A name written with a type-declaration character is what its identifier names (**MS-VBAL §5.6.10**):
-after `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused.
+after `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused, and assigns the variable or the result
+when it runs.
 
 > [!NOTE]
 > **Not implemented.** A function of the library whose declared type is `Variant`, let-assigned to (`Left = "x"`), does
@@ -55,12 +56,6 @@ after `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused.
 > **Not implemented.** A function of the workspace or a `Declare`d function assigned from outside its own body
 > (`F = 6` in another procedure) is not refused, though **MS-VBAL §5.4.3.8** makes the statement invalid when its
 > declared type is not a class, `Object` or `Variant`. It does not run: it fails in the host rather than raising a
-> run-time error.
-
-> [!NOTE]
-> **Not implemented.** When it runs, a name written with a type-declaration character still finds the library's
-> member named with that character before what its identifier names (see [`VBC09335`](../diagnostics/vbc09335.md)):
-> after `Dim Left$`, `Left$ = "x"` assigns to the library's `Left$`, and fails in the host rather than raising a
 > run-time error.
 
 ## Runtime Semantics

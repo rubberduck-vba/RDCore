@@ -609,6 +609,47 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.AreEqual("Counter", Single<VBLocalVariableSymbol>(symbols).Name);
     }
 
+    [TestMethod]
+    public void ATypedUndeclaredName_ImplicitlyDeclaresTheBareName()
+    {
+        // the character is not part of the name (MS-VBAL 5.6.10 matches the name value without it), so s$ and s are one
+        // variable, named s.
+        var symbols = Provide("""
+            Public Sub Foo()
+                s$ = "x"
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        var implicitLocal = Single<VBLocalVariableSymbol>(symbols);
+        Assert.AreEqual("s", implicitLocal.Name);
+        Assert.AreEqual(LocalDeclarationKind.Implicit, implicitLocal.DeclaredBy);
+        // 5.6.10 declares it "consisting of the text of <name>", which includes the character: a String.
+        Assert.AreEqual(VBStringType.TypeInfo, implicitLocal.ResolvedType);
+    }
+
+    [TestMethod]
+    public void ATypedNameThatBindsALibraryTwin_IsNotAnImplicitDeclaration()
+    {
+        // a typed name whose bare name matches nothing still binds the library's member named with the character, so it is
+        // not a declaration. Every twin the library declares has a bare sibling too, which makes the bare lookup alone
+        // give the same answer for all of them; this one has none, which is the case that tells the two apart.
+        var library = new VBStandardModuleSymbol(WorkspaceRoot, WorkspaceRoot, "Library");
+        var twin = new VBFunctionMemberSymbol(
+            WorkspaceRoot, library.Uri, "Twin$", ScopeKind.Module, SymbolKindExt.Function, VBStringType.TypeInfo,
+            SourceRange.Empty, SourceRange.Empty, AccessModifier.Public).With(SymbolProperties.ExternalTarget, "Twin$/1");
+        var resolver = Substitute.For<ISymbolResolver>();
+        resolver.ResolveValue(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(SymbolResolutionResult.Unbound);
+        resolver.ResolveValue("Twin$", Arg.Any<ScopeKind>(), Arg.Any<Uri>()).Returns(SymbolResolutionResult.Resolved(twin));
+
+        var symbols = Provide("""
+            Public Sub Foo()
+                Twin$ 1
+            End Sub
+            """, resolver);
+
+        Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>());
+    }
+
     // --- ReDim symbol discovery (MS-VBAL 5.4.3.3) ---
 
     [TestMethod]

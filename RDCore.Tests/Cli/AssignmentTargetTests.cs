@@ -115,6 +115,7 @@ public sealed class AssignmentTargetTests
     [DataRow("", "Dim vbSunday As Long\r\nvbSunday = 3\r\nDebug.Print vbSunday", "3", DisplayName = "A variable named like a constant of the library")]
     [DataRow("Private vbCrLf As Long", "vbCrLf = 5\r\nDebug.Print vbCrLf", "5", DisplayName = "A variable of the module named like a constant of the Constants module")]
     [DataRow("", "Err.Number = 5\r\nDebug.Print Err.Number", "5", DisplayName = "A property of the object a function of the library returns")]
+    [DataRow("", "Dim Left$\r\nLeft$ = \"x\"\r\nDebug.Print Left$", "x", DisplayName = "A variable declared with a type character, named like a function of the library")]
     public async Task AnAssignment_ToAVariableOrAResult_StillRuns(string declarations, string body, string expected)
         => CollectionAssert.AreEqual(new[] { expected }, await RunAsync([], Program(declarations, body)));
 

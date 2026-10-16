@@ -82,7 +82,7 @@ public sealed class EnumTypedStorageTests
     public void APassedLiteral_ReachesAnEnumParameter()
     {
         // StrComp's Compare is declared As VbCompareMethod: the 1 is Let-coerced to it on the way in, and arrives as a
-        // Long. What StrComp itself does with it is not this test's business — it is not written yet.
+        // Long. What StrComp itself does with it is not this test's business.
         RuntimeSourceHarness.RecordingDispatcher? spy = null;
 
         RuntimeSourceHarness.Run(

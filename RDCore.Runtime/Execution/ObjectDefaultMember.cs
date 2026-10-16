@@ -51,24 +51,39 @@ internal static class ObjectDefaultMember
     /// <remarks>
     /// An invoker takes an argument for every parameter, so "nothing" is spelled out: a <c>ParamArray</c> collects none - the same
     /// zero-element array a call that passes it nothing collects - and an optional parameter takes the value an omitted argument gives
-    /// it.
+    /// it, which can be an error: a default that overflows its parameter's type does, as it would on any call that omits it.
     /// </remarks>
     /// <param name="member">The default member, as <see cref="TryFind"/> found it.</param>
     /// <param name="receiver">The object.</param>
-    /// <param name="omitted">The value an optional parameter takes when its argument is omitted.</param>
-    public static IRuntimeValue[] ArgumentsOf(VBReturningMemberSymbol member, VBObjectValue receiver, Func<VBParameterSymbol, VBTypedValue> omitted)
+    /// <param name="omitted">The value an optional parameter takes when its argument is omitted, or the error giving it that value raised.</param>
+    /// <param name="arguments">The arguments, one per parameter; empty when an omitted argument's value was an error.</param>
+    /// <returns>The error an omitted argument's value raised, or <see langword="null"/> when every argument was filled in.</returns>
+    public static RuntimeSemanticsEvaluationResult? ArgumentsOf(
+        VBReturningMemberSymbol member, VBObjectValue receiver, Func<VBParameterSymbol, RuntimeSemanticsEvaluationResult> omitted, out IRuntimeValue[] arguments)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(member);
-        var arguments = new IRuntimeValue[parameters.Length];
-        arguments[0] = receiver.RuntimeValue;
+        var filled = new IRuntimeValue[parameters.Length];
+        filled[0] = receiver.RuntimeValue;
+        arguments = [];
         for (var index = 1; index < parameters.Length; index++)
         {
-            arguments[index] = parameters[index] is ParamArrayParameterSymbol
-                ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])))
-                : omitted(parameters[index]).RuntimeValue;
+            if (parameters[index] is ParamArrayParameterSymbol)
+            {
+                filled[index] = new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])));
+                continue;
+            }
+
+            var value = omitted(parameters[index]);
+            if (!value.IsSuccess)
+            {
+                return value;
+            }
+
+            filled[index] = value.Result!.RuntimeValue;
         }
 
-        return arguments;
+        arguments = filled;
+        return null;
     }
 
     /// <summary>
@@ -90,8 +105,9 @@ internal static class ObjectDefaultMember
             return null;
         }
 
-        var arguments = ArgumentsOf(member, value, parameter
-            => session.Symbols.Defaults?.DefaultValueOf(parameter) ?? RuntimeProcedureInvoker.OmittedArgumentValue(parameter));
+        // what a variable starts as has no error channel: a default whose coercion fails stands in as its type's default here.
+        _ = ArgumentsOf(member, value, parameter => RuntimeSemanticsEvaluationResult.Success(
+            session.Symbols.Defaults?.DefaultValueOf(parameter) ?? RuntimeProcedureInvoker.OmittedArgumentValue(parameter)), out var arguments);
 
         // the arguments already carry Me at index 0, so the binding is asked for with no receiver of its own.
         return callables.ForMember(member).Call(session.Symbols.Resolver, arguments);

@@ -108,14 +108,13 @@ public sealed class ErrObject(IRuntimeSession session, SourceLocation raiseLocat
 
     private static string Text(VBStringValue value) => value.Handle.Value.BoxedValue as string ?? string.Empty;
 
-    // an omitted Optional Variant argument is Missing - or Empty, which is what the interpreter fills one in with -
-    // which is not the same as an empty string: it means
-    // "leave the property alone", and only a specified one overwrites it.
+    // an omitted Optional Variant argument is Missing, which the dispatcher passes on as null - and that is not the
+    // same as an empty string: it means "leave the property alone", and only a specified one overwrites it.
     private static string? Text(VBVariantValue? value)
         => Specified(value) is { } boxed ? Convert.ToString(boxed) ?? string.Empty : null;
 
-    // the boxed value of an argument the caller specified, or null for one it left out. Empty is not a value to
-    // convert: it is what an omitted Variant looks like by the time it arrives.
+    // the boxed value of an argument the caller specified, or null for one it left out. An explicit Empty is read
+    // as left out too, although it is a value the caller passed: Let-coerced, it would be 0 or a zero-length string.
     private static object? Specified(VBVariantValue? value)
         => value is null || value.TypedValue is VBEmptyValue ? null : value.Handle.Value.BoxedValue;
 

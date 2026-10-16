@@ -252,4 +252,77 @@ public sealed class StringComparisonRulesTests
         => Assert.AreNotEqual(0, Text.Compare(lhs.AsSpan(), rhs.AsSpan()));
 
     #endregion
+
+    #region searching characters, as InStr does
+
+    private static (int Index, int Length)? Find(StringComparisonRules rules, string source, string value)
+        => rules.TryFind(source, value, out var index, out var length) ? (index, length) : null;
+
+    private static (int Index, int Length)? FindLast(StringComparisonRules rules, string source, string value)
+        => rules.TryFindLast(source, value, out var index, out var length) ? (index, length) : null;
+
+    [TestMethod]
+    public void InBinaryMode_TryFind_FindsTheSameCodeUnits()
+        => Assert.IsNull(Find(Binary, "xAy", "a"));
+
+    [TestMethod]
+    public void InTextMode_TryFind_FindsRegardlessOfCase()
+        => Assert.AreEqual((1, 1), Find(Text, "xAy", "a"));
+
+    [TestMethod]
+    public void InTextMode_TryFindLast_FindsTheLastMatch()
+        => Assert.AreEqual((2, 2), FindLast(Text, "abAB", "ab"));
+
+    [TestMethod]
+    public void InTextMode_EveryMatch_IsEqualUnderTheComparer()
+    {
+        // what InStr finds, Mid then reads back equal to what was sought.
+        var source = "xÀbàB";
+
+        Assert.AreEqual((1, 2), Find(Text, source, "àB"));
+        Assert.AreEqual(0, Text.Comparer.Compare(source.Substring(1, 2), "àB"));
+    }
+
+    [TestMethod]
+    public void InTextMode_AFindStringOfIgnorableCharacters_IsFoundWhereItLiterallyOccurs()
+    {
+        // a vbNullChar is equal to every run of characters the collation ignores; it is searched for as it is, so that
+        // Split(buffer, vbNullChar) splits at the nulls and nowhere else.
+        Assert.AreEqual((2, 1), Find(Text, "ab" + NullChar + "c", NullChar));
+        Assert.AreEqual((3, 1), Find(Text, "x" + SoftHyphen + "y" + NullChar, NullChar));
+        Assert.IsNull(Find(Text, "abc", NullChar));
+    }
+
+    [TestMethod]
+    public void InTextMode_TheSearch_OnlyMatchesRunsOfTheFindStringsLength()
+        // sound rather than complete: "a", a soft hyphen and "b" is equal to "ab", but no run of two characters of it is.
+        => Assert.IsNull(Find(Text, "a" + SoftHyphen + "bc", "ab"));
+
+    [TestMethod]
+    public void TryFind_AZeroLengthValue_MatchesAtTheStart()
+    {
+        Assert.AreEqual((0, 0), Find(Binary, "abc", ""));
+        Assert.AreEqual((0, 0), Find(Text, "abc", ""));
+    }
+
+    [TestMethod]
+    public void TryFindLast_AZeroLengthValue_MatchesAtTheEnd()
+    {
+        Assert.AreEqual((3, 0), FindLast(Binary, "abc", ""));
+        Assert.AreEqual((3, 0), FindLast(Text, "abc", ""));
+    }
+
+    [TestMethod]
+    public void FindAll_NeverOverlaps()
+        => CollectionAssert.AreEqual(new[] { (0, 2), (2, 2) }, Binary.FindAll("aaaa", "aa").ToArray());
+
+    [TestMethod]
+    public void FindAll_InTextMode_FindsRegardlessOfCase()
+        => CollectionAssert.AreEqual(new[] { (0, 1), (2, 1) }, Text.FindAll("AbA", "a").ToArray());
+
+    [TestMethod]
+    public void FindAll_AZeroLengthValue_FindsNothing()
+        => Assert.IsFalse(Binary.FindAll("abc", "").Any());
+
+    #endregion
 }

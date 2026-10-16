@@ -33,9 +33,8 @@ Omitting an argument with a comma (`Foo(1, , 3)`) is legal MS-VBA for a paramete
 MS-VBA defers argument-type validation to run time: it never rejects an omitted argument at compile time.
 
 > [!NOTE]
-> **Not implemented.** No diagnostic flags `IsMissing` used on a non-`Variant` parameter, for which MS-VBA's
-> `IsMissing` always returns `False`. RD-VBA's `IsMissing` has no runtime implementation; see
-> [**RD-VBAL §6.1.2.7** Information](rd-vbal.6.1.2.7.information.md).
+> **Not implemented.** No diagnostic flags `IsMissing` used on a non-`Variant` parameter, for which `IsMissing` always
+> returns `False` (see [Omitted Arguments and IsMissing](#omitted-arguments-and-ismissing)).
 
 ## Runtime Semantics
 
@@ -81,18 +80,29 @@ The errors are listed in [Run-time Errors](#run-time-errors).
 
 ### Optional Parameters
 
-An unmapped `Optional` parameter uses
-[VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)`.DefaultValue` directly.
-`VBParameterSymbol.DefaultValue` holds an `Optional` parameter's default value, and is described in
-[**RD-VBAL §5.3.1.5** Parameter Lists](rd-vbal.5.3.1.5.parameter-lists.md).
+An unmapped `Optional` parameter takes the value `RuntimeExpressionEvaluator.OmittedArgument` gives it, from
+[VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)`.DefaultValue`, the parameter's
+own default-value clause ([**RD-VBAL §5.3.1.5** Parameter Lists](rd-vbal.5.3.1.5.parameter-lists.md)):
 
-|`VBParameterSymbol.DefaultValue`|Value bound to the unmapped `Optional` parameter|
+|The `Optional` parameter|Value bound to it when it is unmapped|
 |---|---|
-|The pre-computed default value (the declaration has an `= ...` default-value clause)|That default value.|
-|`null` (the declaration has no `= ...` default-value clause)|The declared type's default value.|
+|Declares a default other than `Nothing`|The default, reduced as a `Const`'s constant expression is (once, however many calls omit it), then Let-coerced to the parameter's declared type as an argument would be: `Optional v As Variant = 5` holds an `Integer`, and `Optional b As Byte = 300` is error `6`.|
+|Declares a default of `Nothing`|`Nothing`, Set-assigned: a class or `Object` parameter takes it as it is, and a `Variant` holds it. A parameter of any other type is Let-coerced from it, and gets that coercion's error.|
+|Declares no default|The declared type's default value; for a `Variant`, Missing (see [Omitted Arguments and IsMissing](#omitted-arguments-and-ismissing)).|
+|Is a `Compare` of the standard library that takes the calling module's `Option Compare` (`SymbolProperties.DefaultsToOptionCompare`)|`vbTextCompare` where the calling module compares as `Text`, `vbBinaryCompare` otherwise ([**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)).|
 
-An unmapped `Optional` parameter's default is bound with no Let-coercion and no reference binding: an unmapped
-`Optional` parameter has no caller expression to coerce from or alias.
+A default that cannot be reduced or Let-coerced is the error of the call that omits it, and the procedure is not
+called. A call's argument binding, the call a Let-coercion makes to an object's default member (`s = o`), and the
+defaults `VarType` and the `Is` functions call a default member with all take it from the same method. An unmapped `Optional` parameter has no caller expression to alias, so it is never a
+reference binding.
+
+> [!NOTE]
+> **Not implemented.** Where `VarType` and the `Is` functions call an object's default member, a default that cannot be
+> its parameter's value (`Optional b As Byte = 300`) stands in as the type's default value, rather than raising its error.
+
+> [!NOTE]
+> **Not implemented.** `CallByName` fills an argument it is not given with its parameter type's default value: a
+> declared default is not used, and a `Variant` is `Empty` rather than Missing.
 
 ### Omitted Arguments and IsMissing
 
@@ -104,6 +114,17 @@ depends on an omitted argument's parameter being `Variant` (see
 - The value of an omitted argument is a `VT_ERROR` `Variant` carrying `DISP_E_PARAMNOTFOUND`.
 - `IsMissing` always returns `False` for a non-`Variant` parameter, without raising an error. Only a `Variant`
   can hold the `DISP_E_PARAMNOTFOUND` sentinel.
+
+RD-VBA models that value as Missing
+([VBMissingValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBMissingValue.html)), an `Error` value of code `448` with a
+type of its own:
+
+- An omitted `Variant` parameter with no default holds Missing, and `IsMissing` of it is `True`. So is `IsMissing` of a
+  `ParamArray` that collected nothing.
+- Missing Let-coerced to any declared type but `Variant` is error `13`, as is a caller's Missing passed on to a typed
+  parameter.
+- `Print` writes it as `Error 448`.
+- A standard-library member is given a Missing argument as left out ([Standard Library Calls](#standard-library-calls)).
 
 ### ParamArray
 
@@ -190,6 +211,18 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 - The evaluator coerces every argument of an external (standard library) call to the parameter's declared type
   on the way in.
 - A standard library member's `Variant` parameter accepts its argument.
+- An argument left out is filled in as any procedure's is ([Optional Parameters](#optional-parameters)). A typed
+  optional whose default C# cannot state carries it in its declaration
+  ([StdLibDefaultAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibDefaultAttribute.html)), and a `Compare`
+  that takes the calling module's `Option Compare` is marked
+  ([StdLibOptionCompareAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibOptionCompareAttribute.html); see
+  [**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#attributes)).
+- An omitted `Variant` optional, Missing, reaches the member as left out (`null`), and so does a caller's Missing passed
+  on. An explicit `Empty` reaches it as `Empty`.
+- A host that calls the library directly has what it leaves out filled in from the member's declaration: a typed
+  optional takes its declared default, a `Compare` the declared `vbBinaryCompare`, and a `ParamArray` an empty array. A
+  Missing it passes for an optional argument is filled in the same way. A required argument left out is error `5`, and
+  the member is not called.
 
 > 👉 An external call carries runtime values rather than typed ones, so the declared type a member was called
 > with is recovered when the call is dispatched. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)
@@ -258,13 +291,14 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 |`RDCore.Runtime.Execution.RuntimeProcedureInvoker`|The `IProcedureInvoker` implementation (**RDCore.Runtime**).|
 |`RuntimeExpressionEvaluator.MapArguments`|Argument mapping; errors 448, 449 and 450.|
 |`RuntimeExpressionEvaluator.CollectParamArrayArguments`|`ParamArray` collection.|
+|`RuntimeExpressionEvaluator.OmittedArgument`|The value an unmapped `Optional` parameter takes, wherever an omitted argument is filled in.|
 |`RuntimeExpressionEvaluator.ProcedureInvoker`, `RuntimeExpressionEvaluator.LetCoercionProvider`|Settable properties, not constructor parameters.|
 |`CallStackFrame.PushByRef`|Binds an aliased `ByRef` parameter.|
 |`CallStackFrame.ReleaseAll`|Frees the frame's storage, never a `ByRef` alias's address.|
 |`RuntimeCallStack.OnBeforeTryPush`|Enforces the call-depth limit; error 28.|
 |`ICallStackFrame.ReturnValue`|The function result variable.|
 |`ICallStackFrame.TryGetAddress`, `ISymbolResolver.TryGetAddress`|Resolve a `ByRef`-aliased parameter to the aliased address.|
-|`VBParameterSymbol.DefaultValue`|An `Optional` parameter's pre-computed default value.|
+|`VBParameterSymbol.DefaultValue`|An `Optional` parameter's default-value clause.|
 |`ParamArrayParameterSymbol`|A trailing `ParamArray` parameter.|
 |`VBRuntimeReference`|An aliasable `ByRef` argument: the variable's address itself.|
 |`ValueBindingHandle`|A `ByVal` (or `ByRef`-fallback) parameter's fresh binding.|

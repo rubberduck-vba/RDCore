@@ -490,6 +490,60 @@ End Sub
     }
 
     [TestMethod]
+    [DataRow("Left$(\"abc\", 1)", "Left", DisplayName = "an identifier")]
+    [DataRow("String$(3, \"a\")", "String", DisplayName = "the String keyword")]
+    [DataRow("Error$(11)", "Error", DisplayName = "the Error keyword")]
+    [DataRow("Hex$(255)", "Hex", DisplayName = "a name the library has a twin of")]
+    // MS-VBAL 5.6.10 matches the name value of a simple name without its type-declaration character, so the node
+    // carries the two apart: the name, and the character beside it.
+    public void SimpleNameExpression_KeepsItsTypeHint(string expression, string expectedName)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), $"Public Const N = {expression}");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var callee = (SimpleNameExpressionNode)Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single().Callee;
+        Assert.AreEqual(expectedName, callee.IdentifierName);
+        Assert.AreEqual("$", callee.TypeHint);
+    }
+
+    [TestMethod]
+    public void SimpleNameExpression_WithoutATypeHint_HasNone()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = Left(\"abc\", 1)");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var callee = (SimpleNameExpressionNode)Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single().Callee;
+        Assert.AreEqual("Left", callee.IdentifierName);
+        Assert.IsNull(callee.TypeHint);
+    }
+
+    [TestMethod]
+    public void SimpleNameExpression_ABareTypedName_KeepsItsTypeHint()
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Const N = s$");
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var name = Descendants(result.SyntaxTree!).OfType<SimpleNameExpressionNode>().Single();
+        Assert.AreEqual("s", name.IdentifierName);
+        Assert.AreEqual("$", name.TypeHint);
+    }
+
+    [TestMethod]
+    [DataRow("Public Const N = VBA.Left$(\"a\", 1)", DisplayName = "a member access")]
+    [DataRow("Public Const N = .Left$(\"a\", 1)", DisplayName = "a with-relative member access")]
+    // the tree says what the source does, but nothing reads the member's character yet: an object's members resolve
+    // by their bare name, and a module-qualified library call does not resolve at all.
+    public void MemberAccessExpression_KeepsTheMembersTypeHint(string source)
+    {
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
+        Assert.IsTrue(result.IsSuccess, result.SyntaxErrors.IsEmpty ? "" : result.SyntaxErrors[0].Description);
+
+        var access = (MemberAccessExpressionNode)Descendants(result.SyntaxTree!).OfType<IndexExpressionNode>().Single().Callee;
+        Assert.AreEqual("Left", access.Member.IdentifierName);
+        Assert.AreEqual("$", access.Member.TypeHint);
+    }
+
+    [TestMethod]
     // a skipped argument position (`Foo(1, , 3)`) must not collapse the array - MissingArgumentNode
     // preserves the position for later parameter binding.
     public void IndexExpression_WithMissingArgument_PreservesPosition()

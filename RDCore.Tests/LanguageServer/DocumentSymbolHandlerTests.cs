@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.Symbols;
 
@@ -204,4 +205,36 @@ public sealed class DocumentSymbolHandlerTests
         Assert.IsTrue(accessors.All(child => child.Name == "Value"));
         Assert.IsTrue(accessors.All(child => child.Kind == SymbolKind.Property));
     }
+
+    [TestMethod]
+    public async Task ACallWithADollarTypeHint_ProjectsTheSameOutline()
+    {
+        // a name's type-declaration character rides on its node, which reaches the language server as the parse server's
+        // JSON: a document calling Hex$ still parses cleanly, reads back, and outlines as the same document calling Hex.
+        var typed = await OutlineOfAsync("    Debug.Print Hex$(255)", "    Hex$ 255");
+        var untyped = await OutlineOfAsync("    Debug.Print Hex(255)", "    Hex 255");
+
+        CollectionAssert.AreEqual(untyped, typed);
+    }
+
+    // the outline of a one-procedure module with the body given, after the parse has been through the wire format.
+    private async Task<string[]> OutlineOfAsync(params string[] body)
+    {
+        var parsed = PlatformJsonEnvelope.Of(Parse(["Attribute VB_Name = \"Mod1\"", "Public Sub Alpha()", .. body, "End Sub"]))
+            .Unwrap<ModuleParseResult>();
+        Assert.IsTrue(parsed.IsSuccess, string.Join("; ", parsed.SyntaxErrors.Select(error => error.Verbose)));
+        WorkspaceContains(Document);
+        _parsing.ParseDocumentAsync(DocUri, Arg.Any<CancellationToken>()).Returns(parsed);
+
+        var result = await Sut().Handle(Request(), CancellationToken.None);
+
+        return [.. Flatten(AsDocumentSymbol(result!.Single()))
+            .Select(symbol => $"{symbol.Name} {symbol.Kind} {Span(symbol.Range)} {Span(symbol.SelectionRange)} {symbol.Detail}")];
+    }
+
+    private static IEnumerable<DocumentSymbol> Flatten(DocumentSymbol symbol)
+        => [symbol, .. (symbol.Children ?? []).SelectMany(Flatten)];
+
+    private static string Span(OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range)
+        => $"{range.Start.Line}:{range.Start.Character}-{range.End.Line}:{range.End.Character}";
 }

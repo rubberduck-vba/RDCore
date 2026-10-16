@@ -111,6 +111,13 @@ public sealed class DepreciationFunctionTests
         => AreClose(500, Financial.DDB(new(1000), new(100), new(2), new(1), Variant(1)));
 
     [TestMethod]
+    public void DDB_WithAnExplicitEmptyFactor_IsError5()
+        // Empty is not an omitted argument but a value, which as a number is 0 (MS-VBAL 5.5.1.2.11) - and a factor
+        // of 0 is not one an asset can depreciate by, where an omitted factor is 2.
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument,
+            ErrorOf(Financial.DDB(new(2400), new(300), new(10), new(1), new(VBEmptyValue.Empty))));
+
+    [TestMethod]
     [DataRow(1, 900)]
     [DataRow(1.5, 0)]
     public void DDB_OverALifeShorterThanTwo_TakesEverythingInTheFirstPeriod_AndNothingAfter(double period, double expected)
@@ -127,8 +134,8 @@ public sealed class DepreciationFunctionTests
     [TestMethod]
     public void DDB_FromSource_TakesTheDoubleDecliningFactorWhenItIsLeftOut()
     {
-        // "If omitted, the data value 2 (double-declining method) is assumed" - where an omitted Variant arrives as
-        // Empty, which would be a factor of 0 if it were read as a number.
+        // "If omitted, the data value 2 (double-declining method) is assumed" - an omitted factor arrives as null,
+        // where an explicit Empty is a factor of 0.
         var output = new RuntimeOutputBuffer();
         var (_, outcome) = RuntimeSourceHarness.Run(fileSystem: null, [], output, standardLibrary: true, "Debug.Print DDB(2400, 300, 10, 1)");
 

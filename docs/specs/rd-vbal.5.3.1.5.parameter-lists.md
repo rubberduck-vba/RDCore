@@ -31,11 +31,13 @@ receive what is being assigned, and is reported as [VBC09321](../diagnostics/vbc
 
 |Declaration|`VBParameterSymbol.DefaultValue`|
 |---|---|
-|`Optional` with an `= ...` default-value clause|The default value, pre-computed.|
+|`Optional` with an `= ...` default-value clause|The clause's constant expression.|
 |`Optional` with no `= ...` default-value clause|`null`|
 
-When an `Optional` parameter has no argument mapped to it, the invocation uses `VBParameterSymbol.DefaultValue`
-directly. When `DefaultValue` is `null`, it falls back to the parameter's declared type's default value. See
+When an `Optional` parameter has no argument mapped to it, the invocation reduces `VBParameterSymbol.DefaultValue` as a
+`Const`'s expression is reduced, and Let-coerces it to the parameter's declared type, unless it is `Nothing`, which is
+Set-assigned. When `DefaultValue` is `null`, it falls back to the parameter's declared type's default value, which for a
+`Variant` is Missing. See
 [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).
 
 ### ParamArray parameters

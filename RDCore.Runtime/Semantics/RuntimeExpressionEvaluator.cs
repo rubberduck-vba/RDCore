@@ -24,8 +24,10 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
@@ -537,6 +539,92 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     {
         var result = FoldConstant(session, new RuntimeEvaluationContext(owner.ParentUri), owner, constantExpression);
         return result.IsSuccess ? result.Result : null;
+    }
+
+    /// <summary>
+    /// The value an optional parameter takes when the call supplies no argument for it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>MS-VBAL §5.3.1.11</strong>: "If the parameter has a specified default value other than <c>Nothing</c>, this default value is
+    /// <c>Let</c>-assigned to the new local variable. If the parameter has a specified default value of <c>Nothing</c>, this default value is
+    /// <c>Set</c>-assigned to the new local variable. If the parameter has no specified default value, the new local variables is initialized
+    /// to the default value for its declared type" - a <c>Variant</c>'s being Missing (<see cref="RuntimeProcedureInvoker.OmittedArgumentValue"/>).
+    /// <para>
+    /// The default is a constant expression (<strong>MS-VBAL §5.3.1.5</strong>), reduced by the same fold a <c>Const</c>'s is and therefore
+    /// once however many times the procedure is called without it; then <c>Let</c>-coerced to the parameter's declared type, as an argument
+    /// would be: <c>Optional w As Variant = 5</c> holds an <c>Integer</c> in a <c>Variant</c>, <c>Optional b As Byte = 300</c> overflows. A
+    /// default of <c>Nothing</c> is not coerced, which would ask <c>Nothing</c> for its default member and fail with error 91: an object or a
+    /// class parameter takes it as it is, and a <c>Variant</c> holds it. A parameter of any other type cannot be <c>Set</c>-assigned at all,
+    /// and gets the coercion's error.
+    /// </para>
+    /// <para>
+    /// A standard-library <c>Compare</c> parameter that takes the calling module's <c>Option Compare</c> when omitted
+    /// (<see cref="SymbolProperties.DefaultsToOptionCompare"/>) takes that instead of its declared default.
+    /// </para>
+    /// <para>
+    /// A call's argument binding, the call a Let-coercion makes to an object's default member, and the declared defaults a variable
+    /// starts as (<see cref="DeclaredVariableDefaults"/>) all ask here, so that they agree.
+    /// </para>
+    /// <para>
+    /// 🚧 <c>CallByName</c> fills an omitted argument on its own, with its parameter type's default value: a declared default is not
+    /// used, and a <c>Variant</c> is Empty rather than Missing. TODO.
+    /// </para>
+    /// </remarks>
+    /// <param name="session">The session the default's names resolve against.</param>
+    /// <param name="parameter">The optional parameter the call left out.</param>
+    /// <returns>The value, or the error reducing or coercing the default raised.</returns>
+    public RuntimeSemanticsEvaluationResult OmittedArgument(IRuntimeSession session, VBParameterSymbol parameter)
+    {
+        // MS-VBAL 6.1.2.11: a comparing member's omitted Compare "uses the <option-compare-directive> of the calling module". A call
+        // binds its arguments before the callee's frame is pushed, and an external call pushes none, so the current frame is still the
+        // caller's; and CurrentCompareMode has already resolved Option Compare Database the way the comparison operators do. The value is
+        // a VbCompareMethod constant, which needs no coercion. The declared default is what a caller with no calling module gets.
+        if (parameter.TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out var optionCompare) && optionCompare)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(new VBLongValue(
+                (int)(session.CurrentCompareMode() is OptionCompare.Text ? VBCompareMethod.VBTextCompare : VBCompareMethod.VBBinaryCompare)));
+        }
+
+        if (parameter.DefaultValue is not { } declaredDefault)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(RuntimeProcedureInvoker.OmittedArgumentValue(parameter));
+        }
+
+        if (LetCoercionProvider is null)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        var foldResult = FoldConstant(session, new RuntimeEvaluationContext(parameter.ParentUri), parameter, declaredDefault);
+        if (!foldResult.IsSuccess)
+        {
+            return foldResult;
+        }
+
+        var folded = foldResult.Result!;
+        if ((folded is VBVariantValue { TypedValue: var held } ? held : folded) is VBObjectValue nothing && nothing.IsNothing())
+        {
+            switch (parameter.ResolvedType)
+            {
+                case VBObjectType or VBClassType:
+                    return RuntimeSemanticsEvaluationResult.Success(nothing);
+                case VBVariantType:
+                    return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(nothing));
+            }
+        }
+
+        // the conversion is located at the default itself, the expression it converts, which is in the callee's declaration.
+        var defaultFrame = new LetCoercionStackFrame(declaredDefault.Identity, InputIndex.CoercionSourceValue,
+            folded, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+        var defaultCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, declaredDefault, defaultFrame);
+        if (!defaultCoercion.IsApplicable)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        return defaultCoercion.IsSuccess
+            ? RuntimeSemanticsEvaluationResult.Success(defaultCoercion.Result!)
+            : RuntimeSemanticsEvaluationResult.Error(defaultCoercion.ErrorInfo!);
     }
 
     /// <summary>
@@ -1504,36 +1592,14 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
             if (argumentNode is null or MissingArgumentNode)
             {
                 // Unmapped, always Optional here (MapArguments already errored otherwise) - no caller
-                // expression to Let-coerce or alias, so just the parameter's own default. That default is
-                // a constant expression (MS-VBAL 5.3.1.5), reduced by the same fold a Const's own is and
-                // therefore reduced once however many times the procedure is called without it.
-                if (parameter.DefaultValue is { } declaredDefault)
+                // expression to Let-coerce or alias, so the value an omitted argument gives the parameter.
+                var omitted = OmittedArgument(session, parameter);
+                if (!omitted.IsSuccess)
                 {
-                    var foldResult = FoldConstant(session, new RuntimeEvaluationContext(parameter.ParentUri), parameter, declaredDefault);
-                    if (!foldResult.IsSuccess)
-                    {
-                        return foldResult;
-                    }
-
-                    // the default is the value the parameter takes, so it is Let-coerced to the parameter's declared type like an argument
-                    // would be: `Optional w As Variant = 5` holds an Integer in a Variant, `Optional n As Long = 7` a Long.
-                    var defaultFrame = new LetCoercionStackFrame(declaredDefault.Identity, InputIndex.CoercionSourceValue,
-                        foldResult.Result!, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
-                    var defaultCoercion = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, declaredDefault, defaultFrame);
-                    if (!defaultCoercion.IsApplicable)
-                    {
-                        return RuntimeSemanticsEvaluationResult.InternalError();
-                    }
-                    if (!defaultCoercion.IsSuccess)
-                    {
-                        return RuntimeSemanticsEvaluationResult.Error(defaultCoercion.ErrorInfo!);
-                    }
-
-                    bound[i] = defaultCoercion.Result!.RuntimeValue;
-                    continue;
+                    return omitted;
                 }
 
-                bound[i] = RuntimeProcedureInvoker.OmittedArgumentValue(parameter).RuntimeValue;
+                bound[i] = omitted.Result!.RuntimeValue;
                 continue;
             }
 

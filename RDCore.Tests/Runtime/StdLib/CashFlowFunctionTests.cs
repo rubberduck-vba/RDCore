@@ -124,6 +124,15 @@ public sealed class CashFlowFunctionTests
         => Assert.AreEqual(0.2, ValueOf(Financial.IRR(Flows(-100, 210, -108))), IteratedAccuracy);
 
     [TestMethod]
+    public void IRR_WithAnExplicitEmptyGuess_IsAGuessOfZero()
+    {
+        // Empty is not an omitted argument but a value, which as a number is 0 (MS-VBAL 5.5.1.2.11): from it these
+        // flows find -10%, where from an omitted guess they find 20%.
+        Assert.AreEqual(-0.1, ValueOf(Financial.IRR(Flows(-100, 210, -108), new(VBEmptyValue.Empty))), IteratedAccuracy);
+        Assert.AreEqual(ValueOf(Financial.IRR(Flows(-100, 210, -108), Variant(0))), ValueOf(Financial.IRR(Flows(-100, 210, -108), new(VBEmptyValue.Empty))));
+    }
+
+    [TestMethod]
     [DataRow(-100000, 600, 360, 0.0050058250067624074)]
     [DataRow(-25000, 500, 60, 0.006183413161253964)]
     [DataRow(-1000, 20, 10, -0.22003386210264734)]

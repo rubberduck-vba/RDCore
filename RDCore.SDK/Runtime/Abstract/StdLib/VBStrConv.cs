@@ -13,6 +13,7 @@ public enum VBStrConv
     VBLowerCase = 2,
     VBProperCase = 3,
     VBWide = 4,
+    VBNarrow = 8,
     VBKatakana = 16,
     VBHiragana = 32,
     VBUnicode = 64,

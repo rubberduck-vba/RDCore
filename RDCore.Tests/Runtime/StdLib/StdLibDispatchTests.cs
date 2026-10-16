@@ -125,6 +125,77 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
+    [DataRow("Hex$(255)", "FF")]
+    [DataRow("Oct$(8)", "10")]
+    [DataRow("Str$(1)", " 1")]
+    [DataRow("Error$(11)", "Division by zero")]
+    public void ATypedCall_ReachesTheStringTwin(string call, string expected)
+    {
+        // MS-VBAL 5.6.10 matches a simple name without its type character, and the library declares each $ function as a
+        // member of its own: when Hex binds the library's Hex, Hex$ binds the library's Hex$.
+        var output = new RuntimeOutputBuffer();
+        var (_, outcome) = RuntimeSourceHarness.Run(fileSystem: null, [], output, standardLibrary: true, $"Debug.Print {call}");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(expected, output.Lines.Single().TrimEnd('\r', '\n'));
+    }
+
+    [TestMethod]
+    [DataRow("Hex$")]
+    [DataRow("Oct$")]
+    [DataRow("Str$")]
+    public void ATypedCall_GivenNull_IsInvalidUseOfNull(string member)
+    {
+        // what tells the twins apart: "the function Hex$ raises error 94, "Invalid use of Null" and the function Hex
+        // returns the data value Null", and the same for Oct$ and Str$.
+        var (_, outcome) = RuntimeSourceHarness.Run(
+            fileSystem: null, [], output: null, standardLibrary: true, $"Debug.Print {member}(Null)");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, outcome.ErrorInfo!.ErrorId, outcome.ErrorInfo.Verbose);
+    }
+
+    [TestMethod]
+    [DataRow("Hex")]
+    [DataRow("Oct")]
+    [DataRow("Str")]
+    public void AnUntypedCall_GivenNull_StillReachesTheVariantMember(string member)
+    {
+        var output = Run($"Debug.Print {member}(Null)");
+
+        Assert.AreEqual("Null", output.Single().TrimEnd('\r', '\n'));
+    }
+
+    [TestMethod]
+    public void ABareTypedCall_ReachesTheStringTwin()
+    {
+        // a call statement's callee is a simple name too, written without the parentheses: Hex$ given Null raises 94
+        // where Hex returns Null.
+        var (_, typed) = RuntimeSourceHarness.Run(fileSystem: null, [], output: null, standardLibrary: true, "Hex$ Null");
+        var (_, untyped) = RuntimeSourceHarness.Run(fileSystem: null, [], output: null, standardLibrary: true, "Hex Null");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, typed.Kind, typed.ErrorInfo?.Verbose);
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, typed.ErrorInfo!.ErrorId, typed.ErrorInfo.Verbose);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, untyped.Kind, untyped.ErrorInfo?.Verbose);
+    }
+
+    [TestMethod]
+    [DataRow("Left$ \"abc\", 1", DisplayName = "a bare call")]
+    [DataRow("Debug.Print Left$(\"abc\", 1)", DisplayName = "an argument list")]
+    public void ATypedCall_ReachesTheTwinOfAStringsMember(string statement)
+    {
+        // Strings' twins are declared like Conversion's; which member a call reached is what the dispatcher was handed.
+        RuntimeSourceHarness.RecordingDispatcher? spy = null;
+        var (_, outcome) = RuntimeSourceHarness.Run(
+            fileSystem: null, [], output: null, standardLibrary: true, arrange: null,
+            new RuntimeSourceHarness.Surroundings { Dispatcher = inner => spy = new RuntimeSourceHarness.RecordingDispatcher(inner) },
+            statement);
+
+        Assert.AreEqual("Left$", spy!.Requests.Single().Member.Name);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+    }
+
+    [TestMethod]
     public void TheErrorFunction_AndTheErrorStatement_AreDifferentThingsThatShareAName()
     {
         // MS-VBAL 5.4.4.3 is a statement, run by the interpreter as if by Err.Raise; 6.1.2.3.1.15 is a function of
@@ -227,28 +298,27 @@ public sealed class StdLibDispatchTests
     }
 
     [TestMethod]
-    public void AnArrayArgument_ReachesAnArrayParameter()
+    public void AnArrayArgument_ReachesAVariantParameterWhole()
     {
         // the call site coerces an array argument into a fresh copy nothing has bound yet, and reading that
-        // copy's value threw out of the interpreter before anything was called. Join is not written yet, so
-        // the error saying so is what shows the call arrived.
+        // copy's value threw out of the interpreter before anything was called. Join's SourceArray is a Variant,
+        // which takes the array whole.
         var values = new VBModuleFieldVariableMemberSymbol(
             Root, RuntimeSourceHarness.ModuleUri, "V", ScopeKind.Module, new VBFixedSizeArrayType(VBVariantType.TypeInfo),
             SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
         var array = new VBFixedSizeArrayValue([(0, 1)], VBVariantType.TypeInfo);
         array.TrySetElement(new ValueBindingHandle(new VBVariantValue(new VBStringValue("a")).RuntimeValue), 0);
         array.TrySetElement(new ValueBindingHandle(new VBVariantValue(new VBStringValue("b")).RuntimeValue), 1);
+        var output = new RuntimeOutputBuffer();
 
         var (_, outcome) = RuntimeSourceHarness.Run(
-            fileSystem: null, [values], output: null, standardLibrary: true,
+            fileSystem: null, [values], output, standardLibrary: true,
             session => session.Symbols.Resolver.GetValue(values).SetValue(
                 session.Symbols.Resolver, new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))),
             "Debug.Print Join(V)");
 
-        // 🚧 TODO when Join is written: the call completes, and prints "a b".
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual((int)VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, outcome.ErrorInfo!.ErrorId, outcome.ErrorInfo.Verbose);
-        Assert.AreEqual("'Join' is declared but not implemented yet.", outcome.ErrorInfo.Verbose);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("a b", output.Lines.Single().Trim());
     }
 
     [TestMethod]
@@ -338,12 +408,12 @@ public sealed class StdLibDispatchTests
             Root, RuntimeSourceHarness.ModuleUri, "S", ScopeKind.Module, VBStringType.TypeInfo,
             SourceRange.Empty, SourceRange.Empty, AccessModifier.Implicit);
 
+        var output = new RuntimeOutputBuffer();
         var (_, outcome) = RuntimeSourceHarness.Run(
-            fileSystem: null, [text], output: null, standardLibrary: true, "Debug.Print InStrRev(S, \"x\")");
+            fileSystem: null, [text], output, standardLibrary: true, "Debug.Print InStrRev(S, \"x\")");
 
-        // 🚧 TODO when InStrRev is written: the call completes, and prints 0.
-        Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        Assert.AreEqual("'InStrRev' is declared but not implemented yet.", outcome.ErrorInfo!.Verbose);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("0", output.Lines.Single().Trim());
     }
 
     [TestMethod]
@@ -364,4 +434,162 @@ public sealed class StdLibDispatchTests
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         math.Received().Atn(Arg.Is<VBDoubleValue>(number => number.Value == 0.5));
     }
+
+    #region what a direct caller leaves out
+
+    /// <summary>A declaration of the shapes an omitted argument can have, which a substitute stands in for.</summary>
+    [StdLibModule("Omittable")]
+    public interface IStdLibOmittable
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Split(
+            VBStringValue expression, VBVariantValue? delimiter = default, [StdLibDefault(-1)] VBLongValue? limit = default,
+            VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+
+        RuntimeSemanticsEvaluationResult<VBLongValue> Total(VBLongValue first, params VBVariantValue[] rest);
+
+        RuntimeSemanticsEvaluationResult<VBLongValue> Same(
+            VBStringValue string1, VBStringValue string2, [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+    }
+
+    private static (StdLibDispatcher Dispatcher, IStdLibOmittable Implementation, VBFunctionMemberSymbol Member) Omittable(string member)
+    {
+        var implementation = Substitute.For<IStdLibOmittable>();
+        implementation.Split(default!, default, default, default).ReturnsForAnyArgs(RuntimeSemanticsEvaluationResult<VBLongValue>.Success(new VBLongValue(0)));
+        implementation.Total(default!, default!).ReturnsForAnyArgs(RuntimeSemanticsEvaluationResult<VBLongValue>.Success(new VBLongValue(0)));
+        implementation.Same(default!, default!, default).ReturnsForAnyArgs(RuntimeSemanticsEvaluationResult<VBLongValue>.Success(new VBLongValue(0)));
+        var symbol = new StdLibSymbolReader(Root).Read([typeof(IStdLibOmittable), typeof(VBCompareMethod)]).OfType<VBFunctionMemberSymbol>().Single(symbol => symbol.Name == member);
+        return (new StdLibDispatcher(new Dictionary<Type, object> { [typeof(IStdLibOmittable)] = implementation }), implementation, symbol);
+    }
+
+    [TestMethod]
+    public void AnArgumentItsCallerLeftOutOrPassedAsMissing_TakesTheDefaultItsDeclarationStates()
+    {
+        // a call from source arrives complete; a direct caller can stop short, and what it left out is what the interpreter would have
+        // filled in: Limit's stated -1, which the member cannot tell apart from an explicit -1, where null would have been told apart from
+        // nothing; the enumeration's constant; and null, the "Missing" of a Variant with no default. A Missing it passes is an omitted
+        // argument, as it is to any COM member, and is filled the same way.
+        var expression = new VBStringValue("a b").RuntimeValue;
+        var missing = new VBVariantValue(VBMissingValue.Missing).RuntimeValue;
+        foreach (var arguments in new IRuntimeValue[][] { [expression], [expression, missing, missing, missing] })
+        {
+            var (dispatcher, implementation, split) = Omittable("Split");
+
+            var result = dispatcher.Dispatch(new ExternalCallRequest(split, arguments), Substitute.For<ISymbolResolver>());
+
+            Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+            implementation.Received().Split(
+                Arg.Is<VBStringValue>(text => text.Value == "a b"), null, Arg.Is<VBLongValue?>(limit => limit != null && limit.Value == -1), VBCompareMethod.VBBinaryCompare);
+        }
+    }
+
+    [TestMethod]
+    public void ARequiredArgumentItsCallerLeftOut_IsRefused()
+    {
+        // the member was called with null for it, and failed inside.
+        var (dispatcher, implementation, split) = Omittable("Split");
+
+        var result = dispatcher.Dispatch(new ExternalCallRequest(split, []), Substitute.For<ISymbolResolver>());
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, result.ErrorInfo!.ErrorId);
+        Assert.IsEmpty(implementation.ReceivedCalls());
+    }
+
+    [TestMethod]
+    public void AParamArrayItsCallerLeftOut_IsAnEmptyArray()
+    {
+        // what a call from source that passes it nothing collects (MS-VBAL 5.3.1.11: bounds 0 to -1), where the member was given null.
+        var (dispatcher, implementation, total) = Omittable("Total");
+
+        var result = dispatcher.Dispatch(new ExternalCallRequest(total, [new VBLongValue(1).RuntimeValue]), Substitute.For<ISymbolResolver>());
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        implementation.Received().Total(Arg.Is<VBLongValue>(first => first.Value == 1), Arg.Is<VBVariantValue[]>(rest => rest != null && rest.Length == 0));
+    }
+
+    [TestMethod]
+    public void AnOptionCompareLeftOutByADirectCaller_IsTheDeclaredDefault()
+    {
+        // a direct caller has no calling module, so there is no Option Compare to take: the declaration's own vbBinaryCompare stands.
+        var (dispatcher, implementation, same) = Omittable("Same");
+
+        var result = dispatcher.Dispatch(
+            new ExternalCallRequest(same, [new VBStringValue("a").RuntimeValue, new VBStringValue("A").RuntimeValue]), Substitute.For<ISymbolResolver>());
+
+        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
+        Assert.IsTrue(same.Parameters.Last().GetProperty(SymbolProperties.DefaultsToOptionCompare));
+        implementation.Received().Same(Arg.Any<VBStringValue>(), Arg.Any<VBStringValue>(), VBCompareMethod.VBBinaryCompare);
+    }
+
+    #endregion
+
+    #region what a call from source fills in
+
+    // the calls the body makes to the library, as they reach the dispatcher: what a member is called with, whether or not it is written yet.
+    private static IReadOnlyList<ExternalCallRequest> Requests(
+        ModuleDirectives directives, IEnumerable<Symbol> symbols, IReadOnlyList<(VBTypeMemberSymbol, string[])> procedures, params string[] body)
+    {
+        RuntimeSourceHarness.RecordingDispatcher? recorder = null;
+        RuntimeSourceHarness.Run(
+            fileSystem: null, symbols, output: null, standardLibrary: true, arrange: null,
+            new RuntimeSourceHarness.Surroundings
+            {
+                Directives = directives,
+                Procedures = procedures,
+                Dispatcher = inner => recorder = new RuntimeSourceHarness.RecordingDispatcher(inner),
+            },
+            body);
+        return recorder!.Requests;
+    }
+
+    private static object? CompareOf(IReadOnlyList<ExternalCallRequest> requests)
+        => requests.Single(request => request.Member.Name == "StrComp").Arguments[2].BoxedValue;
+
+    [TestMethod]
+    [DataRow(OptionCompare.Binary, (int)VBCompareMethod.VBBinaryCompare)]
+    [DataRow(OptionCompare.Text, (int)VBCompareMethod.VBTextCompare)]
+    // the environment's DatabaseCompare, which is Text unless it says otherwise.
+    [DataRow(OptionCompare.Database, (int)VBCompareMethod.VBTextCompare)]
+    public void AnOmittedCompare_IsTheCallingModulesOptionCompare(OptionCompare mode, int expected)
+        => Assert.AreEqual(expected, CompareOf(Requests(new ModuleDirectives(Compare: mode), [], [], "Debug.Print StrComp(\"a\", \"A\")")));
+
+    [TestMethod]
+    public void AnOmittedCompare_InAClassModulesCode_IsThatClassModulesOptionCompare()
+    {
+        // Widget states Option Compare Text, the module that calls it Binary: the code calling StrComp is Widget's.
+        var widget = new VBClassModuleSymbol(Root, Root, "Widget") { Directives = new ModuleDirectives(Compare: OptionCompare.Text) };
+        var go = new VBProcedureMemberSymbol(Root, widget.Uri, "Go", ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo,
+            SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        go = go with { Parameters = [new VBParameterSymbol(Root, go.Uri, "Me", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo)] };
+        widget = widget with { Members = [go], DefaultInterfaceMembers = [go] };
+        var w = new VBModuleFieldVariableMemberSymbol(Root, RuntimeSourceHarness.ModuleUri, "W", ScopeKind.Module, VBClassType.FromClassModule(widget),
+            SourceRange.Empty, SourceRange.Empty, AccessModifier.Private);
+
+        var requests = Requests(new ModuleDirectives(Compare: OptionCompare.Binary), [widget, go, w], [(go, ["Debug.Print StrComp(\"a\", \"A\")"])],
+            "Set W = New Widget", "W.Go");
+
+        Assert.AreEqual((int)VBCompareMethod.VBTextCompare, CompareOf(requests));
+    }
+
+    [TestMethod]
+    public void AnOmittedTypedOptional_FromSource_ArrivesAsItsDeclaredDefault()
+    {
+        // Split's Limit As Long = -1, which the member could not tell from an explicit 0 had it arrived as the type's default.
+        var split = Requests(ModuleDirectives.None, [], [], "Debug.Print Split(\"a b\")").Single(request => request.Member.Name == "Split");
+
+        Assert.AreEqual(-1, split.Arguments[2].BoxedValue);
+    }
+
+    [TestMethod]
+    public void StrConv_WithTheLocaleLeftOut_ReachesTheMember()
+    {
+        // a call with two arguments was 449, Argument not optional, before the member was reached.
+        var output = new RuntimeOutputBuffer();
+        var (_, outcome) = RuntimeSourceHarness.Run(fileSystem: null, [], output, standardLibrary: true, "Debug.Print StrConv(\"a\", 3)");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("A", output.Lines.Single().TrimEnd('\r', '\n'));
+    }
+
+    #endregion
 }

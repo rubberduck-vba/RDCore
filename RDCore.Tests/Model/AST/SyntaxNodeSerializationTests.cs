@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace RDCore.Tests.Model.AST;
@@ -222,6 +223,36 @@ public sealed class SyntaxNodeSerializationTests
         Assert.IsInstanceOfType<VBIntegerValue>(back.StaticValue);
         Assert.AreEqual((short)42, ((VBIntegerValue)back.StaticValue).Value);
         Assert.AreEqual(json, JsonSerializer.Serialize<SyntaxNode>(back, Options));
+    }
+
+    [TestMethod]
+    public void SimpleNameExpression_TypeHint_RoundTrips()
+    {
+        // the parse server's tree reaches the language server as this JSON, and a name that lost its character on the
+        // way would bind Left$ as Left.
+        var name = new SimpleNameExpressionNode(new("file:///t.bas", [0]), TestLocations.TestLocation, "Left", "$");
+
+        var json = JsonSerializer.Serialize<SyntaxNode>(name, Options);
+        var back = (SimpleNameExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(json, Options)!;
+
+        Assert.AreEqual("Left", back.IdentifierName);
+        Assert.AreEqual("$", back.TypeHint);
+        Assert.AreEqual(json, JsonSerializer.Serialize<SyntaxNode>(back, Options));
+        Assert.AreEqual(JsonSerializer.Serialize<SyntaxNode>(name, VerboseOptions), JsonSerializer.Serialize<SyntaxNode>(back, VerboseOptions));
+    }
+
+    [TestMethod]
+    public void SimpleNameExpression_WithoutATypeHintMember_ReadsAsUntyped()
+    {
+        // a tree written before names carried a character has no such member at all, and still reads.
+        var name = new SimpleNameExpressionNode(new("file:///t.bas", [0]), TestLocations.TestLocation, "Left", "$");
+        var json = JsonNode.Parse(JsonSerializer.Serialize<SyntaxNode>(name, Options))!.AsObject();
+        Assert.IsTrue(json.Remove(nameof(SimpleNameExpressionNode.TypeHint)), json.ToJsonString());
+
+        var back = (SimpleNameExpressionNode)JsonSerializer.Deserialize<SyntaxNode>(json.ToJsonString(), Options)!;
+
+        Assert.AreEqual("Left", back.IdentifierName);
+        Assert.IsNull(back.TypeHint);
     }
 
     [TestMethod]

@@ -28,7 +28,8 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// and their return types are all read back off the signature an implementation has to satisfy, so the
 /// symbol a workspace resolves and the method the runtime invokes cannot drift apart. What a signature
 /// cannot express — an accessor kind, a <c>$</c>-suffixed name, a class or enumeration return type — is
-/// stated by <see cref="StdLibMemberAttribute"/>.
+/// stated by <see cref="StdLibMemberAttribute"/>; and a parameter's default value, unless it is an enumeration
+/// constant, by <see cref="StdLibDefaultAttribute"/>.
 /// <para>
 /// A constant is declared as the value it is: an enumeration's are its members, and a module's are its
 /// <c>static readonly</c> fields of a <see cref="VBTypedValue"/> type, each read as a <c>Public Const</c>
@@ -119,8 +120,8 @@ public sealed class StdLibSymbolReader
     /// <exception cref="InvalidOperationException">
     /// A marked declaration is not expressible as a VBA symbol — a parameter or return type that is
     /// neither an intrinsic value nor a marked enumeration or class, an element type stated for a
-    /// parameter that is not a required ByVal array, or a module's public static field that is not a
-    /// <c>static readonly</c> intrinsic value. That is a mistake in the declaration rather than a
+    /// parameter that is not a required ByVal array, a default stated for a parameter that cannot take it, or a
+    /// module's public static field that is not a <c>static readonly</c> intrinsic value. That is a mistake in the declaration rather than a
     /// condition to degrade over: the symbol it would produce would be declared as a type nothing can
     /// bind.
     /// </exception>
@@ -385,6 +386,23 @@ public sealed class StdLibSymbolReader
                     $"stating {nameof(VBByteValue)}.");
             }
 
+            // a ParamArray is never omitted: a call that passes it nothing passes it an empty array.
+            if (paramArray && parameter.GetCustomAttribute<StdLibDefaultAttribute>() is not null)
+            {
+                throw new InvalidOperationException(
+                    $"'{name}' in '{method.DeclaringType?.Name}.{method.Name}' states a default, which a ParamArray cannot have.");
+            }
+
+            // what takes the calling module's Option Compare when omitted is the Compare of a comparing member, declared as the
+            // specification declares it: Optional ByVal Compare As VbCompareMethod = vbBinaryCompare.
+            var optionCompare = parameter.GetCustomAttribute<StdLibOptionCompareAttribute>() is not null;
+            if (optionCompare && (paramArray || byRef || !parameter.IsOptional || declared != typeof(VBCompareMethod)))
+            {
+                throw new InvalidOperationException(
+                    $"'{name}' in '{method.DeclaringType?.Name}.{method.Name}' takes the calling module's Option Compare when omitted, " +
+                    $"which only an optional ByVal parameter declared as a {nameof(VBCompareMethod)} can.");
+            }
+
             if (paramArray)
             {
                 builder.Add(new ParamArrayParameterSymbol(
@@ -392,13 +410,16 @@ public sealed class StdLibSymbolReader
                 continue;
             }
 
-            builder.Add(new VBParameterSymbol(
+            var declaredType = array is not null
+                ? ArrayTypeOf(DeclaredTypeOf(array.ElementType, method, enumTypes, classTypes))
+                : DeclaredTypeOf(declared, method, enumTypes, classTypes);
+            var symbol = new VBParameterSymbol(
                 _workspaceRoot, memberUri, name, SourceRange.Empty, SourceRange.Empty,
                 byRef ? ParameterKind.ExplicitByRef : ParameterKind.ExplicitByVal,
-                array is not null
-                    ? ArrayTypeOf(DeclaredTypeOf(array.ElementType, method, enumTypes, classTypes))
-                    : DeclaredTypeOf(declared, method, enumTypes, classTypes),
-                parameter.IsOptional, DefaultValueOf(parameter, memberUri)));
+                declaredType, parameter.IsOptional, DefaultValueOf(parameter, declaredType, name, method, memberUri));
+
+            // the declared default stays: it is what a caller with no calling module gets.
+            builder.Add(optionCompare ? (VBParameterSymbol)symbol.With(SymbolProperties.DefaultsToOptionCompare, true) : symbol);
         }
 
         return builder.ToImmutable();
@@ -459,17 +480,41 @@ public sealed class StdLibSymbolReader
     private static VBType ArrayTypeOf(VBType elementType)
         => elementType is VBByteType ? VBResizableByteArrayType.TypeInfo : new VBResizableArrayType(elementType);
 
-    // only an enumeration constant is expressible as a C# default, and it is the only kind of
-    // <default-value> clause the standard library has. Everything else optional is `= default`, which
-    // is no clause at all: an unmapped argument then takes the declared type's own default value.
+    // an enumeration constant is the one <default-value> clause expressible as a C# default, and is read
+    // off it. Any other optional is `= default`, which is no clause at all - an unmapped argument then
+    // takes the declared type's own default value - unless StdLibDefaultAttribute states one: Split's
+    // `Limit As Long = -1`, Filter's `Include As Boolean = True`, which are values of the declared type.
     //
     // MS-VBAL 5.3.1.5 defines a default as a constant expression, which is what the symbol carries; a
     // library parameter's is written in C# rather than in VBA source, and a literal node over the value
     // it already is says exactly that.
-    private static ExpressionNode? DefaultValueOf(ParameterInfo parameter, Uri memberUri)
-        => parameter is { IsOptional: true, DefaultValue: { } value } && parameter.ParameterType.IsEnum
-            ? LiteralOf(new VBLongValue(Convert.ToInt32(value)), memberUri)
-            : null;
+    private static ExpressionNode? DefaultValueOf(ParameterInfo parameter, VBType declaredType, string name, MethodInfo method, Uri memberUri)
+    {
+        if (parameter.GetCustomAttribute<StdLibDefaultAttribute>() is not { } stated)
+        {
+            return parameter is { IsOptional: true, DefaultValue: { } value } && parameter.ParameterType.IsEnum
+                ? LiteralOf(new VBLongValue(Convert.ToInt32(value)), memberUri)
+                : null;
+        }
+
+        // a required parameter has no default to state, and an enumeration's is its C# default already.
+        VBTypedValue? literal = !parameter.IsOptional || parameter.ParameterType.IsEnum ? null : (declaredType, stated.Value) switch
+        {
+            (VBLongType, int number) => new VBLongValue(number),
+            (VBIntegerType, int number) when number is >= short.MinValue and <= short.MaxValue => new VBIntegerValue((short)number),
+            (VBBooleanType, bool flag) => new VBBooleanValue(flag),
+            (VBStringType, string text) => new VBStringValue(text),
+            _ => null,
+        };
+
+        return literal is not null
+            ? LiteralOf(literal, memberUri)
+            : throw new InvalidOperationException(
+                $"'{name}' in '{method.DeclaringType?.Name}.{method.Name}' states a default of {stated.Value ?? "null"} " +
+                $"({stated.Value?.GetType().Name ?? "no type"}), which it cannot take: {nameof(StdLibDefaultAttribute)} states the default " +
+                "of an optional parameter declared as a Long, an Integer, a Boolean or a String, as a value of that type, and an " +
+                "enumeration's default is its C# default.");
+    }
 
     // a constant expression written in C# rather than in VBA source - a parameter's default, a module
     // constant's value - is the value it already is, so a literal node over that value is the whole of it:

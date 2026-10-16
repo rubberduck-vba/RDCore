@@ -34,8 +34,8 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
     /// </summary>
     /// <remarks>
     /// In text mode "the text of the strings is compared in a case-insensitive manner, according to the host-defined regional settings"
-    /// (<strong>MS-VBAL §5.6.9.5</strong>). Every text comparison here is built from this one value - <see cref="Comparer"/> and the
-    /// <see cref="Compare(ReadOnlySpan{char}, ReadOnlySpan{char})"/> of <c>StrComp</c> - so
+    /// (<strong>MS-VBAL §5.6.9.5</strong>). Every text comparison here is built from this one value - <see cref="Comparer"/>, the
+    /// <see cref="Compare(ReadOnlySpan{char}, ReadOnlySpan{char})"/> of <c>StrComp</c>, and the search of <see cref="TryFind"/> - so
     /// <c>StrComp(a, b, vbTextCompare) = 0</c> exactly when <c>a = b</c> under <c>Option Compare Text</c>, by construction. Folding
     /// kana type and width as well would be one host's collation rather than the specification's case-insensitive comparison.
     /// <para>
@@ -98,6 +98,99 @@ public readonly record struct StringComparisonRules(OptionCompare Mode = OptionC
         }
 
         return CompareBinary(lhs.GetBytes(), rhs.GetBytes());
+    }
+
+    /// <summary>
+    /// Finds the first run of <paramref name="source"/> that is equal to <paramref name="value"/> the way the relational operators find
+    /// two strings equal.
+    /// </summary>
+    /// <remarks>
+    /// Binary mode finds the code units of <paramref name="value"/>, which is where either reading of binary mode finds two strings
+    /// equal. Text mode compares each run of <paramref name="source"/> as long as <paramref name="value"/> with the comparison
+    /// <c>=</c> makes, so a run found is one <c>=</c> calls equal: <c>InStr(s, p, , vbTextCompare) = k</c> implies
+    /// <c>Mid(s, k, Len(p)) = p</c> under <c>Option Compare Text</c>. MS-VBAL says nothing of how a text search matches, and this
+    /// is the reading that agrees with the comparison it does define.
+    /// <para>
+    /// 👉 The search is sound but not complete: every match is equal to <paramref name="value"/>, but a match that would need a run of
+    /// another length is not found - <c>"ab"</c> in <c>"a"</c> + a soft hyphen + <c>"b"</c>, which the collation would call equal.
+    /// A <paramref name="value"/> made only of characters the collation ignores (a <c>vbNullChar</c>) is searched for as it is: it is
+    /// equal to every run of ignorable characters, and to none of the others, which would make a search for it find any of them.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The characters to search.</param>
+    /// <param name="value">The characters to search for.</param>
+    /// <param name="index">The 0-based position of the run found in <paramref name="source"/>.</param>
+    /// <param name="length">How many characters of <paramref name="source"/> the run takes up: those of <paramref name="value"/>.</param>
+    /// <returns><c>true</c> when a run is found; a zero-length <paramref name="value"/> is found at the start.</returns>
+    public bool TryFind(ReadOnlySpan<char> source, ReadOnlySpan<char> value, out int index, out int length)
+        => Find(source, value, last: false, out index, out length);
+
+    /// <summary>
+    /// Finds the last run of <paramref name="source"/> that is equal to <paramref name="value"/>, the way <see cref="TryFind"/> finds
+    /// the first.
+    /// </summary>
+    /// <param name="source">The characters to search.</param>
+    /// <param name="value">The characters to search for.</param>
+    /// <param name="index">The 0-based position of the run found in <paramref name="source"/>.</param>
+    /// <param name="length">How many characters of <paramref name="source"/> the run takes up: those of <paramref name="value"/>.</param>
+    /// <returns><c>true</c> when a run is found; a zero-length <paramref name="value"/> is found at the end.</returns>
+    public bool TryFindLast(ReadOnlySpan<char> source, ReadOnlySpan<char> value, out int index, out int length)
+        => Find(source, value, last: true, out index, out length);
+
+    /// <summary>
+    /// Every run of <paramref name="source"/> that is equal to <paramref name="value"/>, as <see cref="TryFind"/> finds them, from left to
+    /// right and never overlapping: each search resumes after the run it found.
+    /// </summary>
+    /// <remarks>
+    /// A zero-length <paramref name="value"/> finds nothing - there is no run to replace or to split at - and the search moves on by
+    /// at least one character either way, so it always ends.
+    /// </remarks>
+    /// <param name="source">The characters to search.</param>
+    /// <param name="value">The characters to search for.</param>
+    public IEnumerable<(int Index, int Length)> FindAll(string source, string value)
+    {
+        if (value.Length == 0)
+        {
+            yield break;
+        }
+
+        var start = 0;
+        while (start <= source.Length && TryFind(source.AsSpan(start), value, out var index, out var length))
+        {
+            yield return (start + index, length);
+            start += index + Math.Max(length, 1);
+        }
+    }
+
+    private bool Find(ReadOnlySpan<char> source, ReadOnlySpan<char> value, bool last, out int index, out int length)
+    {
+        length = value.Length;
+        if (value.IsEmpty)
+        {
+            index = last ? source.Length : 0;
+            return true;
+        }
+
+        // binary mode, and a text-mode value with no character the collation does not ignore, are found as they are.
+        if (!IgnoresCase || EffectiveCulture.CompareInfo.Compare(value, ReadOnlySpan<char>.Empty, TextOptions) == 0)
+        {
+            index = last ? source.LastIndexOf(value) : source.IndexOf(value);
+            return index >= 0;
+        }
+
+        var lastStart = source.Length - value.Length;
+        for (var step = 0; step <= lastStart; step++)
+        {
+            var at = last ? lastStart - step : step;
+            if (EffectiveCulture.CompareInfo.Compare(source.Slice(at, value.Length), value, TextOptions) == 0)
+            {
+                index = at;
+                return true;
+            }
+        }
+
+        index = -1;
+        return false;
     }
 
     /// <summary>

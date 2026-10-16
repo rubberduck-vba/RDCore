@@ -10,9 +10,7 @@ The `Information` module is declared in full: every member of **MS-VBAL §6.1.2.
 `IStdInformationModule`, and so does each of the two RD-VBA additions, `Erl` and `Err`. The module's symbols are read
 off those declarations ([**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)).
 
-> [!NOTE]
-> **Not implemented.** Of the `Information` members, only `Erl` has a runtime implementation. Calling any other
-> member raises the run-time error "Application-defined or object-defined error".
+Every member has a runtime implementation (`StdInformation`).
 
 
 ## 6.1.2.7.1 Public Functions

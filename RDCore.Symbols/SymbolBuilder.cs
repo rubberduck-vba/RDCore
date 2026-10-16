@@ -463,7 +463,9 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
                 // all of itself: Len and vbCrLf resolve, but a standard-library name it does not declare
                 // yet (vbBlue) is unbound here and becomes an implicit Variant rather than resolving.
                 // That is this rule applied to an incomplete name universe, not a different rule; it
-                // corrects itself as the universe grows.
+                // corrects itself as the universe grows. A typed name (s$, Left$) is looked up as every
+                // other lookup of a simple name looks it up, so it matches what the expression itself
+                // binds — and when it matches nothing, what it declares is its bare name.
                 var resolved = resolver.ResolveValue(reference, ScopeKind.Local, procedureUri);
                 if (!resolved.IsUnbound && !IsOwnLocal(resolved, procedureUri) && !IsOwnModuleVariable(resolved))
                 {

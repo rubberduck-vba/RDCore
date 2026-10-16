@@ -14,8 +14,17 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// <c>String</c> rather than <c>Variant</c>; the two differ in nothing else, so C# cannot overload them
 /// and each states its VBA name with <see cref="StdLibMemberAttribute"/>. A <c>B</c>-suffixed function
 /// counts in <em>bytes</em> rather than in characters. And <c>Compare As VbCompareMethod</c> recurs
-/// wherever a comparison happens, defaulting to <c>vbBinaryCompare</c> as the specification has it —
-/// <em>not</em> to the calling module's own <c>Option Compare</c>, which these functions do not consult.
+/// wherever a comparison happens - <c>Filter</c>, <c>InStr</c>, <c>InStrB</c>, <c>InStrRev</c>,
+/// <c>Replace</c>, <c>Split</c>, <c>StrComp</c> - declared <c>= vbBinaryCompare</c> as the specification
+/// declares it, and "if omitted, it uses the &lt;option-compare-directive&gt; of the calling module". Each
+/// is marked with <see cref="StdLibOptionCompareAttribute"/>, so a call from source fills an omitted one
+/// with the caller's mode, and the member always receives the comparison to make; a caller with no
+/// calling module gets the declared <c>vbBinaryCompare</c>.
+/// </para>
+/// <para>
+/// A typed optional whose specification declares a default C# cannot carry states it with
+/// <see cref="StdLibDefaultAttribute"/>: <c>InStrRev</c>'s <c>Start</c>, <c>Replace</c>'s <c>Start</c> and
+/// <c>Count</c>, <c>Split</c>'s <c>Limit</c>, <c>Filter</c>'s <c>Include</c>.
 /// </para>
 /// </remarks>
 [StdLibModule]
@@ -80,14 +89,20 @@ public interface IStdStringsModule
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.7 Filter</strong> Gets a zero-based array of the elements of an array that match, or that do not match, a substring.
     /// </summary>
+    /// <remarks>
+    /// 👉 <paramref name="sourceArray"/> is declared <c>SourceArray() As Variant</c>, and is a <c>Variant</c> here: an array parameter takes an
+    /// array of its own element type only, which would refuse the <c>String()</c> that <c>Split</c> returns, so the member checks for itself
+    /// that what it is given is a one-dimensional array.
+    /// </remarks>
     /// <param name="sourceArray">The one-dimensional array of strings to search.</param>
     /// <param name="match">The substring to search for.</param>
-    /// <param name="include"><c>True</c> to return the elements containing <paramref name="match"/>, <c>False</c> to return the ones that do not.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="include"><c>True</c> to return the elements containing <paramref name="match"/>, <c>False</c> to return the ones that do not. <c>True</c> when omitted.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Filter(
-        VBResizableArrayValue sourceArray, VBStringValue match,
-        VBBooleanValue? include = default, VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        VBVariantValue sourceArray, VBStringValue match,
+        [StdLibDefault(true)] VBBooleanValue? include = default,
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.8 Format</strong> Gets a string formatted according to a format expression.
@@ -176,36 +191,47 @@ public interface IStdStringsModule
     /// <param name="arg1">The start position, or the string to search.</param>
     /// <param name="arg2">The string to search, or the pattern to search for.</param>
     /// <param name="arg3">The pattern to search for, when a start position was given.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> InStr(
         VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <inheritdoc cref="InStr"/>
     RuntimeSemanticsEvaluationResult<VBVariantValue> InStrB(
         VBVariantValue? arg1 = default, VBVariantValue? arg2 = default, VBVariantValue? arg3 = default,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.15 InStrRev</strong> Gets the position of the <em>last</em> occurrence of one string within another, or <c>0</c> when there is none.
     /// </summary>
+    /// <remarks>
+    /// 👉 The page contradicts itself twice. Its parameter table says an omitted <paramref name="start"/> is <c>1</c>, "which means that the
+    /// search begins at the last character position", where its declaration says <c>Optional Start As Long = -1</c>: the declaration's
+    /// <c>-1</c> is what is declared here. And the table says an omitted <paramref name="compare"/> performs "a binary comparison", where its
+    /// runtime semantics say "if omitted, it uses the &lt;option-compare-directive&gt; of the calling module", as every other comparing
+    /// member's do: the runtime semantics are what is declared here.
+    /// </remarks>
     /// <param name="stringCheck">The string to search.</param>
     /// <param name="stringMatch">The pattern to search for.</param>
-    /// <param name="start">The position to search back from. <c>-1</c> searches from the last character.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="start">The position to search back from. <c>-1</c>, the default, searches from the last character.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBLongValue> InStrRev(
-        VBStringValue stringCheck, VBStringValue stringMatch, VBLongValue? start = default,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        VBStringValue stringCheck, VBStringValue stringMatch, [StdLibDefault(-1)] VBLongValue? start = default,
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.16 Join</strong> Gets a string of every element of an array, separated by a delimiter.
     /// </summary>
+    /// <remarks>
+    /// 👉 <paramref name="sourceArray"/> is declared <c>SourceArray() As Variant</c>, and is a <c>Variant</c> here, as <see cref="Filter"/>'s
+    /// is: so that <c>Join(Split(s))</c> and <c>Join(Array(...))</c> both reach the member.
+    /// </remarks>
     /// <param name="sourceArray">The one-dimensional array whose elements to join.</param>
     /// <param name="delimiter">What to separate the elements with. A single space when unspecified; a zero-length string joins them with nothing between.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBStringValue> Join(VBResizableArrayValue sourceArray, VBVariantValue? delimiter = default);
+    RuntimeSemanticsEvaluationResult<VBStringValue> Join(VBVariantValue sourceArray, VBVariantValue? delimiter = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.17 LCase</strong> Gets a string with every uppercase letter cased down.
@@ -314,14 +340,14 @@ public interface IStdStringsModule
     /// <param name="expression">The string to search.</param>
     /// <param name="find">The substring to search for.</param>
     /// <param name="replace">What to replace it with.</param>
-    /// <param name="start">The 1-based position to start at. The returned string begins there, not at the start of <paramref name="expression"/>.</param>
-    /// <param name="count">How many occurrences to replace. <c>-1</c> replaces every one of them.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="start">The 1-based position to start at, <c>1</c> when omitted. The returned string begins there, not at the start of <paramref name="expression"/>.</param>
+    /// <param name="count">How many occurrences to replace. <c>-1</c>, the default, replaces every one of them.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBStringValue> Replace(
         VBStringValue expression, VBStringValue find, VBStringValue replace,
-        VBLongValue? start = default, VBLongValue? count = default,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        [StdLibDefault(1)] VBLongValue? start = default, [StdLibDefault(-1)] VBLongValue? count = default,
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.30 Right</strong> Gets a given number of characters from the <em>end</em> of a string.
@@ -358,32 +384,37 @@ public interface IStdStringsModule
     /// </summary>
     /// <param name="expression">The string to split. A zero-length string yields an array with no elements at all.</param>
     /// <param name="delimiter">What to split on. A single space when unspecified.</param>
-    /// <param name="limit">How many substrings to return at most. <c>-1</c> returns all of them.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="limit">How many substrings to return at most. <c>-1</c>, the default, returns all of them.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Split(
-        VBStringValue expression, VBVariantValue? delimiter = default, VBLongValue? limit = default,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        VBStringValue expression, VBVariantValue? delimiter = default, [StdLibDefault(-1)] VBLongValue? limit = default,
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.36 StrComp</strong> Gets <c>-1</c>, <c>0</c> or <c>1</c> as one string sorts before, with, or after another.
     /// </summary>
     /// <param name="string1">The first string.</param>
     /// <param name="string2">The second string.</param>
-    /// <param name="compare">The string comparison to use.</param>
+    /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> StrComp(
         VBVariantValue string1, VBVariantValue string2,
-        VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.37 StrConv</strong> Gets a string converted as a <see cref="VBStrConv"/> conversion says — cased, widened, narrowed, or transliterated.
     /// </summary>
+    /// <remarks>
+    /// 👉 The specification declares <paramref name="localeID"/> required, with no <c>Optional</c>; it is optional here, with no default, because
+    /// the documented form of a call - and most code - passes two arguments, and the environment's own locale is what a conversion that is
+    /// given none uses.
+    /// </remarks>
     /// <param name="string">The string to convert.</param>
     /// <param name="conversion">Which conversion to apply.</param>
-    /// <param name="localeID">The locale to convert for.</param>
+    /// <param name="localeID">The locale to convert for; the environment's own when omitted.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
-    RuntimeSemanticsEvaluationResult<VBVariantValue> StrConv(VBVariantValue @string, VBStrConv conversion, VBLongValue localeID);
+    RuntimeSemanticsEvaluationResult<VBVariantValue> StrConv(VBVariantValue @string, VBStrConv conversion, VBLongValue? localeID = default);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.38 String</strong> Gets a string of a given character, repeated a given number of times.

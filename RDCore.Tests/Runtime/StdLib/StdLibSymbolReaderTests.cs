@@ -352,11 +352,97 @@ public sealed class StdLibSymbolReaderTests
     [TestMethod]
     public void AnArrayParameter_IsDeclaredAsAVariantArray()
     {
-        // MS-VBAL 6.1.2.11.1.16: Join(SourceArray() As Variant, ...) - an array parameter declared with
-        // empty parentheses and no bounds (MS-VBAL 5.3.1.5).
-        var join = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(member => member.Name == "Join");
+        // an array parameter declared with empty parentheses and no bounds (MS-VBAL 5.3.1.5), of the element type a VBResizableArrayValue
+        // alone reads as.
+        var concat = (VBFunctionMemberSymbol)new StdLibSymbolReader(Root).Read([typeof(IStdLibWithTypedArrays)])
+            .Single(symbol => symbol.Name == "Concat");
 
-        Assert.IsInstanceOfType<VBResizableArrayType>(join.Parameters.First().ResolvedType);
+        var type = (VBResizableArrayType)concat.Parameters.Single().ResolvedType;
+        Assert.AreEqual(VBVariantType.TypeInfo, type.ItemType);
+    }
+
+    [TestMethod]
+    [DataRow("Join")]
+    [DataRow("Filter")]
+    public void JoinAndFiltersSourceArray_IsAVariant_WhateverTheSpecificationsDeclarationSays(string member)
+    {
+        // MS-VBAL 6.1.2.11.1.16 and 6.1.2.11.1.7 declare SourceArray() As Variant. An array parameter takes an array of its own element type,
+        // which would refuse the String() Split returns: as a Variant, Join(Split(s)) and Join(Array(...)) both reach the member.
+        var function = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(symbol => symbol.Name == member);
+
+        Assert.AreEqual(VBVariantType.TypeInfo, function.Parameters.Single(p => p.Name == "SourceArray").ResolvedType);
+    }
+
+    [TestMethod]
+    public void StrConvsLocaleID_IsOptional_WithNoDefaultClause_WhateverTheSpecificationsDeclarationSays()
+    {
+        // MS-VBAL 6.1.2.11.1.37 declares LocaleID required, where the documented call and most code pass two arguments.
+        var strConv = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(symbol => symbol.Name == "StrConv");
+
+        var localeID = strConv.Parameters.Single(p => p.Name == "LocaleID");
+        Assert.IsTrue(localeID.IsOptional);
+        Assert.IsNull(localeID.DefaultValue);
+        Assert.AreEqual(VBLongType.TypeInfo, localeID.ResolvedType);
+    }
+
+    [TestMethod]
+    [DataRow("Split", "Limit", -1)]
+    [DataRow("Replace", "Start", 1)]
+    [DataRow("Replace", "Count", -1)]
+    // the declaration's -1, where the page's parameter table says 1.
+    [DataRow("InStrRev", "Start", -1)]
+    [DataRow("Filter", "Include", true)]
+    public void ATypedOptionalOfTheStringsModule_KeepsItsDeclaredDefault(string member, string parameter, object expected)
+    {
+        var function = (VBFunctionMemberSymbol)MembersOf(Module("Strings")).Single(symbol => symbol.Name == member);
+
+        var value = ((LiteralExpressionNode)function.Parameters.Single(p => p.Name == parameter).DefaultValue!).StaticValue;
+        Assert.AreEqual(expected, value is VBBooleanValue flag ? (bool)flag.Value : value.Handle.Value.BoxedValue);
+    }
+
+    [TestMethod]
+    public void EveryComparingMember_TakesTheCallersOptionCompare_WhenCompareIsOmitted()
+    {
+        // MS-VBAL 6.1.2.11.1: "if omitted, it uses the <option-compare-directive> of the calling module", for InStrRev too, whose parameter
+        // table says otherwise and whose runtime semantics say so.
+        var flagged = MembersOf(Module("Strings")).OfType<VBFunctionMemberSymbol>()
+            .Where(member => member.Parameters.Any(p => p.GetProperty(SymbolProperties.DefaultsToOptionCompare)))
+            .Select(member => member.Name).ToArray();
+
+        CollectionAssert.AreEquivalent(new[] { "Filter", "InStr", "InStrB", "InStrRev", "Replace", "Split", "StrComp" }, flagged);
+    }
+
+    [TestMethod]
+    public void TheStringsModule_DeclaresExactlyTheStringTwinsOfItsSpecification()
+    {
+        // MS-VBAL 6.1.2.11.1 titles 15 subsections with a $ form, LTrim$ / RTrim$ / Trim$ being one of them. A typed name the library
+        // does not declare is refused for the whole module, so a twin too many or too few changes what compiles.
+        var twins = MembersOf(Module("Strings")).Select(member => member.Name).Where(name => name.EndsWith('$')).ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "Chr$", "ChrB$", "ChrW$", "Format$", "LCase$", "Left$", "LeftB$", "LTrim$", "Mid$", "MidB$",
+                "Right$", "RightB$", "RTrim$", "Space$", "String$", "Trim$", "UCase$",
+            },
+            twins);
+    }
+
+    [TestMethod]
+    public void VbStrConv_HasEveryConstantOfTheSpecification()
+    {
+        // MS-VBAL 6.1.1.14, vbNarrow among them.
+        var strConv = Read().OfType<VBEnumMemberSymbol>().Single(symbol => symbol.Name == "VbStrConv");
+        var constants = ((VBEnumType)strConv.ResolvedType).Members.OfType<VBEnumConstMemberSymbol>()
+            .Select(constant => (constant.Name, constant.GetProperty(SymbolProperties.EnumValue))).ToArray();
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                ("vbUpperCase", 1L), ("vbLowerCase", 2L), ("vbProperCase", 3L), ("vbWide", 4L), ("vbNarrow", 8L),
+                ("vbKatakana", 16L), ("vbHiragana", 32L), ("vbUnicode", 64L), ("vbFromUnicode", 128L),
+            },
+            constants);
     }
 
     [TestMethod]
@@ -507,6 +593,150 @@ public sealed class StdLibSymbolReaderTests
         Assert.Contains(member, exception.Message);
     }
 
+    [TestMethod]
+    [DataRow("Limit", "Long", -1)]
+    [DataRow("Count", "Integer", (short)3)]
+    [DataRow("Include", "Boolean", true)]
+    [DataRow("Delimiter", "String", " ")]
+    public void AStatedDefault_IsCarriedAsAValueOfTheDeclaredType(string parameter, string type, object expected)
+    {
+        // MS-VBAL 6.1.2.11.1.35: Split(..., Optional Limit As Long = -1, ...). A typed optional's C# default can only be null, which states
+        // no <default-value> clause at all, so the declaration states the clause, and the symbol carries it the way an enumeration's is.
+        var stated = (VBFunctionMemberSymbol)new StdLibSymbolReader(Root).Read([typeof(IStdLibWithStatedDefaults)]).Single(symbol => symbol.Name == "Stated");
+
+        var symbol = stated.Parameters.Single(p => p.Name == parameter);
+        var value = ((LiteralExpressionNode)symbol.DefaultValue!).StaticValue;
+        Assert.IsTrue(symbol.IsOptional);
+        Assert.AreEqual(type, value.TypeInfo.Name);
+        Assert.AreEqual(symbol.ResolvedType, value.TypeInfo);
+        Assert.AreEqual(expected, value switch
+        {
+            VBStringValue text => text.Value,
+            VBBooleanValue flag => (bool)flag.Value,
+            _ => value.Handle.Value.BoxedValue,
+        });
+    }
+
+    [TestMethod]
+    [DataRow(typeof(IStdLibWithARequiredDefault), "Start", DisplayName = "a required parameter")]
+    [DataRow(typeof(IStdLibWithAParamArrayDefault), "Rest", DisplayName = "a ParamArray")]
+    [DataRow(typeof(IStdLibWithAnEnumDefault), "Compare", DisplayName = "an enumeration, whose C# default states it")]
+    [DataRow(typeof(IStdLibWithAMistypedDefault), "Limit", DisplayName = "a Boolean for a Long")]
+    [DataRow(typeof(IStdLibWithAnOverflowingDefault), "Count", DisplayName = "70000 for an Integer")]
+    [DataRow(typeof(IStdLibWithAVariantDefault), "Value", DisplayName = "a Variant")]
+    public void AStatedDefaultForAParameterThatCannotTakeIt_IsRefused(Type declaration, string parameter)
+    {
+        // a default that is not a value of the parameter's type, or one stated where no default can be, would be a <default-value> clause no
+        // VBA declaration could have written.
+        var reader = new StdLibSymbolReader(Root);
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() => reader.Read([declaration, typeof(VBCompareMethod)]));
+        Assert.Contains($"'{parameter}' in '{declaration.Name}.", exception.Message);
+    }
+
+    [TestMethod]
+    public void AnOptionCompareParameter_IsFlagged_AndKeepsItsDeclaredDefault()
+    {
+        // MS-VBAL 6.1.2.11.1.36: StrComp(..., Optional Compare As VbCompareMethod = vbBinaryCompare), "if omitted, it uses the
+        // <option-compare-directive> of the calling module". The declaration says = vbBinaryCompare, which is what a caller with no calling
+        // module gets; the flag says what a call from source fills in.
+        var find = (VBFunctionMemberSymbol)new StdLibSymbolReader(Root).Read([typeof(IStdLibWithAnOptionCompare), typeof(VBCompareMethod)])
+            .Single(symbol => symbol.Name == "Find");
+
+        var compare = find.Parameters.Single(p => p.Name == "Compare");
+        Assert.IsTrue(compare.GetProperty(SymbolProperties.DefaultsToOptionCompare));
+        Assert.AreEqual(0, Convert.ToInt32(((LiteralExpressionNode)compare.DefaultValue!).StaticValue.Handle.Value.BoxedValue));
+        Assert.IsFalse(find.Parameters.Single(p => p.Name == "Text").TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out _));
+    }
+
+    [TestMethod]
+    [DataRow(typeof(IStdLibWithALongOptionCompare), DisplayName = "a Long")]
+    [DataRow(typeof(IStdLibWithARequiredOptionCompare), DisplayName = "a required parameter")]
+    [DataRow(typeof(IStdLibWithAByRefOptionCompare), DisplayName = "a ByRef parameter")]
+    [DataRow(typeof(IStdLibWithAParamArrayOptionCompare), DisplayName = "a ParamArray")]
+    public void AnOptionCompareMarkerOnAParameterThatCannotTakeIt_IsRefused(Type declaration)
+    {
+        // what takes the caller's Option Compare is a comparing member's Compare, declared as the specification declares it.
+        var reader = new StdLibSymbolReader(Root);
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() => reader.Read([declaration, typeof(VBCompareMethod)]));
+        Assert.Contains($"in '{declaration.Name}.Find'", exception.Message);
+    }
+
+    [StdLibModule("Compare")]
+    private interface IStdLibWithAnOptionCompare
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find(VBStringValue text, [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithALongOptionCompare
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find([StdLibOptionCompare] VBLongValue? compare = default);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithARequiredOptionCompare
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find([StdLibOptionCompare] VBCompareMethod compare);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAByRefOptionCompare
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find([System.Runtime.InteropServices.Optional, StdLibOptionCompare] ref VBCompareMethod compare);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAParamArrayOptionCompare
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find([StdLibOptionCompare] params VBVariantValue[] compare);
+    }
+
+    [StdLibModule("Defaults")]
+    private interface IStdLibWithStatedDefaults
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Stated(
+            [StdLibDefault(-1)] VBLongValue? limit = default, [StdLibDefault(3)] VBIntegerValue? count = default,
+            [StdLibDefault(true)] VBBooleanValue? include = default, [StdLibDefault(" ")] VBStringValue? delimiter = default);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithARequiredDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Find([StdLibDefault(1)] VBLongValue start);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAParamArrayDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Total([StdLibDefault(1)] params VBVariantValue[] rest);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAnEnumDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Compare([StdLibDefault(1)] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAMistypedDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Split([StdLibDefault(true)] VBLongValue? limit = default);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAnOverflowingDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Repeat([StdLibDefault(70000)] VBIntegerValue? count = default);
+    }
+
+    [StdLibModule("Bad")]
+    private interface IStdLibWithAVariantDefault
+    {
+        RuntimeSemanticsEvaluationResult<VBLongValue> Hold([StdLibDefault(1)] VBVariantValue? value = default);
+    }
+
     private interface IUnmarked
     {
         RuntimeSemanticsEvaluationResult<VBLongValue> Whatever();
@@ -526,6 +756,8 @@ public sealed class StdLibSymbolReaderTests
         RuntimeSemanticsEvaluationResult<VBLongValue> Checksum([StdLibArray(typeof(VBByteValue))] VBResizableArrayValue bytes);
 
         RuntimeSemanticsEvaluationResult<VBLongValue> Digest([StdLibArray(typeof(VBByteValue))] VBResizableByteArrayValue bytes);
+
+        RuntimeSemanticsEvaluationResult<VBStringValue> Concat(VBResizableArrayValue values);
     }
 
     [StdLibModule("Bad")]
