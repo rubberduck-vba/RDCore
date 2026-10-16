@@ -5,7 +5,6 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Facts;
@@ -38,8 +37,11 @@ public sealed class ForLoopEvaluator(RuntimeExpressionEvaluator expressionEvalua
     /// </summary>
     public RuntimeSemanticsEvaluationResult AssignCounter(IRuntimeSession session, ForLoopState state, ExpressionNode locationNode, VBTypedValue value)
     {
-        var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
-        return operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(state.Counter), value);
+        // every Next assigns the counter at its own expression, with the assignment the loop made once; the start value is assigned at its own.
+        var assignment = ReferenceEquals(locationNode, state.ControlExpression)
+            ? state.CounterAssignment
+            : new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
+        return operators.EvaluateBinaryOperator(session, assignment, state.CounterTarget, value);
     }
 
     /// <summary>
