@@ -25,6 +25,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace RDCore.Runtime.Semantics.Abstract;
 
@@ -362,28 +363,36 @@ where TFlags : struct, Enum
             // evaluation run, since both key their own dispatch off frame.EffectiveType.
             frame = frame with { EffectiveType = effectiveType };
 
-            // 2. Validate the operands (let-coercion and overflow checks).
-            var operandValidations = Enumerable.Range(0, frame.Operands.Length)
-                .Select(index => ValidateOperand(resolver, expression, frame, (InputIndex)index))
-                .ToArray();
+            // 2. Validate the operands (let-coercion and overflow checks): every one of them, each coercion being evaluated - and observed - whether or not
+            //    another fails, and only then the first that failed, in the order of the operands.
+            var validOperands = new VBTypedValue[frame.Operands.Length];
+            LetCoercionResult? failure = null;
+            for (var index = 0; index < validOperands.Length; index++)
+            {
+                var validation = ValidateOperand(resolver, expression, frame, (InputIndex)index);
+                if (validation.Result is { } operand)
+                {
+                    validOperands[index] = operand;
+                }
+                else
+                {
+                    failure ??= validation;
+                }
+            }
 
             // a genuine coercion failure (e.g. Overflow) on any operand must short-circuit evaluation
             // here with its own error - silently dropping the operand would leave EvaluateExpressionResult
             // indexing into an array shorter than frame.Operands, and hide the real error entirely.
-            foreach (var validation in operandValidations)
+            if (failure is { } failed)
             {
-                if (validation.Result is null)
-                {
-                    return (RuntimeSemanticsEvaluationResult.Error(validation.ErrorInfo
-                        ?? OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
-                            Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose)), effectiveType);
-                }
+                return (RuntimeSemanticsEvaluationResult.Error(failed.ErrorInfo
+                    ?? OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
+                        Exceptions.VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose)), effectiveType);
             }
 
-            var validOperands = operandValidations.Select(validation => validation.Result!);
-
-            // 3. Evaluate the result.
-            var evaluateResult = EvaluateExpressionResult(resolver, context, expression, frame with { Operands = [.. validOperands] });
+            // 3. Evaluate the result. The operands are this evaluation's own, written once above: the immutable array is made of them, not of a copy.
+            var evaluateResult = EvaluateExpressionResult(resolver, context, expression,
+                frame with { Operands = ImmutableCollectionsMarshal.AsImmutableArray(validOperands) });
             if (evaluateResult.IsInternalError)
             {
                 return (RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.InternalError, expression,
