@@ -66,7 +66,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
             */
 
             VBNumericType numericEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>
-                EvaluateRuntimeSemantics(numericEffectiveType, numericOperand, expression),
+                EvaluateRuntimeSemantics(frame, numericEffectiveType, numericOperand, expression),
 
             // per specifications a VBDateValue operand was let-coerced into a VBDoubleValue by this point:
             VBDateType dateEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand =>

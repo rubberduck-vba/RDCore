@@ -51,7 +51,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
                 return OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
 
-            return EvaluateBinaryExpressionResult(decimalEffectiveType, lhsNumeric, rhsNumeric, expression);
+            return EvaluateBinaryExpressionResult(frame, decimalEffectiveType, lhsNumeric, rhsNumeric, expression);
         }
         else if (frame.EffectiveType is VBSingleType or VBDoubleType)
         {
@@ -75,7 +75,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
                     : OnDivisionByZero(expression, Exceptions.VBDivisionOp_DivisionByZero);
             }
 
-            return EvaluateBinaryExpressionResult((VBNumericType)frame.EffectiveType, lhsNumeric, rhsNumeric, expression);
+            return EvaluateBinaryExpressionResult(frame, (VBNumericType)frame.EffectiveType, lhsNumeric, rhsNumeric, expression);
         }
         else if (frame.EffectiveType is VBNullType)
         {

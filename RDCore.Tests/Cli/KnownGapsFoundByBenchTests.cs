@@ -20,15 +20,4 @@ public sealed class KnownGapsFoundByBenchTests
             "Dim Values(1 To 40000) As Long",
             "Values(40000) = 7",
             "Debug.Print Values(40000)"));
-
-    // MS-VBA: a Variant arithmetic operation whose result overflows the value type of its operands is evaluated again in the next wider type - a Long that
-    // overflows is a Double, which is what lets a Variant accumulate past 2147483647.
-    [TestMethod]
-    [Ignore("Known gap: a Variant holding a Long that overflows raises Overflow instead of widening to a Double.")]
-    public async Task AVariantLong_ThatOverflows_WidensToADouble()
-        => CollectionAssert.AreEqual(new[] { "2147483648" }, await Run(
-            "Dim S As Variant",
-            "S = 2147483647",
-            "S = S + 1",
-            "Debug.Print S"));
 }

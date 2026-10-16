@@ -43,7 +43,7 @@ public sealed record class UnaryPlusOperatorRuntimeSemantics(
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
         {
             VBNumericType numericEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand
-                => EvaluateRuntimeSemantics(numericEffectiveType, numericOperand, expression),
+                => EvaluateRuntimeSemantics(frame, numericEffectiveType, numericOperand, expression),
 
             // per specifications a VBDateValue operand was let-coerced into a VBDoubleValue during validation stage:
             VBDateType dateEffectiveType when frame[InputIndex.UnaryOperand] is VBNumericTypedValue numericOperand

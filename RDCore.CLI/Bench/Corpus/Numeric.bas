@@ -30,8 +30,8 @@ Public Sub BenchLongArithmetic()
     Next
 End Sub
 
-' the same loop with every operand a Variant: the effective type of each operation is decided from the values. The sum starts as a Double: a Variant
-' Long that overflows does not widen to a Double yet (pinned in KnownGapsFoundByBenchTests).
+' the same loop with every operand a Variant: the effective type of each operation is decided from the values. The sum starts as a Double, as it did
+' when a Variant Long that overflowed did not widen yet, so that the case measures the same work from one build to the next.
 Public Sub BenchVariantSum()
     Dim I As Variant
     Dim S As Variant

@@ -76,12 +76,15 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// <summary>
     /// Evaluates the runtime semantics of a unary arithmetic operator, computing the result in the
     /// effective type's own CLR representation. Integral overflow (e.g. negating the minimum value of
-    /// a signed integral type) is surfaced as <see cref="VBRuntimeErrorId.Overflow"/>.
+    /// a signed integral type) is surfaced as <see cref="VBRuntimeErrorId.Overflow"/> - or, for a Variant operand, evaluated again in a wider type
+    /// (<see cref="VariantArithmeticOverflow"/>).
     /// </summary>
+    /// <param name="frame">The frame of the operation: what it says of the operand as it was given decides what an overflow does.</param>
     /// <param name="effectiveType">The <em>effective data type</em> of the operation.</param>
     /// <param name="operand">The unary operand being evaluated, already let-coerced to <paramref name="effectiveType"/>.</param>
     /// <param name="expression">The unary operator expression, for error attribution.</param>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateRuntimeSemantics(VBNumericType effectiveType, VBNumericTypedValue operand, ExpressionNode expression)
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateRuntimeSemantics(
+        OperatorEvaluationFrame frame, VBNumericType effectiveType, VBNumericTypedValue operand, ExpressionNode expression)
     {
         try
         {
@@ -98,6 +101,11 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
                 _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported arithmetic numeric type."),
             };
             return RuntimeSemanticsEvaluationResult.Success(result);
+        }
+        catch (OverflowException) when (VariantArithmeticOverflow.Widens(frame, effectiveType)
+            && VariantArithmeticOverflow.Widened(EvaluateNumericOp(operand.AsDouble)) is { } widened)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(widened);
         }
         catch (OverflowException)
         {

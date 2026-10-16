@@ -32,7 +32,7 @@ public record class BinarySubtractionOperatorRuntimeSematics(
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
         {
-            VBNumericType numericEffectiveType => EvaluateBinaryExpressionResult(numericEffectiveType,
+            VBNumericType numericEffectiveType => EvaluateBinaryExpressionResult(frame, numericEffectiveType,
                 (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
                 (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand],
                 expression),

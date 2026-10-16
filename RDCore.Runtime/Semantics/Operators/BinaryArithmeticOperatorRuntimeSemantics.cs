@@ -54,8 +54,10 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// </summary>
     /// <remarks>
     /// 👉 Both operands have already been let-coerced to <paramref name="effectiveType"/> by the evaluation pipeline, so the casts are safe.
+    /// An operation of a Variant operand that overflows an integral effective type is evaluated again in a wider type (<see cref="VariantArithmeticOverflow"/>).
     /// </remarks>
     protected RuntimeSemanticsEvaluationResult EvaluateManagedArithmetic(
+        OperatorEvaluationFrame frame,
         VBNumericType effectiveType,
         VBNumericTypedValue lhs, VBNumericTypedValue rhs,
         ExpressionNode expression)
@@ -75,6 +77,11 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
                 _ => throw new NotSupportedException($"Effective type '{effectiveType.Name}' is not a supported arithmetic numeric type."),
             };
             return RuntimeSemanticsEvaluationResult.Success(result);
+        }
+        catch (OverflowException) when (VariantArithmeticOverflow.Widens(frame, effectiveType)
+            && VariantArithmeticOverflow.Widened(EvaluateManagedNumericOp(lhs.AsDouble, rhs.AsDouble)) is { } widened)
+        {
+            return RuntimeSemanticsEvaluationResult.Success(widened);
         }
         catch (OverflowException)
         {
@@ -125,27 +132,29 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// <summary>
     /// Evaluates the <see cref="VBNumericType"/> runtime semantics of a <em>binary arithmetic operator</em> 
     /// </summary>
+    /// <param name="frame">The frame of the operation: what it says of the operands as they were given decides what an overflow does.</param>
     /// <param name="effectiveType">The determined <em>effective data type</em> of the <em>arithmetic operation</em>.</param>
     /// <param name="lhs">The resolved <see cref="VBNumericTypedValue"/> of the left-hand side (LHS) <em>numeric binary expression</em> operand.</param>
     /// <param name="rhs">The resolved <see cref="VBNumericTypedValue"/> of the right-hand side (RHS) <em>numeric binary expression</em> operand.</param>
     /// <remarks>
     /// 🧩 This method is <c>virtual</c> and intended to be overridden by derived semantics as needed.<br/>
     /// The base implementation invokes templated method <see cref="EvaluateManagedNumericOp"/> then uses its result to
-    /// create a <see cref="VBNumericTypedValue"/> of the <em>effective data type</em> associated with the <c>ResultSymbol</c> 
+    /// create a <see cref="VBNumericTypedValue"/> of the <em>effective data type</em> associated with the <c>ResultSymbol</c>
     /// of the <em>binary arithmetic operator expression</em>, then returns it in a <c>Success</c> result.
     /// </remarks>
     /// <returns>
-    /// A <see cref="RuntimeSemanticsEvaluationResult"/> describing the evaluation result. 
+    /// A <see cref="RuntimeSemanticsEvaluationResult"/> describing the evaluation result.
     /// <list type="bullet">
     /// <item><strong>If successful</strong>, the operation <c>Result</c> is a <see cref="VBTypedValue"/> of the <em>effective data type</em> of the operation.</item>
     /// <item>Otherwise, the result contains a <see cref="VBRuntimeErrorInfo"/> describing a specific run-time error.</item>
     /// </list>
     /// </returns>
     protected virtual RuntimeSemanticsEvaluationResult EvaluateBinaryExpressionResult(
+        OperatorEvaluationFrame frame,
         VBNumericType effectiveType,
         VBNumericTypedValue lhs, VBNumericTypedValue rhs,
         ExpressionNode expression)
-        => EvaluateManagedArithmetic(effectiveType, lhs, rhs, expression);
+        => EvaluateManagedArithmetic(frame, effectiveType, lhs, rhs, expression);
 
 
     /// <summary>

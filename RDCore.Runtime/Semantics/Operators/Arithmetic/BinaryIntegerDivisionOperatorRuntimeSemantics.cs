@@ -44,7 +44,7 @@ public record class BinaryIntegerDivisionOperatorRuntimeSemantics(
         if (frame.EffectiveType is VBByteType or VBIntegerType or VBLongType or VBLongLongType
             && lhs is VBNumericTypedValue lhsValue && rhs is VBNumericTypedValue rhsValue)
         {
-            return EvaluateManagedArithmetic((VBNumericType)frame.EffectiveType, lhsValue, rhsValue, expression);
+            return EvaluateManagedArithmetic(frame, (VBNumericType)frame.EffectiveType, lhsValue, rhsValue, expression);
         }
         else if (frame.EffectiveType is VBNullType)
         {

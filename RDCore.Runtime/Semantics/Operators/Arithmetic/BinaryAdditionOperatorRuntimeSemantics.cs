@@ -39,7 +39,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
         switch (frame.EffectiveType)
         {
             case VBNumericType numericEffectiveType:
-                return EvaluateBinaryExpressionResult(numericEffectiveType,
+                return EvaluateBinaryExpressionResult(frame, numericEffectiveType,
                     (VBNumericTypedValue)frame[InputIndex.BinaryLeftOperand],
                     (VBNumericTypedValue)frame[InputIndex.BinaryRightOperand],
                     expression);
