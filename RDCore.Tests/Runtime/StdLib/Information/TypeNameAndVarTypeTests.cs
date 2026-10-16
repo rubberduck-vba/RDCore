@@ -323,7 +323,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf("Private v As Variant\r\nPrivate a(1) As Long", "v = a", "v", "Long()", "8195");
 
     [TestMethod]
-    [Ignore("ReDim of a Variant ignores its As clause: the array it makes is a Variant() whatever type the statement names (MS-VBAL 5.4.3.3).")]
     public Task OfAVariantReDimmedAsLong_IsALongArray()
         => AssertTypeOf("Private v As Variant", "ReDim v(1) As Long", "v", "Long()", "8195");
 

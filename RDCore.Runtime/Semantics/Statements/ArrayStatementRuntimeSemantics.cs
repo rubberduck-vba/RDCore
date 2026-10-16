@@ -80,6 +80,7 @@ public sealed record class ArrayStatementRuntimeSemantics(
         // it has the shape its type assumes, and nothing that is read from it is known. (Its elements are the declared defaults either way.)
         VBArrayValue Redimensioned(VBArrayValue array) => boundsKnown ? array : (VBArrayValue)array.AsIndeterminate();
 
+        var stated = StatedItemTypeOf(session, context, redim, target);
         var held = Unwrapped(target.Current);
         if (held is not VBArrayValue array)
         {
@@ -90,14 +91,41 @@ public sealed record class ArrayStatementRuntimeSemantics(
             // is what the rule is about, so it is the unwrapped value that decides: a Variant holding a
             // number is the error, and one holding nothing yet is not.
             return held is null or VBEmptyValue
-                ? Store(session, context, redim, target, Redimensioned(new VBResizableArrayValue(bounds, ItemTypeOf(target.Current))))
+                ? Store(session, context, redim, target, Redimensioned(new VBResizableArrayValue(bounds, stated ?? ItemTypeOf(target.Current))))
                 : Failed(redim, VBRuntimeErrorId.TypeMismatch, $"{redim.Name} is not an array");
         }
 
         return redim.IsPreserve
             ? Preserved(session, context, redim, target, array, bounds, boundsKnown)
             : Store(session, context, redim, target, Redimensioned(
-                new VBResizableArrayValue(bounds, array.IsInitialized ? array.ItemType : DeclaredItemType(target, array.ItemType))));
+                new VBResizableArrayValue(bounds, stated ?? (array.IsInitialized ? array.ItemType : DeclaredItemType(target, array.ItemType)))));
+    }
+
+    // MS-VBAL 5.4.3.3: a <redim-untyped-dcl> "has the same static semantics as if the text of its elements were parsed as an <untyped-variable-dcl>",
+    // and a <redim-typed-variable-dcl> as a <typed-variable-dcl>: the As clause, or the type character, is the type of the elements. A variable declared
+    // as a resizable array has that type already, which the clause can only repeat; a Variant is given the array the clause describes, so that
+    // `ReDim v(1) As Long` makes it hold a Long(). Null when the statement states no type, or the target is not a Variant.
+    private static VBType? StatedItemTypeOf(IRuntimeSession session, RuntimeEvaluationContext context, RedimDeclarationNode redim, Target target)
+    {
+        if (target.Declared is VBArrayType)
+        {
+            return null;
+        }
+
+        if (redim.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType)
+        {
+            return redim.TypeHint is { } hint && IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? hinted : null;
+        }
+
+        // a name that resolves to no type is a compile error the static semantics report; the array is then what it would be without the clause.
+        var typeName = asType.QualifierName is { } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
+        var type = DeclaredTypes.Resolve(session.Symbols.Resolver, typeName, context.Scope, session.Environment.Is64Bit);
+
+        // MS-VBAL 5.2.3.1.4: `String * n` is the type String*n.
+        // TODO: a length written as the name of a constant is not read yet; such an array holds variable-length strings.
+        return asType.FixedLength is { } length && type is VBStringType && int.TryParse(length, out var characters)
+            ? new VBFixedStringType(characters)
+            : type;
     }
 
     // a variable that an activation on the call stack has a ByRef parameter for is that parameter's for as long as the activation is: the array it holds is
