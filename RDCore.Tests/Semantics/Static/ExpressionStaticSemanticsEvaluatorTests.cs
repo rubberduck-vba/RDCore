@@ -218,17 +218,19 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
     }
 
     [TestMethod]
-    public void Modulo_HasTheRuleOfTheIntegerDivision()
-        // MS-VBAL 5.6.9.3.7: Mod shares the table of '\'.
+    public void UnmappedOperatorToken_DefersToUnknown()
+        // an operator with no static semantics rule - unary '+', which no source has but the runtime has semantics for - defers: it is not misreported, and
+        // nothing throws.
     {
         var module = Module("Caller");
         var x = ModuleField(module.Uri, "x", VBLongType.TypeInfo);
         var context = ContextAt(module.Uri, module with { Members = [x] }, x);
 
-        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, BinaryOf(Tokens.ModuloOp, NameOf("x"), NameOf("x")));
+        var result = ExpressionStaticSemanticsEvaluator.Evaluate(context,
+            new VBUnaryOperatorExpressionNode(Tokens.AdditionOp, new(TestUri.TestModuleUri().AbsolutePath, [12]), TestLocations.TestLocation, [NameOf("x")]));
 
         Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual(VBLongType.TypeInfo, result.Result);
+        Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
     }
 
     [TestMethod]

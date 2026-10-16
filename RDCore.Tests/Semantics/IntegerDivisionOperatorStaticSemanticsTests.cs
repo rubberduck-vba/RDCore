@@ -84,5 +84,12 @@ public sealed class IntegerDivisionOperatorStaticSemanticsTests : BinaryOperator
     [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
     public void EvaluateBinaryOperatorStaticSemantics(VBType lhs, VBType rhs, VBType expected)
         => AssertDeterminedDeclaredType((lhs, rhs), expected);
+
+    // MS-VBAL 5.6.9.3.7: Mod shares the table of '\'.
+    [TestMethod]
+    [DynamicData(GetBinaryOperatorTypeMapName, DynamicDataDisplayName = GetTestNameMethod)]
+    [TestCategory("MS-VBAL 5.6.9.3 Arithmetic Operators (static semantics)")]
+    public void EvaluateModuloOperatorStaticSemantics(VBType lhs, VBType rhs, VBType expected)
+        => AssertDeterminedDeclaredType(new BinaryModuloOperatorStaticSemantics(), [lhs, rhs], expected);
 }
 
