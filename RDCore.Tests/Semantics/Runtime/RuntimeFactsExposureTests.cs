@@ -210,7 +210,7 @@ public sealed class RuntimeFactsExposureTests
     }
 
     [TestMethod]
-    [Ignore("Runtime gap, not fixed here (a runtime bugfix PR is in flight): the effective type of an operation with a Variant operand that is not known is the assumed Empty's (Integer), and is stated as a fact.")]
+    [Ignore("Needs Variant type tracking (deferred types): the analysis does not track the type a Variant holds, so the effective type of an operation of a Variant that is not known is the assumed Empty's (Integer), stated as a fact.")]
     public async Task AnOperationOfAVariantThatIsNotKnown_HasNoKnownEffectiveType()
     {
         var facts = await FactsOfAsync("ByVal v As Variant, ByVal w As Variant", "Dim r As Variant", "r = v + w");
