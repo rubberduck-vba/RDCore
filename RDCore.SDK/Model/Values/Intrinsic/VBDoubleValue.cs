@@ -19,6 +19,9 @@ public sealed record class VBDoubleValue : VBNumericTypedValue,
     public VBDoubleValue(double value) : this(new ValueBindingHandle(new VBRuntimeValue<double>(value))) { }
 
     public double Value => ((VBRuntimeValue<double>)RuntimeValue).Value;
+
+    /// <inheritdoc/>
+    public override double AsDouble => Value;
     public override int Size => 8;
 
     public bool Equals(IVBTypedValue<VBDoubleValue, double>? other) => Value == other?.Value;

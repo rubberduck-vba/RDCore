@@ -30,6 +30,21 @@ public sealed class NumericValueManagedRepresentationTests
         => Assert.AreEqual(1.5d, ((VBNumericTypedValue)new VBCurrencyValue(1.5m)).AsDouble);
 
     [TestMethod]
+    public void APrimitiveNumberReadsAsADouble_AsItsBoxedValueConvertsToOne()
+    {
+        VBNumericTypedValue[] values =
+        [
+            new VBByteValue(255), new VBIntegerValue(short.MinValue), new VBLongValue(int.MaxValue), new VBLongLongValue(long.MaxValue),
+            new VBSingleValue(float.MaxValue), new VBSingleValue(0.1f), new VBDoubleValue(double.Epsilon), new VBDoubleValue(-0.5),
+        ];
+
+        foreach (var value in values)
+        {
+            Assert.AreEqual(Convert.ToDouble(value.RuntimeValue.BoxedValue), value.AsDouble, value.TypeInfo.Name);
+        }
+    }
+
+    [TestMethod]
     public void ADecimalKeepsItsFullPrecision()
         => Assert.AreEqual(79228162514264337593543950335m, new VBDecimalValue(decimal.MaxValue).RuntimeValue.BoxedValue);
 

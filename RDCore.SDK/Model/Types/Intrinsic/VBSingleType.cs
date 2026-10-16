@@ -35,14 +35,14 @@ public record class VBSingleType() : VBNumericType<float>(VBTypeNames.VBSingle),
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBSingleValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.RuntimeValue.BoxedValue);
+    public override double ManagedMinValue => float.MinValue;
 
     private static readonly Lazy<VBSingleValue> _maxValue = new(() => new VBSingleValue(float.MaxValue), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBSingleValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.RuntimeValue.BoxedValue);
+    public override double ManagedMaxValue => float.MaxValue;
 
     private static readonly Lazy<VBSingleValue> _zero = new(() => new VBSingleValue(0f), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

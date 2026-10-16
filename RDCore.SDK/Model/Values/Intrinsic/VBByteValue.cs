@@ -16,6 +16,9 @@ public sealed record class VBByteValue() : VBNumericTypedValue(VBByteType.TypeIn
     public VBByteValue(byte value) : this(new ValueBindingHandle(new VBRuntimeValue<byte>(value))) { }
 
     public byte Value => ((VBRuntimeValue<byte>)RuntimeValue).Value;
+
+    /// <inheritdoc/>
+    public override double AsDouble => Value;
     public override int Size { get; } = sizeof(byte);
 
     public bool Equals(IVBTypedValue<VBByteValue, byte>? other) => Value == other?.Value;

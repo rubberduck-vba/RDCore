@@ -28,7 +28,7 @@ public record class VBLongType() : VBNumericType<int>(VBTypeNames.VBLong), IInte
     /// Gets the minimum representable value for this data type.
     /// </summary>
     public static VBLongValue MinValue => _minValue.Value;
-    public override double ManagedMinValue => Convert.ToDouble(_minValue.Value.RuntimeValue.BoxedValue);
+    public override double ManagedMinValue => int.MinValue;
 
     private static readonly Lazy<VBLongValue> _maxValue = new(()
         => new VBLongValue(int.MaxValue), LazyThreadSafetyMode.PublicationOnly);
@@ -36,7 +36,7 @@ public record class VBLongType() : VBNumericType<int>(VBTypeNames.VBLong), IInte
     /// Gets the maximum representable value for this data type.
     /// </summary>
     public static VBLongValue MaxValue => _maxValue.Value;
-    public override double ManagedMaxValue => Convert.ToDouble(_maxValue.Value.RuntimeValue.BoxedValue);
+    public override double ManagedMaxValue => int.MaxValue;
 
     private static readonly Lazy<VBLongValue> _zero = new(()
         => new VBLongValue(0), LazyThreadSafetyMode.PublicationOnly);

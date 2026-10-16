@@ -20,6 +20,9 @@ public sealed record class VBLongValue : VBNumericTypedValue,
     public VBLongValue(int value) : this(new ValueBindingHandle(new VBRuntimeValue<int>(value))) { }
 
     public int Value => ((VBRuntimeValue<int>)RuntimeValue).StoredValue;
+
+    /// <inheritdoc/>
+    public override double AsDouble => Value;
     public override int Size => sizeof(int);
 
     public bool Equals(IVBTypedValue<VBLongValue, int>? other) => Value == other?.Value;

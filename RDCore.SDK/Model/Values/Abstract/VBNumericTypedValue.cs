@@ -22,5 +22,8 @@ public abstract record class VBNumericTypedValue(VBType TypeInfo) : VBTypedValue
     /// computes on <c>double</c> for anything numeric — safe against the boxed-primitive cast that a
     /// bare <c>(double)RuntimeValue.BoxedValue</c> would throw.
     /// </summary>
-    public double AsDouble => Convert.ToDouble(RuntimeValue.BoxedValue);
+    /// <remarks>
+    /// A value of a primitive managed type overrides it with the value itself, which it reads without boxing it.
+    /// </remarks>
+    public virtual double AsDouble => Convert.ToDouble(RuntimeValue.BoxedValue);
 }

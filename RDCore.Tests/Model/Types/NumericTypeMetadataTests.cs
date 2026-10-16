@@ -1,4 +1,5 @@
 ﻿using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 
 namespace RDCore.Tests.Model.Types;
 
@@ -20,6 +21,28 @@ public sealed class NumericTypeMetadataTests
         };
 
         Assert.HasCount(names.Length, names.Distinct());
+    }
+
+    // the range a value is checked against before it is converted is the range of the type's own MinValue and MaxValue, as a Double.
+    [TestMethod]
+    public void TheManagedRangeOfEachType_IsItsMinValueToItsMaxValue()
+    {
+        (VBNumericType Type, object Min, object Max)[] types =
+        [
+            (VBByteType.TypeInfo, VBByteType.MinValue.RuntimeValue.BoxedValue, VBByteType.MaxValue.RuntimeValue.BoxedValue),
+            (VBIntegerType.TypeInfo, VBIntegerType.MinValue.RuntimeValue.BoxedValue, VBIntegerType.MaxValue.RuntimeValue.BoxedValue),
+            (VBLongType.TypeInfo, VBLongType.MinValue.RuntimeValue.BoxedValue, VBLongType.MaxValue.RuntimeValue.BoxedValue),
+            (VBLongLongType.TypeInfo, VBLongLongType.MinValue.RuntimeValue.BoxedValue, VBLongLongType.MaxValue.RuntimeValue.BoxedValue),
+            (VBSingleType.TypeInfo, VBSingleType.MinValue.RuntimeValue.BoxedValue, VBSingleType.MaxValue.RuntimeValue.BoxedValue),
+            (VBDoubleType.TypeInfo, VBDoubleType.MinValue.RuntimeValue.BoxedValue, VBDoubleType.MaxValue.RuntimeValue.BoxedValue),
+            (VBDecimalType.TypeInfo, VBDecimalType.MinValue.RuntimeValue.BoxedValue, VBDecimalType.MaxValue.RuntimeValue.BoxedValue),
+        ];
+
+        foreach (var (type, min, max) in types)
+        {
+            Assert.AreEqual(Convert.ToDouble(min), type.ManagedMinValue, type.Name);
+            Assert.AreEqual(Convert.ToDouble(max), type.ManagedMaxValue, type.Name);
+        }
     }
 
     // MS-VBAL 2.1.1: a Decimal's integer range is +/-79,228,162,514,264,337,593,543,950,335, which is not a Currency's.

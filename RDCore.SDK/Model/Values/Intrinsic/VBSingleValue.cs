@@ -21,6 +21,9 @@ public sealed record class VBSingleValue : VBNumericTypedValue,
     public VBSingleValue(float value) : this(new ValueBindingHandle(new VBRuntimeValue<float>(value))) { }
 
     public float Value => ((VBRuntimeValue<float>)RuntimeValue).Value;
+
+    /// <inheritdoc/>
+    public override double AsDouble => Value;
     public override int Size => sizeof(float);
     public bool Equals(IVBTypedValue<VBSingleValue, float>? other) => Value == other?.Value;
 }
