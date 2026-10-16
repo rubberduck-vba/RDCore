@@ -19,9 +19,8 @@ namespace RDCore.Runtime.StdLib;
 /// machinery of an assignment, so they get it from <see cref="ValueConversions"/> — the conversions Let-coercion
 /// itself is built on.
 /// <para>
-/// 🚧 <see cref="CLngPtr"/> is not implemented, because nothing in the runtime models a <c>LongPtr</c> yet, and an
-/// object argument raises Type mismatch rather than being read through its default member
-/// (<strong>MS-VBAL §5.5.1.2.13</strong>): that is an invocation, which a conversion is not. TODO both.
+/// 🚧 An object argument raises Type mismatch rather than being read through its default member
+/// (<strong>MS-VBAL §5.5.1.2.13</strong>): that is an invocation, which a conversion is not. TODO.
 /// </para>
 /// <para>
 /// 👉 The specification's text for <see cref="Fix"/> says the result is "the smallest integer greater than or
@@ -44,10 +43,6 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     private static RuntimeSemanticsEvaluationResult<TValue> Fail<TValue>(VBRuntimeErrorId id, string verbose)
         where TValue : VBTypedValue
         => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(id, default, verbose));
-
-    private static RuntimeSemanticsEvaluationResult<TValue> NotImplemented<TValue>(string member)
-        where TValue : VBTypedValue
-        => Fail<TValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError, $"'{member}' is declared but not implemented yet.");
 
     private static RuntimeSemanticsEvaluationResult<TValue> Succeed<TValue>(TValue value)
         where TValue : VBTypedValue
@@ -107,8 +102,26 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
         => ToNumeric<VBLongLongValue>(expression, VBLongLongType.TypeInfo, errorAsCode: true);
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// "the result of Expression being Let-coerced to LongPtr" (<strong>MS-VBAL §6.1.2.3.1.10</strong>), which is an alias of the integer a pointer is on the
+    /// platform (<strong>§2.2</strong>): a <c>LongLong</c> on a 64-bit one and a <c>Long</c> on a 32-bit one. The value is that conversion's, and an Error
+    /// is its code as it is there.
+    /// </remarks>
     public RuntimeSemanticsEvaluationResult<VBLongPtrValue> CLngPtr(VBVariantValue expression)
-        => NotImplemented<VBLongPtrValue>(nameof(CLngPtr));
+    {
+        if (session.Environment.Is64Bit)
+        {
+            var wide = CLngLng(expression);
+            return wide.IsSuccess
+                ? Succeed(new VBLongPtrValue(wide.Result!.Value))
+                : RuntimeSemanticsEvaluationResult<VBLongPtrValue>.Error(wide.ErrorInfo!);
+        }
+
+        var narrow = CLng(expression);
+        return narrow.IsSuccess
+            ? Succeed(new VBLongPtrValue(narrow.Result!.Value))
+            : RuntimeSemanticsEvaluationResult<VBLongPtrValue>.Error(narrow.ErrorInfo!);
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBSingleValue> CSng(VBVariantValue expression)

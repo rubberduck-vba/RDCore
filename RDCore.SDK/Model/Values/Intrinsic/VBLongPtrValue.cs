@@ -19,13 +19,15 @@ public sealed record class VBLongPtrValue(bool Is64Bit)
         Handle = new ValueBindingHandle(new VBRuntimeValue<long>(value));
         Size = VBLongPtrType_x64.BitnessAwarePtrSize;
     }
-    public VBLongPtrValue(int value) : this(true)
+    // a 32-bit pointer is a Long: its own type, and an Int32 in storage.
+    public VBLongPtrValue(int value) : this(false)
     {
         Handle = new ValueBindingHandle(new VBRuntimeValue<int>(value));
         Size = VBLongPtrType_x86.BitnessAwarePtrSize;
     }
 
-    public long Value => (long)RuntimeValue.BoxedValue;
+    // widened from whichever integer the platform's pointer is stored as: unboxing an Int32 as an Int64 would throw.
+    public long Value => Convert.ToInt64(RuntimeValue.BoxedValue, System.Globalization.CultureInfo.InvariantCulture);
     public override int Size { get; }
 
     public bool Equals(IVBTypedValue<VBLongPtrValue, long>? other) => Value.Equals(other?.Value);

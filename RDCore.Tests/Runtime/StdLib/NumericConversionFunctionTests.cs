@@ -102,10 +102,4 @@ public sealed class NumericConversionFunctionTests
     public void CDec_OfAnErrorIsNotItsCode()
         // MS-VBAL 6.1.2.3.1.6 gives CDec no Error case, unlike every other numeric conversion.
         => Assert.AreEqual(VBRuntimeErrorId.TypeMismatch, ErrorOf(Conversion.CDec(Variant(new VBErrorValue(13)))));
-
-    [TestMethod]
-    public void TheMembersNothingImplementsYetSayTheyAreNotImplemented()
-        => Assert.AreEqual(
-            VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,
-            ErrorOf(Conversion.CLngPtr(Variant(new VBLongValue(1)))));
 }

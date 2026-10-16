@@ -79,7 +79,6 @@ public sealed class TypeNameAndVarTypeTests
         => AssertTypeOf(string.Empty, string.Empty, expression, typeName, varType);
 
     [TestMethod]
-    [Ignore("CLngPtr is not implemented: StdConversion.CLngPtr returns NotImplemented (nothing in the runtime models a LongPtr value yet).")]
     public Task OfCLngPtr_IsTheLongLongItIsOnA64BitPlatform()
         => AssertTypeOf(string.Empty, string.Empty, "CLngPtr(1)", "LongLong", "20");
 
