@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Semantics.Abstract;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
@@ -50,7 +51,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         OperatorAnalysisContext<ConcatOperationSemanticFlags> analysisContext, 
         params VBTypedValue[] operands)
     {
-        if(operands.OfType<VBNullValue>().Any())
+        if (operands.Any(NullOperand.Is))
         {
             builder.AddFlags(ConcatOperationSemanticFlags.HasNullOperand);
         }

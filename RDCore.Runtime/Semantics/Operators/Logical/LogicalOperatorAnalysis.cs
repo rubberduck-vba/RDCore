@@ -1,3 +1,4 @@
+using RDCore.Runtime.Semantics.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -26,7 +27,7 @@ internal static class LogicalOperatorAnalysis
         {
             builder.AddFlags(LogicalOperatorSemanticFlags.IsBitwiseSemantics);
         }
-        if (operands.Any(operand => operand is VBNullValue))
+        if (operands.Any(NullOperand.Is))
         {
             builder.AddFlags(LogicalOperatorSemanticFlags.HasNullOperand);
         }

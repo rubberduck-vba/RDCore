@@ -493,7 +493,15 @@ where TFlags : struct, Enum
         // meaningful — and no strategy is registered to do it, so it used to surface as an internal
         // error before the dispatch's own Null case was ever reached.
         var operand = frame[index];
-        return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
+
+        // a Variant holding Null is a Null operand all the same: the operator is given the Null it holds, which is what its own Null rows
+        // test for.
+        if (NullOperand.TryGet(operand, out var nullOperand))
+        {
+            return LetCoercionResult.Success(nullOperand, []);
+        }
+
+        return operand is VBTypeDescValue || frame.EffectiveType is VBNullType
             ? LetCoercionResult.Success(operand, []) // NOTE: no coercion flags applicable here
             : LetCoerceNonNullOperand(resolver, expression, frame, index);
     }
@@ -528,15 +536,16 @@ where TFlags : struct, Enum
     {
         var operand = frame[operandIndex];
 
-        // a Null operand is not coerced (nothing to coerce it to), but it is a fact about the operand all the same.
-        if (operand is VBNullValue)
+        // a Null operand, or a Variant holding Null, is not coerced (nothing to coerce it to), but it is a fact about the operand all the same.
+        if (NullOperand.TryGet(operand, out var nullOperand))
         {
             builder.AddLetCoercionFlags(ConversionSemanticFlags.NullOperand | OperandPositionFlags.Of(expression, operandIndex), operandIndex);
+            return new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(nullOperand, []));
         }
 
         // the same operands ValidateOperand exempts, and the same destination it coerces the others to.
         var destinationType = CoercionDestinationOf(frame);
-        return operand is VBNullValue or VBTypeDescValue || frame.EffectiveType is VBNullType
+        return operand is VBTypeDescValue || frame.EffectiveType is VBNullType
             || (destinationType.Equals(operand.TypeInfo) && operand is not VBVariantValue) // no coercion occurs
             ? new LetCoercionAnalysisContext(frame.NodeId, LetCoercionResult.Success(operand, []))
             : AnalyzeOperandCoercion(resolver, builder, expression, operand, operandIndex, destinationType);
