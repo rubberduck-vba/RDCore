@@ -1,10 +1,12 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.LetCoercion;
+using RDCore.Runtime.Semantics.Plans;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
@@ -144,6 +146,27 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
                 ?? OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression, Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose));
         }
 
+        return Store(resolver, target, coercionResult.Result!);
+    }
+
+    /// <summary>
+    /// Let-assigns a value to a variable by the plan of its let-coercion (<see cref="PlanExecutor.TryConvert"/>), if the value and the declared type of the
+    /// variable are ones the plan can be executed for.
+    /// </summary>
+    /// <param name="session">The session the assignment is evaluated in.</param>
+    /// <param name="target">The variable assigned: a <see cref="VBSymbolDescValue"/>.</param>
+    /// <param name="source">The value assigned.</param>
+    /// <returns>The value assigned, as it was let-coerced and stored - or <see langword="null"/> when the assignment is to be evaluated the way it always
+    /// is, which is also how a coercion that fails raises its error.</returns>
+    internal RuntimeSemanticsEvaluationResult? TryAssignPlanned(IRuntimeSession session, VBTypedValue target, VBTypedValue source)
+        => target is VBSymbolDescValue { Symbol: var symbol }
+            && target.GetTargetType() is var declared and not VBUnknownType
+            && PlanExecutor.TryConvert(source, declared, out var coerced)
+                ? Store(session.Symbols.Resolver, symbol, coerced)
+                : null;
+
+    private static RuntimeSemanticsEvaluationResult Store(ISymbolResolver resolver, Symbol target, VBTypedValue value)
+    {
         var handle = resolver.GetValue(target);
         if (!handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
@@ -155,9 +178,9 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         // an array is identified by where it is, not by a value its own binding could hold: what a variable holds of one is the
         // array boxed, as it is wherever else an array is stored. A coerced array - a fixed-size array let-coerced to a resizable
         // one - has no binding of its own to read it from.
-        handle.Store(resolver, coercionResult.Result is VBArrayValue
-            ? SymbolAddressTable.BoxedValue(coercionResult.Result)
-            : coercionResult.Result!.RuntimeValue, !coercionResult.Result.IsIndeterminate);
-        return RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!);
+        handle.Store(resolver, value is VBArrayValue
+            ? SymbolAddressTable.BoxedValue(value)
+            : value.RuntimeValue, !value.IsIndeterminate);
+        return RuntimeSemanticsEvaluationResult.Success(value);
     }
 }

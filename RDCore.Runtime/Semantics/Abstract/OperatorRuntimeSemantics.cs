@@ -24,6 +24,7 @@ using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Services.VerboseMessages;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -235,6 +236,51 @@ where TFlags : struct, Enum
     }
 
     /// <summary>
+    /// Evaluates the operation its plan says, on operands already let-coerced to the type the plan coerces them to (<see cref="Plans.PlanExecutor"/>): the
+    /// effective type is the plan's, and the operands are not validated again.
+    /// </summary>
+    /// <param name="session">The session the operation is evaluated in.</param>
+    /// <param name="context">The semantic context the operation is evaluated in.</param>
+    /// <param name="expression">The expression the operation is evaluated for.</param>
+    /// <param name="site">The construct that asks for the operation.</param>
+    /// <param name="plan">The plan of the operation, for the value types of its operands: it has an effective type.</param>
+    /// <param name="operands">The operands, let-coerced to <see cref="OperationPlan.OperandDestination"/>. The evaluation reads them where they are.</param>
+    /// <param name="hasVariantOperand">Whether an operand, as the operation was given it, has a declared type of Variant
+    /// (<see cref="OperatorEvaluationFrame.HasVariantOperand"/>).</param>
+    internal RuntimeSemanticsEvaluationResult EvaluatePlanned(
+        IRuntimeSession session,
+        TContext context,
+        ExpressionNode expression,
+        ConversionSite site,
+        OperationPlan plan,
+        VBTypedValue[] operands,
+        bool hasVariantOperand)
+    {
+        Debug.Assert(plan.EffectiveType is not null);
+        var frame = new OperatorEvaluationFrame(
+            expression.Identity, ImmutableCollectionsMarshal.AsImmutableArray(operands), plan.EffectiveType!, session.CurrentStringComparison(), site)
+        {
+            HasVariantOperand = hasVariantOperand,
+        };
+
+        return EvaluateExpressionResult(session.Symbols.Resolver, context, expression, frame);
+    }
+
+    // a Variant operand is the VBVariantValue its declaration reads as.
+    private static bool HasVariant(ImmutableArray<VBTypedValue> operands)
+    {
+        foreach (var operand in operands)
+        {
+            if (operand is VBVariantValue)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// States an operation that was just evaluated as an <see cref="OperatorFact"/>.
     /// </summary>
     /// <param name="session">The session the operation was evaluated in.</param>
@@ -360,8 +406,9 @@ where TFlags : struct, Enum
         if (effectiveTypeResult.Result is VBType effectiveType) // this should be a given
         {
             // the determined effective type must be in the frame before operand validation and
-            // evaluation run, since both key their own dispatch off frame.EffectiveType.
-            frame = frame with { EffectiveType = effectiveType };
+            // evaluation run, since both key their own dispatch off frame.EffectiveType. Whether an operand is a Variant is said of the operands as they
+            // are given, before validation coerces them.
+            frame = frame with { EffectiveType = effectiveType, HasVariantOperand = HasVariant(frame.Operands) };
 
             // 2. Validate the operands (let-coercion and overflow checks): every one of them, each coercion being evaluated - and observed - whether or not
             //    another fails, and only then the first that failed, in the order of the operands.

@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators.Arithmetic;
 using RDCore.Runtime.Semantics.Operators.Logical;
 using RDCore.Runtime.Semantics.Operators.Relational;
+using RDCore.Runtime.Semantics.Plans;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -135,7 +136,9 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         => token switch
         {
             // an assignment states the conversion of its source, which is a fact of its own: it is not an operation to state.
-            OperatorSymbolNames.BinaryAssignmentValueOp => _letAssignment.EvaluateAtSite(session, Empty<ConversionOperationSemanticContext>.Context, expression, ConversionSite.Assignment, left, right),
+            // one nothing observes is let-coerced by its plan when it can be (IR lowering §3.2).
+            OperatorSymbolNames.BinaryAssignmentValueOp => (IsObserved ? null : _letAssignment.TryAssignPlanned(session, left, right))
+                ?? _letAssignment.EvaluateAtSite(session, Empty<ConversionOperationSemanticContext>.Context, expression, ConversionSite.Assignment, left, right),
             Tokens.AdditionOp => Evaluate(_addition, session, token, expression, site, left, right),
             Tokens.SubtractionOp => Evaluate(_subtraction, session, token, expression, site, left, right),
             Tokens.MultiplicationOp => Evaluate(_multiplication, session, token, expression, site, left, right),
@@ -171,6 +174,9 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
+    // whether what is evaluated now is stated: describing an operation suspends the observation, and what is evaluated to describe it is not.
+    private bool IsObserved => _observation is { IsSuspended: false };
+
     // the context an operation is evaluated in when nothing has analyzed it: a context is immutable, and an empty one is the same for every operation.
     private static class Empty<TContext> where TContext : new()
     {
@@ -189,6 +195,13 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
     {
+        // an operation nothing observes is evaluated by its plan when it can be (IR lowering §3.2), and by the pipeline otherwise. An observed operation
+        // always goes through the pipeline, which is what describes the conversions of its operands.
+        if (!IsObserved && PlanExecutor.TryEvaluate(semantics, session, Empty<TContext>.Context, token, expression, site, operands) is { } planned)
+        {
+            return planned;
+        }
+
         var result = semantics.EvaluateAtSite(session, Empty<TContext>.Context, expression, site, operands);
         if (_observation is { IsSuspended: false } observation)
         {

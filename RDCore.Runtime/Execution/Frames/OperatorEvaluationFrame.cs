@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
@@ -35,6 +36,16 @@ namespace RDCore.Runtime.Execution.Frames
         /// <param name="index">The <see cref="InputIndex"/> value describing the index of the operator to retrieve.</param>
         /// <returns>The <see cref="VBTypedValue"/> operand at the specified index.</returns>
         public VBTypedValue this[InputIndex index] => Operands[(int)index];
+
+        /// <summary>
+        /// Whether an operand has a declared type of <c>Variant</c>: what an arithmetic operation that overflows its effective type does depends on it
+        /// (<strong>MS-VBAL 5.6.9.3</strong>).
+        /// </summary>
+        /// <remarks>
+        /// The operands are let-coerced to the effective type before the operation is evaluated, which leaves no Variant among them: this is said of the
+        /// operands as the operation was given them, where a Variant operand is the <see cref="VBVariantValue"/> its declaration reads as.
+        /// </remarks>
+        public bool HasVariantOperand { get; init; }
 
         SyntaxNodeId IStackFrame.NodeId => NodeId;
         ImmutableArray<VBTypedValue> IStackFrame.Inputs => Operands;
