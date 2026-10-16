@@ -340,8 +340,10 @@ public static class OperationPlanner
                 VBByteType or VBBooleanType or VBIntegerType or VBEmptyType or VBNullType)
             => VBIntegerType.TypeInfo,
 
+        // the table of MS-VBAL 5.6.9.8 names no Boolean in these rows, where MS-VBA takes one as the integral value it is: `True And 5^` is the LongLong 5,
+        // whichever side the Boolean is on.
         (VBLongLongType, INumericType or VBBooleanType or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType)
-            or (INumericType or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType, VBLongLongType)
+            or (INumericType or VBBooleanType or VBStringType or VBFixedStringType or VBDateType or VBEmptyType or VBNullType, VBLongLongType)
             => VBLongLongType.TypeInfo,
 
         (IFloatingPointNumericType or IFixedPointNumericType or VBLongType or VBStringType or VBFixedStringType or VBDateType,
