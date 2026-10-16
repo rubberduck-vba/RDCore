@@ -3,8 +3,10 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -44,6 +46,7 @@ public sealed record class BoundExpression(SyntaxNodeId Node, StaticSemanticsEva
 public sealed class ExpressionBindings
 {
     private readonly Dictionary<SyntaxNodeId, BoundExpression> _bound = [];
+    private readonly Dictionary<SyntaxNodeId, BoundNode> _nodes = [];
 
     /// <summary>
     /// What each expression bound to, by its <c>Identity</c>.
@@ -56,12 +59,46 @@ public sealed class ExpressionBindings
     public BoundExpression? this[SyntaxNodeId node] => _bound.GetValueOrDefault(node);
 
     /// <summary>
-    /// Records what an expression the static semantics evaluated binds to. An expression that is evaluated again has its binding replaced.
+    /// The bound tree of an expression that was bound (<see cref="BoundNode"/>); <see langword="null"/> for one that was not.
     /// </summary>
     /// <param name="expression">The expression.</param>
+    public BoundNode? NodeOf(ExpressionNode expression) => _nodes.GetValueOrDefault(expression.Identity);
+
+    /// <summary>
+    /// Records what an expression the static semantics evaluated binds to. An expression that is evaluated again has its binding replaced.
+    /// </summary>
+    /// <param name="context">The context the expression was evaluated in: the scope its names resolve from.</param>
+    /// <param name="expression">The expression.</param>
     /// <param name="result">What the static semantics made of it.</param>
-    internal void Record(ExpressionNode expression, StaticSemanticsEvaluationResult result)
-        => _bound[expression.Identity] = new BoundExpression(expression.Identity, result, PlanOf(expression));
+    internal void Record(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result)
+    {
+        var plan = PlanOf(expression);
+        _bound[expression.Identity] = new BoundExpression(expression.Identity, result, plan);
+        _nodes[expression.Identity] = NodeFor(context, expression, result, plan);
+    }
+
+    // an operand is recorded before the expression that has it, so its node is there to build this one from. An expression that is a compile error, or that
+    // is not bound yet, is a fallback - and so is one with an operand that is.
+    private BoundNode NodeFor(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result, OperationPlan? plan)
+        => result.IsError ? new BoundFallback(expression) : expression switch
+        {
+            LiteralExpressionNode literal => new BoundLiteral(literal),
+
+            // the name is resolved as the evaluation resolves it, from the same scope: the binding is the resolution, made once.
+            SimpleNameExpressionNode name when context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is { } symbol
+                => new BoundName(name, symbol),
+
+            VBBinaryOperatorExpressionNode binary when plan is not null && OperandNode(binary.Left) is { } left && OperandNode(binary.Right) is { } right
+                => new BoundBinary(binary, plan, left, right),
+
+            VBUnaryOperatorExpressionNode unary when OperandNode(unary.Operand) is { } operand
+                => new BoundUnary(unary, plan, operand),
+
+            _ => new BoundFallback(expression),
+        };
+
+    // the node of an operand that is bound to something other than a fallback.
+    private BoundNode? OperandNode(ExpressionNode operand) => NodeOf(operand) is { } node and not BoundFallback ? node : null;
 
     // the plan of an operation, for the declared types of its operands as the operator is given them (an Enum is a Long, a LongPtr what it is an alias of).
     private OperationPlan? PlanOf(ExpressionNode expression) => expression switch

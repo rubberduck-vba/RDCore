@@ -30,6 +30,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static;
@@ -77,7 +78,7 @@ namespace RDCore.Runtime.Semantics;
 /// the fly.
 /// </para>
 /// </remarks>
-public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider OperatorProvider)
+public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider OperatorProvider)
 {
     /// <summary>
     /// The invoker a bare <c>Sub</c> call (S9a's own scope) runs through. Settable rather than a
@@ -126,6 +127,12 @@ public sealed class RuntimeExpressionEvaluator(IOperatorRuntimeSemanticsProvider
     /// tree evaluates successfully.
     /// </returns>
     public RuntimeSemanticsEvaluationResult Evaluate(IRuntimeSession session, ExpressionNode expression, RuntimeEvaluationContext context)
+        => BoundTreeOf(session, expression, context) is { } bound and not BoundFallback
+            ? EvaluateBound(session, bound, context)
+            : EvaluateSyntax(session, expression, context);
+
+    // the evaluation of the syntax tree, which is what an expression the binder does not bind yet is evaluated by (IR lowering D3).
+    private RuntimeSemanticsEvaluationResult EvaluateSyntax(IRuntimeSession session, ExpressionNode expression, RuntimeEvaluationContext context)
         => expression switch
         {
             LiteralExpressionNode => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression),

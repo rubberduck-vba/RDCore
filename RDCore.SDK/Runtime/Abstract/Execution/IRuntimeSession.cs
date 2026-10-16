@@ -266,6 +266,15 @@ public interface ISessionSymbols
     LexicalScope? ScopeOf(Uri uri);
 
     /// <summary>
+    /// The scopes of everything the session has defined, as they are now: what every name of the code resolves in.
+    /// </summary>
+    /// <remarks>
+    /// A tree does not change once it is built: when a symbol is defined, undefined or redefined, the session builds another one. What was resolved or
+    /// bound in a tree is therefore true for as long as the session's tree is that same instance, and is to be resolved again when it is not.
+    /// </remarks>
+    ScopeTree Scopes { get; }
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>

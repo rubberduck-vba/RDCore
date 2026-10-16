@@ -66,6 +66,41 @@ public sealed class ExpressionBinderTests
         Assert.AreEqual(VBDoubleType.TypeInfo, bindings[d.Identity]!.DeclaredType);
     }
 
+    // the bound tree (IR lowering §3.1): each name bound to the symbol it resolves to, each operation to its plan and its operands' nodes.
+    [TestMethod]
+    public void AnOperation_OfNames_IsBoundToATreeOfItsOperands()
+    {
+        var context = ContextWith(("x", VBLongType.TypeInfo), ("d", VBDoubleType.TypeInfo));
+        var (x, d) = (NameOf("x"), NameOf("d"));
+        var sum = BinaryOf(Tokens.AdditionOp, x, d);
+
+        var node = ExpressionBinder.Bind(context, sum).NodeOf(sum);
+
+        var binary = Assert.IsInstanceOfType<BoundBinary>(node);
+        Assert.AreSame(sum, binary.Operation);
+        Assert.AreSame(OperationPlanner.ForValues(Tokens.AdditionOp, VBLongType.TypeInfo, VBDoubleType.TypeInfo), binary.Plan);
+        Assert.AreEqual("x", Assert.IsInstanceOfType<BoundName>(binary.Left).Symbol.Name);
+        Assert.AreEqual("d", Assert.IsInstanceOfType<BoundName>(binary.Right).Symbol.Name);
+    }
+
+    [TestMethod]
+    public void ALiteral_IsBoundToItself()
+    {
+        var literal = new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new RDCore.SDK.Model.Values.Intrinsic.VBLongValue(42));
+
+        Assert.IsInstanceOfType<BoundLiteral>(ExpressionBinder.Bind(ContextWith(), literal).NodeOf(literal));
+    }
+
+    // a compile error is not bound (IR lowering D3), and nor is the operation it is an operand of: the evaluation of the syntax tree raises what it raises.
+    [TestMethod]
+    public void ANameThatDoesNotResolve_AndAnOperationOfIt_AreFallbacks()
+    {
+        var context = ContextWith(("x", VBLongType.TypeInfo));
+        var sum = BinaryOf(Tokens.AdditionOp, NameOf("x"), NameOf("nowhere"));
+
+        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, sum).NodeOf(sum));
+    }
+
     [TestMethod]
     public void AnOperation_OfAVariant_IsAVariant_AndItsPlanIsDeferred()
     {
