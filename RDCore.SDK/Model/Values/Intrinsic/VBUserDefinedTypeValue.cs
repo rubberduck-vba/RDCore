@@ -41,14 +41,40 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
         : this(MemoryAddress.Zero, typeInfo) { }
 
     // C# records synthesize `with` from a memberwise copy constructor, which would share this value's
-    // _fields by reference with whatever copy it just built — and VBA copies a UDT on assignment, so every
-    // `with`-derived copy (TryAllocateIn's included) needs field storage of its own. This is the same
-    // explicit copy constructor VBArrayValue needs for its cells, for the same reason; a nested UDT field is
-    // copied through its own copy constructor so a copy is deep the whole way down, as VBA's is.
+    // _fields by reference with whatever copy it just built. This one gives a `with`-derived copy
+    // (TryAllocateIn's included) a field store of its own, so that replacing a field in one (TrySetField)
+    // does not replace it in the other; a nested UDT field is copied the same way. But a field's value is
+    // bound to its cell, which both still share, and a write through the cell is seen by both: a `with`
+    // is another view of the record. The copy an assignment makes, which shares nothing, is DataCopy.
     protected VBUserDefinedTypeValue(VBUserDefinedTypeValue original) : base(original)
     {
         Fields = original.Fields;
         _fields = [.. original._fields.Select(field => field is VBUserDefinedTypeValue nested ? nested with { } : field)];
+    }
+
+    /// <summary>
+    /// A copy of this record that shares no cell with it: the copy an assignment makes of a user-defined type (<see cref="DataValues"/>).
+    /// </summary>
+    /// <remarks>
+    /// Each field is a copy in a cell of its own, deep through a nested record, an array and what a <c>Variant</c> holds, and the copy is bound
+    /// to no storage: it is whichever variable it is assigned to that gives it an address.
+    /// </remarks>
+    public VBUserDefinedTypeValue DataCopy()
+    {
+        var copy = this with { Handle = InvalidBindingHandle.Default };
+        for (var index = 0; index < _fields.Length; index++)
+        {
+            copy._fields[index] = _fields[index] switch
+            {
+                VBUserDefinedTypeValue or VBArrayValue => DataValues.Copy(_fields[index]),
+                // a Variant's value is bound to a cell of its own (VBVariantValue's handle), which a copy must not share whatever it holds.
+                VBVariantValue variant when new VBVariantValue(DataValues.Copy(variant.TypedValue)) is var held
+                    => variant.IsIndeterminate ? held.AsIndeterminate() : held,
+                var field => field with { Handle = DataValues.CopyCell(field.Handle) },
+            };
+        }
+
+        return copy;
     }
 
     /// <summary>

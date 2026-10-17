@@ -6,13 +6,14 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
 /// <summary>
-/// Characterization matrix for UDT let-coercion (MS-VBAL §5.5.1.2.8): the same UDT type is a shallow
-/// (shared-reference) copy; any other declared type — including a different UDT, or any non-UDT
+/// Characterization matrix for UDT let-coercion (MS-VBAL §5.5.1.2.8): the same UDT type is a copy whose
+/// fields are its own; any other declared type — including a different UDT, or any non-UDT
 /// source coercing into a UDT — is a type mismatch.
 /// </summary>
 [TestClass]
@@ -32,18 +33,27 @@ public sealed class VBUserDefinedTypeLetCoercionTests : LetCoercionRuntimeSemant
         return new VBUserDefinedType(symbol, []);
     }
 
+    // "a shallow copy of the UDT ... all other elements are Let-assigned": the copy's fields are its own, and a field written through one is not
+    // written in the other.
     [TestMethod]
-    public void SameUdtSource_IsASharedReferenceCopy()
+    public void SameUdtSource_IsACopyThatSharesNoField()
     {
-        var udtType = Udt("Foo");
+        var uri = TestUri.TestModuleUri("Bar");
+        var symbol = new VBUserDefinedTypeMemberSymbol(uri, uri, "Bar", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        var field = new VBUserDefinedTypeFieldSymbol(uri, symbol.Uri, "X", VBLongType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        var udtType = new VBUserDefinedType(symbol, [field]);
         var source = new VBUserDefinedTypeValue(udtType);
+        ((IKnowledgeBinding)source.GetFieldHandle("X")!).Store(new VBLongValue(1).RuntimeValue, isKnown: true);
 
         var result = Coerce(Sut(), source, udtType);
 
         Assert.IsTrue(result.IsApplicable);
         Assert.IsNull(result.ErrorInfo);
-        Assert.IsInstanceOfType<VBUserDefinedTypeValue>(result.Result);
-        Assert.AreEqual(source.Value, ((VBUserDefinedTypeValue)result.Result!).Value);
+        var copy = (VBUserDefinedTypeValue)result.Result!;
+        Assert.AreEqual(1, ((VBLongValue)copy["X"]!).Value, "the copy holds what the source held");
+
+        ((IKnowledgeBinding)copy.GetFieldHandle("X")!).Store(new VBLongValue(2).RuntimeValue, isKnown: true);
+        Assert.AreEqual(1, ((VBLongValue)source["X"]!).Value, "a write to the copy's field is not a write to the source's");
     }
 
     [TestMethod]
