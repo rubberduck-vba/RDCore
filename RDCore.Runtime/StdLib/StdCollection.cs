@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -15,22 +17,48 @@ namespace RDCore.Runtime.StdLib;
 /// The members of a collection are state of the object, so they are kept with its own instance and last as long as it does. Each is a value with the key it was
 /// added with, if it was: a key is a <c>String</c> that is the same key whatever the case of its letters.
 /// <para>
-/// 🚧 TODO a collection does not count the objects it holds. An object that is held only by a collection is not kept alive by it, and one that was held by it
-/// is not let go of when it is removed: the same gap <c>ObjectReferences</c> documents for an array element and a field.
+/// A member holds the objects in it as a variable does, by a cell of its own (<see cref="ObjectReferences"/>): an object a collection holds is kept alive by
+/// it, and let go of when the member is removed or the collection is destroyed.
 /// </para>
 /// </remarks>
-/// <param name="session">The session the collections are objects of.</param>
-/// <param name="enumerators">Makes the object a <c>For Each</c> over a collection is driven by.</param>
-internal sealed class StdCollection(IRuntimeSession session, StdEnumVariant enumerators) : IStdCollectionClass, IStdLibReceiverBound
+internal sealed class StdCollection : IStdCollectionClass, IStdLibReceiverBound
 {
-    private sealed record Member(string? Key, VBTypedValue Value);
+    // the value is what the member is; the cell holds it, and is what the objects in it are held by.
+    private sealed record Member(string? Key, VBTypedValue Value, IBindingHandle Cell);
 
     private sealed class Members
     {
         public List<Member> Items { get; } = [];
     }
 
+    private readonly IRuntimeSession session;
+    private readonly StdEnumVariant enumerators;
     private readonly ConditionalWeakTable<IObjectInstance, Members> _members = [];
+
+    /// <param name="session">The session the collections are objects of.</param>
+    /// <param name="enumerators">Makes the object a <c>For Each</c> over a collection is driven by.</param>
+    public StdCollection(IRuntimeSession session, StdEnumVariant enumerators)
+    {
+        this.session = session;
+        this.enumerators = enumerators;
+        session.Objects.OnDestroying(ReleaseMembersOf);
+    }
+
+    // MS-VBAL §5.3.1.10: a collection that is destroyed lets go of what its members hold, which can be what destroys those in turn.
+    private void ReleaseMembersOf(VBRuntimeObjectId destroyed)
+    {
+        if (!session.Symbols.TryGetInstance(destroyed, out var instance) || !_members.TryGetValue(instance, out var members))
+        {
+            return;
+        }
+
+        var released = members.Items.ToArray();
+        members.Items.Clear();
+        foreach (var member in released)
+        {
+            ObjectReferences.Release(session, member.Cell);
+        }
+    }
 
     /// <inheritdoc/>
     public VBRuntimeObjectId? Receiver { get; set; }
@@ -108,7 +136,11 @@ internal sealed class StdCollection(IRuntimeSession session, StdEnumVariant enum
             insertAt++;
         }
 
-        members.Items.Insert(insertAt, new Member(keyText, value));
+        // a member is the collection's own copy of what it was given, held in a cell of its own as an element is (an array is stored boxed).
+        var copied = DataValues.Copy(value);
+        var cell = BindingKnowledge.NewCell(copied is VBArrayValue ? SymbolAddressTable.BoxedValue(copied) : copied.RuntimeValue, !copied.IsIndeterminate);
+        members.Items.Insert(insertAt, new Member(keyText, copied, cell));
+        ObjectReferences.Rebind(session, cell, ObjectReferences.Held.None);
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 
@@ -125,7 +157,9 @@ internal sealed class StdCollection(IRuntimeSession session, StdEnumVariant enum
             return RuntimeSemanticsEvaluationResult.Error(error);
         }
 
+        var removed = members.Items[position];
         members.Items.RemoveAt(position);
+        ObjectReferences.Release(session, removed.Cell);
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 

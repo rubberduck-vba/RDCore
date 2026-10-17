@@ -41,6 +41,25 @@ public sealed class AssignmentCopyTests
             "Private Sub Change(ByVal v As Variant)\r\nv(0) = 5\r\nEnd Sub",
             "Dim a As Variant", "a = Array(1, 2)", "Change a", "Debug.Print a(0)"));
 
+    // a value read from a variable is the value the variable holds then: a Variant given it does not change with the variable afterwards.
+    [TestMethod]
+    public async Task ANumber_AssignedToAVariant_IsWhatTheVariableHeldThen()
+        => CollectionAssert.AreEqual(new[] { "1" }, await Run(string.Empty,
+            "Dim n As Integer, v As Variant", "n = 1", "v = n", "n = 2", "Debug.Print v"));
+
+    [TestMethod]
+    public async Task ANumber_InAnArrayLiteral_IsWhatTheVariableHeldThen()
+        => CollectionAssert.AreEqual(new[] { "1" }, await Run(string.Empty,
+            "Dim n As Integer, v As Variant", "n = 1", "v = Array(n)", "n = 2", "Debug.Print v(0)"));
+
+    [TestMethod]
+    [DataRow("Set v = o", "v", DisplayName = "A Variant")]
+    [DataRow("Set a(0) = o", "a(0)", DisplayName = "An element of a Variant array")]
+    [DataRow("v = Array(o)", "v(0)", DisplayName = "An element of an array literal")]
+    public async Task AnObject_SetToAVariant_IsTheObjectTheVariableHeldThen(string assignment, string read)
+        => CollectionAssert.AreEqual(new[] { "Collection" }, await Run(string.Empty,
+            "Dim o As Object, v As Variant, a(1) As Variant", "Set o = New Collection", assignment, "Set o = Nothing", $"Debug.Print TypeName({read})"));
+
     [TestMethod]
     public async Task ARecord_AssignedToARecord_IsACopy()
         => CollectionAssert.AreEqual(new[] { "1 2" }, await Run("Private Type T\r\n    X As Long\r\nEnd Type",

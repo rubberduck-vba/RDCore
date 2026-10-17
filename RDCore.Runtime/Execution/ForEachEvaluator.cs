@@ -60,6 +60,11 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
     /// </summary>
     public RuntimeSemanticsEvaluationResult AssignControl(IRuntimeSession session, ITypedSymbol control, ExpressionNode locationNode, bool useSetAssignment, VBTypedValue element)
     {
+        // the control variable holds each element in turn, as any variable holds what it is assigned: it lets go of the one before (ObjectReferences).
+        var handle = session.Symbols.Resolver.GetValue((Symbol)control);
+        var before = ObjectReferences.CanHoldAnObject(control.ResolvedType) ? ObjectReferences.HeldIn(session, handle) : ObjectReferences.Held.None;
+
+        RuntimeSemanticsEvaluationResult result;
         if (useSetAssignment)
         {
             var coercionResult = setCoercion.EvaluateSetCoercion(session, locationNode, element, control.ResolvedType);
@@ -68,13 +73,21 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
                 return RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo!);
             }
 
-            var handle = session.Symbols.Resolver.GetValue((Symbol)control);
             handle.Store(session.Symbols.Resolver, coercionResult.Result!);
-            return RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!);
+            result = RuntimeSemanticsEvaluationResult.Success(coercionResult.Result!);
+        }
+        else
+        {
+            var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
+            result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue((Symbol)control), element);
         }
 
-        var syntheticOperator = new VBBinaryOperatorExpressionNode(OperatorSymbolNames.BinaryAssignmentValueOp, locationNode.Identity, locationNode.Location, locationNode, locationNode);
-        return operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue((Symbol)control), element);
+        if (result.IsSuccess && ObjectReferences.CanHoldAnObject(control.ResolvedType))
+        {
+            ObjectReferences.Rebind(session, handle, before);
+        }
+
+        return result;
     }
 
     /// <summary>

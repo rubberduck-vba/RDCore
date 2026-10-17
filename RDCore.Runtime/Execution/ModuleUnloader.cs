@@ -54,15 +54,12 @@ public sealed class ModuleUnloader(IRuntimeSession session, ProgramImage image)
     private void ReleaseObjectHeldBy(Symbol symbol)
     {
         var resolver = session.Symbols.Resolver;
-        if (symbol is not ITypedSymbol typed || !resolver.TryGetAddress(symbol, out _))
+        if (symbol is not ITypedSymbol || !resolver.TryGetAddress(symbol, out _))
         {
             return;
         }
 
-        var holder = resolver.GetValue(symbol);
-        if (typed.ResolvedType.CreateValue(holder) is VBObjectValue held)
-        {
-            ObjectReferences.Release(session, holder, held);
-        }
+        // whatever the variable holds: an object, or the objects a Variant, an array or a record of it holds.
+        ObjectReferences.Release(session, resolver.GetValue(symbol));
     }
 }

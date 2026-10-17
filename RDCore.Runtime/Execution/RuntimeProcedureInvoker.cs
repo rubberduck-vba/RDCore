@@ -124,6 +124,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             frame.ReturnValue = returning.ResolvedType.DefaultValue;
         }
 
+        List<VBParameterSymbol>? copied = null;
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
@@ -142,6 +143,15 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 // MS-VBAL §5.3.1.11's own "otherwise" case: a fresh local, Let-assigned from the
                 // argument's value, never aliasing anything the caller can see again.
                 frame.Push(parameter, parameter.ResolvedType.CreateValue(new ValueBindingHandle(arguments[i])));
+
+                // the local holds what it was given for as long as the activation does, whatever the caller does with its own variable meanwhile.
+                // Me is not such a local: it is the reference the call was made through, which whatever made the call holds - an object that New
+                // is initializing is held by nothing yet, and letting go of Me when Initialize returns would destroy it before it is assigned.
+                if (parameter.Name != Tokens.Me && frame.TryResolve(parameter, out var cell))
+                {
+                    ObjectReferences.Rebind(Session, cell, ObjectReferences.Held.None);
+                    (copied ??= []).Add(parameter);
+                }
             }
         }
 
@@ -153,7 +163,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         // runs none. What it leaves is the session's to clear (ISessionSymbols.ResetStorage) when it is over, or to keep when it is only broken.
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Halt or RuntimeExecutionOutcomeKind.Break))
         {
-            ReleaseLocals(frame, GetLocals(procedure));
+            ReleaseLocals(frame, GetLocals(procedure), copied);
         }
 
         // A program that was stopped by a Stop, or by a break, is suspended and not over (MS-VBAL 5.4.2.11): "all variables maintain their state if execution resumes". Its
@@ -180,16 +190,10 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // held by one of them only is destroyed with it - which is where its Terminate runs. What the function returns
     // is taken by whoever called it, so it is not let go of here (see ObjectReferences). A Static local outlives the
     // activation and is not in the frame.
-    private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals)
+    private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals, List<VBParameterSymbol>? copiedParameters)
     {
-        // a Variant result holds the object it was Set to, which is as much returned as an Object result is.
-        var result = frame.ReturnValue;
-        while (result is VBVariantValue { TypedValue: var wrapped })
-        {
-            result = wrapped;
-        }
-
-        var returned = result as VBObjectValue;
+        // the objects the result holds - an object, or one a Variant, an array or a record holds - are as much returned as the result is.
+        var returned = ObjectReferences.HeldBy(InvalidBindingHandle.Default, frame.ReturnValue);
         foreach (var local in locals)
         {
             if (local is not VBLocalVariableSymbol { IsStatic: false } variable || !frame.TryResolve(variable, out var handle))
@@ -197,7 +201,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 continue;
             }
 
-            ObjectReferences.Release(Session, handle, variable.ResolvedType.CreateValue(handle) as VBObjectValue, returned);
+            ObjectReferences.Release(Session, handle, returned);
+        }
+
+        // a ByVal parameter is a local of the activation as much as a Dim is (MS-VBAL §5.3.1.11): what it holds it lets go of with it.
+        foreach (var parameter in copiedParameters ?? [])
+        {
+            if (frame.TryResolve(parameter, out var handle))
+            {
+                ObjectReferences.Release(Session, handle, returned);
+            }
         }
     }
 

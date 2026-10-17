@@ -183,10 +183,7 @@ public sealed class LetAssignmentEvaluator(
                 return RuntimeExecutionOutcome.Next;
             }
 
-            // what the element held is its object's identity as of now: the cell is about to be bound to something else.
-            var previous = array[indices] is VBObjectValue heldObject ? new VBObjectValue(heldObject.Value) : null;
-            var cell = StoreElement(session, array, indices, setResult.Result!, setResult.Result!.RuntimeValue);
-            ObjectReferences.Rebind(session, cell, previous, setResult.Result as VBObjectValue);
+            StoreElement(session, array, indices, setResult.Result!);
             return RuntimeExecutionOutcome.Next;
         }
 
@@ -213,24 +210,31 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
-        StoreElement(session, array, indices, coerced.Result!, coerced.Result!.RuntimeValue);
+        StoreElement(session, array, indices, coerced.Result!);
         return RuntimeExecutionOutcome.Next;
     }
 
-    // An element is written where it is: its cell is the storage, and the one an object reference is held by, which is what
-    // lets the reference be released when the element is assigned again. Only a cell that cannot be written - the inert one
-    // an element of a class, user-defined type or Object type starts with - is given a binding that can.
-    private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source, IRuntimeValue value)
+    // An element is written where it is: its cell is the storage, and the one the objects it holds are held by, which is what
+    // lets them be released when the element is assigned again (ObjectReferences) - whether it is Set to an object, or Let a
+    // Variant, an array or a record that holds some. Only a cell that cannot be written - the inert one an element of a class,
+    // user-defined type or Object type starts with - is given a binding that can. An array or a record is stored boxed, as a
+    // variable stores one.
+    private static IBindingHandle StoreElement(IRuntimeSession session, VBArrayValue array, int[] indices, VBTypedValue source)
     {
+        var value = source is VBArrayValue or VBUserDefinedTypeValue ? SymbolAddressTable.BoxedValue(source) : source.RuntimeValue;
         var cell = array.GetElementHandle(indices)!;
+        var before = ObjectReferences.HeldIn(session, cell);
         if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+            ObjectReferences.Rebind(session, cell, before);
             return cell;
         }
 
         array.TrySetElement(BindingKnowledge.NewCell(value, !source.IsIndeterminate), indices);
-        return array.GetElementHandle(indices)!;
+        var stored = array.GetElementHandle(indices)!;
+        ObjectReferences.Rebind(session, stored, before);
+        return stored;
     }
 
     /// <summary>
@@ -305,11 +309,9 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Error(setResult.ErrorInfo!);
         }
 
-        // a value is a view of its handle, which is about to be written to: what the field held is its object's identity as of now.
-        var previous = fieldType.CreateValue(handle) is VBObjectValue held ? new VBObjectValue(held.Value) : null;
-
+        var before = ObjectReferences.HeldIn(session, handle);
         handle.Store(session.Symbols.Resolver, setResult.Result!);
-        ObjectReferences.Rebind(session, handle, previous, setResult.Result as VBObjectValue);
+        ObjectReferences.Rebind(session, handle, before);
         return RuntimeExecutionOutcome.Next;
     }
 
@@ -404,7 +406,9 @@ public sealed class LetAssignmentEvaluator(
 
             // an array, a record and a Variant are held as the value that identifies them by where it is, which is what every allocation boxes them
             // in: the value's own runtime value is not one for them, and a whole array assigned to a variable of an object would have none.
+            var heldBefore = ObjectReferences.HeldIn(session, handle);
             handle.Store(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(coerced.Result!), !coerced.Result!.IsIndeterminate);
+            ObjectReferences.Rebind(session, handle, heldBefore);
             return RuntimeExecutionOutcome.Next;
         }
 
@@ -427,8 +431,9 @@ public sealed class LetAssignmentEvaluator(
             EventAttachments.Detach(session, owner.Value, field, previous);
         }
 
+        var before = ObjectReferences.HeldIn(session, handle);
         handle.Store(session.Symbols.Resolver, setResult.Result!);
-        ObjectReferences.Rebind(session, handle, previous, setResult.Result as VBObjectValue);
+        ObjectReferences.Rebind(session, handle, before);
         if (withEvents)
         {
             EventAttachments.Attach(session, owner.Value, field, setResult.Result as VBObjectValue);
@@ -488,9 +493,16 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
         }
 
-        return udt.TrySetField(declared.Name, coerced.Result!)
-            ? RuntimeExecutionOutcome.Next
-            : RuntimeExecutionOutcome.InternalError;
+        var index = udt.Fields.IndexOf(declared);
+        var before = ObjectReferences.HeldInField(udt, index);
+        if (!udt.TrySetFieldAt(index, coerced.Result!))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        // the field holds what it was given in a cell of its own now, which is what holds the objects in it.
+        ObjectReferences.RebindField(session, udt, index, before);
+        return RuntimeExecutionOutcome.Next;
     }
 
     /// <summary>
@@ -653,7 +665,17 @@ public sealed class LetAssignmentEvaluator(
         // passed directly rather than read back off the node's Children.
         var syntheticOperator = new VBBinaryOperatorExpressionNode(
             OperatorSymbolNames.BinaryAssignmentValueOp, statement.Identity, statement.SourceLocation, target, source);
+
+        // a Variant, a record or an array can hold objects, and what the variable held is let go of when it is assigned something else: `V = 5`
+        // destroys the object V was Set to, if it was the last thing to hold it (MS-VBAL §5.3.1.10).
+        var holder = ObjectReferences.CanHoldAnObject(referenced ?? (symbol as ITypedSymbol)?.ResolvedType) ? session.Symbols.Resolver.GetValue(symbol) : null;
+        var before = holder is null ? ObjectReferences.Held.None : ObjectReferences.HeldIn(session, holder);
+
         var result = operators.EvaluateBinaryOperator(session, syntheticOperator, new VBSymbolDescValue(symbol, referenced), value);
+        if (holder is not null && result.IsSuccess)
+        {
+            ObjectReferences.Rebind(session, holder, before);
+        }
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError

@@ -58,8 +58,9 @@ public sealed record class SetCoercionRuntimeSemantics(IVerboseMessageBuilder Fo
 
         if (destinationType is VBObjectType or VBVariantType)
         {
-            // late-bound / catch-all destination: any real object reference is compatible.
-            return SetCoercionResult.Success(destinationType is VBVariantType ? new VBVariantValue(sourceObject) : sourceObject);
+            // late-bound / catch-all destination: any real object reference is compatible. A Variant holds the reference itself, as it is now: the
+            // source is a view of the variable it was read from, and would be whatever that variable holds next (`Set v = o: Set o = Nothing`).
+            return SetCoercionResult.Success(destinationType is VBVariantType ? new VBVariantValue(DataValues.Copy(sourceObject)) : sourceObject);
         }
 
         if (destinationType is VBClassType destinationClass)

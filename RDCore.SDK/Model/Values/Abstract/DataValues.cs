@@ -17,7 +17,8 @@ namespace RDCore.SDK.Model.Values.Abstract;
 /// <para>
 /// 👉 Not a <c>with</c> expression: a record's <c>with</c> makes a new <em>view</em> of the same storage, which is what binding a value to its
 /// variable's address needs (<see cref="VBArrayValue.TryAllocateIn"/>). An object is its reference, and a copy of it is the same object; a
-/// number, a <c>String</c> and every other intrinsic value is immutable, and needs no copy of its own.
+/// number, a <c>String</c> and every other intrinsic value is immutable - but one read from a variable is bound to the variable's cell, and its
+/// copy is bound to a cell of its own that holds what the variable held when it was copied.
 /// </para>
 /// </remarks>
 public static class DataValues
@@ -31,9 +32,17 @@ public static class DataValues
     {
         VBArrayValue array => array.DataCopy(),
         VBUserDefinedTypeValue record => record.DataCopy(),
-        VBVariantValue variant when Holds(variant.TypedValue) => Known(new VBVariantValue(Copy(variant.TypedValue)), !variant.IsIndeterminate),
-        _ => value,
+        VBVariantValue variant => Known(new VBVariantValue(Copy(variant.TypedValue)), !variant.IsIndeterminate),
+        _ => Snapshot(value),
     };
+
+    // a number, a String, an object reference: immutable, but a value read from a variable is a view of the variable's cell, and is whatever
+    // the variable holds when it is next read - `v = n: n = 2` would make v 2. The copy holds what the cell holds now, in a cell of its own.
+    // A value that is not known stays the assumption it is.
+    private static VBTypedValue Snapshot(VBTypedValue value)
+        => value.Handle is IKnowledgeBinding { IsKnown: var isKnown } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue)
+            ? value with { Handle = BindingKnowledge.NewCell(cell.Value, isKnown) }
+            : value;
 
     /// <summary>
     /// A new cell that holds a copy of what <paramref name="cell"/> holds, and knows of it what <paramref name="cell"/> does.

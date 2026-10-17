@@ -129,6 +129,22 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
         => index < 0 || index >= _fields.Length ? null : ReadField(_fields[index]);
 
     /// <summary>
+    /// The number of fields the record has.
+    /// </summary>
+    public int FieldCount => _fields.Length;
+
+    /// <summary>
+    /// The field at <paramref name="index"/> as the record stores it: bound to its own cell, which a write to the field writes to, whether or not
+    /// the record is known; <c>null</c> when there is no field there.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FieldAt"/> reads a field of a record that is not known as a value that is not known either, which is another binding. A caller
+    /// that needs the cell itself - what the object a field holds is held by - reads it here.
+    /// </remarks>
+    /// <param name="index">The field's position in declaration order.</param>
+    public VBTypedValue? StoredFieldAt(int index) => index < 0 || index >= _fields.Length ? null : _fields[index];
+
+    /// <summary>
     /// Replaces the value of the field named <paramref name="name"/>. Mutates the cell in place — field
     /// storage is mutable, the way array element storage is.
     /// </summary>

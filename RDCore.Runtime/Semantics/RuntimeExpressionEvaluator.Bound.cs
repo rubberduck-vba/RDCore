@@ -142,8 +142,17 @@ public sealed partial class RuntimeExpressionEvaluator
             return null;
         }
 
+        // a Variant may hold an object it was Set to, which it lets go of now that it holds a number (MS-VBAL §5.3.1.10); no other type a plan
+        // converts to can hold one.
+        var before = declared is VBVariantType ? Execution.ObjectReferences.HeldIn(session, handle) : Execution.ObjectReferences.Held.None;
+
         // what the plan converts to is a number, a Boolean, a date or a String, known: no array to store boxed, and nothing assumed.
         handle.Store(session.Symbols.Resolver, coerced.RuntimeValue, isKnown: true);
+        if (declared is VBVariantType)
+        {
+            Execution.ObjectReferences.Rebind(session, handle, before);
+        }
+
         return RuntimeSemanticsEvaluationResult.Success(coerced);
     }
 

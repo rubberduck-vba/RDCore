@@ -135,8 +135,8 @@ internal static class PlanExecutor
             ConversionRule.Boolean => ValueConversions.ToBoolean(value),
             ConversionRule.Date => ValueConversions.ToDate(value),
             ConversionRule.String when value is VBStringValue => ValueConversions.ToText(value),
-            // MS-VBAL 5.5.1.2.12: a Variant holds the value as it is.
-            ConversionRule.Variant => ValueConversionResult.Success(new VBVariantValue(value)),
+            // MS-VBAL 5.5.1.2.12: "a copy of the source value" - as it is now, and not a view of the variable it was read from.
+            ConversionRule.Variant => ValueConversionResult.Success(new VBVariantValue(DataValues.Copy(value))),
             _ => ValueConversionResult.NotApplicable,
         };
 

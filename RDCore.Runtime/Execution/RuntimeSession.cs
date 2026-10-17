@@ -92,7 +92,8 @@ internal sealed class RuntimeSession(
     }
 
     // an object's variables hold the objects they were set to, and cease to when it does (MS-VBAL §2.3: the variables
-    // of an object have the extent of the object). A field that holds nothing it counted, or no object, releases nothing.
+    // of an object have the extent of the object) - an object field, and the objects a Variant, an array or a record
+    // field holds. A field that holds nothing it counted, or no object, releases nothing.
     private void ReleaseFieldsOf(VBRuntimeObjectId instance)
     {
         if (!Symbols.TryGetInstance(instance, out var live))
@@ -101,15 +102,13 @@ internal sealed class RuntimeSession(
         }
 
         foreach (var field in live.ClassModule.Members.Where(member
-            => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol
-            && member.ResolvedType is VBClassType or VBObjectType))
+            => member is VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol))
         {
-            var handle = live.GetValue(field);
-            if (field.ResolvedType.CreateValue(handle) is VBObjectValue held)
-            {
-                ObjectReferences.Release(this, handle, new VBObjectValue(held.Value));
-            }
+            ObjectReferences.Release(this, live.GetValue(field));
         }
+
+        // what the object holds that is no variable of its class: the members of a collection.
+        Objects.NotifyDestroying(instance);
     }
 }
 
@@ -220,6 +219,18 @@ internal sealed class SessionObjects : ISessionObjects
     private readonly Dictionary<VBRuntimeObjectId, List<IBindingHandle>> _roots = [];
     private readonly HashSet<VBRuntimeObjectId> _terminating = [];
     private readonly Dictionary<VBRuntimeObjectId, List<EventSubscription>> _subscribers = [];
+    private readonly List<Action<VBRuntimeObjectId>> _destroying = [];
+
+    public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
+
+    public void NotifyDestroying(VBRuntimeObjectId instance)
+    {
+        // a copy: a handler that lets go of what the object holds can destroy another object, which notifies again.
+        foreach (var release in _destroying.ToArray())
+        {
+            release(instance);
+        }
+    }
 
     public VBRuntimeObjectId CreateObject()
     {

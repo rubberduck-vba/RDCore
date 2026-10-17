@@ -239,10 +239,16 @@ public sealed record class ArrayStatementRuntimeSemantics(
     private RuntimeExecutionOutcome Wiped(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, Target target, VBFixedSizeArrayValue array)
     {
+        // what the elements held is let go of; each is given a cell of its own holding the default - the type's default value is one value every
+        // caller shares, and an element written in place through its handle would write the default of every other.
+        var held = ObjectReferences.HeldBy(InvalidBindingHandle.Default, array);
+        var initial = array.ItemType.DefaultValue;
         foreach (var subscripts in Subscripts(array))
         {
-            array.TrySetElement(array.ItemType.DefaultValue.Handle, subscripts);
+            array.TrySetElement(initial.Handle is ValueBindingHandle ? BindingKnowledge.NewCell(initial.RuntimeValue, isKnown: true) : initial.Handle, subscripts);
         }
+
+        ObjectReferences.Release(session, held);
 
         // what the array holds no longer depends on what it held, so it is known again, which an array that was read as not known has to be told.
         return array.IsIndeterminate
@@ -340,9 +346,16 @@ public sealed record class ArrayStatementRuntimeSemantics(
             return Assignments.Assign(session, context, statement, expression, expression, stored);
         }
 
-        return session.Symbols.Resolver.TryAllocate(target.Symbol!, stored, out _)
-            ? RuntimeExecutionOutcome.Next
-            : RuntimeExecutionOutcome.InternalError;
+        // the elements the variable held are let go of, and the ones it holds now - kept by Preserve - are held by it (MS-VBAL §5.3.1.10).
+        var resolver = session.Symbols.Resolver;
+        var before = resolver.TryGetAddress(target.Symbol!, out _) ? ObjectReferences.HeldIn(session, resolver.GetValue(target.Symbol!)) : ObjectReferences.Held.None;
+        if (!resolver.TryAllocate(target.Symbol!, stored, out _))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        ObjectReferences.Rebind(session, resolver.GetValue(target.Symbol!), before);
+        return RuntimeExecutionOutcome.Next;
     }
 
     private bool TryEvaluateBounds(

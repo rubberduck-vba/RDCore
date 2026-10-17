@@ -171,13 +171,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return element;
             }
 
-            // an element is a Variant holding what the argument came to; an object in it is referenced by the cell, as by any variable.
-            var value = element.Result is VBVariantValue variant ? variant : new VBVariantValue(element.Result!);
+            // an element is a Variant holding a copy of what the argument came to - not a view of the variable it was read from, which would be
+            // whatever that variable holds next. The array is a value the expression is, not a variable: an object in it is held by whatever the
+            // array is assigned to, which is given a copy in cells of its own (ObjectReferences), and not by these.
+            var value = DataValues.Copy(element.Result is VBVariantValue variant ? variant : new VBVariantValue(element.Result!));
             array.TrySetElement(BindingKnowledge.NewCell(value), lower + index);
-            if (UnwrappedOwner(value) is VBObjectValue { } held && !held.IsNothing())
-            {
-                ObjectReferences.Rebind(session, array.GetElementHandle(lower + index)!, null, held);
-            }
         }
 
         return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(array));
@@ -497,8 +495,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // the variable holds the object before Initialize runs, as it holds one a Set stored: the handler can already
         // reach it through the variable, and the reference must not be lost if it does.
+        var before = ObjectReferences.HeldIn(session, handle);
         handle.SetValue(session.Symbols.Resolver, created.RuntimeValue);
-        ObjectReferences.Rebind(session, handle, null, created);
+        ObjectReferences.Rebind(session, handle, before);
 
         if (session.Lifecycle?.Initialize(objectId) is { IsSuccess: false } failed)
         {

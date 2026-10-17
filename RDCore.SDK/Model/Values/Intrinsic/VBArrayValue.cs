@@ -180,6 +180,16 @@ public abstract record class VBArrayValue : VBTypedValue
     }
 
     /// <summary>
+    /// Gets the binding of the element at a flat index, in the order <see cref="ElementAt"/> reads them, or <c>null</c> when there is no element
+    /// there.
+    /// </summary>
+    /// <remarks>
+    /// For whoever walks every cell of the array without subscripts - what the objects its elements hold are held by, each by its own cell.
+    /// </remarks>
+    /// <param name="flatIndex">From 0 to <see cref="Length"/> - 1.</param>
+    public IBindingHandle? CellAt(int flatIndex) => flatIndex < 0 || flatIndex >= _cells.Length ? null : _cells[flatIndex];
+
+    /// <summary>
     /// Rebinds the element at the given subscripts to <paramref name="value"/>. Mutates the cell in
     /// place — array element storage is mutable. Returns <c>false</c> when the subscripts are out of
     /// bounds or their count does not match the array rank.

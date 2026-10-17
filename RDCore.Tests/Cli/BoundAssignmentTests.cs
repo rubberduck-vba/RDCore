@@ -81,7 +81,6 @@ public sealed class BoundAssignmentTests
 
     // the object a Variant held is let go of when something else is assigned to it: its last reference gone, it terminates.
     [TestMethod]
-    [Ignore("Known gap (predates S0.8c, either assignment path): a Let of a value to a Variant that holds an object does not release the object.")]
     public async Task AVariant_ThatHeldAnObject_LetsItGo_WhenANumberIsAssignedToIt()
         => CollectionAssert.AreEqual(new[] { "terminated", "after" }, await RunAsync(
             [("Widget", ClassModule("Widget", "Private Sub Class_Terminate()", "    Debug.Print \"terminated\"", "End Sub"))],

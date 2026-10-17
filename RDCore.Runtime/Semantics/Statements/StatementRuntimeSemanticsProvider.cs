@@ -283,11 +283,12 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             EventAttachments.Detach(session, context, variable, previous);
         }
 
+        var before = ObjectReferences.HeldIn(session, handle);
         handle.Store(session.Symbols.Resolver, coercionResult.Result!);
 
         // MS-VBAL §5.3.1.10: the object the variable held loses a reference, and Terminate runs when it was the last.
         // The variable already holds the new one by now, so a handler that reads it sees what the program wrote.
-        ObjectReferences.Rebind(session, handle, previous, coercionResult.Result as VBObjectValue);
+        ObjectReferences.Rebind(session, handle, before);
 
         if (withEvents)
         {

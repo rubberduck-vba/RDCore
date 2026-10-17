@@ -405,6 +405,24 @@ public interface ISessionObjects
     /// The subscriptions that handle the events of <paramref name="source"/>, in the order they were attached.
     /// </summary>
     IReadOnlyList<EventSubscription> EventSubscribers(VBRuntimeObjectId source);
+
+    /// <summary>
+    /// Registers <paramref name="release"/> to be called with each object that is destroyed, after its <c>Terminate</c> ran and before it is
+    /// removed (<strong>MS-VBAL §5.3.1.10</strong>).
+    /// </summary>
+    /// <remarks>
+    /// For a library class whose objects hold state that is not the variables of a class module, and that holds objects - the members of a
+    /// <c>Collection</c>: what an object holds is let go of when it is destroyed, which can be what destroys those in turn. The variables of a
+    /// class module's object are let go of by the session itself. A handler is called for every object destroyed, and ignores one that is not
+    /// its own.
+    /// </remarks>
+    /// <param name="release">Lets go of what the object it is given holds.</param>
+    void OnDestroying(Action<VBRuntimeObjectId> release);
+
+    /// <summary>
+    /// Calls every handler <see cref="OnDestroying"/> registered with <paramref name="instance"/>, which is being destroyed.
+    /// </summary>
+    void NotifyDestroying(VBRuntimeObjectId instance);
 }
 
 /// <summary>
