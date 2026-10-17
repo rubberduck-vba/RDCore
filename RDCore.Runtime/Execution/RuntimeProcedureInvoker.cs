@@ -147,7 +147,8 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 // the local holds what it was given for as long as the activation does, whatever the caller does with its own variable meanwhile.
                 // Me is not such a local: it is the reference the call was made through, which whatever made the call holds - an object that New
                 // is initializing is held by nothing yet, and letting go of Me when Initialize returns would destroy it before it is assigned.
-                if (parameter.Name != Tokens.Me && frame.TryResolve(parameter, out var cell))
+                // A parameter of a type that holds no object (a number, a String) has nothing to count.
+                if (parameter.Name != Tokens.Me && ObjectReferences.CanHoldAnObject(parameter.ResolvedType) && frame.TryResolve(parameter, out var cell))
                 {
                     ObjectReferences.Rebind(Session, cell, ObjectReferences.Held.None);
                     (copied ??= []).Add(parameter);
