@@ -1,7 +1,13 @@
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -43,6 +49,23 @@ public sealed class WithTargetEvaluator(RuntimeExpressionEvaluator expressionEva
 
         return result;
     }
+
+    /// <summary>
+    /// Whether the target <paramref name="expression"/> of a <c>With</c> statement is classified as a variable, and so is the With block variable
+    /// itself (<strong>MS-VBAL §5.4.2.21</strong>), rather than a value the block holds in an anonymous one.
+    /// </summary>
+    /// <remarks>
+    /// A name of a variable, a field of the module or a parameter is. Anything else - <c>New</c>, a call, a property, a member of an object - is taken
+    /// to be a value: the block holds it until it is over, which is what keeps it alive while it is in use.
+    /// <para>
+    /// 🚧 TODO a public variable of an object (<c>With obj.Child</c>) and an element of an array (<c>With items(1)</c>) are variables too, which the
+    /// block is then to read through rather than hold; it holds them, which keeps their object alive until the block is over even when the variable
+    /// is assigned something else inside it.
+    /// </para>
+    /// </remarks>
+    public bool DenotesAVariable(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
+        => expression is SimpleNameExpressionNode name
+            && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
 
     // what the statement is, as its semantics analyze it. That it fails is only said of a target that is known, and of an error that is the code's.
     private void Observe(AnalysisObservation into, IRuntimeSession session, WithStatementNode node, VBTypedValue target, RuntimeSemanticsEvaluationResult result)

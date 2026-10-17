@@ -144,11 +144,11 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 // argument's value, never aliasing anything the caller can see again.
                 frame.Push(parameter, parameter.ResolvedType.CreateValue(new ValueBindingHandle(arguments[i])));
 
-                // the local holds what it was given for as long as the activation does, whatever the caller does with its own variable meanwhile.
-                // Me is not such a local: it is the reference the call was made through, which whatever made the call holds - an object that New
-                // is initializing is held by nothing yet, and letting go of Me when Initialize returns would destroy it before it is assigned.
-                // A parameter of a type that holds no object (a number, a String) has nothing to count.
-                if (parameter.Name != Tokens.Me && ObjectReferences.CanHoldAnObject(parameter.ResolvedType) && frame.TryResolve(parameter, out var cell))
+                // the local holds what it was given for as long as the activation does, whatever the caller does with its own variable meanwhile -
+                // Me as much as any: a member that lets go of the last variable of its own object still runs on a live object. An object New is
+                // initializing is held by the New expression's temporary (ObjectReferences.HoldTemporarily) until the statement is over, so letting go
+                // of Me when Initialize returns does not destroy it. A parameter of a type that holds no object (a number, a String) has nothing to count.
+                if (ObjectReferences.CanHoldAnObject(parameter.ResolvedType) && frame.TryResolve(parameter, out var cell))
                 {
                     ObjectReferences.Rebind(Session, cell, ObjectReferences.Held.None);
                     (copied ??= []).Add(parameter);
@@ -189,12 +189,17 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
 
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was
     // held by one of them only is destroyed with it - which is where its Terminate runs. What the function returns
-    // is taken by whoever called it, so it is not let go of here (see ObjectReferences). A Static local outlives the
-    // activation and is not in the frame.
+    // is taken by whoever called it: it is held as a temporary of the caller's statement first (ObjectReferences.HoldTemporarily),
+    // and the function result variable, the locals, the ByVal parameters and the blocks still open let go of what they held
+    // after it. A Static local outlives the activation and is not in the frame.
     private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals, List<VBParameterSymbol>? copiedParameters)
     {
-        // the objects the result holds - an object, or one a Variant, an array or a record holds - are as much returned as the result is.
-        var returned = ObjectReferences.HeldBy(InvalidBindingHandle.Default, frame.ReturnValue);
+        ObjectReferences.HoldTemporarily(Session, frame.ReturnValue);
+        if (frame.HasResultCell)
+        {
+            ObjectReferences.Release(Session, frame.ResultCell);
+        }
+
         foreach (var local in locals)
         {
             if (local is not VBLocalVariableSymbol { IsStatic: false } variable || !frame.TryResolve(variable, out var handle))
@@ -202,7 +207,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
                 continue;
             }
 
-            ObjectReferences.Release(Session, handle, returned);
+            ObjectReferences.Release(Session, handle);
         }
 
         // a ByVal parameter is a local of the activation as much as a Dim is (MS-VBAL §5.3.1.11): what it holds it lets go of with it.
@@ -210,8 +215,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         {
             if (frame.TryResolve(parameter, out var handle))
             {
-                ObjectReferences.Release(Session, handle, returned);
+                ObjectReferences.Release(Session, handle);
             }
+        }
+
+        // a block the activation left by returning from inside it: an Exit Function in a With block.
+        foreach (var holder in frame.TakeBlockHoldersOutside(null))
+        {
+            ObjectReferences.Release(Session, holder);
         }
     }
 

@@ -258,7 +258,9 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         if (target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
             && ((Symbol)target).Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
         {
-            ((CallStackFrame)enclosing).ReturnValue = coercionResult.Result!;
+            // the result variable holds the object it is Set to for as long as the activation runs (ObjectReferences.AssignResult).
+            var resultFrame = (CallStackFrame)enclosing;
+            resultFrame.ReturnValue = ObjectReferences.AssignResult(session, resultFrame.ResultCell, coercionResult.Result!);
             return RuntimeExecutionOutcome.Next;
         }
 

@@ -137,10 +137,8 @@ internal sealed class StdCollection : IStdCollectionClass, IStdLibReceiverBound
         }
 
         // a member is the collection's own copy of what it was given, held in a cell of its own as an element is (an array is stored boxed).
-        var copied = DataValues.Copy(value);
-        var cell = BindingKnowledge.NewCell(copied is VBArrayValue ? SymbolAddressTable.BoxedValue(copied) : copied.RuntimeValue, !copied.IsIndeterminate);
+        var (copied, cell) = ObjectReferences.Keep(session, value);
         members.Items.Insert(insertAt, new Member(keyText, copied, cell));
-        ObjectReferences.Rebind(session, cell, ObjectReferences.Held.None);
         return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
     }
 

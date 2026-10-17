@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
+using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -16,20 +18,47 @@ namespace RDCore.Runtime.StdLib;
 /// <inheritdoc cref="IStdEnumVariantClass"/>
 /// <remarks>
 /// An enumerator is a position in a snapshot of the members of what it enumerates, which it is given when it is made
-/// (<see cref="Create"/>). The state belongs to the enumerator's own instance, so it lasts exactly as long as the object does.
+/// (<see cref="Create"/>). The state belongs to the enumerator's own instance, so it lasts exactly as long as the object does - and the snapshot
+/// holds the objects in it as a collection's members do, each by a cell of its own (<see cref="ObjectReferences.Keep"/>): an object the loop is
+/// still to reach is kept alive by the enumerator, whatever became of the collection it came from, and let go of when the enumerator is destroyed.
 /// </remarks>
-/// <param name="session">The session the enumerators are objects of.</param>
-internal sealed class StdEnumVariant(IRuntimeSession session) : IStdEnumVariantClass, IStdLibReceiverBound
+internal sealed class StdEnumVariant : IStdEnumVariantClass, IStdLibReceiverBound
 {
-    private sealed class Position(IReadOnlyList<VBTypedValue> members)
+    private sealed class Position(IReadOnlyList<VBTypedValue> members, IReadOnlyList<IBindingHandle> cells)
     {
         public IReadOnlyList<VBTypedValue> Members { get; } = members;
+
+        // what holds each member's objects.
+        public IReadOnlyList<IBindingHandle> Cells { get; } = cells;
 
         // before the first member.
         public int Index { get; set; } = -1;
     }
 
+    private readonly IRuntimeSession session;
     private readonly ConditionalWeakTable<IObjectInstance, Position> _positions = [];
+
+    /// <param name="session">The session the enumerators are objects of.</param>
+    public StdEnumVariant(IRuntimeSession session)
+    {
+        this.session = session;
+        session.Objects.OnDestroying(ReleaseMembersOf);
+    }
+
+    // MS-VBAL §5.3.1.10: an enumerator that is destroyed lets go of what it was to enumerate.
+    private void ReleaseMembersOf(VBRuntimeObjectId destroyed)
+    {
+        if (!session.Symbols.TryGetInstance(destroyed, out var instance) || !_positions.TryGetValue(instance, out var position))
+        {
+            return;
+        }
+
+        _positions.Remove(instance);
+        foreach (var cell in position.Cells)
+        {
+            ObjectReferences.Release(session, cell);
+        }
+    }
 
     /// <inheritdoc/>
     public VBRuntimeObjectId? Receiver { get; set; }
@@ -48,7 +77,8 @@ internal sealed class StdEnumVariant(IRuntimeSession session) : IStdEnumVariantC
 
         var objectId = session.Objects.CreateObject();
         var instance = session.Symbols.CreateInstance(objectId, enumerator);
-        _positions.Add(instance, new Position(members));
+        var kept = members.Select(member => ObjectReferences.Keep(session, member)).ToArray();
+        _positions.Add(instance, new Position([.. kept.Select(member => member.Value)], [.. kept.Select(member => (IBindingHandle)member.Cell)]));
         return new VBObjectValue(objectId);
     }
 

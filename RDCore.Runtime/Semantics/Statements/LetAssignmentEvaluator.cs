@@ -620,9 +620,11 @@ public sealed class LetAssignmentEvaluator(
             // "__let_op" operator every other target does (it needs a real IBindingHandle) - Let-coerce
             // directly instead, the same lower-level call ByVal/ByRef-fallback parameter passing already
             // makes for the identical reason - by its plan, when it can be (IR lowering S0.9).
+            // the function result variable holds what it is assigned as a variable does (ObjectReferences.AssignResult).
+            var resultFrame = (CallStackFrame)enclosing;
             if (expressions.TryConvertUnobserved(value, ((ITypedSymbol)symbol).ResolvedType, out var planned))
             {
-                ((CallStackFrame)enclosing).ReturnValue = planned;
+                resultFrame.ReturnValue = ObjectReferences.AssignResult(session, resultFrame.ResultCell, planned);
                 return RuntimeExecutionOutcome.Next;
             }
 
@@ -639,7 +641,7 @@ public sealed class LetAssignmentEvaluator(
                 return RuntimeExecutionOutcome.Error(returnCoercionResult.ErrorInfo!);
             }
 
-            ((CallStackFrame)enclosing).ReturnValue = returnCoercionResult.Result!;
+            resultFrame.ReturnValue = ObjectReferences.AssignResult(session, resultFrame.ResultCell, returnCoercionResult.Result!);
             return RuntimeExecutionOutcome.Next;
         }
 

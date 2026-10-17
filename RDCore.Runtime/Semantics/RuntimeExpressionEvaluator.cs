@@ -807,6 +807,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
 
+        // the new object is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily): whatever
+        // it is assigned to holds it by then, and one nothing kept - `Call (New Widget).Run` - is destroyed then. Its Initialize runs on a live object.
+        if (created is { IsSuccess: true, Result: VBObjectValue made })
+        {
+            ObjectReferences.HoldTemporarily(session, made);
+        }
+
         // MS-VBAL §5.3.1.10: Initialize runs before a reference to the new object is returned from the operation
         // that creates it, and an error it leaves unhandled is that operation's.
         if (!created.IsSuccess || created.Result is not VBObjectValue { } instance || session.Lifecycle is not { } lifecycle)

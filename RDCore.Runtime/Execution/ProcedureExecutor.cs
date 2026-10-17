@@ -99,7 +99,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// </summary>
     public RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
     {
-        var outcome = RunInstructions(session, frame, list, context);
+        // the temporaries of this activation's statements are those made from here on (ObjectReferences.HoldTemporarily): each statement lets go of
+        // its own before the next runs, and the last one before the activation returns. A program that was stopped does not unwind (an End runs no
+        // Terminate; a break keeps everything as it is), and what it leaves is the session's to clear.
+        var temporaries = session.Objects.TemporaryCount;
+        var outcome = RunInstructions(session, frame, list, context, temporaries);
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
+        {
+            ObjectReferences.ReleaseTemporaries(session, temporaries);
+        }
 
         // a statement can stop the program without being one of the two that are for it: a Debug.Assert that fails breaks.
         if (outcome.Kind is RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt)
@@ -138,8 +146,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var activation = (CallStackFrame)frame;
         var complete = true;
 
+        // each instruction lets go of what its expressions made before the next is evaluated, as it does in a run.
+        var temporaries = session.Objects.TemporaryCount;
         foreach (var instruction in list.Items)
         {
+            ObjectReferences.ReleaseTemporaries(session, temporaries);
             if (cancellation.IsCancellationRequested)
             {
                 return false;
@@ -176,6 +187,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             }
         }
 
+        ObjectReferences.ReleaseTemporaries(session, temporaries);
         return complete;
     }
 
@@ -211,12 +223,20 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             _ => RuntimeExecutionOutcome.InternalError,
         };
 
-    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context)
+    private RuntimeExecutionOutcome RunInstructions(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int temporaries)
     {
         var activation = (CallStackFrame)frame;
 
         while (activation.Pc < list.Items.Length)
         {
+            // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
+            // held - a With's target, a For Each's enumerator - after its End With or its Next, or a jump out of it.
+            ObjectReferences.ReleaseTemporaries(session, temporaries);
+            foreach (var holder in activation.TakeBlockHoldersOutside(activation.Pc))
+            {
+                ObjectReferences.Release(session, holder);
+            }
+
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
             // whose own control flow never would - an empty Do…Loop, a GoTo cycle. It is a break
@@ -691,9 +711,39 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return targetResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(targetResult.ErrorInfo!);
         }
 
-        activation.SetBlockState(instruction.Offset, targetResult.Result!);
+        // MS-VBAL §5.4.2.21: "If <expression> is classified as a variable, that variable is the With block variable" - the block reads the variable,
+        // whatever a statement of it assigns to it. Otherwise the value "is Set-assigned to an anonymous With block variable", which holds it until
+        // "Nothing is assigned to the anonymous With block variable" after the block: a copy of the reference, held by the block.
+        if (withTargets.DenotesAVariable(session, context, withStatement.WithExpression))
+        {
+            activation.SetBlockState(instruction.Offset, targetResult.Result!);
+        }
+        else
+        {
+            var target = DataValues.Copy(targetResult.Result!);
+            activation.SetBlockState(instruction.Offset, target);
+            HoldForBlock(session, activation, instruction, target);
+        }
+
         activation.Pc = instruction.Offset + 1;
         return null;
+    }
+
+    // MS-VBAL §5.4.2.21: the object of a With block is held by the block, "the With block variable", for as long as the block runs - whatever the
+    // statements in it do to the variable it was read from. A For Each holds what it enumerates the same way: its enumerator, or the array whose
+    // elements it reads, which may be a value nothing else holds (For Each w In MakeWidgets()). It is let go of when the program is past the
+    // block (RunInstructions), and when the activation is (RuntimeProcedureInvoker).
+    private static void HoldForBlock(IRuntimeSession session, CallStackFrame activation, Instruction opener, VBTypedValue value)
+    {
+        if (opener.End is not { } end || value is not (VBObjectValue or VBVariantValue or VBArrayValue))
+        {
+            return;
+        }
+
+        var cell = activation.BlockHolder(opener.Offset, end);
+        var before = ObjectReferences.HeldIn(session, cell);
+        cell.Store(value is VBArrayValue ? SymbolAddressTable.BoxedValue(value) : value.RuntimeValue, !value.IsIndeterminate);
+        ObjectReferences.Rebind(session, cell, before);
     }
 
     // Returns null when start/end/step were evaluated and stashed successfully and the loop should keep
@@ -893,6 +943,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 }
 
                 activation.SetForEachState(instruction.Offset, new ForEachState(control, forEachStatement.ControlExpression, array, 0));
+                HoldForBlock(session, activation, instruction, array);
                 activation.Pc = instruction.Offset + 1;
                 return null;
 
@@ -945,6 +996,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 forEachStatement.CollectionExpression.Location, Exceptions.VBForEach_ObjectVariableNotSet_Verbose));
         }
 
+        HoldForBlock(session, activation, instruction, enumerator);
         var advanced = AdvanceEnumerator(session, context, enumerator, forEachStatement.ControlExpression, control, out var outcome);
         if (outcome is not null)
         {

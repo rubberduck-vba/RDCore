@@ -423,6 +423,29 @@ public interface ISessionObjects
     /// Calls every handler <see cref="OnDestroying"/> registered with <paramref name="instance"/>, which is being destroyed.
     /// </summary>
     void NotifyDestroying(VBRuntimeObjectId instance);
+
+    /// <summary>
+    /// The number of temporaries held now: what <see cref="PopTemporary"/> lets go of down to, when the statement that made them is over.
+    /// </summary>
+    /// <remarks>
+    /// A temporary is the value of an expression that is no variable's - an object <c>New</c> made, what a call returned - held for as long as
+    /// the statement that evaluates the expression runs (<strong>MS-VBAL §5.3.1.10</strong>: an object is destroyed when nothing references it,
+    /// and a value the statement is still using references it). The temporaries of the statements being executed are a stack: a call's own
+    /// statements make theirs above the caller's, and let go of them before the call returns.
+    /// </remarks>
+    int TemporaryCount { get; }
+
+    /// <summary>
+    /// Holds <paramref name="cell"/> as a temporary of the statement being executed: the cell holds the value, and is what the objects in it are
+    /// held by until it is popped.
+    /// </summary>
+    void PushTemporary(IBindingHandle cell);
+
+    /// <summary>
+    /// Takes the most recent temporary off the stack, for its references to be let go of.
+    /// </summary>
+    /// <returns>Its cell, or <see langword="null"/> when there is none.</returns>
+    IBindingHandle? PopTemporary();
 }
 
 /// <summary>

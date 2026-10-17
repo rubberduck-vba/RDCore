@@ -59,9 +59,19 @@ internal sealed class RuntimeSession(
 
     public ICallableBindingFactory? Callables { get; set; }
 
+    // the objects whose Terminate is running.
+    private readonly HashSet<VBRuntimeObjectId> _terminating = [];
+
     public bool ReleaseReference(VBRuntimeObjectId instance, IBindingHandle handle)
     {
         if (Objects.RemoveRef(instance, handle) != 0)
+        {
+            return false;
+        }
+
+        // the handler of an object's own Terminate holds it through Me, and lets go of it when it returns: that is not the object losing its last
+        // reference, which already happened - the release that ran the handler decides what becomes of the object once it returns.
+        if (_terminating.Contains(instance))
         {
             return false;
         }
@@ -72,7 +82,15 @@ internal sealed class RuntimeSession(
         // the callers of this have no result to carry it in. It belongs to whatever dropped the reference.
         if (Lifecycle is { } lifecycle && Objects.TryBeginTerminate(instance))
         {
-            _ = lifecycle.Terminate(instance);
+            _terminating.Add(instance);
+            try
+            {
+                _ = lifecycle.Terminate(instance);
+            }
+            finally
+            {
+                _terminating.Remove(instance);
+            }
         }
 
         if (Objects.RefCount(instance) != 0)
@@ -220,6 +238,23 @@ internal sealed class SessionObjects : ISessionObjects
     private readonly HashSet<VBRuntimeObjectId> _terminating = [];
     private readonly Dictionary<VBRuntimeObjectId, List<EventSubscription>> _subscribers = [];
     private readonly List<Action<VBRuntimeObjectId>> _destroying = [];
+    private readonly List<IBindingHandle> _temporaries = [];
+
+    public int TemporaryCount => _temporaries.Count;
+
+    public void PushTemporary(IBindingHandle cell) => _temporaries.Add(cell);
+
+    public IBindingHandle? PopTemporary()
+    {
+        if (_temporaries.Count == 0)
+        {
+            return null;
+        }
+
+        var cell = _temporaries[^1];
+        _temporaries.RemoveAt(_temporaries.Count - 1);
+        return cell;
+    }
 
     public void OnDestroying(Action<VBRuntimeObjectId> release) => _destroying.Add(release);
 
@@ -323,6 +358,7 @@ internal sealed class SessionObjects : ISessionObjects
         _roots.Clear();
         _terminating.Clear();
         _subscribers.Clear();
+        _temporaries.Clear();
     }
 }
 

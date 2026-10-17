@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -87,6 +88,60 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public VBTypedValue? ReturnValue { get; set; }
+
+    private ValueBindingHandle? _resultCell;
+    private Dictionary<int, (int End, ValueBindingHandle Cell)>? _blockHolders;
+
+    /// <summary>
+    /// The cell of the function result variable, which holds the objects the result does while the activation runs
+    /// (<see cref="ObjectReferences.AssignResult"/>); made when a result that can hold one is first assigned.
+    /// </summary>
+    public ValueBindingHandle ResultCell => _resultCell ??= BindingKnowledge.NewCell(VBEmptyValue.Empty.RuntimeValue, isKnown: true);
+
+    /// <summary>
+    /// Whether the function result was ever assigned a value that can hold an object: whether there is a <see cref="ResultCell"/> to let go of.
+    /// </summary>
+    public bool HasResultCell => _resultCell is not null;
+
+    /// <summary>
+    /// The cell that holds what the block opened at <paramref name="openerOffset"/> holds for as long as it runs - a <c>With</c>'s target, a
+    /// <c>For Each</c>'s enumerator - which ends at <paramref name="end"/>, the offset right past the block.
+    /// </summary>
+    public ValueBindingHandle BlockHolder(int openerOffset, int end)
+    {
+        _blockHolders ??= [];
+        if (!_blockHolders.TryGetValue(openerOffset, out var holder))
+        {
+            holder = (end, BindingKnowledge.NewCell(VBEmptyValue.Empty.RuntimeValue, isKnown: true));
+            _blockHolders[openerOffset] = holder;
+        }
+
+        return holder.Cell;
+    }
+
+    /// <summary>
+    /// Takes away the holders of the blocks <paramref name="pc"/> is not in, for what they hold to be let go of: every block, when
+    /// <paramref name="pc"/> is <see langword="null"/> - the activation is over.
+    /// </summary>
+    public IReadOnlyList<ValueBindingHandle> TakeBlockHoldersOutside(int? pc)
+    {
+        if (_blockHolders is null || _blockHolders.Count == 0)
+        {
+            return [];
+        }
+
+        List<ValueBindingHandle>? left = null;
+        foreach (var (opener, (end, cell)) in _blockHolders)
+        {
+            if (pc is not { } at || at < opener || at >= end)
+            {
+                (left ??= []).Add(cell);
+                _blockHolders.Remove(opener);
+            }
+        }
+
+        return left ?? [];
+    }
 
     /// <summary>
     /// Stashes <paramref name="value"/> as this activation's hidden state for the block-opening

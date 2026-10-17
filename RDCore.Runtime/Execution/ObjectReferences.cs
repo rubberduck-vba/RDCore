@@ -27,10 +27,10 @@ namespace RDCore.Runtime.Execution;
 /// an object alive, and an object one of them does not see could be destroyed while that one still holds it.
 /// </para>
 /// <para>
-/// 🚧 TODO the value of an expression - a temporary - holds no reference: a function's result is taken by its caller without being counted (an
-/// object the function's locals held and its result holds is not let go of by the locals, and so is never let go of), the target of a
-/// <c>With</c> block is not kept alive by the block, and <c>Me</c> does not keep its object alive through a member that lets go of the
-/// object's last variable.
+/// The value of an expression is a holder too, for as long as the statement that evaluates it runs (<see cref="HoldTemporarily"/>): the object
+/// <c>New</c> made, what a call returned - taken from the function result variable (<see cref="AssignResult"/>) before the function's locals let go
+/// of what they held. The object of a <c>With</c> block that is not a variable, and what a <c>For Each</c> enumerates, are held by the block until it
+/// is over; <c>Me</c> is held by the member it is the object of, as any parameter is.
 /// </para>
 /// </remarks>
 internal static class ObjectReferences
@@ -43,18 +43,153 @@ internal static class ObjectReferences
     /// </remarks>
     public readonly struct Held
     {
-        private readonly List<(IBindingHandle Cell, VBRuntimeObjectId Object)>? _holds;
+        // a cell holds one object far more often than it holds several: the first is kept inline, and only the others need a list.
+        private readonly (IBindingHandle Cell, VBRuntimeObjectId Object) _first;
+        private readonly List<(IBindingHandle, VBRuntimeObjectId)>? _more;
 
-        internal Held(List<(IBindingHandle, VBRuntimeObjectId)>? holds) => _holds = holds;
+        internal Held(Collector collected) => (Count, _first, _more) = (collected.Count, collected.First, collected.More);
 
         /// <summary>Nothing held.</summary>
         public static Held None => default;
 
-        internal IReadOnlyList<(IBindingHandle Cell, VBRuntimeObjectId Object)> Holds => _holds ?? [];
+        /// <summary>How many objects are held, by however many cells.</summary>
+        public int Count { get; }
+
+        internal (IBindingHandle Cell, VBRuntimeObjectId Object) this[int index] => index == 0 ? _first : _more![index - 1];
 
         /// <summary>Whether <paramref name="instance"/> is one of the objects held.</summary>
-        public bool Contains(VBRuntimeObjectId instance) => _holds?.Exists(hold => hold.Object.Equals(instance)) == true;
+        public bool Contains(VBRuntimeObjectId instance)
+        {
+            for (var index = 0; index < Count; index++)
+            {
+                if (this[index].Object.Equals(instance))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Whether nothing is held.</summary>
+        public bool IsEmpty => Count == 0;
+
+        /// <summary>Enumerates each object held, with the cell that holds it - without allocating, as every write to a cell does it.</summary>
+        public Enumerator GetEnumerator() => new(this);
+
+        /// <inheritdoc cref="GetEnumerator"/>
+        public struct Enumerator(Held held)
+        {
+            private int _index = -1;
+
+            public bool MoveNext() => ++_index < held.Count;
+
+            public readonly (IBindingHandle Cell, VBRuntimeObjectId Object) Current => held[_index];
+        }
     }
+
+    // what a walk of a cell finds, as it finds it.
+    internal struct Collector
+    {
+        public int Count;
+        public (IBindingHandle, VBRuntimeObjectId) First;
+        public List<(IBindingHandle, VBRuntimeObjectId)>? More;
+
+        public void Add(IBindingHandle cell, VBRuntimeObjectId instance)
+        {
+            if (Count++ == 0)
+            {
+                First = (cell, instance);
+            }
+            else
+            {
+                (More ??= []).Add((cell, instance));
+            }
+        }
+    }
+
+    private static readonly VBRuntimeObjectId NothingId = VBObjectValue.Nothing.Value;
+
+    /// <summary>
+    /// Holds <paramref name="value"/> as a temporary of the statement being executed (<see cref="ISessionObjects.PushTemporary"/>): the object
+    /// <c>New</c> made, what a call returned. The statement's own value keeps what it references alive until the statement is over, and lets go of
+    /// it then (<see cref="ReleaseTemporaries"/>) - after it was assigned, if it was, so that whatever it was assigned to holds it by then.
+    /// </summary>
+    /// <param name="session">The session whose objects they are.</param>
+    /// <param name="value">The value; one that holds no object is not held.</param>
+    public static void HoldTemporarily(IRuntimeSession session, VBTypedValue? value)
+    {
+        if (value is not (VBObjectValue or VBVariantValue or VBArrayValue or VBUserDefinedTypeValue))
+        {
+            return;
+        }
+
+        // a cell of its own, holding the value as it is now: the value may be a view of a variable's cell, which the statement may assign next.
+        var cell = BindingKnowledge.NewCell(Boxed(value), !value.IsIndeterminate);
+        var held = HeldIn(session, cell);
+        if (held.IsEmpty)
+        {
+            return;
+        }
+
+        session.Objects.PushTemporary(cell);
+        foreach (var (holder, instance) in held)
+        {
+            session.Objects.AddRef(instance, holder);
+        }
+    }
+
+    /// <summary>
+    /// Lets go of the temporaries held since <paramref name="mark"/> (<see cref="ISessionObjects.TemporaryCount"/>, read before the statement that
+    /// made them): the statement is over.
+    /// </summary>
+    public static void ReleaseTemporaries(IRuntimeSession session, int mark)
+    {
+        while (session.Objects.TemporaryCount > mark && session.Objects.PopTemporary() is { } cell)
+        {
+            Release(session, cell);
+        }
+    }
+
+    /// <summary>
+    /// Assigns a function's result (<strong>MS-VBAL §5.3.1</strong>: "a distinct function result variable"), which holds what it is assigned as a
+    /// variable does: in a cell of its own, until the function returns it.
+    /// </summary>
+    /// <param name="session">The session whose objects they are.</param>
+    /// <param name="resultCell">The cell of the function result variable.</param>
+    /// <param name="value">The value assigned, coerced to the result's type.</param>
+    /// <returns>The value the result now is: a copy, not a view of the variable it may have been read from.</returns>
+    public static VBTypedValue AssignResult(IRuntimeSession session, IKnowledgeBinding resultCell, VBTypedValue value)
+    {
+        if (value is not (VBObjectValue or VBVariantValue or VBArrayValue or VBUserDefinedTypeValue))
+        {
+            return value;
+        }
+
+        var stored = value is VBObjectValue or VBVariantValue ? DataValues.Copy(value) : value;
+        var before = HeldIn(session, resultCell);
+        resultCell.Store(Boxed(stored), !stored.IsIndeterminate);
+        Rebind(session, resultCell, before);
+        return stored;
+    }
+
+    /// <summary>
+    /// Holds a copy of <paramref name="value"/> in a new cell of its own, which holds the objects in it: what a library object keeps that is no
+    /// variable - the member of a collection, the members an enumerator enumerates. The cell is let go of with
+    /// <see cref="Release(IRuntimeSession, IBindingHandle, Held)"/> when the object no longer keeps it.
+    /// </summary>
+    /// <returns>The copy, and the cell that holds it.</returns>
+    public static (VBTypedValue Value, ValueBindingHandle Cell) Keep(IRuntimeSession session, VBTypedValue value)
+    {
+        var copied = DataValues.Copy(value);
+        var cell = BindingKnowledge.NewCell(Boxed(copied), !copied.IsIndeterminate);
+        Rebind(session, cell, Held.None);
+        return (copied, cell);
+    }
+
+    // how a cell stores a value: an array or a record boxed, as a variable stores one (SymbolAddressTable.BoxedValue).
+    private static IRuntimeValue Boxed(VBTypedValue value)
+        => value is VBArrayValue or VBUserDefinedTypeValue ? SymbolAddressTable.BoxedValue(value) : value.RuntimeValue;
 
     /// <summary>
     /// Reads what <paramref name="holder"/> holds, before it is written to.
@@ -64,7 +199,7 @@ internal static class ObjectReferences
     /// (a <c>ByRef</c> parameter's) is the cell it aliases.</param>
     public static Held HeldIn(IRuntimeSession session, IBindingHandle holder)
     {
-        List<(IBindingHandle, VBRuntimeObjectId)>? holds = null;
+        var holds = default(Collector);
         if (CellOf(session, holder) is { } cell)
         {
             Collect(cell, cell.Value, ref holds);
@@ -78,7 +213,7 @@ internal static class ObjectReferences
     /// </summary>
     public static Held HeldBy(IBindingHandle cell, VBTypedValue? value)
     {
-        List<(IBindingHandle, VBRuntimeObjectId)>? holds = null;
+        var holds = default(Collector);
         if (value is not null)
         {
             CollectTyped(cell, value, ref holds);
@@ -95,7 +230,7 @@ internal static class ObjectReferences
     /// <param name="before">What it held, read with <see cref="HeldIn"/> before the write.</param>
     public static void Rebind(IRuntimeSession session, IBindingHandle holder, Held before)
     {
-        foreach (var (cell, instance) in HeldIn(session, holder).Holds)
+        foreach (var (cell, instance) in HeldIn(session, holder))
         {
             session.Objects.AddRef(instance, cell);
         }
@@ -111,7 +246,7 @@ internal static class ObjectReferences
     /// <param name="kept">Objects that outlive the cells because something else is taking them: what a function returns.</param>
     public static void Release(IRuntimeSession session, Held held, Held kept = default)
     {
-        foreach (var (cell, instance) in held.Holds)
+        foreach (var (cell, instance) in held)
         {
             if (!kept.Contains(instance) && session.Objects.IsHeldBy(instance, cell))
             {
@@ -145,7 +280,7 @@ internal static class ObjectReferences
     }
 
     // what is stored in a cell: an object's reference, or a box - a Variant, an array, a record - with what it holds in it.
-    private static void Collect(IBindingHandle cell, IRuntimeValue value, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void Collect(IBindingHandle cell, IRuntimeValue value, ref Collector holds)
     {
         switch (value)
         {
@@ -164,7 +299,7 @@ internal static class ObjectReferences
         }
     }
 
-    private static void CollectTyped(IBindingHandle cell, VBTypedValue value, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void CollectTyped(IBindingHandle cell, VBTypedValue value, ref Collector holds)
     {
         switch (value)
         {
@@ -183,7 +318,7 @@ internal static class ObjectReferences
         }
     }
 
-    private static void CollectArray(VBArrayValue array, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void CollectArray(VBArrayValue array, ref Collector holds)
     {
         // an array of numbers, strings or dates holds no object: there is nothing to walk.
         if (!CanHoldAnObject(array.ItemType))
@@ -208,7 +343,7 @@ internal static class ObjectReferences
     /// <param name="index">The field's position in declaration order.</param>
     public static Held HeldInField(VBUserDefinedTypeValue record, int index)
     {
-        List<(IBindingHandle, VBRuntimeObjectId)>? holds = null;
+        var holds = default(Collector);
         CollectField(record.StoredFieldAt(index), ref holds);
         return new Held(holds);
     }
@@ -218,7 +353,7 @@ internal static class ObjectReferences
     /// </summary>
     public static void RebindField(IRuntimeSession session, VBUserDefinedTypeValue record, int index, Held before)
     {
-        foreach (var (cell, instance) in HeldInField(record, index).Holds)
+        foreach (var (cell, instance) in HeldInField(record, index))
         {
             session.Objects.AddRef(instance, cell);
         }
@@ -226,7 +361,7 @@ internal static class ObjectReferences
         Release(session, before);
     }
 
-    private static void CollectRecord(VBUserDefinedTypeValue record, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void CollectRecord(VBUserDefinedTypeValue record, ref Collector holds)
     {
         for (var index = 0; index < record.FieldCount; index++)
         {
@@ -234,7 +369,7 @@ internal static class ObjectReferences
         }
     }
 
-    private static void CollectField(VBTypedValue? field, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void CollectField(VBTypedValue? field, ref Collector holds)
     {
         switch (field)
         {
@@ -258,11 +393,11 @@ internal static class ObjectReferences
     public static bool CanHoldAnObject(VBType? type)
         => type is VBVariantType or VBObjectType or VBClassType or VBUserDefinedType or VBArrayType;
 
-    private static void Add(IBindingHandle cell, VBRuntimeObjectId instance, ref List<(IBindingHandle, VBRuntimeObjectId)>? holds)
+    private static void Add(IBindingHandle cell, VBRuntimeObjectId instance, ref Collector holds)
     {
-        if (!instance.Equals(VBObjectValue.Nothing.Value))
+        if (!instance.Equals(NothingId))
         {
-            (holds ??= []).Add((cell, instance));
+            holds.Add(cell, instance);
         }
     }
 }

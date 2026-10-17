@@ -66,7 +66,15 @@ public sealed record class ExternalCallPipeline(
         {
             if (provider.CanDispatch(request))
             {
-                return provider.Dispatch(request, resolver);
+                // what the call returned is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily):
+                // an object a library made for it - CreateObject's, an enumerator - lives until whatever it is assigned to holds it.
+                var result = provider.Dispatch(request, resolver);
+                if (result.IsSuccess)
+                {
+                    ObjectReferences.HoldTemporarily(Session, result.Result);
+                }
+
+                return result;
             }
         }
 

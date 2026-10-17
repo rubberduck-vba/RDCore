@@ -120,6 +120,10 @@ public sealed class ClassLifecycleTests
             world.Session, new NewExpressionNode(id, TestLocations.TestLocation, type), new RuntimeEvaluationContext(world.ModuleUri));
     }
 
+    // the statement that evaluated the New is over: the expression's own temporary lets go of the object (ObjectReferences.HoldTemporarily), which
+    // whatever the test made hold it by then keeps alive.
+    private static void EndStatement(World world) => ObjectReferences.ReleaseTemporaries(world.Session, 0);
+
     private static string[] Printed(World world) => [.. world.Output.Lines.Select(line => line.Trim())];
 
     private static IBindingHandle Handle() => Substitute.For<IBindingHandle>();
@@ -200,6 +204,7 @@ public sealed class ClassLifecycleTests
         var id = Assert.IsInstanceOfType<VBObjectValue>(New(world).Result).Value;
         var holder = Handle();
         world.Session.Objects.AddRef(id, holder);
+        EndStatement(world);
 
         var destroyed = world.Session.ReleaseReference(id, holder);
 
@@ -217,6 +222,7 @@ public sealed class ClassLifecycleTests
         var second = Handle();
         world.Session.Objects.AddRef(id, first);
         world.Session.Objects.AddRef(id, second);
+        EndStatement(world);
 
         Assert.IsFalse(world.Session.ReleaseReference(id, first));
 
@@ -234,9 +240,23 @@ public sealed class ClassLifecycleTests
         var id = Assert.IsInstanceOfType<VBObjectValue>(New(world).Result).Value;
         var holder = Handle();
         world.Session.Objects.AddRef(id, holder);
+        EndStatement(world);
 
         Assert.IsTrue(world.Session.ReleaseReference(id, holder));
         CollectionAssert.AreEqual(new[] { "init" }, Printed(world));
+    }
+
+    [TestMethod]
+    public void ANewObjectNothingKept_IsDestroyedWhenTheStatementIsOver()
+    {
+        var world = Compose(("Class_Terminate", ["Debug.Print \"term\""]));
+        var id = Assert.IsInstanceOfType<VBObjectValue>(New(world).Result).Value;
+
+        Assert.IsTrue(world.Session.Symbols.TryGetInstance(id, out _), "the expression's value holds it until the statement is over");
+        EndStatement(world);
+
+        CollectionAssert.AreEqual(new[] { "term" }, Printed(world));
+        Assert.IsFalse(world.Session.Symbols.TryGetInstance(id, out _));
     }
 
     [TestMethod]
@@ -273,6 +293,7 @@ public sealed class ClassLifecycleTests
         var id = Assert.IsInstanceOfType<VBObjectValue>(New(world).Result).Value;
         var holder = Handle();
         world.Session.Objects.AddRef(id, holder);
+        EndStatement(world);
         world.Session.Lifecycle = null;
 
         Assert.IsTrue(world.Session.ReleaseReference(id, holder));
