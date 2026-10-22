@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Model.Types.Complex;
 
@@ -28,11 +29,14 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     /// member access — so they alone are excluded from <see cref="Members"/> here.
     /// </summary>
     /// <remarks>
-    /// Called exactly once per class, by <c>WorkspaceSymbolResolver.Compose</c>, to populate
-    /// <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/> — not at resolution time.
+    /// <c>WorkspaceSymbolResolver.Compose</c> populates <see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/> with it, and the run time asks it of
+    /// the class of an object each time it Set-coerces the object or calls its default member: the type is built once for each class module symbol,
+    /// which is immutable, and the same type is returned for it every time.
     /// </remarks>
     public static VBClassType FromClassModule(VBClassModuleSymbol classModule)
-        => FromClassModule(classModule, [classModule.Uri.AbsoluteUri]);
+        => Built.GetValue(classModule, static symbol => FromClassModule(symbol, [symbol.Uri.AbsoluteUri]));
+
+    private static readonly ConditionalWeakTable<VBClassModuleSymbol, VBClassType> Built = new();
 
     /// <summary>
     /// The type a name resolved to a class module is: its precomputed default interface (<see cref="VBClassModuleSymbol.DefaultInterfaceMembers"/>, which is
