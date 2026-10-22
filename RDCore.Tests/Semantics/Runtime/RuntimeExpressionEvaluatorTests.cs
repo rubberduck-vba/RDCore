@@ -37,6 +37,10 @@ public sealed class RuntimeExpressionEvaluatorTests
     private static readonly Uri ProcedureUri = TestUri.TestSubProcUri();
     private static readonly SyntaxNodeId NodeId = new(ProcedureUri.AbsolutePath, [1]);
 
+    // every node of a tree has an identity of its own, as the parser gives it: what an expression binds to is recorded by it.
+    private static int _nextId = 1;
+    private static SyntaxNodeId NextId() => new(ProcedureUri.AbsolutePath, [Interlocked.Increment(ref _nextId)]);
+
     private sealed class Provider(Symbol[] symbols) : ISymbolProvider
     {
         public IEnumerable<Symbol> ProvideSymbols() => symbols;
@@ -80,7 +84,7 @@ public sealed class RuntimeExpressionEvaluatorTests
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
-    private static SimpleNameExpressionNode SimpleName(string name) => new(NodeId, TestLocations.TestLocation, name);
+    private static SimpleNameExpressionNode SimpleName(string name) => new(NextId(), TestLocations.TestLocation, name);
 
     [TestMethod]
     public void SimpleName_ReadsTheCurrentlyBoundLocalValue()
@@ -130,7 +134,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var objectId = session.Objects.CreateObject();
         PushFrame(session).Push(meParameter, new VBObjectValue(objectId));
 
-        var result = Evaluator().Evaluate(session, new InstanceExpressionNode(NodeId, TestLocations.TestLocation), new(ProcedureUri));
+        var result = Evaluator().Evaluate(session, new InstanceExpressionNode(NextId(), TestLocations.TestLocation), new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
         Assert.AreEqual(objectId, ((VBObjectValue)result.Result!).Value);
@@ -141,7 +145,7 @@ public sealed class RuntimeExpressionEvaluatorTests
     {
         var classModule = new VBClassModuleSymbol(Root, Root, "Class1");
         var session = ComposeSession(classModule);
-        var newExpression = new NewExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("Class1"));
+        var newExpression = new NewExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("Class1"));
 
         var result = Evaluator().Evaluate(session, newExpression, new(ProcedureUri));
 
@@ -163,7 +167,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         instance.GetValue(field).SetValue(session.Symbols.Resolver, new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(7));
         PushFrame(session).Push(obj, new VBObjectValue(instance.ObjectId));
 
-        var memberAccess = new MemberAccessExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NodeId, TestLocations.TestLocation, "State"));
+        var memberAccess = new MemberAccessExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NextId(), TestLocations.TestLocation, "State"));
         var result = Evaluator().Evaluate(session, memberAccess, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -183,7 +187,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), classModule);
         PushFrame(session).Push(obj, new VBObjectValue(instance.ObjectId));
 
-        var memberAccess = new MemberAccessExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NodeId, TestLocations.TestLocation, "DoSomething"));
+        var memberAccess = new MemberAccessExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), new SimpleNameExpressionNode(NextId(), TestLocations.TestLocation, "DoSomething"));
         var result = Evaluator().Evaluate(session, memberAccess, new(ProcedureUri));
 
         Assert.IsTrue(result.IsInternalError);
@@ -199,8 +203,8 @@ public sealed class RuntimeExpressionEvaluatorTests
         array.TrySetElement(new RDCore.SDK.Model.Values.Bindings.ValueBindingHandle(new RDCore.SDK.Model.Values.Runtime.VBRuntimeValue<int>(99)), 2);
         var session = ComposeSession();
 
-        var index = new IndexExpressionNode(NodeId, TestLocations.TestLocation, new LiteralExpressionNode(NodeId, TestLocations.TestLocation, array),
-            [new LiteralExpressionNode(NodeId, TestLocations.TestLocation, new VBIntegerValue(2))]);
+        var index = new IndexExpressionNode(NextId(), TestLocations.TestLocation, new LiteralExpressionNode(NextId(), TestLocations.TestLocation, array),
+            [new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new VBIntegerValue(2))]);
         var result = Evaluator().Evaluate(session, index, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -213,8 +217,8 @@ public sealed class RuntimeExpressionEvaluatorTests
         var array = new VBFixedSizeArrayValue([(1, 3)], VBLongType.TypeInfo);
         var session = ComposeSession();
 
-        var index = new IndexExpressionNode(NodeId, TestLocations.TestLocation, new LiteralExpressionNode(NodeId, TestLocations.TestLocation, array),
-            [new LiteralExpressionNode(NodeId, TestLocations.TestLocation, new VBIntegerValue(9))]);
+        var index = new IndexExpressionNode(NextId(), TestLocations.TestLocation, new LiteralExpressionNode(NextId(), TestLocations.TestLocation, array),
+            [new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new VBIntegerValue(9))]);
         var result = Evaluator().Evaluate(session, index, new(ProcedureUri));
 
         Assert.AreEqual((int)VBRuntimeErrorId.SubscriptOutOfRange, result.ErrorInfo?.ErrorId);
@@ -245,7 +249,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), classModule);
         PushFrame(session).Push(obj, new VBObjectValue(instance.ObjectId));
 
-        var typeOfIs = new TypeOfIsExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("obj"), SimpleName("Class1"));
+        var typeOfIs = new TypeOfIsExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), SimpleName("Class1"));
         var result = Evaluator().Evaluate(session, typeOfIs, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -262,7 +266,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), actualClass);
         PushFrame(session).Push(obj, new VBObjectValue(instance.ObjectId));
 
-        var typeOfIs = new TypeOfIsExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("obj"), SimpleName("Class2"));
+        var typeOfIs = new TypeOfIsExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), SimpleName("Class2"));
         var result = Evaluator().Evaluate(session, typeOfIs, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -279,7 +283,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var instance = session.Symbols.CreateInstance(session.Objects.CreateObject(), classModule);
         PushFrame(session).Push(obj, new VBObjectValue(instance.ObjectId));
 
-        var typeOfIs = new TypeOfIsExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("obj"), SimpleName("IShape"));
+        var typeOfIs = new TypeOfIsExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("obj"), SimpleName("IShape"));
         var result = Evaluator().Evaluate(session, typeOfIs, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -296,7 +300,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         frame.Push(x, new VBLongValue(1));
         frame.Push(y, new VBLongValue(2));
 
-        var addition = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NodeId, TestLocations.TestLocation, SimpleName("x"), SimpleName("y"));
+        var addition = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NextId(), TestLocations.TestLocation, SimpleName("x"), SimpleName("y"));
         var result = Evaluator().Evaluate(session, addition, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -310,7 +314,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var session = ComposeSession(x);
         PushFrame(session).Push(x, new VBLongValue(5));
 
-        var negation = new VBUnaryOperatorExpressionNode(Tokens.NegationOp, NodeId, TestLocations.TestLocation, [SimpleName("x")]);
+        var negation = new VBUnaryOperatorExpressionNode(Tokens.NegationOp, NextId(), TestLocations.TestLocation, [SimpleName("x")]);
         var result = Evaluator().Evaluate(session, negation, new(ProcedureUri));
 
         Assert.IsNull(result.ErrorInfo, result.ErrorInfo?.Description);
@@ -327,7 +331,7 @@ public sealed class RuntimeExpressionEvaluatorTests
         var y = Local("y", VBLongType.TypeInfo);
         var session = ComposeSession(y);
 
-        var addition = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NodeId, TestLocations.TestLocation, SimpleName("Nowhere"), SimpleName("y"));
+        var addition = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NextId(), TestLocations.TestLocation, SimpleName("Nowhere"), SimpleName("y"));
         var result = Evaluator().Evaluate(session, addition, new(ProcedureUri));
 
         Assert.IsTrue(result.IsInternalError);
@@ -353,9 +357,9 @@ public sealed class RuntimeExpressionEvaluatorTests
         var session = ComposeSession(x);
         PushFrame(session).Push(x, new VBLongValue(2));
 
-        var addressOfX = new AddressOfExpressionNode(NodeId, TestLocations.TestLocation, SimpleName("x"));
-        var index = new IndexExpressionNode(NodeId, TestLocations.TestLocation,
-            new LiteralExpressionNode(NodeId, TestLocations.TestLocation, array), [addressOfX]);
+        var addressOfX = new AddressOfExpressionNode(NextId(), TestLocations.TestLocation, SimpleName("x"));
+        var index = new IndexExpressionNode(NextId(), TestLocations.TestLocation,
+            new LiteralExpressionNode(NextId(), TestLocations.TestLocation, array), [addressOfX]);
 
         var result = Evaluator().Evaluate(session, index, new(ProcedureUri));
 
@@ -373,9 +377,9 @@ public sealed class RuntimeExpressionEvaluatorTests
         frame.Push(x, new VBLongValue(3));
         frame.Push(y, new VBLongValue(4));
 
-        var sum = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NodeId, TestLocations.TestLocation, SimpleName("x"), SimpleName("y"));
-        var literalTwo = new LiteralExpressionNode(NodeId, TestLocations.TestLocation, new VBLongValue(2));
-        var product = new VBBinaryOperatorExpressionNode(Tokens.MultiplicationOp, NodeId, TestLocations.TestLocation, sum, literalTwo);
+        var sum = new VBBinaryOperatorExpressionNode(Tokens.AdditionOp, NextId(), TestLocations.TestLocation, SimpleName("x"), SimpleName("y"));
+        var literalTwo = new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new VBLongValue(2));
+        var product = new VBBinaryOperatorExpressionNode(Tokens.MultiplicationOp, NextId(), TestLocations.TestLocation, sum, literalTwo);
 
         var result = Evaluator().Evaluate(session, product, new(ProcedureUri));
 

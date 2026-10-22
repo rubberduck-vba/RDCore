@@ -114,14 +114,18 @@ public sealed class ExpressionBinderTests
         Assert.IsInstanceOfType<BoundLiteral>(ExpressionBinder.Bind(ContextWith(), literal).NodeOf(literal));
     }
 
-    // a compile error is not bound (IR lowering D3), and nor is the operation it is an operand of: the evaluation of the syntax tree raises what it raises.
+    // a name that resolves to nothing when it is bound - a variable declared implicitly, by its first use - is bound late, and resolved when it is evaluated;
+    // the operation it is an operand of is bound, and has no plan.
     [TestMethod]
-    public void ANameThatDoesNotResolve_AndAnOperationOfIt_AreFallbacks()
+    public void ANameThatDoesNotResolve_IsBoundLate_InTheOperationItIsAnOperandOf()
     {
         var context = ContextWith(("x", VBLongType.TypeInfo));
         var sum = BinaryOf(Tokens.AdditionOp, NameOf("x"), NameOf("nowhere"));
 
-        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, sum).NodeOf(sum));
+        var bound = (BoundBinary)ExpressionBinder.Bind(context, sum).NodeOf(sum)!;
+
+        Assert.IsInstanceOfType<BoundVariable>(bound.Left);
+        Assert.IsInstanceOfType<BoundLate>(bound.Right);
     }
 
     [TestMethod]
@@ -324,12 +328,15 @@ public sealed class ExpressionBinderTests
     }
 
     [TestMethod]
-    public void AMemberThatIsNoMemberOfAWorkspaceClass_IsACompileError_AndIsNotBound()
+    public void AMemberThatIsNoMemberOfAWorkspaceClass_IsBoundToTheError_AndToTheMemberLateBound()
     {
         var context = ContextWithACounter();
         var access = MemberOf("c", "Reset");
 
-        // a class module of the workspace is a closed set of members: an unknown one is a compile error, which the static pass reports.
-        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, access).NodeOf(access));
+        // a class module of the workspace is a closed set of members: an unknown one is a compile error, which the static pass reports. Its run-time
+        // counterpart is the member found from the object, late-bound, which raises 438.
+        var error = (BoundError)ExpressionBinder.Bind(context, access).NodeOf(access)!;
+        Assert.AreEqual(SDK.Model.Errors.VBCompileErrorId.MethodOrDataMemberNotFound, error.Error.VBCompileErrorId);
+        Assert.IsNull(((BoundMember)error.Late).Member);
     }
 }

@@ -128,93 +128,34 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// tree evaluates successfully.
     /// </returns>
     public RuntimeSemanticsEvaluationResult Evaluate(IRuntimeSession session, ExpressionNode expression, RuntimeEvaluationContext context)
-        => BoundTreeOf(session, expression, context) is { } bound and not BoundFallback
-            ? EvaluateBound(session, bound, context)
-            : EvaluateSyntax(session, expression, context);
+        => EvaluateBoundNode(session, BoundTreeOf(session, expression, context), context);
 
-    // the evaluation of the syntax tree, which is what an expression the binder does not bind yet is evaluated by (IR lowering D3).
-    private RuntimeSemanticsEvaluationResult EvaluateSyntax(IRuntimeSession session, ExpressionNode expression, RuntimeEvaluationContext context)
+    // what a late-bound expression (BoundLate) evaluates to: its names and types resolved now, as MS-VBAL's run-time semantics resolve them. Its parts are
+    // evaluated as expressions of their own, bound in their turn. Every other shape is always bound.
+    private RuntimeSemanticsEvaluationResult EvaluateLate(IRuntimeSession session, ExpressionNode expression, RuntimeEvaluationContext context)
         => expression switch
         {
-            LiteralExpressionNode => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression),
             SimpleNameExpressionNode simpleName => EvaluateSimpleName(session, context, simpleName),
-            PrecompilerNameExpressionNode precompilerName => EvaluatePrecompilerConstant(session, context, precompilerName),
             InstanceExpressionNode => EvaluateInstance(session, context, expression),
             NewExpressionNode newExpression => EvaluateNew(session, context, expression, newExpression),
             MemberAccessExpressionNode memberAccess => EvaluateMemberAccess(session, context, expression, memberAccess),
             IndexExpressionNode indexExpression => EvaluateIndex(session, context, expression, indexExpression),
-            DictionaryAccessExpressionNode dictionaryAccess => EvaluateDictionaryAccess(session, context, expression, dictionaryAccess),
             TypeOfIsExpressionNode typeOfIs => EvaluateTypeOfIs(session, context, expression, typeOfIs),
-            ArrayBoundExpressionNode arrayBound => EvaluateArrayBound(session, context, arrayBound),
-            ArrayExpressionNode array => EvaluateArray(session, context, array),
-            VBBinaryOperatorExpressionNode binaryOperator => EvaluateBinaryOperator(session, context, binaryOperator),
-            VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(session, context, unaryOperator),
-            // ByVal flags how the argument is passed, which is what a node that is not a variable is: a value, never
-            // aliased to a ByRef parameter (see TryResolveByRefArgument).
-            ByValArgumentExpressionNode byVal => Evaluate(session, byVal.Operand, context),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
-    // The Array keyword: a Variant holding a resizable array of Variant, with an element for each argument. Its lower bound is the
-    // Option Base of the module the expression is written in, which rides on the executing frame; the library's own member of the
-    // same name is always zero-based, and is what a qualified call reaches instead.
-    private RuntimeSemanticsEvaluationResult EvaluateArray(
-        IRuntimeSession session, RuntimeEvaluationContext context, ArrayExpressionNode arrayExpression)
-    {
-        var lower = session.CallStack.Current?.Directives.Base ?? 0;
-        var array = new VBResizableArrayValue([(lower, lower + arrayExpression.Elements.Length - 1)], VBVariantType.TypeInfo);
-
-        for (var index = 0; index < arrayExpression.Elements.Length; index++)
-        {
-            var element = Evaluate(session, arrayExpression.Elements[index], context);
-            if (!element.IsSuccess)
-            {
-                return element;
-            }
-
-            SetArrayElement(array, lower + index, element.Result!);
-        }
-
-        return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(array));
-    }
-
-    // an element is a Variant holding a copy of what the argument came to - not a view of the variable it was read from, which would be whatever that
-    // variable holds next. The array is a value the expression is, not a variable: an object in it is held by whatever the array is assigned to, which is
-    // given a copy in cells of its own (ObjectReferences), and not by these.
+    // an element of what the Array keyword makes is a Variant holding a copy of what the argument came to - not a view of the variable it was read from,
+    // which would be whatever that variable holds next. The array is a value the expression is, not a variable: an object in it is held by whatever the array
+    // is assigned to, which is given a copy in cells of its own (ObjectReferences), and not by these.
     private static void SetArrayElement(VBResizableArrayValue array, int index, VBTypedValue element)
     {
         var value = DataValues.Copy(element is VBVariantValue variant ? variant : new VBVariantValue(element));
         array.TrySetElement(BindingKnowledge.NewCell(value), index);
     }
 
-    // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it
-    // holds (VBArrayType.CreateValue hands back the stored instance, not a copy) - and only its bounds are read.
-    private RuntimeSemanticsEvaluationResult EvaluateArrayBound(
-        IRuntimeSession session, RuntimeEvaluationContext context, ArrayBoundExpressionNode arrayBound)
-    {
-        var array = Evaluate(session, arrayBound.Array, context);
-        if (!array.IsSuccess)
-        {
-            return array;
-        }
-
-        VBTypedValue? dimension = null;
-        if (arrayBound.Dimension is { } dimensionExpression)
-        {
-            var evaluated = Evaluate(session, dimensionExpression, context);
-            if (!evaluated.IsSuccess)
-            {
-                return evaluated;
-            }
-
-            dimension = evaluated.Result;
-        }
-
-        return ArrayBoundOf(arrayBound, array.Result!, dimension);
-    }
-
-    // an array that is not known has bounds that are not known, and is not known to be no array: the error it would raise is the assumed value's, which is
-    // not stated. The same goes for a dimension that is not known.
+    // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it holds (VBArrayType.CreateValue hands
+    // back the stored instance, not a copy) - and only its bounds are read. An array that is not known has bounds that are not known, and is not known to be
+    // no array: the error it would raise is the assumed value's, which is not stated. The same goes for a dimension that is not known.
     private static RuntimeSemanticsEvaluationResult ArrayBoundOf(ArrayBoundExpressionNode arrayBound, VBTypedValue array, VBTypedValue? dimension)
         => array.IsIndeterminate || dimension is { IsIndeterminate: true }
             ? RuntimeSemanticsEvaluationResult.Success(VBLongType.TypeInfo.CreateIndeterminateValue())
@@ -2340,17 +2281,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
     }
 
-    private RuntimeSemanticsEvaluationResult EvaluateDictionaryAccess(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
-    {
-        // the object the member is looked up in: the expression written before the bang, or the enclosing With block's target.
-        var ownerResult = dictionaryAccess.Owner is { } ownerExpression
-            ? Evaluate(session, ownerExpression, context)
-            : context.EnclosingWithTarget is { } withTarget
-                ? RuntimeSemanticsEvaluationResult.Success(withTarget)
-                : RuntimeSemanticsEvaluationResult.InternalError();
-        return ownerResult.IsSuccess ? AccessThroughDictionary(session, context, dictionaryAccess, ownerResult.Result!) : ownerResult;
-    }
-
     // the default member of the owner, called with the name after the bang, and the access stated as one.
     private RuntimeSemanticsEvaluationResult AccessThroughDictionary(
         IRuntimeSession session, RuntimeEvaluationContext context, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
@@ -2470,31 +2400,4 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             MemberAccessExpressionNode { Owner: SimpleNameExpressionNode owner, Member: { } member } => (owner.IdentifierName, member.IdentifierName),
             _ => (null, null),
         };
-
-    private RuntimeSemanticsEvaluationResult EvaluateBinaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, VBBinaryOperatorExpressionNode binaryOperator)
-    {
-        var leftResult = Evaluate(session, binaryOperator.Left, context);
-        if (!leftResult.IsSuccess)
-        {
-            return leftResult;
-        }
-        var rightResult = Evaluate(session, binaryOperator.Right, context);
-        if (!rightResult.IsSuccess)
-        {
-            return rightResult;
-        }
-
-        return OperatorProvider.EvaluateBinaryOperator(session, binaryOperator, leftResult.Result!, rightResult.Result!);
-    }
-
-    private RuntimeSemanticsEvaluationResult EvaluateUnaryOperator(IRuntimeSession session, RuntimeEvaluationContext context, VBUnaryOperatorExpressionNode unaryOperator)
-    {
-        var operandResult = Evaluate(session, unaryOperator.Operand, context);
-        if (!operandResult.IsSuccess)
-        {
-            return operandResult;
-        }
-
-        return OperatorProvider.EvaluateUnaryOperator(session, unaryOperator, operandResult.Result!);
-    }
 }

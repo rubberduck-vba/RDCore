@@ -89,10 +89,14 @@ public sealed class ExpressionBindings
         _nodes[expression.Identity] = NodeFor(context, expression, result, plan);
     }
 
-    // an operand is recorded before the expression that has it, so its node is there to build this one from. An expression that is a compile error, or that
-    // is not bound yet, is a fallback - and so is one with an operand that is.
+    // an operand is recorded before the expression that has it, so its node is there to build this one from. An expression that is a compile error is bound
+    // to the error and to what it is late-bound, its run-time counterpart.
     private BoundNode NodeFor(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result, OperationPlan? plan)
-        => result.IsError ? new BoundFallback(expression) : expression switch
+        => result.ErrorInfo is { } error ? new BoundError(expression, error, ShapeOf(context, expression, result, plan)) : ShapeOf(context, expression, result, plan);
+
+    // the node of an expression, by its shape and what its names resolve to. What resolves to nothing the binder can bind is bound late.
+    private BoundNode ShapeOf(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result, OperationPlan? plan)
+        => expression switch
         {
             LiteralExpressionNode literal => new BoundLiteral(literal),
 
@@ -108,11 +112,10 @@ public sealed class ExpressionBindings
             InstanceExpressionNode instance when context.Resolver.ResolveValue(Tokens.Me, ScopeKind.Local, context.Scope.Uri).Symbol is { } me
                 => new BoundInstance(instance, me, Frame is { } frame && frame.TryGetSlot(me, out var slot) ? slot : null),
 
-            VBBinaryOperatorExpressionNode binary when plan is not null && OperandNode(binary.Left) is { } left && OperandNode(binary.Right) is { } right
-                => new BoundBinary(binary, plan, left, right),
+            // an operation of operands bound late has no plan: their declared types are not known.
+            VBBinaryOperatorExpressionNode binary => new BoundBinary(binary, plan, ChildNode(binary.Left), ChildNode(binary.Right)),
 
-            VBUnaryOperatorExpressionNode unary when OperandNode(unary.Operand) is { } operand
-                => new BoundUnary(unary, plan, operand),
+            VBUnaryOperatorExpressionNode unary => new BoundUnary(unary, plan, ChildNode(unary.Operand)),
 
             // a call by the bare name of a procedure, resolved as the evaluation resolves it.
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
@@ -134,7 +137,7 @@ public sealed class ExpressionBindings
                     : new BoundIndex(index, new BoundQualifiedName(access, member)),
 
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no
-            // argument is not given what follows it in parentheses, which indexes what it returns: that is evaluated from the syntax tree.
+            // argument is not given what follows it in parentheses, which indexes what it returns: that is evaluated late-bound.
             MemberAccessExpressionNode { Owner: { } owner } access
                 when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
                 => new BoundMember(access, access, ownerNode, declared, member, null),
@@ -165,7 +168,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: not (SimpleNameExpressionNode or MemberAccessExpressionNode) } index => new BoundIndex(index, ChildNode(index.Callee)),
 
             // a member of any other value - an object declared Object or Variant (late-bound), a field of a record, what an element, a call or another member
-            // is: the owner bound, the member found from the value, as the syntax tree's evaluation finds it. A name of a namespace or of an enumeration is
+            // is: the owner bound, the member found from the value each time. A name of a namespace or of an enumeration is
             // no owner of the kind, whether or not the member is found in it.
             MemberAccessExpressionNode { Owner: { } owner } access when !IsQualifier(context, owner)
                 => new BoundMember(access, access, ChildNode(owner), null, null, null),
@@ -201,7 +204,7 @@ public sealed class ExpressionBindings
             // ByVal flags how an argument is passed - as a value, never aliased - and evaluates to its operand.
             ByValArgumentExpressionNode byVal => ChildNode(byVal.Operand),
 
-            _ => new BoundFallback(expression),
+            _ => new BoundLate(expression),
         };
 
     // what a qualified name means when its owner is a namespace - the member of the namespace, and nothing else when it has none - or an enumeration, which
@@ -240,8 +243,8 @@ public sealed class ExpressionBindings
         _ => null,
     };
 
-    // the node of an operand a structural node evaluates as it is: one that is not bound is evaluated from the syntax tree, on its own.
-    private BoundNode ChildNode(ExpressionNode operand) => NodeOf(operand) ?? new BoundFallback(operand);
+    // the node of an operand a structural node evaluates as it is: one that is not bound is bound late, on its own.
+    private BoundNode ChildNode(ExpressionNode operand) => NodeOf(operand) ?? new BoundLate(operand);
 
     // the bound node of the expression an object is reached through, and the class it is declared as, when it is declared as one: the class's declaration as
     // it is now, which a type built before it was complete only has a snapshot of (MemberAccessExpressionStaticSemantics reads its members the same way).
@@ -284,9 +287,6 @@ public sealed class ExpressionBindings
     private static bool IsVariable(Symbol symbol)
         => symbol is ITypedSymbol && symbol.Kind is SymbolKindExt.Variable or SymbolKindExt.Field
             && symbol is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol or VBLocalConstantSymbol or VBConstantMemberSymbol);
-
-    // the node of an operand that is bound to something other than a fallback.
-    private BoundNode? OperandNode(ExpressionNode operand) => NodeOf(operand) is { } node and not BoundFallback ? node : null;
 
     // the plan of an operation, for the declared types of its operands as the operator is given them (an Enum is a Long, a LongPtr what it is an alias of).
     private OperationPlan? PlanOf(ExpressionNode expression) => expression switch
