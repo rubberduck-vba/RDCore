@@ -1,5 +1,6 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
@@ -119,17 +120,32 @@ public sealed class ExpressionBindings
                     VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
                 => new BoundCall(index, procedure),
 
+            // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
+            // and a member of an enumeration named by its type is a constant: neither is a member of a value. Classified and resolved as the evaluation does.
+            MemberAccessExpressionNode { Owner: { } owner } access when QualifiedMemberOf(context, owner, access) is { } member
+                => new BoundQualifiedName(access, member),
+
+            // a call of a procedure of a project or a procedural module - `VBA.Len(s)` - is a call with the arguments, and no object to evaluate; anything
+            // else such a name means is a value the arguments index.
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
+                when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier && NamespaceMemberOf(context, qualifier, access) is { } member
+                => member is VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+                    ? new BoundCall(index, procedure, IsQualified: true)
+                    : new BoundIndex(index, new BoundQualifiedName(access, member)),
+
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no
             // argument is not given what follows it in parentheses, which indexes what it returns: that is evaluated from the syntax tree.
             MemberAccessExpressionNode { Owner: { } owner } access
                 when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
                 => new BoundMember(access, access, ownerNode, declared, member, null),
 
-            // the class a TypeOf … Is tests against, by its bare name, resolved as the evaluation resolves it.
-            TypeOfIsExpressionNode { TypeExpression: SimpleNameExpressionNode typeName } typeOf
-                when NodeOf(typeOf.Operand) is { } operand
-                    && VBProjectSymbol.ResolveQualifiedType(context.Resolver, null, typeName.IdentifierName, context.Scope.Uri).Symbol is VBClassModuleSymbol target
+            // the class a TypeOf … Is tests against, by its name - bare, or qualified by its project - resolved as the evaluation resolves it.
+            TypeOfIsExpressionNode typeOf
+                when NodeOf(typeOf.Operand) is { } operand && QualifiedTypeName(typeOf.TypeExpression) is var (qualifier, typeName)
+                    && VBProjectSymbol.ResolveQualifiedType(context.Resolver, qualifier, typeName, context.Scope.Uri).Symbol is VBClassModuleSymbol target
                 => new BoundTypeOf(typeOf, operand, target),
+
+            PrecompilerNameExpressionNode precompilerName => new BoundPrecompilerName(precompilerName),
 
             // the class a New expression creates an object of, as its declaration is now.
             NewExpressionNode newExpression when result.Result is VBClassType { Symbol: var snapshot }
@@ -145,12 +161,18 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index when NodeOf(callee) is BoundVariable variable
                 => new BoundIndex(index, variable),
 
-            // a member of an object declared Object or Variant (late-bound), or a field of a record: the owner bound, the member found from the value.
-            MemberAccessExpressionNode { Owner: { } owner } access when LateOwnerOf(owner) is { } ownerNode
-                => new BoundMember(access, access, ownerNode, null, null, null),
+            // what any other value - a call's result, `F()(1)`, an element, `a(1)(2)` - is indexed by: the callee is evaluated as it is, then indexed.
+            IndexExpressionNode { Callee: not (SimpleNameExpressionNode or MemberAccessExpressionNode) } index => new BoundIndex(index, ChildNode(index.Callee)),
 
-            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index when LateOwnerOf(owner) is { } ownerNode
-                => new BoundMember(index, access, ownerNode, null, null, index),
+            // a member of any other value - an object declared Object or Variant (late-bound), a field of a record, what an element, a call or another member
+            // is: the owner bound, the member found from the value, as the syntax tree's evaluation finds it. A name of a namespace or of an enumeration is
+            // no owner of the kind, whether or not the member is found in it.
+            MemberAccessExpressionNode { Owner: { } owner } access when !IsQualifier(context, owner)
+                => new BoundMember(access, access, ChildNode(owner), null, null, null),
+
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
+                when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is null
+                => new BoundMember(index, access, ChildNode(owner), null, null, index),
 
             // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
             MemberAccessExpressionNode { Owner: null } access
@@ -162,6 +184,11 @@ public sealed class ExpressionBindings
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, null, declared, member, index),
 
+            // a member of the target of a With block declared as anything else: the object is the block's, the member found from it.
+            MemberAccessExpressionNode { Owner: null } access => new BoundMember(access, access, null, null, null, null),
+
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index => new BoundMember(index, access, null, null, null, index),
+
             // the special forms and the dictionary access: their operands are bound, and what those evaluate to is the evaluation's to bound, gather or
             // look up, each time.
             ArrayBoundExpressionNode arrayBound
@@ -171,8 +198,47 @@ public sealed class ExpressionBindings
 
             DictionaryAccessExpressionNode dictionary => new BoundDictionaryAccess(dictionary, dictionary.Owner is { } owner ? ChildNode(owner) : null),
 
+            // ByVal flags how an argument is passed - as a value, never aliased - and evaluates to its operand.
+            ByValArgumentExpressionNode byVal => ChildNode(byVal.Operand),
+
             _ => new BoundFallback(expression),
         };
+
+    // what a qualified name means when its owner is a namespace - the member of the namespace, and nothing else when it has none - or an enumeration, which
+    // the evaluation asks in that order.
+    private static Symbol? QualifiedMemberOf(StaticEvaluationContext context, ExpressionNode owner, MemberAccessExpressionNode access)
+        => context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+            ? NamespaceMemberOf(context, qualifier, access)
+            : EnumerationOf(context, owner)?.Members.FirstOrDefault(member
+                => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase));
+
+    // the member of a namespace a qualified name refers to, when it refers to one that is no namespace itself.
+    private static Symbol? NamespaceMemberOf(StaticEvaluationContext context, Symbol qualifier, MemberAccessExpressionNode access)
+        => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol is { } member && !NamespaceExpressions.IsNamespace(member)
+            ? member
+            : null;
+
+    // the enumeration an expression names - `Mode`, or `Widgets.Mode` - classified by what the name resolves to.
+    private static VBEnumType? EnumerationOf(StaticEvaluationContext context, ExpressionNode owner)
+    {
+        var named = owner switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } namespaceOwner } access when context.Resolver.NamespaceOf(namespaceOwner, context.Scope.Uri) is { } qualifier
+                => NamespaceMemberOf(context, qualifier, access),
+            _ => null,
+        };
+
+        return named is VBEnumMemberSymbol { ResolvedType: VBEnumType enumeration } ? enumeration : null;
+    }
+
+    // the name of a class a type expression is - bare, or qualified by its project - as New and TypeOf … Is name it.
+    private static (string? Qualifier, string TypeName)? QualifiedTypeName(ExpressionNode typeExpression) => typeExpression switch
+    {
+        SimpleNameExpressionNode simple => (null, simple.IdentifierName),
+        MemberAccessExpressionNode { Owner: SimpleNameExpressionNode owner, Member: { } member } => (owner.IdentifierName, member.IdentifierName),
+        _ => null,
+    };
 
     // the node of an operand a structural node evaluates as it is: one that is not bound is evaluated from the syntax tree, on its own.
     private BoundNode ChildNode(ExpressionNode operand) => NodeOf(operand) ?? new BoundFallback(operand);
@@ -184,10 +250,9 @@ public sealed class ExpressionBindings
             ? (node, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot)
             : null;
 
-    // the bound node of an owner that is a variable declared Object or Variant, or as a user-defined type: one that names no module or enumeration, whose
-    // member is the value's to say.
-    private BoundNode? LateOwnerOf(ExpressionNode owner)
-        => NodeOf(owner) is BoundVariable variable && DeclaredTypeOf(owner) is VBObjectType or VBVariantType or VBUserDefinedType ? variable : null;
+    // whether an owner names a namespace or an enumeration, which the evaluation classifies it as before it evaluates any owner as a value.
+    private static bool IsQualifier(StaticEvaluationContext context, ExpressionNode owner)
+        => context.Resolver.NamespaceOf(owner, context.Scope.Uri) is not null || EnumerationOf(context, owner) is not null;
 
     // the class the target of the enclosing With block is declared as, when it is declared as one, as its declaration is now.
     private static VBClassModuleSymbol? WithTargetOf(StaticEvaluationContext context)

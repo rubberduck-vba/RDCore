@@ -215,6 +215,8 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundArrayBound arrayBound => EvaluateBoundArrayBound(session, arrayBound, context),
         BoundArray array => EvaluateBoundArray(session, array, context),
         BoundDictionaryAccess dictionary => EvaluateBoundDictionaryAccess(session, dictionary, context),
+        BoundQualifiedName qualified => ReadSymbol(session, context, qualified.Member, nameOfEnclosingFunctionIsItsResult: false),
+        BoundPrecompilerName precompilerName => EvaluatePrecompilerConstant(session, context, precompilerName.Name),
         _ => EvaluateSyntax(session, node.Expression, context),
     };
 
@@ -389,9 +391,10 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // what EvaluateIndex does with a callee that resolves to a procedure, its callee resolved once: a function that declares no parameter is not given what
-    // follows it in parentheses, which indexes what it returns - and that is evaluated from the syntax tree.
+    // follows it in parentheses, which indexes what it returns - and that is evaluated from the syntax tree. One named through its namespace is called with
+    // the arguments, as EvaluateIndex calls it.
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
-        => call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
+        => call.Procedure is VBTypeMemberSymbol procedure && (call.IsQualified || !ReturnsToBeIndexed(procedure, null, call.Call.Arguments))
             ? InvokeProcedure(session, context, procedure, call.Call.Arguments)
             : EvaluateSyntax(session, call.Expression, context);
 
@@ -411,6 +414,8 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundVariable { IsAutoInstantiated: false, Variable: ITypedSymbol { ResolvedType: VBNumericType or VBStringType or VBBooleanType or VBDateType } } => true,
         BoundName { Symbol: ITypedSymbol { ResolvedType: VBNumericType or VBStringType or VBBooleanType or VBDateType } and not VBTypeMemberSymbol } => true,
         BoundName { Symbol: VBTypeMemberSymbol { Kind: SymbolKindExt.Field or SymbolKindExt.Variable or SymbolKindExt.Constant } member }
+            => member is ITypedSymbol { ResolvedType: VBNumericType or VBStringType or VBBooleanType or VBDateType },
+        BoundQualifiedName { Member: VBTypeMemberSymbol { Kind: SymbolKindExt.Field or SymbolKindExt.Variable or SymbolKindExt.Constant } member }
             => member is ITypedSymbol { ResolvedType: VBNumericType or VBStringType or VBBooleanType or VBDateType },
         BoundBinary binary => HasNoEffect(binary.Left) && HasNoEffect(binary.Right),
         BoundUnary unary => HasNoEffect(unary.Operand),

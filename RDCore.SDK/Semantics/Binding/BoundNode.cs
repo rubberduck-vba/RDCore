@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -99,7 +100,30 @@ public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, O
 /// </remarks>
 /// <param name="Call">The index expression that is the call.</param>
 /// <param name="Procedure">The procedure called.</param>
-public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure) : BoundNode(Call);
+/// <param name="IsQualified">Whether the procedure is named through the project or the procedural module it is a member of (<strong>§5.6.12</strong>) -
+/// <c>VBA.Len(s)</c>, <c>Module1.Total(1)</c> - which is a call of it with the arguments, whatever parameters it declares.</param>
+public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure, bool IsQualified = false) : BoundNode(Call);
+
+/// <summary>
+/// A name qualified by the project or the procedural module it is a member of, or by the enumeration it is a member of (<strong>MS-VBAL §5.6.12</strong>):
+/// <c>Constants.vbCrLf</c>, <c>Module1.Count</c>, <c>Color.Red</c> - not a member of a value, but what the name means unqualified there.
+/// </summary>
+/// <remarks>
+/// The binding is the resolution of the name in its namespace, made once; what reading the symbol evaluates to is the symbol's to say, as it is of a
+/// <see cref="BoundName"/>.
+/// </remarks>
+/// <param name="Access">The member access.</param>
+/// <param name="Member">The symbol the name resolves to.</param>
+public sealed record class BoundQualifiedName(MemberAccessExpressionNode Access, Symbol Member) : BoundNode(Access);
+
+/// <summary>
+/// A conditional-compilation constant's name (<strong>MS-VBAL §3.4</strong>), evaluated where the code reads it.
+/// </summary>
+/// <remarks>
+/// What the name evaluates to is the constant the module defines, or the project, as they are when it is read: there is nothing to resolve once.
+/// </remarks>
+/// <param name="Name">The name.</param>
+public sealed record class BoundPrecompilerName(PrecompilerNameExpressionNode Name) : BoundNode(Name);
 
 /// <summary>
 /// A member of an object whose declared type is a class (<strong>MS-VBAL §5.6.12</strong>), read - <c>c.Value</c> - or called with the arguments written
@@ -136,15 +160,16 @@ public sealed record class BoundMember(
 public sealed record class BoundNew(NewExpressionNode New, VBClassModuleSymbol Class) : BoundNode(New);
 
 /// <summary>
-/// An index expression whose callee is a variable (<strong>MS-VBAL §5.6.13</strong>): an element of the array it holds - <c>a(i)</c> - or a call of the
-/// default member of the object it holds - <c>c(1)</c>, which is <c>c.Item(1)</c>.
+/// An index expression whose callee is a value (<strong>MS-VBAL §5.6.13</strong>) - a variable, a variable of a module named through it, what a call
+/// returns (<c>F()(1)</c>): an element of the array it is - <c>a(i)</c> - or a call of the default member of the object it is - <c>c(1)</c>, which is
+/// <c>c.Item(1)</c>.
 /// </summary>
 /// <remarks>
-/// The binding is the callee's: the variable is read through its bound node. What the arguments do to the value it holds - select an element, call a
+/// The binding is the callee's: the value is evaluated through its bound node. What the arguments do to the value - select an element, call a
 /// default member - is decided by the value, each time, as it is for an index expression evaluated from the syntax tree.
 /// </remarks>
 /// <param name="Index">The index expression.</param>
-/// <param name="Callee">The callee, bound to the variable it reads.</param>
+/// <param name="Callee">The callee, bound.</param>
 public sealed record class BoundIndex(IndexExpressionNode Index, BoundNode Callee) : BoundNode(Index);
 
 /// <summary>

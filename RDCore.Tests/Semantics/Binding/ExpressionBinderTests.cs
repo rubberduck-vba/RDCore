@@ -324,11 +324,15 @@ public sealed class ExpressionBinderTests
     }
 
     [TestMethod]
-    public void AMemberThatIsNoMemberOfTheClass_IsNotBound()
+    public void AMemberThatIsNoMemberOfTheClass_IsFoundFromTheValue()
     {
         var context = ContextWithACounter();
         var access = MemberOf("c", "Reset");
 
-        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, access).NodeOf(access));
+        // no member of the class to bind to: the member is looked up in the object each time, as the syntax tree's evaluation looks it up.
+        var bound = (BoundMember)ExpressionBinder.Bind(context, access).NodeOf(access)!;
+        Assert.IsNull(bound.DeclaredClass);
+        Assert.IsNull(bound.Member);
+        Assert.IsInstanceOfType<BoundVariable>(bound.Owner);
     }
 }
