@@ -13,6 +13,7 @@ using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using RDCore.Symbols;
+using RDCore.Tests.Platform;
 
 namespace RDCore.Tests.Cli;
 
@@ -222,7 +223,7 @@ internal static class ModuleWorkspace
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
             await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
-                .Handle(new DefineSymbolsParams
+                .Handle(Wire.RoundTrip(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,
                     ModuleUri = module.Uri,
@@ -232,7 +233,7 @@ internal static class ModuleWorkspace
                     ImplementedInterfaceNames = module.Parse.SyntaxTree!.GetImplementedInterfaceNames(),
                     ImplementedInterfaceRanges = module.Parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                     Replace = true,
-                }, CancellationToken.None);
+                }), CancellationToken.None);
         }
 
         foreach (var module in parsed)

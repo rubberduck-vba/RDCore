@@ -49,7 +49,27 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// <summary>
     /// The member symbol descriptors, in declaration order.
     /// </summary>
+    /// <remarks>
+    /// Not on the wire as such: a descriptor carries expressions (<see cref="ConstantDescriptor.Value"/>, <see cref="ParameterDescriptor.DefaultValue"/>,
+    /// <see cref="ArrayBoundDescriptor"/>), which the transport's serializer cannot write - and a request it cannot write is never sent, nor ever answered.
+    /// They travel as <see cref="SymbolsJson"/>.
+    /// </remarks>
+    [Newtonsoft.Json.JsonIgnore]
     public ImmutableArray<SymbolDescriptor> Symbols { get; init; } = [];
+
+    /// <summary>
+    /// The <see cref="System.Text.Json"/> representation of <see cref="Symbols"/> (see <see cref="PlatformJson"/>): the form they take on the wire.
+    /// </summary>
+    /// <remarks>
+    /// An AST node is polymorphic, and the literal one holds a value whose type holds a value of that type; <c>Newtonsoft.Json</c> refuses the first and loops on
+    /// the second. Setting it sets <see cref="Symbols"/>.
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string SymbolsJson
+    {
+        get => PlatformJson.Serialize(Symbols);
+        init => Symbols = value.Length == 0 ? [] : PlatformJson.Deserialize<ImmutableArray<SymbolDescriptor>>(value);
+    }
 
     /// <summary>
     /// The module's own <c>Option</c> directives (<strong>MS-VBAL §5.2.1</strong>), which the host

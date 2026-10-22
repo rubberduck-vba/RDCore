@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.Tests.Platform;
 
 namespace RDCore.Tests.Cli;
 
@@ -118,7 +119,7 @@ internal sealed class ShellHost
             _workspaceRoot, _moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true, language).ProvideSymbols();
 
         await new DefineSymbolsHandler(_provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
-            .Handle(new DefineSymbolsParams
+            .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = _workspaceRoot,
                 ModuleUri = _moduleUri,
@@ -126,7 +127,7 @@ internal sealed class ShellHost
                 Symbols = SymbolDescriptorProjector.Project(symbols, _moduleUri),
                 Directives = parse.SyntaxTree.GetModuleDirectives(),
                 Replace = true,
-            }, CancellationToken.None);
+            }), CancellationToken.None);
 
         return await new HostExecuteHandler(_provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
