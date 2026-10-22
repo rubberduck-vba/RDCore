@@ -193,6 +193,7 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundCall call => EvaluateBoundCall(session, call, context),
         BoundMember member => EvaluateBoundMember(session, member, context),
         BoundNew created => CreateObject(session, created.New, created.Class),
+        BoundTypeOf typeOf => EvaluateBoundTypeOf(session, typeOf, context),
         _ => EvaluateSyntax(session, node.Expression, context),
     };
 
@@ -237,6 +238,13 @@ public sealed partial class RuntimeExpressionEvaluator
 
         // a public variable of the object, given arguments, is what they index.
         return isCall || bound.Arguments is not { } index ? result : IndexValue(session, context, index, index, result);
+    }
+
+    // what EvaluateTypeOfIs does, the class tested against resolved once.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundTypeOf(IRuntimeSession session, BoundTypeOf typeOf, RuntimeEvaluationContext context)
+    {
+        var operand = EvaluateBoundNode(session, typeOf.Operand, context);
+        return operand.IsSuccess ? IsOfClass(session, operand, typeOf.Class) : operand;
     }
 
     // the member each bound member expression invoked last, and the class of the object it was invoked on: an expression meets objects of one class, nearly

@@ -2317,14 +2317,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
         }
 
-        if (TryGetQualifiedTypeName(typeOfIs.TypeExpression) is not var (qualifier, typeName) || typeName is null
-            || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
+        if (TryGetQualifiedTypeName(typeOfIs.TypeExpression) is not var (qualifier, typeName) || typeName is null)
         {
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
         var targetResult = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
         return targetResult.Symbol is VBClassModuleSymbol targetClass
+            ? IsOfClass(session, operandResult, targetClass)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // whether the object an operand evaluated to is an instance of a class that is, or implements, the class tested against: Nothing and a value that is no
+    // object are not.
+    private static RuntimeSemanticsEvaluationResult IsOfClass(IRuntimeSession session, RuntimeSemanticsEvaluationResult operandResult, VBClassModuleSymbol targetClass)
+    {
+        if (operandResult.Result is not VBObjectValue objectValue || objectValue.IsNothing())
+        {
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
+        }
+
+        return session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(IsOrImplements(instance.ClassModule, targetClass, [])))
             : RuntimeSemanticsEvaluationResult.InternalError();
     }

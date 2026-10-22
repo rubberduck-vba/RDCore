@@ -121,6 +121,12 @@ public sealed class ExpressionBindings
                 when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
                 => new BoundMember(access, access, ownerNode, declared, member, null),
 
+            // the class a TypeOf … Is tests against, by its bare name, resolved as the evaluation resolves it.
+            TypeOfIsExpressionNode { TypeExpression: SimpleNameExpressionNode typeName } typeOf
+                when NodeOf(typeOf.Operand) is { } operand
+                    && VBProjectSymbol.ResolveQualifiedType(context.Resolver, null, typeName.IdentifierName, context.Scope.Uri).Symbol is VBClassModuleSymbol target
+                => new BoundTypeOf(typeOf, operand, target),
+
             // the class a New expression creates an object of, as its declaration is now.
             NewExpressionNode newExpression when result.Result is VBClassType { Symbol: var snapshot }
                 => new BoundNew(newExpression, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot),

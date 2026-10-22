@@ -133,6 +133,19 @@ public sealed class BoundMemberTests
             "End With",
             "Debug.Print Err.Number"));
 
+    // MS-VBAL 5.6.9.9: TypeOf … Is is True of an object of the class, or of a class that implements it; False of Nothing.
+    [TestMethod]
+    public async Task TypeOfIs_TestsTheClassOfTheObject_AndTheInterfacesItImplements()
+        => CollectionAssert.AreEqual(new[] { "True", "False", "True", "True", "False", "False" }, await RunMainAsync(
+            "Dim c As New Counter, i As ICounter, o As Object",
+            "Set i = New ByTen",
+            "Debug.Print TypeOf c Is Counter",
+            "Debug.Print TypeOf c Is ICounter",
+            "Debug.Print TypeOf i Is ICounter",
+            "Debug.Print TypeOf i Is ByTen",
+            "Debug.Print TypeOf i Is ByOne",
+            "Debug.Print TypeOf o Is Counter"));
+
     // an object variable declared As New is never Nothing when it is referred to: the reference creates it.
     [TestMethod]
     public async Task AMemberOfAnObjectDeclaredAsNew_CreatesTheObject()

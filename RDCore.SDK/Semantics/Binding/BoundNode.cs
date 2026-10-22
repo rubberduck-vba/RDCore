@@ -120,6 +120,17 @@ public sealed record class BoundMember(
 public sealed record class BoundNew(NewExpressionNode New, VBClassModuleSymbol Class) : BoundNode(New);
 
 /// <summary>
+/// A <c>TypeOf … Is</c> expression (<strong>MS-VBAL §5.6.9.9</strong>), its operand, and the class it tests the operand's object against.
+/// </summary>
+/// <remarks>
+/// The binding is the resolution of the type name, made once; whether the object's class is that class or implements it is the evaluation's, each time.
+/// </remarks>
+/// <param name="TypeOf">The <c>TypeOf … Is</c> expression.</param>
+/// <param name="Operand">The operand, bound.</param>
+/// <param name="Class">The class module the type name resolves to.</param>
+public sealed record class BoundTypeOf(TypeOfIsExpressionNode TypeOf, BoundNode Operand, VBClassModuleSymbol Class) : BoundNode(TypeOf);
+
+/// <summary>
 /// An expression the binder does not bind yet (IR lowering D3): it is evaluated from the syntax tree, the way it always was.
 /// </summary>
 /// <remarks>
