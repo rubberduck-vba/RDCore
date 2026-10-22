@@ -67,13 +67,16 @@ public sealed record class FixedAssignmentRuntimeSemantics(
     public RuntimeExecutionOutcome Execute(
         IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
-        if (!Assignments.TryResolveTarget(session, context, assignment.Target, out var symbol))
+        // a variable is bound once, and read through the slot it is bound to (IR lowering S0.11).
+        var bound = Expressions.BoundVariableOf(session, assignment.Target, context);
+        var symbol = bound?.Variable;
+        if (symbol is null && !Assignments.TryResolveTarget(session, context, assignment.Target, out symbol))
         {
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        var current = ((SDK.Model.Symbols.Abstract.ITypedSymbol)symbol!).ResolvedType
-            .CreateValue(session.Symbols.Resolver.GetValue(symbol!).ForReading());
+        var handle = bound is not null ? RuntimeExpressionEvaluator.BindingOf(session, bound).Handle : session.Symbols.Resolver.GetValue(symbol!);
+        var current = ((SDK.Model.Symbols.Abstract.ITypedSymbol)symbol!).ResolvedType.CreateValue(handle.ForReading());
 
         var evaluated = Expressions.Evaluate(session, assignment.Value, context);
         if (!evaluated.IsSuccess)

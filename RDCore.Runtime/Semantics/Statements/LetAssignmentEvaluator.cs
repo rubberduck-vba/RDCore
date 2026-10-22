@@ -413,7 +413,7 @@ public sealed class LetAssignmentEvaluator(
                 VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, memberAccess.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
         }
 
-        if (expressions.ResolveAssignableMember(session, context, memberAccess.Owner, owner, memberAccess.Member.IdentifierName, isSet) is not { } member)
+        if (expressions.ResolveAssignableMember(session, context, memberAccess, owner, isSet) is not { } member)
         {
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
@@ -444,22 +444,15 @@ public sealed class LetAssignmentEvaluator(
         var handle = instance.GetValue(field);
         if (!isSet)
         {
-            var frame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(field.ResolvedType), ConversionSite.Assignment);
-            var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
-            if (!coerced.IsApplicable)
+            if (!TryLetCoerce(session, statement, source, value, field.ResolvedType, out var coerced, out var coercionFailure))
             {
-                return RuntimeExecutionOutcome.InternalError;
-            }
-
-            if (!coerced.IsSuccess)
-            {
-                return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+                return coercionFailure;
             }
 
             // an array, a record and a Variant are held as the value that identifies them by where it is, which is what every allocation boxes them
             // in: the value's own runtime value is not one for them, and a whole array assigned to a variable of an object would have none.
             var heldBefore = ObjectReferences.HeldIn(session, handle);
-            handle.Store(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(coerced.Result!), !coerced.Result!.IsIndeterminate);
+            handle.Store(session.Symbols.Resolver, SymbolAddressTable.BoxedValue(coerced), !coerced.IsIndeterminate);
             ObjectReferences.Rebind(session, handle, heldBefore);
             return RuntimeExecutionOutcome.Next;
         }
@@ -532,22 +525,14 @@ public sealed class LetAssignmentEvaluator(
 
         // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
         // the coercion is the same one an assignment to a variable of that type would apply.
-        var frame = new LetCoercionStackFrame(
-            statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(fieldType), ConversionSite.Assignment);
-        var coerced = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
-        if (!coerced.IsApplicable)
+        if (!TryLetCoerce(session, statement, source, value, fieldType, out var coerced, out var coercionFailure))
         {
-            return RuntimeExecutionOutcome.InternalError;
-        }
-
-        if (!coerced.IsSuccess)
-        {
-            return RuntimeExecutionOutcome.Error(coerced.ErrorInfo!);
+            return coercionFailure;
         }
 
         var index = udt.Fields.IndexOf(declared);
         var before = ObjectReferences.HeldInField(udt, index);
-        if (!udt.TrySetFieldAt(index, coerced.Result!))
+        if (!udt.TrySetFieldAt(index, coerced))
         {
             return RuntimeExecutionOutcome.InternalError;
         }
@@ -555,6 +540,27 @@ public sealed class LetAssignmentEvaluator(
         // the field holds what it was given in a cell of its own now, which is what holds the objects in it.
         ObjectReferences.RebindField(session, udt, index, before);
         return RuntimeExecutionOutcome.Next;
+    }
+
+    // a value let-coerced to the declared type of a field it is assigned to: by the plan of the coercion when nothing observes it (IR lowering S0.11), as
+    // a variable's is (RuntimeExpressionEvaluator.TryAssignBound), or by its strategy - which is also how a coercion that fails raises its error.
+    private bool TryLetCoerce(
+        IRuntimeSession session, StatementNode statement, ExpressionNode source, VBTypedValue value, SDK.Model.Types.Abstract.VBType destination,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBTypedValue? coerced, out RuntimeExecutionOutcome failure)
+    {
+        failure = RuntimeExecutionOutcome.Next;
+        if (expressions.TryConvertUnobserved(value, destination, out coerced))
+        {
+            return true;
+        }
+
+        var frame = new LetCoercionStackFrame(statement.Identity, InputIndex.CoercionSourceValue, value, new VBTypeDescValue(destination), ConversionSite.Assignment);
+        var result = coercions.EvaluateLetCoercionSemantics(session.Symbols.Resolver, source, frame);
+        coerced = result.Result;
+        failure = result.IsSuccess ? (coerced is null ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Next)
+            : result.IsApplicable ? RuntimeExecutionOutcome.Error(result.ErrorInfo!)
+            : RuntimeExecutionOutcome.InternalError;
+        return result.IsSuccess && coerced is not null;
     }
 
     /// <summary>
@@ -581,7 +587,7 @@ public sealed class LetAssignmentEvaluator(
         var name = memberAccess.Member.IdentifierName;
         declared = owner switch
         {
-            VBObjectValue objectOwner when expressions.ResolveAssignableMember(session, context, memberAccess.Owner, objectOwner, name, isSet: false)
+            VBObjectValue objectOwner when expressions.ResolveAssignableMember(session, context, memberAccess, objectOwner, isSet: false)
                 is { Field: ITypedSymbol { ResolvedType: { } fieldType } } => fieldType,
             VBUserDefinedTypeValue udt => udt.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.ResolvedType,
             _ => null,
@@ -604,7 +610,7 @@ public sealed class LetAssignmentEvaluator(
         return target is MemberAccessExpressionNode memberAccess
             && TryEvaluateOwner(session, context, memberAccess, out var owner, out _)
             && owner is VBObjectValue objectOwner
-            && expressions.ResolveAssignableMember(session, context, memberAccess.Owner, objectOwner, memberAccess.Member.IdentifierName, isSet: false)
+            && expressions.ResolveAssignableMember(session, context, memberAccess, objectOwner, isSet: false)
                 is { Field: { } field, Instance: { } instance }
             && instance.TryGetAddress(field, out address);
     }

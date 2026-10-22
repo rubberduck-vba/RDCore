@@ -561,9 +561,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// variable of the module - rather than a member of a value: the symbol the name means unqualified there, for an assignment to write to as it
     /// writes to that bare name.
     /// </summary>
+    /// <remarks>
+    /// A member access bound as a member of a value (<see cref="BoundMember"/>: its owner is a variable, or an object of a class) is none, which the
+    /// binding decided once (IR lowering S0.11): its owner is not classified again.
+    /// </remarks>
     /// <returns>The member, or <see langword="null"/> when the owner is no namespace, or names no such member.</returns>
     internal Symbol? ResolveNamespaceQualified(IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess)
-        => memberAccess.Owner is { } owner && TryClassifyNamespace(session, context, owner) is { } qualifier
+        => memberAccess.Owner is { } owner && BoundTreeOf(session, memberAccess, context) is not BoundMember
+            && TryClassifyNamespace(session, context, owner) is { } qualifier
             ? ResolveNamespaceMember(session, context, qualifier, memberAccess)
             : null;
 
@@ -1141,7 +1146,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         VBTypeMemberSymbol? Field, IObjectInstance? Instance, VBTypeMemberSymbol? Accessor, IRuntimeValue? Receiver);
 
     /// <summary>
-    /// Finds the member <paramref name="memberName"/> of <paramref name="owner"/> that an assignment writes to
+    /// Finds the member of <paramref name="owner"/> that an assignment to <paramref name="memberAccess"/> writes to
     /// (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>).
     /// </summary>
     /// <remarks>
@@ -1149,16 +1154,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <c>Property Set</c> in a <c>Set</c> assignment. Through a declared interface (<strong>§5.3.1.9</strong>) the
     /// accessor is the one the object's class implements it with, and a public variable of the interface, which the
     /// class implements with properties, is assigned through the property that implements it.
+    /// <para>
+    /// Which member that is depends on the class of the object, and on how the owner is declared, which is the expression's: it is found once for each
+    /// member access and class it meets (IR lowering S0.11), as the member a bound member expression reads is.
+    /// </para>
     /// </remarks>
     /// <param name="session">The session the objects live in.</param>
     /// <param name="context">The scope of the assignment.</param>
-    /// <param name="ownerExpression">The expression the object is reached through, which says how it is declared.</param>
+    /// <param name="memberAccess">The member access assigned to, whose owner expression says how the object is declared.</param>
     /// <param name="owner">The object.</param>
-    /// <param name="memberName">The member's name.</param>
     /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
     /// <returns>The member, or <see langword="null"/> when the object has none that can be assigned.</returns>
     public AssignableMember? ResolveAssignableMember(
-        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression, VBObjectValue owner, string memberName, bool isSet)
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBObjectValue owner, bool isSet)
     {
         if (owner.IsNothing() || !session.Symbols.TryGetInstance(owner.Value, out var instance))
         {
@@ -1166,10 +1174,37 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         var actual = instance.ClassModule;
-        var access = isSet ? ImplementationAccess.Set : ImplementationAccess.Let;
-        var receiver = owner.RuntimeValue;
+        var scopes = session.Symbols.Scopes;
+        VBTypeMemberSymbol? member;
+        bool isAccessor;
+        if (_assignmentSites.TryGetValue(memberAccess, out var site) && ReferenceEquals(site.Class, actual) && site.IsSet == isSet && ReferenceEquals(site.Scopes, scopes))
+        {
+            (member, isAccessor) = (site.Member, site.IsAccessor);
+        }
+        else
+        {
+            (member, isAccessor) = AssignableMemberOf(session, context, memberAccess, actual, isSet);
+            _assignmentSites[memberAccess] = new AssignmentSite(scopes, actual, isSet, member, isAccessor);
+        }
 
-        if (DeclaredInterfaceOf(session, context, ownerExpression, actual) is { } implementedInterface)
+        return member is null ? null
+            : isAccessor ? new AssignableMember(null, null, member, owner.RuntimeValue)
+            : new AssignableMember(member, instance, null, null);
+    }
+
+    // the member each member access was last assigned through, for the class of the object and the kind of assignment it was: the declared type of the
+    // owner, which picks the interface, is true of the scopes it was found in.
+    private sealed record class AssignmentSite(ScopeTree Scopes, VBClassModuleSymbol Class, bool IsSet, VBTypeMemberSymbol? Member, bool IsAccessor);
+
+    private readonly ConcurrentDictionary<MemberAccessExpressionNode, AssignmentSite> _assignmentSites = new(ReferenceEqualityComparer.Instance);
+
+    // the accessor or the public variable of `actual` an assignment to the member writes through.
+    private static (VBTypeMemberSymbol? Member, bool IsAccessor) AssignableMemberOf(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBClassModuleSymbol actual, bool isSet)
+    {
+        var memberName = memberAccess.Member.IdentifierName;
+        var access = isSet ? ImplementationAccess.Set : ImplementationAccess.Let;
+        if (DeclaredInterfaceOf(session, context, memberAccess.Owner, actual) is { } implementedInterface)
         {
             var interfaceMembers = implementedInterface.Members
                 .Where(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -1178,7 +1213,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (interfaceMember is not null && actual.FindImplementation(implementedInterface, interfaceMember, access) is { } implementation)
             {
-                return new AssignableMember(null, null, implementation, receiver);
+                return (implementation, true);
             }
         }
 
@@ -1187,12 +1222,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (candidates.FirstOrDefault(candidate => isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol) is { } accessor)
         {
-            return new AssignableMember(null, null, accessor, receiver);
+            return (accessor, true);
         }
 
-        return candidates.FirstOrDefault(candidate => candidate.Kind == SymbolKindExt.Field) is { } field
-            ? new AssignableMember(field, instance, null, null)
-            : null;
+        return (candidates.FirstOrDefault(candidate => candidate.Kind == SymbolKindExt.Field), false);
     }
 
     /// <summary>
@@ -2205,7 +2238,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var evaluated = EvaluateOwner(session, context, memberAccess);
         if (!evaluated.IsSuccess
             || UnwrappedOwner(evaluated.Result!) is not VBObjectValue owner
-            || ResolveAssignableMember(session, context, memberAccess.Owner, owner, memberAccess.Member.IdentifierName, isSet: false)
+            || ResolveAssignableMember(session, context, memberAccess, owner, isSet: false)
                 is not { Field: ITypedSymbol { ResolvedType: { } fieldType } field, Instance: { } instance })
         {
             return false;

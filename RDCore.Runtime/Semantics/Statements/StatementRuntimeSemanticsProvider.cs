@@ -234,7 +234,10 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
                 : elementValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(elementValue.ErrorInfo!);
         }
 
-        var targetSymbol = qualified ?? (assignment.Target is SimpleNameExpressionNode simpleName
+        // a variable is bound once, and written through the slot it is bound to (IR lowering S0.11); a variable named through its module, and a
+        // function's result, are resolved.
+        var bound = qualified is null ? _expressionEvaluator.BoundVariableOf(session, assignment.Target, context) : null;
+        var targetSymbol = qualified ?? bound?.Variable ?? (assignment.Target is SimpleNameExpressionNode simpleName
             ? session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol
             : null);
         if (targetSymbol is not ITypedSymbol target)
@@ -249,7 +252,10 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         }
 
         // MS-VBAL §5.3.1.11: a Variant reference parameter bound to a variable of another type is Set-assigned as that variable is declared.
-        var declared = session.CallStack.Current is { } frame && frame.TryGetReferencedType((Symbol)target, out var referenced) ? referenced : target.ResolvedType;
+        var (boundHandle, referenced) = bound is not null
+            ? RuntimeExpressionEvaluator.BindingOf(session, bound)
+            : ((IBindingHandle?)null, session.CallStack.Current is { } frame && frame.TryGetReferencedType((Symbol)target, out var referencedType) ? referencedType : null);
+        var declared = referenced ?? target.ResolvedType;
 
         // Set-coercion (MS-VBAL §5.5.2.2) is not an operator - the same direct entry point
         // WithStatementRuntimeSemantics already uses for its own With-target coercion.
@@ -270,7 +276,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return RuntimeExecutionOutcome.Next;
         }
 
-        var handle = session.Symbols.Resolver.GetValue((Symbol)target);
+        var handle = boundHandle ?? session.Symbols.Resolver.GetValue((Symbol)target);
         if (!handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             // MS-VBAL static semantics should already have rejected an assignment to a read-only

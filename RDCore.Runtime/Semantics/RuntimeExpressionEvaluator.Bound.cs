@@ -96,8 +96,24 @@ public sealed partial class RuntimeExpressionEvaluator
         return ReadVariable(session, (ITypedSymbol)variable.Variable, handle, referenced, variable.IsAutoInstantiated);
     }
 
-    // the binding of a variable in the current activation, and the declared type of the variable a Variant reference parameter is bound to, if it is one.
-    private static (IBindingHandle Handle, VBType? ReferencedType) BindingOf(IRuntimeSession session, BoundVariable variable)
+    /// <summary>
+    /// The variable a statement's target names, bound (IR lowering S0.11): what a <c>Set</c>, an <c>LSet</c> or an <c>RSet</c> writes to, found once.
+    /// </summary>
+    /// <param name="session">The session the statement runs in.</param>
+    /// <param name="target">The target.</param>
+    /// <param name="context">The scope the target is written in.</param>
+    /// <returns>The bound variable; <see langword="null"/> for a target that is not a simple name, or names no variable - a function's result, which
+    /// is the activation's.</returns>
+    internal BoundVariable? BoundVariableOf(IRuntimeSession session, ExpressionNode target, RuntimeEvaluationContext context)
+        => target is SimpleNameExpressionNode ? BoundTreeOf(session, target, context) as BoundVariable : null;
+
+    /// <summary>
+    /// The binding of a bound variable in the current activation - through its slot, when it has one - and the declared type of the variable a
+    /// <c>Variant</c> reference parameter is bound to, if it is one (<strong>MS-VBAL §5.3.1.11</strong>).
+    /// </summary>
+    /// <param name="session">The session the variable lives in.</param>
+    /// <param name="variable">The bound variable.</param>
+    internal static (IBindingHandle Handle, VBType? ReferencedType) BindingOf(IRuntimeSession session, BoundVariable variable)
         => variable.Slot is { } slot && session.CallStack.Current is CallStackFrame frame
             && frame.TryReadSlot(slot, variable.Variable, out var handle, out var referenced)
                 ? (handle, referenced)
