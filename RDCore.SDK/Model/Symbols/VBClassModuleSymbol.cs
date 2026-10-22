@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -87,13 +88,35 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// </remarks>
     public ImmutableArray<VBClassModuleSymbol> ImplementedInterfaces
     {
-        get => ImplementsLifecycle && !_declaredInterfaces.Any(IsLifecycleInterface)
-            ? [ClassLifecycleInterface.Interface, .. _declaredInterfaces]
-            : _declaredInterfaces;
+        get
+        {
+            if (!ImplementsLifecycle)
+            {
+                return _declaredInterfaces;
+            }
+
+            // read on every call made on an object (the member is looked up through the interface the object is declared as): the list is built once, and
+            // not on the symbol, whose fields are its equality.
+            if (_declaredInterfaces.IsDefaultOrEmpty)
+            {
+                return ClassLifecycleInterface.InterfacesOfAClassThatDeclaresNone;
+            }
+
+            var cached = WithLifecycle.GetValue(this, static symbol => new InterfaceList(symbol._declaredInterfaces, WithLifecycleFirst(symbol._declaredInterfaces)));
+            return cached.Declared == _declaredInterfaces ? cached.All : WithLifecycleFirst(_declaredInterfaces);
+        }
         init => _declaredInterfaces = value;
     }
 
     private ImmutableArray<VBClassModuleSymbol> _declaredInterfaces = [];
+
+    // the interfaces a class declares, and the list they make with the lifecycle interface: built once per symbol (by reference, not by equality).
+    private sealed record class InterfaceList(ImmutableArray<VBClassModuleSymbol> Declared, ImmutableArray<VBClassModuleSymbol> All);
+
+    private static readonly ConditionalWeakTable<VBClassModuleSymbol, InterfaceList> WithLifecycle = new();
+
+    private static ImmutableArray<VBClassModuleSymbol> WithLifecycleFirst(ImmutableArray<VBClassModuleSymbol> declared)
+        => declared.Any(IsLifecycleInterface) ? declared : [ClassLifecycleInterface.Interface, .. declared];
 
     // a Uri's fragment is where a symbol's identity lives, and Uri equality ignores it.
     private static bool IsLifecycleInterface(VBClassModuleSymbol candidate)

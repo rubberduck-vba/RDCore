@@ -48,6 +48,11 @@ public static class ClassLifecycleInterface
     public static VBClassModuleSymbol Interface { get; } = Build();
 
     /// <summary>
+    /// The interfaces a class module implements when it declares none: <see cref="Interface"/> alone (<see cref="VBClassModuleSymbol.ImplementedInterfaces"/>).
+    /// </summary>
+    public static ImmutableArray<VBClassModuleSymbol> InterfacesOfAClassThatDeclaresNone { get; } = [Interface];
+
+    /// <summary>
     /// The <c>Initialize</c> member of <see cref="Interface"/>.
     /// </summary>
     public static VBTypeMemberSymbol Initialize => Member(InitializeName);
