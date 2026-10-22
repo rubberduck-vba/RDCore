@@ -53,6 +53,9 @@ public static class DeclarationStaticSemanticsEvaluator
 
             // which types a public member may be declared with depends on the types its declarations name, resolved.
             errors.AddRange(PublicMemberSemantics.Evaluate(module, members, resolver));
+
+            // what a constant's value names - a constant, a variable, a function - is known once every name resolves.
+            errors.AddRange(ConstantExpressionStaticSemantics.Evaluate(members, resolver));
         }
 
         if (module is VBClassModuleSymbol classModule)

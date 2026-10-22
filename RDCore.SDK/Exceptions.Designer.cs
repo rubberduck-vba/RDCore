@@ -754,6 +754,42 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Constant expression required.
+        /// </summary>
+        public static string VBCompileError_ConstantExpressionRequired {
+            get {
+                return ResourceManager.GetString("VBCompileError_ConstantExpressionRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid data type for constant.
+        /// </summary>
+        public static string VBCompileError_InvalidDataTypeForConstant {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidDataTypeForConstant", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Overflow.
+        /// </summary>
+        public static string VBCompileError_Overflow {
+            get {
+                return ResourceManager.GetString("VBCompileError_Overflow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Division by zero.
+        /// </summary>
+        public static string VBCompileError_DivisionByZero {
+            get {
+                return ResourceManager.GetString("VBCompileError_DivisionByZero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Argument not optional.
         /// </summary>
         public static string VBCompileError_ArgumentNotOptional {

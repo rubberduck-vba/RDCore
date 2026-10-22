@@ -558,4 +558,16 @@
   <data name="VBCompileError_NamedArgumentNotFound" xml:space="preserve">
     <value>Argument nommé introuvable</value>
   </data>
+  <data name="VBCompileError_ConstantExpressionRequired" xml:space="preserve">
+    <value>Expression constante requise</value>
+  </data>
+  <data name="VBCompileError_InvalidDataTypeForConstant" xml:space="preserve">
+    <value>Type de données incorrect pour une constante</value>
+  </data>
+  <data name="VBCompileError_Overflow" xml:space="preserve">
+    <value>Dépassement de capacité</value>
+  </data>
+  <data name="VBCompileError_DivisionByZero" xml:space="preserve">
+    <value>Division par zéro</value>
+  </data>
 </root>

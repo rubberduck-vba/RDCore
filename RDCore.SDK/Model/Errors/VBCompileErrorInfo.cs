@@ -109,5 +109,9 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.ObjectRequired] = Exceptions.VBCompileError_ObjectRequired,
         [VBCompileErrorId.NamedArgumentAlreadySpecified] = Exceptions.VBCompileError_NamedArgumentAlreadySpecified,
         [VBCompileErrorId.NamedArgumentNotFound] = Exceptions.VBCompileError_NamedArgumentNotFound,
+        [VBCompileErrorId.ConstantExpressionRequired] = Exceptions.VBCompileError_ConstantExpressionRequired,
+        [VBCompileErrorId.InvalidDataTypeForConstant] = Exceptions.VBCompileError_InvalidDataTypeForConstant,
+        [VBCompileErrorId.Overflow] = Exceptions.VBCompileError_Overflow,
+        [VBCompileErrorId.DivisionByZero] = Exceptions.VBCompileError_DivisionByZero,
     };
 }

@@ -100,6 +100,14 @@
   href: vbc09348.md
 - name: VBC09349 — Named argument not found
   href: vbc09349.md
+- name: VBC09350 — Constant expression required
+  href: vbc09350.md
+- name: VBC09351 — Invalid data type for constant
+  href: vbc09351.md
+- name: VBC09352 — Overflow
+  href: vbc09352.md
+- name: VBC09353 — Division by zero
+  href: vbc09353.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

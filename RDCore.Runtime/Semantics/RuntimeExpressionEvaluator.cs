@@ -717,18 +717,44 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// </remarks>
     /// <param name="session">The session the constant expressions resolve their own names against.</param>
     /// <param name="constants">The constant symbols to fold. Anything else is ignored.</param>
-    public void FoldConstants(IRuntimeSession session, IEnumerable<Symbol> constants)
+    /// <returns>
+    /// What folding a constant raised, as the compile error MS-VBA reports for it (Excel-verified): a value that does not fit is
+    /// <see cref="VBCompileErrorId.Overflow"/>, a division by zero <see cref="VBCompileErrorId.DivisionByZero"/>, a value of the wrong type
+    /// <see cref="VBCompileErrorId.TypeMismatch"/>. A value that is no constant expression is not folded: the declaration pass reports it.
+    /// </returns>
+    public ImmutableArray<VBCompileErrorInfo> FoldConstants(IRuntimeSession session, IEnumerable<Symbol> constants)
     {
+        var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
         foreach (var constant in constants)
         {
-            if (ConstantValueOf(constant) is { } value)
+            if (ConstantValueOf(constant) is not { } value || ReadsWhatRuns(session, constant, value))
             {
-                // the declaring scope, not the run's: a constant's expression is written where the
-                // constant is, and a name in it binds from there.
-                FoldConstant(session, new RuntimeEvaluationContext(constant.ParentUri), constant, value);
+                continue;
+            }
+
+            // the declaring scope, not the run's: a constant's expression is written where the
+            // constant is, and a name in it binds from there.
+            var folded = FoldConstant(session, new RuntimeEvaluationContext(constant.ParentUri), constant, value);
+            if (!folded.IsSuccess && folded.ErrorInfo?.ErrorId switch
+                {
+                    (int)VBRuntimeErrorId.Overflow => VBCompileErrorId.Overflow,
+                    (int)VBRuntimeErrorId.DivisionByZero => VBCompileErrorId.DivisionByZero,
+                    (int)VBRuntimeErrorId.TypeMismatch => VBCompileErrorId.TypeMismatch,
+                    _ => (VBCompileErrorId?)null,
+                } is { } compileError)
+            {
+                errors.Add(VBCompileErrorInfo.For(compileError, value.Location, constant.Name));
             }
         }
+
+        return errors.ToImmutable();
     }
+
+    // whether the value of a Const reads what has no value until the code runs - a variable, a function - which is no constant expression (MS-VBAL
+    // §5.6.16.1) and cannot be folded. A parameter's default is another declaration's, and Nothing is a value that folds.
+    private static bool ReadsWhatRuns(IRuntimeSession session, Symbol constant, ExpressionNode value)
+        => constant is VBConstantMemberSymbol or VBLocalConstantSymbol
+            && ConstantExpressionStaticSemantics.ValueError(session.Symbols.Resolver, constant.ParentUri, value) is { VBCompileErrorId: VBCompileErrorId.ConstantExpressionRequired };
 
     // MS-VBAL 5.2.3.2: "the constant binding of a constant ... is the data value of the <constant-expression> Let-coerced to the declared
     // type of the constant" - which, without an As clause or a type character, is the expression's own, so there is nothing to coerce to.
@@ -798,6 +824,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // 🚧 TODO: report circular constant declarations as a compile-time diagnostic instead.
         if (!_foldingConstants.Add(id))
         {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        // a value that is no constant expression reads what has no value until the code runs, and is the compile error of its module (the declaration
+        // pass's): only another module, read while that one did not load, asks for it.
+        if (ReadsWhatRuns(session, constant, value))
+        {
+            _foldingConstants.Remove(id);
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 

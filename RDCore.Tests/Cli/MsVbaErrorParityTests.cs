@@ -82,6 +82,13 @@ public sealed class MsVbaErrorParityTests
     [DataRow("vbSunday = 5", "Assignment to constant not permitted", DisplayName = "a Let of a library enumeration's member")]
     [DataRow("Const k As Long = 1 ;; k = 2", "Assignment to constant not permitted", DisplayName = "a Let of a constant")]
     [DataRow("Const k As Long = 1 ;; Set k = Nothing", "Assignment to constant not permitted", DisplayName = "a Set of a constant")]
+    [DataRow("Dim n As Long ;; Const k As Long = n", "Constant expression required", DisplayName = "a constant of a variable")]
+    [DataRow("Const k = Len(\"abc\")", "Constant expression required", DisplayName = "a constant of a function MS-VBAL admits and MS-VBA refuses")]
+    [DataRow("Const k = Globals.Two", "Constant expression required", DisplayName = "a constant of a function of the workspace")]
+    [DataRow("Const k = Nothing", "Invalid data type for constant", DisplayName = "a constant of Nothing")]
+    [DataRow("Const k As Integer = 99999", "Overflow", DisplayName = "a constant too large for its type")]
+    [DataRow("Const k As Long = 2147483647 + 1", "Overflow", DisplayName = "a constant whose operation overflows")]
+    [DataRow("Const k = 1 / 0", "Division by zero", DisplayName = "a constant that divides by zero")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
 
@@ -130,6 +137,9 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Debug.Print Globals.NoArgs(1)", "20", DisplayName = "a function that takes no argument, named through its module, is indexed")]
     [DataRow("Dim v As Variant ;; Set v = New Collection ;; v.Add 1 ;; With v ;; Debug.Print .Count ;; End With", "1", DisplayName = "a With target that is a Variant holding an object")]
     [DataRow("Dim v As Variant ;; v = 12345 ;; RSet v = \"x\" ;; Debug.Print \"[\" & v & \"]\"", "[    x]", DisplayName = "an RSet of a Variant that holds a number fits the String it reads as")]
+    [DataRow("Const k = 1 + Globals.Color.Red ;; Debug.Print k", "2", DisplayName = "a constant of an enumeration's member, qualified by its module")]
+    [DataRow("Const k = \"a\" & vbCrLf ;; Debug.Print Len(k)", "3", DisplayName = "a constant of a library's constant")]
+    [DataRow("Const k = 2 ^ 3 Mod 5 ;; Debug.Print k", "3", DisplayName = "a constant of operators")]
     [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"xy\" ;; Debug.Print TypeName(v) & \"[\" & v & \"]\"", "String[x]", DisplayName = "an LSet of a Variant that holds a number leaves a String")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());

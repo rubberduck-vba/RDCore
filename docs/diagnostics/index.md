@@ -85,6 +85,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09347](vbc09347.md)|Object required — a `Set` statement assigns to a variable that cannot hold an object|
 |[VBC09348](vbc09348.md)|Named argument already specified — a call gives the same parameter two arguments|
 |[VBC09349](vbc09349.md)|Named argument not found — a call names a parameter the procedure does not declare|
+|[VBC09350](vbc09350.md)|Constant expression required — the value of a constant reads something that has no value until the code runs|
+|[VBC09351](vbc09351.md)|Invalid data type for constant — the value of a constant is an object|
+|[VBC09352](vbc09352.md)|Overflow — the value of a constant does not fit its type|
+|[VBC09353](vbc09353.md)|Division by zero — the value of a constant divides by zero|
 
 ### Runtime errors
 

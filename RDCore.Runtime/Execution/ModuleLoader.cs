@@ -71,7 +71,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var deadRanges = precompiled.DeadRanges;
 
         var members = session.Symbols.MembersOf(module.Uri);
-        pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module, members));
+        // what a constant's value raises when it is evaluated statically is a compile error of the module (MS-VBA: Overflow, Division by zero).
+        var constantErrors = pipeline.Expressions.FoldConstants(session, ConstantsOf(session, syntaxTree, module, members));
 
         SizeFixedSizeArrays(members);
 
@@ -113,6 +114,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
+            .AddRange(constantErrors)
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())

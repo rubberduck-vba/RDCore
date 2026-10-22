@@ -399,6 +399,26 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL Â§5.6.13.1</strong> Argument Lists.
     /// </summary>
     NamedArgumentNotFound = 9349,
+    /// <summary>
+    /// The value of a constant, or a bound of an array declared with <c>Dim</c>, is not a constant expression: it reads a variable or calls a function.<br/>
+    /// <strong>MS-VBAL §5.6.16.1</strong> Constant Expressions.
+    /// </summary>
+    ConstantExpressionRequired = 9350,
+    /// <summary>
+    /// The value of a constant is of a type no constant can have: an object - the <c>Nothing</c> literal.<br/>
+    /// <strong>MS-VBAL §5.2.3.2</strong> Constant Declarations.
+    /// </summary>
+    InvalidDataTypeForConstant = 9351,
+    /// <summary>
+    /// The value of a constant, evaluated statically, does not fit its declared type.<br/>
+    /// <strong>MS-VBAL §5.6.16.1</strong> Constant Expressions.
+    /// </summary>
+    Overflow = 9352,
+    /// <summary>
+    /// The value of a constant, evaluated statically, divides by zero.<br/>
+    /// <strong>MS-VBAL §5.6.16.1</strong> Constant Expressions.
+    /// </summary>
+    DivisionByZero = 9353,
 
 
     /***********************************************************************************************

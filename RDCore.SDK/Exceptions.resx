@@ -558,4 +558,16 @@
   <data name="VBCompileError_NamedArgumentNotFound" xml:space="preserve">
     <value>Named argument not found</value>
   </data>
+  <data name="VBCompileError_ConstantExpressionRequired" xml:space="preserve">
+    <value>Constant expression required</value>
+  </data>
+  <data name="VBCompileError_InvalidDataTypeForConstant" xml:space="preserve">
+    <value>Invalid data type for constant</value>
+  </data>
+  <data name="VBCompileError_Overflow" xml:space="preserve">
+    <value>Overflow</value>
+  </data>
+  <data name="VBCompileError_DivisionByZero" xml:space="preserve">
+    <value>Division by zero</value>
+  </data>
 </root>
