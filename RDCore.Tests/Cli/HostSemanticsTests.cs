@@ -43,7 +43,7 @@ public sealed class HostSemanticsTests
 
         var model = payload.Modules.Single();
         Assert.HasCount(1, model.DeclarationErrors);
-        Assert.AreEqual(RDCore.SDK.Model.Errors.VBCompileErrorId.DuplicateDeclaration, model.DeclarationErrors[0].Id);
+        Assert.AreEqual(RDCore.SDK.Model.Errors.VBCompileErrorId.AmbiguousName, model.DeclarationErrors[0].Id);
     }
 
     [TestMethod]

@@ -27,10 +27,15 @@ public record class SetCoercionStaticSemantics : StaticSemantics
     {
         var source = operandDeclaredTypes[(int)InputIndex.CoercionSourceValue];
         var destinationType = operandDeclaredTypes[(int)InputIndex.CoercionDestinationType];
-        return !IsSetCoercionInvalid(source, destinationType)
-            ? StaticSemanticsEvaluationResult.Success(destinationType)
-            : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
-                Exceptions.VBCompileError_SetCoercionTypeMismatch_Verbose));
+        if (!IsSetCoercionInvalid(source, destinationType))
+        {
+            return StaticSemanticsEvaluationResult.Success(destinationType);
+        }
+
+        // a Variant holds whatever it is Set to, and what is Set is an object: a value that is none is refused for what it is not (MS-VBA: "Object
+        // required"); a variable of a class, or Object, refuses the value for its type (MS-VBA: "Type mismatch"). Both Excel-verified.
+        var id = destinationType is VBVariantType ? VBCompileErrorId.ObjectRequired : VBCompileErrorId.TypeMismatch;
+        return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(id, expression.Location, Exceptions.VBCompileError_SetCoercionTypeMismatch_Verbose));
     }
 
     /// <returns>

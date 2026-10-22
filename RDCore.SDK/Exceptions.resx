@@ -597,4 +597,49 @@
   <data name="VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected" xml:space="preserve">
     <value>Type mismatch: array or user-defined type expected</value>
   </data>
+  <data name="VBCompileError_NextWithoutFor" xml:space="preserve">
+    <value>Next without For</value>
+  </data>
+  <data name="VBCompileError_ForWithoutNext" xml:space="preserve">
+    <value>For without Next</value>
+  </data>
+  <data name="VBCompileError_LoopWithoutDo" xml:space="preserve">
+    <value>Loop without Do</value>
+  </data>
+  <data name="VBCompileError_DoWithoutLoop" xml:space="preserve">
+    <value>Do without Loop</value>
+  </data>
+  <data name="VBCompileError_EndIfWithoutBlockIf" xml:space="preserve">
+    <value>End If without block If</value>
+  </data>
+  <data name="VBCompileError_BlockIfWithoutEndIf" xml:space="preserve">
+    <value>Block If without End If</value>
+  </data>
+  <data name="VBCompileError_ElseWithoutIf" xml:space="preserve">
+    <value>Else without If</value>
+  </data>
+  <data name="VBCompileError_CaseWithoutSelectCase" xml:space="preserve">
+    <value>Case without Select Case</value>
+  </data>
+  <data name="VBCompileError_SelectCaseWithoutEndSelect" xml:space="preserve">
+    <value>Select Case without End Select</value>
+  </data>
+  <data name="VBCompileError_EndWithWithoutWith" xml:space="preserve">
+    <value>End With without With</value>
+  </data>
+  <data name="VBCompileError_ExpectedEndWith" xml:space="preserve">
+    <value>Expected End With</value>
+  </data>
+  <data name="VBCompileError_ExpectedVariableOrProcedureNotModule" xml:space="preserve">
+    <value>Expected variable or procedure, not module</value>
+  </data>
+  <data name="VBCompileError_ExpectedSubFunctionOrProperty" xml:space="preserve">
+    <value>Expected Sub, Function, or Property</value>
+  </data>
+  <data name="VBCompileError_RangeHasNoValues" xml:space="preserve">
+    <value>Range has no values</value>
+  </data>
+  <data name="VBCompileError_ModuleIsNotAValidType" xml:space="preserve">
+    <value>A module is not a valid type</value>
+  </data>
 </root>

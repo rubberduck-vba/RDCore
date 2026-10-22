@@ -18,11 +18,13 @@ public sealed class DeclarationErrorTests
         => CollectionAssert.AreEqual(Array.Empty<string>(), await ModuleWorkspace.LoadErrorsAsync([], Program("Public Total As Long")));
 
     [TestMethod]
-    public async Task ANameDeclaredTwice_InTheScopeOfAModule_IsADuplicateDeclaration()
+    public async Task ANameDeclaredTwice_InTheScopeOfAModule_IsAnAmbiguousName()
     {
+        // MS-VBA: "Ambiguous name detected", whatever the two declarations are (Excel-verified); "Duplicate declaration in current scope" is a procedure's.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program("Public Total As Long", "Public Sub total()", "End Sub"));
 
         Assert.HasCount(1, errors);
+        StringAssert.Contains(errors[0], RDCore.SDK.Exceptions.VBCompileError_AmbiguousName);
         StringAssert.Contains(errors[0], "declared more than once");
     }
 
@@ -33,7 +35,7 @@ public sealed class DeclarationErrorTests
     [DataRow("Public Sub Work()\r\nEnd Sub", "Public Sub Work()\r\nEnd Sub")]
     [DataRow("Public Sub Work()\r\nEnd Sub", "Public Function WORK() As Long\r\nEnd Function")]
     [DataRow("Public Property Get V() As Long\r\nEnd Property", "Public Property Get V() As Long\r\nEnd Property")]
-    public async Task ANameDeclaredTwice_AsTheSameKindOfThing_IsADuplicateDeclaration_Too(string first, string second)
+    public async Task ANameDeclaredTwice_AsTheSameKindOfThing_IsAnAmbiguousName_Too(string first, string second)
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second));
 
@@ -55,7 +57,7 @@ public sealed class DeclarationErrorTests
     }
 
     [TestMethod]
-    public async Task TwoTypesOfTheSameName_AreADuplicateDeclaration()
+    public async Task TwoTypesOfTheSameName_AreAnAmbiguousName()
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync(
             [], Program("Public Enum Kind", "A", "End Enum", "Public Type Kind", "X As Long", "End Type"));
@@ -86,7 +88,7 @@ public sealed class DeclarationErrorTests
     }
 
     [TestMethod]
-    public async Task ANameDeclaredTwiceInOneBranch_IsADuplicateDeclaration_EvenWhenTheOtherBranchDeclaresItToo()
+    public async Task ANameDeclaredTwiceInOneBranch_IsAnAmbiguousName_EvenWhenTheOtherBranchDeclaresItToo()
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(
             "#If NothingDefinesThis Then", "Public Total As Long", "Public Total As Long", "#Else", "Public Total As Integer", "#End If"));

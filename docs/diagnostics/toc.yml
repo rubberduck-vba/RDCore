@@ -4,6 +4,28 @@
   href: vbc00001.md
 - name: VBC00042 — Numeric literal overflow
   href: vbc00042.md
+- name: VBC00043 — Next without For
+  href: vbc00043.md
+- name: VBC00044 — For without Next
+  href: vbc00044.md
+- name: VBC00045 — Loop without Do
+  href: vbc00045.md
+- name: VBC00046 — Do without Loop
+  href: vbc00046.md
+- name: VBC00047 — End If without block If
+  href: vbc00047.md
+- name: VBC00048 — Block If without End If
+  href: vbc00048.md
+- name: VBC00049 — Else without If
+  href: vbc00049.md
+- name: VBC00050 — Case without Select Case
+  href: vbc00050.md
+- name: VBC00051 — Select Case without End Select
+  href: vbc00051.md
+- name: VBC00052 — End With without With
+  href: vbc00052.md
+- name: VBC00053 — Expected End With
+  href: vbc00053.md
 - name: VBC09301 — Ambiguous name detected
   href: vbc09301.md
 - name: VBC09302 — Variable not defined
@@ -126,6 +148,14 @@
   href: vbc09361.md
 - name: VBC09362 — Type mismatch: array or user-defined type expected
   href: vbc09362.md
+- name: VBC09363 — Expected variable or procedure, not module
+  href: vbc09363.md
+- name: VBC09364 — Expected Sub, Function, or Property
+  href: vbc09364.md
+- name: VBC09365 — Range has no values
+  href: vbc09365.md
+- name: VBC09366 — A module is not a valid type
+  href: vbc09366.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

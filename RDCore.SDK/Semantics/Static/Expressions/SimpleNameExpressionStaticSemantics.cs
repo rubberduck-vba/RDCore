@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -48,6 +49,13 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             if (TypeDeclarationCharacterMismatch(simpleName, result.Symbol!) is { } mismatch)
             {
                 return StaticSemanticsEvaluationResult.Error(mismatch);
+            }
+
+            // a procedural module only qualifies the names of its members (MS-VBAL §5.6.12, which classifies it as a namespace before it is ever evaluated as
+            // an owner): by itself it is no value, variable or procedure (MS-VBA: "Expected variable or procedure, not module", Excel-verified).
+            if (result.Symbol is VBStandardModuleSymbol module)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, expression.Location, module.Name));
             }
 
             return StaticSemanticsEvaluationResult.Success(result.Symbol is ITypedSymbol typed ? typed.ResolvedType : VBUnknownType.TypeInfo);

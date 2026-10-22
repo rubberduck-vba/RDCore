@@ -27,6 +27,8 @@ The parser narrows its output: recurring syntax-error shapes are promoted to a d
 
 A numeric literal whose value does not fit its type is the `NumericLiteralOverflow` syntax error (`VBC00042`), located at the literal. This includes a literal whose value does not fit its suffix-forced type, a floating-point literal that overflows to infinity, and an unsuffixed radix literal beyond 32 bits; see [**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md).
 
+A procedure whose blocks do not match - a `Next` with no `For`, a block `If` with no `End If`, and so on - is the syntax error MS-VBA names for it (`VBC00043`–`VBC00053`), at the statement that does not fit, rather than what the grammar expected where it could no longer parse.
+
 ## Conditional Compilation
 
 > [!NOTE]
@@ -38,6 +40,17 @@ A numeric literal whose value does not fit its type is the `NumericLiteralOverfl
 |---|---|---|
 |[`VBC00001`](../diagnostics/vbc00001.md)|Syntax error|a token the grammar cannot place|
 |[`VBC00042`](../diagnostics/vbc00042.md)|Numeric literal overflow|a numeric literal outside the range of its type|
+|[`VBC00043`](../diagnostics/vbc00043.md)|Next without For|a `Next` statement ends no `For` loop|
+|[`VBC00044`](../diagnostics/vbc00044.md)|For without Next|a `For` loop is not ended before its procedure is|
+|[`VBC00045`](../diagnostics/vbc00045.md)|Loop without Do|a `Loop` statement ends no `Do` loop|
+|[`VBC00046`](../diagnostics/vbc00046.md)|Do without Loop|a `Do` loop is not ended before its procedure is|
+|[`VBC00047`](../diagnostics/vbc00047.md)|End If without block If|an `End If` statement ends no block `If`|
+|[`VBC00048`](../diagnostics/vbc00048.md)|Block If without End If|a block `If` is not ended before its procedure is|
+|[`VBC00049`](../diagnostics/vbc00049.md)|Else without If|an `Else` statement belongs to no block `If`|
+|[`VBC00050`](../diagnostics/vbc00050.md)|Case without Select Case|a `Case` clause belongs to no `Select Case` statement|
+|[`VBC00051`](../diagnostics/vbc00051.md)|Select Case without End Select|a `Select Case` statement is not ended before its procedure is|
+|[`VBC00052`](../diagnostics/vbc00052.md)|End With without With|an `End With` statement ends no `With` block|
+|[`VBC00053`](../diagnostics/vbc00053.md)|Expected End With|a `With` block is not ended before its procedure is|
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

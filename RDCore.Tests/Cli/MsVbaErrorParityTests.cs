@@ -112,6 +112,17 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim i As Long, x As Variant, c As New Collection ;; For Each x In c ;; Next i", "Invalid Next control variable reference", DisplayName = "a Next of another variable, of a For Each loop")]
     [DataRow("Dim a(2) As Long, b(2) As Long ;; a = b", "Can't assign to array", DisplayName = "a fixed-size array assigned")]
     [DataRow("Dim x As New Long", "Syntax error", DisplayName = "a variable of a Long declared As New")]
+    [DataRow("Dim n As Long ;; ReDim n(5)", "Expected array", DisplayName = "a ReDim of a Long")]
+    [DataRow("Dim x As Variant ;; Set x = 5", "Object required", DisplayName = "a Set of a Variant to a number")]
+    [DataRow("Dim x As Variant ;; Set x = \"a\"", "Object required", DisplayName = "a Set of a Variant to a String")]
+    [DataRow("Dim c As Collection ;; Set c = 5", "Type mismatch", DisplayName = "a Set of a Collection variable to a number")]
+    [DataRow("Dim o As Object ;; Set o = 5", "Type mismatch", DisplayName = "a Set of an Object variable to a number")]
+    [DataRow("Dim x As Long ;; Call x", "Expected Sub, Function, or Property", DisplayName = "a variable called")]
+    [DataRow("Call Globals", "Expected variable or procedure, not module", DisplayName = "a module called")]
+    [DataRow("Dim x As Variant ;; x = Globals", "Expected variable or procedure, not module", DisplayName = "a module assigned")]
+    [DataRow("Dim x As Globals", "A module is not a valid type", DisplayName = "a variable typed as a module")]
+    [DataRow("Dim a(5 To 1) As Long", "Range has no values", DisplayName = "an upper bound less than the lower one")]
+    [DataRow("Dim a(-1) As Long", "Range has no values", DisplayName = "a negative upper bound")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
 
@@ -170,6 +181,10 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim i As Long, j As Long ;; For i = 1 To 2 ;; For j = 1 To 2 ;; Next j, i ;; Debug.Print i", "3", DisplayName = "a Next of two loops")]
     [DataRow("Dim a() As Long, b(2) As Long ;; a = b ;; Debug.Print UBound(a)", "2", DisplayName = "an array without dimensions assigned")]
     [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"xy\" ;; Debug.Print TypeName(v) & \"[\" & v & \"]\"", "String[x]", DisplayName = "an LSet of a Variant that holds a number leaves a String")]
+    [DataRow("Dim v As Variant ;; ReDim v(3) ;; Debug.Print UBound(v)", "3", DisplayName = "a ReDim of a Variant")]
+    [DataRow("Dim a() As Long ;; ReDim a(3) ;; Debug.Print UBound(a)", "3", DisplayName = "a ReDim of an array without dimensions")]
+    [DataRow("ReDim b(3) As Long ;; Debug.Print UBound(b)", "3", DisplayName = "a ReDim that declares its array")]
+    [DataRow("Dim a(0 To 0) As Long ;; Debug.Print UBound(a)", "0", DisplayName = "an array of one element")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());
 }

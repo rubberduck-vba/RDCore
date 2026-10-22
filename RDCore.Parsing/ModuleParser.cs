@@ -72,6 +72,13 @@ public partial class ModuleParser(
             var listener = ParseWithFallback(sanitized, errorListener, () => declarations = new DeclarationsParseTreeListener(uri, node, errorListener), anchorOffset);
             var ast = listener.BuildModuleNode();
 
+            // a module the grammar refuses may have blocks that do not match, which MS-VBA says in words of its own. Both branches of a #If block are in
+            // the source, which a module that has one would have read as one block too many.
+            if (errorListener.HasGrammarErrors && !ConditionalBlockPattern().IsMatch(content))
+            {
+                errorListener.ReplaceGrammarErrorsWith(BlockStructureScanner.Scan(uri, sanitized, anchorOffset));
+            }
+
             // a partial tree is still useful to the symbol pass — IsSuccess is governed by whether
             // any syntax error was recorded, not by the child count (a valid module can declare nothing).
             return ModuleParseResult.Success(ast) with
@@ -244,6 +251,10 @@ public partial class ModuleParser(
 
     [GeneratedRegex(@"^(?![ \t]*#.*).*$", RegexOptions.Multiline)]
     private static partial Regex NoPrecompilerNodePattern();
+
+    // a #If directive, whose branches are both in the source the grammar reads.
+    [GeneratedRegex(@"^[ \t]*#If\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    private static partial Regex ConditionalBlockPattern();
 }
 
 // Registered via AddParseListener (fires live, interleaved with the parser's own recursive descent) —
@@ -296,6 +307,25 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         var location = new SourceLocation(_uri, new(position, position));
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
+
+    /// <summary>
+    /// Replaces what the grammar says of a module whose blocks do not match with what MS-VBA says of them (<see cref="BlockStructureScanner"/>): the
+    /// grammar's errors from the first block error on are its consequences, and the ones before it are kept.
+    /// </summary>
+    public void ReplaceGrammarErrorsWith(ImmutableArray<VBSyntaxErrorInfo> blockErrors)
+    {
+        if (blockErrors.IsEmpty)
+        {
+            return;
+        }
+
+        var first = blockErrors.Min(error => error.Location.Range.Start);
+        _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.CompareTo(first) >= 0);
+        _errors.AddRange(blockErrors);
+    }
+
+    // whether the grammar refused something of the module.
+    public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
 
     // records a token-semantic syntax error; idempotent per (location, id) so the two-stage parse
     // does not double-report a literal both passes reach.

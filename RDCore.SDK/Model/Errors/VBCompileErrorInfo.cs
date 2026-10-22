@@ -59,6 +59,17 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.SyntaxError] = Exceptions.VBSyntaxError_DefaultMessage,
 
         [VBCompileErrorId.NumericLiteralOverflow] = Exceptions.VBCompileError_NumericLiteralOverflow,
+        [VBCompileErrorId.NextWithoutFor] = Exceptions.VBCompileError_NextWithoutFor,
+        [VBCompileErrorId.ForWithoutNext] = Exceptions.VBCompileError_ForWithoutNext,
+        [VBCompileErrorId.LoopWithoutDo] = Exceptions.VBCompileError_LoopWithoutDo,
+        [VBCompileErrorId.DoWithoutLoop] = Exceptions.VBCompileError_DoWithoutLoop,
+        [VBCompileErrorId.EndIfWithoutBlockIf] = Exceptions.VBCompileError_EndIfWithoutBlockIf,
+        [VBCompileErrorId.BlockIfWithoutEndIf] = Exceptions.VBCompileError_BlockIfWithoutEndIf,
+        [VBCompileErrorId.ElseWithoutIf] = Exceptions.VBCompileError_ElseWithoutIf,
+        [VBCompileErrorId.CaseWithoutSelectCase] = Exceptions.VBCompileError_CaseWithoutSelectCase,
+        [VBCompileErrorId.SelectCaseWithoutEndSelect] = Exceptions.VBCompileError_SelectCaseWithoutEndSelect,
+        [VBCompileErrorId.EndWithWithoutWith] = Exceptions.VBCompileError_EndWithWithoutWith,
+        [VBCompileErrorId.ExpectedEndWith] = Exceptions.VBCompileError_ExpectedEndWith,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,
@@ -122,5 +133,9 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.CantAssignToArray] = Exceptions.VBCompileError_CantAssignToArray,
         [VBCompileErrorId.ByRefArgumentTypeMismatch] = Exceptions.VBCompileError_ByRefArgumentTypeMismatch,
         [VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected] = Exceptions.VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected,
+        [VBCompileErrorId.ExpectedVariableOrProcedureNotModule] = Exceptions.VBCompileError_ExpectedVariableOrProcedureNotModule,
+        [VBCompileErrorId.ExpectedSubFunctionOrProperty] = Exceptions.VBCompileError_ExpectedSubFunctionOrProperty,
+        [VBCompileErrorId.RangeHasNoValues] = Exceptions.VBCompileError_RangeHasNoValues,
+        [VBCompileErrorId.ModuleIsNotAValidType] = Exceptions.VBCompileError_ModuleIsNotAValidType,
     };
 }

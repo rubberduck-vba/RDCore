@@ -19,11 +19,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// implemented are all errors of a declaration, which no body shows. They are found here, once for the module, and a module model holds them
 /// next to the models of its procedures (<see cref="ModuleSemanticModel.DeclarationErrors"/>).
 /// <list type="bullet">
-/// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>). That is a rule of
+/// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.AmbiguousName"/>). That is a rule of
 /// the declarations as they are written, and not of the symbols they become (<see cref="CheckSyntax"/>).</item>
 /// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant of the
 /// module, a parameter, a function's or a property's result, and a local variable. A name that resolves to a procedural module does not: a module is not a
-/// type (<strong>MS-VBAL §5.6.16.7</strong>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
+/// type (<strong>MS-VBAL §5.6.16.7</strong>, <see cref="VBCompileErrorId.ModuleIsNotAValidType"/>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
 /// refused there, and a name that does not resolve is not. Whether a name resolves can only be told once everything the declaration can see is defined,
 /// which is why this rule is one a caller asks for (<see cref="DeclarationRules.DeclaredTypes"/>).</item>
 /// <item>What a module exposes (<see cref="PublicMemberSemantics"/>): a public member is not declared with a private type, and a class module exposes no
@@ -68,7 +68,7 @@ public static class DeclarationStaticSemanticsEvaluator
     }
 
     /// <summary>
-    /// Checks that a name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.DuplicateDeclaration"/>), from
+    /// Checks that a name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.AmbiguousName"/>), from
     /// what the module's source declares.
     /// </summary>
     /// <remarks>
@@ -110,9 +110,11 @@ public static class DeclarationStaticSemanticsEvaluator
                 seen.Add(key, declarations = []);
             }
 
+            // MS-VBA names a name a module declares twice, whatever the two are - two variables, two procedures, a constant and a variable - by the
+            // ambiguity it makes: "Ambiguous name detected" (Excel-verified); a procedure's own duplicates are "Duplicate declaration in current scope".
             if (declarations.Any(prior => !AreOneDeclaration(prior, (kind, child.SourceLocation), blocks)))
             {
-                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, child.SourceLocation, $"'{name}' is declared more than once in this module."));
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.AmbiguousName, child.SourceLocation, $"'{name}' is declared more than once in this module."));
             }
 
             declarations.Add((kind, child.SourceLocation));
@@ -206,13 +208,19 @@ public static class DeclarationStaticSemanticsEvaluator
         }
 
         // a qualifier that is nothing this project can see is most likely a library that is not referenced: the error says so, where the name alone would not.
-        // A procedural module is a name the type binding context binds (MS-VBAL §5.6.10), so the name did resolve, to something that is not a type.
+        // A procedural module is a name the type binding context binds (MS-VBAL §5.6.10), so the name did resolve, to something that is not a type (MS-VBA: "A
+        // module is not a valid type", Excel-verified).
+        if (bound is TypeNameBinding.IsAProceduralModule)
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ModuleIsNotAValidType, new SourceLocation(document, range),
+                string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name)));
+            return;
+        }
+
         var qualifier = name.LastIndexOf('.') is >= 0 and var split ? name[..split] : null;
-        var verbose = bound is TypeNameBinding.IsAProceduralModule
-            ? string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name)
-            : qualifier is not null && resolver.ResolveQualifier(qualifier, ScopeKind.Global, module.Uri).Symbol is null
-                ? string.Format(Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, name, qualifier)
-                : string.Format(Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, name);
+        var verbose = qualifier is not null && resolver.ResolveQualifier(qualifier, ScopeKind.Global, module.Uri).Symbol is null
+            ? string.Format(Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, name, qualifier)
+            : string.Format(Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, name);
 
         errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, new SourceLocation(document, range), verbose));
     }

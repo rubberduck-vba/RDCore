@@ -871,6 +871,141 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Next without For.
+        /// </summary>
+        public static string VBCompileError_NextWithoutFor {
+            get {
+                return ResourceManager.GetString("VBCompileError_NextWithoutFor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For without Next.
+        /// </summary>
+        public static string VBCompileError_ForWithoutNext {
+            get {
+                return ResourceManager.GetString("VBCompileError_ForWithoutNext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loop without Do.
+        /// </summary>
+        public static string VBCompileError_LoopWithoutDo {
+            get {
+                return ResourceManager.GetString("VBCompileError_LoopWithoutDo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Do without Loop.
+        /// </summary>
+        public static string VBCompileError_DoWithoutLoop {
+            get {
+                return ResourceManager.GetString("VBCompileError_DoWithoutLoop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to End If without block If.
+        /// </summary>
+        public static string VBCompileError_EndIfWithoutBlockIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_EndIfWithoutBlockIf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Block If without End If.
+        /// </summary>
+        public static string VBCompileError_BlockIfWithoutEndIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_BlockIfWithoutEndIf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Else without If.
+        /// </summary>
+        public static string VBCompileError_ElseWithoutIf {
+            get {
+                return ResourceManager.GetString("VBCompileError_ElseWithoutIf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Case without Select Case.
+        /// </summary>
+        public static string VBCompileError_CaseWithoutSelectCase {
+            get {
+                return ResourceManager.GetString("VBCompileError_CaseWithoutSelectCase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select Case without End Select.
+        /// </summary>
+        public static string VBCompileError_SelectCaseWithoutEndSelect {
+            get {
+                return ResourceManager.GetString("VBCompileError_SelectCaseWithoutEndSelect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to End With without With.
+        /// </summary>
+        public static string VBCompileError_EndWithWithoutWith {
+            get {
+                return ResourceManager.GetString("VBCompileError_EndWithWithoutWith", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expected End With.
+        /// </summary>
+        public static string VBCompileError_ExpectedEndWith {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedEndWith", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expected variable or procedure, not module.
+        /// </summary>
+        public static string VBCompileError_ExpectedVariableOrProcedureNotModule {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotModule", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expected Sub, Function, or Property.
+        /// </summary>
+        public static string VBCompileError_ExpectedSubFunctionOrProperty {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedSubFunctionOrProperty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Range has no values.
+        /// </summary>
+        public static string VBCompileError_RangeHasNoValues {
+            get {
+                return ResourceManager.GetString("VBCompileError_RangeHasNoValues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A module is not a valid type.
+        /// </summary>
+        public static string VBCompileError_ModuleIsNotAValidType {
+            get {
+                return ResourceManager.GetString("VBCompileError_ModuleIsNotAValidType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Argument not optional.
         /// </summary>
         public static string VBCompileError_ArgumentNotOptional {

@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
@@ -82,8 +83,24 @@ public static class ConstantExpressionStaticSemantics
                     yield return error;
                 }
             }
+
+            // an upper bound less than the lower one leaves the dimension no element (MS-VBA: "Range has no values", Excel-verified). Bounds written as
+            // literals are known here; with no lower bound, Option Base says what it is, and an upper bound below zero is less than either.
+            if (bound.UpperExpression is { } upper && LiteralValue(upper) is { } upperValue
+                && (bound.LowerExpression is { } lower ? LiteralValue(lower) is { } lowerValue && upperValue < lowerValue : upperValue < 0))
+            {
+                yield return VBCompileErrorInfo.For(VBCompileErrorId.RangeHasNoValues, upper.Location, array.Name);
+            }
         }
     }
+
+    // the value of a numeric literal, or of a negated one.
+    private static double? LiteralValue(ExpressionNode expression) => expression switch
+    {
+        LiteralExpressionNode { StaticValue: VBNumericTypedValue number } => number.AsDouble,
+        VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp, Operand: LiteralExpressionNode { StaticValue: VBNumericTypedValue negated } } => -negated.AsDouble,
+        _ => null,
+    };
 
     /// <summary>
     /// The compile error of the value of a constant: the first part of it that is not a constant expression, or a value of no type a constant can have.

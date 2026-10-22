@@ -51,6 +51,61 @@ public enum VBCompileErrorId
     /// 32 bits. See <strong>MS-VBAL §3.3.2</strong>.
     /// </summary>
     NumericLiteralOverflow = 42,
+    /// <summary>
+    /// A <c>Next</c> statement ends no <c>For</c> loop: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.3</strong> For Statement.
+    /// </summary>
+    NextWithoutFor = 43,
+    /// <summary>
+    /// A <c>For</c> loop has no <c>Next</c> statement before the end of its procedure.<br/>
+    /// <strong>MS-VBAL §5.4.2.3</strong> For Statement.
+    /// </summary>
+    ForWithoutNext = 44,
+    /// <summary>
+    /// A <c>Loop</c> statement ends no <c>Do</c> loop: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.6</strong> Do Statement.
+    /// </summary>
+    LoopWithoutDo = 45,
+    /// <summary>
+    /// A <c>Do</c> loop has no <c>Loop</c> statement before the end of its procedure.<br/>
+    /// <strong>MS-VBAL §5.4.2.6</strong> Do Statement.
+    /// </summary>
+    DoWithoutLoop = 46,
+    /// <summary>
+    /// An <c>End If</c> statement ends no block <c>If</c>: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.8</strong> If Statement.
+    /// </summary>
+    EndIfWithoutBlockIf = 47,
+    /// <summary>
+    /// A block <c>If</c> has no <c>End If</c> statement before the end of its procedure.<br/>
+    /// <strong>MS-VBAL §5.4.2.8</strong> If Statement.
+    /// </summary>
+    BlockIfWithoutEndIf = 48,
+    /// <summary>
+    /// An <c>Else</c> statement belongs to no block <c>If</c>: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.8</strong> If Statement.
+    /// </summary>
+    ElseWithoutIf = 49,
+    /// <summary>
+    /// A <c>Case</c> clause belongs to no <c>Select Case</c> statement: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.10</strong> Select Case Statement.
+    /// </summary>
+    CaseWithoutSelectCase = 50,
+    /// <summary>
+    /// A <c>Select Case</c> statement has no <c>End Select</c> before the end of its procedure.<br/>
+    /// <strong>MS-VBAL §5.4.2.10</strong> Select Case Statement.
+    /// </summary>
+    SelectCaseWithoutEndSelect = 51,
+    /// <summary>
+    /// An <c>End With</c> statement ends no <c>With</c> block: none is open where it is written.<br/>
+    /// <strong>MS-VBAL §5.4.2.21</strong> With Statement.
+    /// </summary>
+    EndWithWithoutWith = 52,
+    /// <summary>
+    /// A <c>With</c> block has no <c>End With</c> statement before the end of its procedure.<br/>
+    /// <strong>MS-VBAL §5.4.2.21</strong> With Statement.
+    /// </summary>
+    ExpectedEndWith = 53,
 
     #endregion
 
@@ -464,6 +519,27 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.3.1.11</strong> Procedure Invocation Argument Processing.
     /// </summary>
     TypeMismatchArrayOrUserDefinedTypeExpected = 9362,
+    /// <summary>
+    /// The name of a procedural module is written where a value, a variable or a procedure is expected: a module is none of them, and only qualifies the
+    /// names of its members.<br/>
+    /// <strong>MS-VBAL §5.6.10</strong> Simple Name Expressions.
+    /// </summary>
+    ExpectedVariableOrProcedureNotModule = 9363,
+    /// <summary>
+    /// A <c>Call</c> statement calls something that is not a procedure: a variable, a constant.<br/>
+    /// <strong>MS-VBAL §5.4.2.1</strong> Call Statement.
+    /// </summary>
+    ExpectedSubFunctionOrProperty = 9364,
+    /// <summary>
+    /// A dimension of an array is declared with an upper bound less than its lower bound.<br/>
+    /// <strong>MS-VBAL §5.2.3.1.3</strong> Array Dimensions and Bounds.
+    /// </summary>
+    RangeHasNoValues = 9365,
+    /// <summary>
+    /// A declaration names a procedural module as its type: a module declares members, and is no type of a value.<br/>
+    /// <strong>MS-VBAL §5.6.4</strong> Expression Binding Contexts.
+    /// </summary>
+    ModuleIsNotAValidType = 9366,
 
 
     /***********************************************************************************************

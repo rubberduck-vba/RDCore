@@ -390,6 +390,13 @@ public static class StatementStaticSemanticsEvaluator
                         // an array declared with fixed dimensions keeps them (MS-VBA: "Array already dimensioned", Excel-verified).
                         walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayAlreadyDimensioned, redim.Target.Location, redimName.IdentifierName));
                     }
+                    else if (redimensioned.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+                    {
+                        // what is re-dimensioned is an array, as what is erased is: a variable of an intrinsic type other than Variant never holds one (MS-VBA:
+                        // "Expected array", Excel-verified).
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, redim.Target.Location,
+                            redim.Target is SimpleNameExpressionNode scalar ? scalar.IdentifierName : string.Empty));
+                    }
 
                     MarkWritten(context, redim.Target);
                     break;
@@ -416,6 +423,15 @@ public static class StatementStaticSemanticsEvaluator
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
             if (statement is CallStatementNode callStatement)
             {
+                // MS-VBAL §5.4.2.1: what a Call statement calls is a procedure; a variable or a constant is none (MS-VBA: "Expected Sub, Function, or
+                // Property", Excel-verified).
+                if (callStatement.IsExplicitCall && callStatement.Callee is SimpleNameExpressionNode calledName
+                    && context.Resolver.ResolveValue(calledName, ScopeKind.Local, context.Scope.Uri).Symbol is ITypedSymbol and not (VBProcedureMemberSymbol
+                        or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol or VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol))
+                {
+                    walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, calledName.Location, calledName.IdentifierName));
+                }
+
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
