@@ -103,6 +103,10 @@ public sealed class ExpressionBindings
                         symbol.GetProperty(SymbolProperties.AutoInstantiated))
                     : new BoundName(name, symbol),
 
+            // Me is a reserved word, never a simple name, but the implicit parameter it is really is named Me: resolved as the evaluation resolves it.
+            InstanceExpressionNode instance when context.Resolver.ResolveValue(Tokens.Me, ScopeKind.Local, context.Scope.Uri).Symbol is { } me
+                => new BoundInstance(instance, me, Frame is { } frame && frame.TryGetSlot(me, out var slot) ? slot : null),
+
             VBBinaryOperatorExpressionNode binary when plan is not null && OperandNode(binary.Left) is { } left && OperandNode(binary.Right) is { } right
                 => new BoundBinary(binary, plan, left, right),
 
@@ -158,8 +162,20 @@ public sealed class ExpressionBindings
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, null, declared, member, index),
 
+            // the special forms and the dictionary access: their operands are bound, and what those evaluate to is the evaluation's to bound, gather or
+            // look up, each time.
+            ArrayBoundExpressionNode arrayBound
+                => new BoundArrayBound(arrayBound, ChildNode(arrayBound.Array), arrayBound.Dimension is { } dimension ? ChildNode(dimension) : null),
+
+            ArrayExpressionNode array => new BoundArray(array, [.. array.Elements.Select(ChildNode)]),
+
+            DictionaryAccessExpressionNode dictionary => new BoundDictionaryAccess(dictionary, dictionary.Owner is { } owner ? ChildNode(owner) : null),
+
             _ => new BoundFallback(expression),
         };
+
+    // the node of an operand a structural node evaluates as it is: one that is not bound is evaluated from the syntax tree, on its own.
+    private BoundNode ChildNode(ExpressionNode operand) => NodeOf(operand) ?? new BoundFallback(operand);
 
     // the bound node of the expression an object is reached through, and the class it is declared as, when it is declared as one: the class's declaration as
     // it is now, which a type built before it was complete only has a snapshot of (MemberAccessExpressionStaticSemantics reads its members the same way).

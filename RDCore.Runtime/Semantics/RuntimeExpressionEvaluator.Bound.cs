@@ -211,8 +211,73 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundNew created => CreateObject(session, created.New, created.Class),
         BoundTypeOf typeOf => EvaluateBoundTypeOf(session, typeOf, context),
         BoundIndex index => IndexValue(session, context, index.Index, index.Index, EvaluateBoundNode(session, index.Callee, context)),
+        BoundInstance instance => ReadInstance(session, instance),
+        BoundArrayBound arrayBound => EvaluateBoundArrayBound(session, arrayBound, context),
+        BoundArray array => EvaluateBoundArray(session, array, context),
+        BoundDictionaryAccess dictionary => EvaluateBoundDictionaryAccess(session, dictionary, context),
         _ => EvaluateSyntax(session, node.Expression, context),
     };
+
+    // what EvaluateArrayBound does, its operands evaluated through their nodes.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundArrayBound(IRuntimeSession session, BoundArrayBound arrayBound, RuntimeEvaluationContext context)
+    {
+        var array = EvaluateBoundNode(session, arrayBound.Array, context);
+        if (!array.IsSuccess)
+        {
+            return array;
+        }
+
+        VBTypedValue? dimension = null;
+        if (arrayBound.Dimension is { } dimensionNode)
+        {
+            var evaluated = EvaluateBoundNode(session, dimensionNode, context);
+            if (!evaluated.IsSuccess)
+            {
+                return evaluated;
+            }
+
+            dimension = evaluated.Result;
+        }
+
+        return ArrayBoundOf(arrayBound.ArrayBound, array.Result!, dimension);
+    }
+
+    // what EvaluateArray does, its elements evaluated through their nodes.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundArray(IRuntimeSession session, BoundArray array, RuntimeEvaluationContext context)
+    {
+        var lower = session.CallStack.Current?.Directives.Base ?? 0;
+        var value = new VBResizableArrayValue([(lower, lower + array.Elements.Length - 1)], VBVariantType.TypeInfo);
+        for (var index = 0; index < array.Elements.Length; index++)
+        {
+            var element = EvaluateBoundNode(session, array.Elements[index], context);
+            if (!element.IsSuccess)
+            {
+                return element;
+            }
+
+            SetArrayElement(value, lower + index, element.Result!);
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(value));
+    }
+
+    // what EvaluateDictionaryAccess does, its owner evaluated through its node - or the target of the enclosing With block, for one written with none.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundDictionaryAccess(IRuntimeSession session, BoundDictionaryAccess dictionary, RuntimeEvaluationContext context)
+    {
+        var owner = dictionary.Owner is { } ownerNode
+            ? EvaluateBoundNode(session, ownerNode, context)
+            : context.EnclosingWithTarget is { } withTarget
+                ? RuntimeSemanticsEvaluationResult.Success(withTarget)
+                : RuntimeSemanticsEvaluationResult.InternalError();
+        return owner.IsSuccess ? AccessThroughDictionary(session, context, dictionary.DictionaryAccess, owner.Result!) : owner;
+    }
+
+    // Me is the object the activation was invoked on: what its parameter holds, read through its slot (InstanceExpressionRuntimeSemantics, from the syntax tree).
+    private static RuntimeSemanticsEvaluationResult ReadInstance(IRuntimeSession session, BoundInstance instance)
+        => RuntimeSemanticsEvaluationResult.Success(new VBObjectValue(
+            instance.Slot is { } slot && session.CallStack.Current is CallStackFrame frame && frame.TryReadSlot(slot, instance.Me, out var handle, out _)
+                ? handle
+                : session.Symbols.Resolver.GetValue(instance.Me)));
 
     // what EvaluateMemberAccess and EvaluateIndex do with a member of an object declared as a class, the member resolved once (S0.10): the owner is evaluated
     // once, and the member the object's class invokes for it is found once for each class the expression meets. Anything else - no object, an object the

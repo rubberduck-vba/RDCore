@@ -172,14 +172,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return element;
             }
 
-            // an element is a Variant holding a copy of what the argument came to - not a view of the variable it was read from, which would be
-            // whatever that variable holds next. The array is a value the expression is, not a variable: an object in it is held by whatever the
-            // array is assigned to, which is given a copy in cells of its own (ObjectReferences), and not by these.
-            var value = DataValues.Copy(element.Result is VBVariantValue variant ? variant : new VBVariantValue(element.Result!));
-            array.TrySetElement(BindingKnowledge.NewCell(value), lower + index);
+            SetArrayElement(array, lower + index, element.Result!);
         }
 
         return RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(array));
+    }
+
+    // an element is a Variant holding a copy of what the argument came to - not a view of the variable it was read from, which would be whatever that
+    // variable holds next. The array is a value the expression is, not a variable: an object in it is held by whatever the array is assigned to, which is
+    // given a copy in cells of its own (ObjectReferences), and not by these.
+    private static void SetArrayElement(VBResizableArrayValue array, int index, VBTypedValue element)
+    {
+        var value = DataValues.Copy(element is VBVariantValue variant ? variant : new VBVariantValue(element));
+        array.TrySetElement(BindingKnowledge.NewCell(value), index);
     }
 
     // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it
@@ -205,12 +210,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             dimension = evaluated.Result;
         }
 
-        // an array that is not known has bounds that are not known, and is not known to be no array: the error it would raise is the assumed value's, which is
-        // not stated. The same goes for a dimension that is not known.
-        return array.Result!.IsIndeterminate || dimension is { IsIndeterminate: true }
-            ? RuntimeSemanticsEvaluationResult.Success(VBLongType.TypeInfo.CreateIndeterminateValue())
-            : ArrayBoundRuntimeSemantics.Evaluate(arrayBound, array.Result!, dimension);
+        return ArrayBoundOf(arrayBound, array.Result!, dimension);
     }
+
+    // an array that is not known has bounds that are not known, and is not known to be no array: the error it would raise is the assumed value's, which is
+    // not stated. The same goes for a dimension that is not known.
+    private static RuntimeSemanticsEvaluationResult ArrayBoundOf(ArrayBoundExpressionNode arrayBound, VBTypedValue array, VBTypedValue? dimension)
+        => array.IsIndeterminate || dimension is { IsIndeterminate: true }
+            ? RuntimeSemanticsEvaluationResult.Success(VBLongType.TypeInfo.CreateIndeterminateValue())
+            : ArrayBoundRuntimeSemantics.Evaluate(arrayBound, array, dimension);
 
     private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
         => ReadSymbol(
@@ -2291,14 +2299,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             : context.EnclosingWithTarget is { } withTarget
                 ? RuntimeSemanticsEvaluationResult.Success(withTarget)
                 : RuntimeSemanticsEvaluationResult.InternalError();
-        if (!ownerResult.IsSuccess)
-        {
-            return ownerResult;
-        }
+        return ownerResult.IsSuccess ? AccessThroughDictionary(session, context, dictionaryAccess, ownerResult.Result!) : ownerResult;
+    }
 
+    // the default member of the owner, called with the name after the bang, and the access stated as one.
+    private RuntimeSemanticsEvaluationResult AccessThroughDictionary(
+        IRuntimeSession session, RuntimeEvaluationContext context, DictionaryAccessExpressionNode dictionaryAccess, VBTypedValue owner)
+    {
         var assumedBefore = AssumedSoFar;
-        var result = CallThroughDictionary(session, context, expression, dictionaryAccess, ownerResult.Result!);
-        ObserveMemberAccess(session, context, expression, Tokens.DictionaryAccess, dictionaryAccess.Owner, ownerResult.Result, null,
+        var result = CallThroughDictionary(session, context, dictionaryAccess, dictionaryAccess, owner);
+        ObserveMemberAccess(session, context, dictionaryAccess, Tokens.DictionaryAccess, dictionaryAccess.Owner, owner, null,
             MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.DictionaryAccess,
             assumedBefore, result);
         return result;

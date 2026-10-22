@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Plans;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Binding;
 
@@ -54,6 +55,19 @@ public sealed record class BoundName(SimpleNameExpressionNode Name, Symbol Symbo
 /// <param name="IsAutoInstantiated">Whether the variable is declared <c>As New</c> (<strong>MS-VBAL §5.2.3.1.4</strong>): a reference to it creates the
 /// object it does not hold yet.</param>
 public sealed record class BoundVariable(SimpleNameExpressionNode Name, Symbol Variable, FrameSlot? Slot, bool IsAutoInstantiated) : BoundNode(Name);
+
+/// <summary>
+/// The <c>Me</c> keyword (<strong>MS-VBAL §5.6.11</strong>): the object the procedure it is written in was invoked on, which is the procedure's implicit
+/// first parameter.
+/// </summary>
+/// <remarks>
+/// The binding is the resolution of the parameter, made once: in a procedure of a class module it has a <see cref="Slot"/> of its own, as any other
+/// parameter does.
+/// </remarks>
+/// <param name="Instance">The instance expression.</param>
+/// <param name="Me">The implicit parameter <c>Me</c> resolves to.</param>
+/// <param name="Slot">The slot of the parameter, when the expression is written in the procedure the frame layout is of.</param>
+public sealed record class BoundInstance(InstanceExpressionNode Instance, Symbol Me, FrameSlot? Slot) : BoundNode(Instance);
 
 /// <summary>
 /// A binary operation (<strong>MS-VBAL §5.6.9</strong>), its operands, and its plan.
@@ -145,14 +159,44 @@ public sealed record class BoundIndex(IndexExpressionNode Index, BoundNode Calle
 public sealed record class BoundTypeOf(TypeOfIsExpressionNode TypeOf, BoundNode Operand, VBClassModuleSymbol Class) : BoundNode(TypeOf);
 
 /// <summary>
+/// An <c>LBound</c> or <c>UBound</c> special form (<strong>MS-VBAL §3.3.5.2</strong>), and its operands.
+/// </summary>
+/// <remarks>
+/// The binding is the operands': the bound of the array they evaluate to is the evaluation's, each time.
+/// </remarks>
+/// <param name="ArrayBound">The special form.</param>
+/// <param name="Array">The array operand, bound.</param>
+/// <param name="Dimension">The dimension operand, bound; <see langword="null"/> when it is omitted.</param>
+public sealed record class BoundArrayBound(ArrayBoundExpressionNode ArrayBound, BoundNode Array, BoundNode? Dimension) : BoundNode(ArrayBound);
+
+/// <summary>
+/// The <c>Array</c> special form (<strong>MS-VBAL §3.3.5.2</strong>): a <c>Variant</c> holding an array of its arguments, whose lower bound is the
+/// <c>Option Base</c> of the module it is written in.
+/// </summary>
+/// <param name="Array">The array expression.</param>
+/// <param name="Elements">Its arguments, bound, in order.</param>
+public sealed record class BoundArray(ArrayExpressionNode Array, ImmutableArray<BoundNode> Elements) : BoundNode(Array);
+
+/// <summary>
+/// A dictionary access (<strong>MS-VBAL §5.6.14</strong>): <c>c!key</c>, the default member of the object called with the name after the bang as a
+/// <c>String</c>.
+/// </summary>
+/// <remarks>
+/// The binding is the owner's: which default member the object has, and what it returns, is the evaluation's, each time.
+/// </remarks>
+/// <param name="DictionaryAccess">The dictionary access.</param>
+/// <param name="Owner">The object it is written on, bound; <see langword="null"/> for one written with nothing before the bang, which is on the target of
+/// the enclosing <c>With</c> block.</param>
+public sealed record class BoundDictionaryAccess(DictionaryAccessExpressionNode DictionaryAccess, BoundNode? Owner) : BoundNode(DictionaryAccess);
+
+/// <summary>
 /// An expression the binder does not bind yet (IR lowering D3): it is evaluated from the syntax tree, the way it always was.
 /// </summary>
 /// <remarks>
-/// 🚧 What is left binds when the evaluation of the syntax tree is retired (S0.12), which shrinks this to nothing: the special forms (<c>LBound</c>,
-/// <c>UBound</c>, …) and dictionary access (<c>c!key</c>), whose operands are bound already; <c>New</c> and <c>TypeOf … Is</c> of a project-qualified type
-/// name; an index whose callee is no variable, procedure or member (<c>F()(1)</c>); a member of a module or an enumeration by its qualified name; and the
-/// rest of the expressions (<c>Me</c>, arrays, conditional-compilation names). A compile error is not bound either: the static pass reports it, and the
-/// evaluation of the syntax tree is what raises its run-time counterpart.
+/// 🚧 What is left binds when the evaluation of the syntax tree is retired (S0.12), which shrinks this to nothing: <c>New</c> and <c>TypeOf … Is</c> of a
+/// project-qualified type name; an index whose callee is no variable, procedure or member (<c>F()(1)</c>); a member of a module or an enumeration by its
+/// qualified name; conditional-compilation names; and an expression evaluated in no scope the session defines. A compile error is not bound either: the
+/// static pass reports it, and the evaluation of the syntax tree is what raises its run-time counterpart.
 /// </remarks>
 /// <param name="Expression">The expression.</param>
 public sealed record class BoundFallback(ExpressionNode Expression) : BoundNode(Expression);
