@@ -12,5 +12,13 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="CollectionExpression">An object expression that resolves to an enumerable object (or array).</param>
 /// <param name="Body">The executable statements in the body of the loop.</param>
 public record class ForEachStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode ControlExpression, ExpressionNode CollectionExpression, StatementBlock Body)
-    : StatementNode(Identity, SourceLocation, [ControlExpression, CollectionExpression]);
+    : StatementNode(Identity, SourceLocation, [ControlExpression, CollectionExpression])
+{
+    /// <summary>
+    /// The variable named by the <c>Next</c> statement that ends the loop - <c>Next i</c>, or the name after a comma of the <c>Next</c> of a loop nested in
+    /// it (<c>Next j, i</c>) - or <see langword="null"/> when it names none. It is the loop's control variable (MS-VBA: "Invalid Next control variable
+    /// reference" when it is not).
+    /// </summary>
+    public ExpressionNode? NextExpression { get; init; }
+}
 

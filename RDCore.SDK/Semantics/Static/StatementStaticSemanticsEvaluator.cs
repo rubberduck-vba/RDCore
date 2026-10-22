@@ -363,10 +363,12 @@ public static class StatementStaticSemanticsEvaluator
                 case ForStatementNode forStatement:
                     RequireVariable(context, forStatement.ControlExpression, "The control variable of a For statement", "5.6.16.6", walk);
                     MarkWritten(context, forStatement.ControlExpression);
+                    RequireNextOfControl(forStatement.ControlExpression, forStatement.NextExpression, walk);
                     break;
                 case ForEachStatementNode forEachStatement:
                     RequireVariable(context, forEachStatement.ControlExpression, "The control variable of a For Each statement", "5.6.16.6", walk);
                     MarkWritten(context, forEachStatement.ControlExpression);
+                    RequireNextOfControl(forEachStatement.ControlExpression, forEachStatement.NextExpression, walk);
                     break;
                 case MidStatementNode midStatement:
                     MarkWritten(context, midStatement.Target);
@@ -380,7 +382,15 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(refused);
                     }
 
-                    RequireVariable(context, redim.Target, "The target of a ReDim statement", "5.4.3.3", walk);
+                    if (RequireVariable(context, redim.Target, "The target of a ReDim statement", "5.4.3.3", walk)
+                        && redim.Target is SimpleNameExpressionNode redimName
+                        && context.Resolver.ResolveValue(redimName, ScopeKind.Local, context.Scope.Uri).Symbol is { } array
+                        && array.TryGetProperty(SymbolProperties.ArrayBounds, out var fixedBounds) && !fixedBounds.IsDefaultOrEmpty)
+                    {
+                        // an array declared with fixed dimensions keeps them (MS-VBA: "Array already dimensioned", Excel-verified).
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayAlreadyDimensioned, redim.Target.Location, redimName.IdentifierName));
+                    }
+
                     MarkWritten(context, redim.Target);
                     break;
                 case KeywordStatementNode { Token: Tokens.Erase } erase:
@@ -390,6 +400,16 @@ public static class StatementStaticSemanticsEvaluator
                         elements.RequireNotAValue(element, "An element of an Erase statement", "5.4.3.4");
                     }
                     walk.Errors.AddRange(elements.Errors);
+
+                    // what is erased is an array: a variable of an intrinsic type other than Variant never holds one (MS-VBA: "Expected array",
+                    // Excel-verified).
+                    foreach (var element in elements.Errors.IsEmpty ? erase.Inputs.OfType<ExpressionNode>() : [])
+                    {
+                        if (ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, element).Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+                        {
+                            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, element.Location, element is SimpleNameExpressionNode erased ? erased.IdentifierName : null));
+                        }
+                    }
                     break;
             }
 
@@ -466,10 +486,10 @@ public static class StatementStaticSemanticsEvaluator
                 EvaluateBlock(context, whileWend.Body, walk);
                 break;
             case ForStatementNode forStatement:
-                EvaluateLoopBody(context, forStatement.Body, walk, isForLoop: true);
+                EvaluateLoopBody(context, forStatement.Body, walk, isForLoop: true, forStatement.ControlExpression);
                 break;
             case ForEachStatementNode forEachStatement:
-                EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true);
+                EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true, forEachStatement.ControlExpression);
                 break;
             case SelectCaseStatementNode selectCase:
                 foreach (var caseExpressionBlock in selectCase.CaseExpressionBlocks)
@@ -513,9 +533,21 @@ public static class StatementStaticSemanticsEvaluator
         }
     }
 
-    // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted.
-    private static void EvaluateLoopBody(StaticEvaluationContext context, StatementBlock body, Walk walk, bool isForLoop)
+    // an Exit For or Exit Do is checked against the loops it is lexically inside, so a body is walked with the kind of loop it belongs to counted. A loop
+    // nested in a For loop is not controlled by its variable (MS-VBA: "For control variable already in use", Excel-verified).
+    private static void EvaluateLoopBody(StaticEvaluationContext context, StatementBlock body, Walk walk, bool isForLoop, ExpressionNode? control = null)
     {
+        var controlName = control is SimpleNameExpressionNode { IdentifierName: var name } ? name : null;
+        if (controlName is not null && !walk.Structural && walk.ControlVariables.Contains(controlName, StringComparer.OrdinalIgnoreCase))
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ForControlVariableAlreadyInUse, control!.Location, controlName));
+        }
+
+        if (controlName is not null)
+        {
+            walk.ControlVariables.Add(controlName);
+        }
+
         if (isForLoop)
         {
             walk.ForDepth++;
@@ -534,6 +566,11 @@ public static class StatementStaticSemanticsEvaluator
         else
         {
             walk.DoDepth--;
+        }
+
+        if (controlName is not null)
+        {
+            walk.ControlVariables.RemoveAt(walk.ControlVariables.Count - 1);
         }
     }
 
@@ -772,6 +809,17 @@ public static class StatementStaticSemanticsEvaluator
             : null;
     }
 
+    // the variable a Next statement names, when it names one, is the control variable of the loop it ends (MS-VBA: "Invalid Next control variable
+    // reference", Excel-verified).
+    private static void RequireNextOfControl(ExpressionNode control, ExpressionNode? next, Walk walk)
+    {
+        if (next is SimpleNameExpressionNode { IdentifierName: var named } && control is SimpleNameExpressionNode { IdentifierName: var controlName }
+            && !string.Equals(named, controlName, StringComparison.OrdinalIgnoreCase))
+        {
+            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidNextControlVariableReference, next.Location, named));
+        }
+    }
+
     private static bool RequireVariable(StaticEvaluationContext context, ExpressionNode operand, string role, string section, Walk walk)
     {
         var checks = new StatementOperandChecks(context);
@@ -814,6 +862,25 @@ public static class StatementStaticSemanticsEvaluator
         if (assignment.Kind is not (AssignmentKind.LSet or AssignmentKind.RSet) && HasOnlyAPropertyGet(context, assignment.Target, isSet))
         {
             return VBCompileErrorInfo.For(isSet ? VBCompileErrorId.InvalidUseOfProperty : VBCompileErrorId.CantAssignToReadOnlyProperty, location, name);
+        }
+
+        // a call of a function, written as the target of a Let statement, assigns the default member of what it returns: a value that is neither a Variant
+        // nor an object has none (MS-VBAL §5.4.3.8; MS-VBA, Excel-verified). The function's own name in its body is its result, and is no call.
+        if (assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet
+            && assignment.Target is IndexExpressionNode { Callee: var callee }
+            && ObjectValueStaticSemantics.MemberOfCallee(context, callee) is VBFunctionMemberSymbol { ResolvedType: not (VBVariantType or VBObjectType or VBClassType or VBUnknownType) } function
+            && function.Uri.AbsoluteUri != context.Scope.Uri.AbsoluteUri)
+        {
+            return VBCompileErrorInfo.For(VBCompileErrorId.FunctionCallOnLeftHandSideMustReturnVariantOrObject, location, function.Name);
+        }
+
+        // an array declared with fixed dimensions is not assigned another; one declared without them is (MS-VBA: "Can't assign to array", Excel-verified).
+        if (assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet
+            && assignment.Target is SimpleNameExpressionNode arrayName
+            && context.Resolver.ResolveValue(arrayName, ScopeKind.Local, context.Scope.Uri).Symbol is { } array
+            && array.TryGetProperty(SymbolProperties.ArrayBounds, out var bounds) && !bounds.IsDefaultOrEmpty)
+        {
+            return VBCompileErrorInfo.For(VBCompileErrorId.CantAssignToArray, location, arrayName.IdentifierName);
         }
 
         switch (assignment.Kind)
@@ -887,5 +954,8 @@ public static class StatementStaticSemanticsEvaluator
         public int ForDepth { get; set; }
 
         public int DoDepth { get; set; }
+
+        // the control variables of the For loops the statement being walked is inside, innermost last.
+        public List<string> ControlVariables { get; } = [];
     }
 }

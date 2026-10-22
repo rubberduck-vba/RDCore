@@ -563,7 +563,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var assignment = CaptureIsolatedExpression(context.expression(0));
         var end = CaptureIsolatedExpression(context.expression(1));
         var step = CaptureIsolatedExpression(context.stepStmt()?.expression());
-        OnExitParentIfBuilt(builder => builder.BuildForStatement(context, assignment, end, step));
+        var next = CaptureIsolatedExpression(context.expression(2));
+        OnExitParentIfBuilt(builder => builder.BuildForStatement(context, assignment, end, step, next));
     }
 
     // `For Each...Next` (MS-VBAL 5.4.2.9). Same body/capture shape as For; no assignment to split —
@@ -574,7 +575,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     {
         var control = CaptureIsolatedExpression(context.expression(0));
         var collection = CaptureIsolatedExpression(context.expression(1));
-        OnExitParentIfBuilt(builder => builder.BuildForEachStatement(context, control, collection));
+        var next = CaptureIsolatedExpression(context.expression(2));
+        OnExitParentIfBuilt(builder => builder.BuildForEachStatement(context, control, collection, next));
     }
 
     // `Select Case` (MS-VBAL 5.4.2.10). Every expression here — the control expression, and each

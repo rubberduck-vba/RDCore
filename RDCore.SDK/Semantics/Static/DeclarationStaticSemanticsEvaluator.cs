@@ -136,6 +136,7 @@ public static class DeclarationStaticSemanticsEvaluator
         foreach (var member in members)
         {
             CheckDeclaredType(module, member, member.SelectionRange, member.ParentUri, resolver, errors);
+            CheckAutoInstantiation(member, member.SelectionRange, member.ParentUri, errors);
 
             // a field of a user-defined type is the type's, not the module's, and comes with it. Only a procedural module is refused as its type: a name that
             // does not resolve is not checked there, and loads as it did before a field's type was checked at all.
@@ -155,6 +156,7 @@ public static class DeclarationStaticSemanticsEvaluator
             foreach (var local in LocalsOf(member))
             {
                 CheckDeclaredType(module, local, local.SelectionRange, member.ParentUri, resolver, errors, onlyAModule: local is VBLocalConstantSymbol);
+                CheckAutoInstantiation(local, local.SelectionRange, member.ParentUri, errors);
             }
         }
     }
@@ -173,6 +175,16 @@ public static class DeclarationStaticSemanticsEvaluator
         VBProcedureMemberSymbol procedure => procedure.Locals,
         _ => [],
     };
+
+    // MS-VBAL §5.2.3.1.4: New creates an object of a class; a variable declared As New of a type that is a value - a number, a String, a Boolean, a Date - has
+    // none to create (MS-VBA: "Syntax error", Excel-verified).
+    private static void CheckAutoInstantiation(Symbol declared, SourceRange range, Uri document, ImmutableArray<VBCompileErrorInfo>.Builder errors)
+    {
+        if (declared.GetProperty(SymbolProperties.AutoInstantiated) && declared is ITypedSymbol { ResolvedType: var type } && type is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+        {
+            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, new SourceLocation(document, range), $"New {type.Name}"));
+        }
+    }
 
     // onlyAModule: the declaration is refused only when its type is a procedural module, and a name that does not resolve is left alone.
     private static void CheckDeclaredType(

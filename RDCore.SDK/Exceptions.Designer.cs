@@ -790,6 +790,87 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid qualifier.
+        /// </summary>
+        public static string VBCompileError_InvalidQualifier {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidQualifier", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Function call on left-hand side of assignment must return Variant or Object.
+        /// </summary>
+        public static string VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject {
+            get {
+                return ResourceManager.GetString("VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wrong number of dimensions.
+        /// </summary>
+        public static string VBCompileError_WrongNumberOfDimensions {
+            get {
+                return ResourceManager.GetString("VBCompileError_WrongNumberOfDimensions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Array already dimensioned.
+        /// </summary>
+        public static string VBCompileError_ArrayAlreadyDimensioned {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArrayAlreadyDimensioned", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For control variable already in use.
+        /// </summary>
+        public static string VBCompileError_ForControlVariableAlreadyInUse {
+            get {
+                return ResourceManager.GetString("VBCompileError_ForControlVariableAlreadyInUse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid Next control variable reference.
+        /// </summary>
+        public static string VBCompileError_InvalidNextControlVariableReference {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidNextControlVariableReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t assign to array.
+        /// </summary>
+        public static string VBCompileError_CantAssignToArray {
+            get {
+                return ResourceManager.GetString("VBCompileError_CantAssignToArray", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to ByRef argument type mismatch.
+        /// </summary>
+        public static string VBCompileError_ByRefArgumentTypeMismatch {
+            get {
+                return ResourceManager.GetString("VBCompileError_ByRefArgumentTypeMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type mismatch: array or user-defined type expected.
+        /// </summary>
+        public static string VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Argument not optional.
         /// </summary>
         public static string VBCompileError_ArgumentNotOptional {

@@ -65,8 +65,11 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
 
         if (owner is not IVBMemberOwnerType ownerType)
         {
-            // a plain value type has no members to look up; deferred, not an error.
-            return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
+            // a number, a String, a Boolean or a Date has no members: MS-VBA refuses a member of one at compile time (Excel-verified). Any other type that
+            // is not known to own members is deferred, not an error.
+            return owner is VBNumericType or VBStringType or VBBooleanType or VBDateType
+                ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName))
+                : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
 
         var memberName = memberAccess.Member.IdentifierName;

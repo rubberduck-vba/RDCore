@@ -169,9 +169,10 @@ public sealed class EnumDeclaredTypeMatchingTests
             "Dim d As VbDayOfWeek", "d = 3", "On Error Resume Next", "SetL d", "Debug.Print Err.Number", "Debug.Print d")));
 
     [TestMethod]
-    public async Task AnIntegerVariable_PassedToAByRefLongParameter_IsStillACopy()
-        // only an Enum and Long are one declared type: an Integer variable is passed as a copy, so what the procedure assigns does not reach it.
-        => CollectionAssert.AreEqual(new[] { "0" }, await RunAsync([], Program(SetLong, "Dim i As Integer", "SetL i", "Debug.Print i")));
+    public async Task AnIntegerVariable_PassedToAByRefLongParameter_IsAByRefArgumentTypeMismatch()
+        // only an Enum and Long are one declared type: an Integer variable is no variable a ByRef Long parameter can be a name for (MS-VBA, Excel-verified).
+        => StringAssert.Contains(string.Join(" | ", await LoadErrorsAsync([], Program(SetLong, "Dim i As Integer", "SetL i", "Debug.Print i"))),
+            "ByRef argument type mismatch");
 
     [TestMethod]
     public async Task AVariableOfAnEnum_PassedToAByRefVariantParameter_IsAssignedAsTheEnumItIs()

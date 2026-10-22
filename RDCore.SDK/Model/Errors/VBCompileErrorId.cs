@@ -419,6 +419,51 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.16.1</strong> Constant Expressions.
     /// </summary>
     DivisionByZero = 9353,
+    /// <summary>
+    /// A member is accessed on an expression of a type that has no members: a number, a <c>String</c>, a <c>Boolean</c> or a <c>Date</c>.<br/>
+    /// <strong>MS-VBAL §5.6.12</strong> Member Access Expressions.
+    /// </summary>
+    InvalidQualifier = 9354,
+    /// <summary>
+    /// The target of a Let statement is a call of a function that returns neither a <c>Variant</c> nor an object, whose default member could be assigned.<br/>
+    /// <strong>MS-VBAL §5.4.3.8</strong> Let Statement.
+    /// </summary>
+    FunctionCallOnLeftHandSideMustReturnVariantOrObject = 9355,
+    /// <summary>
+    /// An element of an array declared with fixed dimensions is selected by a number of subscripts that is not its number of dimensions.<br/>
+    /// <strong>MS-VBAL §5.6.13</strong> Index Expressions.
+    /// </summary>
+    WrongNumberOfDimensions = 9356,
+    /// <summary>
+    /// A <c>ReDim</c> statement re-dimensions an array declared with fixed dimensions.<br/>
+    /// <strong>MS-VBAL §5.4.3.3</strong> ReDim Statement.
+    /// </summary>
+    ArrayAlreadyDimensioned = 9357,
+    /// <summary>
+    /// A <c>For</c> loop is controlled by the variable of a <c>For</c> loop it is nested in.<br/>
+    /// <strong>MS-VBAL §5.4.2.3</strong> For Statement.
+    /// </summary>
+    ForControlVariableAlreadyInUse = 9358,
+    /// <summary>
+    /// The variable a <c>Next</c> statement names is not the control variable of the <c>For</c> loop it ends.<br/>
+    /// <strong>MS-VBAL §5.4.2.3</strong> For Statement.
+    /// </summary>
+    InvalidNextControlVariableReference = 9359,
+    /// <summary>
+    /// An array declared with fixed dimensions is assigned an array.<br/>
+    /// <strong>MS-VBAL §5.4.3.8</strong> Let Statement.
+    /// </summary>
+    CantAssignToArray = 9360,
+    /// <summary>
+    /// A variable is passed to a <c>ByRef</c> parameter declared as another type: the parameter would be a second name for a variable of a type it is not.<br/>
+    /// <strong>MS-VBAL §5.3.1.11</strong> Procedure Invocation Argument Processing.
+    /// </summary>
+    ByRefArgumentTypeMismatch = 9361,
+    /// <summary>
+    /// An array is passed to a parameter declared as an array of another type.<br/>
+    /// <strong>MS-VBAL §5.3.1.11</strong> Procedure Invocation Argument Processing.
+    /// </summary>
+    TypeMismatchArrayOrUserDefinedTypeExpected = 9362,
 
 
     /***********************************************************************************************

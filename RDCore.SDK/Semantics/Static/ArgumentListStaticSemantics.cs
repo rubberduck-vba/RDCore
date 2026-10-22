@@ -2,12 +2,14 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -83,6 +85,11 @@ internal static class ArgumentListStaticSemantics
                     return VBCompileErrorInfo.For(VBCompileErrorId.NamedArgumentAlreadySpecified, named.Location, named.Name);
                 }
 
+                if (ByRefError(context, procedure, parameter, named.Value) is { } namedByRef)
+                {
+                    return namedByRef;
+                }
+
                 continue;
             }
 
@@ -101,6 +108,10 @@ internal static class ArgumentListStaticSemantics
             if (argument is not MissingArgumentNode)
             {
                 given.Add(own[position].Name);
+                if (ByRefError(context, procedure, own[position], argument) is { } byRef)
+                {
+                    return byRef;
+                }
             }
 
             position++;
@@ -110,6 +121,36 @@ internal static class ArgumentListStaticSemantics
             ? VBCompileErrorInfo.For(VBCompileErrorId.ArgumentNotOptional, call.Location, missing.Name)
             : null;
     }
+
+    // MS-VBAL §5.3.1.11: a variable given to a ByRef parameter is aliased to it, and is of its declared type - an array, of its element type. MS-VBA refuses
+    // one of another type (Excel-verified): "ByRef argument type mismatch", or for an array "Type mismatch: array or user-defined type expected". A Variant
+    // parameter takes any; a parenthesized argument is a value, which is copied (§5.6.6); and a parameter of a class or Object is not checked here.
+    private static VBCompileErrorInfo? ByRefError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
+    {
+        if (parameter.ParameterKind is not (ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef) || parameter is ParamArrayParameterSymbol
+            || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+            || argument is not SimpleNameExpressionNode name
+            || context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is not ITypedSymbol { ResolvedType: var argumentType } variable
+            || variable is VBReturningMemberSymbol or VBProcedureMemberSymbol or VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol)
+        {
+            return null;
+        }
+
+        return (parameter.ResolvedType, argumentType) switch
+        {
+            (VBArrayType { ItemType: var expected }, VBArrayType { ItemType: var given }) when IsIntrinsic(expected) && IsIntrinsic(given) && !ParameterLists.SameType(expected, given)
+                => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected, argument.Location, name.IdentifierName),
+            (var expected, var given) when IsIntrinsic(expected) && (IsIntrinsic(given) || given is VBVariantType) && !ParameterLists.SameType(expected, given)
+                => VBCompileErrorInfo.For(VBCompileErrorId.ByRefArgumentTypeMismatch, argument.Location, name.IdentifierName),
+            // a Variant is no variable of a class, whatever it holds; an Object variable is, and a class variable is an Object (Excel-verified).
+            (VBClassType, VBVariantType)
+                => VBCompileErrorInfo.For(VBCompileErrorId.ByRefArgumentTypeMismatch, argument.Location, name.IdentifierName),
+            _ => null,
+        };
+    }
+
+    // a number, a String, a Boolean or a Date: what a ByRef parameter's type is compared by. A Variant parameter takes any variable.
+    private static bool IsIntrinsic(VBType type) => type is VBNumericType or VBStringType or VBBooleanType or VBDateType;
 
     // MS-VBAL §5.6.2.1: a subroutine given as an argument has no value to give, whichever parameter takes it.
     private static VBCompileErrorInfo? SubroutineGiven(StaticEvaluationContext context, ExpressionNode argument)

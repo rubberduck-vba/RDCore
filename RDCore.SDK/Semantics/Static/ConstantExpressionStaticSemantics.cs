@@ -45,11 +45,41 @@ public static class ConstantExpressionStaticSemantics
                 yield return moduleError;
             }
 
+            foreach (var boundError in BoundErrors(resolver, member))
+            {
+                yield return boundError;
+            }
+
             foreach (var local in DeclarationStaticSemanticsEvaluator.LocalsOf(member))
             {
                 if (local is VBLocalConstantSymbol { Value: { } localValue } && ValueError(resolver, local.ParentUri, localValue) is { } localError)
                 {
                     yield return localError;
+                }
+
+                foreach (var boundError in BoundErrors(resolver, local))
+                {
+                    yield return boundError;
+                }
+            }
+        }
+    }
+
+    // MS-VBAL §5.2.3.1.3: the bounds an array is declared with are constant expressions (MS-VBA: "Constant expression required", Excel-verified).
+    private static IEnumerable<VBCompileErrorInfo> BoundErrors(ISymbolResolver resolver, Symbol array)
+    {
+        if (!array.TryGetProperty(SymbolProperties.ArrayBounds, out var bounds) || bounds.IsDefaultOrEmpty)
+        {
+            yield break;
+        }
+
+        foreach (var bound in bounds)
+        {
+            foreach (var expression in new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>())
+            {
+                if (ValueError(resolver, array.ParentUri, expression) is { VBCompileErrorId: VBCompileErrorId.ConstantExpressionRequired } error)
+                {
+                    yield return error;
                 }
             }
         }

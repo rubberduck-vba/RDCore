@@ -476,7 +476,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     // remarks) — split into Control/Start off the top-level `=` node it must produce. `step` is
     // already the resolved Step expression (or null: no Step clause, MS-VBAL's implicit default of 1
     // is a runtime concern, not this node's).
-    public SyntaxNode? BuildForStatement(VBAParser.ForNextStmtContext context, ExpressionNode? assignment, ExpressionNode? end, ExpressionNode? step)
+    public SyntaxNode? BuildForStatement(VBAParser.ForNextStmtContext context, ExpressionNode? assignment, ExpressionNode? end, ExpressionNode? step, ExpressionNode? next = null)
     {
         if (assignment is not VBBinaryOperatorExpressionNode { Token: Tokens.CompareEqualOp } assignmentOp || end is null)
         {
@@ -485,10 +485,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         }
 
         var body = new StatementBlock([.. _children]);
-        return new ForStatementNode(NodeId, context.GetSourceLocation(_rootUri), assignmentOp.Left, assignmentOp.Right, end, step, body);
+        return new ForStatementNode(NodeId, context.GetSourceLocation(_rootUri), assignmentOp.Left, assignmentOp.Right, end, step, body) { NextExpression = next };
     }
 
-    public SyntaxNode? BuildForEachStatement(VBAParser.ForEachStmtContext context, ExpressionNode? control, ExpressionNode? collection)
+    public SyntaxNode? BuildForEachStatement(VBAParser.ForEachStmtContext context, ExpressionNode? control, ExpressionNode? collection, ExpressionNode? next = null)
     {
         if (control is null || collection is null)
         {
@@ -496,7 +496,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         }
 
         var body = new StatementBlock([.. _children]);
-        return new ForEachStatementNode(NodeId, context.GetSourceLocation(_rootUri), control, collection, body);
+        return new ForEachStatementNode(NodeId, context.GetSourceLocation(_rootUri), control, collection, body) { NextExpression = next };
     }
 
     // _children here is purely Case/Case Else blocks, added directly as they're each fully built by

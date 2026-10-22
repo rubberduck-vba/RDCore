@@ -108,6 +108,24 @@
   href: vbc09352.md
 - name: VBC09353 — Division by zero
   href: vbc09353.md
+- name: VBC09354 — Invalid qualifier
+  href: vbc09354.md
+- name: VBC09355 — Function call on left-hand side of assignment must return Variant or Object
+  href: vbc09355.md
+- name: VBC09356 — Wrong number of dimensions
+  href: vbc09356.md
+- name: VBC09357 — Array already dimensioned
+  href: vbc09357.md
+- name: VBC09358 — For control variable already in use
+  href: vbc09358.md
+- name: VBC09359 — Invalid Next control variable reference
+  href: vbc09359.md
+- name: VBC09360 — Can't assign to array
+  href: vbc09360.md
+- name: VBC09361 — ByRef argument type mismatch
+  href: vbc09361.md
+- name: VBC09362 — Type mismatch: array or user-defined type expected
+  href: vbc09362.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

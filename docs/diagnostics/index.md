@@ -89,6 +89,15 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09351](vbc09351.md)|Invalid data type for constant — the value of a constant is an object|
 |[VBC09352](vbc09352.md)|Overflow — the value of a constant does not fit its type|
 |[VBC09353](vbc09353.md)|Division by zero — the value of a constant divides by zero|
+|[VBC09354](vbc09354.md)|Invalid qualifier — a member is accessed on a value that has no members|
+|[VBC09355](vbc09355.md)|Function call on left-hand side of assignment must return Variant or Object — a call of a function is assigned|
+|[VBC09356](vbc09356.md)|Wrong number of dimensions — an element of an array is selected by the wrong number of subscripts|
+|[VBC09357](vbc09357.md)|Array already dimensioned — an array declared with fixed dimensions is given others|
+|[VBC09358](vbc09358.md)|For control variable already in use — a loop is controlled by the variable of a loop it is nested in|
+|[VBC09359](vbc09359.md)|Invalid Next control variable reference — a `Next` statement names a variable that is not the control variable of its loop|
+|[VBC09360](vbc09360.md)|Can't assign to array — an array declared with fixed dimensions is assigned an array|
+|[VBC09361](vbc09361.md)|ByRef argument type mismatch — a variable is passed to a `ByRef` parameter of another type|
+|[VBC09362](vbc09362.md)|Type mismatch: array or user-defined type expected — an array is passed to a parameter declared as an array of another type|
 
 ### Runtime errors
 

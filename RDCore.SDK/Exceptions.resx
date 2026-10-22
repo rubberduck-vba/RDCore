@@ -570,4 +570,31 @@
   <data name="VBCompileError_DivisionByZero" xml:space="preserve">
     <value>Division by zero</value>
   </data>
+  <data name="VBCompileError_InvalidQualifier" xml:space="preserve">
+    <value>Invalid qualifier</value>
+  </data>
+  <data name="VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject" xml:space="preserve">
+    <value>Function call on left-hand side of assignment must return Variant or Object</value>
+  </data>
+  <data name="VBCompileError_WrongNumberOfDimensions" xml:space="preserve">
+    <value>Wrong number of dimensions</value>
+  </data>
+  <data name="VBCompileError_ArrayAlreadyDimensioned" xml:space="preserve">
+    <value>Array already dimensioned</value>
+  </data>
+  <data name="VBCompileError_ForControlVariableAlreadyInUse" xml:space="preserve">
+    <value>For control variable already in use</value>
+  </data>
+  <data name="VBCompileError_InvalidNextControlVariableReference" xml:space="preserve">
+    <value>Invalid Next control variable reference</value>
+  </data>
+  <data name="VBCompileError_CantAssignToArray" xml:space="preserve">
+    <value>Can't assign to array</value>
+  </data>
+  <data name="VBCompileError_ByRefArgumentTypeMismatch" xml:space="preserve">
+    <value>ByRef argument type mismatch</value>
+  </data>
+  <data name="VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected" xml:space="preserve">
+    <value>Type mismatch: array or user-defined type expected</value>
+  </data>
 </root>

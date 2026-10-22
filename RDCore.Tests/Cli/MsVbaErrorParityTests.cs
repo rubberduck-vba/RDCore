@@ -26,7 +26,12 @@ public sealed class MsVbaErrorParityTests
             "Public Function NoArgs() As Variant", "    NoArgs = Array(10, 20, 30)", "End Function",
             "Public Function LongFn() As Long", "    LongFn = 7", "End Function",
             "Public Function Twice(ByVal N As Long) As Long", "    Twice = 2 * N", "End Function",
-            "Public Sub SomeSub()", "End Sub")),
+            "Public Sub SomeSub()", "End Sub",
+            "Public Sub TakesLong(ByRef N As Long)", "End Sub",
+            "Public Sub TakesLongArray(ByRef A() As Long)", "End Sub",
+            "Public Sub TakesObject(ByRef O As Object)", "End Sub",
+            "Public Sub TakesCollection(ByRef C As Collection)", "End Sub",
+            "Public Function Two() As Long", "    Two = 2", "End Function")),
     ];
 
     // the case's statements, in a procedure that traps every error and prints what each statement printed.
@@ -89,6 +94,24 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Const k As Integer = 99999", "Overflow", DisplayName = "a constant too large for its type")]
     [DataRow("Const k As Long = 2147483647 + 1", "Overflow", DisplayName = "a constant whose operation overflows")]
     [DataRow("Const k = 1 / 0", "Division by zero", DisplayName = "a constant that divides by zero")]
+    [DataRow("Dim a(Globals.Two) As Long", "Constant expression required", DisplayName = "a bound of a fixed-size array that calls a function")]
+    [DataRow("Dim i As Integer ;; Globals.TakesLong i", "ByRef argument type mismatch", DisplayName = "an Integer variable to a ByRef Long")]
+    [DataRow("Dim v As Variant ;; Globals.TakesLong v", "ByRef argument type mismatch", DisplayName = "a Variant variable to a ByRef Long")]
+    [DataRow("Dim v As Variant ;; Set v = New Collection ;; Globals.TakesCollection v", "ByRef argument type mismatch", DisplayName = "a Variant variable to a ByRef Collection")]
+    [DataRow("Dim a(2) As Integer ;; Globals.TakesLongArray a", "Type mismatch: array or user-defined type expected", DisplayName = "an Integer array to a Long() parameter")]
+    [DataRow("Dim n As Long ;; Debug.Print n.X", "Invalid qualifier", DisplayName = "a member of a Long")]
+    [DataRow("Dim n As Long ;; Debug.Print n(1)", "Expected array", DisplayName = "an index of a Long")]
+    [DataRow("Dim n As Long ;; Erase n", "Expected array", DisplayName = "an Erase of a Long")]
+    [DataRow("Dim a(2) As Long ;; Debug.Print a(1, 2)", "Wrong number of dimensions", DisplayName = "two subscripts of a one-dimension array")]
+    [DataRow("Dim a(2) As Long ;; ReDim a(5)", "Array already dimensioned", DisplayName = "a ReDim of a fixed-size array")]
+    [DataRow("Globals.Two() = 1", "Function call on left-hand side of assignment must return Variant or Object", DisplayName = "a call of a function that returns a Long assigned")]
+    [DataRow("Dim i As Long ;; For i = 1 To 2 ;; For i = 1 To 2 ;; Next ;; Next", "For control variable already in use", DisplayName = "a For loop nested in a loop of its variable")]
+    [DataRow("Dim c As New Collection, x As Variant ;; For Each x In c ;; For Each x In c ;; Next ;; Next", "For control variable already in use", DisplayName = "a For Each loop nested in a loop of its variable")]
+    [DataRow("Dim i As Long, j As Long ;; For i = 1 To 2 ;; Next j", "Invalid Next control variable reference", DisplayName = "a Next of another variable")]
+    [DataRow("Dim i As Long, j As Long ;; For i = 1 To 2 ;; For j = 1 To 2 ;; Next i, j", "Invalid Next control variable reference", DisplayName = "a Next of two loops, in the wrong order")]
+    [DataRow("Dim i As Long, x As Variant, c As New Collection ;; For Each x In c ;; Next i", "Invalid Next control variable reference", DisplayName = "a Next of another variable, of a For Each loop")]
+    [DataRow("Dim a(2) As Long, b(2) As Long ;; a = b", "Can't assign to array", DisplayName = "a fixed-size array assigned")]
+    [DataRow("Dim x As New Long", "Syntax error", DisplayName = "a variable of a Long declared As New")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
 
@@ -140,6 +163,12 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Const k = 1 + Globals.Color.Red ;; Debug.Print k", "2", DisplayName = "a constant of an enumeration's member, qualified by its module")]
     [DataRow("Const k = \"a\" & vbCrLf ;; Debug.Print Len(k)", "3", DisplayName = "a constant of a library's constant")]
     [DataRow("Const k = 2 ^ 3 Mod 5 ;; Debug.Print k", "3", DisplayName = "a constant of operators")]
+    [DataRow("Const n As Long = 2 ;; Dim a(n) As Long ;; Debug.Print UBound(a)", "2", DisplayName = "a bound of a fixed-size array that is a constant")]
+    [DataRow("Dim n As Long ;; Globals.TakesLong (n) ;; Debug.Print \"ok\"", "ok", DisplayName = "a variable of another type passed in parentheses, as a value")]
+    [DataRow("Dim c As New Collection ;; Globals.TakesObject c ;; Debug.Print \"ok\"", "ok", DisplayName = "a variable of a class to a ByRef Object")]
+    [DataRow("Dim o As Object ;; Set o = New Collection ;; Globals.TakesCollection o ;; Debug.Print \"ok\"", "ok", DisplayName = "an Object variable to a ByRef parameter of a class")]
+    [DataRow("Dim i As Long, j As Long ;; For i = 1 To 2 ;; For j = 1 To 2 ;; Next j, i ;; Debug.Print i", "3", DisplayName = "a Next of two loops")]
+    [DataRow("Dim a() As Long, b(2) As Long ;; a = b ;; Debug.Print UBound(a)", "2", DisplayName = "an array without dimensions assigned")]
     [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"xy\" ;; Debug.Print TypeName(v) & \"[\" & v & \"]\"", "String[x]", DisplayName = "an LSet of a Variant that holds a number leaves a String")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());

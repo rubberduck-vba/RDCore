@@ -113,5 +113,14 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.InvalidDataTypeForConstant] = Exceptions.VBCompileError_InvalidDataTypeForConstant,
         [VBCompileErrorId.Overflow] = Exceptions.VBCompileError_Overflow,
         [VBCompileErrorId.DivisionByZero] = Exceptions.VBCompileError_DivisionByZero,
+        [VBCompileErrorId.InvalidQualifier] = Exceptions.VBCompileError_InvalidQualifier,
+        [VBCompileErrorId.FunctionCallOnLeftHandSideMustReturnVariantOrObject] = Exceptions.VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject,
+        [VBCompileErrorId.WrongNumberOfDimensions] = Exceptions.VBCompileError_WrongNumberOfDimensions,
+        [VBCompileErrorId.ArrayAlreadyDimensioned] = Exceptions.VBCompileError_ArrayAlreadyDimensioned,
+        [VBCompileErrorId.ForControlVariableAlreadyInUse] = Exceptions.VBCompileError_ForControlVariableAlreadyInUse,
+        [VBCompileErrorId.InvalidNextControlVariableReference] = Exceptions.VBCompileError_InvalidNextControlVariableReference,
+        [VBCompileErrorId.CantAssignToArray] = Exceptions.VBCompileError_CantAssignToArray,
+        [VBCompileErrorId.ByRefArgumentTypeMismatch] = Exceptions.VBCompileError_ByRefArgumentTypeMismatch,
+        [VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected] = Exceptions.VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected,
     };
 }

@@ -235,6 +235,23 @@ public static class ExpressionStaticSemanticsEvaluator
                 : calleeResult;
         }
 
+        // a variable of an intrinsic type other than Variant has no element (MS-VBA: "Expected array"), and an array declared with fixed dimensions has an
+        // element for as many subscripts as it has dimensions (MS-VBA: "Wrong number of dimensions") - Excel-verified.
+        if (indexExpression.Callee is SimpleNameExpressionNode name
+            && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is { } variable and not (VBReturningMemberSymbol or VBProcedureMemberSymbol))
+        {
+            if (calleeResult.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, indexExpression.Callee.Location, name.IdentifierName));
+            }
+
+            if (variable.TryGetProperty(SymbolProperties.ArrayBounds, out var bounds) && !bounds.IsDefaultOrEmpty
+                && indexExpression.Arguments is not ([] or [MissingArgumentNode]) && indexExpression.Arguments.Length != bounds.Length)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.WrongNumberOfDimensions, indexExpression.Location, name.IdentifierName));
+            }
+        }
+
         return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
     }
 

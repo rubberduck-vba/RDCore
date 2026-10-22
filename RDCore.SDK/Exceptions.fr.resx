@@ -570,4 +570,31 @@
   <data name="VBCompileError_DivisionByZero" xml:space="preserve">
     <value>Division par zéro</value>
   </data>
+  <data name="VBCompileError_InvalidQualifier" xml:space="preserve">
+    <value>Qualificateur incorrect</value>
+  </data>
+  <data name="VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject" xml:space="preserve">
+    <value>L'appel de fonction du côté gauche de l'affectation doit retourner un Variant ou un Object</value>
+  </data>
+  <data name="VBCompileError_WrongNumberOfDimensions" xml:space="preserve">
+    <value>Nombre de dimensions incorrect</value>
+  </data>
+  <data name="VBCompileError_ArrayAlreadyDimensioned" xml:space="preserve">
+    <value>Tableau déjà dimensionné</value>
+  </data>
+  <data name="VBCompileError_ForControlVariableAlreadyInUse" xml:space="preserve">
+    <value>Variable de contrôle For déjà utilisée</value>
+  </data>
+  <data name="VBCompileError_InvalidNextControlVariableReference" xml:space="preserve">
+    <value>Référence incorrecte à la variable de contrôle Next</value>
+  </data>
+  <data name="VBCompileError_CantAssignToArray" xml:space="preserve">
+    <value>Impossible d'assigner à un tableau</value>
+  </data>
+  <data name="VBCompileError_ByRefArgumentTypeMismatch" xml:space="preserve">
+    <value>Type d'argument ByRef incompatible</value>
+  </data>
+  <data name="VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected" xml:space="preserve">
+    <value>Incompatibilité de type : tableau ou type défini par l'utilisateur attendu</value>
+  </data>
 </root>

@@ -14,5 +14,13 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <param name="StepExpression">A numeric expression that evaluates to the iteration increment of the control variable, or <c>null</c> when the loop declares no <c>Step</c> clause (MS-VBAL's implicit default of <c>1</c> is a runtime concern, not a syntax one).</param>
 /// <param name="Body">The executable statements in the body of the loop.</param>
 public record class ForStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ExpressionNode ControlExpression, ExpressionNode StartExpression, ExpressionNode EndExpression, ExpressionNode? StepExpression, StatementBlock Body)
-    : StatementNode(Identity, SourceLocation, StepExpression is null ? [ControlExpression, StartExpression, EndExpression] : [ControlExpression, StartExpression, EndExpression, StepExpression]);
+    : StatementNode(Identity, SourceLocation, StepExpression is null ? [ControlExpression, StartExpression, EndExpression] : [ControlExpression, StartExpression, EndExpression, StepExpression])
+{
+    /// <summary>
+    /// The variable named by the <c>Next</c> statement that ends the loop - <c>Next i</c>, or the name after a comma of the <c>Next</c> of a loop nested in
+    /// it (<c>Next j, i</c>) - or <see langword="null"/> when it names none. It is the loop's control variable (MS-VBA: "Invalid Next control variable
+    /// reference" when it is not).
+    /// </summary>
+    public ExpressionNode? NextExpression { get; init; }
+}
 
