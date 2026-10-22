@@ -76,15 +76,18 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
             return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
         }
 
-        // a class can have members this rule doesn't see (Implements, late-bound additions); a UDT
-        // or Enum is a closed set of fields the parser already saw in full.
-        // 🚧 TODO every class is treated as extensible, which is what a host class (`Excel.Application.XLookup`) needs;
-        // a class that is closed - a workspace class, whose members the declaration pass saw in full - could reject an
-        // unknown member with MethodOrDataMemberNotFound too, once a class can say whether it is extensible.
-        return owner is VBClassType
+        // an extensible class can have members its declaration does not: a library's, whose host adds members to its objects (`Excel.Application.XLookup`,
+        // and MS-VBA compiles `Err.Nope` and `c.Nope` of a Collection, raising 438 at run time), or a class module with Attribute VB_Extensible. Any other
+        // class module of the workspace is a closed set of members the declaration pass saw in full, as a UDT or an Enum is, and MS-VBA rejects an unknown
+        // member of it at compile time (Excel-verified).
+        return owner is VBClassType classType && IsExtensible(context, classType)
             ? StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));
     }
+
+    // whether a class says it is extensible (SymbolProperties.Extensible), as its declaration is now.
+    private static bool IsExtensible(StaticEvaluationContext context, VBClassType classType)
+        => (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).GetProperty(SymbolProperties.Extensible);
 
     // A declared type carries the members its declaration had when the type was built, and a class whose
     // member is typed as the class itself - or two classes typed after each other - cannot be built by

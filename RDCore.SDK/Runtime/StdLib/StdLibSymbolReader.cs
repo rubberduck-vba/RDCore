@@ -236,7 +236,10 @@ public sealed class StdLibSymbolReader
         var name = attribute.Name ?? StdLibNames.ClassName(declaration.Name);
 
         var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(_workspaceRoot, _workspaceRoot, name)
-            .With(SymbolProperties.Creatable, attribute.IsCreatable);
+            .With(SymbolProperties.Creatable, attribute.IsCreatable)
+            // a library's class, as any library's is: MS-VBA compiles a member its declaration does not have (`Err.Nope`, `c.Nope` of a Collection) and
+            // raises 438 at run time (Excel-verified).
+            .With(SymbolProperties.Extensible, true);
 
         symbol = symbol with
         {

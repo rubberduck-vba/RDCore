@@ -324,15 +324,12 @@ public sealed class ExpressionBinderTests
     }
 
     [TestMethod]
-    public void AMemberThatIsNoMemberOfTheClass_IsFoundFromTheValue()
+    public void AMemberThatIsNoMemberOfAWorkspaceClass_IsACompileError_AndIsNotBound()
     {
         var context = ContextWithACounter();
         var access = MemberOf("c", "Reset");
 
-        // no member of the class to bind to: the member is looked up in the object each time, as the syntax tree's evaluation looks it up.
-        var bound = (BoundMember)ExpressionBinder.Bind(context, access).NodeOf(access)!;
-        Assert.IsNull(bound.DeclaredClass);
-        Assert.IsNull(bound.Member);
-        Assert.IsInstanceOfType<BoundVariable>(bound.Owner);
+        // a class module of the workspace is a closed set of members: an unknown one is a compile error, which the static pass reports.
+        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, access).NodeOf(access));
     }
 }

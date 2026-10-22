@@ -190,7 +190,9 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
         // a name it does not declare is a late-bound call to resolve at run time - never a compile-time error.
         var excel = (VBProjectSymbol)new VBProjectSymbol(Root, "Excel").With(SymbolProperties.Library, "Excel");
         var globals = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Globals").With(SymbolProperties.Library, "Excel");
-        var application = new VBClassModuleSymbol(Root, Root, "Application");
+        // as the library reader declares a library's class: extensible.
+        var application = (VBClassModuleSymbol)new VBClassModuleSymbol(Root, Root, "Application")
+            .With(SymbolProperties.Library, "Excel").With(SymbolProperties.Extensible, true);
         var applicationType = new VBClassType(application, application.DefaultInterfaceMembers);
         var applicationProperty = new VBFunctionMemberSymbol(
             Root, globals.Uri, "Application", ScopeKind.Module, SymbolKindExt.Property, applicationType, R, R, AccessModifier.Public)

@@ -38,14 +38,16 @@ public sealed class BoundQualifiedTests
     // MS-VBAL 5.6.12: a member of a procedural module, named through it, is what the name means unqualified there - read, called, indexed.
     [TestMethod]
     public async Task AMemberOfAModule_NamedThroughIt_IsReadCalledAndIndexed()
-        => CollectionAssert.AreEqual(new[] { "3", "14", "b", "c", "4" }, await RunMainBodyAsync(
+        => CollectionAssert.AreEqual(new[] { "3", "14", "b", "c", "4", "b" }, await RunMainBodyAsync(
             "Dim I As Long",
             "For I = 1 To 3", "    Globals.Count = Globals.Count + 1", "Next",
             "Debug.Print Globals.Count",
             "Debug.Print Globals.Twice(7)",
             "Globals.Items(1) = \"b\"", "Debug.Print Globals.Items(1)",
             "Debug.Print Globals.Letters()(2)",
-            "Debug.Print VBA.Len(\"RD-V\")"));
+            "Debug.Print VBA.Len(\"RD-V\")",
+            // a function that declares no parameters is called with none, and what it returns is indexed - qualified as bare (MS-VBA, Excel-verified).
+            "Debug.Print Globals.Letters(1)"));
 
     // MS-VBAL 5.6.12: a member of an enumeration named by its type is the constant; its module can qualify the enumeration.
     [TestMethod]

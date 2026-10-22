@@ -48,7 +48,12 @@ public sealed record class WithStatementRuntimeSemantics(
             return builder;
         }
 
-        // the same two forms Evaluate tells apart; anything else is no form of the statement.
+        // the same two forms Evaluate tells apart, of what a Variant holds; anything else is no form of the statement.
+        while (target is VBVariantValue { TypedValue: { } wrapped })
+        {
+            target = wrapped;
+        }
+
         builder.AddFlags(target switch
         {
             VBObjectValue => WithStatementSemanticFlags.ClassTarget,
@@ -70,21 +75,31 @@ public sealed record class WithStatementRuntimeSemantics(
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        if (target is VBObjectValue)
+        // a Variant is what it holds: an object, a record, or a value of neither kind.
+        var held = target;
+        while (held is VBVariantValue { TypedValue: { } wrapped })
         {
-            var setResult = SetCoercionSemantics.EvaluateSetCoercion(session, withStatement.WithExpression, target, target.TypeInfo);
+            held = wrapped;
+        }
+
+        if (held is VBObjectValue)
+        {
+            var setResult = SetCoercionSemantics.EvaluateSetCoercion(session, withStatement.WithExpression, held, held.TypeInfo);
             return setResult.IsSuccess
                 ? RuntimeSemanticsEvaluationResult.Success(setResult.Result!)
                 : RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!);
         }
 
-        if (target is not VBUserDefinedTypeValue)
+        if (held is not VBUserDefinedTypeValue)
         {
-            // MS-VBAL static semantics should already have rejected anything that's neither a class nor
-            // a UDT (Object/Variant resolve to one of those, or Nothing, at run time).
-            return RuntimeSemanticsEvaluationResult.InternalError();
+            // a Variant that holds neither is the block's target all the same, and a member of it is error 424 (MS-VBA, Excel-verified); any other type is
+            // one MS-VBAL static semantics rejects.
+            return target is VBVariantValue
+                ? RuntimeSemanticsEvaluationResult.Success(target)
+                : RuntimeSemanticsEvaluationResult.InternalError();
         }
 
+        target = held;
         var frame = new LetCoercionStackFrame(withStatement.WithExpression.Identity, InputIndex.CoercionSourceValue, target, new VBTypeDescValue(target.TypeInfo), ConversionSite.WithTarget);
         var letResult = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, withStatement.WithExpression, frame);
         return letResult.IsSuccess

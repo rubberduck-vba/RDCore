@@ -228,11 +228,17 @@
   <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'expression de collection de cette boucle For Each est Nothing. Son énumération requiert l'invocation de son membre _NewEnum, ce qui est impossible sur une référence d'objet non définie.</value>
   </data>
+  <data name="VBMemberAssignment_ReadOnlyProperty_Verbose" xml:space="preserve">
+    <value>La propriété {0} de l'objet a un Property Get et aucun Property Let, et ce qu'elle retourne n'est pas un objet dont le membre par défaut pourrait être assigné à sa place.</value>
+  </data>
   <data name="VBMemberAssignment_NotAssignable_Verbose" xml:space="preserve">
     <value>L'objet n'a aucune variable publique, ni Property Let ni Property Set, de ce nom dans laquelle l'affectation puisse écrire.</value>
   </data>
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
+  </data>
+  <data name="VBIndex_NothingToIndex_Verbose" xml:space="preserve">
+    <value>Un {0} n'est ni un tableau ni un objet : il n'y a rien à indexer.</value>
   </data>
   <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
     <value>L'objet n'a aucun membre nommé {0}.</value>

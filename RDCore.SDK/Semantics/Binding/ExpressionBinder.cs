@@ -130,7 +130,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier && NamespaceMemberOf(context, qualifier, access) is { } member
                 => member is VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                    ? new BoundCall(index, procedure, IsQualified: true)
+                    ? new BoundCall(index, procedure)
                     : new BoundIndex(index, new BoundQualifiedName(access, member)),
 
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no

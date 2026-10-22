@@ -415,8 +415,17 @@ public sealed class LetAssignmentEvaluator(
 
         if (expressions.ResolveAssignableMember(session, context, memberAccess, owner, isSet) is not { } member)
         {
-            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
-                VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
+            // a property the object can read and not assign - a Property Get, and no Property Let or Set - is error 451 for a Let of one that returns no
+            // object, and 450 for a Set; no member of the name at all is 438 (MS-VBA, Excel-verified).
+            var name = memberAccess.Member.IdentifierName;
+            return RuntimeExecutionOutcome.Error(
+                isSet && HasPropertyGet(session, owner, name, returningAValueOnly: false)
+                    ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, memberAccess.Location,
+                        string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name))
+                : !isSet && HasPropertyGet(session, owner, name, returningAValueOnly: true)
+                    ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject, memberAccess.Location,
+                        string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, name))
+                : VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Location, Exceptions.VBMemberAssignment_NotAssignable_Verbose));
         }
 
         if (member.Accessor is { } accessor)
@@ -486,6 +495,14 @@ public sealed class LetAssignmentEvaluator(
 
         return RuntimeExecutionOutcome.Next;
     }
+
+    // whether the class of the object has a Property Get of the name - for a Let, one declared as a type that holds no object: one that does is the default
+    // member of the object it returns that MS-VBAL §5.4.3.8 assigns, which is not this.
+    private static bool HasPropertyGet(IRuntimeSession session, VBObjectValue owner, string name, bool returningAValueOnly)
+        => session.Symbols.TryGetInstance(owner.Value, out var instance)
+            && instance.ClassModule.DefaultInterfaceMembers.Any(member => member is VBPropertyGetMemberSymbol { ResolvedType: var type }
+                && (!returningAValueOnly || type is not (VBClassType or VBObjectType or VBVariantType))
+                && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase));
 
     // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a UDT. A UDT field is not an
     // addressable Symbol the way a variable is - it lives on the value, which is what makes it reachable at

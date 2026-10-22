@@ -43,12 +43,20 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not an <see cref="IndexExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
-        if (expression is not IndexExpressionNode)
+        if (expression is not IndexExpressionNode index)
         {
             throw new ArgumentException($"Expected an {nameof(IndexExpressionNode)}.", nameof(expression));
         }
 
         var callee = operandDeclaredTypes[(int)InputIndex.IndexExpressionCallee];
+
+        // what a call or an element evaluated to - `F()(1)` of a Function F() As Long - is a value, and a value of an intrinsic type other than Variant is
+        // neither an array nor an object: MS-VBA rejects indexing it at compile time with a type mismatch (Excel-verified).
+        if (index.Callee is IndexExpressionNode && callee is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
+                string.Format(Exceptions.VBIndex_NothingToIndex_Verbose, callee.Name)));
+        }
         if (callee is VBVariantType or VBObjectType)
         {
             // late-bound: classified as an unbound member with a declared type of Variant.

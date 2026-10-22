@@ -116,9 +116,22 @@ public sealed class MemberAccessExpressionStaticSemanticsTests
     }
 
     [TestMethod]
-    public void AClassMemberNotDeclared_IsDeferredNotAnError()
+    public void AMemberNotDeclaredByAWorkspaceClass_IsMethodOrDataMemberNotFound()
     {
+        // a class module of the workspace is a closed set of members: MS-VBA rejects an unknown one at compile time (Excel-verified).
         var widget = Class("Widget");
+
+        var result = MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, Access("obj", "Whatever"), widget);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual((int)VBCompileErrorId.MethodOrDataMemberNotFound, result.ErrorInfo!.ErrorId);
+    }
+
+    [TestMethod]
+    public void AMemberNotDeclaredByAnExtensibleClass_IsDeferredNotAnError()
+    {
+        // a library's class, or one with Attribute VB_Extensible, can have members its declaration does not: the call is late-bound.
+        var widget = new VBClassType((VBClassModuleSymbol)new VBClassModuleSymbol(Root, Root, "Widget").With(SymbolProperties.Extensible, true), []);
 
         var result = MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(Context, Access("obj", "Whatever"), widget);
 

@@ -924,6 +924,24 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A {0} is neither an array nor an object: there is nothing to index..
+        /// </summary>
+        public static string VBIndex_NothingToIndex_Verbose {
+            get {
+                return ResourceManager.GetString("VBIndex_NothingToIndex_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The object&apos;s {0} property has a Property Get and no Property Let, and what it returns is no object whose default member could be assigned instead..
+        /// </summary>
+        public static string VBMemberAssignment_ReadOnlyProperty_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAssignment_ReadOnlyProperty_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The object has no member named {0}..
         /// </summary>
         public static string VBMemberAccess_NoSuchMember_Verbose {

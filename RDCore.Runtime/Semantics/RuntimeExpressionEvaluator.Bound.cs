@@ -391,10 +391,9 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // what EvaluateIndex does with a callee that resolves to a procedure, its callee resolved once: a function that declares no parameter is not given what
-    // follows it in parentheses, which indexes what it returns - and that is evaluated from the syntax tree. One named through its namespace is called with
-    // the arguments, as EvaluateIndex calls it.
+    // follows it in parentheses, which indexes what it returns - and that is evaluated from the syntax tree.
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
-        => call.Procedure is VBTypeMemberSymbol procedure && (call.IsQualified || !ReturnsToBeIndexed(procedure, null, call.Call.Arguments))
+        => call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
             ? InvokeProcedure(session, context, procedure, call.Call.Arguments)
             : EvaluateSyntax(session, call.Expression, context);
 

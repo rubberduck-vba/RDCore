@@ -99,10 +99,9 @@ public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, O
 /// own, bound in its turn. 🚧 Binding how each argument is passed is a later step.
 /// </remarks>
 /// <param name="Call">The index expression that is the call.</param>
-/// <param name="Procedure">The procedure called.</param>
-/// <param name="IsQualified">Whether the procedure is named through the project or the procedural module it is a member of (<strong>§5.6.12</strong>) -
-/// <c>VBA.Len(s)</c>, <c>Module1.Total(1)</c> - which is a call of it with the arguments, whatever parameters it declares.</param>
-public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure, bool IsQualified = false) : BoundNode(Call);
+/// <param name="Procedure">The procedure called, named bare or through the project or the procedural module it is a member of (<strong>§5.6.12</strong>) -
+/// <c>VBA.Len(s)</c>, <c>Module1.Total(1)</c>.</param>
+public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure) : BoundNode(Call);
 
 /// <summary>
 /// A name qualified by the project or the procedural module it is a member of, or by the enumeration it is a member of (<strong>MS-VBAL §5.6.12</strong>):

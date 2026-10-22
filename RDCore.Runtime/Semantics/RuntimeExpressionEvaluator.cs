@@ -1398,15 +1398,25 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && TryClassifyNamespace(session, context, namespaceExpression) is { } qualifier)
         {
             // MS-VBAL §5.6.12: a call of a member of a project or a procedural module - Strings.LenB("42"),
-            // VBA.LenB("42") - is a call of the procedure it names, with no object to evaluate and no receiver.
-            // Anything else it names is a value, which the arguments then index.
+            // VBA.LenB("42") - is a call of the procedure it names, with no object to evaluate and no receiver - and,
+            // as by its bare name, a function that declares no parameters is called with none, and what it returns is
+            // indexed (MS-VBA: `Module1.Letters(1)`, Excel-verified). Anything else it names is a value, which the
+            // arguments then index.
             var member = ResolveNamespaceMember(session, context, qualifier, namespaced);
             if (member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
             {
-                return InvokeProcedure(session, context, (VBTypeMemberSymbol)member, indexExpression.Arguments);
-            }
+                var procedure = (VBTypeMemberSymbol)member;
+                if (!ReturnsToBeIndexed(procedure, null, indexExpression.Arguments))
+                {
+                    return InvokeProcedure(session, context, procedure, indexExpression.Arguments);
+                }
 
-            calleeResult = ReadSymbol(session, context, member, nameOfEnclosingFunctionIsItsResult: false);
+                calleeResult = InvokeProcedure(session, context, procedure, []);
+            }
+            else
+            {
+                calleeResult = ReadSymbol(session, context, member, nameOfEnclosingFunctionIsItsResult: false);
+            }
         }
         else if (indexExpression.Callee is MemberAccessExpressionNode qualified)
         {
@@ -1491,8 +1501,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (calleeValue is not VBArrayValue array)
         {
-            // any other Callee shape is a function/property call, not an element read.
-            return RuntimeSemanticsEvaluationResult.InternalError();
+            // a value that is neither an array nor an object - what a Variant holds when it holds a number - has nothing to index: a type mismatch (MS-VBA).
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
+                string.Format(Exceptions.VBIndex_NothingToIndex_Verbose, calleeValue?.TypeInfo.Name)));
         }
 
         if (EvaluateSubscripts(session, context, indexExpression.Arguments, out var subscripts, out var subscriptsKnown) is { } subscriptFailure)
