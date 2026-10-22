@@ -154,6 +154,28 @@ public sealed class BoundMemberTests
             "Debug.Print a(2)",
             "On Error Resume Next", "Debug.Print a(3)", "Debug.Print Err.Number"));
 
+    // an object declared Object or held by a Variant is late-bound: the member is the one its class has by the name, found from the value.
+    [TestMethod]
+    public async Task AMemberOfALateBoundObject_IsTheOneItsClassHasByThatName()
+        => CollectionAssert.AreEqual(new[] { "2", "14", "1", "2" }, await RunMainAsync(
+            "Dim o As Object, v As Variant, k As Object",
+            "Set o = New Counter", "o.Increment", "o.Increment",
+            "Debug.Print o.Value",
+            "Debug.Print o.Twice(7)",
+            "Set v = New Counter", "v.Increment",
+            "Debug.Print v.Value",
+            "Set k = New Collection", "k.Add 1", "k.Add 2",
+            "Debug.Print k.Count"));
+
+    // MS-VBA: a member of an Object that is Nothing is error 91, and of a Variant that holds no object error 424 (recorded in Excel).
+    [TestMethod]
+    public async Task AMemberOfALateBoundOwnerThatHoldsNoObject_IsError91Or424()
+        => CollectionAssert.AreEqual(new[] { "91", "424" }, await RunMainAsync(
+            "Dim o As Object, v As Variant",
+            "On Error Resume Next",
+            "o.Increment", "Debug.Print Err.Number", "Err.Clear",
+            "v = 5", "v.Increment", "Debug.Print Err.Number"));
+
     // a public variable of a class is the storage of the object: read, and indexed by what follows it in parentheses.
     [TestMethod]
     public async Task APublicVariableOfAClass_IsRead_AndIndexed()

@@ -95,17 +95,19 @@ public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure)
 /// The binding is the resolution of the member in the class the owner is declared as, made once. The object the owner holds at run time is an instance of
 /// that class, or of a class that implements it as an interface (<strong>§5.3.1.9</strong>), whose member is then the one implementing it: which one is a
 /// fact of the object's class, decided once for each class the expression meets. A member that is a public variable of the class, a member of an object
-/// declared <c>Object</c> or <c>Variant</c> (late-bound) is not bound yet.
+/// declared <c>Object</c> or <c>Variant</c> is late-bound, and a field of a user-defined type is the record's: neither has a member to resolve, and only the
+/// owner is bound (<paramref name="DeclaredClass"/> and <paramref name="Member"/> are <see langword="null"/>) - the member is found by name, from the value,
+/// each time, as the syntax tree's evaluation finds it.
 /// </remarks>
 /// <param name="Expression">The expression: the member access, or the index expression that calls it.</param>
 /// <param name="Access">The member access.</param>
 /// <param name="Owner">The object the member is accessed on, bound; <see langword="null"/> for a member written with no object before the dot, which is a
 /// member of the target of the enclosing <c>With</c> block (<strong>MS-VBAL §5.6.15</strong>).</param>
-/// <param name="DeclaredClass">The class the owner is declared as.</param>
-/// <param name="Member">The member of <paramref name="DeclaredClass"/> the name resolves to.</param>
+/// <param name="DeclaredClass">The class the owner is declared as; <see langword="null"/> for an owner that is late-bound or a record.</param>
+/// <param name="Member">The member of <paramref name="DeclaredClass"/> the name resolves to; <see langword="null"/> when there is no class.</param>
 /// <param name="Arguments">The arguments of a call; <see langword="null"/> for a member that is read, with no argument list.</param>
 public sealed record class BoundMember(
-    ExpressionNode Expression, MemberAccessExpressionNode Access, BoundNode? Owner, VBClassModuleSymbol DeclaredClass, VBTypeMemberSymbol Member,
+    ExpressionNode Expression, MemberAccessExpressionNode Access, BoundNode? Owner, VBClassModuleSymbol? DeclaredClass, VBTypeMemberSymbol? Member,
     IndexExpressionNode? Arguments) : BoundNode(Expression);
 
 /// <summary>

@@ -278,8 +278,8 @@ public sealed class ExpressionBinderTests
 
         var member = Assert.IsInstanceOfType<BoundMember>(ExpressionBinder.Bind(context, access).NodeOf(access));
 
-        Assert.AreEqual(name, member.Member.Name);
-        Assert.AreEqual("Counter", member.DeclaredClass.Name);
+        Assert.AreEqual(name, member.Member?.Name);
+        Assert.AreEqual("Counter", member.DeclaredClass?.Name);
         Assert.IsInstanceOfType<BoundVariable>(member.Owner);
         Assert.IsNull(member.Arguments, "a member that is read has no argument list");
     }
@@ -307,7 +307,7 @@ public sealed class ExpressionBinderTests
         var member = Assert.IsInstanceOfType<BoundMember>(ExpressionBinder.Bind(context with { EnclosingWithTargetType = counter }, access).NodeOf(access));
 
         Assert.IsNull(member.Owner);
-        Assert.AreEqual("Increment", member.Member.Name);
+        Assert.AreEqual("Increment", member.Member?.Name);
     }
 
     // MS-VBAL 5.6.13: a variable indexed - an element of its array, or its object's default member - is read through the variable's node. (An object

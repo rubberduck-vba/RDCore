@@ -141,6 +141,13 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index when NodeOf(callee) is BoundVariable variable
                 => new BoundIndex(index, variable),
 
+            // a member of an object declared Object or Variant (late-bound), or a field of a record: the owner bound, the member found from the value.
+            MemberAccessExpressionNode { Owner: { } owner } access when LateOwnerOf(owner) is { } ownerNode
+                => new BoundMember(access, access, ownerNode, null, null, null),
+
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index when LateOwnerOf(owner) is { } ownerNode
+                => new BoundMember(index, access, ownerNode, null, null, index),
+
             // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
             MemberAccessExpressionNode { Owner: null } access
                 when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
@@ -160,6 +167,11 @@ public sealed class ExpressionBindings
         => NodeOf(owner) is { } node && DeclaredTypeOf(owner) is VBClassType { Symbol: var snapshot }
             ? (node, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot)
             : null;
+
+    // the bound node of an owner that is a variable declared Object or Variant, or as a user-defined type: one that names no module or enumeration, whose
+    // member is the value's to say.
+    private BoundNode? LateOwnerOf(ExpressionNode owner)
+        => NodeOf(owner) is BoundVariable variable && DeclaredTypeOf(owner) is VBObjectType or VBVariantType or VBUserDefinedType ? variable : null;
 
     // the class the target of the enclosing With block is declared as, when it is declared as one, as its declaration is now.
     private static VBClassModuleSymbol? WithTargetOf(StaticEvaluationContext context)

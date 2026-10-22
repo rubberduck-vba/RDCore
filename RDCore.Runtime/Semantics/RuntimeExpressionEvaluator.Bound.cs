@@ -220,7 +220,8 @@ public sealed partial class RuntimeExpressionEvaluator
         {
             result = notSet;
         }
-        else if (UnwrappedOwner(owner) is VBObjectValue objectValue && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
+        else if (bound.DeclaredClass is not null
+            && UnwrappedOwner(owner) is VBObjectValue objectValue && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             && ImplementationOf(bound, instance.ClassModule) is { } member)
         {
             // a public variable of the object is read, as EvaluateInstanceField reads it - and what follows it in parentheses indexes it.
@@ -276,8 +277,9 @@ public sealed partial class RuntimeExpressionEvaluator
             return site.Member;
         }
 
+        // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
-        var declared = bound.DeclaredClass.Uri.AbsoluteUri;
+        var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
         var member = ReferenceEquals(actual, bound.DeclaredClass)
             ? bound.Member
             : (actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declared) is { } implementedInterface
