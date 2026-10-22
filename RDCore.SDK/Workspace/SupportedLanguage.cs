@@ -61,7 +61,7 @@ public class SupportedLanguage
     public bool HasBarePrint { get; init; }
 
     /// <summary>
-    /// Whether the language has the <c>Option Explicit</c> directive (<strong>MS-VBAL Â§5.2.1.3</strong>), with which a module requires that every
+    /// Whether the language has the <c>Option Explicit</c> directive (<strong>MS-VBAL §5.2.1.3</strong>), with which a module requires that every
     /// name it uses is declared.
     /// </summary>
     /// <remarks>
