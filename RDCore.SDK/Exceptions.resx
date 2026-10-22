@@ -348,6 +348,12 @@
   <data name="VBCompileError_ExpectedArray" xml:space="preserve">
     <value>Expected array</value>
   </data>
+  <data name="VBCompileError_ExpectedArray_Verbose" xml:space="preserve">
+    <value>The bounds of an array are asked of an expression declared as a {0}, which never holds one.</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfMe" xml:space="preserve">
+    <value>Invalid use of Me keyword</value>
+  </data>
   <data name="VBCompileError_ExpectedIdentifier" xml:space="preserve">
     <value>Expected identifier</value>
   </data>

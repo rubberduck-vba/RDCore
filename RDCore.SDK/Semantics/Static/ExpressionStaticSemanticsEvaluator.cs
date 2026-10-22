@@ -345,6 +345,14 @@ public static class ExpressionStaticSemanticsEvaluator
             {
                 return result;
             }
+
+            // MS-VBAL §3.3.5.2: what the bounds are asked of is an array; one declared as an intrinsic type other than Variant never holds one (MS-VBA:
+            // "Expected array", Excel-verified).
+            if (ReferenceEquals(operand, arrayBound.Array) && result.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, operand.Location,
+                    string.Format(Exceptions.VBCompileError_ExpectedArray_Verbose, result.Result.Name)));
+            }
         }
 
         return StaticSemanticsEvaluationResult.Success(VBLongType.TypeInfo);

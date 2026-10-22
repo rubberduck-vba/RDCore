@@ -43,6 +43,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09304](vbc09304.md)|Invalid use of object — an object is used where a value of another kind is required|
 |[VBC09305](vbc09305.md)|Invalid ParamArray use — a ParamArray passed to a ByRef parameter of your own code|
 |[VBC09306](vbc09306.md)|Invalid ReDim — a ReDim re-dimensions a member of an object declared As Object|
+|[VBC09307](vbc09307.md)|Expected array — LBound or UBound is asked the bounds of a variable that can never hold an array|
 |[VBC09309](vbc09309.md)|Label not defined — a jump names a line label or line number the procedure does not define|
 |[VBC09310](vbc09310.md)|Type mismatch — a value is of a type that cannot be let-coerced to the type it is used as|
 |[VBC09311](vbc09311.md)|User-defined type not defined — a declared type is a name that does not resolve to a type|

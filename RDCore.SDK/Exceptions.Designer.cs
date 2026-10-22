@@ -942,6 +942,24 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The bounds of an array are asked of an expression declared as a {0}, which never holds one..
+        /// </summary>
+        public static string VBCompileError_ExpectedArray_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedArray_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid use of Me keyword.
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfMe {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfMe", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The object has no member named {0}..
         /// </summary>
         public static string VBMemberAccess_NoSuchMember_Verbose {

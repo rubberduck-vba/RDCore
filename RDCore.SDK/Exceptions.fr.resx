@@ -348,6 +348,12 @@
   <data name="VBCompileError_ExpectedArray" xml:space="preserve">
     <value>Un tableau (array) est attendu</value>
   </data>
+  <data name="VBCompileError_ExpectedArray_Verbose" xml:space="preserve">
+    <value>Les bornes d'un tableau sont demandées à une expression déclarée comme un {0}, qui n'en contient jamais.</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfMe" xml:space="preserve">
+    <value>Utilisation incorrecte du mot clé Me</value>
+  </data>
   <data name="VBCompileError_ExpectedIdentifier" xml:space="preserve">
     <value>Un identifiant est attendu</value>
   </data>

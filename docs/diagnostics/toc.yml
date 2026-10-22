@@ -16,6 +16,8 @@
   href: vbc09305.md
 - name: VBC09306 — Invalid ReDim
   href: vbc09306.md
+- name: VBC09307 — Expected array
+  href: vbc09307.md
 - name: VBC09309 — Label not defined
   href: vbc09309.md
 - name: VBC09310 — Type mismatch

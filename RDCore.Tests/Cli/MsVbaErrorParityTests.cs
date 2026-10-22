@@ -50,10 +50,13 @@ public sealed class MsVbaErrorParityTests
     public async Task AnUnknownMemberOfAClosedSet_IsMethodOrDataMemberNotFound(string body)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), "Method or data member not found");
 
-    // MS-VBA: Compile error: Type mismatch - what a call returns is a value, and a Long has nothing to index.
+    // MS-VBA's compile errors, by their message.
     [TestMethod]
-    public async Task IndexingWhatAFunctionReturns_WhenItIsALong_IsATypeMismatch()
-        => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program("Debug.Print LongFn()(1)"))), "Type mismatch");
+    [DataRow("Debug.Print LongFn()(1)", "Type mismatch", DisplayName = "an index of what a function returns, a Long")]
+    [DataRow("Dim n As Long ;; Debug.Print UBound(n)", "Expected array", DisplayName = "UBound of a Long")]
+    [DataRow("Debug.Print Me Is Nothing", "Invalid use of Me keyword", DisplayName = "Me in a standard module")]
+    public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
+        => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
 
     // what MS-VBA compiles, and raises at run time: each statement prints the error it raised.
     [TestMethod]
