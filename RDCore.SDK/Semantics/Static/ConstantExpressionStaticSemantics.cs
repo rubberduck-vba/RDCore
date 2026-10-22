@@ -103,7 +103,7 @@ public static class ConstantExpressionStaticSemantics
         }
 
         return FirstNotConstant(resolver, scope, value) is { } offending
-            ? VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending))
+            ? VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, offending.Location, Describe(offending) ?? string.Empty)
             : null;
     }
 

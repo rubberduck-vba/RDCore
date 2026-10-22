@@ -93,7 +93,7 @@ public static class ExpressionStaticSemanticsEvaluator
         if (item.Value is { } value && Evaluate(context, value) is { IsSuccess: true, Result: VBVoidType })
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, value.Location,
-                value switch { SimpleNameExpressionNode name => name.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => null }));
+                value switch { SimpleNameExpressionNode name => name.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => string.Empty }));
         }
 
         return EvaluateOperands(context, item.Value);

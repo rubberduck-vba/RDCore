@@ -163,7 +163,7 @@ internal static class ArgumentListStaticSemantics
 
         return ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, passed) is { IsSuccess: true, Result: VBVoidType }
             ? VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, passed.Location,
-                passed switch { SimpleNameExpressionNode name => name.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => null })
+                passed switch { SimpleNameExpressionNode name => name.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => string.Empty })
             : null;
     }
 }

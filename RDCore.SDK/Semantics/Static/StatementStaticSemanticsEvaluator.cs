@@ -407,7 +407,7 @@ public static class StatementStaticSemanticsEvaluator
                     {
                         if (ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, element).Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
                         {
-                            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, element.Location, element is SimpleNameExpressionNode erased ? erased.IdentifierName : null));
+                            walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, element.Location, element is SimpleNameExpressionNode erased ? erased.IdentifierName : string.Empty));
                         }
                     }
                     break;

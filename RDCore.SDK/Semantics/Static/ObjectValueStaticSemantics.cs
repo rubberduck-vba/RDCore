@@ -66,7 +66,7 @@ public static class ObjectValueStaticSemantics
         // MS-VBAL §5.6.2.1: a subroutine has no value to evaluate to (MS-VBA: "Expected Function or variable", Excel-verified).
         if (declaredType is VBVoidType)
         {
-            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, expression.Location, NameOf(expression)));
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, expression.Location, NameOf(expression) ?? string.Empty));
         }
 
         if (declaredType is not VBClassType classType)
