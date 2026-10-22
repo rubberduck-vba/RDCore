@@ -97,6 +97,42 @@ public sealed class BoundMemberTests
             "Dim c As New Counter",
             "Debug.Print c.Items(1)"));
 
+    // MS-VBAL 5.6.15: a member written with no object before the dot is a member of the target of the enclosing With block - the innermost one.
+    [TestMethod]
+    public async Task AMemberOfTheTargetOfAWithBlock_IsReadAndCalled()
+        => CollectionAssert.AreEqual(new[] { "3", "14", "1", "3" }, await RunMainAsync(
+            "Dim c As New Counter, d As New Counter",
+            "With c",
+            "    .Increment", "    .Increment 2",
+            "    Debug.Print .Value",
+            "    Debug.Print .Twice(7)",
+            "    With d",
+            "        .Increment",
+            "        Debug.Print .Value",
+            "    End With",
+            "    Debug.Print .Value",
+            "End With"));
+
+    [TestMethod]
+    public async Task AMemberOfTheTargetOfAWithBlock_DeclaredAsAnInterface_IsItsImplementation()
+        => CollectionAssert.AreEqual(new[] { "10" }, await RunMainAsync(
+            "Dim c As ICounter",
+            "Set c = New ByTen",
+            "With c",
+            "    .Increment",
+            "    Debug.Print .Value",
+            "End With"));
+
+    [TestMethod]
+    public async Task AMemberOfTheTargetOfAWithBlock_ThatIsNothing_IsError91()
+        => CollectionAssert.AreEqual(new[] { "91" }, await RunMainAsync(
+            "Dim c As Counter",
+            "On Error Resume Next",
+            "With c",
+            "    .Increment",
+            "End With",
+            "Debug.Print Err.Number"));
+
     // an object variable declared As New is never Nothing when it is referred to: the reference creates it.
     [TestMethod]
     public async Task AMemberOfAnObjectDeclaredAsNew_CreatesTheObject()

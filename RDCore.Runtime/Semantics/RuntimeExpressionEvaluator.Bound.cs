@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -75,7 +76,15 @@ public sealed partial class RuntimeExpressionEvaluator
             ? _layouts.GetValue(procedure, FrameLayout.Of)
             : null;
 
-        return ExpressionBinder.Bind(new StaticEvaluationContext(session.Symbols.Resolver, scope), expression, frame).NodeOf(expression)
+        // a member written with no object before the dot is a member of the target of the enclosing With block, typed as the static pass types it: by the
+        // declared type of the block's expression.
+        var staticContext = new StaticEvaluationContext(session.Symbols.Resolver, scope);
+        if (context.EnclosingWithTargetExpression is { } withTarget)
+        {
+            staticContext = staticContext with { EnclosingWithTargetType = ExpressionStaticSemanticsEvaluator.Evaluate(staticContext with { Facts = null, Bindings = null }, withTarget).Result };
+        }
+
+        return ExpressionBinder.Bind(staticContext, expression, frame).NodeOf(expression)
             ?? new BoundFallback(expression);
     }
 
@@ -192,7 +201,8 @@ public sealed partial class RuntimeExpressionEvaluator
     // session has no instance of, a member the class does not have - is what the syntax tree's evaluation does with the owner it was given.
     private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
     {
-        var ownerResult = EvaluateBoundNode(session, bound.Owner, context);
+        // no owner: the object is the target of the enclosing With block.
+        var ownerResult = bound.Owner is { } ownerNode ? EvaluateBoundNode(session, ownerNode, context) : EvaluateOwner(session, context, bound.Access);
         if (!ownerResult.IsSuccess)
         {
             return ownerResult;

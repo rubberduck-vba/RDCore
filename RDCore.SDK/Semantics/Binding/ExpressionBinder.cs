@@ -130,6 +130,16 @@ public sealed class ExpressionBindings
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, ownerNode, declared, member, index),
 
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
+            MemberAccessExpressionNode { Owner: null } access
+                when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                => new BoundMember(access, access, null, declared, member, null),
+
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index
+                when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                    && !ReturnsToBeIndexed(member, index.Arguments)
+                => new BoundMember(index, access, null, declared, member, index),
+
             _ => new BoundFallback(expression),
         };
 
@@ -139,6 +149,10 @@ public sealed class ExpressionBindings
         => NodeOf(owner) is { } node && DeclaredTypeOf(owner) is VBClassType { Symbol: var snapshot }
             ? (node, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot)
             : null;
+
+    // the class the target of the enclosing With block is declared as, when it is declared as one, as its declaration is now.
+    private static VBClassModuleSymbol? WithTargetOf(StaticEvaluationContext context)
+        => context.EnclosingWithTargetType is VBClassType { Symbol: var snapshot } ? VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot : null;
 
     // the member of a class a qualified name reads or calls: a Sub, a Function or a Property Get - not a Property Let or Set, which an assignment invokes,
     // and not a public variable, which is the storage of an object and is not bound yet.

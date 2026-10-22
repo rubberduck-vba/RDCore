@@ -296,6 +296,20 @@ public sealed class ExpressionBinderTests
         Assert.HasCount(2, bound.Class.DefaultInterfaceMembers, "the class as it is declared now");
     }
 
+    // MS-VBAL 5.6.15: with no object before the dot, the member is one of the With block's target, which the context types.
+    [TestMethod]
+    public void AMemberOfTheTargetOfAWithBlock_IsBoundWithNoOwner()
+    {
+        var context = ContextWithACounter();
+        var counter = Assert.IsInstanceOfType<VBClassType>(((ITypedSymbol)context.Resolver.ResolveValue("c", ScopeKind.Local, context.Scope.Uri).Symbol!).ResolvedType);
+        var access = new MemberAccessExpressionNode(NextId(), TestLocations.TestLocation, null, NameOf("Increment"));
+
+        var member = Assert.IsInstanceOfType<BoundMember>(ExpressionBinder.Bind(context with { EnclosingWithTargetType = counter }, access).NodeOf(access));
+
+        Assert.IsNull(member.Owner);
+        Assert.AreEqual("Increment", member.Member.Name);
+    }
+
     [TestMethod]
     public void AMemberThatIsNoMemberOfTheClass_IsNotBound()
     {
