@@ -25,6 +25,17 @@ Public Sub BenchClassMemberCalls()
     Total = C.Value
 End Sub
 
+Public Sub BenchInterfaceMemberCalls()
+    Dim C As ICounter
+    Set C = New InterfaceCounter
+    Dim I As Long
+    For I = 1 To 100000
+        C.Increment
+    Next
+    Dim Total As Long
+    Total = C.Value
+End Sub
+
 Public Sub BenchStandardLibraryCalls()
     Dim I As Long
     Dim N As Long
