@@ -240,6 +240,9 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member.</value>
   </data>
+  <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
+    <value>The object has no member named {0}.</value>
+  </data>
   <data name="VBMemberAccess_ObjectRequired_Verbose" xml:space="preserve">
     <value>The Variant this member is accessed on holds a {0}, which has no members: only an object, or a record, has.</value>
   </data>

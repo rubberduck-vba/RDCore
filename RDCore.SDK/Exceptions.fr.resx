@@ -234,6 +234,9 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
   </data>
+  <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
+    <value>L'objet n'a aucun membre nommé {0}.</value>
+  </data>
   <data name="VBMemberAccess_ObjectRequired_Verbose" xml:space="preserve">
     <value>Le Variant sur lequel ce membre est accédé contient un {0}, qui n'a aucun membre : seul un objet, ou un enregistrement, en a.</value>
   </data>

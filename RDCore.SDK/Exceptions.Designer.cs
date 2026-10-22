@@ -924,6 +924,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The object has no member named {0}..
+        /// </summary>
+        public static string VBMemberAccess_NoSuchMember_Verbose {
+            get {
+                return ResourceManager.GetString("VBMemberAccess_NoSuchMember_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The Variant this member is accessed on holds a {0}, which has no members: only an object, or a record, has..
         /// </summary>
         public static string VBMemberAccess_ObjectRequired_Verbose {

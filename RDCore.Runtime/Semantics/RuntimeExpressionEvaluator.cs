@@ -943,7 +943,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         if (TryResolveInvocableMember(session, context, qualified.Owner, owner, qualified.Member.IdentifierName) is not { } found)
         {
-            return (EvaluateInstanceField(session, owner, qualified.Member.IdentifierName), false);
+            return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
         return ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments)
@@ -962,7 +962,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
             ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
-            : EvaluateInstanceField(session, owner, memberName);
+            : EvaluateInstanceField(session, memberAccess, owner, memberName);
     }
 
     // a member of an object variable that holds no object - never set, or set to Nothing - is error 91: there is no
@@ -1324,7 +1324,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // A late-bound Variant/Object member, and a call through a Property/Function/Sub member, are both
     // invocations, not reads - only a Field/Variable-kind member is readable this way.
-    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, VBTypedValue owner, string memberName)
+    private RuntimeSemanticsEvaluationResult EvaluateInstanceField(IRuntimeSession session, MemberAccessExpressionNode memberAccess, VBTypedValue owner, string memberName)
     {
         // a UDT field is not reached through an instance the session knows about: a UDT has location identity
         // but no instance record, and its fields live on the value itself (MS-VBAL §2.1 - a UDT data value is
@@ -1347,9 +1347,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var member = instance.ClassModule.DefaultInterfaceMembers
             .FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
+        // an object whose class has no member of the name - late-bound, or reached through a Variant - does not support it: error 438 (MS-VBA).
         return member is { Kind: SymbolKindExt.Field or SymbolKindExt.Variable }
             ? Assumed(RuntimeSemanticsEvaluationResult.Success(member.ResolvedType.CreateValue(instance.GetValue(member).ForReading())))
-            : RuntimeSemanticsEvaluationResult.InternalError();
+            : member is null
+                ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, memberAccess.Member.Location,
+                    string.Format(Exceptions.VBMemberAccess_NoSuchMember_Verbose, memberName)))
+                : RuntimeSemanticsEvaluationResult.InternalError();
     }
 
     // a Variant's own TypeInfo mirrors what it wraps while the instance stays a VBVariantValue, so a member
