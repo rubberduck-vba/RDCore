@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Literals;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
@@ -10,9 +11,11 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Binding;
+using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -51,8 +54,7 @@ public sealed partial class RuntimeExpressionEvaluator
             return root.Node;
         }
 
-        var node = Bind(session, scopes, expression, context);
-        _boundRoots[expression] = new BoundRoot(scopes, node);
+        var node = Bind(session, scopes, expression, context);        _boundRoots[expression] = new BoundRoot(scopes, node);
         return node;
     }
 
@@ -180,8 +182,78 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundBinary binary => EvaluateBoundBinary(session, binary, context),
         BoundUnary unary => EvaluateBoundUnary(session, unary, context),
         BoundCall call => EvaluateBoundCall(session, call, context),
+        BoundMember member => EvaluateBoundMember(session, member, context),
+        BoundNew created => CreateObject(session, created.New, created.Class),
         _ => EvaluateSyntax(session, node.Expression, context),
     };
+
+    // what EvaluateMemberAccess and EvaluateIndex do with a member of an object declared as a class, the member resolved once (S0.10): the owner is evaluated
+    // once, and the member the object's class invokes for it is found once for each class the expression meets. Anything else - no object, an object the
+    // session has no instance of, a member the class does not have - is what the syntax tree's evaluation does with the owner it was given.
+    private RuntimeSemanticsEvaluationResult EvaluateBoundMember(IRuntimeSession session, BoundMember bound, RuntimeEvaluationContext context)
+    {
+        var ownerResult = EvaluateBoundNode(session, bound.Owner, context);
+        if (!ownerResult.IsSuccess)
+        {
+            return ownerResult;
+        }
+
+        var owner = ownerResult.Result!;
+        var memberName = bound.Access.Member.IdentifierName;
+        var assumedBefore = AssumedSoFar;
+
+        RuntimeSemanticsEvaluationResult result;
+        var isCall = true;
+        if (ObjectNotSet(bound.Access, owner) is { } notSet)
+        {
+            result = notSet;
+        }
+        else if (UnwrappedOwner(owner) is VBObjectValue objectValue && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
+            && ImplementationOf(bound, instance.ClassModule) is { } member)
+        {
+            result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue);
+        }
+        else if (bound.Arguments is { } call)
+        {
+            (result, isCall) = CallMember(session, context, call, bound.Access, owner);
+        }
+        else
+        {
+            result = AccessMember(session, context, bound.Access, owner, memberName);
+        }
+
+        ObserveMemberAccess(session, context, bound.Access, Tokens.MemberAccess, bound.Access.Owner, owner, memberName,
+            MemberAccessOperationSemanticFlags.Explicit, assumedBefore, result);
+
+        // a public variable of the object, given arguments, is what they index.
+        return isCall || bound.Arguments is not { } index ? result : IndexValue(session, context, index, index, result);
+    }
+
+    // the member each bound member expression invoked last, and the class of the object it was invoked on: an expression meets objects of one class, nearly
+    // always, so the member is found once.
+    private readonly ConcurrentDictionary<BoundMember, (VBClassModuleSymbol Class, VBTypeMemberSymbol? Member)> _memberSites = new(ReferenceEqualityComparer.Instance);
+
+    // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of
+    // that class; the one implementing it, of a class that implements it as an interface; or the class's own member by that name, as the syntax tree's
+    // evaluation finds it.
+    private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
+    {
+        if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
+        {
+            return site.Member;
+        }
+
+        var name = bound.Access.Member.IdentifierName;
+        var declared = bound.DeclaredClass.Uri.AbsoluteUri;
+        var member = ReferenceEquals(actual, bound.DeclaredClass)
+            ? bound.Member
+            : (actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declared) is { } implementedInterface
+                ? ImplementationIn(actual, implementedInterface, name)
+                : null) ?? InvocableMemberOf(actual, name);
+
+        _memberSites[bound] = (actual, member);
+        return member;
+    }
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {

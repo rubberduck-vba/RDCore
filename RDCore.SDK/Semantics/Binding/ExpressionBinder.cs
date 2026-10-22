@@ -9,7 +9,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using System.Collections.Immutable;
 using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -113,8 +115,49 @@ public sealed class ExpressionBindings
                     VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
                 => new BoundCall(index, procedure),
 
+            // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no
+            // argument is not given what follows it in parentheses, which indexes what it returns: that is evaluated from the syntax tree.
+            MemberAccessExpressionNode { Owner: { } owner } access
+                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                => new BoundMember(access, access, ownerNode, declared, member, null),
+
+            // the class a New expression creates an object of, as its declaration is now.
+            NewExpressionNode newExpression when result.Result is VBClassType { Symbol: var snapshot }
+                => new BoundNew(newExpression, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot),
+
+            IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
+                when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
+                    && !ReturnsToBeIndexed(member, index.Arguments)
+                => new BoundMember(index, access, ownerNode, declared, member, index),
+
             _ => new BoundFallback(expression),
         };
+
+    // the bound node of the expression an object is reached through, and the class it is declared as, when it is declared as one: the class's declaration as
+    // it is now, which a type built before it was complete only has a snapshot of (MemberAccessExpressionStaticSemantics reads its members the same way).
+    private (BoundNode Node, VBClassModuleSymbol Declared)? OwnerOf(StaticEvaluationContext context, ExpressionNode owner)
+        => NodeOf(owner) is { } node && DeclaredTypeOf(owner) is VBClassType { Symbol: var snapshot }
+            ? (node, VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot)
+            : null;
+
+    // the member of a class a qualified name reads or calls: a Sub, a Function or a Property Get - not a Property Let or Set, which an assignment invokes,
+    // and not a public variable, which is the storage of an object and is not bound yet.
+    private static VBTypeMemberSymbol? InvocableMember(VBClassModuleSymbol declared, string name)
+        => declared.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+            && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    // a Function or Property Get of an object that declares no parameter but its implicit Me, given arguments: they index what it returns.
+    private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)
+        => member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && !arguments.IsDefaultOrEmpty && arguments is not [MissingArgumentNode]
+            && ParametersOf(member).All(parameter => parameter.Name == "Me");
+
+    private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch
+    {
+        VBReturningMemberSymbol returning => returning.Parameters,
+        VBProcedureMemberSymbol procedure => procedure.Parameters,
+        _ => [],
+    };
 
     // a parameter, a variable or a field, which a name reads the value of: no procedure, which it calls, nor a constant or an enumeration member, which have
     // a value and no storage.

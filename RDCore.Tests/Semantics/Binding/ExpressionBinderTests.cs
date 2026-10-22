@@ -248,4 +248,60 @@ public sealed class ExpressionBinderTests
 
         Assert.IsNull(bound.Conversion);
     }
+
+    // a module with a class Counter (a Sub Increment and a Property Get Value) and a field `c` of the type the class had when the field was typed: a
+    // snapshot with no member yet, as a class typed before it is complete has.
+    private static StaticEvaluationContext ContextWithACounter()
+    {
+        var counter = new VBClassModuleSymbol(Root, Root, "Counter");
+        var increment = new VBProcedureMemberSymbol(Root, counter.Uri, "Increment", ScopeKind.Instance, SymbolKindExt.Procedure, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
+        var value = new VBPropertyGetMemberSymbol(Root, counter.Uri, ScopeKind.Instance, "Value", R, R, AccessModifier.Public) { ResolvedType = VBLongType.TypeInfo };
+        var complete = counter with { Members = [increment, value], DefaultInterfaceMembers = [increment, value] };
+
+        var module = new VBStandardModuleSymbol(Root, Root, "Module1");
+        var field = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "c", ScopeKind.Module, VBClassType.Of(counter), R, R, AccessModifier.Implicit);
+        var tree = ScopeTreeBuilder.Build([module with { Members = [field] }, field, complete, increment, value]);
+        return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
+    }
+
+    private MemberAccessExpressionNode MemberOf(string owner, string member) => new(NextId(), TestLocations.TestLocation, NameOf(owner), NameOf(member));
+
+    // IR lowering S0.10: a member of an object declared as a class is bound to the member of the class's declaration as it is now - not of the snapshot the
+    // declared type was built with.
+    [TestMethod]
+    [DataRow("Increment")]
+    [DataRow("Value")]
+    public void AMemberOfAnObjectDeclaredAsAClass_IsBoundToTheMemberOfTheClass(string name)
+    {
+        var context = ContextWithACounter();
+        var access = MemberOf("c", name);
+
+        var member = Assert.IsInstanceOfType<BoundMember>(ExpressionBinder.Bind(context, access).NodeOf(access));
+
+        Assert.AreEqual(name, member.Member.Name);
+        Assert.AreEqual("Counter", member.DeclaredClass.Name);
+        Assert.IsInstanceOfType<BoundVariable>(member.Owner);
+        Assert.IsNull(member.Arguments, "a member that is read has no argument list");
+    }
+
+    [TestMethod]
+    public void ANewExpression_IsBoundToTheClassItCreatesAnObjectOf()
+    {
+        var context = ContextWithACounter();
+        var created = new NewExpressionNode(NextId(), TestLocations.TestLocation, NameOf("Counter"));
+
+        var bound = Assert.IsInstanceOfType<BoundNew>(ExpressionBinder.Bind(context, created).NodeOf(created));
+
+        Assert.AreEqual("Counter", bound.Class.Name);
+        Assert.HasCount(2, bound.Class.DefaultInterfaceMembers, "the class as it is declared now");
+    }
+
+    [TestMethod]
+    public void AMemberThatIsNoMemberOfTheClass_IsNotBound()
+    {
+        var context = ContextWithACounter();
+        var access = MemberOf("c", "Reset");
+
+        Assert.IsInstanceOfType<BoundFallback>(ExpressionBinder.Bind(context, access).NodeOf(access));
+    }
 }

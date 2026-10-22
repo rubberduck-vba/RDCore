@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Semantics.Expressions;
+using System.Collections.Concurrent;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Literals;
 using RDCore.Runtime.Semantics.Operators;
@@ -840,11 +841,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         var result = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
-        if (result.Symbol is not VBClassModuleSymbol classModule)
-        {
-            return RuntimeSemanticsEvaluationResult.InternalError();
-        }
+        return result.Symbol is VBClassModuleSymbol classModule
+            ? CreateObject(session, expression, classModule)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
 
+    // an object of a class, created for a New expression: held by the statement, and initialized.
+    private static RuntimeSemanticsEvaluationResult CreateObject(IRuntimeSession session, ExpressionNode expression, VBClassModuleSymbol classModule)
+    {
         var created = NewExpressionRuntimeSemantics.Instance.Evaluate(session, new(), expression, new VBSymbolDescValue(classModule));
 
         // the new object is the value of the expression, which the statement holds until it is over (ObjectReferences.HoldTemporarily): whatever
@@ -1006,13 +1010,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (objectValue.RuntimeValue, implementation);
         }
 
-        // a Property Let or Set derives from the subroutine's symbol and is not one: reading the property is its Get.
-        var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+        return InvocableMemberOf(instance.ClassModule, memberName) is { } member ? (objectValue.RuntimeValue, member) : null;
+    }
+
+    // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
+    // reading the property is its Get.
+    private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, string memberName)
+        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
             candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
             && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
-
-        return member is null ? null : (objectValue.RuntimeValue, member);
-    }
 
     /// <summary>
     /// The default member of an object - the one a class marks with <c>VB_UserMemId = 0</c> - and the object it is invoked on
@@ -1085,11 +1091,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private static VBTypeMemberSymbol? ImplementationThroughDeclaredInterface(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? ownerExpression, VBClassModuleSymbol actual, string memberName)
     {
-        if (DeclaredInterfaceOf(session, context, ownerExpression, actual) is not { } implementedInterface)
-        {
-            return null;
-        }
+        return DeclaredInterfaceOf(session, context, ownerExpression, actual) is { } implementedInterface
+            ? ImplementationIn(actual, implementedInterface, memberName)
+            : null;
+    }
 
+    // the member of a class that implements a member of an interface it implements, by the interface member's name.
+    private static VBTypeMemberSymbol? ImplementationIn(VBClassModuleSymbol actual, VBClassModuleSymbol implementedInterface, string memberName)
+    {
         // a public variable or a method: not a Property Let or Set, which are an assignment's business, and not an event.
         var interfaceMember = implementedInterface.Members.FirstOrDefault(candidate
             => string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase)
@@ -1378,6 +1387,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             calleeResult = Evaluate(session, indexExpression.Callee, context);
         }
 
+        return IndexValue(session, context, expression, indexExpression, calleeResult);
+    }
+
+    // what the arguments of an index expression do to the value its callee evaluated to, when it is not a call: an element of an array, the default member of
+    // an object called with them.
+    private RuntimeSemanticsEvaluationResult IndexValue(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, IndexExpressionNode indexExpression, RuntimeSemanticsEvaluationResult calleeResult)
+    {
         if (!calleeResult.IsSuccess)
         {
             return calleeResult;
@@ -1550,11 +1567,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return InvokeProcedure(session, context, procedure, argumentNodes);
         }
 
-        // a call on an object - Err.Raise 5 - is the same call with the same arguments, written without parentheses.
+        // a call on an object - Err.Raise 5 - is the same call with the same arguments, written without parentheses: the same expression every time the
+        // statement runs, so that what is known of it once (its binding) is known the next time.
         return callee is MemberAccessExpressionNode
-            ? Evaluate(session, new IndexExpressionNode(callee.Identity, callee.Location, callee, argumentNodes), context)
+            ? Evaluate(session, _statementCalls.GetOrAdd(callee, static (node, arguments) => new IndexExpressionNode(node.Identity, node.Location, node, arguments), argumentNodes), context)
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
+
+    // the call expression of each call statement written on an object, by its callee (one statement, one callee node): the evaluator lives one execution.
+    private readonly ConcurrentDictionary<ExpressionNode, IndexExpressionNode> _statementCalls = new(ReferenceEqualityComparer.Instance);
 
     private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null)
     {

@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics.Plans;
@@ -87,10 +88,41 @@ public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, O
 public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure) : BoundNode(Call);
 
 /// <summary>
+/// A member of an object whose declared type is a class (<strong>MS-VBAL §5.6.12</strong>), read - <c>c.Value</c> - or called with the arguments written
+/// after it (<strong>§5.6.13</strong>) - <c>c.Add 1</c>, <c>c.Item(1)</c>: a <c>Sub</c>, a <c>Function</c> or a <c>Property Get</c> of the class.
+/// </summary>
+/// <remarks>
+/// The binding is the resolution of the member in the class the owner is declared as, made once. The object the owner holds at run time is an instance of
+/// that class, or of a class that implements it as an interface (<strong>§5.3.1.9</strong>), whose member is then the one implementing it: which one is a
+/// fact of the object's class, decided once for each class the expression meets. A member that is a public variable of the class, a member of an object
+/// declared <c>Object</c> or <c>Variant</c> (late-bound), and one written in a <c>With</c> block with no object before the dot are not bound yet.
+/// </remarks>
+/// <param name="Expression">The expression: the member access, or the index expression that calls it.</param>
+/// <param name="Access">The member access.</param>
+/// <param name="Owner">The object the member is accessed on, bound.</param>
+/// <param name="DeclaredClass">The class the owner is declared as.</param>
+/// <param name="Member">The member of <paramref name="DeclaredClass"/> the name resolves to.</param>
+/// <param name="Arguments">The arguments of a call; <see langword="null"/> for a member that is read, with no argument list.</param>
+public sealed record class BoundMember(
+    ExpressionNode Expression, MemberAccessExpressionNode Access, BoundNode Owner, VBClassModuleSymbol DeclaredClass, VBTypeMemberSymbol Member,
+    IndexExpressionNode? Arguments) : BoundNode(Expression);
+
+/// <summary>
+/// A <c>New</c> expression (<strong>MS-VBAL §5.6.10</strong>'s <c>New</c> keyword, <strong>§5.2.3.1.4</strong>), and the class it creates an object of.
+/// </summary>
+/// <remarks>
+/// The binding is the resolution of the class the type expression names, made once; creating the object and running its <c>Initialize</c> is the
+/// evaluation's, each time.
+/// </remarks>
+/// <param name="New">The <c>New</c> expression.</param>
+/// <param name="Class">The class module of the class created.</param>
+public sealed record class BoundNew(NewExpressionNode New, VBClassModuleSymbol Class) : BoundNode(New);
+
+/// <summary>
 /// An expression the binder does not bind yet (IR lowering D3): it is evaluated from the syntax tree, the way it always was.
 /// </summary>
 /// <remarks>
-/// 🚧 Calls, members, indexes and the special forms bind in later slices, which shrink this to nothing (S0.12). A compile error is not bound either: the
+/// 🚧 Late-bound members, indexes and the special forms bind in later slices, which shrink this to nothing (S0.12). A compile error is not bound either: the
 /// static pass reports it, and the evaluation of the syntax tree is what raises its run-time counterpart.
 /// </remarks>
 /// <param name="Expression">The expression.</param>
