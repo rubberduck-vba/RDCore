@@ -22,6 +22,29 @@
 
 
 ---
+## 📦 Installer une préversion
+
+Les préversions de la plateforme sont publiées comme _prereleases_ sur la [page des _Releases_ GitHub](https://github.com/rubberduck-vba/RDCore/releases). Une préversion est une archive zip de l'arborescence complète de la plateforme : ce n'est ni un installateur, ni un _build_ certifié.
+
+1. Téléchargez `rdcore-<version>-win-x64.zip` et `SHA256SUMS` à partir de la _release_;
+1. Vérifiez le téléchargement : dans Git Bash, `sha256sum -c --ignore-missing SHA256SUMS`; dans PowerShell, `(Get-FileHash .\rdcore-<version>-win-x64.zip).Hash` doit correspondre (sans égard à la casse) à la ligne du zip dans `SHA256SUMS`. Avec la CLI GitHub, `gh attestation verify rdcore-<version>-win-x64.zip -R rubberduck-vba/RDCore --signer-workflow rubberduck-vba/RDCore/.github/workflows/release.yml --source-ref refs/tags/v<version>` vérifie aussi que le zip a été produit par le _workflow_ de publication de ce référentiel, à partir de l'étiquette (_tag_) `v<version>`;
+1. Extrayez le zip dans un dossier accessible en écriture à l'utilisateur, un dossier par version, par exemple `%LOCALAPPDATA%\RDCore\<version>` : la plateforme écrit ses journaux (`Logs/`) dans ce dossier;
+1. Installez le [_runtime_ .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) si `dotnet --list-runtimes` ne liste pas `Microsoft.NETCore.App 10.x` : les préversions sont _framework-dependent_.
+
+Pour l'exécuter :
+
+- Conservez l'arborescence extraite au complet : le serveur de langage trouve sa plateforme (`rdcore.json`, le _parse server_, les extensions) à partir du parent de son propre dossier.
+- Un client démarre `RDCore.LanguageServer\RDCore.LanguageServer.exe` avec `RDCore.LanguageServer\` comme répertoire de travail (`appsettings.json` est lu à partir du répertoire de travail) et les arguments `--client-process-id <pid> --pipe-name <nom> --workspace <uri>`, où `<pid>` est l'identifiant du processus client, sans lequel le serveur et ses processus enfants ne peuvent pas se terminer si le client meurt; `release.json` décrit ce même lancement sous `launch.languageServer`.
+- Ne définissez pas `RDCORE_PLATFORM_ROOT` dans votre environnement utilisateur ou système : cette variable remplace la racine de la plateforme pour tout processus RDCore (et pour les processus qu'il démarre).
+- Sans arguments, `RDCore.CLI\rdc.exe` est le _shell_ RD-VBA interactif; il lit lui aussi `appsettings.json` à partir de son répertoire de travail, alors démarrez-le à partir de `RDCore.CLI\`.
+
+> [!WARNING]
+> Les préversions ne sont pas signées : SmartScreen peut afficher un avertissement, et le _Smart App Control_ (contrôle intelligent des applications) de Windows 11 peut les bloquer.
+
+> 👉 Pour assembler la même arborescence à partir d'un clone, exécutez `PlatformPublish.ps1` (il requiert `git` dans le `PATH`, pour consigner le _commit_ qu'il compile) : sans arguments, il publie un _build_ Debug dans `artifacts\rdcore-dev` après une demande de confirmation; `-Configuration Release -RuntimeIdentifier win-x64` correspond aux préversions, `-VersionSuffix <suffixe>` ajoute un suffixe de préversion (par ex. `rc.1`), `-PlatformRoot <chemin>` choisit le dossier de sortie (relatif à la racine du référentiel) et `-Silent` omet la confirmation. Le _workflow_ de publication y ajoute ensuite `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` et `release.json`; les mainteneurs trouveront la procédure complète dans [RELEASING.md](https://github.com/rubberduck-vba/RDCore/blob/main/RELEASING.md) (en anglais).
+
+
+---
 ## 🧩 Créer une extension RDCore
 
 Il suffit de quelques lignes dans votre point d'entrée pour que votre application **RDCore** soit prise en charge :
