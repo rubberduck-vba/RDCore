@@ -75,6 +75,16 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09337](vbc09337.md)|Not allowed as a Public member of an object module — a class exposes a constant, fixed-length string, array, user-defined type or Declare|
 |[VBC09338](vbc09338.md)|Cannot define a Public user-defined type within an object module — a class module declares a public Type|
 |[VBC09339](vbc09339.md)|Argument not optional — an object whose default member takes an argument is where a value is expected|
+|[VBC09340](vbc09340.md)|Expected Function or variable — a subroutine is used where a value is expected|
+|[VBC09341](vbc09341.md)|Can't assign to read-only property — a property that can only be read is assigned with `Let`|
+|[VBC09342](vbc09342.md)|Wrong number of arguments or invalid property assignment — a procedure is called with arguments it does not declare|
+|[VBC09343](vbc09343.md)|LSet allowed only on strings and user-defined types — the target of an `LSet` statement is neither a `String` nor a user-defined type|
+|[VBC09344](vbc09344.md)|RSet allowed only on strings — the target of an `RSet` statement is not a `String`|
+|[VBC09345](vbc09345.md)|Invalid use of property — a property that can only be read is assigned with `Set`|
+|[VBC09346](vbc09346.md)|Assignment to constant not permitted — a constant is assigned|
+|[VBC09347](vbc09347.md)|Object required — a `Set` statement assigns to a variable that cannot hold an object|
+|[VBC09348](vbc09348.md)|Named argument already specified — a call gives the same parameter two arguments|
+|[VBC09349](vbc09349.md)|Named argument not found — a call names a parameter the procedure does not declare|
 
 ### Runtime errors
 

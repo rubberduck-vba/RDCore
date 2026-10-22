@@ -1,4 +1,4 @@
-using static RDCore.Tests.Cli.ModuleWorkspace;
+﻿using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
 
@@ -23,27 +23,20 @@ public sealed class AssignmentTargetTests
         => $"Attribute VB_Name = \"Program\"\r\n{(optionExplicit ? "Option Explicit\r\n" : string.Empty)}{declarations}\r\nPublic Sub Main()\r\n{body}\r\nEnd Sub\r\n";
 
     // the module does not load, for the one error that says what the target is.
-    private static async Task AssertVariableRequiredAsync(string program, string what)
+    private static Task AssertVariableRequiredAsync(string program, string what) => AssertTargetErrorAsync(program, "Variable required", what);
+
+    private static async Task AssertTargetErrorAsync(string program, string error, string what)
     {
         var errors = await LoadErrorsAsync([], program);
 
         Assert.HasCount(1, errors, string.Join(" | ", errors));
-        StringAssert.Contains(errors[0], "Variable required");
+        StringAssert.Contains(errors[0], error);
         StringAssert.Contains(errors[0], $"and this is {what}");
     }
 
     [TestMethod]
-    [DataRow("", "vbSunday = 5", "the constant vbSunday", DisplayName = "A constant of a library's Enum")]
-    [DataRow("", "vbTextCompare = 5", "the constant vbTextCompare", DisplayName = "Another constant of a library's Enum")]
-    [DataRow("Private Const Limit = 10", "Limit = 5", "the constant Limit", DisplayName = "A constant of the module")]
-    [DataRow("", "Const Limit = 10\r\nLimit = 5", "the constant Limit", DisplayName = "A constant of the procedure")]
-    [DataRow("Private Enum Colour\r\nRed\r\nEnd Enum", "Red = 5", "the constant Red", DisplayName = "A constant of the workspace's Enum")]
     [DataRow("", "Left$ = \"x\"", "the function Left$ of the VBA library", DisplayName = "A function of the library that returns a String, by its name with a type character")]
     [DataRow("", "Strings.Left$ = \"x\"", "the function Left$ of the VBA library", DisplayName = "A function of the library that returns a String, qualified by its module")]
-    [DataRow("", "VbDayOfWeek.vbSunday = 5", "the constant vbSunday", DisplayName = "A constant qualified by its Enum")]
-    [DataRow("", "VBA.vbSunday = 5", "the constant vbSunday", DisplayName = "A constant qualified by its library")]
-    [DataRow("Private Const Limit = 10", "Program.Limit = 5", "the constant Limit", DisplayName = "A constant qualified by its module")]
-    [DataRow("Private Const Limit = 10", "Set Limit = Nothing", "the constant Limit", DisplayName = "The target of a Set assignment")]
     [DataRow("", "Set Err = Nothing", "the function Err of the VBA library", DisplayName = "The target of a Set assignment, a function of the library that returns an object")]
     [DataRow("", "Set Left = Nothing", "the function Left of the VBA library", DisplayName = "The target of a Set assignment, a function of the library that returns a Variant")]
     [DataRow("Private Const Label = \"abc\"", "LSet Label = \"x\"", "the constant Label", DisplayName = "The target of an LSet statement")]
@@ -55,14 +48,28 @@ public sealed class AssignmentTargetTests
     [DataRow("", "For Left = 1 To 2\r\nNext", "the function Left of the VBA library", DisplayName = "The control variable of a For statement, a function of the library that returns a Variant")]
     [DataRow("Private Items As New Collection", "For Each vbSunday In Items\r\nNext", "the constant vbSunday", DisplayName = "The control variable of a For Each statement")]
     [DataRow("", "Mid$(Left$, 1, 1) = \"x\"", "the function Left$ of the VBA library", DisplayName = "The target of a Mid statement")]
-    [DataRow("Private Const Left = \"c\"", "Left$ = \"x\"", "the constant Left", DisplayName = "A constant of the module named like a function of the library, by its name with a type character")]
-    [DataRow("", "vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module")]
-    [DataRow("", "Constants.vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module, qualified by its module")]
-    [DataRow("", "VBA.vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module, qualified by its library")]
     [DataRow("", "LSet vbCrLf = \"x\"", "the constant vbCrLf", DisplayName = "A constant of the Constants module, the target of an LSet statement")]
     [DataRow("Private Items As New Collection", "For Each vbCrLf In Items\r\nNext", "the constant vbCrLf", DisplayName = "A constant of the Constants module, the control variable of a For Each statement")]
     public async Task AnAssignment_ToWhatIsNotAVariable_IsAVariableRequiredError(string declarations, string body, string what)
         => await AssertVariableRequiredAsync(Program(declarations, body), what);
+
+    // MS-VBA: "Assignment to constant not permitted" - a Let or a Set statement whose target is a constant (Excel-verified).
+    [TestMethod]
+    [DataRow("", "vbSunday = 5", "the constant vbSunday", DisplayName = "A constant of a library's Enum")]
+    [DataRow("", "vbTextCompare = 5", "the constant vbTextCompare", DisplayName = "Another constant of a library's Enum")]
+    [DataRow("Private Const Limit = 10", "Limit = 5", "the constant Limit", DisplayName = "A constant of the module")]
+    [DataRow("", "Const Limit = 10\r\nLimit = 5", "the constant Limit", DisplayName = "A constant of the procedure")]
+    [DataRow("Private Enum Colour\r\nRed\r\nEnd Enum", "Red = 5", "the constant Red", DisplayName = "A constant of the workspace's Enum")]
+    [DataRow("", "VbDayOfWeek.vbSunday = 5", "the constant vbSunday", DisplayName = "A constant qualified by its Enum")]
+    [DataRow("", "VBA.vbSunday = 5", "the constant vbSunday", DisplayName = "A constant qualified by its library")]
+    [DataRow("Private Const Limit = 10", "Program.Limit = 5", "the constant Limit", DisplayName = "A constant qualified by its module")]
+    [DataRow("Private Const Limit = 10", "Set Limit = Nothing", "the constant Limit", DisplayName = "The target of a Set assignment")]
+    [DataRow("Private Const Left = \"c\"", "Left$ = \"x\"", "the constant Left", DisplayName = "A constant of the module named like a function of the library, by its name with a type character")]
+    [DataRow("", "vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module")]
+    [DataRow("", "Constants.vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module, qualified by its module")]
+    [DataRow("", "VBA.vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module, qualified by its library")]
+    public async Task AnAssignment_ToAConstant_IsAssignmentToConstantNotPermitted(string declarations, string body, string what)
+        => await AssertTargetErrorAsync(Program(declarations, body), "Assignment to constant not permitted", what);
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.4.3.3 ReDim Statement")]
@@ -93,7 +100,7 @@ public sealed class AssignmentTargetTests
     [DataRow("vbCrLf = 5", "the constant vbCrLf", DisplayName = "A constant of the Constants module")]
     public async Task AnAssignment_ToALibraryConstant_WithoutOptionExplicit_IsTheSameError(string body, string what)
         // without Option Explicit an undeclared name is a variable of its own, but the constant's name is declared.
-        => await AssertVariableRequiredAsync(Program(string.Empty, body, optionExplicit: false), what);
+        => await AssertTargetErrorAsync(Program(string.Empty, body, optionExplicit: false), "Assignment to constant not permitted", what);
 
     [TestMethod]
     public async Task TheError_SaysWhatTheTargetIs_AndCitesTheSpecification()
@@ -101,7 +108,7 @@ public sealed class AssignmentTargetTests
         var errors = await LoadErrorsAsync([], Program(string.Empty, "vbSunday = 5"));
 
         CollectionAssert.AreEqual(
-            new[] { "Variable required - can't assign to this expression: The target of a Let assignment must be a variable, and this is the constant vbSunday (MS-VBAL §5.4.3.8)." },
+            new[] { "Assignment to constant not permitted: The target of a Let assignment must be a variable, and this is the constant vbSunday (MS-VBAL §5.4.3.8)." },
             errors);
     }
 

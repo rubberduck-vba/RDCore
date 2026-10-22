@@ -180,6 +180,7 @@ The publisher of the **RDCore** platform project and of _this present documentat
 |2026-10-17|1.14|[§5.5.1.2](rd-vbal.5.5.1.2.runtime-semantics.md) regional settings for reading a `String`; [§2.6.2](rd-vbal.2.6.2.semantic-compilation-errors.md) `VBC09336`–`VBC09338`; `ReDim` locks|
 |2026-10-17|1.15|[§6.1.2.11](rd-vbal.6.1.2.11.strings.md) the `Format` family, `MonthName`, `WeekdayName`; `StrConv` East Asian conversions; objects' default members; [§5.6.9.2](rd-vbal.5.6.9.2.simple-data-operators.md) object operands; [§5.5.1.1](rd-vbal.5.5.1.1.static-semantics.md) let-coercion static semantics, `VBC09339`; [§5.4.2.3](rd-vbal.5.4.2.3.for-statement.md) `For` loop bounds|
 |2026-10-21|1.16|[§6.1.2.11](rd-vbal.6.1.2.11.strings.md) `Len` and `LenB` of records, `StrConv` code page and casing; [§2.5.2.1.3](rd-vbal.2.5.2.1.3.udt-values.md) 64-bit record sizes;[§2.6.4](rd-vbal.2.6.4.rubberduck-core-diagnostics.md) `RDC11011`; [§2.6.2](rd-vbal.2.6.2.semantic-compilation-errors.md) `VBC09305`; [§5.5.1.1](rd-vbal.5.5.1.1.static-semantics.md) `Len` operand; [§5.0.3](rd-vbal.5.0.semantics.md) `Variant` subtype knowledge|
+|2026-10-22|1.17|[§2.6.2](rd-vbal.2.6.2.semantic-compilation-errors.md) added missing compilation errors|
 
 ### Section map (1.9)
 

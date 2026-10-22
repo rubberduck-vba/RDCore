@@ -55,8 +55,12 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
 
         public World()
         {
+            // LenB(Expression): the one parameter the library declares, which a call gives its argument to.
             LenB = InLibrary(new VBFunctionMemberSymbol(
-                Root, Strings.Uri, "LenB", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public));
+                Root, Strings.Uri, "LenB", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public)
+            {
+                Parameters = [new VBParameterSymbol(Root, Strings.Uri, "Expression", R, R, ParameterKind.ImplicitByRef, VBVariantType.TypeInfo)],
+            });
             Counter = new VBModuleFieldVariableMemberSymbol(
                 Root, Util.Uri, "Counter", ScopeKind.Module, VBStringType.TypeInfo, R, R, AccessModifier.Public);
             Reset = new VBFunctionMemberSymbol(

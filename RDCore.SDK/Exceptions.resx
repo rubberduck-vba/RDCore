@@ -528,4 +528,34 @@
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>An object cannot be passed to or from a function of a native library yet.</value>
   </data>
+  <data name="VBCompileError_ExpectedFunctionOrVariable" xml:space="preserve">
+    <value>Expected Function or variable</value>
+  </data>
+  <data name="VBCompileError_CantAssignToReadOnlyProperty" xml:space="preserve">
+    <value>Can't assign to read-only property</value>
+  </data>
+  <data name="VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment" xml:space="preserve">
+    <value>Wrong number of arguments or invalid property assignment</value>
+  </data>
+  <data name="VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes" xml:space="preserve">
+    <value>LSet allowed only on strings and user-defined types</value>
+  </data>
+  <data name="VBCompileError_RSetAllowedOnlyOnStrings" xml:space="preserve">
+    <value>RSet allowed only on strings</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfProperty" xml:space="preserve">
+    <value>Invalid use of property</value>
+  </data>
+  <data name="VBCompileError_AssignmentToConstantNotPermitted" xml:space="preserve">
+    <value>Assignment to constant not permitted</value>
+  </data>
+  <data name="VBCompileError_ObjectRequired" xml:space="preserve">
+    <value>Object required</value>
+  </data>
+  <data name="VBCompileError_NamedArgumentAlreadySpecified" xml:space="preserve">
+    <value>Named argument already specified</value>
+  </data>
+  <data name="VBCompileError_NamedArgumentNotFound" xml:space="preserve">
+    <value>Named argument not found</value>
+  </data>
 </root>

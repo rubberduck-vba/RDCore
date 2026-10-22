@@ -45,9 +45,11 @@ public sealed class ByValArgumentStaticSemanticsTests
         }
 
         var x = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "x", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
-        Symbol foo = external
+        // Foo(p As Long): one parameter, which the calls give their argument to.
+        VBReturningMemberSymbol foo = external
             ? new VBExternalFunctionMemberSymbol(Root, module.Uri, "Foo", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public, true, "kernel32", null)
             : new VBFunctionMemberSymbol(Root, module.Uri, "Foo", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
+        foo = foo with { Parameters = [new VBParameterSymbol(Root, foo.Uri, "p", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo)] };
 
         var tree = ScopeTreeBuilder.Build([module, x, foo]);
         return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));

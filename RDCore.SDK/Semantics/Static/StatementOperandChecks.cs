@@ -143,6 +143,45 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         => Report(expression, NotAVariable(expression, LibraryFunctions.OfAClassObjectOrVariant), $"{role} must be a variable", section);
 
     /// <summary>
+    /// What <see cref="RequireLetTarget"/> or <see cref="RequireVariable"/> require of the target of an assignment, a constant being
+    /// <see cref="VBCompileErrorId.AssignmentToConstantNotPermitted"/> rather than <see cref="VBCompileErrorId.VariableRequired"/>, as MS-VBA has it
+    /// (Excel-verified: a constant the code declares, and a member of an enumeration).
+    /// </summary>
+    /// <param name="expression">The target.</param>
+    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
+    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
+    /// <param name="isLet">Whether the assignment is a <c>Let</c> statement, whose target may be a library's function of an object or <c>Variant</c> type.</param>
+    public void RequireAssignmentTarget(ExpressionNode expression, string role, string section, bool isLet)
+    {
+        if (ConstantNamedBy(expression) is { } constant)
+        {
+            Report(expression, $"the constant {constant}", $"{role} must be a variable", section, VBCompileErrorId.AssignmentToConstantNotPermitted);
+        }
+        else if (isLet)
+        {
+            RequireLetTarget(expression, role, section);
+        }
+        else
+        {
+            RequireVariable(expression, role, section);
+        }
+    }
+
+    // the name of the constant an expression is: a constant the code declares, by its name or through its module, or a member of an enumeration.
+    private string? ConstantNamedBy(ExpressionNode expression) => expression switch
+    {
+        SimpleNameExpressionNode name when Named(name) is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol => name.IdentifierName,
+        MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+            => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol is VBConstantMemberSymbol or VBEnumConstMemberSymbol
+                ? access.Member.IdentifierName
+                : null,
+        MemberAccessExpressionNode { Owner: { } owner } access
+            when ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsSuccess: true, Result: VBEnumType enumType }
+            => enumType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))?.Name,
+        _ => null,
+    };
+
+    /// <summary>
     /// "MUST be classified as a variable, property, function or unbound member", as an element of an <c>Erase</c> statement is
     /// (<strong>MS-VBAL §5.4.3.4</strong>): anything but a value.
     /// </summary>
@@ -168,11 +207,11 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         Any,
     }
 
-    private void Report(ExpressionNode expression, string? what, string requirement, string? section)
+    private void Report(ExpressionNode expression, string? what, string requirement, string? section, VBCompileErrorId id = VBCompileErrorId.VariableRequired)
     {
         if (what is not null)
         {
-            _errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, expression.Location,
+            _errors.Add(VBCompileErrorInfo.For(id, expression.Location,
                 $"{requirement}, and this is {what}{(section is null ? string.Empty : $" (MS-VBAL §{section})")}."));
         }
     }

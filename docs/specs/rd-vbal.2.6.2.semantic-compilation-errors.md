@@ -31,6 +31,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |Code|Title|Condition|
 |---|---|---|
 |[`VBC09306`](../diagnostics/vbc09306.md)|Invalid ReDim|a `ReDim` re-dimensions a member of an object declared `As Object` (of a declared class, it is `VBC09316`)|
+|[`VBC09307`](../diagnostics/vbc09307.md)|Expected array|`LBound` or `UBound` of a variable declared as a number, a `String`, a `Boolean` or a `Date`|
 |[`VBC09309`](../diagnostics/vbc09309.md)|Label not defined|a jump names a line label or line number the procedure does not define|
 |[`VBC09310`](../diagnostics/vbc09310.md)|Type mismatch|a value is of a type that cannot be let-coerced to the type it is used as|
 |[`VBC09312`](../diagnostics/vbc09312.md)|Exit Do not within Do...Loop|an `Exit Do` statement is not lexically inside a `Do` loop|
@@ -61,6 +62,16 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09337`](../diagnostics/vbc09337.md)|Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules|a class module declares one of them as a public member, or a `Global` variable|
 |[`VBC09338`](../diagnostics/vbc09338.md)|Cannot define a Public user-defined type within an object module|a class module declares a `Public Type`, or a `Type` with no modifier|
 |[`VBC09339`](../diagnostics/vbc09339.md)|Argument not optional|an object whose default member takes an argument (a `Collection`) is where a value is expected: assigned to a variable of a value type, an operand, an argument of a parameter of a value type or of a library function that reads a value; see [**RD-VBAL §5.5.1.1**](rd-vbal.5.5.1.1.static-semantics.md)|
+|[`VBC09340`](../diagnostics/vbc09340.md)|Expected Function or variable|a `Sub` where a value is expected|
+|[`VBC09341`](../diagnostics/vbc09341.md)|Can't assign to read-only property|a `Let` of a property that has a `Property Get` and no `Property Let`|
+|[`VBC09342`](../diagnostics/vbc09342.md)|Wrong number of arguments or invalid property assignment|an argument no parameter takes|
+|[`VBC09343`](../diagnostics/vbc09343.md)|LSet allowed only on strings and user-defined types|the target of an `LSet` statement|
+|[`VBC09344`](../diagnostics/vbc09344.md)|RSet allowed only on strings|the target of an `RSet` statement|
+|[`VBC09345`](../diagnostics/vbc09345.md)|Invalid use of property|a `Set` of a property that has a `Property Get` and no `Property Set`|
+|[`VBC09346`](../diagnostics/vbc09346.md)|Assignment to constant not permitted|a `Let` or a `Set` of a constant|
+|[`VBC09347`](../diagnostics/vbc09347.md)|Object required|a `Set` of a variable that holds no object|
+|[`VBC09348`](../diagnostics/vbc09348.md)|Named argument already specified|a parameter given two arguments|
+|[`VBC09349`](../diagnostics/vbc09349.md)|Named argument not found|a named argument the procedure does not declare|
 
 Instruction-list lowering reports `VBC09309` for a `Jump`/`JumpTable` label operand that does not resolve, and `VBC09319` for a repeated label definition; see [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md). `VBC09320` and `VBC09321` are raised by [ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html); see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md). `VBC09322` and `VBC09323` are raised by [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html); see [**RD-VBAL §5.4.2.20** RaiseEvent Statement](rd-vbal.5.4.2.20.raiseevent-statement.md). `VBC09324`, `VBC09325` and `VBC09326`, and a repeated event name as `VBC09303`, are raised by [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html), which checks what a class module declares about events; see [**RD-VBAL §5.2.4.3**](rd-vbal.5.2.4.class-module-declarations.md), [**§5.2.3.1.2**](rd-vbal.5.2.3.module-declarations.md) and [**§5.3.1.8**](rd-vbal.5.3.1.8.event-handler-declarations.md). `VBC09327` is raised by [ExpressionStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.ExpressionStaticSemanticsEvaluator.html); see [**RD-VBAL §5.6.13.1** Argument Lists](rd-vbal.5.6.13.index-expressions.md). `VBC09328`, `VBC09329` and `VBC09330`, and `VBC09311` for an interface class that does not exist, are raised by [ImplementsSemantics](../api/RDCore.SDK.Semantics.Static.ImplementsSemantics.html); see [**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md) and [**§5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md).
 

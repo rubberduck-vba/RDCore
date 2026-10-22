@@ -348,6 +348,57 @@ public enum VBCompileErrorId
     /// (recorded in Excel), as calling it at run time does (<strong>§5.5.1.2.13</strong>'s "simple data value").
     /// </remarks>
     ArgumentNotOptional = 9339,
+    /// <summary>
+    /// A subroutine is written where a value is expected - an operand, an argument, the value of an assignment - and a subroutine has none: only a
+    /// value, a variable, a property or a function can be evaluated to a data value.<br/>
+    /// <strong>MS-VBAL Â§5.6.2.1</strong> Evaluation to a data value.
+    /// </summary>
+    ExpectedFunctionOrVariable = 9340,
+    /// <summary>
+    /// A Let statement assigns a member of an object whose class declares a <c>Property Get</c> of that name and no <c>Property Let</c> to assign it with.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.8</strong> Let Statement.
+    /// </summary>
+    CantAssignToReadOnlyProperty = 9341,
+    /// <summary>
+    /// A procedure is called with more arguments than it declares parameters, or with a named argument when it declares none.<br/>
+    /// <strong>MS-VBAL Â§5.6.13.1</strong> Argument Lists, <strong>Â§5.3.1.11</strong> Procedure Invocation Argument Processing.
+    /// </summary>
+    WrongNumberOfArgumentsOrInvalidPropertyAssignment = 9342,
+    /// <summary>
+    /// The target of an <c>LSet</c> statement is declared as a type other than <c>String</c>, <c>Variant</c> or a user-defined type.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.6</strong> LSet Statement.
+    /// </summary>
+    LSetAllowedOnlyOnStringsAndUserDefinedTypes = 9343,
+    /// <summary>
+    /// The target of an <c>RSet</c> statement is declared as a type other than <c>String</c> or <c>Variant</c>.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.7</strong> RSet Statement.
+    /// </summary>
+    RSetAllowedOnlyOnStrings = 9344,
+    /// <summary>
+    /// A Set statement assigns a member of an object whose class declares a <c>Property Get</c> of that name and no <c>Property Set</c> to assign it with.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.9</strong> Set Statement.
+    /// </summary>
+    InvalidUseOfProperty = 9345,
+    /// <summary>
+    /// The target of an assignment is a constant - one the code declares with <c>Const</c>, or a member of an enumeration.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.8</strong> Let Statement.
+    /// </summary>
+    AssignmentToConstantNotPermitted = 9346,
+    /// <summary>
+    /// The target of a Set statement is declared as a type that holds no object.<br/>
+    /// <strong>MS-VBAL Â§5.4.3.9</strong> Set Statement.
+    /// </summary>
+    ObjectRequired = 9347,
+    /// <summary>
+    /// A call names the same parameter twice, or names a parameter a positional argument is already given to.<br/>
+    /// <strong>MS-VBAL Â§5.6.13.1</strong> Argument Lists.
+    /// </summary>
+    NamedArgumentAlreadySpecified = 9348,
+    /// <summary>
+    /// A call names a parameter the procedure does not declare.<br/>
+    /// <strong>MS-VBAL Â§5.6.13.1</strong> Argument Lists.
+    /// </summary>
+    NamedArgumentNotFound = 9349,
 
 
     /***********************************************************************************************

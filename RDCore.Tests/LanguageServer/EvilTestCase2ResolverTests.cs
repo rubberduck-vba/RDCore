@@ -478,8 +478,8 @@ public sealed class EvilTestCase2ResolverTests
     }
 
     [TestMethod]
-    public void Control_ARealSetCoercionMismatch_IsStillFlagged()
-        // without this, every "no errors" expectation above could be an evaluator that never errors.
+    public void Control_ARealSetMismatch_IsStillFlagged()
+        // without this, every "no errors" expectation above could be an evaluator that never errors. A String holds no object: MS-VBA says "Object required".
     {
         var control = Parsed("Control", ModuleType.StdModule, ControlSource);
         var (context, block) = BodyOf(control, "Bad", MemberKind.Procedure, Composed(control));
@@ -487,6 +487,6 @@ public sealed class EvilTestCase2ResolverTests
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+        Assert.AreEqual(VBCompileErrorId.ObjectRequired, errors[0].VBCompileErrorId);
     }
 }

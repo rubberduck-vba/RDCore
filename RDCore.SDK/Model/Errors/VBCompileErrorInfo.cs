@@ -99,5 +99,15 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.NotAllowedAsPublicMemberOfObjectModule] = Exceptions.VBCompileError_NotAllowedAsPublicMemberOfObjectModule,
         [VBCompileErrorId.PublicUserDefinedTypeInObjectModule] = Exceptions.VBCompileError_PublicUserDefinedTypeInObjectModule,
         [VBCompileErrorId.ArgumentNotOptional] = Exceptions.VBCompileError_ArgumentNotOptional,
+        [VBCompileErrorId.ExpectedFunctionOrVariable] = Exceptions.VBCompileError_ExpectedFunctionOrVariable,
+        [VBCompileErrorId.CantAssignToReadOnlyProperty] = Exceptions.VBCompileError_CantAssignToReadOnlyProperty,
+        [VBCompileErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment] = Exceptions.VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment,
+        [VBCompileErrorId.LSetAllowedOnlyOnStringsAndUserDefinedTypes] = Exceptions.VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes,
+        [VBCompileErrorId.RSetAllowedOnlyOnStrings] = Exceptions.VBCompileError_RSetAllowedOnlyOnStrings,
+        [VBCompileErrorId.InvalidUseOfProperty] = Exceptions.VBCompileError_InvalidUseOfProperty,
+        [VBCompileErrorId.AssignmentToConstantNotPermitted] = Exceptions.VBCompileError_AssignmentToConstantNotPermitted,
+        [VBCompileErrorId.ObjectRequired] = Exceptions.VBCompileError_ObjectRequired,
+        [VBCompileErrorId.NamedArgumentAlreadySpecified] = Exceptions.VBCompileError_NamedArgumentAlreadySpecified,
+        [VBCompileErrorId.NamedArgumentNotFound] = Exceptions.VBCompileError_NamedArgumentNotFound,
     };
 }

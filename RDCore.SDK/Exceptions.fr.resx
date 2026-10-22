@@ -528,4 +528,34 @@
   <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
     <value>Un objet ne peut pas encore être passé à une fonction d'une bibliothèque native, ni en être reçu.</value>
   </data>
+  <data name="VBCompileError_ExpectedFunctionOrVariable" xml:space="preserve">
+    <value>Fonction ou variable attendue</value>
+  </data>
+  <data name="VBCompileError_CantAssignToReadOnlyProperty" xml:space="preserve">
+    <value>Impossible d'assigner une propriété en lecture seule</value>
+  </data>
+  <data name="VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment" xml:space="preserve">
+    <value>Nombre d'arguments incorrect ou affectation de propriété incorrecte</value>
+  </data>
+  <data name="VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes" xml:space="preserve">
+    <value>LSet n'est permis que sur les chaînes et les types définis par l'utilisateur</value>
+  </data>
+  <data name="VBCompileError_RSetAllowedOnlyOnStrings" xml:space="preserve">
+    <value>RSet n'est permis que sur les chaînes</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfProperty" xml:space="preserve">
+    <value>Utilisation incorrecte de propriété</value>
+  </data>
+  <data name="VBCompileError_AssignmentToConstantNotPermitted" xml:space="preserve">
+    <value>Affectation à une constante non permise</value>
+  </data>
+  <data name="VBCompileError_ObjectRequired" xml:space="preserve">
+    <value>Objet requis</value>
+  </data>
+  <data name="VBCompileError_NamedArgumentAlreadySpecified" xml:space="preserve">
+    <value>Argument nommé déjà spécifié</value>
+  </data>
+  <data name="VBCompileError_NamedArgumentNotFound" xml:space="preserve">
+    <value>Argument nommé introuvable</value>
+  </data>
 </root>

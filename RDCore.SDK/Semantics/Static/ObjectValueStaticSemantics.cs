@@ -63,6 +63,12 @@ public static class ObjectValueStaticSemantics
                 Exceptions.VBCompileError_NothingIsNotAValue_Verbose));
         }
 
+        // MS-VBAL §5.6.2.1: a subroutine has no value to evaluate to (MS-VBA: "Expected Function or variable", Excel-verified).
+        if (declaredType is VBVoidType)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedFunctionOrVariable, expression.Location, NameOf(expression)));
+        }
+
         if (declaredType is not VBClassType classType)
         {
             return StaticSemanticsEvaluationResult.Success(declaredType);
@@ -279,13 +285,21 @@ public static class ObjectValueStaticSemantics
             MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
                 => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
             MemberAccessExpressionNode { Owner: { } owner } access when ExpressionStaticSemanticsEvaluator.Evaluate(Unrecorded(context), owner) is { IsSuccess: true, Result: VBClassType classType }
-                => classType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
-                    && member is VBReturningMemberSymbol or VBProcedureMemberSymbol),
+                => CalledMemberOf(context, classType, access),
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15).
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType classType => CalledMemberOf(context, classType, access),
             _ => null,
         };
 
         return symbol is VBReturningMemberSymbol or VBProcedureMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
     }
+
+    // the member of a class a call or a read of the name invokes, as the class is declared now: a Sub, a Function or a Property Get - not a Property Let or
+    // Set of the same name, which an assignment invokes.
+    private static VBTypeMemberSymbol? CalledMemberOf(StaticEvaluationContext context, VBClassType classType, MemberAccessExpressionNode access)
+        => (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).DefaultInterfaceMembers.FirstOrDefault(member
+            => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBReturningMemberSymbol or VBProcedureMemberSymbol && member is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol));
 
     // the parameters of a procedure, whichever kind of member declares it.
     private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch
@@ -298,6 +312,15 @@ public static class ObjectValueStaticSemantics
     // a member of a class has an implicit Me at parameter 0, which is the object the call is on and no argument of it.
     private static IEnumerable<VBParameterSymbol> OwnParameters(ImmutableArray<VBParameterSymbol> parameters)
         => parameters.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef));
+
+    // the name a subroutine is written by, for the message of the error.
+    private static string? NameOf(ExpressionNode expression) => expression switch
+    {
+        SimpleNameExpressionNode name => name.IdentifierName,
+        MemberAccessExpressionNode access => access.Member.IdentifierName,
+        IndexExpressionNode index => NameOf(index.Callee),
+        _ => null,
+    };
 
     // the same context, with nothing recording what an expression evaluated again binds to.
     private static StaticEvaluationContext Unrecorded(StaticEvaluationContext context) => context with { Facts = null, Bindings = null };

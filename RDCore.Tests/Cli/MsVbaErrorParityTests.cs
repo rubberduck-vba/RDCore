@@ -24,7 +24,9 @@ public sealed class MsVbaErrorParityTests
             "Public Count As Long",
             "Public Enum Color", "    Red = 1", "    Green = 2", "End Enum",
             "Public Function NoArgs() As Variant", "    NoArgs = Array(10, 20, 30)", "End Function",
-            "Public Function LongFn() As Long", "    LongFn = 7", "End Function")),
+            "Public Function LongFn() As Long", "    LongFn = 7", "End Function",
+            "Public Function Twice(ByVal N As Long) As Long", "    Twice = 2 * N", "End Function",
+            "Public Sub SomeSub()", "End Sub")),
     ];
 
     // the case's statements, in a procedure that traps every error and prints what each statement printed.
@@ -55,8 +57,49 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Debug.Print LongFn()(1)", "Type mismatch", DisplayName = "an index of what a function returns, a Long")]
     [DataRow("Dim n As Long ;; Debug.Print UBound(n)", "Expected array", DisplayName = "UBound of a Long")]
     [DataRow("Debug.Print Me Is Nothing", "Invalid use of Me keyword", DisplayName = "Me in a standard module")]
+    [DataRow("Dim c As New Counter ;; Debug.Print c.Increment", "Expected Function or variable", DisplayName = "a Sub of a class printed")]
+    [DataRow("Debug.Print Globals.SomeSub", "Expected Function or variable", DisplayName = "a Sub of a module printed")]
+    [DataRow("Dim x As Long ;; x = Globals.SomeSub", "Expected Function or variable", DisplayName = "a Sub assigned")]
+    [DataRow("Dim c As New Counter ;; Dim x As Long ;; x = c.Increment + 1", "Expected Function or variable", DisplayName = "a Sub as an operand")]
+    [DataRow("Dim c As New Counter ;; Debug.Print Globals.Twice(c.Increment)", "Expected Function or variable", DisplayName = "a Sub as an argument")]
+    [DataRow("Dim c As New Counter ;; c.Increment 1", "Wrong number of arguments or invalid property assignment", DisplayName = "an argument to a Sub that takes none")]
+    [DataRow("Dim c As New Counter ;; c.Increment By:=1", "Wrong number of arguments or invalid property assignment", DisplayName = "a named argument to a Sub that takes none")]
+    [DataRow("Debug.Print Globals.Twice(1, 2)", "Wrong number of arguments or invalid property assignment", DisplayName = "one argument too many")]
+    [DataRow("Globals.SomeSub 1", "Wrong number of arguments or invalid property assignment", DisplayName = "an argument to a Sub of a module that takes none")]
+    [DataRow("Call Globals.SomeSub(1)", "Wrong number of arguments or invalid property assignment", DisplayName = "an argument to a Sub that takes none, with Call")]
+    [DataRow("Dim c As New Collection ;; Debug.Print c.Count(1)", "Wrong number of arguments or invalid property assignment", DisplayName = "an argument to a property that returns a Long and takes none")]
+    [DataRow("Debug.Print Globals.Twice()", "Argument not optional", DisplayName = "a required argument left out")]
+    [DataRow("Dim c As New Collection ;; c.Add", "Argument not optional", DisplayName = "a required argument of a library's method left out")]
+    [DataRow("Dim c As Collection ;; c = New Collection", "Argument not optional", DisplayName = "a Let of a Collection variable, whose default member takes an argument")]
+    [DataRow("Debug.Print Globals.Twice(N:=1, N:=2)", "Named argument already specified", DisplayName = "a parameter named twice")]
+    [DataRow("Debug.Print Globals.Twice(Q:=1)", "Named argument not found", DisplayName = "a name the procedure does not declare")]
+    [DataRow("Dim c As New Counter ;; c.Value = 1", "Can't assign to read-only property", DisplayName = "a Let of a property that has only a Get")]
+    [DataRow("Dim c As New Counter ;; Set c.Value = New Counter", "Invalid use of property", DisplayName = "a Set of a property that has only a Get")]
+    [DataRow("Dim n As Long ;; LSet n = \"x\"", "LSet allowed only on strings and user-defined types", DisplayName = "an LSet of a Long")]
+    [DataRow("Dim n As Long ;; RSet n = \"x\"", "RSet allowed only on strings", DisplayName = "an RSet of a Long")]
+    [DataRow("Dim n As Long ;; Set n = New Collection", "Object required", DisplayName = "a Set of a Long")]
+    [DataRow("Color.Red = 3", "Assignment to constant not permitted", DisplayName = "a Let of an enumeration's member")]
+    [DataRow("vbSunday = 5", "Assignment to constant not permitted", DisplayName = "a Let of a library enumeration's member")]
+    [DataRow("Const k As Long = 1 ;; k = 2", "Assignment to constant not permitted", DisplayName = "a Let of a constant")]
+    [DataRow("Const k As Long = 1 ;; Set k = Nothing", "Assignment to constant not permitted", DisplayName = "a Set of a constant")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
+
+    // MS-VBA stops at the first compile error; RD-VBA reports each of them, a diagnostic each - one for each statement, in every procedure.
+    [TestMethod]
+    public async Task EveryCompileError_IsReported()
+    {
+        var program = Program("Dim c As New Counter, n As Long ;; Debug.Print UBound(n) ;; c.Reset ;; Color.Red = 3")
+            + "Private Sub Other()\r\n    Globals.SomeSub 1\r\nEnd Sub\r\n";
+
+        var errors = await LoadErrorsAsync(Classes, Modules, program);
+
+        Assert.HasCount(4, errors, string.Join(" | ", errors));
+        StringAssert.Contains(errors[0], "Expected array");
+        StringAssert.Contains(errors[1], "Method or data member not found");
+        StringAssert.Contains(errors[2], "Assignment to constant not permitted");
+        StringAssert.Contains(errors[3], "Wrong number of arguments or invalid property assignment");
+    }
 
     // what MS-VBA compiles, and raises at run time: each statement prints the error it raised.
     [TestMethod]
@@ -77,6 +120,8 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim o As Object ;; Set o = New Point ;; Debug.Print o!X ;; Debug.Print Err.Number", "438", DisplayName = "a dictionary access of an object with no default member, late-bound")]
     [DataRow("Dim pt As Point ;; Set pt = New Collection ;; Debug.Print Err.Number", "13", DisplayName = "a Set of an object of another class")]
     [DataRow("Dim r As Pair ;; r.X = \"x\" ;; Debug.Print Err.Number", "13", DisplayName = "a field of a record let a String that is no number")]
+    [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"x\" ;; Debug.Print Err.Number", "0", DisplayName = "an LSet of a Variant that holds a number")]
+    [DataRow("Dim pt As New Point ;; pt = 5 ;; Debug.Print Err.Number", "438", DisplayName = "a Let of an object whose class has no default member")]
     public async Task WhatMsVbaRaisesAtRunTime_IsRaised(string body, string error)
         => Assert.AreEqual(error, (await RunAsync(Classes, Modules, Program(body))).Last());
 
@@ -84,6 +129,8 @@ public sealed class MsVbaErrorParityTests
     [TestMethod]
     [DataRow("Debug.Print Globals.NoArgs(1)", "20", DisplayName = "a function that takes no argument, named through its module, is indexed")]
     [DataRow("Dim v As Variant ;; Set v = New Collection ;; v.Add 1 ;; With v ;; Debug.Print .Count ;; End With", "1", DisplayName = "a With target that is a Variant holding an object")]
+    [DataRow("Dim v As Variant ;; v = 12345 ;; RSet v = \"x\" ;; Debug.Print \"[\" & v & \"]\"", "[    x]", DisplayName = "an RSet of a Variant that holds a number fits the String it reads as")]
+    [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"xy\" ;; Debug.Print TypeName(v) & \"[\" & v & \"]\"", "String[x]", DisplayName = "an LSet of a Variant that holds a number leaves a String")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());
 }

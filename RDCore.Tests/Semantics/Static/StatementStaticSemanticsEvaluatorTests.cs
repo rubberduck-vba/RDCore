@@ -211,7 +211,8 @@ public sealed class StatementStaticSemanticsEvaluatorTests
     }
 
     [TestMethod]
-    public void SetAssignment_NonObjectTarget_IsATypeMismatchError()
+    public void SetAssignment_NonObjectTarget_IsObjectRequired()
+        // MS-VBA: "Object required" - a variable declared as a Long holds no object (Excel-verified).
     {
         var module = Module("Caller");
         var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
@@ -222,7 +223,7 @@ public sealed class StatementStaticSemanticsEvaluatorTests
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         Assert.AreEqual(1, errors.Length);
-        Assert.AreEqual(VBCompileErrorId.TypeMismatch, errors[0].VBCompileErrorId);
+        Assert.AreEqual(VBCompileErrorId.ObjectRequired, errors[0].VBCompileErrorId);
     }
 
     [TestMethod]
@@ -288,18 +289,33 @@ public sealed class StatementStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void LSetAssignment_SkipsCoercionChecking()
-        // LSet/RSet (MS-VBAL 5.4.3.6/5.4.3.7) have their own distinct, not-yet-modeled static semantics
-        // - neither Let- nor Set-coercion applies, so even a combination that would fail either must be
+        // LSet/RSet (MS-VBAL 5.4.3.6/5.4.3.7) fit a value into the target: neither Let- nor Set-coercion applies, so a value that would fail either is
         // deferred rather than flagged.
     {
         var module = Module("Caller");
-        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var s = ModuleField(module.Uri, "s", VBStringType.TypeInfo);
         var widget = ModuleField(module.Uri, "widget", new VBClassType(ClassModule("Widget"), []));
-        var context = ContextAt(module.Uri, module with { Members = [n, widget] }, n, widget);
+        var context = ContextAt(module.Uri, module with { Members = [s, widget] }, s, widget);
 
-        var block = Block(AssignOf(NameOf("n"), NameOf("widget"), AssignmentKind.LSet));
+        var block = Block(AssignOf(NameOf("s"), NameOf("widget"), AssignmentKind.LSet));
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         CollectionAssert.AreEqual(Array.Empty<VBCompileErrorInfo>(), errors);
+    }
+
+    [TestMethod]
+    [DataRow(AssignmentKind.LSet, VBCompileErrorId.LSetAllowedOnlyOnStringsAndUserDefinedTypes, DisplayName = "LSet")]
+    [DataRow(AssignmentKind.RSet, VBCompileErrorId.RSetAllowedOnlyOnStrings, DisplayName = "RSet")]
+    public void LSetOrRSetAssignment_OfALong_IsRefused(AssignmentKind kind, VBCompileErrorId expected)
+        // MS-VBAL 5.4.3.6/5.4.3.7: the target is a String or a Variant - or, for LSet, a user-defined type (MS-VBA, Excel-verified).
+    {
+        var module = Module("Caller");
+        var n = ModuleField(module.Uri, "n", VBLongType.TypeInfo);
+        var context = ContextAt(module.Uri, module with { Members = [n] }, n);
+
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, Block(AssignOf(NameOf("n"), IntegerLiteralOf(1), kind)));
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(expected, errors[0].VBCompileErrorId);
     }
 }

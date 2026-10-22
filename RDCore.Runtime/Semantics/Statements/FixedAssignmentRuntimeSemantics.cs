@@ -87,6 +87,26 @@ public sealed record class FixedAssignmentRuntimeSemantics(
         }
 
         var source = evaluated.Result!;
+
+        // a Variant that holds a value of another type is fitted as the String it reads as, and holds that String after: `v = 12345: RSet v = "x"` gives
+        // "    x" (MS-VBA, Excel-verified), where MS-VBAL §5.4.3.6 would have the value type be String or a record.
+        if (current is VBVariantValue && Unwrapped(current) is { IsIndeterminate: false } held and not (VBStringValue or VBUserDefinedTypeValue or VBObjectValue or VBArrayValue))
+        {
+            var text = LetCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, assignment.Target, new()
+            {
+                NodeId = assignment.Identity,
+                SourceValue = held,
+                DestinationTypeDesc = new(VBStringType.TypeInfo),
+                Site = ConversionSite.StringStatement,
+            });
+            if (!text.IsSuccess)
+            {
+                return text.IsApplicable ? RuntimeExecutionOutcome.Error(text.ErrorInfo!) : RuntimeExecutionOutcome.InternalError;
+            }
+
+            current = text.Result!;
+        }
+
         var builder = new SemanticContextFlagsBuilder<FixedAssignmentSemanticContext, FixedAssignmentSemanticFlags>();
         Analyze(session, new ConversionOperationSemanticContext(), builder, assignment, current, source);
         var semantics = builder.Build();

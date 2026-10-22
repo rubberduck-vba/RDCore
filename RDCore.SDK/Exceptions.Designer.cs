@@ -664,6 +664,96 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Expected Function or variable.
+        /// </summary>
+        public static string VBCompileError_ExpectedFunctionOrVariable {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedFunctionOrVariable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t assign to read-only property.
+        /// </summary>
+        public static string VBCompileError_CantAssignToReadOnlyProperty {
+            get {
+                return ResourceManager.GetString("VBCompileError_CantAssignToReadOnlyProperty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wrong number of arguments or invalid property assignment.
+        /// </summary>
+        public static string VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment {
+            get {
+                return ResourceManager.GetString("VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to LSet allowed only on strings and user-defined types.
+        /// </summary>
+        public static string VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes {
+            get {
+                return ResourceManager.GetString("VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RSet allowed only on strings.
+        /// </summary>
+        public static string VBCompileError_RSetAllowedOnlyOnStrings {
+            get {
+                return ResourceManager.GetString("VBCompileError_RSetAllowedOnlyOnStrings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid use of property.
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfProperty {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfProperty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Assignment to constant not permitted.
+        /// </summary>
+        public static string VBCompileError_AssignmentToConstantNotPermitted {
+            get {
+                return ResourceManager.GetString("VBCompileError_AssignmentToConstantNotPermitted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object required.
+        /// </summary>
+        public static string VBCompileError_ObjectRequired {
+            get {
+                return ResourceManager.GetString("VBCompileError_ObjectRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Named argument already specified.
+        /// </summary>
+        public static string VBCompileError_NamedArgumentAlreadySpecified {
+            get {
+                return ResourceManager.GetString("VBCompileError_NamedArgumentAlreadySpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Named argument not found.
+        /// </summary>
+        public static string VBCompileError_NamedArgumentNotFound {
+            get {
+                return ResourceManager.GetString("VBCompileError_NamedArgumentNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Argument not optional.
         /// </summary>
         public static string VBCompileError_ArgumentNotOptional {

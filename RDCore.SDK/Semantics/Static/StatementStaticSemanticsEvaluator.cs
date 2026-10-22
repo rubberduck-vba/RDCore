@@ -281,8 +281,19 @@ public static class StatementStaticSemanticsEvaluator
             var isLet = assignment.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet;
             var letsADefaultMember = assignsADefaultMember && isLet;
             var (role, section) = TargetOf(assignment.Kind);
-            if ((letsADefaultMember || RequireTarget(context, assignment.Target, role, section, isLet, walk)) && !assignsADefaultMember
-                && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
+            if (!letsADefaultMember && !RequireTarget(context, assignment.Target, role, section, assignment.Kind, walk))
+            {
+                return;
+            }
+
+            // what the target is declared as, or the member it is, comes next: a target that is no variable at all says so first.
+            if (targetResult.IsSuccess && TargetKindError(context, assignment, targetResult.Result!) is { } targetKindError)
+            {
+                walk.Errors.Add(targetKindError);
+                return;
+            }
+
+            if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
             }
@@ -395,7 +406,8 @@ public static class StatementStaticSemanticsEvaluator
                 // value of it must have one (MS-VBAL §5.5.1.1).
                 if (ObjectValueStaticSemantics.MemberOfCallee(context, callStatement.Callee) is { } calledMember
                     && ObjectValueStaticSemantics.ParametersOfCallee(context, callStatement.Callee) is { } parameters
-                    && (ParamArrayStaticSemantics.ArgumentsError(context, calledMember, parameters, callStatement.Arguments)
+                    && (ArgumentListStaticSemantics.Error(context, callStatement.Callee, calledMember, parameters, callStatement.Arguments)
+                        ?? ParamArrayStaticSemantics.ArgumentsError(context, calledMember, parameters, callStatement.Arguments)
                         ?? ObjectValueStaticSemantics.ArgumentsError(context, parameters, callStatement.Arguments)) is { } argumentError)
                 {
                     walk.Errors.Add(argumentError);
@@ -761,16 +773,23 @@ public static class StatementStaticSemanticsEvaluator
     }
 
     private static bool RequireVariable(StaticEvaluationContext context, ExpressionNode operand, string role, string section, Walk walk)
-        => RequireTarget(context, operand, role, section, isLet: false, walk);
-
-    // the same, for the target of an assignment: a Let statement's may also be a library's function whose declared type is a class, Object or Variant
-    // (StatementOperandChecks.RequireLetTarget).
-    private static bool RequireTarget(StaticEvaluationContext context, ExpressionNode operand, string role, string section, bool isLet, Walk walk)
     {
         var checks = new StatementOperandChecks(context);
-        if (isLet)
+        checks.RequireVariable(operand, role, section);
+        walk.Errors.AddRange(checks.Errors);
+        return checks.Errors.IsEmpty;
+    }
+
+    // the same, for the target of an assignment: a Let statement's may also be a library's function whose declared type is a class, Object or Variant
+    // (StatementOperandChecks.RequireLetTarget), and a constant assigned by a Let or a Set statement is MS-VBA's "Assignment to constant not permitted"
+    // (StatementOperandChecks.RequireAssignmentTarget).
+    private static bool RequireTarget(StaticEvaluationContext context, ExpressionNode operand, string role, string section, AssignmentKind kind, Walk walk)
+    {
+        var checks = new StatementOperandChecks(context);
+        var isLet = kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet;
+        if (isLet || kind == AssignmentKind.Set)
         {
-            checks.RequireLetTarget(operand, role, section);
+            checks.RequireAssignmentTarget(operand, role, section, isLet);
         }
         else
         {
@@ -779,6 +798,60 @@ public static class StatementStaticSemanticsEvaluator
 
         walk.Errors.AddRange(checks.Errors);
         return checks.Errors.IsEmpty;
+    }
+
+    // what the declared type of an assignment's target, or the member it is, cannot be for the kind of assignment, as MS-VBA has it (Excel-verified):
+    // MS-VBAL §5.4.3.6-7's LSet and RSet targets; §5.4.3.9's Set target, which holds an object; a property that has no accessor for the assignment
+    // (§5.4.3.8, §5.4.3.9); and the default member a Let statement assigns through an object, which must be callable with no argument (§5.4.3.8).
+    private static VBCompileErrorInfo? TargetKindError(StaticEvaluationContext context, AssignmentStatementNode assignment, VBType target)
+    {
+        var location = assignment.Target.Location;
+        var name = assignment.Target is MemberAccessExpressionNode { Member: var member } ? member.IdentifierName : target.Name;
+
+        // a property with nothing to assign it through says so first: the type it reads as is not what the assignment writes (MS-VBA, Excel-verified:
+        // `Set c.Value = …` of a Property Get Value() As Long is an invalid use of the property, not a Set of a Long).
+        var isSet = assignment.Kind == AssignmentKind.Set;
+        if (assignment.Kind is not (AssignmentKind.LSet or AssignmentKind.RSet) && HasOnlyAPropertyGet(context, assignment.Target, isSet))
+        {
+            return VBCompileErrorInfo.For(isSet ? VBCompileErrorId.InvalidUseOfProperty : VBCompileErrorId.CantAssignToReadOnlyProperty, location, name);
+        }
+
+        switch (assignment.Kind)
+        {
+            case AssignmentKind.LSet when target is not (VBStringType or VBVariantType or VBUserDefinedType or VBUnknownType):
+                return VBCompileErrorInfo.For(VBCompileErrorId.LSetAllowedOnlyOnStringsAndUserDefinedTypes, location, target.Name);
+            case AssignmentKind.RSet when target is not (VBStringType or VBVariantType or VBUnknownType):
+                return VBCompileErrorInfo.For(VBCompileErrorId.RSetAllowedOnlyOnStrings, location, target.Name);
+            case AssignmentKind.Set when target is VBNumericType or VBStringType or VBBooleanType or VBDateType:
+                return VBCompileErrorInfo.For(VBCompileErrorId.ObjectRequired, location, target.Name);
+        }
+
+        return !isSet && target is VBClassType && ObjectValueStaticSemantics.ValueOf(assignment.Target, target, ValueDestination.AnyValue) is { IsError: true } refused
+            ? refused.ErrorInfo as VBCompileErrorInfo
+            : null;
+    }
+
+    // whether a member assigned to is a property of a class that declares a Property Get of its name and nothing a Let (or a Set) writes through: no
+    // Property Let (or Set), and no public variable.
+    private static bool HasOnlyAPropertyGet(StaticEvaluationContext context, ExpressionNode target, bool isSet)
+    {
+        if (target is not MemberAccessExpressionNode access)
+        {
+            return false;
+        }
+
+        var owner = access.Owner is { } ownerExpression
+            ? ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, ownerExpression).Result
+            : context.EnclosingWithTargetType;
+        if (owner is not VBClassType { Symbol: var snapshot })
+        {
+            return false;
+        }
+
+        var members = (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+            .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)).ToArray();
+        return members.Any(member => member is VBPropertyGetMemberSymbol)
+            && !members.Any(member => member.Kind == SymbolKindExt.Field || (isSet ? member is VBPropertySetMemberSymbol : member is VBPropertyLetMemberSymbol));
     }
 
     private static void CollectError(StaticSemanticsEvaluationResult result, Walk walk)

@@ -80,6 +80,26 @@
   href: vbc09338.md
 - name: VBC09339 — Argument not optional
   href: vbc09339.md
+- name: VBC09340 — Expected Function or variable
+  href: vbc09340.md
+- name: VBC09341 — Can't assign to read-only property
+  href: vbc09341.md
+- name: VBC09342 — Wrong number of arguments or invalid property assignment
+  href: vbc09342.md
+- name: VBC09343 — LSet allowed only on strings and user-defined types
+  href: vbc09343.md
+- name: VBC09344 — RSet allowed only on strings
+  href: vbc09344.md
+- name: VBC09345 — Invalid use of property
+  href: vbc09345.md
+- name: VBC09346 — Assignment to constant not permitted
+  href: vbc09346.md
+- name: VBC09347 — Object required
+  href: vbc09347.md
+- name: VBC09348 — Named argument already specified
+  href: vbc09348.md
+- name: VBC09349 — Named argument not found
+  href: vbc09349.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub
