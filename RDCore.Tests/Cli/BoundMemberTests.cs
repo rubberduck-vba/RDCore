@@ -34,6 +34,15 @@ public sealed class BoundMemberTests
             "Private mValue As Long",
             "Private Sub ICounter_Increment()", "    mValue = mValue + 10", "End Sub",
             "Private Property Get ICounter_Value() As Long", "    ICounter_Value = mValue", "End Property")),
+        ("Named", ClassModule("Named",
+            "Public Name As String",
+            "Public Items As Variant")),
+        ("INamed", ClassModule("INamed",
+            "Public Name As String")),
+        ("Labelled", ClassModule("Labelled",
+            "Implements INamed",
+            "Private Property Get INamed_Name() As String", "    INamed_Name = \"label\"", "End Property",
+            "Private Property Let INamed_Name(ByVal Value As String)", "End Property")),
     ];
 
     private static Task<string[]> RunMainAsync(params string[] body)
@@ -132,6 +141,36 @@ public sealed class BoundMemberTests
             "    .Increment",
             "End With",
             "Debug.Print Err.Number"));
+
+    // MS-VBAL 5.6.13: an object a variable holds, indexed, is a call of its default member - c(1) is c.Item(1) - and an array a variable holds, its element.
+    [TestMethod]
+    public async Task AVariableIndexed_IsTheDefaultMemberOfItsObject_OrAnElementOfItsArray()
+        => CollectionAssert.AreEqual(new[] { "b", "2", "30", "9" }, await RunMainAsync(
+            "Dim c As New Collection, a(2) As Long, v As Variant",
+            "c.Add \"a\"", "c.Add \"b\"",
+            "a(2) = 30", "v = Array(1, 2)",
+            "Debug.Print c(2)",
+            "Debug.Print v(1)",
+            "Debug.Print a(2)",
+            "On Error Resume Next", "Debug.Print a(3)", "Debug.Print Err.Number"));
+
+    // a public variable of a class is the storage of the object: read, and indexed by what follows it in parentheses.
+    [TestMethod]
+    public async Task APublicVariableOfAClass_IsRead_AndIndexed()
+        => CollectionAssert.AreEqual(new[] { "Ducky", "20", "Ducky!" }, await RunMainAsync(
+            "Dim n As New Named",
+            "n.Name = \"Ducky\"", "n.Items = Array(10, 20, 30)",
+            "Debug.Print n.Name",
+            "Debug.Print n.Items(1)",
+            "Debug.Print n.Name & \"!\""));
+
+    // MS-VBAL 5.3.1.9: a public variable of an interface is implemented by properties: reading it through the interface is the Property Get.
+    [TestMethod]
+    public async Task APublicVariableOfAnInterface_IsThePropertyGetThatImplementsIt()
+        => CollectionAssert.AreEqual(new[] { "label" }, await RunMainAsync(
+            "Dim n As INamed",
+            "Set n = New Labelled",
+            "Debug.Print n.Name"));
 
     // MS-VBAL 5.6.9.9: TypeOf … Is is True of an object of the class, or of a class that implements it; False of Nothing.
     [TestMethod]

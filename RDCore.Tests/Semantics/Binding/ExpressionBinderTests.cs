@@ -310,6 +310,19 @@ public sealed class ExpressionBinderTests
         Assert.AreEqual("Increment", member.Member.Name);
     }
 
+    // MS-VBAL 5.6.13: a variable indexed - an element of its array, or its object's default member - is read through the variable's node. (An object
+    // whose class has no default member is a compile error, which is not bound.)
+    [TestMethod]
+    public void AVariableIndexed_IsBoundToTheVariable()
+    {
+        var context = ContextWith(("a", new VBResizableArrayType(VBLongType.TypeInfo)));
+        var index = new IndexExpressionNode(NextId(), TestLocations.TestLocation, NameOf("a"), [new LiteralExpressionNode(NextId(), TestLocations.TestLocation, new RDCore.SDK.Model.Values.Intrinsic.VBLongValue(1))]);
+
+        var bound = Assert.IsInstanceOfType<BoundIndex>(ExpressionBinder.Bind(context, index).NodeOf(index));
+
+        Assert.IsInstanceOfType<BoundVariable>(bound.Callee);
+    }
+
     [TestMethod]
     public void AMemberThatIsNoMemberOfTheClass_IsNotBound()
     {

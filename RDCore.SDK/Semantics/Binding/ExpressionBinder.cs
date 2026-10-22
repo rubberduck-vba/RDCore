@@ -136,6 +136,11 @@ public sealed class ExpressionBindings
                     && !ReturnsToBeIndexed(member, index.Arguments)
                 => new BoundMember(index, access, ownerNode, declared, member, index),
 
+            // an element of an array, or a default member of an object, a variable holds: the variable is read through its node (a procedure, which the name
+            // calls, is a BoundCall above).
+            IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index when NodeOf(callee) is BoundVariable variable
+                => new BoundIndex(index, variable),
+
             // a member of the target of the enclosing With block (MS-VBAL §5.6.15), declared as a class: the object is the block's, not an expression's.
             MemberAccessExpressionNode { Owner: null } access
                 when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
@@ -160,12 +165,14 @@ public sealed class ExpressionBindings
     private static VBClassModuleSymbol? WithTargetOf(StaticEvaluationContext context)
         => context.EnclosingWithTargetType is VBClassType { Symbol: var snapshot } ? VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot : null;
 
-    // the member of a class a qualified name reads or calls: a Sub, a Function or a Property Get - not a Property Let or Set, which an assignment invokes,
-    // and not a public variable, which is the storage of an object and is not bound yet.
+    // the member of a class a qualified name reads or calls: a Sub, a Function or a Property Get - not a Property Let or Set, which an assignment invokes -
+    // or, when there is none of the name, a public variable, which is the storage of the object and is read.
     private static VBTypeMemberSymbol? InvocableMember(VBClassModuleSymbol declared, string name)
         => declared.DefaultInterfaceMembers.FirstOrDefault(candidate =>
             candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+            && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))
+        ?? declared.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+            candidate.Kind is SymbolKindExt.Field or SymbolKindExt.Variable && string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
 
     // a Function or Property Get of an object that declares no parameter but its implicit Me, given arguments: they index what it returns.
     private static bool ReturnsToBeIndexed(VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments)

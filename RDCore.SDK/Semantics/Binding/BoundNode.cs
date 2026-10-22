@@ -120,6 +120,18 @@ public sealed record class BoundMember(
 public sealed record class BoundNew(NewExpressionNode New, VBClassModuleSymbol Class) : BoundNode(New);
 
 /// <summary>
+/// An index expression whose callee is a variable (<strong>MS-VBAL §5.6.13</strong>): an element of the array it holds - <c>a(i)</c> - or a call of the
+/// default member of the object it holds - <c>c(1)</c>, which is <c>c.Item(1)</c>.
+/// </summary>
+/// <remarks>
+/// The binding is the callee's: the variable is read through its bound node. What the arguments do to the value it holds - select an element, call a
+/// default member - is decided by the value, each time, as it is for an index expression evaluated from the syntax tree.
+/// </remarks>
+/// <param name="Index">The index expression.</param>
+/// <param name="Callee">The callee, bound to the variable it reads.</param>
+public sealed record class BoundIndex(IndexExpressionNode Index, BoundNode Callee) : BoundNode(Index);
+
+/// <summary>
 /// A <c>TypeOf … Is</c> expression (<strong>MS-VBAL §5.6.9.9</strong>), its operand, and the class it tests the operand's object against.
 /// </summary>
 /// <remarks>

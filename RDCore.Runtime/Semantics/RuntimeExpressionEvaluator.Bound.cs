@@ -194,6 +194,7 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundMember member => EvaluateBoundMember(session, member, context),
         BoundNew created => CreateObject(session, created.New, created.Class),
         BoundTypeOf typeOf => EvaluateBoundTypeOf(session, typeOf, context),
+        BoundIndex index => IndexValue(session, context, index.Index, index.Index, EvaluateBoundNode(session, index.Callee, context)),
         _ => EvaluateSyntax(session, node.Expression, context),
     };
 
@@ -222,7 +223,16 @@ public sealed partial class RuntimeExpressionEvaluator
         else if (UnwrappedOwner(owner) is VBObjectValue objectValue && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             && ImplementationOf(bound, instance.ClassModule) is { } member)
         {
-            result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue);
+            // a public variable of the object is read, as EvaluateInstanceField reads it - and what follows it in parentheses indexes it.
+            if (member.Kind is SymbolKindExt.Field or SymbolKindExt.Variable)
+            {
+                result = Assumed(RuntimeSemanticsEvaluationResult.Success(member.ResolvedType.CreateValue(instance.GetValue(member).ForReading())));
+                isCall = false;
+            }
+            else
+            {
+                result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue);
+            }
         }
         else if (bound.Arguments is { } call)
         {
@@ -239,6 +249,11 @@ public sealed partial class RuntimeExpressionEvaluator
         // a public variable of the object, given arguments, is what they index.
         return isCall || bound.Arguments is not { } index ? result : IndexValue(session, context, index, index, result);
     }
+
+    // a public variable of a class by name, which a member that is no procedure of the class reads (EvaluateInstanceField).
+    private static VBTypeMemberSymbol? FieldOf(VBClassModuleSymbol actual, string name)
+        => actual.DefaultInterfaceMembers.FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)) is
+            { Kind: SymbolKindExt.Field or SymbolKindExt.Variable } field ? field : null;
 
     // what EvaluateTypeOfIs does, the class tested against resolved once.
     private RuntimeSemanticsEvaluationResult EvaluateBoundTypeOf(IRuntimeSession session, BoundTypeOf typeOf, RuntimeEvaluationContext context)
@@ -267,7 +282,7 @@ public sealed partial class RuntimeExpressionEvaluator
             ? bound.Member
             : (actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declared) is { } implementedInterface
                 ? ImplementationIn(actual, implementedInterface, name)
-                : null) ?? InvocableMemberOf(actual, name);
+                : null) ?? InvocableMemberOf(actual, name) ?? FieldOf(actual, name);
 
         _memberSites[bound] = (actual, member);
         return member;
