@@ -240,8 +240,8 @@ public sealed record class BoundAssignment(ExpressionBindings Expressions, Conve
 /// </summary>
 /// <remarks>
 /// The binder is the static evaluation itself, with a recorder for what it evaluates (<see cref="StaticEvaluationContext.Bindings"/>): a declared type is the
-/// one the static semantics give the expression, by construction. Nothing consumes the bindings yet: evaluating an operation by its bound plan rather than
-/// planning it again for the values it is given is the next step.
+/// one the static semantics give the expression, by construction. The run time evaluates the bound tree of each expression it is given
+/// (<see cref="ExpressionBindings.NodeOf"/>): names read through their slots, operations by their plans, calls and members resolved once.
 /// </remarks>
 public static class ExpressionBinder
 {

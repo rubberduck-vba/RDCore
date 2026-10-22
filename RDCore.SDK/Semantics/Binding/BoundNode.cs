@@ -148,8 +148,11 @@ public sealed record class BoundTypeOf(TypeOfIsExpressionNode TypeOf, BoundNode 
 /// An expression the binder does not bind yet (IR lowering D3): it is evaluated from the syntax tree, the way it always was.
 /// </summary>
 /// <remarks>
-/// 🚧 Late-bound members, indexes and the special forms bind in later slices, which shrink this to nothing (S0.12). A compile error is not bound either: the
-/// static pass reports it, and the evaluation of the syntax tree is what raises its run-time counterpart.
+/// 🚧 What is left binds when the evaluation of the syntax tree is retired (S0.12), which shrinks this to nothing: the special forms (<c>LBound</c>,
+/// <c>UBound</c>, …) and dictionary access (<c>c!key</c>), whose operands are bound already; <c>New</c> and <c>TypeOf … Is</c> of a project-qualified type
+/// name; an index whose callee is no variable, procedure or member (<c>F()(1)</c>); a member of a module or an enumeration by its qualified name; and the
+/// rest of the expressions (<c>Me</c>, arrays, conditional-compilation names). A compile error is not bound either: the static pass reports it, and the
+/// evaluation of the syntax tree is what raises its run-time counterpart.
 /// </remarks>
 /// <param name="Expression">The expression.</param>
 public sealed record class BoundFallback(ExpressionNode Expression) : BoundNode(Expression);
