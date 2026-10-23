@@ -110,6 +110,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
 
         (frame.Procedure, frame.Body) = (procedure, body);
+        frame.LayOut(SDK.Semantics.Binding.FrameLayout.For(procedure));
         if (!Session.CallStack.TryPush(frame))
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace,

@@ -235,22 +235,66 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <exception cref="InvalidOperationException"><paramref name="symbol"/> is already declared on this frame — a compile-time <c>DuplicateDeclaration</c> that should never reach runtime.</exception>
     public void Push(Symbol symbol, VBTypedValue value)
     {
+        // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
+        // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it (S1.1b).
+        var cell = SymbolAddressTable.FreshBinding(value);
+        if (TryGetOwnSlot(symbol, out var index))
+        {
+            ref var held = ref _slots[index];
+            if (held.IsFilled || IsByRefParameter(symbol))
+            {
+                throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
+            }
+
+            held = new Slot(true, default, cell, null, value.Size);
+            return;
+        }
+
         if (!_declared.Add(symbol.SemanticId))
         {
             throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
         }
 
-        // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
-        // locals are never passed by reference, and an activation of them reserves nothing.
-        (_cells ??= [])[symbol.SemanticId] = (SymbolAddressTable.FreshBinding(value), value.Size);
+        (_cells ??= [])[symbol.SemanticId] = (cell, value.Size);
     }
 
-    // the cells of the activation's variables that have no address yet (TryGetAddress gives one, and the cell moves to the address table).
+    /// <summary>
+    /// Lays the activation out as <paramref name="layout"/> says (IR lowering S1.1b): a variable it has a slot for is held in that slot from the moment it
+    /// is declared, and is found by its number.
+    /// </summary>
+    /// <param name="layout">The layout of the procedure this is an activation of (<see cref="FrameLayout.For"/>).</param>
+    public void LayOut(FrameLayout layout)
+    {
+        _layout = layout;
+        _slots = layout.Count == 0 ? [] : new Slot[layout.Count];
+    }
+
+    // the slot of the activation's layout a variable of it is held in.
+    private bool TryGetOwnSlot(Symbol symbol, out int index)
+    {
+        index = -1;
+        if (_layout is null || _slots.Length == 0 || !_layout.TryGetSlot(symbol, out var slot))
+        {
+            return false;
+        }
+
+        index = slot.Index;
+        return true;
+    }
+
+    // the cells of the activation's variables that no slot holds and that have no address yet (TryGetAddress gives one, and the cell moves to the address
+    // table).
     private Dictionary<SemanticId, (IBindingHandle Cell, int Size)>? _cells;
 
     private bool TryGetCell(Symbol symbol, [NotNullWhen(true)] out IBindingHandle? cell)
     {
         cell = null;
+        if (TryGetOwnSlot(symbol, out var index) && _slots[index].Cell is { } slotCell)
+        {
+            cell = slotCell;
+            return true;
+        }
+
         if (_cells is not null && _cells.TryGetValue(symbol.SemanticId, out var held))
         {
             cell = held.Cell;
@@ -261,19 +305,30 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - a POKE rebinds what is at an address,
-    // which the slots that held the cell would not see, so they are filled again.
+    // which a slot that held the cell would not see, so the slot holds the address instead.
     // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with
     // a source location to attach it to - matches RuntimeSymbolResolver.TryAllocate's own documented contract.
     private bool TryGiveAddress(Symbol symbol, out MemoryAddress address)
     {
         address = default;
-        if (_cells is null || !_cells.TryGetValue(symbol.SemanticId, out var held) || !_addresses.TryAllocate(symbol, held.Size, held.Cell, out address))
+        if (TryGetOwnSlot(symbol, out var index) && _slots[index] is { Cell: { } slotCell } held)
+        {
+            if (!_addresses.TryAllocate(symbol, held.Size, slotCell, out address))
+            {
+                return false;
+            }
+
+            _slots[index] = held with { Address = address, Cell = null };
+            _cells?.Remove(symbol.SemanticId);
+            return true;
+        }
+
+        if (_cells is null || !_cells.TryGetValue(symbol.SemanticId, out var cell) || !_addresses.TryAllocate(symbol, cell.Size, cell.Cell, out address))
         {
             return false;
         }
 
         _cells.Remove(symbol.SemanticId);
-        Array.Clear(_slots);
         return true;
     }
 
@@ -358,7 +413,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
     // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address does (a POKE
     // rebinds it), which is why it is read there every time rather than kept.
-    private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType);
+    private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType, int Size);
 
     private FrameLayout? _layout;
     private Slot[] _slots = [];
@@ -399,13 +454,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             // a cell is read as it is, without giving the variable an address it does not need.
             var referenced = TryGetReferencedType(variable, out var type) ? type : null;
-            if (!TryGetAlias(variable, out var address) && TryGetCell(variable, out var cell))
+            if (!TryGetAlias(variable, out var address) && _cells is not null && _cells.TryGetValue(variable.SemanticId, out var cell))
             {
-                held = new Slot(true, default, cell, referenced);
+                held = new Slot(true, default, cell.Cell, referenced, cell.Size);
             }
             else if (TryGetAddress(variable, out address))
             {
-                held = new Slot(true, address, null, referenced);
+                held = new Slot(true, address, null, referenced, 0);
             }
             else
             {

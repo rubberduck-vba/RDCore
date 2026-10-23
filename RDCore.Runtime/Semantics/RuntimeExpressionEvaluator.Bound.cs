@@ -49,9 +49,6 @@ public sealed partial class RuntimeExpressionEvaluator
         return node;
     }
 
-    // the layout of the activations of each definition of a procedure, made once for it: a procedure defined again is another symbol, with a layout of its own.
-    private readonly ConditionalWeakTable<Symbol, FrameLayout> _layouts = [];
-
     // the binding is the static evaluation of the expression, in the scope the evaluation resolves its names from. An expression written where the session
     // defines no scope - a procedure it does not know, whose names its resolver finds all the same - is bound in an empty scope of that procedure, as the
     // static pass types an owner it has no scope for. Its variables are bound to the slots of the procedure it is written in, when that is the procedure the
@@ -64,7 +61,7 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var frame = session.CallStack.Current is CallStackFrame { Procedure: { } procedure } && procedure.Uri.AbsoluteUri == context.Scope.AbsoluteUri
-            ? _layouts.GetValue(procedure, FrameLayout.Of)
+            ? FrameLayout.For(procedure)
             : null;
 
         // a member written with no object before the dot is a member of the target of the enclosing With block, typed as the static pass types it: by the

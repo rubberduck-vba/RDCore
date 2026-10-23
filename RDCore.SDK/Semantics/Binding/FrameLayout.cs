@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using System.Runtime.CompilerServices;
 
 namespace RDCore.SDK.Semantics.Binding;
 
@@ -48,6 +49,15 @@ public sealed class FrameLayout
     /// </summary>
     /// <param name="procedure">The procedure: a <c>Sub</c>, a <c>Function</c> or a property accessor. Anything else has no slots.</param>
     public static FrameLayout Of(Symbol procedure) => new(procedure);
+
+    private static readonly ConditionalWeakTable<Symbol, FrameLayout> _layouts = [];
+
+    /// <summary>
+    /// The layout of an activation of <paramref name="procedure"/>, the same instance every time it is asked for that very symbol: what binds a name of the
+    /// procedure to a slot and what lays out its activations agree on it by identity (<see cref="FrameSlot.Layout"/>).
+    /// </summary>
+    /// <param name="procedure">The procedure: a <c>Sub</c>, a <c>Function</c> or a property accessor. Anything else has no slots.</param>
+    public static FrameLayout For(Symbol procedure) => _layouts.GetValue(procedure, Of);
 
     /// <summary>
     /// The procedure this is the layout of.
