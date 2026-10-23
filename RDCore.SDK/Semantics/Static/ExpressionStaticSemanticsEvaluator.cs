@@ -530,9 +530,9 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         // see EvaluateBinaryOperator: an operand is a value. The parentheses around an argument (`Foo (x)`) are no operator of the program's: what they
-        // coerce to is the parameter's to say.
+        // coerce to is the parameter's to say. The parentheses around an operand of an operator group it, and the operator reads its value.
         var operand = operandResult.Result!;
-        if (unaryOperator.Token != OperatorSymbolNames.UnaryLetCoerceOp)
+        if (unaryOperator.Token is not (OperatorSymbolNames.UnaryLetCoerceOp or OperatorSymbolNames.UnaryArithmeticPrecedenceOp))
         {
             var value = ObjectValueStaticSemantics.ValueOf(unaryOperator.Operand, operand, ValueDestination.TypedValue);
             if (value.IsError)
@@ -573,10 +573,12 @@ public static class ExpressionStaticSemanticsEvaluator
     {
         Tokens.NegationOp => new UnaryNegationOperatorStaticSemantics(),
         Tokens.LogicalNotOp => new UnaryLogicalOperatorStaticSemantics(),
-        // MS-VBAL 5.6.6: a pair of parentheses is an operator, and it leaves the declared type alone.
+        // MS-VBAL 5.6.6: a pair of parentheses is an operator - around an operand of an operator, the precedence one; anywhere else, the let-coercion one
+        // (RD-VBAL §5.6.6) - and either leaves the declared type alone.
         // Without a rule it falls through to the VBUnknownType above, which would lose the type of
         // everything anyone ever wrote parentheses around.
         OperatorSymbolNames.UnaryLetCoerceOp => new UnaryLetCoerceOperatorStaticSemantics(),
+        OperatorSymbolNames.UnaryArithmeticPrecedenceOp => new UnaryPrecedenceOperatorStaticSemantics(),
         _ => null,
     };
 }

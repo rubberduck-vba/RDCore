@@ -174,6 +174,8 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             Tokens.LogicalNotOp => Evaluate(_not, session, expression.Token, expression, ConversionSite.OperatorOperand, operand),
             // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator, and this is it. Its operation is its operand's conversion.
             OperatorSymbolNames.UnaryLetCoerceOp => _letCoerce.Evaluate(session, new(), expression, operand),
+            // the parentheses around an operand of an operator group it (RD-VBAL §5.6.6): its value is the operand's, which the operator reads.
+            OperatorSymbolNames.UnaryArithmeticPrecedenceOp => RuntimeSemanticsEvaluationResult.Success(operand),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 

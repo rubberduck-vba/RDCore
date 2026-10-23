@@ -1879,14 +1879,25 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // argument written to be passed by value was aliased to a ByRef parameter and mutated the caller's
     // variable. What this operator yields is a value bound to nothing, which is what there being nothing
     // to alias means; no rule anywhere says "forced ByVal".
+    // One syntax, two operators (RD-VBAL §5.6.6), as `=` is an assignment or a comparison: around an operand of an operator - or around what is already
+    // in parentheses, or what TypeOf tests - they group it, and are the precedence operator; anywhere else - an argument, the value of an assignment, a
+    // condition - they let-coerce what they enclose.
     public override void ExitParenthesizedExpr([NotNull] VBAParser.ParenthesizedExprContext context)
     {
         if (!IsDeclarationPassExpression)
         {
             return;
         }
-        AddIfBuilt(BuildUnary(OperatorSymbolNames.UnaryLetCoerceOp, context));
+
+        var token = IsOperandOfAnOperator(context) ? OperatorSymbolNames.UnaryArithmeticPrecedenceOp : OperatorSymbolNames.UnaryLetCoerceOp;
+        AddIfBuilt(BuildUnary(token, context));
     }
+
+    private static bool IsOperandOfAnOperator(VBAParser.ParenthesizedExprContext context)
+        => context.Parent is VBAParser.PowOpContext or VBAParser.UnaryMinusOpContext or VBAParser.MultOpContext or VBAParser.IntDivOpContext
+            or VBAParser.ModOpContext or VBAParser.AddOpContext or VBAParser.ConcatOpContext or VBAParser.RelationalOpContext
+            or VBAParser.LogicalNotOpContext or VBAParser.LogicalAndOpContext or VBAParser.LogicalOrOpContext or VBAParser.LogicalXorOpContext
+            or VBAParser.LogicalEqvOpContext or VBAParser.LogicalImpOpContext or VBAParser.ParenthesizedExprContext or VBAParser.TypeofexprContext;
 
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
     {

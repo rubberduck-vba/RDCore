@@ -76,8 +76,10 @@ public sealed partial class RuntimeExpressionEvaluator
                 return ScalarPayload.TryOf(literal.Literal.StaticValue.TypeInfo, literal.Literal.StaticValue.RuntimeValue, out payload);
             case BoundVariable variable:
                 return BindingOf(session, variable) is (ScalarCell cell, null) && cell.TryRead(out payload);
-            // MS-VBAL §5.6.6: what is in parentheses is a value - of a payload, the payload.
-            case BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
+            // MS-VBAL §5.6.6: what is in parentheses is a value - of a payload, the payload, whether the parentheses group an operand (the precedence
+            // operator) or coerce what they enclose (the let-coercion operator, which converts nothing of a scalar).
+            case BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
+                or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return TryEvaluatePayload(session, enclosed, out payload);
             case BoundUnary { Plan: { IsDeferred: false, EffectiveType: { } effective } plan, Operand: var operand } when plan.Operator == Tokens.NegationOp:
                 return TryEvaluatePayload(session, operand, out var negated) && TryConvertPayload(negated, effective, out var operandValue)

@@ -9,7 +9,8 @@ namespace RDCore.Tests.Parser;
 
 /// <summary>
 /// A parenthesized expression (MS-VBAL §5.6.6) is a value expression, and its parentheses are an
-/// operator — <c>__c()_op</c>, the unary let-coercion.
+/// operator: around an operand of an operator, <c>__p()_op</c>, which groups it; anywhere else,
+/// <c>__c()_op</c>, the unary let-coercion (RD-VBAL §5.6.6).
 /// </summary>
 /// <remarks>
 /// The parser used to erase them, leaking the enclosed expression up as though it had been written
@@ -48,7 +49,6 @@ public sealed class ParenthesizedExpressionTests
         var outer = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(ValueOf("((y))"));
         var inner = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(outer.Operand);
 
-        Assert.AreEqual(OperatorSymbolNames.UnaryLetCoerceOp, inner.Token);
         Assert.IsInstanceOfType<SimpleNameExpressionNode>(inner.Operand);
     }
 
@@ -58,15 +58,43 @@ public sealed class ParenthesizedExpressionTests
         => Assert.IsInstanceOfType<SimpleNameExpressionNode>(ValueOf("y"));
 
     [TestMethod]
-    public void GroupingParentheses_AreTheSameOperator()
+    public void GroupingParentheses_AreThePrecedenceOperator()
     {
-        // MS-VBAL 5.6.6 draws no distinction by position — a parenthesized expression is a value
-        // expression wherever it appears, and grouping is what that already means for an operand that
-        // was never a variable. So `(a + b) * c` carries the operator too, over the addition.
+        // one syntax, two operators (RD-VBAL §5.6.6): around an operand of an operator, the parentheses group it, and coerce nothing of their own - the
+        // operator reads the operand's value, as it reads any operand's.
         var product = Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(ValueOf("(a + b) * c"));
         var left = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(product.Left);
 
-        Assert.AreEqual(OperatorSymbolNames.UnaryLetCoerceOp, left.Token);
+        Assert.AreEqual(OperatorSymbolNames.UnaryArithmeticPrecedenceOp, left.Token);
         Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(left.Operand);
+    }
+
+    [TestMethod]
+    [DataRow("-(a + b)", DisplayName = "the operand of a negation")]
+    [DataRow("Not (a Or b)", DisplayName = "the operand of Not")]
+    [DataRow("(a) Is Nothing", DisplayName = "an operand of Is, which compares references and reads no default member")]
+    [DataRow("c & (a)", DisplayName = "the right operand of &")]
+    public void TheParenthesesAroundAnOperand_AreThePrecedenceOperator(string expression)
+    {
+        var operation = ValueOf(expression);
+        var parenthesized = operation switch
+        {
+            VBUnaryOperatorExpressionNode unary => unary.Operand,
+            VBBinaryOperatorExpressionNode { Left: VBUnaryOperatorExpressionNode left } => left,
+            VBBinaryOperatorExpressionNode binary => binary.Right,
+            _ => operation,
+        };
+
+        Assert.AreEqual(OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(parenthesized).Token);
+    }
+
+    [TestMethod]
+    public void TheParenthesesInsideParentheses_AreThePrecedenceOperator_UnderTheLetCoercionOne()
+    {
+        var outer = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(ValueOf("((y))"));
+        var inner = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(outer.Operand);
+
+        Assert.AreEqual(OperatorSymbolNames.UnaryLetCoerceOp, outer.Token);
+        Assert.AreEqual(OperatorSymbolNames.UnaryArithmeticPrecedenceOp, inner.Token);
     }
 }
