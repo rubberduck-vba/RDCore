@@ -106,6 +106,16 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.4.2.21</strong> With Statement.
     /// </summary>
     ExpectedEndWith = 53,
+    /// <summary>
+    /// A statement that runs is written in the declarations section of a module, outside any procedure.<br/>
+    /// <strong>MS-VBAL §5.1</strong> Module Body Structure.
+    /// </summary>
+    InvalidOutsideProcedure = 54,
+    /// <summary>
+    /// A statement or a declaration is written after the first procedure of a module, where only procedures and comments may be.<br/>
+    /// <strong>MS-VBAL §5.1</strong> Module Body Structure.
+    /// </summary>
+    OnlyCommentsAfterEndProcedure = 55,
 
     #endregion
 
@@ -540,6 +550,11 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.4</strong> Expression Binding Contexts.
     /// </summary>
     ModuleIsNotAValidType = 9366,
+    /// <summary>
+    /// An <c>AddressOf</c> expression names a member of a class module, or of an object: only a procedure of a standard module has an address.<br/>
+    /// <strong>MS-VBAL §5.6.16.8</strong> AddressOf Expressions.
+    /// </summary>
+    InvalidUseOfAddressOf = 9367,
 
 
     /***********************************************************************************************

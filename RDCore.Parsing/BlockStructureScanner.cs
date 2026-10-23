@@ -34,8 +34,9 @@ internal static class BlockStructureScanner
         var errors = ImmutableArray.CreateBuilder<VBSyntaxErrorInfo>();
         var open = new Stack<(Block Block, IToken Token)>();
         var broken = false;
+        var module = new ModuleLevel();
 
-        foreach (var statement in Statements(lexer.GetAllTokens()))
+        foreach (var (statement, modified) in Statements(lexer.GetAllTokens()))
         {
             var first = statement[0];
             switch (first.Type)
@@ -43,6 +44,7 @@ internal static class BlockStructureScanner
                 case VBALexer.SUB or VBALexer.FUNCTION or VBALexer.PROPERTY_GET or VBALexer.PROPERTY_LET or VBALexer.PROPERTY_SET:
                     open.Clear();
                     broken = false;
+                    module.Enter();
                     continue;
                 case VBALexer.END_SUB or VBALexer.END_FUNCTION or VBALexer.END_PROPERTY:
                     if (!broken && open.Count > 0 && Unclosed(open.Peek().Block) is { } unclosed)
@@ -52,7 +54,18 @@ internal static class BlockStructureScanner
 
                     open.Clear();
                     broken = false;
+                    module.Leave();
                     continue;
+            }
+
+            if (!module.InProcedure)
+            {
+                if (module.Refuses(statement, modified) is { } refused)
+                {
+                    errors.Add(Error(uri, first, refused, anchorOffset));
+                }
+
+                continue;
             }
 
             if (broken)
@@ -91,6 +104,79 @@ internal static class BlockStructureScanner
         }
 
         return errors.ToImmutable();
+    }
+
+    // what is written outside the procedures of a module (MS-VBAL §5.1): declarations, before the first procedure - a statement that runs there is "Invalid
+    // outside procedure", and anything but a procedure after one is "Only comments may appear after End Sub, End Function, or End Property" (MS-VBA, Excel-
+    // verified). A class module's header, its attributes and the members of a Type or an Enum are none of these. One error for each stretch of statements
+    // that are refused, as the grammar can tell nothing apart in it.
+    private sealed class ModuleLevel
+    {
+        private bool _afterProcedure;
+        private bool _inHeader;
+        private bool _inTypeOrEnum;
+        private bool _refused;
+
+        public bool InProcedure { get; private set; }
+
+        public void Enter()
+        {
+            InProcedure = true;
+            _refused = false;
+        }
+
+        public void Leave()
+        {
+            InProcedure = false;
+            _afterProcedure = true;
+        }
+
+        public VBCompileErrorId? Refuses(List<IToken> statement, bool modified)
+        {
+            var first = statement[0].Type;
+            if (_inHeader)
+            {
+                _inHeader = !(first == VBALexer.END && statement.Count == 1);
+                return null;
+            }
+
+            if (_inTypeOrEnum)
+            {
+                _inTypeOrEnum = first is not (VBALexer.END_TYPE or VBALexer.END_ENUM);
+                return null;
+            }
+
+            if (first is VBALexer.VERSION or VBALexer.ATTRIBUTE)
+            {
+                return null;
+            }
+
+            if (first == VBALexer.BEGIN)
+            {
+                _inHeader = true;
+                return null;
+            }
+
+            _inTypeOrEnum = first is VBALexer.TYPE or VBALexer.ENUM;
+            var refused = _afterProcedure ? VBCompileErrorId.OnlyCommentsAfterEndProcedure
+                : modified || IsDeclaration(first) ? (VBCompileErrorId?)null
+                : VBCompileErrorId.InvalidOutsideProcedure;
+            if (refused is null)
+            {
+                _refused = false;
+                return null;
+            }
+
+            var firstOfStretch = !_refused;
+            _refused = true;
+            return firstOfStretch ? refused : null;
+        }
+
+        private static bool IsDeclaration(int token) => token is VBALexer.DIM or VBALexer.CONST or VBALexer.DECLARE or VBALexer.TYPE or VBALexer.ENUM
+            or VBALexer.EVENT or VBALexer.IMPLEMENTS or VBALexer.OPTION_BASE or VBALexer.OPTION_EXPLICIT or VBALexer.OPTION_COMPARE
+            or VBALexer.OPTION_PRIVATE_MODULE or VBALexer.DEFBOOL or VBALexer.DEFBYTE or VBALexer.DEFDATE or VBALexer.DEFDBL or VBALexer.DEFCUR
+            or VBALexer.DEFINT or VBALexer.DEFLNG or VBALexer.DEFLNGLNG or VBALexer.DEFLNGPTR or VBALexer.DEFOBJ or VBALexer.DEFSNG or VBALexer.DEFSTR
+            or VBALexer.DEFVAR;
     }
 
     // whether a statement fits the blocks open around it; when it does not, MS-VBA's error for it, if it is one this knows.
@@ -152,10 +238,12 @@ internal static class BlockStructureScanner
     }
 
     // the statements of the source, each as its significant tokens: a statement ends at the end of its line or at a colon. A comment is not one, a line
-    // number or a label before a statement is not part of it, and a single-line If - with the statements after its Then - is one statement.
-    private static IEnumerable<List<IToken>> Statements(IList<IToken> tokens)
+    // number or a label before a statement is not part of it, and a single-line If - with the statements after its Then - is one statement. The modifiers
+    // a declaration is written with (Public, Private...) are not what it declares, and are said apart: a statement that has them is a declaration.
+    private static IEnumerable<(List<IToken> Tokens, bool Modified)> Statements(IList<IToken> tokens)
     {
         var statement = new List<IToken>();
+        var modified = false;
         var inComment = false;
         var inSingleLineIf = false;
         foreach (var token in tokens)
@@ -167,10 +255,11 @@ internal static class BlockStructureScanner
                     inSingleLineIf = false;
                     if (statement.Count > 0)
                     {
-                        yield return statement;
+                        yield return (statement, modified);
                     }
 
                     statement = [];
+                    modified = false;
                     continue;
                 case VBALexer.WS or VBALexer.LINE_CONTINUATION:
                     continue;
@@ -191,10 +280,11 @@ internal static class BlockStructureScanner
             {
                 if (statement.Count > 0)
                 {
-                    yield return statement;
+                    yield return (statement, modified);
                 }
 
                 statement = [];
+                modified = false;
                 continue;
             }
 
@@ -223,9 +313,9 @@ internal static class BlockStructureScanner
                 continue;
             }
 
-            // the modifiers of a procedure's declaration are not what the declaration is.
             if (statement.Count == 0 && token.Type is VBALexer.PUBLIC or VBALexer.PRIVATE or VBALexer.FRIEND or VBALexer.STATIC or VBALexer.GLOBAL)
             {
+                modified = true;
                 continue;
             }
 
@@ -234,7 +324,7 @@ internal static class BlockStructureScanner
 
         if (statement.Count > 0)
         {
-            yield return statement;
+            yield return (statement, modified);
         }
     }
 }

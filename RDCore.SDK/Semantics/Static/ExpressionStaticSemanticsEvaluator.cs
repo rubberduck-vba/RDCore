@@ -4,6 +4,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -78,6 +79,7 @@ public static class ExpressionStaticSemanticsEvaluator
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             // ByVal flags how an argument is passed; the argument is the expression it is written before.
             ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
+            AddressOfExpressionNode addressOf => EvaluateAddressOf(context, addressOf),
             // what is printed is an expression like any other, which can be wrong in its own right; an item of an output list has no type of its own.
             PrintOutputItemNode item => EvaluatePrintItem(context, item),
             PrintSpcClauseNode spc => EvaluateOperands(context, spc.Count),
@@ -187,6 +189,12 @@ public static class ExpressionStaticSemanticsEvaluator
         if (calleeResult.IsError)
         {
             return calleeResult;
+        }
+
+        // a function whose name is reserved is written with the arguments it takes, or not at all (MS-VBA: "Syntax error", Excel-verified).
+        if (ReservedNameStaticSemantics.CallError(indexExpression) is { } reservedNameError)
+        {
+            return StaticSemanticsEvaluationResult.Error(reservedNameError);
         }
 
         // MS-VBAL §5.6.13.1: "It is invalid for an argument list to contain a ByVal argument unless it is the argument
@@ -326,11 +334,44 @@ public static class ExpressionStaticSemanticsEvaluator
         => argument switch
         {
             MissingArgumentNode => null,
-            NamedArgumentNode named => Evaluate(context, named.Value),
+            NamedArgumentNode named => EvaluateIndexArgument(context, named.Value),
             ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
-            AddressOfExpressionNode addressOf => Evaluate(context, addressOf.Target),
             _ => Evaluate(context, argument),
         };
+
+    // MS-VBAL §5.6.16.8: what AddressOf names is a subroutine, a function or a property with a Property Get (MS-VBA: "Expected Sub, Function, or Property"),
+    // and not one of a class module (MS-VBA: "Invalid use of AddressOf operator", of an object's member too) - both Excel-verified. Its declared type is
+    // implementation-defined, and not known here yet.
+    private static StaticSemanticsEvaluationResult EvaluateAddressOf(StaticEvaluationContext context, AddressOfExpressionNode addressOf)
+    {
+        var target = addressOf.Target;
+        var referenced = target switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            _ => null,
+        };
+
+        // a member of what is no namespace - a class module, an object - has no address; an owner that names nothing is that name's error.
+        if (referenced is null && target is MemberAccessExpressionNode { Owner: { } other } member && context.Resolver.NamespaceOf(other, context.Scope.Uri) is null
+            && (other is not SimpleNameExpressionNode ownerName || context.Resolver.ResolveValue(ownerName, ScopeKind.Local, context.Scope.Uri).Symbol is not null
+                || context.Resolver.ResolveQualifier(ownerName.IdentifierName, ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol))
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfAddressOf, target.Location, member.Member.IdentifierName));
+        }
+
+        return referenced switch
+        {
+            // what MS-VBA makes of the address of a Declare is not known.
+            VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol => Evaluate(context, target),
+            VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
+            ITypedSymbol
+                =>StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, target.Location,
+                    target switch { SimpleNameExpressionNode simple => simple.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => string.Empty })),
+            _ => Evaluate(context, target),
+        };
+    }
 
     private static StaticSemanticsEvaluationResult EvaluateDictionaryAccess(
         StaticEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)

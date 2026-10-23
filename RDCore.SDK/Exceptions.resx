@@ -642,4 +642,16 @@
   <data name="VBCompileError_ModuleIsNotAValidType" xml:space="preserve">
     <value>A module is not a valid type</value>
   </data>
+  <data name="VBCompileError_InvalidOutsideProcedure" xml:space="preserve">
+    <value>Invalid outside procedure</value>
+  </data>
+  <data name="VBCompileError_OnlyCommentsAfterEndProcedure" xml:space="preserve">
+    <value>Only comments may appear after End Sub, End Function, or End Property</value>
+  </data>
+  <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
+    <value>&apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses.</value>
+  </data>
+  <data name="VBCompileError_InvalidUseOfAddressOf" xml:space="preserve">
+    <value>Invalid use of AddressOf operator</value>
+  </data>
 </root>

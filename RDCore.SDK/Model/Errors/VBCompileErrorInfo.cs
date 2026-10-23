@@ -70,6 +70,8 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.SelectCaseWithoutEndSelect] = Exceptions.VBCompileError_SelectCaseWithoutEndSelect,
         [VBCompileErrorId.EndWithWithoutWith] = Exceptions.VBCompileError_EndWithWithoutWith,
         [VBCompileErrorId.ExpectedEndWith] = Exceptions.VBCompileError_ExpectedEndWith,
+        [VBCompileErrorId.InvalidOutsideProcedure] = Exceptions.VBCompileError_InvalidOutsideProcedure,
+        [VBCompileErrorId.OnlyCommentsAfterEndProcedure] = Exceptions.VBCompileError_OnlyCommentsAfterEndProcedure,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,
@@ -137,5 +139,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.ExpectedSubFunctionOrProperty] = Exceptions.VBCompileError_ExpectedSubFunctionOrProperty,
         [VBCompileErrorId.RangeHasNoValues] = Exceptions.VBCompileError_RangeHasNoValues,
         [VBCompileErrorId.ModuleIsNotAValidType] = Exceptions.VBCompileError_ModuleIsNotAValidType,
+        [VBCompileErrorId.InvalidUseOfAddressOf] = Exceptions.VBCompileError_InvalidUseOfAddressOf,
     };
 }

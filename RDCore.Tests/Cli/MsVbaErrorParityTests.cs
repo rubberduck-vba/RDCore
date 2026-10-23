@@ -31,6 +31,7 @@ public sealed class MsVbaErrorParityTests
             "Public Sub TakesLongArray(ByRef A() As Long)", "End Sub",
             "Public Sub TakesObject(ByRef O As Object)", "End Sub",
             "Public Sub TakesCollection(ByRef C As Collection)", "End Sub",
+            "Public Sub TakesPtr(ByVal P As LongPtr)", "End Sub",
             "Public Function Two() As Long", "    Two = 2", "End Function")),
     ];
 
@@ -123,6 +124,18 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim x As Globals", "A module is not a valid type", DisplayName = "a variable typed as a module")]
     [DataRow("Dim a(5 To 1) As Long", "Range has no values", DisplayName = "an upper bound less than the lower one")]
     [DataRow("Dim a(-1) As Long", "Range has no values", DisplayName = "a negative upper bound")]
+    [DataRow("Debug.Print Len()", "Syntax error", DisplayName = "Len with no argument")]
+    [DataRow("Debug.Print Len", "Syntax error", DisplayName = "Len with no argument list")]
+    [DataRow("Dim x As Long ;; x = LenB", "Syntax error", DisplayName = "LenB assigned with no argument list")]
+    [DataRow("Debug.Print Abs(1, 2)", "Syntax error", DisplayName = "Abs with two arguments")]
+    [DataRow("Debug.Print CLng()", "Syntax error", DisplayName = "a conversion function with no argument")]
+    [DataRow("Debug.Print String(2)", "Syntax error", DisplayName = "String with one argument")]
+    [DataRow("Debug.Print CDec()", "Argument not optional", DisplayName = "CDec, whose name is not reserved, with no argument")]
+    [DataRow("Dim c As New Counter ;; Globals.TakesPtr AddressOf c.Increment", "Invalid use of AddressOf operator", DisplayName = "AddressOf an object's method")]
+    [DataRow("Globals.TakesPtr AddressOf Counter.Increment", "Invalid use of AddressOf operator", DisplayName = "AddressOf a class module's method")]
+    [DataRow("Globals.TakesPtr AddressOf Globals.Count", "Expected Sub, Function, or Property", DisplayName = "AddressOf a variable")]
+    [DataRow("Globals.TakesPtr AddressOf Globals.Nope", "Method or data member not found", DisplayName = "AddressOf a procedure that is not there")]
+    [DataRow("Dim ll As LongLong ;; Debug.Print Globals.Twice(ll)", "Type mismatch", DisplayName = "a LongLong to a ByVal Long")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
 
@@ -140,6 +153,18 @@ public sealed class MsVbaErrorParityTests
         StringAssert.Contains(errors[1], "Method or data member not found");
         StringAssert.Contains(errors[2], "Assignment to constant not permitted");
         StringAssert.Contains(errors[3], "Wrong number of arguments or invalid property assignment");
+    }
+
+    // MS-VBA compiles a constant subscript out of an array's bounds, and raises error 9 when it runs; the sweep states it before the program runs.
+    [TestMethod]
+    [Ignore("the sweep assumes every variable it reads, an array included: the bounds of a fixed-size array are declared, and certain, but its read makes the subscript's error 9 an assumed one, which is not stated")]
+    public async Task AConstantSubscriptOutOfBounds_IsStatedBeforeTheProgramRuns()
+    {
+        var model = await ModelAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n    Dim a(5) As Long\r\n    a(6) = 1\r\nEnd Sub\r\n");
+
+        var facts = model.Procedures.Single().Runtime;
+        Assert.IsNotNull(facts, "the module was loaded, so its code was evaluated");
+        Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBRuntimeErrorId.SubscriptOutOfRange, facts.Errors.Single().ErrorId);
     }
 
     // what MS-VBA compiles, and raises at run time: each statement prints the error it raised.
@@ -163,6 +188,8 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim r As Pair ;; r.X = \"x\" ;; Debug.Print Err.Number", "13", DisplayName = "a field of a record let a String that is no number")]
     [DataRow("Dim v As Variant ;; v = 5 ;; LSet v = \"x\" ;; Debug.Print Err.Number", "0", DisplayName = "an LSet of a Variant that holds a number")]
     [DataRow("Dim pt As New Point ;; pt = 5 ;; Debug.Print Err.Number", "438", DisplayName = "a Let of an object whose class has no default member")]
+    [DataRow("Dim a(5) As Long ;; a(6) = 1 ;; Debug.Print Err.Number", "9", DisplayName = "a constant subscript past the upper bound")]
+    [DataRow("Dim a(5) As Long ;; Debug.Print a(-1) ;; Debug.Print Err.Number", "9", DisplayName = "a constant subscript below the lower bound")]
     public async Task WhatMsVbaRaisesAtRunTime_IsRaised(string body, string error)
         => Assert.AreEqual(error, (await RunAsync(Classes, Modules, Program(body))).Last());
 
@@ -185,6 +212,8 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim a() As Long ;; ReDim a(3) ;; Debug.Print UBound(a)", "3", DisplayName = "a ReDim of an array without dimensions")]
     [DataRow("ReDim b(3) As Long ;; Debug.Print UBound(b)", "3", DisplayName = "a ReDim that declares its array")]
     [DataRow("Dim a(0 To 0) As Long ;; Debug.Print UBound(a)", "0", DisplayName = "an array of one element")]
+    [DataRow("Debug.Print Len(\"abc\")", "3", DisplayName = "Len with its argument")]
+    [DataRow("Debug.Print String(2, \"x\")", "xx", DisplayName = "String with its two arguments")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());
 }

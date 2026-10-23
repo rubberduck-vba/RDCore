@@ -961,6 +961,42 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid outside procedure.
+        /// </summary>
+        public static string VBCompileError_InvalidOutsideProcedure {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidOutsideProcedure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Only comments may appear after End Sub, End Function, or End Property.
+        /// </summary>
+        public static string VBCompileError_OnlyCommentsAfterEndProcedure {
+            get {
+                return ResourceManager.GetString("VBCompileError_OnlyCommentsAfterEndProcedure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..
+        /// </summary>
+        public static string VBCompileError_ReservedNameArguments_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ReservedNameArguments_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid use of AddressOf operator.
+        /// </summary>
+        public static string VBCompileError_InvalidUseOfAddressOf {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidUseOfAddressOf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Expected End With.
         /// </summary>
         public static string VBCompileError_ExpectedEndWith {

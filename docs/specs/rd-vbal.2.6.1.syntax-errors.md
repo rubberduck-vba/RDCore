@@ -51,6 +51,8 @@ A procedure whose blocks do not match - a `Next` with no `For`, a block `If` wit
 |[`VBC00051`](../diagnostics/vbc00051.md)|Select Case without End Select|a `Select Case` statement is not ended before its procedure is|
 |[`VBC00052`](../diagnostics/vbc00052.md)|End With without With|an `End With` statement ends no `With` block|
 |[`VBC00053`](../diagnostics/vbc00053.md)|Expected End With|a `With` block is not ended before its procedure is|
+|[`VBC00054`](../diagnostics/vbc00054.md)|Invalid outside procedure|a statement that runs is written in the declarations section of a module|
+|[`VBC00055`](../diagnostics/vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property|a declaration or a statement is written after the first procedure of a module|
 
 ---
 > ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

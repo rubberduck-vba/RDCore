@@ -26,6 +26,10 @@
   href: vbc00052.md
 - name: VBC00053 — Expected End With
   href: vbc00053.md
+- name: VBC00054 — Invalid outside procedure
+  href: vbc00054.md
+- name: VBC00055 — Only comments may appear after End Sub, End Function, or End Property
+  href: vbc00055.md
 - name: VBC09301 — Ambiguous name detected
   href: vbc09301.md
 - name: VBC09302 — Variable not defined
@@ -156,6 +160,8 @@
   href: vbc09365.md
 - name: VBC09366 — A module is not a valid type
   href: vbc09366.md
+- name: VBC09367 — Invalid use of AddressOf operator
+  href: vbc09367.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

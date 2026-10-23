@@ -43,6 +43,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC00051](vbc00051.md)|Select Case without End Select — a `Select Case` statement is not ended before its procedure is|
 |[VBC00052](vbc00052.md)|End With without With — an `End With` statement ends no `With` block|
 |[VBC00053](vbc00053.md)|Expected End With — a `With` block is not ended before its procedure is|
+|[VBC00054](vbc00054.md)|Invalid outside procedure — a statement that runs is written in the declarations section of a module|
+|[VBC00055](vbc00055.md)|Only comments may appear after End Sub, End Function, or End Property — a declaration or a statement is written after the first procedure of a module|
 
 ### Semantic compilation errors
 
@@ -113,6 +115,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09364](vbc09364.md)|Expected Sub, Function, or Property — a `Call` statement names a variable or a constant, not a procedure|
 |[VBC09365](vbc09365.md)|Range has no values — an array is declared with an upper bound less than its lower bound|
 |[VBC09366](vbc09366.md)|A module is not a valid type — a declaration is typed with the name of a standard module|
+|[VBC09367](vbc09367.md)|Invalid use of AddressOf operator — an `AddressOf` expression names a method of a class module, or of an object|
 
 ### Runtime errors
 

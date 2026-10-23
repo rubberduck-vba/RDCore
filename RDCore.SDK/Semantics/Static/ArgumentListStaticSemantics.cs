@@ -85,7 +85,7 @@ internal static class ArgumentListStaticSemantics
                     return VBCompileErrorInfo.For(VBCompileErrorId.NamedArgumentAlreadySpecified, named.Location, named.Name);
                 }
 
-                if (ByRefError(context, procedure, parameter, named.Value) is { } namedByRef)
+                if ((ByRefError(context, procedure, parameter, named.Value) ?? ValueError(context, procedure, parameter, named.Value)) is { } namedByRef)
                 {
                     return namedByRef;
                 }
@@ -108,7 +108,7 @@ internal static class ArgumentListStaticSemantics
             if (argument is not MissingArgumentNode)
             {
                 given.Add(own[position].Name);
-                if (ByRefError(context, procedure, own[position], argument) is { } byRef)
+                if ((ByRefError(context, procedure, own[position], argument) ?? ValueError(context, procedure, own[position], argument)) is { } byRef)
                 {
                     return byRef;
                 }
@@ -147,6 +147,29 @@ internal static class ArgumentListStaticSemantics
                 => VBCompileErrorInfo.For(VBCompileErrorId.ByRefArgumentTypeMismatch, argument.Location, name.IdentifierName),
             _ => null,
         };
+    }
+
+    // MS-VBAL §5.3.1.11: a parameter given a value - ByVal, or ByRef and given what is not a variable - takes it by Let-coercion, which can be statically
+    // invalid for its declared type (§5.5.1.1; MS-VBA: "Type mismatch" for a LongLong given to a ByVal Long, Excel-verified). An object is given its
+    // default member's value, which ObjectValueStaticSemantics checks; a variable given ByRef is ByRefError's; an AddressOf has no declared type here yet.
+    private static VBCompileErrorInfo? ValueError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
+    {
+        if (parameter is ParamArrayParameterSymbol || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+            || parameter.ResolvedType is VBUnknownType or VBVariantType or VBClassType or VBObjectType
+            || argument is MissingArgumentNode or AddressOfExpressionNode or ByValArgumentExpressionNode
+            || parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef && argument is SimpleNameExpressionNode)
+        {
+            return null;
+        }
+
+        if (ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, argument) is not { IsSuccess: true, Result: { } given }
+            || given is VBUnknownType or VBVoidType or VBClassType or VBObjectType)
+        {
+            return null;
+        }
+
+        var coerced = LetCoercionStaticSemantics.Instance.DetermineDeclaredType(context, argument, given, parameter.ResolvedType);
+        return coerced.IsError ? coerced.ErrorInfo as VBCompileErrorInfo : null;
     }
 
     // a number, a String, a Boolean or a Date: what a ByRef parameter's type is compared by. A Variant parameter takes any variable.

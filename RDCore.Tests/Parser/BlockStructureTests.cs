@@ -49,4 +49,39 @@ public sealed class BlockStructureTests
     [TestMethod]
     public void ASyntaxErrorThatIsNoBlockError_IsTheGrammars()
         => Assert.IsTrue(ErrorsOf("Dim x As Long ;; x = = 1").All(error => error.VBCompileErrorId == VBCompileErrorId.SyntaxError));
+
+    private static IReadOnlyList<VBSyntaxErrorInfo> ModuleErrorsOf(string declarations, string after = "")
+        => new ModuleParser().Parse(Module,
+            $"Attribute VB_Name = \"Blocks\"\r\n{declarations.Replace(" ;; ", "\r\n")}\r\nPublic Sub Main()\r\nEnd Sub\r\n{after.Replace(" ;; ", "\r\n")}\r\n").SyntaxErrors;
+
+    // what is written outside the procedures of a module (MS-VBAL §5.1), as MS-VBA reports it (Excel-verified).
+    [TestMethod]
+    [DataRow("Debug.Print 1", "", VBCompileErrorId.InvalidOutsideProcedure, DisplayName = "a statement that runs, before the procedures")]
+    [DataRow("Call Main", "", VBCompileErrorId.InvalidOutsideProcedure, DisplayName = "a call, before the procedures")]
+    [DataRow("q = 1", "", VBCompileErrorId.InvalidOutsideProcedure, DisplayName = "an assignment, before the procedures")]
+    [DataRow("If True Then ;; End If", "", VBCompileErrorId.InvalidOutsideProcedure, DisplayName = "a block If, before the procedures")]
+    [DataRow("", "Dim z As Long", VBCompileErrorId.OnlyCommentsAfterEndProcedure, DisplayName = "a variable after a procedure")]
+    [DataRow("", "z = 1", VBCompileErrorId.OnlyCommentsAfterEndProcedure, DisplayName = "an assignment after a procedure")]
+    [DataRow("", "Const k = 1", VBCompileErrorId.OnlyCommentsAfterEndProcedure, DisplayName = "a constant after a procedure")]
+    [DataRow("", "Public Enum E2 ;; X ;; End Enum", VBCompileErrorId.OnlyCommentsAfterEndProcedure, DisplayName = "an Enum after a procedure")]
+    [DataRow("", "Option Explicit", VBCompileErrorId.OnlyCommentsAfterEndProcedure, DisplayName = "an Option after a procedure")]
+    public void AStatementWhereNoneMayBe_IsMsVbasError(string declarations, string after, VBCompileErrorId expected)
+    {
+        var errors = ModuleErrorsOf(declarations, after);
+
+        Assert.HasCount(1, errors, string.Join(" | ", errors.Select(error => $"{error.VBCompileErrorId}: {error.Verbose}")));
+        Assert.AreEqual(expected, errors[0].VBCompileErrorId);
+    }
+
+    // the declarations section is made of declarations, whatever they are written with; one that is refused does not make the ones around it so.
+    [TestMethod]
+    public void TheDeclarationsOfAModule_AreNoError_AroundOneThatIs()
+    {
+        var errors = ModuleErrorsOf(
+            "Option Explicit ;; DefLng A-Z ;; Private Type T ;; X As Long ;; End Type ;; Public Enum E ;; A ;; End Enum ;; Private Const K = 1 ;; "
+            + "Dim d As Long ;; Public p As Long ;; Private Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As Long) ;; Debug.Print 1 ;; Global g As Long");
+
+        Assert.HasCount(1, errors, string.Join(" | ", errors.Select(error => $"{error.VBCompileErrorId}: {error.Verbose}")));
+        Assert.AreEqual(VBCompileErrorId.InvalidOutsideProcedure, errors[0].VBCompileErrorId);
+    }
 }
