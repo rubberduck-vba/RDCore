@@ -21,6 +21,10 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim ll As LongLong ;; ll = 4000000000^ ;; ll = ll * 2 ;; Debug.Print ll", "8000000000", DisplayName = "a LongLong multiplied")]
     [DataRow("Dim i As Integer, l As Long ;; l = 300 ;; i = l + 1 ;; Debug.Print i", "301", DisplayName = "a Long in the range of an Integer, assigned to one")]
     [DataRow("Dim b As Byte ;; b = 200 ;; b = b + 50 ;; Debug.Print b", "250", DisplayName = "a Byte that fits")]
+    [DataRow("Dim l As Long ;; l = -17 ;; l = l Mod 5 ;; Debug.Print l", "-2", DisplayName = "a Long Mod, with the dividend's sign")]
+    [DataRow("Dim l As Long, i As Long ;; l = 10 ;; i = 3 ;; l = (l + i) * 2 ;; Debug.Print l", "26", DisplayName = "an expression in parentheses")]
+    [DataRow("Dim l As Long ;; l = -17 ;; l = l \\ 5 ;; Debug.Print l", "-3", DisplayName = "a Long integer-divided, truncated")]
+    [DataRow("Dim l As Long, d As Double ;; d = 7.5 ;; l = d \\ 2 ;; Debug.Print l", "4", DisplayName = "a Double integer-divided, rounded first (boxed)")]
     public void WhatIsAssignedOnPayloads_IsWhatTheBoxedEvaluationAssigns(string body, string printed)
         => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
 
@@ -31,6 +35,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim i As Integer ;; i = -32768 ;; i = -i ;; Debug.Print Err.Number & \" \" & i", "6 -32768", DisplayName = "the least Integer negated")]
     [DataRow("Dim b As Byte ;; b = 200 ;; b = b + 100 ;; Debug.Print Err.Number & \" \" & b", "6 200", DisplayName = "a Byte past its range")]
     [DataRow("Dim d As Double ;; d = 1 ;; d = d / 0 ;; Debug.Print Err.Number & \" \" & d", "11 1", DisplayName = "a Double divided by zero")]
+    [DataRow("Dim l As Long ;; l = 7 ;; l = l Mod 0 ;; Debug.Print Err.Number & \" \" & l", "11 7", DisplayName = "a Long Mod zero")]
+    [DataRow("Dim l As Long ;; l = 7 ;; l = l \\ 0 ;; Debug.Print Err.Number & \" \" & l", "11 7", DisplayName = "a Long integer-divided by zero")]
     [DataRow("Dim ll As LongLong ;; ll = 9223372036854775807^ ;; ll = ll + 1 ;; Debug.Print Err.Number & \" \" & ll", "6 9223372036854775807", DisplayName = "a LongLong past its range")]
     public void WhatWouldRaiseAnError_RaisesTheBoxedEvaluationsError(string body, string printed)
         => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
