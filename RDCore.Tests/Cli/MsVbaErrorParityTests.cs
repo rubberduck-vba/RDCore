@@ -32,6 +32,7 @@ public sealed class MsVbaErrorParityTests
             "Public Sub TakesObject(ByRef O As Object)", "End Sub",
             "Public Sub TakesCollection(ByRef C As Collection)", "End Sub",
             "Public Sub TakesPtr(ByVal P As LongPtr)", "End Sub",
+            "Public Function IsAnAddress(ByVal P As LongPtr) As Boolean", "    IsAnAddress = P <> 0", "End Function",
             "Public Sub TakesDouble(ByVal D As Double)", "End Sub",
             "Public Sub TakesVariant(V As Variant)", "End Sub",
             "Public Function Two() As Long", "    Two = 2", "End Function")),
@@ -158,6 +159,12 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Globals.TakesVariant AddressOf Globals.SomeSub", DisplayName = "to a ByRef Variant")]
     public async Task AnAddressOfThatMsVbaCompiles_IsNoCompileError(string body)
         => Assert.IsEmpty(await LoadErrorsAsync(Classes, Modules, Program(body)));
+
+    // MS-VBA runs it: the address is a number, which a LongPtr parameter holds (Excel-verified, as `Debug.Print AddressOf ...` prints one).
+    [TestMethod]
+    [Ignore("AddressOf is evaluated as an internal error: RD-VBA makes no address of a procedure yet - the gap StrPtr and VarPtr have, of a value at an address")]
+    public async Task TheAddressOfAProcedure_IsANumber_WhenItRuns()
+        => Assert.AreEqual("True", (await RunAsync(Classes, Modules, Program("Debug.Print Globals.IsAnAddress(AddressOf Globals.SomeSub)"))).Last());
 
     // MS-VBA stops at the first compile error; RD-VBA reports each of them, a diagnostic each - one for each statement, in every procedure.
     [TestMethod]
