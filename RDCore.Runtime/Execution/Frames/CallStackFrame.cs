@@ -240,10 +240,41 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
         }
 
-        // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded
-        // VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with a source location to
-        // attach it to — matches RuntimeSymbolResolver.TryAllocate's own documented contract.
-        _ = _addresses.TryAllocate(symbol, value, out _);
+        // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
+        // locals are never passed by reference, and an activation of them reserves nothing.
+        (_cells ??= [])[symbol.SemanticId] = (SymbolAddressTable.FreshBinding(value), value.Size);
+    }
+
+    // the cells of the activation's variables that have no address yet (TryGetAddress gives one, and the cell moves to the address table).
+    private Dictionary<SemanticId, (IBindingHandle Cell, int Size)>? _cells;
+
+    private bool TryGetCell(Symbol symbol, [NotNullWhen(true)] out IBindingHandle? cell)
+    {
+        cell = null;
+        if (_cells is not null && _cells.TryGetValue(symbol.SemanticId, out var held))
+        {
+            cell = held.Cell;
+            return true;
+        }
+
+        return false;
+    }
+
+    // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - a POKE rebinds what is at an address,
+    // which the slots that held the cell would not see, so they are filled again.
+    // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with
+    // a source location to attach it to - matches RuntimeSymbolResolver.TryAllocate's own documented contract.
+    private bool TryGiveAddress(Symbol symbol, out MemoryAddress address)
+    {
+        address = default;
+        if (_cells is null || !_cells.TryGetValue(symbol.SemanticId, out var held) || !_addresses.TryAllocate(symbol, held.Size, held.Cell, out address))
+        {
+            return false;
+        }
+
+        _cells.Remove(symbol.SemanticId);
+        Array.Clear(_slots);
+        return true;
     }
 
     /// <summary>
@@ -311,25 +342,23 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <inheritdoc/>
     public IBindingHandle GetValue(Symbol symbol)
-        => TryGetAlias(symbol, out var aliased)
-            ? Storage.TryRead(aliased, out var handle) ? handle : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.")
-            : _addresses.GetValue(symbol);
+        => TryResolve(symbol, out var value) ? value : throw new KeyNotFoundException($"No runtime binding exists yet for '{symbol.Uri}'.");
 
     /// <inheritdoc/>
     public bool TryResolve(Symbol symbol, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
         => TryGetAlias(symbol, out var aliased)
             ? Storage.TryRead(aliased, out value)
-            : _addresses.TryRead(symbol, out value);
+            : TryGetCell(symbol, out value) || _addresses.TryRead(symbol, out value);
 
     /// <inheritdoc/>
     public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
-        => TryGetAlias(symbol, out address) || _addresses.TryGetAddress(symbol, out address);
+        => TryGetAlias(symbol, out address) || _addresses.TryGetAddress(symbol, out address) || TryGiveAddress(symbol, out address);
 
-    // the slots of the activation (IR lowering D2), filled as they are read: each holds the address of its variable - this activation's own, or the one a
-    // ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A variable's address does not change while the
-    // activation runs (Push and PushByRef declare each variable once); the binding at the address does (a POKE rebinds it), which is why it is read there
-    // every time rather than kept.
-    private readonly record struct Slot(bool IsFilled, MemoryAddress Address, VBType? ReferencedType);
+    // the slots of the activation (IR lowering D2), filled as they are read: each holds the cell of a variable that has no address, or the address of one
+    // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
+    // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address does (a POKE
+    // rebinds it), which is why it is read there every time rather than kept.
+    private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType);
 
     private FrameLayout? _layout;
     private Slot[] _slots = [];
@@ -368,15 +397,29 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         ref var held = ref _slots[slot.Index];
         if (!held.IsFilled)
         {
-            if (!TryGetAddress(variable, out var address))
+            // a cell is read as it is, without giving the variable an address it does not need.
+            var referenced = TryGetReferencedType(variable, out var type) ? type : null;
+            if (!TryGetAlias(variable, out var address) && TryGetCell(variable, out var cell))
+            {
+                held = new Slot(true, default, cell, referenced);
+            }
+            else if (TryGetAddress(variable, out address))
+            {
+                held = new Slot(true, address, null, referenced);
+            }
+            else
             {
                 return false;
             }
-
-            held = new Slot(true, address, TryGetReferencedType(variable, out var referenced) ? referenced : null);
         }
 
         referencedType = held.ReferencedType;
+        if (held.Cell is { } heldCell)
+        {
+            handle = heldCell;
+            return true;
+        }
+
         return Storage.TryRead(held.Address, out handle);
     }
 
@@ -434,5 +477,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// A <c>ByRef</c> alias (<see cref="PushByRef"/>) is never freed here: its address belongs to
     /// whichever frame originally allocated it (the caller's own), and this frame only ever borrowed it.
     /// </remarks>
-    public void ReleaseAll() => _addresses.ReleaseAll();
+    public void ReleaseAll()
+    {
+        _addresses.ReleaseAll();
+        _cells = null;
+    }
 }

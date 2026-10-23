@@ -57,6 +57,22 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
     }
 
     /// <summary>
+    /// Reserves <paramref name="size"/> bytes of storage for a binding that already exists, and binds it to <paramref name="symbol"/>: the address is then
+    /// another way to reach that very binding, as a variable that is given one only when something asks for it is (IR lowering S1.1).
+    /// </summary>
+    /// <returns><c>false</c> if the underlying storage is exhausted.</returns>
+    public bool TryAllocate(Symbol symbol, int size, IBindingHandle binding, out MemoryAddress address)
+    {
+        if (!storage.TryAllocate(size, binding, out address))
+        {
+            return false;
+        }
+
+        _addressBySymbol[symbol.SemanticId] = address;
+        return true;
+    }
+
+    /// <summary>
     /// A caller's <see cref="VBTypedValue.Handle"/> may be a cached, shared instance — a type's
     /// <c>DefaultValue</c> chiefly, reused by every caller that hasn't assigned that variable yet.
     /// Binding it here directly would let a write through THIS address mutate every other allocation
@@ -94,7 +110,7 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
         _ => value.Handle.Value,
     };
 
-    private static IBindingHandle FreshBinding(VBTypedValue value)
+    internal static IBindingHandle FreshBinding(VBTypedValue value)
     {
         var cell = FreshCell(value);
 
