@@ -1880,8 +1880,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // variable. What this operator yields is a value bound to nothing, which is what there being nothing
     // to alias means; no rule anywhere says "forced ByVal".
     // One syntax, two operators (RD-VBAL §5.6.6), as `=` is an assignment or a comparison: around an operand of an operator - or around what is already
-    // in parentheses, or what TypeOf tests - they group it, and are the precedence operator; anywhere else - an argument, the value of an assignment, a
-    // condition - they let-coerce what they enclose.
+    // in parentheses - they group it, and are the precedence operator; anywhere else - an argument, the value of an assignment, a condition - they
+    // let-coerce what they enclose. Either is the simple data value of what it encloses. What TypeOf tests is no operand in parentheses at all (MS-VBA:
+    // "Syntax error"), which the static semantics say; the tree keeps it as written.
     public override void ExitParenthesizedExpr([NotNull] VBAParser.ParenthesizedExprContext context)
     {
         if (!IsDeclarationPassExpression)

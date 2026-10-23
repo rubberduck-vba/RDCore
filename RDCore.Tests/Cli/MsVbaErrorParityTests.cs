@@ -16,6 +16,12 @@ public sealed class MsVbaErrorParityTests
             "Public Sub Increment()", "    mValue = mValue + 1", "End Sub",
             "Public Property Get Value() As Long", "    Value = mValue", "End Property")),
         ("Point", ClassModule("Point", "Public X As Long", "Public Inner As Point")),
+        ("Wrapper", ClassModule("Wrapper",
+            "Private mItem As Collection",
+            "Public Property Get Item() As Collection", "Attribute Item.VB_UserMemId = 0", "    If mItem Is Nothing Then Set mItem = New Collection",
+            "    Set Item = mItem", "End Property")),
+        ("Hollow", ClassModule("Hollow",
+            "Public Property Get Item() As Object", "Attribute Item.VB_UserMemId = 0", "    Set Item = Nothing", "End Property")),
     ];
 
     private static readonly IReadOnlyList<(string Name, string Source)> Modules =
@@ -139,6 +145,9 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Globals.TakesPtr AddressOf Globals.Count", "Expected Sub, Function, or Property", DisplayName = "AddressOf a variable")]
     [DataRow("Globals.TakesPtr AddressOf Globals.Nope", "Method or data member not found", DisplayName = "AddressOf a procedure that is not there")]
     [DataRow("Dim ll As LongLong ;; Debug.Print Globals.Twice(ll)", "Type mismatch", DisplayName = "a LongLong to a ByVal Long")]
+    [DataRow("Dim w As New Wrapper, b As Boolean ;; b = TypeOf (w) Is Wrapper", "Syntax error", DisplayName = "TypeOf of an object in parentheses")]
+    [DataRow("Dim w As New Wrapper, b As Boolean ;; b = ((w)) Is w", "Argument not optional", DisplayName = "an object in two pairs of parentheses, whose default member's default member takes an argument")]
+    [DataRow("Dim c As New Collection, b As Boolean ;; b = (c) Is Nothing", "Argument not optional", DisplayName = "a Collection in parentheses, its default member taking an argument")]
     [DataRow("Dim lp As LongPtr ;; Debug.Print Globals.Twice(lp)", "Type mismatch", DisplayName = "a 64-bit LongPtr to a ByVal Long")]
     [DataRow("Dim ll As LongLong, b As Byte ;; b = ll", "Type mismatch", DisplayName = "a LongLong to a Byte")]
     [DataRow("Dim ll As LongLong, c As Color ;; c = ll", "Type mismatch", DisplayName = "a LongLong to an Enum")]
@@ -248,6 +257,13 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim ll As LongLong, dt As Date ;; ll = 3 ;; dt = ll ;; Debug.Print CDbl(dt)", "3", DisplayName = "a LongLong to a Date")]
     [DataRow("Dim ll As LongLong, lp As LongPtr ;; ll = 3 ;; lp = ll ;; Debug.Print lp", "3", DisplayName = "a LongLong to a 64-bit LongPtr")]
     [DataRow("Dim lp As LongPtr, d As Double ;; lp = 3 ;; d = lp ;; Debug.Print d", "3", DisplayName = "a 64-bit LongPtr to a Double")]
+    [DataRow("Dim h As New Hollow, b As Boolean ;; b = h Is Nothing ;; Debug.Print b", "False", DisplayName = "an object Is Nothing")]
+    [DataRow("Dim h As New Hollow, b As Boolean ;; b = (h) Is Nothing ;; Debug.Print b", "True", DisplayName = "an object in parentheses Is Nothing: its default member's value")]
+    [DataRow("Dim h As New Hollow, b As Boolean ;; b = Not ((h) Is Nothing) ;; Debug.Print b", "False", DisplayName = "Not of an object in parentheses Is Nothing")]
+    [DataRow("Dim w As New Wrapper, b As Boolean ;; b = (w) Is w ;; Debug.Print b", "False", DisplayName = "an object in parentheses Is itself, on the left")]
+    [DataRow("Dim w As New Wrapper, b As Boolean ;; b = w Is (w) ;; Debug.Print b", "False", DisplayName = "an object in parentheses Is itself, on the right")]
+    [DataRow("Dim w As New Wrapper ;; Debug.Print TypeName((w))", "Collection", DisplayName = "an argument in parentheses is its default member's value")]
+    [DataRow("Dim w As New Wrapper, o As Object ;; Set o = (w) ;; Debug.Print TypeName(o)", "Collection", DisplayName = "a Set of an object in parentheses")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());
 }

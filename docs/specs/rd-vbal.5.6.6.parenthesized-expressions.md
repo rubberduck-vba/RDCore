@@ -8,8 +8,22 @@ type hint or a dictionary access. Which one a pair of parentheses is depends on 
 
 |Where|Operator|What it does|
 |---|---|---|
-|Around an operand of an operator: `(a + b) * c`, `-(a + b)`, `Not (x Or y)`, `(o) Is Nothing`; around what is already in parentheses; around what `TypeOf` tests|`"__p()_op"`, the _precedence operator_|Groups the operand, as MS-VBAL §5.6.6 has it: its value and its declared type are the enclosed expression's, and the operator it is an operand of reads that value, as it reads any operand's. It coerces nothing of its own.|
-|Anywhere else: an argument (`Foo (x)`, `Foo a, (b)`, `Call Foo((x))`), the value of an assignment (`x = (y)`), a condition (`If (x) Then`)|🧩 `"__c()_op"`, the _explicit let-coercion operator_|Forces a _let-coercion_ frame: what it yields is a value, bound to nothing - an argument written in parentheses is passed by value whatever its parameter is, and an object is its default member's value.|
+|Around an operand of an operator: `(a + b) * c`, `-(a + b)`, `Not (x Or y)`, `(o) Is Nothing`; around what is already in parentheses|`"__p()_op"`, the _precedence operator_|Groups the operand, as MS-VBAL §5.6.6 has it.|
+|Anywhere else: an argument (`Foo (x)`, `Foo a, (b)`, `Call Foo((x))`), the value of an assignment (`x = (y)`, `Set x = (o)`), a condition (`If (x) Then`)|🧩 `"__c()_op"`, the _explicit let-coercion operator_|Forces a _let-coercion_ frame: an argument written in parentheses is passed by value whatever its parameter is.|
+
+Either way, the parenthesized expression's declared type is the enclosed expression's, and it "evaluates to the simple
+data value of its enclosed expression" (MS-VBAL §5.6.6) - a value bound to nothing. For an object, that is what its
+default member returns, read **once** for each pair of parentheses, whatever the parentheses are around (recorded in
+Excel):
+
+|Expression, `o`'s default member returning `p`|Is|
+|---|---|
+|`(o) Is Nothing`, `(o) Is o`|`p Is Nothing`, `p Is o` - a trap: the parentheses do not group `o`, they read it|
+|`TypeName((o))`, `Set x = (o)`|`TypeName(p)`, `Set x = p`|
+|`((o))`|`p`'s default member in turn - `Argument not optional` when `p` is a `Collection`, whose `Item` takes the key|
+
+An object with no default member has no simple data value, which raises error 438 when the parentheses are evaluated
+(MS-VBAL §5.6.2.2, as MS-VBA has it). `TypeOf` tests an object as it is written: `TypeOf (o) Is T` is a syntax error.
 
 Neither operator deviates from MS-VBAL: the precedence operator is what it specifies, and the explicit let-coercion
 operator makes structural what it leaves implicit - what parentheses do to an argument, a classic trap. See

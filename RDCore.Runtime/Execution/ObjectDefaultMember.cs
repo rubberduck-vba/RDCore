@@ -144,6 +144,29 @@ internal static class ObjectDefaultMember
     }
 
     /// <summary>
+    /// What a pair of parentheses makes of the object it encloses (<strong>MS-VBAL §5.6.6</strong>, "the simple data value of its enclosed expression"):
+    /// what its default member returns - read once, whether that is a value or an object.
+    /// </summary>
+    /// <remarks>
+    /// One read for each pair of parentheses, as MS-VBA has it (recorded in Excel): <c>(o)</c> of an object whose default member returns a
+    /// <c>Collection</c> is that <c>Collection</c> - <c>TypeName((o))</c>, <c>Set x = (o)</c>, <c>(o) Is Nothing</c> - and <c>((o))</c> is the
+    /// <c>Collection</c>'s default member in turn. A Let-coercion reads on until it has a value (<see cref="ValueOf"/>); parentheses do not.
+    /// </remarks>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="enclosed">The object.</param>
+    /// <returns>What its default member returned; or error 91 for <c>Nothing</c>, and 438 or 450 for an object that has no default member to read.</returns>
+    public static RuntimeSemanticsEvaluationResult EnclosedValueOf(IRuntimeSession session, VBObjectValue enclosed)
+    {
+        if (enclosed.IsNothing())
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, default,
+                "Nothing has no value."));
+        }
+
+        return Call(session, enclosed) ?? RuntimeSemanticsEvaluationResult.Error(NoValue(session, enclosed, returnedByADefaultMember: false));
+    }
+
+    /// <summary>
     /// The error of an object that has no simple data value (<strong>MS-VBAL §5.6.2.2</strong>, <strong>§5.6.2.3</strong>): 13 for one a default member
     /// returned; otherwise 450 when its default member takes an argument, and 438 when it has none.
     /// </summary>

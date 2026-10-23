@@ -90,10 +90,14 @@ public static class ObjectValueStaticSemantics
 
         if (defaultMember.ResolvedType is VBClassType or VBObjectType)
         {
-            return destination is ValueDestination.TypedValue
-                ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
-                    string.Format(Exceptions.VBCompileError_DefaultMemberReturnsAnObject_Verbose, classType.Name, defaultMember.Name)))
-                : StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo);
+            return destination switch
+            {
+                ValueDestination.TypedValue => StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location,
+                    string.Format(Exceptions.VBCompileError_DefaultMemberReturnsAnObject_Verbose, classType.Name, defaultMember.Name))),
+                // parentheses read the default member once: what it returns is the object it is declared as.
+                ValueDestination.SimpleDataValue => StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType),
+                _ => StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo),
+            };
         }
 
         return StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType);

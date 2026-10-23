@@ -60,8 +60,8 @@ public sealed class ParenthesizedExpressionTests
     [TestMethod]
     public void GroupingParentheses_AreThePrecedenceOperator()
     {
-        // one syntax, two operators (RD-VBAL §5.6.6): around an operand of an operator, the parentheses group it, and coerce nothing of their own - the
-        // operator reads the operand's value, as it reads any operand's.
+        // one syntax, two operators (RD-VBAL §5.6.6): around an operand of an operator, the parentheses group it; anywhere else, they let-coerce what
+        // they enclose. Either evaluates to its simple data value (MsVbaErrorParityTests has what that is of an object, as MS-VBA has it).
         var product = Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(ValueOf("(a + b) * c"));
         var left = Assert.IsInstanceOfType<VBUnaryOperatorExpressionNode>(product.Left);
 
@@ -72,7 +72,7 @@ public sealed class ParenthesizedExpressionTests
     [TestMethod]
     [DataRow("-(a + b)", DisplayName = "the operand of a negation")]
     [DataRow("Not (a Or b)", DisplayName = "the operand of Not")]
-    [DataRow("(a) Is Nothing", DisplayName = "an operand of Is, which compares references and reads no default member")]
+    [DataRow("(a) Is Nothing", DisplayName = "an operand of Is")]
     [DataRow("c & (a)", DisplayName = "the right operand of &")]
     public void TheParenthesesAroundAnOperand_AreThePrecedenceOperator(string expression)
     {

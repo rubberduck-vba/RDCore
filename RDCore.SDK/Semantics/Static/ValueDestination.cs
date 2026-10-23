@@ -31,4 +31,15 @@ public enum ValueDestination
     /// returns neither a <c>String</c> nor a <c>Variant</c> (recorded in Excel).
     /// </remarks>
     StringOrVariable,
+
+    /// <summary>
+    /// What a pair of parentheses makes of what it encloses (<strong>MS-VBAL §5.6.6</strong>): the simple data value, read once - an object's default
+    /// member, of the type it is declared as, whether that is a value's or an object's.
+    /// </summary>
+    /// <remarks>
+    /// An object a default member returns is that object, of its declared class (MS-VBA, recorded in Excel): parentheses around it read its own
+    /// default member in turn - <c>((o))</c> of a default member that returns a <c>Collection</c> is the <c>Collection</c>'s <c>Item</c>, which takes an
+    /// argument.
+    /// </remarks>
+    SimpleDataValue,
 }

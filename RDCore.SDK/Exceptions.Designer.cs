@@ -997,6 +997,15 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..
+        /// </summary>
+        public static string VBCompileError_TypeOfParenthesizedOperand_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeOfParenthesizedOperand_Verbose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Expected End With.
         /// </summary>
         public static string VBCompileError_ExpectedEndWith {

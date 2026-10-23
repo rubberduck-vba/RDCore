@@ -172,10 +172,12 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         {
             Tokens.NegationOp => Evaluate(_negation, session, expression.Token, expression, ConversionSite.OperatorOperand, operand),
             Tokens.LogicalNotOp => Evaluate(_not, session, expression.Token, expression, ConversionSite.OperatorOperand, operand),
-            // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator, and this is it. Its operation is its operand's conversion.
-            OperatorSymbolNames.UnaryLetCoerceOp => _letCoerce.Evaluate(session, new(), expression, operand),
-            // the parentheses around an operand of an operator group it (RD-VBAL §5.6.6): its value is the operand's, which the operator reads.
-            OperatorSymbolNames.UnaryArithmeticPrecedenceOp => RuntimeSemanticsEvaluationResult.Success(operand),
+            // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator - the precedence one around an operand of an operator, the
+            // let-coercion one anywhere else (RD-VBAL §5.6.6) - and either evaluates to the simple data value of what it encloses: an object's default
+            // member, read once (`(o) Is Nothing` tests what it returns, `Set x = (o)` is set to it; MS-VBA, Excel-verified), and a value's conversion.
+            OperatorSymbolNames.UnaryLetCoerceOp or OperatorSymbolNames.UnaryArithmeticPrecedenceOp => operand is VBObjectValue enclosed
+                ? Execution.ObjectDefaultMember.EnclosedValueOf(session, enclosed)
+                : _letCoerce.Evaluate(session, new(), expression, operand),
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 

@@ -654,4 +654,7 @@
   <data name="VBCompileError_InvalidUseOfAddressOf" xml:space="preserve">
     <value>Utilisation incorrecte de l&apos;opérateur AddressOf</value>
   </data>
+  <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
+    <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>
+  </data>
 </root>
