@@ -36,6 +36,10 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// Where what each expression evaluated binds to is recorded - its declared type, and the plan of an operation (<see cref="Binding.ExpressionBinder"/>) -
 /// or <c>null</c> when the expressions are not being bound.
 /// </param>
+/// <param name="Environment">
+/// What the environment the code is compiled for decides (<see cref="StaticEnvironment"/>), or <c>null</c> when no environment is stated: the type of what
+/// only it decides - the address <c>AddressOf</c> gives - is then not known.
+/// </param>
 public readonly record struct StaticEvaluationContext(
     ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null,
-    Binding.ExpressionBindings? Bindings = null);
+    Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null);

@@ -46,6 +46,21 @@ declared `Variant`, and `Abs`, `Int`, `Fix`, `Len` and `LenB`, take the object a
 time's. And the specification asks only for an "accessible default Property Get or function", where MS-VBA also asks
 that it take no argument, which RD-VBA does too.
 
+## A `LongLong`
+
+MS-VBAL §5.5.1.1 makes it invalid to implicitly Let-coerce a `LongLong` to any declared type other than `LongLong` or
+`Variant`. MS-VBA refuses only what is narrower than it, and RD-VBA does what MS-VBA does (recorded in Excel, 64-bit):
+
+|To|Implicitly|
+|---|---|
+|`Byte`, `Integer`, `Long`, an enumeration, `Currency`|[`VBC09310`](../diagnostics/vbc09310.md) Type mismatch|
+|`Single`, `Double`, `String`, a fixed-length `String`, `Boolean`, `Date`, `LongPtr`, `Variant`|compiles|
+
+A `LongPtr` is a `LongLong` in a 64-bit environment and a `Long` in a 32-bit one ([**RD-VBAL §2.4.1**](rd-vbal.2.4.1.intrinsic-types.md)),
+and so is the address an `AddressOf` expression gives: `ByVal lpfn As Long` takes one in a 32-bit environment, and refuses
+it in a 64-bit one. The rule holds wherever a value is Let-coerced: an assignment, and an argument given to a parameter of
+a value type.
+
 
 ---
 > ⏮️ [**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md) | ⏭️ [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)

@@ -151,12 +151,21 @@ internal static class ArgumentListStaticSemantics
 
     // MS-VBAL §5.3.1.11: a parameter given a value - ByVal, or ByRef and given what is not a variable - takes it by Let-coercion, which can be statically
     // invalid for its declared type (§5.5.1.1; MS-VBA: "Type mismatch" for a LongLong given to a ByVal Long, Excel-verified). An object is given its
-    // default member's value, which ObjectValueStaticSemantics checks; a variable given ByRef is ByRefError's; an AddressOf has no declared type here yet.
+    // default member's value, which ObjectValueStaticSemantics checks; a variable given ByRef is ByRefError's. An address (AddressOf) is a LongPtr, given
+    // to any parameter - of a Declare too, which is what it is for - and refused by one of a type it cannot be (MS-VBA: a Long, an Integer, an Object; an
+    // `As Any` parameter has no declared type, and takes it).
     private static VBCompileErrorInfo? ValueError(StaticEvaluationContext context, VBTypeMemberSymbol procedure, VBParameterSymbol parameter, ExpressionNode argument)
     {
-        if (parameter is ParamArrayParameterSymbol || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
+        if (argument is AddressOfExpressionNode)
+        {
+            if (parameter is ParamArrayParameterSymbol || parameter.ResolvedType is VBUnknownType or VBVariantType)
+            {
+                return null;
+            }
+        }
+        else if (parameter is ParamArrayParameterSymbol || procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol
             || parameter.ResolvedType is VBUnknownType or VBVariantType or VBClassType or VBObjectType
-            || argument is MissingArgumentNode or AddressOfExpressionNode or ByValArgumentExpressionNode
+            || argument is MissingArgumentNode or ByValArgumentExpressionNode
             || parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef && argument is SimpleNameExpressionNode)
         {
             return null;

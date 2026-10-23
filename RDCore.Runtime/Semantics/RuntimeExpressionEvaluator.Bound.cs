@@ -69,7 +69,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
         // a member written with no object before the dot is a member of the target of the enclosing With block, typed as the static pass types it: by the
         // declared type of the block's expression.
-        var staticContext = new StaticEvaluationContext(session.Symbols.Resolver, scope);
+        var staticContext = new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit));
         if (context.EnclosingWithTargetExpression is { } withTarget)
         {
             staticContext = staticContext with { EnclosingWithTargetType = ExpressionStaticSemanticsEvaluator.Evaluate(staticContext with { Facts = null, Bindings = null }, withTarget).Result };

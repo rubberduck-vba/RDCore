@@ -401,7 +401,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider)
             var block = new StatementBlock([statement]);
             if (session.Symbols.ScopeOf(procedure.Uri) is { } scope
                 && StatementStaticSemanticsEvaluator.Analyze(procedure.SemanticId, block, new StaticSemanticsOptions(Language: session.Environment.Language), MemberKind.Procedure,
-                    new StaticEvaluationContext(session.Symbols.Resolver, scope)).CompileErrors is [var error, ..])
+                    new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit))).CompileErrors is [var error, ..])
             {
                 return (null, string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description ? error.Description : $"{error.Description}: {error.Verbose}");
             }

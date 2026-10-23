@@ -341,7 +341,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
     // MS-VBAL §5.6.16.8: what AddressOf names is a subroutine, a function or a property with a Property Get (MS-VBA: "Expected Sub, Function, or Property"),
     // and not one of a class module (MS-VBA: "Invalid use of AddressOf operator", of an object's member too) - both Excel-verified. Its declared type is
-    // implementation-defined, and not known here yet.
+    // implementation-defined: MS-VBA's is the LongPtr of the environment, as a LongLong is refused by a Long parameter in 64-bit (Excel-verified).
     private static StaticSemanticsEvaluationResult EvaluateAddressOf(StaticEvaluationContext context, AddressOfExpressionNode addressOf)
     {
         var target = addressOf.Target;
@@ -365,7 +365,8 @@ public static class ExpressionStaticSemanticsEvaluator
         {
             // what MS-VBA makes of the address of a Declare is not known.
             VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol => Evaluate(context, target),
-            VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
+            VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+                => StaticSemanticsEvaluationResult.Success(context.Environment?.PointerType ?? VBUnknownType.TypeInfo),
             ITypedSymbol
                 =>StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, target.Location,
                     target switch { SimpleNameExpressionNode simple => simple.IdentifierName, MemberAccessExpressionNode access => access.Member.IdentifierName, _ => string.Empty })),

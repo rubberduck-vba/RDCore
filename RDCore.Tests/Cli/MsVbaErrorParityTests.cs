@@ -32,6 +32,8 @@ public sealed class MsVbaErrorParityTests
             "Public Sub TakesObject(ByRef O As Object)", "End Sub",
             "Public Sub TakesCollection(ByRef C As Collection)", "End Sub",
             "Public Sub TakesPtr(ByVal P As LongPtr)", "End Sub",
+            "Public Sub TakesDouble(ByVal D As Double)", "End Sub",
+            "Public Sub TakesVariant(V As Variant)", "End Sub",
             "Public Function Two() As Long", "    Two = 2", "End Function")),
     ];
 
@@ -136,8 +138,26 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Globals.TakesPtr AddressOf Globals.Count", "Expected Sub, Function, or Property", DisplayName = "AddressOf a variable")]
     [DataRow("Globals.TakesPtr AddressOf Globals.Nope", "Method or data member not found", DisplayName = "AddressOf a procedure that is not there")]
     [DataRow("Dim ll As LongLong ;; Debug.Print Globals.Twice(ll)", "Type mismatch", DisplayName = "a LongLong to a ByVal Long")]
+    [DataRow("Dim lp As LongPtr ;; Debug.Print Globals.Twice(lp)", "Type mismatch", DisplayName = "a 64-bit LongPtr to a ByVal Long")]
+    [DataRow("Dim ll As LongLong, b As Byte ;; b = ll", "Type mismatch", DisplayName = "a LongLong to a Byte")]
+    [DataRow("Dim ll As LongLong, c As Color ;; c = ll", "Type mismatch", DisplayName = "a LongLong to an Enum")]
+    [DataRow("Dim lp As LongPtr, cy As Currency ;; cy = lp", "Type mismatch", DisplayName = "a 64-bit LongPtr to a Currency")]
+    [DataRow("Globals.TakesLong AddressOf Globals.SomeSub", "Type mismatch", DisplayName = "AddressOf to a ByRef Long")]
+    [DataRow("Debug.Print Globals.Twice(AddressOf Globals.SomeSub)", "Type mismatch", DisplayName = "AddressOf to a ByVal Long")]
+    [DataRow("Globals.TakesObject AddressOf Globals.SomeSub", "Type mismatch", DisplayName = "AddressOf to an Object")]
     public async Task WhatMsVbaRejectsAtCompileTime_IsACompileError(string body, string message)
         => StringAssert.Contains(string.Join(" / ", await LoadErrorsAsync(Classes, Modules, Program(body))), message);
+
+    // what MS-VBA compiles: the address of a procedure of a standard module, given to what can hold a LongPtr. It does not run yet - an address is a value
+    // RD-VBA does not make - so only that it compiles is told here.
+    [TestMethod]
+    [DataRow("Globals.TakesPtr AddressOf Globals.SomeSub", DisplayName = "to a ByVal LongPtr")]
+    [DataRow("Globals.TakesPtr AddressOf Globals.Two", DisplayName = "of a function")]
+    [DataRow("Globals.TakesPtr P:=AddressOf Globals.SomeSub", DisplayName = "as a named argument")]
+    [DataRow("Globals.TakesDouble AddressOf Globals.SomeSub", DisplayName = "to a ByVal Double")]
+    [DataRow("Globals.TakesVariant AddressOf Globals.SomeSub", DisplayName = "to a ByRef Variant")]
+    public async Task AnAddressOfThatMsVbaCompiles_IsNoCompileError(string body)
+        => Assert.IsEmpty(await LoadErrorsAsync(Classes, Modules, Program(body)));
 
     // MS-VBA stops at the first compile error; RD-VBA reports each of them, a diagnostic each - one for each statement, in every procedure.
     [TestMethod]
@@ -214,6 +234,13 @@ public sealed class MsVbaErrorParityTests
     [DataRow("Dim a(0 To 0) As Long ;; Debug.Print UBound(a)", "0", DisplayName = "an array of one element")]
     [DataRow("Debug.Print Len(\"abc\")", "3", DisplayName = "Len with its argument")]
     [DataRow("Debug.Print String(2, \"x\")", "xx", DisplayName = "String with its two arguments")]
+    [DataRow("Dim ll As LongLong, d As Double ;; ll = 3 ;; d = ll ;; Debug.Print d", "3", DisplayName = "a LongLong to a Double")]
+    [DataRow("Dim ll As LongLong, sg As Single ;; ll = 3 ;; sg = ll ;; Debug.Print sg", "3", DisplayName = "a LongLong to a Single")]
+    [DataRow("Dim ll As LongLong, s As String ;; ll = 3 ;; s = ll ;; Debug.Print s", "3", DisplayName = "a LongLong to a String")]
+    [DataRow("Dim ll As LongLong, bo As Boolean ;; ll = 3 ;; bo = ll ;; Debug.Print bo", "True", DisplayName = "a LongLong to a Boolean")]
+    [DataRow("Dim ll As LongLong, dt As Date ;; ll = 3 ;; dt = ll ;; Debug.Print CDbl(dt)", "3", DisplayName = "a LongLong to a Date")]
+    [DataRow("Dim ll As LongLong, lp As LongPtr ;; ll = 3 ;; lp = ll ;; Debug.Print lp", "3", DisplayName = "a LongLong to a 64-bit LongPtr")]
+    [DataRow("Dim lp As LongPtr, d As Double ;; lp = 3 ;; d = lp ;; Debug.Print d", "3", DisplayName = "a 64-bit LongPtr to a Double")]
     public async Task WhatMsVbaRuns_IsRun(string body, string printed)
         => Assert.AreEqual(printed, (await RunAsync(Classes, Modules, Program(body))).Last());
 }

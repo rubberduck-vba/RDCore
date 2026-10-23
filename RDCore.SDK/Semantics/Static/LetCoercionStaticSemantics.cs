@@ -68,8 +68,11 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         VBArrayType srcArray when srcArray.ItemType is VBUserDefinedType and not VBExternalUserDefinedType && destination is VBVariantType => true,
         VBArrayType srcArray when srcArray.ItemType is VBFixedStringType && destination is VBVariantType => true,
 
-        // NOTE: this line is specified outside the section 5.5.1.1 table
-        VBLongLongType when destination is not VBLongLongType and not VBVariantType => true,
+        // MS-VBAL §5.5.1.1 (below its table) refuses to let-coerce a LongLong implicitly to anything but a LongLong or a Variant. MS-VBA refuses only what
+        // is narrower than it - Byte, Integer, Long (an Enum is one, §5.2.3.4), Currency - and lets Double, Single, String, Boolean and Date have it
+        // (Excel-verified); RD-VBA does what MS-VBA does (author's ruling, 2026-10-22). A 64-bit LongPtr is a LongLong (§2.2), and a 32-bit one a Long.
+        VBLongLongType or VBLongPtrType_x64
+            when destination is VBByteType or VBIntegerType or VBLongType or VBEnumType or VBCurrencyType or VBLongPtrType_x86 => true,
 
         // MS-VBAL 5.5.1.1's "source declared type OR LITERAL": the Nothing literal is told by its expression, not by a type, so DetermineDeclaredType asks
         // ObjectValueStaticSemantics, which reports it as MS-VBA does (Invalid use of object) before these rules are consulted.

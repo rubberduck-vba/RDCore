@@ -98,7 +98,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             var scope = session.Symbols.ScopeOf(procedure.Uri);
             var model = StatementStaticSemanticsEvaluator.Analyze(
                 procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks), declaration.MemberKind,
-                scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope));
+                scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope, Environment: new StaticEnvironment(session.Environment.Is64Bit)));
 
             // the code paths are those of the lowered body, which only the loader has next to what the static pass found out about it.
             procedureModels.Add(model with { ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList) });
