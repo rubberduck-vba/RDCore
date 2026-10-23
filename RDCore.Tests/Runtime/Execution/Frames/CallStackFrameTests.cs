@@ -49,7 +49,7 @@ public sealed class CallStackFrameTests
 
         sut.Push(local, value);
 
-        Assert.AreEqual(value.Handle, sut.GetValue(local));
+        Assert.AreEqual(value.Handle.Value, sut.GetValue(local).Value);
     }
 
     [TestMethod]
@@ -62,7 +62,7 @@ public sealed class CallStackFrameTests
         sut.Push(local, value);
 
         Assert.IsTrue(sut.TryResolve(local, out var handle));
-        Assert.AreEqual(value.Handle, handle);
+        Assert.AreEqual(value.Handle.Value, handle.Value);
     }
 
     [TestMethod]
@@ -221,11 +221,11 @@ public sealed class CallStackFrameTests
         outer.Push(local, outerValue);
         inner.Push(local, innerValue);
 
-        Assert.AreEqual(outerValue.Handle, outer.GetValue(local));
-        Assert.AreEqual(innerValue.Handle, inner.GetValue(local));
+        Assert.AreEqual(outerValue.Handle.Value, outer.GetValue(local).Value);
+        Assert.AreEqual(innerValue.Handle.Value, inner.GetValue(local).Value);
 
         inner.ReleaseAll();
         // the outer activation's binding survives the inner one's teardown.
-        Assert.AreEqual(outerValue.Handle, outer.GetValue(local));
+        Assert.AreEqual(outerValue.Handle.Value, outer.GetValue(local).Value);
     }
 }

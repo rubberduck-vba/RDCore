@@ -76,8 +76,9 @@ public static class BindingKnowledge
     public static IBindingHandle ForReading(this IBindingHandle handle)
         => handle switch
         {
-            ValueBindingHandle { IsKnown: false } cell => new IndeterminateBindingHandle(new ValueBindingHandle(cell.Value)),
             ReferenceBindingHandle { IsKnown: false } cell => new IndeterminateBindingHandle(new ReferenceBindingHandle((VBRuntimeReference)cell.Value)),
+            // a cell of a value, of whatever representation it holds the value in (a runtime's payload cell is one too).
+            IKnowledgeBinding { IsKnown: false } cell => new IndeterminateBindingHandle(new ValueBindingHandle(cell.Value)),
             _ => handle,
         };
 }

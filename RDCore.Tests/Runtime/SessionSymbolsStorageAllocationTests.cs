@@ -119,7 +119,7 @@ public sealed class SessionSymbolsStorageAllocationTests
         frame.Push(local, value);
 
         Assert.IsTrue(session.CallStack.TryPush(frame));
-        Assert.AreEqual(value.Handle, session.Symbols.Resolver.GetValue(local));
+        Assert.AreEqual(value.Handle.Value, session.Symbols.Resolver.GetValue(local).Value);
 
         Assert.IsTrue(session.CallStack.TryPop(out _));
         Assert.ThrowsExactly<KeyNotFoundException>(() => session.Symbols.Resolver.GetValue(local));

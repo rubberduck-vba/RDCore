@@ -238,6 +238,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // the variable is a cell of the activation, which takes no session memory until something asks for its address (IR lowering S1.1, Q1): most
         // locals are never passed by reference, and an activation of them reserves nothing. One the layout has a slot for is held in it (S1.1b).
         var cell = SymbolAddressTable.FreshBinding(value);
+
+        // a variable of a numeric scalar type holds its value as a payload, which an expression of it is evaluated on (S1.2).
+        if (UnboxedEvaluation.IsEnabled && cell is ValueBindingHandle { IsKnown: true } boxed && ScalarCell.TryCreate(value.TypeInfo, boxed.Value, out var scalar))
+        {
+            cell = scalar!;
+        }
+
         if (TryGetOwnSlot(symbol, out var index))
         {
             ref var held = ref _slots[index];

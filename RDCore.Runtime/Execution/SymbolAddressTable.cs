@@ -134,6 +134,8 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
             ReferenceBindingHandle => new ReferenceBindingHandle((VBRuntimeReference)value.Handle.Value),
             IndeterminateBindingHandle { Assumed: ReferenceBindingHandle } => new ReferenceBindingHandle((VBRuntimeReference)value.Handle.Value),
             IndeterminateBindingHandle => new ValueBindingHandle(value.Handle.Value),
+            // a value read from a variable's payload cell is that variable's cell: the new one holds a copy of what it holds.
+            Frames.ScalarCell => new ValueBindingHandle(value.Handle.Value),
             _ => value.Handle,
         }
     };

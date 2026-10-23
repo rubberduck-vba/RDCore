@@ -90,7 +90,7 @@ public sealed class RuntimeCallStackTests
         Assert.IsTrue(sut.TryPop(out var poppedInner));
         Assert.AreSame(inner, poppedInner);
         Assert.AreSame(outer, sut.Current, "the outer activation resumes as current");
-        Assert.AreEqual(outerValue.Handle, outer.GetValue(local), "unaffected by the inner activation's teardown");
+        Assert.AreEqual(outerValue.Handle.Value, outer.GetValue(local).Value, "unaffected by the inner activation's teardown");
 
         Assert.IsTrue(sut.TryPop(out var poppedOuter));
         Assert.AreSame(outer, poppedOuter);
