@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Plans;
 
@@ -33,6 +34,36 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         cell.Write(converted);
+        return true;
+    }
+
+    /// <summary>
+    /// Steps a For loop whose counter holds a payload (MS-VBAL §5.4.2.3): the counter is given its value plus the step, and compared with the end - in
+    /// the counter's type, which the end and the step are of.
+    /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="state">The loop.</param>
+    /// <param name="context">Where the counter is resolved.</param>
+    /// <param name="isOutOfRange">Whether the counter is past the end, and the loop ends.</param>
+    /// <returns><see langword="false"/> when the loop is not stepped here - the sum would raise an error, or a value is not a payload - and is to be stepped the way it always is.</returns>
+    internal bool TryStepForUnboxed(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, out bool isOutOfRange)
+    {
+        isOutOfRange = false;
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
+            || BoundVariableOf(session, state.ControlExpression, context) is not { } counter
+            || BindingOf(session, counter) is not (ScalarCell cell, null)
+            || !cell.TryRead(out var value)
+            || state.Step.IsIndeterminate || state.End.IsIndeterminate
+            || !ScalarPayload.TryOf(cell.Type, state.Step.RuntimeValue, out var step) || !ScalarPayload.TryOf(cell.Type, state.End.RuntimeValue, out var end)
+            || !TryOperate(Tokens.AdditionOp, cell.Type, value, step, out var sum))
+        {
+            return false;
+        }
+
+        cell.Write(sum);
+        isOutOfRange = sum.IsIntegral
+            ? state.CountsDown ? sum.Integral < end.Integral : sum.Integral > end.Integral
+            : state.CountsDown ? sum.Floating < end.Floating : sum.Floating > end.Floating;
         return true;
     }
 

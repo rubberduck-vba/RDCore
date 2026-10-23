@@ -47,6 +47,14 @@ public sealed class ForLoopEvaluator(
         => expressionEvaluator.Evaluate(session, expression, context);
 
     /// <summary>
+    /// Steps the loop on payloads, when its counter holds one (IR lowering S1.2): what <see cref="Increment"/>, <see cref="AssignCounter"/> and
+    /// <see cref="IsOutOfRange"/> do, with no value made of the counter.
+    /// </summary>
+    /// <returns><see langword="false"/> when the loop is to be stepped the way it always is.</returns>
+    public bool TryStepUnboxed(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, out bool isOutOfRange)
+        => expressionEvaluator.TryStepForUnboxed(session, state, context, out isOutOfRange);
+
+    /// <summary>
     /// The start, the end and the step of a loop as it counts with them: numbers of the one type the loop counts in (<strong>MS-VBAL §5.4.2.3</strong>).
     /// </summary>
     /// <remarks>

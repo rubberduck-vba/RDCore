@@ -35,6 +35,16 @@ public sealed class UnboxedEvaluationTests
     public void WhatWouldRaiseAnError_RaisesTheBoxedEvaluationsError(string body, string printed)
         => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
 
+    // MS-VBAL §5.4.2.3, stepped on payloads: the counter after the loop is the first value past the end.
+    [TestMethod]
+    [DataRow("Dim i As Long, n As Long ;; For i = 1 To 10 ;; n = n + i ;; Next ;; Debug.Print n & \" \" & i", "55 11", DisplayName = "a Long counter")]
+    [DataRow("Dim i As Integer, n As Long ;; For i = 10 To 1 Step -3 ;; n = n + i ;; Next ;; Debug.Print n & \" \" & i", "22 -2", DisplayName = "an Integer counter, stepping down")]
+    [DataRow("Dim d As Double, n As Long ;; For d = 0 To 2 Step 0.5 ;; n = n + 1 ;; Next ;; Debug.Print n & \" \" & d", "5 2.5", DisplayName = "a Double counter, a fractional step")]
+    [DataRow("Dim i As Long, n As Long ;; For i = 1 To 10 ;; i = i + 1 ;; n = n + 1 ;; Next ;; Debug.Print n & \" \" & i", "5 11", DisplayName = "a counter its body assigns")]
+    [DataRow("Dim i As Integer ;; For i = 32766 To 32767 ;; Next ;; Debug.Print Err.Number & \" \" & i", "6 32767", DisplayName = "an Integer counter stepped past its range")]
+    public void AForLoop_SteppedOnPayloads_IsWhatTheBoxedEvaluationSteps(string body, string printed)
+        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+
     // a variable a ByRef parameter is an alias of is the caller's: assigned on payloads through the alias, the caller sees it.
     [TestMethod]
     public async Task AVariableAssignedThroughAByRefParameter_IsTheCallersVariable()

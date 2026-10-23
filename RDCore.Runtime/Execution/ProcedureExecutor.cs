@@ -882,6 +882,24 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
 
+        // a counter that holds a payload is stepped on payloads (IR lowering S1.2); a step that would raise an error is the boxed path's to raise.
+        if (forLoop.TryStepUnboxed(session, state, context, out var isPastTheEnd))
+        {
+            if (isPastTheEnd)
+            {
+                activation.Pc = instruction.Offset + 1;
+                return null;
+            }
+
+            if (instruction.Target is not { } loopTarget)
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            activation.Pc = loopTarget;
+            return null;
+        }
+
         var counterResult = forLoop.EvaluateOperand(session, state.ControlExpression, context);
         if (!counterResult.IsSuccess)
         {
