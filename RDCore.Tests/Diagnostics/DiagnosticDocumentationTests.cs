@@ -67,6 +67,19 @@ public sealed class DiagnosticDocumentationTests
         Assert.IsEmpty(missing, $"not in toc.yml: {string.Join(", ", missing)}");
     }
 
+    // a title written as it is is a plain YAML scalar, which ": " ends: one that has it (`Type mismatch: array or ...`) is a toc docfx cannot read, and
+    // every link to a page of it a warning of an invalid link. Such a title is quoted.
+    [TestMethod]
+    public void EveryTitleOfTheTableOfContents_IsOneYamlReads()
+    {
+        var unreadable = File.ReadAllLines(Path.Combine(Diagnostics(), "toc.yml"))
+            .Where(line => line.StartsWith("- name: ", StringComparison.Ordinal) && line["- name: ".Length..] is var title
+                && !title.StartsWith('"') && (title.Contains(": ", StringComparison.Ordinal) || title.Contains(" #", StringComparison.Ordinal)))
+            .ToArray();
+
+        Assert.IsEmpty(unreadable, $"quote these titles in toc.yml: {string.Join(" | ", unreadable)}");
+    }
+
     // an analyzer issues these: the number is the code the page is named by, and the one editors of older builds link to.
     private static readonly (RDCoreDiagnosticId Id, int Code)[] Published =
     [

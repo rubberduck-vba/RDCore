@@ -150,7 +150,7 @@
   href: vbc09360.md
 - name: VBC09361 — ByRef argument type mismatch
   href: vbc09361.md
-- name: VBC09362 — Type mismatch: array or user-defined type expected
+- name: "VBC09362 — Type mismatch: array or user-defined type expected"
   href: vbc09362.md
 - name: VBC09363 — Expected variable or procedure, not module
   href: vbc09363.md
