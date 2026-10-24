@@ -55,4 +55,33 @@ Public Sub BenchStandardLibraryCalls()
     For I = 1 To 100000
         N = Len(CStr(I)) + CLng(I)
     Next
+End Sub
+
+' a factory method off a class's default instance: a new object on every call, given its state by the factory.
+Public Sub BenchFactoryCalls()
+    Dim G As Gadget
+    Dim I As Long
+    For I = 1 To 100000
+        Set G = Gadget.Create(I)
+    Next
+End Sub
+
+' a member called on the default instance itself.
+Public Sub BenchDefaultInstanceCalls()
+    Dim I As Long
+    Dim S As Long
+    For I = 1 To 100000
+        S = Gadget.Twice(I)
+    Next
+End Sub
+
+' a member that calls a private member of its own class by its bare name, which is a call on the current instance.
+Public Sub BenchSiblingCalls()
+    Dim G As Gadget
+    Set G = Gadget.Create(3)
+    Dim I As Long
+    Dim S As Long
+    For I = 1 To 100000
+        S = G.Scaled(2)
+    Next
 End Sub

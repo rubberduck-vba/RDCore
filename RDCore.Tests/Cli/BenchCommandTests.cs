@@ -248,6 +248,7 @@ public sealed class BenchCommandTests
             "Numeric.BenchLongCounterDoubleSum", "Numeric.BenchDoubleSum", "Numeric.BenchLongArithmetic", "Numeric.BenchVariantSum",
             "Strings.BenchStringAssignment", "Strings.BenchStringConcatenation", "Arrays.BenchArrayFillAndSum",
             "Calls.BenchProcedureCalls", "Calls.BenchClassMemberCalls", "Calls.BenchStandardLibraryCalls",
+            "Calls.BenchFactoryCalls", "Calls.BenchDefaultInstanceCalls", "Calls.BenchSiblingCalls",
         })
         {
             StringAssert.Contains(text, expected);
