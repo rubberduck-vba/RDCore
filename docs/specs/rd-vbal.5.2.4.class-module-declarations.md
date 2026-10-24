@@ -102,7 +102,9 @@ setters it uses to initialize the object are `Friend` members that only the fact
 >   ([**RD-VBAL §3.1.1.8** `VB_Extensible`](rd-vbal.3.1.1.attributes.md)). The host gives each of its documents a
 >   property of that name, and a `Set` of it, whatever is assigned, is compile error
 >   [`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_.
-> - The host's `Debug` object. `Set Debug = …` is compile error [`VBC00001`](../diagnostics/vbc00001.md) _Syntax error_.
+> - The host's `Debug` object. `Set Debug = …` is compile error [`VBC00001`](../diagnostics/vbc00001.md) _Syntax error_,
+>   as is any use of `Debug` other than its own statements
+>   ([**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)).
 
 The language server reads the attribute off the module, with the module's other directives
 ([ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.PredeclaredId`, beside `.Creatable` and

@@ -12,6 +12,9 @@
 |`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|—|The object-qualified form.|
 |`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
+`Debug` is written only as this statement and `Debug.Assert`: any other use of the name is a syntax error, as it is in
+MS-VBA (see [**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)).
+
 An output list is a list of expressions, so in `Debug.Print x = 0` and `Owner.Print x = 0` the output list is the comparison `x = 0`: neither is a
 Let statement, whose target is never the `Print` of an object with an output list
 ([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)).

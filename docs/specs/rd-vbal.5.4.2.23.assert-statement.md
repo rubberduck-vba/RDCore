@@ -11,8 +11,20 @@
 
 ## Static Semantics
 
-> [!NOTE]
-> Reserved. This section has no content yet.
+`Debug` is only ever written as the `Debug.Assert` statement and the `Debug.Print` statement
+([**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md)). The host's `Debug` object is somewhere
+between an object and a keyword: any other use of its name is compile error [`VBC00001`](../diagnostics/vbc00001.md)
+_Syntax error_, as it is in **MS-VBA** (recorded in Excel):
+
+|Use of `Debug`|Example|
+|---|---|
+|The target of a `Set`, a `Let`, or an implicit `Let`|`Set Debug = Nothing`, `Let Debug = 1`, `Debug = 1`|
+|A value, an argument, or what an object variable is `Set` to|`v = Debug`, `TypeName(Debug)`, `Set o = Debug`|
+|The owner of a member called otherwise than as its statement|`Call Debug.Print("x")`|
+|The target of a `With` block|`With Debug` … `.Print "x"` … `End With`|
+
+A variable, a field, or a class of the workspace that is itself named `Debug` is not the host's object, and is not
+concerned.
 
 ## Runtime Semantics
 
