@@ -81,4 +81,33 @@ public sealed class RuntimeCallableBindingFactoryTests
 
         Assert.AreSame(receiver, binding.Receiver);
     }
+
+    // IR lowering S1.3, S1.9: a member called on nothing, from no site in particular, is bound to nothing but itself - one handle for every call.
+    [TestMethod]
+    public void AMemberCalledOnNothing_IsBoundOnce()
+    {
+        var factory = Factory();
+        var procedure = Procedure();
+        var external = (VBProcedureMemberSymbol)Procedure("Erl").With(SymbolProperties.ExternalTarget, "IStdInformationModule.Erl/0");
+
+        Assert.AreSame(factory.ForMember(procedure), factory.ForMember(procedure));
+        Assert.AreSame(factory.ForMember(external), factory.ForMember(external));
+    }
+
+    [TestMethod]
+    public void AnExternalMember_CalledOnAnObjectOrFromASite_IsBoundForThatCall()
+    {
+        var factory = Factory();
+        var member = (VBProcedureMemberSymbol)Procedure("Number").With(SymbolProperties.ExternalTarget, "IStdErrClass.Number/0");
+        var site = new SourceLocation(Root, new SourceRange(new SourcePosition(1, 1), new SourcePosition(1, 5)));
+
+        var bound = (ExternalBindingHandle)factory.ForMember(member);
+        var onObject = (ExternalBindingHandle)factory.ForMember(member, Substitute.For<SDK.Model.Values.Runtime.IRuntimeValue>());
+        var fromSite = (ExternalBindingHandle)factory.ForMember(member, callSite: site);
+
+        Assert.AreNotSame(bound, onObject);
+        Assert.AreEqual(site, fromSite.CallSite);
+        Assert.IsNull(bound.Receiver);
+        Assert.AreEqual(default, bound.CallSite);
+    }
 }

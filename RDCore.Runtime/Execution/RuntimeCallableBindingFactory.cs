@@ -32,23 +32,22 @@ public sealed record class RuntimeCallableBindingFactory(
     public ICallableBinding ForMember(
         VBTypeMemberSymbol member, IRuntimeValue? receiver = null, SourceLocation callSite = default)
     {
+        // a procedure of a standard module, or of a library's, is bound to nothing but itself: one handle for every call of it (IR lowering S1.3, S1.9).
+        if (receiver is null && callSite == default && _procedures.TryGetValue(member, out var binding))
+        {
+            return binding;
+        }
+
         if (IsExternal(member) && External is not null)
         {
-            return new ExternalBindingHandle(member, External, receiver, callSite);
+            return receiver is null && callSite == default
+                ? _procedures.GetValue(member, procedure => new ExternalBindingHandle(procedure, External))
+                : new ExternalBindingHandle(member, External, receiver, callSite);
         }
 
-        // a procedure of a standard module is bound to nothing but itself: one handle for every call of it (IR lowering S1.3).
-        if (receiver is not null)
-        {
-            return new CallableBindingHandle(member, Invoker, receiver);
-        }
-
-        if (!_procedures.TryGetValue(member, out var binding))
-        {
-            binding = _procedures.GetValue(member, procedure => new CallableBindingHandle(procedure, Invoker));
-        }
-
-        return binding;
+        return receiver is null
+            ? _procedures.GetValue(member, procedure => new CallableBindingHandle(procedure, Invoker))
+            : new CallableBindingHandle(member, Invoker, receiver);
     }
 
     private readonly ConditionalWeakTable<VBTypeMemberSymbol, ICallableBinding> _procedures = new();
