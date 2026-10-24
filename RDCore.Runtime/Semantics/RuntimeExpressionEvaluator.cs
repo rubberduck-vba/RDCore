@@ -1656,6 +1656,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     public RuntimeSemanticsEvaluationResult Invoke(
         IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> argumentNodes)
     {
+        // a call by the bare name of a procedure is the same call written without parentheses, bound once with its arguments (S1.7): the procedure the name
+        // resolves to, and how each argument is passed.
+        if (callee is SimpleNameExpressionNode && BoundTreeOf(session, StatementCall(callee, argumentNodes), context) is BoundCall { Procedure: VBTypeMemberSymbol bound } call)
+        {
+            return InvokeProcedure(session, context, bound, argumentNodes, boundArguments: call.BoundArguments);
+        }
+
         if (TryResolveCallableSub(session, context, callee) is { } procedure)
         {
             return InvokeProcedure(session, context, procedure, argumentNodes);
@@ -1664,14 +1671,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // a call on an object - Err.Raise 5 - is the same call with the same arguments, written without parentheses: the same expression every time the
         // statement runs, so that what is known of it once (its binding) is known the next time.
         return callee is MemberAccessExpressionNode
-            ? Evaluate(session, _statementCalls.GetOrAdd(callee, static (node, arguments) => new IndexExpressionNode(node.Identity, node.Location, node, arguments), argumentNodes), context)
+            ? Evaluate(session, StatementCall(callee, argumentNodes), context)
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
+
+    private IndexExpressionNode StatementCall(ExpressionNode callee, ImmutableArray<ExpressionNode> argumentNodes)
+        => _statementCalls.GetOrAdd(callee, static (node, arguments) => new IndexExpressionNode(node.Identity, node.Location, node, arguments), argumentNodes);
 
     // the call expression of each call statement written on an object, by its callee (one statement, one callee node): the evaluator lives one execution.
     private readonly ConcurrentDictionary<ExpressionNode, IndexExpressionNode> _statementCalls = new(ReferenceEqualityComparer.Instance);
 
-    private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure, ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null)
+    // boundArguments: how each argument is passed, bound with the call (S1.7), for the parameters of the very procedure invoked; null when it was not bound.
+    private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
+        ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null, ImmutableArray<BoundArgument>? boundArguments = null)
     {
         var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
         // a call made on an object supplies its own implicit Me (parameter 0), so the arguments written at the call
@@ -1685,7 +1697,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // a procedure whose parameters are all scalars passed by value is given its arguments as payloads (IR lowering S1.3).
-        if (receiver is null && TryInvokeScalars(session, context, procedure, parameters, argumentNodes, out var direct))
+        // arguments bound for other parameters - of a procedure the call was not bound to - are not these.
+        if (boundArguments is { } bound && bound.Length != parameters.Length)
+        {
+            boundArguments = null;
+        }
+
+        if (receiver is null && TryInvokeScalars(session, context, procedure, parameters, argumentNodes, boundArguments, out var direct))
         {
             return direct;
         }
@@ -1695,7 +1713,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         try
         {
             if (BindArguments(session, context, parameters, argumentNodes, out var arguments, out var argumentsKnown, borrowed,
-                    external: procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol, cellReferences: InvokerOf(procedure) is not null)
+                    external: procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol, cellReferences: InvokerOf(procedure) is not null,
+                    boundArguments: boundArguments)
                 is { } bindingError)
             {
                 return bindingError;
@@ -1848,11 +1867,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// Where the addresses an element of an array passed by reference is given are added: the caller gives them back (<see cref="GiveBack"/>) once the call
     /// made with the arguments is over, which is as long as the elements are passed as variables.
     /// </param>
+    /// <param name="boundArguments">
+    /// How each argument is passed, bound with the call (<see cref="BoundArgument"/>), one for each of <paramref name="parameters"/>: what is mapped once, and
+    /// an argument that is no variable is not tried as one. <see langword="null"/> maps <paramref name="argumentNodes"/> here.
+    /// </param>
     /// <returns>The error that stopped the binding, or <see langword="null"/> when every argument was bound.</returns>
     private RuntimeSemanticsEvaluationResult? BindArguments(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters,
         ImmutableArray<ExpressionNode> argumentNodes, out IRuntimeValue[] arguments, out bool isKnown, List<MemoryAddress> borrowed, bool external = false,
-        bool cellReferences = false)
+        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null)
     {
         arguments = [];
         isKnown = true;
@@ -1861,21 +1884,25 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
-        var mapResult = MappedArguments(parameters, argumentNodes);
+        var given = boundArguments ?? default;
+        var mapResult = given.IsDefault ? MappedArguments(parameters, argumentNodes) : default;
         if (mapResult.Error is { } mappingError)
         {
             return mappingError;
         }
 
-        var mapped = mapResult.Mapped!;
+        var mapped = mapResult.Mapped;
         var bound = new IRuntimeValue[parameters.Length];
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
+            var boundArgument = given.IsDefault ? null : given[i];
 
             if (parameter is ParamArrayParameterSymbol)
             {
-                var collected = CollectParamArrayArguments(session, context, mapResult.ParamArrayArguments);
+                var collected = boundArgument is null
+                    ? CollectParamArrayArguments(session, context, mapResult.ParamArrayArguments)
+                    : CollectParamArrayArguments(session, context, default, boundArgument.Elements);
                 if (collected.Error is { } collectError)
                 {
                     return collectError;
@@ -1885,7 +1912,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 continue;
             }
 
-            var argumentNode = mapped[i];
+            var argumentNode = boundArgument is null ? mapped![i] : boundArgument.Expression;
 
             if (argumentNode is null or MissingArgumentNode)
             {
@@ -1901,7 +1928,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 continue;
             }
 
-            var aliased =RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || external && parameter.ResolvedType is VBStringType;
+            // an argument bound as no variable is not tried as one - but by a library that takes what it is given, which passes a value by reference too.
+            var aliased = RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) && (external || boundArgument is not { Passing: ArgumentPassing.Value })
+                || external && parameter.ResolvedType is VBStringType;
+            var value = boundArgument?.Value;
             RuntimeSemanticsEvaluationResult? evaluatedInstead = null;
 
             // a variable held in a cell of the caller's activation is passed as the cell, which the parameter's slot holds too (IR lowering S1.3) - to a
@@ -1920,14 +1950,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
 
             // a scalar passed by value, evaluated on payloads and let-coerced to the parameter's type exactly, is passed as that (IR lowering S1.3).
-            if (!aliased && !external && TryEvaluateArgumentUnboxed(session, argumentNode, parameter.ResolvedType, context, out var payloadArgument))
+            if (!aliased && !external
+                && TryEvaluateArgumentUnboxed(session, argumentNode, value, parameter.ResolvedType, context, out var payloadArgument))
             {
                 bound[i] = payloadArgument;
                 continue;
             }
 
             // an argument is evaluated once: what binding it by reference already evaluated is what is passed, and not evaluated again.
-            var argumentResult = evaluatedInstead ?? EvaluateIndexArgument(session, argumentNode, context);
+            var argumentResult = evaluatedInstead ?? (value is null ? EvaluateIndexArgument(session, argumentNode, context) : EvaluateBoundArgument(session, value, context));
             if (argumentResult is { } evaluated && !evaluated.IsSuccess)
             {
                 return evaluated;
@@ -2013,14 +2044,21 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // Variant, the same rule any other ByVal argument follows. Boxed as VBRuntimeArrayValue (matching
     // SymbolAddressTable.FreshBinding's own shape for an array value) so VBArrayType.CreateValue can
     // unbox it correctly once RuntimeProcedureInvoker pushes it onto the callee's frame.
-    private ParamArrayCollectResult CollectParamArrayArguments(IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> argumentNodes)
+    // elementNodes: the arguments collected, bound with the call (S1.7), in place of argumentNodes.
+    private ParamArrayCollectResult CollectParamArrayArguments(
+        IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<ExpressionNode> argumentNodes, ImmutableArray<BoundNode> elementNodes = default)
     {
+        var count = elementNodes.IsDefault ? argumentNodes.Length : elementNodes.Length;
+
         // a ParamArray that collects nothing is still an array of one dimension, with no elements: UBound of it is -1 (whatever Option Base says,
         // it is 0-based), and IsMissing of it is True, as MS-VBA has it.
-        var array = new VBFixedSizeArrayValue([(0, argumentNodes.Length - 1)]);
-        for (var i = 0; i < argumentNodes.Length; i++)
+        var array = new VBFixedSizeArrayValue([(0, count - 1)]);
+        for (var i = 0; i < count; i++)
         {
-            var argumentResult = EvaluateIndexArgument(session, argumentNodes[i], context);
+            var argumentNode = elementNodes.IsDefault ? argumentNodes[i] : elementNodes[i].Expression;
+            var argumentResult = elementNodes.IsDefault
+                ? EvaluateIndexArgument(session, argumentNode, context)
+                : EvaluateBoundArgument(session, elementNodes[i], context);
             if (argumentResult is { } evaluated && !evaluated.IsSuccess)
             {
                 return new ParamArrayCollectResult(null, evaluated);
@@ -2034,7 +2072,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // object, and nothing asks it for a default value it may not have - which is what CallByName(obj, "Prop", VbSet, other) passes.
             if (SetCoercion is { } setCoercion && argumentResult.Value.Result is VBObjectValue)
             {
-                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNodes[i], argumentResult.Value.Result!, VBVariantType.TypeInfo);
+                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, argumentResult.Value.Result!, VBVariantType.TypeInfo);
                 if (!setResult.IsSuccess)
                 {
                     return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!));
@@ -2044,9 +2082,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 continue;
             }
 
-            var coercionFrame = new LetCoercionStackFrame(argumentNodes[i].Identity, InputIndex.CoercionSourceValue,
+            var coercionFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
                 argumentResult.Value.Result!, new VBTypeDescValue(VBVariantType.TypeInfo), ConversionSite.Argument);
-            var coercionResult = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNodes[i], coercionFrame);
+            var coercionResult = LetCoercionProvider!.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, coercionFrame);
             if (!coercionResult.IsApplicable)
             {
                 return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.InternalError());
@@ -2106,90 +2144,25 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => null,
     };
 
-    // MS-VBAL §5.3.1.11 argument mapping. A trailing ParamArray parameter collects every positional
-    // argument from its own position onward instead of mapping 1:1 - never targetable by name, and
-    // always considered satisfied even with nothing collected (an empty array, not error 449).
+    // MS-VBAL §5.3.1.11 argument mapping (ArgumentMapping.Map), its errors raised as run-time errors: a named argument that names no parameter, the
+    // ParamArray or one already given is 448; so is a positional one left out where the parameter is not Optional, which MS-VBAL checks there and not in
+    // the sweep for 449 after.
     private static ArgumentMapResult MapArguments(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes)
     {
-        // `Area()` is a call that supplies nothing; the parser reads the empty parentheses as one omitted argument, which a
-        // procedure that takes none has no parameter for.
-        if (parameters.IsEmpty && argumentNodes is [MissingArgumentNode])
+        var map = ArgumentMapping.Map(parameters, argumentNodes);
+        return map.Error switch
         {
-            argumentNodes = [];
-        }
+            ArgumentMappingError.None => new ArgumentMapResult(map.Mapped, map.ParamArrayArguments, null),
+            ArgumentMappingError.NamedArgumentNotFound => Failed(VBRuntimeErrorId.NamedArgumentNotFound, Exceptions.VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose),
+            ArgumentMappingError.WrongNumberOfArguments
+                => Failed(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, Exceptions.VBWrongNumberOfArguments_Verbose),
+            ArgumentMappingError.MissingRequiredPositional
+                => Failed(VBRuntimeErrorId.NamedArgumentNotFound, Exceptions.VBNamedArgumentNotFound_MissingRequiredPositional_Verbose),
+            _ => Failed(VBRuntimeErrorId.ArgumentNotOptional, Exceptions.VBArgumentNotOptional_Verbose),
+        };
 
-        var paramArrayIndex = parameters.Length > 0 && parameters[^1] is ParamArrayParameterSymbol ? parameters.Length - 1 : -1;
-        var mapped = new ExpressionNode?[parameters.Length];
-        var paramArrayArguments = ImmutableArray.CreateBuilder<ExpressionNode>();
-        var positionalIndex = 0;
-
-        foreach (var argument in argumentNodes)
-        {
-            if (argument is NamedArgumentNode named)
-            {
-                var index = IndexOfParameter(parameters, named.Name);
-                if (index < 0 || index == paramArrayIndex || mapped[index] is not null)
-                {
-                    return new ArgumentMapResult(null, [], RuntimeSemanticsEvaluationResult.Error(
-                        VBRuntimeErrorInfo.For(VBRuntimeErrorId.NamedArgumentNotFound, argument.Location, Exceptions.VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose)));
-                }
-
-                mapped[index] = named.Value;
-                continue;
-            }
-
-            if (paramArrayIndex >= 0 && positionalIndex >= paramArrayIndex)
-            {
-                paramArrayArguments.Add(argument);
-                positionalIndex++;
-                continue;
-            }
-
-            if (positionalIndex >= parameters.Length)
-            {
-                return new ArgumentMapResult(null, [], RuntimeSemanticsEvaluationResult.Error(
-                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, argument.Location, Exceptions.VBWrongNumberOfArguments_Verbose)));
-            }
-
-            if (argument is MissingArgumentNode && !parameters[positionalIndex].IsOptional)
-            {
-                // Error 448, not 449 - MS-VBAL calls this out as checked here, not in the sweep below.
-                return new ArgumentMapResult(null, [], RuntimeSemanticsEvaluationResult.Error(
-                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.NamedArgumentNotFound, argument.Location, Exceptions.VBNamedArgumentNotFound_MissingRequiredPositional_Verbose)));
-            }
-
-            mapped[positionalIndex] = argument;
-            positionalIndex++;
-        }
-
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (i == paramArrayIndex)
-            {
-                continue; // always satisfied, even with nothing collected - an empty array, not error 449.
-            }
-
-            if (mapped[i] is null && !parameters[i].IsOptional)
-            {
-                return new ArgumentMapResult(null, [], RuntimeSemanticsEvaluationResult.Error(
-                    VBRuntimeErrorInfo.For(VBRuntimeErrorId.ArgumentNotOptional, default, Exceptions.VBArgumentNotOptional_Verbose)));
-            }
-        }
-
-        return new ArgumentMapResult(mapped, paramArrayArguments.ToImmutable(), null);
-    }
-
-    private static int IndexOfParameter(ImmutableArray<VBParameterSymbol> parameters, string name)
-    {
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (string.Equals(parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
-            {
-                return i;
-            }
-        }
-
-        return -1;
+        ArgumentMapResult Failed(VBRuntimeErrorId error, string verbose)
+            => new(null, [], RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(error, map.ErrorAt?.Location ?? default, verbose)));
     }
 
     // MS-VBAL §5.3.1.11: a ByRef parameter whose mapped argument's expression is "classified as a
@@ -2401,6 +2374,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             AddressOfExpressionNode => RuntimeSemanticsEvaluationResult.InternalError(),
             _ => Evaluate(session, argument, context),
         };
+
+    // what EvaluateIndexArgument evaluates an argument to, from the node it was bound to with the call (S1.7). One the call's binding did not bind - an
+    // omitted argument, AddressOf, an argument written ByVal - is evaluated as it is written, bound on its own.
+    private RuntimeSemanticsEvaluationResult? EvaluateBoundArgument(IRuntimeSession session, BoundNode value, RuntimeEvaluationContext context)
+        => value is BoundLate || value.Expression is MissingArgumentNode or AddressOfExpressionNode
+            ? EvaluateIndexArgument(session, value.Expression, context)
+            : EvaluateBoundNode(session, value, context);
 
     private static bool TryGetIntegralSubscript(VBTypedValue? value, out int subscript)
     {

@@ -46,7 +46,8 @@ public sealed partial class RuntimeExpressionEvaluator
             return root.Node;
         }
 
-        var node = Bind(session, scopes, expression, context);        _boundRoots[expression] = new BoundRoot(scopes, node);
+        var node = Bind(session, scopes, expression, context);
+        _boundRoots[expression] = new BoundRoot(scopes, node);
         return node;
     }
 
@@ -329,7 +330,9 @@ public sealed partial class RuntimeExpressionEvaluator
             }
             else
             {
-                result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue);
+                // the arguments are bound for the member of the class the object is declared as: the member implementing it has parameters of its own.
+                result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue,
+                    ReferenceEquals(member, bound.Member) ? bound.BoundArguments : null);
             }
         }
         else if (bound.Arguments is { } call)
@@ -408,7 +411,7 @@ public sealed partial class RuntimeExpressionEvaluator
     // follows it in parentheses, which indexes what it returns - and that is evaluated late-bound.
     private RuntimeSemanticsEvaluationResult EvaluateBoundCall(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context)
         => call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
-            ? InvokeProcedure(session, context, procedure, call.Call.Arguments)
+            ? InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)
             : EvaluateLate(session, call.Expression, context);
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundUnary(IRuntimeSession session, BoundUnary unary, RuntimeEvaluationContext context)

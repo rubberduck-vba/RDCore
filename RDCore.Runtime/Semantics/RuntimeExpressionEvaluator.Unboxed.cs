@@ -406,12 +406,16 @@ public sealed partial class RuntimeExpressionEvaluator
     /// <see langword="false"/> when the call is not made here - before any argument is evaluated with an effect, so it is to be made the way it always is.
     /// <see langword="true"/> when it was made: <paramref name="result"/> is what it returned, or the error it raised.
     /// </returns>
+    /// <param name="boundArguments">How each argument is passed, bound with the call (S1.7): an argument named or written in any order is given to its
+    /// parameter. <see langword="null"/> takes <paramref name="argumentNodes"/> as they are written, one positional argument for each parameter.</param>
     internal bool TryInvokeScalars(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
-        ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes, out RuntimeSemanticsEvaluationResult result)
+        ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> argumentNodes, ImmutableArray<BoundArgument>? boundArguments,
+        out RuntimeSemanticsEvaluationResult result)
     {
         result = default;
+        var given = boundArguments ?? default;
         if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
-            || parameters.IsDefaultOrEmpty || argumentNodes.IsDefault || argumentNodes.Length != parameters.Length
+            || parameters.IsDefaultOrEmpty || given.IsDefault && (argumentNodes.IsDefault || argumentNodes.Length != parameters.Length)
             || InvokerOf(procedure) is not { } invoker)
         {
             return false;
@@ -427,8 +431,8 @@ public sealed partial class RuntimeExpressionEvaluator
                 var isVariant = parameter.ResolvedType is VBVariantType;
                 if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter is ParamArrayParameterSymbol
                     || !(isVariant || ScalarPayload.IsScalar(parameter.ResolvedType))
-                    || argumentNodes[i] is NamedArgumentNode or MissingArgumentNode
-                    || !TryEvaluatePayload(session, BoundTreeOf(session, argumentNodes[i], context), out var payload))
+                    || ArgumentOf(i) is not { } argument
+                    || !TryEvaluatePayload(session, argument, out var payload))
                 {
                     return false;
                 }
@@ -450,6 +454,13 @@ public sealed partial class RuntimeExpressionEvaluator
         {
             ArrayPool<ScalarPayload>.Shared.Return(arguments);
         }
+
+        // the node of the argument parameter i is given: of a call bound with its arguments, the one passed by value; of any other, the positional one
+        // written at i. An omitted argument has none.
+        BoundNode? ArgumentOf(int i)
+            => !given.IsDefault
+                ? given[i] is { Passing: ArgumentPassing.Value, Value: { } value } ? value : null
+                : argumentNodes[i] is NamedArgumentNode or MissingArgumentNode ? null : BoundTreeOf(session, argumentNodes[i], context);
     }
 
     // the invoker that runs a procedure of the workspace, called on nothing: the one the binding factory binds it to (a member of anything else is bound
@@ -483,12 +494,14 @@ public sealed partial class RuntimeExpressionEvaluator
     /// Evaluates the argument a parameter of a scalar type is passed by value on payloads (MS-VBAL §5.3.1.11), let-coerced to the parameter's type: what the
     /// parameter's cell is made of, with no value made of it before (IR lowering S1.3).
     /// </summary>
+    /// <param name="bound">The argument's node, bound with the call; <see langword="null"/> binds <paramref name="argument"/> here.</param>
     /// <returns><see langword="false"/> when the argument is not evaluated here, and is to be evaluated the way it always is.</returns>
-    internal bool TryEvaluateArgumentUnboxed(IRuntimeSession session, ExpressionNode argument, VBType parameterType, RuntimeEvaluationContext context, out IRuntimeValue value)
+    internal bool TryEvaluateArgumentUnboxed(
+        IRuntimeSession session, ExpressionNode argument, BoundNode? bound, VBType parameterType, RuntimeEvaluationContext context, out IRuntimeValue value)
     {
         value = null!;
         if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables || !ScalarPayload.IsScalar(parameterType)
-            || !TryEvaluatePayload(session, BoundTreeOf(session, argument, context), out var payload)
+            || !TryEvaluatePayload(session, bound ?? BoundTreeOf(session, argument, context), out var payload)
             || !TryConvertPayload(payload, parameterType, out var converted))
         {
             return false;

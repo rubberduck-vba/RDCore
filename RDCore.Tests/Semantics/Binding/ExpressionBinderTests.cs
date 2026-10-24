@@ -327,6 +327,120 @@ public sealed class ExpressionBinderTests
         Assert.IsInstanceOfType<BoundVariable>(bound.Callee);
     }
 
+    // a module with a field `x As Long`, a Function Foo(a As Long, ByVal b As Long, Optional ByVal c As Long) and a Function Bar(ByVal a As Long,
+    // ParamArray r()).
+    private static StaticEvaluationContext ContextWithProcedures()
+    {
+        var module = new VBStandardModuleSymbol(Root, Root, "Module1");
+        var x = new VBModuleFieldVariableMemberSymbol(Root, module.Uri, "x", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var foo = new VBFunctionMemberSymbol(Root, module.Uri, "Foo", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
+        foo = foo with
+        {
+            Parameters =
+            [
+                new VBParameterSymbol(Root, foo.Uri, "a", R, R, ParameterKind.ImplicitByRef, VBLongType.TypeInfo),
+                new VBParameterSymbol(Root, foo.Uri, "b", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo),
+                new VBParameterSymbol(Root, foo.Uri, "c", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo, IsOptional: true),
+            ],
+        };
+        var bar = new VBFunctionMemberSymbol(Root, module.Uri, "Bar", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Public);
+        bar = bar with
+        {
+            Parameters =
+            [
+                new VBParameterSymbol(Root, bar.Uri, "a", R, R, ParameterKind.ExplicitByVal, VBLongType.TypeInfo),
+                new ParamArrayParameterSymbol(Root, bar.Uri, "r", R, R, ParameterKind.ExplicitByRef),
+            ],
+        };
+
+        var tree = ScopeTreeBuilder.Build([module with { Members = [x, foo, bar] }, x, foo, bar]);
+        return new StaticEvaluationContext(new ScopeTreeSymbolResolver(tree), tree.ScopeFor(module.Uri));
+    }
+
+    private IndexExpressionNode CallOf(string callee, params ExpressionNode[] arguments) => new(NextId(), TestLocations.TestLocation, NameOf(callee), [.. arguments]);
+
+    private LiteralExpressionNode LongLiteral(int value) => new(NextId(), TestLocations.TestLocation, new RDCore.SDK.Model.Values.Intrinsic.VBLongValue(value));
+
+    // MS-VBAL §5.3.1.11, IR lowering S1.7: each parameter is given its argument as the call is bound - a variable to a ByRef parameter by reference, a value
+    // by value with the plan of its let-coercion, and an Optional one the call gives nothing omitted.
+    [TestMethod]
+    public void ACall_IsBoundToHowEachArgumentIsPassed()
+    {
+        var context = ContextWithProcedures();
+        var sum = BinaryOf(Tokens.AdditionOp, NameOf("x"), LongLiteral(1));
+        var call = CallOf("Foo", NameOf("x"), sum);
+
+        var bound = Assert.IsInstanceOfType<BoundCall>(ExpressionBinder.Bind(context, call).NodeOf(call));
+
+        Assert.IsNotNull(bound.BoundArguments);
+        var arguments = bound.BoundArguments.Value;
+        Assert.HasCount(3, arguments);
+        Assert.AreEqual(ArgumentPassing.Reference, arguments[0].Passing);
+        Assert.IsInstanceOfType<BoundVariable>(arguments[0].Value);
+        Assert.AreEqual(ArgumentPassing.Value, arguments[1].Passing);
+        Assert.AreSame(sum, arguments[1].Expression);
+        Assert.IsInstanceOfType<BoundBinary>(arguments[1].Value);
+        Assert.IsNotNull(arguments[1].Plan, "a Long let-coerced to a Long has a plan");
+        Assert.AreEqual(ArgumentPassing.Omitted, arguments[2].Passing);
+        Assert.IsNull(arguments[2].Expression);
+    }
+
+    // a value given to a ByRef parameter is no variable it could be a second name for: it is passed by value.
+    [TestMethod]
+    public void AValue_GivenToAByRefParameter_IsPassedByValue()
+    {
+        var context = ContextWithProcedures();
+        var call = CallOf("Foo", LongLiteral(1), LongLiteral(2));
+
+        var bound = Assert.IsInstanceOfType<BoundCall>(ExpressionBinder.Bind(context, call).NodeOf(call));
+
+        Assert.AreEqual(ArgumentPassing.Value, bound.BoundArguments!.Value[0].Passing);
+    }
+
+    [TestMethod]
+    public void ANamedArgument_IsBoundToItsParameter_WhereverItIsWritten()
+    {
+        var context = ContextWithProcedures();
+        var call = CallOf("Foo", new NamedArgumentNode(NextId(), TestLocations.TestLocation, "b", LongLiteral(2)),
+            new NamedArgumentNode(NextId(), TestLocations.TestLocation, "a", NameOf("x")));
+
+        var bound = Assert.IsInstanceOfType<BoundCall>(ExpressionBinder.Bind(context, call).NodeOf(call));
+
+        var arguments = bound.BoundArguments!.Value;
+        Assert.AreEqual("a", arguments[0].Parameter.Name);
+        Assert.AreEqual(ArgumentPassing.Reference, arguments[0].Passing);
+        Assert.AreEqual(ArgumentPassing.Value, arguments[1].Passing);
+        Assert.IsInstanceOfType<BoundLiteral>(arguments[1].Value);
+    }
+
+    [TestMethod]
+    public void AParamArray_IsBoundToTheArgumentsItCollects()
+    {
+        var context = ContextWithProcedures();
+        var call = CallOf("Bar", LongLiteral(1), LongLiteral(2), NameOf("x"));
+
+        var bound = Assert.IsInstanceOfType<BoundCall>(ExpressionBinder.Bind(context, call).NodeOf(call));
+
+        var arguments = bound.BoundArguments!.Value;
+        Assert.AreEqual(ArgumentPassing.Value, arguments[0].Passing);
+        Assert.AreEqual(ArgumentPassing.ParamArray, arguments[1].Passing);
+        Assert.HasCount(2, arguments[1].Elements);
+        Assert.IsInstanceOfType<BoundVariable>(arguments[1].Elements[1]);
+    }
+
+    // a call whose arguments map to no parameter is the call's to report when it is made (448, 449, 450): its arguments are not bound.
+    [TestMethod]
+    public void ACall_WhoseArgumentsDoNotMap_HasNoBoundArgument()
+    {
+        var context = ContextWithProcedures();
+        var call = CallOf("Foo", LongLiteral(1), LongLiteral(2), LongLiteral(3), LongLiteral(4));
+
+        var node = ExpressionBinder.Bind(context, call).NodeOf(call);
+
+        var bound = Assert.IsInstanceOfType<BoundCall>(node is BoundError error ? error.Late : node);
+        Assert.IsNull(bound.BoundArguments);
+    }
+
     [TestMethod]
     public void AMemberThatIsNoMemberOfAWorkspaceClass_IsBoundToTheError_AndToTheMemberLateBound()
     {

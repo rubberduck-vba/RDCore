@@ -37,4 +37,25 @@ public sealed class CallArgumentPayloadTests
     [DataRow("Dim l As Long ;; l = 7 ;; F l * 2", "Long 14", DisplayName = "an expression")]
     public void AScalarPassedToAVariantParameter_KeepsItsType(string body, string printed)
         => Assert.AreEqual(printed, Run("Private Sub F(ByVal V As Variant) ;; Debug.Print TypeName(V) & \" \" & V ;; End Sub", body));
+
+    // MS-VBAL §5.3.1.11: each argument is given to its parameter as the call is bound - by position or by name, in any order, a ParamArray collecting the
+    // rest - and a ByRef parameter is a second name for a variable, a copy of anything else.
+    [TestMethod]
+    [DataRow("Private Function F(ByVal A As Long, ByVal B As Long) As Long ;; F = A * 10 + B ;; End Function", "Debug.Print F(B:=2, A:=1) ;; Debug.Print F(3, B:=4)",
+        "12/34", DisplayName = "named, a function")]
+    [DataRow("Private Sub S(ByVal A As Long, ByVal B As Long) ;; Debug.Print A * 10 + B ;; End Sub", "S B:=2, A:=1 ;; Call S(B:=4, A:=3)", "12/34",
+        DisplayName = "named, a call statement")]
+    [DataRow("Private Sub S(A As Long) ;; A = A + 1 ;; End Sub", "Dim l As Long ;; S l ;; S l ;; S (l) ;; S l + 0 ;; Debug.Print l", "2",
+        DisplayName = "ByRef: a variable, then values")]
+    [DataRow("Private Sub S(ByVal A As Long, ParamArray R() As Variant) ;; Debug.Print A & \":\" & UBound(R) ;; End Sub", "S 1 ;; S 1, 2, 3", "1:-1/1:1",
+        DisplayName = "a ParamArray")]
+    [DataRow("Private Sub S(Optional ByVal A As Long = 5, Optional ByVal B As Long = 6) ;; Debug.Print A * 10 + B ;; End Sub", "S ;; S B:=1 ;; S , 2", "56/51/52",
+        DisplayName = "omitted, by name and by position")]
+    public void AnArgument_IsGivenToItsParameter(string procedures, string body, string printed)
+        => Assert.AreEqual(printed, Run(procedures, body));
+
+    // a call statement's procedure is bound once: what the name resolves to in the scope it is written in.
+    [TestMethod]
+    public void ACallStatement_CallsTheProcedureItsNameResolvesTo_EveryTime()
+        => Assert.AreEqual("1/2/3", Run("Private Sub S(ByVal A As Long) ;; Debug.Print A ;; End Sub", "Dim i As Long ;; For i = 1 To 3 ;; S i ;; Next"));
 }

@@ -94,14 +94,16 @@ public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, O
 /// <c>Property Get</c> of the workspace or of a library, by its bare name.
 /// </summary>
 /// <remarks>
-/// The binding is the resolution of the callee, made once. How the arguments are passed - aliased to a variable, let-coerced, collected into a
-/// <c>ParamArray</c>, omitted - is the call's to decide each time it is made, from the arguments as they are written; each argument is an expression of its
-/// own, bound in its turn. 🚧 Binding how each argument is passed is a later step.
+/// The binding is the resolution of the callee, made once, and of how each argument is passed (<see cref="BoundArgument"/>): which parameter it is given
+/// to, by reference or by value with the plan of its coercion, collected into a <c>ParamArray</c>, or omitted. What only the call can decide - whether a
+/// variable is of the parameter's type, what a <c>Variant</c> holds - is the call's, each time it is made.
 /// </remarks>
 /// <param name="Call">The index expression that is the call.</param>
 /// <param name="Procedure">The procedure called, named bare or through the project or the procedural module it is a member of (<strong>§5.6.12</strong>) -
 /// <c>VBA.Len(s)</c>, <c>Module1.Total(1)</c>.</param>
-public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure) : BoundNode(Call);
+/// <param name="BoundArguments">The argument of each parameter of <paramref name="Procedure"/>, in order; <see langword="null"/> when the arguments do not map to
+/// its parameters, which the call reports when it is made.</param>
+public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Call);
 
 /// <summary>
 /// A name qualified by the project or the procedural module it is a member of, or by the enumeration it is a member of (<strong>MS-VBAL §5.6.12</strong>):
@@ -143,9 +145,11 @@ public sealed record class BoundPrecompilerName(PrecompilerNameExpressionNode Na
 /// <param name="DeclaredClass">The class the owner is declared as; <see langword="null"/> for an owner that is late-bound or a record.</param>
 /// <param name="Member">The member of <paramref name="DeclaredClass"/> the name resolves to; <see langword="null"/> when there is no class.</param>
 /// <param name="Arguments">The arguments of a call; <see langword="null"/> for a member that is read, with no argument list.</param>
+/// <param name="BoundArguments">The argument of each parameter of <paramref name="Member"/> after its <c>Me</c>, in order (<see cref="BoundArgument"/>);
+/// <see langword="null"/> for a member that is not resolved, or whose parameters the arguments do not map to.</param>
 public sealed record class BoundMember(
     ExpressionNode Expression, MemberAccessExpressionNode Access, BoundNode? Owner, VBClassModuleSymbol? DeclaredClass, VBTypeMemberSymbol? Member,
-    IndexExpressionNode? Arguments) : BoundNode(Expression);
+    IndexExpressionNode? Arguments, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Expression);
 
 /// <summary>
 /// A <c>New</c> expression (<strong>MS-VBAL §5.6.10</strong>'s <c>New</c> keyword, <strong>§5.2.3.1.4</strong>), and the class it creates an object of.
