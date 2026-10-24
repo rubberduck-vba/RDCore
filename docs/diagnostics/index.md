@@ -240,7 +240,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00307](rdc00307.md)|Obsolete type hint — a name written with a type-declaration character|
 |[RDC00308](rdc00308.md)|Obsolete While…Wend — a loop written While…Wend|
 |[RDC00309](rdc00309.md)|Obsolete On Local Error statement — an error handler set with On Local Error|
-|[RDC00310](rdc00310.md)|Redundant ByVal argument — an argument written `ByVal` for a parameter that is `ByVal` already||[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
+|[RDC00310](rdc00310.md)|Redundant ByVal argument — an argument written `ByVal` for a parameter that is `ByVal` already|
+|[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names — a name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation — a name that begins with a prefix that states its type|
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|
