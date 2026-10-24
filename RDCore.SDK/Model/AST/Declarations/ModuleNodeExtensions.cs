@@ -37,7 +37,8 @@ public static class ModuleNodeExtensions
     }
 
     /// <summary>
-    /// The <see cref="ModuleDirectives"/> a module declares, read from its <c>Option</c> directives.
+    /// The <see cref="ModuleDirectives"/> a module declares, read from its <c>Option</c> directives and its <c>Attribute VB_PredeclaredId</c>,
+    /// <c>VB_Creatable</c> and <c>VB_Extensible</c> declarations.
     /// </summary>
     /// <param name="module">The module, or <c>null</c> for a module that did not parse.</param>
     /// <returns>
@@ -55,7 +56,10 @@ public static class ModuleNodeExtensions
             Explicit: module.HasOptionExplicit(),
             Compare: module.GetOptionCompare(),
             Base: module.GetOptionBase(),
-            PrivateModule: module.HasOptionPrivateModule());
+            PrivateModule: module.HasOptionPrivateModule(),
+            PredeclaredId: module.IsPredeclared(),
+            Creatable: module.IsCreatable(),
+            Extensible: module.IsExtensible());
 
     /// <summary>
     /// Whether the module declares <c>Option Private Module</c> (<strong>MS-VBAL §5.2.1.4</strong>).

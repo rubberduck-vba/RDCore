@@ -280,6 +280,20 @@ public interface ISessionSymbols
     ScopeTree Scopes { get; }
 
     /// <summary>
+    /// Finds the module named <paramref name="moduleName"/>, a standard module or a class module: the project's, or a library's when the project has none of
+    /// that name.
+    /// </summary>
+    /// <remarks>
+    /// The modules are looked up as modules, not by binding the name as code does: in code, the name of a class with a default instance is the instance
+    /// (<strong>MS-VBAL §5.2.4.1.2</strong>), and a class module's name is no value at all (<strong>§5.6.4</strong>) - neither of which says anything about
+    /// which module has the name.
+    /// </remarks>
+    /// <param name="moduleName">The name of the module, as its <c>VB_Name</c> says. Not case sensitive.</param>
+    /// <param name="module">The module symbol, when the session has one of that name.</param>
+    /// <returns><see langword="false"/> if the session has no module of that name.</returns>
+    bool TryGetModule(string moduleName, [NotNullWhen(true)] out VBModuleSymbol? module);
+
+    /// <summary>
     /// Resolves <paramref name="name"/> visible from <paramref name="scope"/> in the default binding
     /// context (<see cref="ISymbolResolver.ResolveValue"/>) — the context of a simple name expression.
     /// </summary>

@@ -51,7 +51,7 @@ internal sealed class HostExecuteHandler(
         }
 
         var session = sessionProvider.Session;
-        if (!TryResolveModule(session, request.ModuleName, out var module))
+        if (!session.Symbols.TryGetModule(request.ModuleName, out var module))
         {
             return Task.FromResult(NotFound(string.Format(Resources.Host_ModuleIsNotDefined, request.ModuleName)));
         }
@@ -91,19 +91,6 @@ internal sealed class HostExecuteHandler(
         }
 
         return result;
-    }
-
-    // the module symbol is defined in the session from the .rdproj, under the global scope.
-    private static bool TryResolveModule(IRuntimeSession session, string moduleName, out Symbol module)
-    {
-        if (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var resolved) && resolved is not null)
-        {
-            module = resolved;
-            return true;
-        }
-
-        module = GlobalSymbols.UnresolvedSymbol;
-        return false;
     }
 
     private static ExecuteSessionResult NotFound(string reason)

@@ -38,8 +38,22 @@
 /// 🚧 TODO nothing consumes it yet: it is the fact, carried where the module is, for the resolution of a name across projects to read once it decides what
 /// the platform means by a project reference.
 /// </param>
+/// <param name="PredeclaredId">
+/// Whether a class module declares <c>Attribute VB_PredeclaredId = True</c> (<strong>MS-VBAL §5.2.4.1.2</strong>): the class has a default instance, a
+/// global variable named after it that is never <c>Nothing</c> when it is referred to (<see cref="VBPredeclaredInstanceSymbol"/>). <c>False</c> for a module that
+/// declares no such attribute, and for one that is not a class module.
+/// </param>
+/// <param name="Creatable">
+/// Whether a class module can be instantiated with <c>New</c> outside its project, per its <c>Attribute VB_Creatable</c>: <c>True</c> unless the module
+/// declares otherwise, as in VBE.
+/// </param>
+/// <param name="Extensible">
+/// Whether a module declares <c>Attribute VB_Extensible = True</c> (<strong>MS-VBAL §4.2.1</strong>): a host extends it with an extension module of the same
+/// name, as it does its document modules.
+/// </param>
 public readonly record struct ModuleDirectives(
-    bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary, int Base = 0, bool PrivateModule = false)
+    bool Explicit = false, bool Strict = false, OptionCompare Compare = OptionCompare.Binary, int Base = 0, bool PrivateModule = false,
+    bool PredeclaredId = false, bool Creatable = true, bool Extensible = false)
 {
     /// <summary>
     /// The directives of a module that declares none of them explicitly.

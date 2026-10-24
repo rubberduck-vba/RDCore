@@ -90,6 +90,30 @@ internal sealed class SymbolTable
     public ScopeTree ScopeTree => _scopeTree ??= ScopeTreeBuilder.Build(All());
 
     /// <summary>
+    /// Finds the module of this name, a standard module or a class module: the project's, or a library's when the project has none of the name.
+    /// </summary>
+    /// <remarks>
+    /// A lookup of the modules themselves, not a binding of the name: what a name means in code - a class's default instance, a variable that shadows a
+    /// module - is no concern of it. VBA names are not case sensitive, and neither is the lookup.
+    /// </remarks>
+    public bool TryGetModule(string name, [NotNullWhen(true)] out VBModuleSymbol? module)
+        => (_modules ??= IndexModules()).TryGetValue(name, out module);
+
+    // the modules by name, built when one is asked for after the table changed: a project's module before a library's of the same name.
+    private Dictionary<string, VBModuleSymbol> IndexModules()
+    {
+        var modules = new Dictionary<string, VBModuleSymbol>(StringComparer.OrdinalIgnoreCase);
+        foreach (var module in All().OfType<VBModuleSymbol>().OrderBy(module => module.GetProperty(SymbolProperties.Library) is null ? 0 : 1))
+        {
+            modules.TryAdd(module.Name, module);
+        }
+
+        return modules;
+    }
+
+    private Dictionary<string, VBModuleSymbol>? _modules;
+
+    /// <summary>
     /// A copy of the table as it is now, which nothing that is done to this one reaches, and so is safe to read from another thread.
     /// </summary>
     /// <remarks>
@@ -122,6 +146,7 @@ internal sealed class SymbolTable
     public bool TryAdd(Symbol symbol, ScopeKind scope)
     {
         _scopeTree = null;
+        _modules = null;
         return TableFor(scope).TryAdd(SymbolIdentity.Of(symbol), symbol);
     }
 
@@ -135,6 +160,7 @@ internal sealed class SymbolTable
         if (removed)
         {
             _scopeTree = null;
+            _modules = null;
         }
 
         return removed;
@@ -153,6 +179,7 @@ internal sealed class SymbolTable
     {
         TableFor(scope)[SymbolIdentity.Of(symbol)] = symbol;
         _scopeTree = null;
+        _modules = null;
     }
 
     // one bucket per RD-VBAL §2.3.1.2 heap tier; every scope maps onto exactly one.

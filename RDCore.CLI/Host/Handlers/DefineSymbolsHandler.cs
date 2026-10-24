@@ -63,6 +63,10 @@ internal sealed class DefineSymbolsHandler(
         // the one that implements the interfaces its directives name, is this. A module that is not a class has nothing to compose.
         session.Symbols.TryComposeClassModule(request.ModuleName, request.ImplementedInterfaceNames, request.ImplementedInterfaceRanges);
 
+        // MS-VBAL §5.2.4.1.2: a class module with VB_PredeclaredId = True has a default instance variable named after it, which the code of every module
+        // names - so it is there before any code is loaded, which is after every module's symbols are.
+        DefineDefaultInstance(session, request);
+
         // the module's procedures get their code now that everything they are keyed by is defined.
         var loadErrors = LoadCode(session, request);
 
@@ -161,7 +165,7 @@ internal sealed class DefineSymbolsHandler(
     {
         if (request.ParseResultJson.Length == 0
             || PlatformJson.Deserialize<ModuleParseResult>(request.ParseResultJson) is not { } parseResult
-            || !session.Symbols.TryResolveModule(request.ModuleName, out var module))
+            || !session.Symbols.TryGetModule(request.ModuleName, out var module))
         {
             return [];
         }
@@ -179,23 +183,58 @@ internal sealed class DefineSymbolsHandler(
     // Option directives are not known until the language server sends them here. They are what an
     // activation of one of the module's procedures runs under - Option Compare decides how its
     // relational operators compare Strings, Option Base what `Dim a(10)` means - and both were read off
-    // a frame that was never given any, so both silently took their default. A class module is found
-    // as the code that is loaded finds it, by a name that binds only as a type; otherwise its code is
-    // checked and runs as if it stated none of them, Option Explicit included.
+    // a frame that was never given any, so both silently took their default. A class module's are applied
+    // as a standard module's are; otherwise its code is checked and runs as if it stated none of them,
+    // Option Explicit included.
     private static void ApplyDirectives(IRuntimeSession session, DefineSymbolsParams request)
     {
-        if (!session.Symbols.TryResolveModule(request.ModuleName, out var module)
-            || module.Directives == request.Directives)
+        if (!session.Symbols.TryGetModule(request.ModuleName, out var module)
+            || module.Directives == request.Directives && !(module is VBClassModuleSymbol && AttributesDiffer(module, request.Directives)))
         {
             return;
         }
 
         // the same undefine/define the Replace path uses: a module symbol allocates no storage of its
         // own, and its members are keyed by their own Uris rather than held by it.
-        var updated = module with { Directives = request.Directives };
+        // A class module's attributes are its properties as well, as the language server's module symbols have them (WorkspaceSymbolResolver.Compose).
+        Symbol updated = module with { Directives = request.Directives };
+        if (updated is VBClassModuleSymbol)
+        {
+            updated = updated
+                .With(SymbolProperties.PredeclaredId, request.Directives.PredeclaredId)
+                .With(SymbolProperties.Creatable, request.Directives.Creatable)
+                .With(SymbolProperties.Extensible, request.Directives.Extensible);
+        }
+
         if (session.Symbols.TryUndefine(module, module.ScopeKind))
         {
             session.Symbols.TryDefine(updated, updated.ScopeKind);
+        }
+    }
+
+    // a class module composed from a project has none of its attributes as properties until it is first defined: VB_Creatable's default is True.
+    private static bool AttributesDiffer(Symbol module, ModuleDirectives directives)
+        => module.GetProperty(SymbolProperties.PredeclaredId) != directives.PredeclaredId
+            || module.GetProperty(SymbolProperties.Creatable) != directives.Creatable
+            || module.GetProperty(SymbolProperties.Extensible) != directives.Extensible;
+
+    // the default instance of a predeclared class, defined once: a module defined again - a shell reads its module again for every line - keeps the object
+    // its default instance holds, which auto-instantiation makes of the class as it is when it is referred to. A class that is no longer predeclared has none.
+    private static void DefineDefaultInstance(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (!session.Symbols.TryGetModule(request.ModuleName, out var module) || module is not VBClassModuleSymbol classModule)
+        {
+            return;
+        }
+
+        var instance = new VBPredeclaredInstanceSymbol(classModule);
+        if (request.Directives.PredeclaredId)
+        {
+            _ = session.Symbols.TryDefine(instance, instance.ScopeKind);
+        }
+        else
+        {
+            _ = session.Symbols.TryUndefine(instance, instance.ScopeKind);
         }
     }
 }
