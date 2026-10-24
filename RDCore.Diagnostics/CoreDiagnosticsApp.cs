@@ -78,6 +78,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteTypeHintAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteWhileWendAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteOnLocalErrorStatementAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();

@@ -383,6 +383,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ObsoleteOnLocalErrorStatement_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Le paramètre est ByVal: ByVal écrit devant son argument ne change rien..
+        /// </summary>
+        public static string RedundantByValArgument_Message {
+            get {
+                return ResourceManager.GetString("RedundantByValArgument_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; est écrit avec un caractère de déclaration de type, ce qui est obsolète: indiquez son type avec une clause As là où il est déclaré..

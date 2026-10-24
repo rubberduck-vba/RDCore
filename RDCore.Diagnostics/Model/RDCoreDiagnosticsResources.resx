@@ -237,6 +237,9 @@
   <data name="ObsoleteOnLocalErrorStatement_Message" xml:space="preserve">
     <value>On Local Error est obsolète: toute erreur est locale à la procédure, donc Local ne dit rien. Utilisez On Error.</value>
   </data>
+  <data name="RedundantByValArgument_Message" xml:space="preserve">
+    <value>Le paramètre est ByVal: ByVal écrit devant son argument ne change rien.</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implémente un membre d'une interface, et est Public: il expose ce membre sur l'interface par défaut de cette classe, où il n'a pas sa place. Rendez-le Private.</value>
   </data>
