@@ -25,6 +25,27 @@ receive what is being assigned, and is reported as [VBC09321](../diagnostics/vbc
 > 👉 UDT values **must** be passed by reference (`ByRef`). See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
 
+### Array parameters
+
+An array parameter - a name written with `()`, `a() As Long` - is passed by reference: the procedure is given the array itself, and a parameter that is
+declared `ByVal` is refused, as **MS-VBA** refuses it (recorded in Excel), wherever the parameter is declared - a procedure, a property, an event, a
+`Declare`, an implementation of an interface's member:
+
+|Declaration|Outcome|
+|---|---|
+|`a() As Long`, `ByRef a() As Long`|Valid.|
+|`ByVal a() As Long`, `Optional ByVal a() As Long`|[VBC09371](../diagnostics/vbc09371.md) _Array argument must be ByRef_.|
+|`ByVal v As Variant`|Valid: a `Variant` that holds an array holds a copy of it.|
+|`ByVal ParamArray a() As Variant`, `ByRef ParamArray a() As Variant`|[VBC00001](../diagnostics/vbc00001.md) _Syntax error_: a `ParamArray` is written with neither.|
+
+`DeclarationStaticSemanticsEvaluator.CheckSyntax` reports them, off the declarations of the syntax tree. An argument written `ByVal` for an array parameter
+is `VBC09371` too ([**RD-VBAL §5.6.13.1** Argument Lists](rd-vbal.5.6.13.index-expressions.md#56131-argument-lists)).
+
+> [!NOTE]
+> **Not implemented.** **MS-VBA** reads a trailing `()` on the `As` clause of a parameter (`ByVal a As Long()`, `a As Long()`) as a syntax error
+> (_Expected: list separator or )_, recorded in Excel), and of a `Dim` (`Dim b As Long()`) too; **RD-VBA** reads it as an array, as
+> [**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md) has it for `Dim`. A function's `As Long()` is valid in both.
+
 ### Optional parameters
 
 `VBParameterSymbol.DefaultValue` holds an `Optional` parameter's default value.

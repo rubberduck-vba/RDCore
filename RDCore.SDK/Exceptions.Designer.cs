@@ -1067,6 +1067,24 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_ArrayArgumentMustBeByRef", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is declared ByVal and an array: an array parameter is always ByRef..
+        /// </summary>
+        public static string VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a ParamArray, which is written with neither ByVal nor ByRef..
+        /// </summary>
+        public static string VBCompileError_ParamArrayPassingMode_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ParamArrayPassingMode_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..

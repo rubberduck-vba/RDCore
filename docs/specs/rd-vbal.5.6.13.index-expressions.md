@@ -100,7 +100,8 @@ means something:
 |An index of an array (`a(ByVal 0)`)|`VBC00001` _Syntax error_.|An index is no argument.|
 
 The argument list of a `RaiseEvent` takes no `ByVal` at all: there it is a syntax error ([**RD-VBAL §5.4.2.20**](rd-vbal.5.4.2.20.raiseevent-statement.md)).
-A `ByVal a() As Long` parameter declaration is a _Syntax error_ in MS-VBA too.
+A parameter declared `ByVal` and an array (`ByVal a() As Long`) is `VBC09371` too, wherever it is declared
+([**RD-VBAL §5.3.1.5**](rd-vbal.5.3.1.5.parameter-lists.md)).
 
 [ByValArgumentStaticSemantics](../api/RDCore.SDK.Semantics.Static.ByValArgumentStaticSemantics.html) checks each `ByVal` argument against its parameter,
 and records the redundant ones as a fact of the argument

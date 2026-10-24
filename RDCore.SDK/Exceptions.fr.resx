@@ -711,6 +711,12 @@
   <data name="VBCompileError_ArrayArgumentMustBeByRef" xml:space="preserve">
     <value>Un argument tableau doit être ByRef</value>
   </data>
+  <data name="VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose" xml:space="preserve">
+    <value>'{0}' est déclaré ByVal et tableau : un paramètre tableau est toujours ByRef.</value>
+  </data>
+  <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
+    <value>'{0}' est un ParamArray, qui s'écrit sans ByVal ni ByRef.</value>
+  </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>
   </data>

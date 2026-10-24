@@ -1,3 +1,5 @@
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -119,6 +121,23 @@ public static class DeclarationStaticSemanticsEvaluator
             }
 
             declarations.Add((kind, child.SourceLocation));
+        }
+
+        // an array parameter is passed by reference, and one declared ByVal is refused - of a procedure, a property, an event or a Declare alike (MS-VBA: "Array
+        // argument must be ByRef", recorded in Excel, oracle\s23; RD-VBAL §5.3.1.5). A ParamArray is written with neither ByVal nor ByRef (MS-VBA: "Expected:
+        // identifier", a syntax error).
+        foreach (var parameter in module.Descendants().OfType<ParameterDeclarationNode>())
+        {
+            if (parameter is { IsParamArray: true, ParameterKind: ParameterKind.ExplicitByVal or ParameterKind.ExplicitByRef })
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, parameter.Location,
+                    string.Format(Exceptions.VBCompileError_ParamArrayPassingMode_Verbose, parameter.Name)));
+            }
+            else if (parameter is { IsArray: true, ParameterKind: ParameterKind.ExplicitByVal })
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayArgumentMustBeByRef, parameter.Location,
+                    string.Format(Exceptions.VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose, parameter.Name)));
+            }
         }
 
         return errors.ToImmutable();
