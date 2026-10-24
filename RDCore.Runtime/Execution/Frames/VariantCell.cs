@@ -122,6 +122,11 @@ internal sealed class VariantCell : IKnowledgeBinding
             && ScalarPayload.TryOf(held.TypeInfo, held.RuntimeValue, out payload);
     }
 
-    private static VBRuntimeVariantValue Box(ScalarPayload payload)
-        => new(payload.Type.VarType(), payload.Type.CreateValue(new ValueBindingHandle(payload.Box())));
+    private static VBRuntimeVariantValue Box(ScalarPayload payload) => Holding(payload.Type, payload.Box());
+
+    /// <summary>
+    /// The runtime value of a Variant that holds <paramref name="value"/>, a value of <paramref name="type"/>: what a Let of it to a Variant makes, the
+    /// value keeping its type (MS-VBAL §5.5.1.2.12).
+    /// </summary>
+    public static VBRuntimeVariantValue Holding(VBType type, IRuntimeValue value) => new(type.VarType(), type.CreateValue(new ValueBindingHandle(value)));
 }

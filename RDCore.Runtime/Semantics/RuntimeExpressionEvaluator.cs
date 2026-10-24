@@ -1971,6 +1971,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // what is passed is a value, which keeps nothing of whether it is known: the call is told here.
             isKnown &= !argumentResult.Value.Result!.IsIndeterminate;
 
+            // a scalar or a String a call returned, passed to a Variant: the Variant holds it as it is, of its own type (MS-VBAL §5.5.1.2.12, IR lowering S1.9).
+            if (!external && parameter.ResolvedType is VBVariantType && TryHoldInVariant(argumentResult.Value.Result!, out var held))
+            {
+                bound[i] = held;
+                continue;
+            }
+
             // an object passed to a parameter declared as a class or as Object is Set-assigned to the parameter's new
             // local (MS-VBAL §5.3.1.11): the parameter holds the reference, and nothing asks the object for a value. So is
             // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class

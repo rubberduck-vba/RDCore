@@ -170,20 +170,60 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// Let-assigns <paramref name="value"/>, already evaluated, to <paramref name="target"/> on payloads, when the target is a variable that holds a payload
-    /// and the value is a scalar that converts to its type exactly: what a call returned (IR lowering S1.3).
+    /// and the value is a scalar that converts to its type exactly: what a call returned (IR lowering S1.3) - or a Variant that holds one, whose value is
+    /// what is let-assigned (MS-VBAL §5.5.1.2.12), and a String assigned to a String variable as it is (S1.9).
     /// </summary>
     /// <returns><see langword="false"/> when the assignment is not done here, and is to be done the way it always is.</returns>
     internal bool TryAssignValueUnboxed(IRuntimeSession session, ExpressionNode target, VBTypedValue value, RuntimeEvaluationContext context)
     {
+        if (value is VBVariantValue { IsIndeterminate: false, TypedValue: { } held } && (ScalarPayload.IsScalar(held.TypeInfo) || held is VBStringValue))
+        {
+            value = held;
+        }
+
         if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
-            || !ScalarPayload.IsScalar(value.TypeInfo) || value is not { IsIndeterminate: false, Handle: ValueBindingHandle boxed }
-            || BoundVariableOf(session, target, context) is not { } variable
-            || !ScalarPayload.TryOf(value.TypeInfo, boxed.Value, out var payload))
+            || value is not { IsIndeterminate: false, Handle: ValueBindingHandle boxed }
+            || BoundVariableOf(session, target, context) is not { } variable)
         {
             return false;
         }
 
-        return BindingOf(session, variable) is (ScalarCell or VariantCell, null) and var (cell, _) && TryWritePayload(cell, payload);
+        // a String variable - not a fixed-length one, which pads or truncates what it is assigned - holds the String it is assigned (S1.4b).
+        if (value is VBStringValue && boxed.Value is VBRuntimeValue<string> assigned)
+        {
+            if (BindingOf(session, variable) is (ValueBindingHandle text, null) && variable.Variable is ITypedSymbol { ResolvedType: VBStringType and not VBFixedStringType })
+            {
+                text.Store(assigned, isKnown: true);
+                return true;
+            }
+
+            return false;
+        }
+
+        return ScalarPayload.IsScalar(value.TypeInfo) && ScalarPayload.TryOf(value.TypeInfo, boxed.Value, out var payload)
+            && BindingOf(session, variable) is (ScalarCell or VariantCell, null) and var (cell, _) && TryWritePayload(cell, payload);
+    }
+
+    // a known value of a scalar type, or a String, let-assigned to a Variant (MS-VBAL §5.5.1.2.12): the Variant holds the very value, which nothing can change -
+    // with no let-coercion made of it (S1.9). Of a Variant, it is the value the Variant holds (whose type a VBVariantValue says is its own). An object, an
+    // array, a record and what is not known are let-coerced as they always are.
+    private bool TryHoldInVariant(VBTypedValue value, out IRuntimeValue held)
+    {
+        held = null!;
+        if (value is VBVariantValue { IsIndeterminate: false, TypedValue: { } inner })
+        {
+            value = inner;
+        }
+
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables || value is VBVariantValue || value.IsIndeterminate
+            || !(value is VBStringValue { RuntimeValue: VBRuntimeValue<string> }
+                || ScalarPayload.IsScalar(value.TypeInfo) && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out _)))
+        {
+            return false;
+        }
+
+        held = VariantCell.Holding(value.TypeInfo, value.RuntimeValue);
+        return true;
     }
 
     // the activation whose function result variable a name in the body of a function is (LetAssignmentEvaluator.Assign has the same test): a function of a
@@ -491,8 +531,9 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     /// <summary>
-    /// Evaluates the argument a parameter of a scalar type is passed by value on payloads (MS-VBAL §5.3.1.11), let-coerced to the parameter's type: what the
-    /// parameter's cell is made of, with no value made of it before (IR lowering S1.3).
+    /// Evaluates the argument a parameter is passed by value on payloads (MS-VBAL §5.3.1.11), let-coerced to the parameter's type, with no value made of it
+    /// before: a scalar to a parameter of a scalar type, which its cell is made of (IR lowering S1.3); a scalar or a String to a <c>Variant</c>, which holds
+    /// it as it is, of its own type (§5.5.1.2.12); and a String to a <c>String</c>, as it is (S1.9).
     /// </summary>
     /// <param name="bound">The argument's node, bound with the call; <see langword="null"/> binds <paramref name="argument"/> here.</param>
     /// <returns><see langword="false"/> when the argument is not evaluated here, and is to be evaluated the way it always is.</returns>
@@ -500,9 +541,38 @@ public sealed partial class RuntimeExpressionEvaluator
         IRuntimeSession session, ExpressionNode argument, BoundNode? bound, VBType parameterType, RuntimeEvaluationContext context, out IRuntimeValue value)
     {
         value = null!;
-        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables || !ScalarPayload.IsScalar(parameterType)
-            || !TryEvaluatePayload(session, bound ?? BoundTreeOf(session, argument, context), out var payload)
-            || !TryConvertPayload(payload, parameterType, out var converted))
+        var isVariant = parameterType is VBVariantType;
+        var isText = parameterType is VBStringType and not VBFixedStringType;
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables || !(isVariant || isText || ScalarPayload.IsScalar(parameterType)))
+        {
+            return false;
+        }
+
+        var node = bound ?? BoundTreeOf(session, argument, context);
+        // a String is evaluated with no effect, so one that is not evaluated here is evaluated as a scalar next, or as it always is.
+        if ((isText || isVariant) && TryEvaluateText(session, node, out var text))
+        {
+            value = isVariant ? VariantCell.Holding(VBStringType.TypeInfo, text) : text;
+            return true;
+        }
+
+        if (isText)
+        {
+            return false;
+        }
+
+        if (!TryEvaluatePayload(session, node, out var payload))
+        {
+            return false;
+        }
+
+        if (isVariant)
+        {
+            value = VariantCell.Holding(payload.Type, payload.Box());
+            return true;
+        }
+
+        if (!TryConvertPayload(payload, parameterType, out var converted))
         {
             return false;
         }
