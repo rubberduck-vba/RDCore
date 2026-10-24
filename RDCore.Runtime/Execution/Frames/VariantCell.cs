@@ -44,6 +44,17 @@ internal sealed class VariantCell : IKnowledgeBinding
         return true;
     }
 
+    /// <summary>
+    /// A Variant cell holding <paramref name="payload"/>: a known value of the payload's type, as a Let of it to a Variant makes it hold (MS-VBAL
+    /// §5.5.1.2.12) - what a Variant parameter passed a scalar by value starts as (IR lowering S1.7).
+    /// </summary>
+    public static VariantCell Of(ScalarPayload payload)
+    {
+        var cell = new VariantCell();
+        cell.Write(payload);
+        return cell;
+    }
+
     /// <inheritdoc/>
     public bool IsKnown { get; private set; } = true;
 

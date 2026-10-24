@@ -412,7 +412,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <param name="payload">The argument, let-coerced to the parameter's type.</param>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it (<see cref="Push(Symbol, VBTypedValue, int)"/>); <c>-1</c> to look it up.</param>
     internal void PushPayload(Symbol symbol, ScalarPayload payload, int slot)
-        => Hold(symbol, ScalarCell.Of(payload), payload.Type.DefaultValue.Size, slot);
+    {
+        // a Variant parameter holds the scalar it is passed as it is, of its own type (IR lowering S1.7).
+        if (symbol is ITypedSymbol { ResolvedType: VBVariantType })
+        {
+            Hold(symbol, VariantCell.Of(payload), VBVariantType.TypeInfo.DefaultValue.Size, slot);
+            return;
+        }
+
+        Hold(symbol, ScalarCell.Of(payload), payload.Type.DefaultValue.Size, slot);
+    }
 
     /// <summary>
     /// Declares the <c>ByRef</c> parameter <paramref name="symbol"/> as a second name for a variable of the caller held in <paramref name="cell"/>: the

@@ -105,6 +105,14 @@ public sealed class TemporaryReferenceTests
             "v = Empty",
             "Debug.Print \"after\""));
 
+    // a Variant parameter passed a number by value (IR lowering S1.7) and Set to an object in the call lets go of it when the call is over.
+    [TestMethod]
+    public async Task AnObjectAVariantParameterPassedANumberIsSetTo_LivesUntilTheCallIsOver()
+        => CollectionAssert.AreEqual(new[] { "hello v", "terminated v", "after" }, await RunWith(
+            "Private Sub Hold(ByVal V As Variant)\r\n    Set V = New Widget\r\n    V.Name = \"v\"\r\n    Debug.Print V.Hello\r\nEnd Sub",
+            "Hold 5",
+            "Debug.Print \"after\""));
+
     #endregion
 
     #region With

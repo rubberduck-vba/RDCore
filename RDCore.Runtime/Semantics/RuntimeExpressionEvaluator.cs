@@ -597,6 +597,32 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <returns>The value, or the error reducing or coercing the default raised.</returns>
     public RuntimeSemanticsEvaluationResult OmittedArgument(IRuntimeSession session, VBParameterSymbol parameter)
     {
+        // what a declared default is let-coerced to does not change from one call to the next: it is made once for each parameter (IR lowering S1.7), and
+        // a value is immutable - the parameter is a cell made of it. Not under an analysis, whose observer is told of the coercion each time; not for a
+        // Compare parameter, whose value is the calling module's.
+        if (Observation is not null || AssumesVariables || parameter.TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out var callers) && callers)
+        {
+            return EvaluateOmittedArgument(session, parameter);
+        }
+
+        if (_omittedArguments.TryGetValue(parameter, out var known))
+        {
+            return known;
+        }
+
+        var omitted = EvaluateOmittedArgument(session, parameter);
+        if (omitted.IsSuccess)
+        {
+            _omittedArguments[parameter] = omitted;
+        }
+
+        return omitted;
+    }
+
+    private readonly ConcurrentDictionary<VBParameterSymbol, RuntimeSemanticsEvaluationResult> _omittedArguments = new(ReferenceEqualityComparer.Instance);
+
+    private RuntimeSemanticsEvaluationResult EvaluateOmittedArgument(IRuntimeSession session, VBParameterSymbol parameter)
+    {
         // MS-VBAL 6.1.2.11: a comparing member's omitted Compare "uses the <option-compare-directive> of the calling module". A call
         // binds its arguments before the callee's frame is pushed, and an external call pushes none, so the current frame is still the
         // caller's; and CurrentCompareMode has already resolved Option Compare Database the way the comparison operators do. The value is
@@ -1969,10 +1995,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // RuntimeValue of its own to hand over: it is boxed around itself instead, the same shape
             // SymbolAddressTable.FreshBinding gives an array variable and a ParamArray is collected into. A
             // standard-library array parameter always arrives here, being ByVal; a ByRef one does when its
-            // argument is not a variable it can alias.
-            // 🚧 TODO: that includes a fixed-size array passed to a ByRef dynamic array parameter, which VBA passes
-            // by reference and this copies - TryResolveByRefArgument aliases only an argument of the parameter's
-            // own declared type.
+            // argument is not a variable it can alias - an array of another element type (IsOfDeclaredType).
             bound[i] = coercionResult.Result is VBArrayValue array
                 ? new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))
                 : coercionResult.Result!.RuntimeValue;

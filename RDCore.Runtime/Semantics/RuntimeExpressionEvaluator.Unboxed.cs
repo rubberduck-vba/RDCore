@@ -423,10 +423,21 @@ public sealed partial class RuntimeExpressionEvaluator
             for (var i = 0; i < parameters.Length; i++)
             {
                 var parameter = parameters[i];
-                if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter is ParamArrayParameterSymbol || !ScalarPayload.IsScalar(parameter.ResolvedType)
+                // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted (S1.7).
+                var isVariant = parameter.ResolvedType is VBVariantType;
+                if (RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter is ParamArrayParameterSymbol
+                    || !(isVariant || ScalarPayload.IsScalar(parameter.ResolvedType))
                     || argumentNodes[i] is NamedArgumentNode or MissingArgumentNode
-                    || !TryEvaluatePayload(session, BoundTreeOf(session, argumentNodes[i], context), out var payload)
-                    || !TryConvertPayload(payload, parameter.ResolvedType, out arguments[i]))
+                    || !TryEvaluatePayload(session, BoundTreeOf(session, argumentNodes[i], context), out var payload))
+                {
+                    return false;
+                }
+
+                if (isVariant)
+                {
+                    arguments[i] = payload;
+                }
+                else if (!TryConvertPayload(payload, parameter.ResolvedType, out arguments[i]))
                 {
                     return false;
                 }

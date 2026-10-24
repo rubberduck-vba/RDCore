@@ -240,12 +240,12 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         }
 
         // a ByVal parameter is a local of the activation as much as a Dim is (MS-VBAL §5.3.1.11): what it holds it lets go of with it. Which parameters
-        // were given a copy is read again from the arguments, rather than remembered in a list made for each call (IR lowering S1.3). Payloads are
-        // scalars, which hold none.
-        for (var i = 0; arguments is not null && i < parameters.Length; i++)
+        // were given a copy is read again from the arguments, rather than remembered in a list made for each call (IR lowering S1.3). Parameters given
+        // payloads are all ByVal (InvokeScalars): a Variant one may have been Set to an object since (S1.7).
+        for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            if (!IsAliased(parameter, arguments[i]) && ObjectReferences.CanHoldAnObject(parameter.ResolvedType)
+            if ((arguments is null || !IsAliased(parameter, arguments[i])) && ObjectReferences.CanHoldAnObject(parameter.ResolvedType)
                 && CellOf(frame, parameter, layout is { ParameterSlots.Length: var count } && count == parameters.Length ? layout.ParameterSlots[i] : -1) is { } handle)
             {
                 ObjectReferences.Release(Session, handle);
