@@ -23,6 +23,8 @@
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
     <!-- what the runtime reaches the outside world through: abstractions only, whatever the platform implements them with. -->
     <ProjectReference Include="..\RDCore.External\RDCore.External.csproj" />
+    <!-- the invokers of the standard library's members, generated from its declarations (StdLibInvokers): a compile-time tool, no reference. -->
+    <ProjectReference Include="..\RDCore.Runtime.Generators\RDCore.Runtime.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

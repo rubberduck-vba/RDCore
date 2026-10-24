@@ -151,6 +151,11 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         // an implementation returns the outcome rather than throwing, the same as the rest of the semantics
         // layer - so an exception escaping one is a bug in it, not a program error, and must not be dressed
         // up as one.
+        if (entry.Invoker is { } invoker)
+        {
+            return invoker(entry.Implementation, arguments);
+        }
+
         var returned = entry.Method.Invoke(entry.Implementation, arguments);
         return returned is IRuntimeSemanticsEvaluationResult result
             ? new RuntimeSemanticsEvaluationResult(result.Result, result.ErrorInfo)
@@ -158,8 +163,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     }
 
     // a member of the library, bound once to the code behind it (IR lowering S1.9): its method and implementation, found by the key the reader stamped on
-    // it, and what reflection says of each parameter - which it would otherwise be asked again on every call. A member nothing implements has no entry.
-    private sealed record class StdLibEntry(MethodInfo Method, object Implementation, ImmutableArray<StdLibParameter> Parameters, bool HasReceiver);
+    // it, the call of it generated from its declaration (StdLibInvokers) - reflected, for a member none is generated for - and what reflection says of each
+    // parameter, which it would otherwise be asked again on every call. A member nothing implements has no entry.
+    private sealed record class StdLibEntry(
+        MethodInfo Method, StdLibInvoker? Invoker, object Implementation, ImmutableArray<StdLibParameter> Parameters, bool HasReceiver);
 
     // a parameter of an implementation, as marshalling asks of it: its type, whether it is the `params` a ParamArray is declared as, and what is passed
     // for it when the call leaves it out - when that is the same every time.
@@ -194,7 +201,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             parameter, parameter.ParameterType, parameter.GetCustomAttribute<ParamArrayAttribute>() is not null, parameter.IsOptional,
             index < symbols.Length ? symbols[index] : null));
 
-        return new StdLibEntry(method, implementation, [.. parameters], hasReceiver);
+        return new StdLibEntry(method, StdLibInvokers.For(target), implementation, [.. parameters], hasReceiver);
     }
 
     // MS-VBAL 6.1.3.2.1.2's "Application-defined or object-defined error" is what VBA says about a member it
