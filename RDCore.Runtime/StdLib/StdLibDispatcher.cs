@@ -13,6 +13,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.StdLib;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Reflection;
 
@@ -128,14 +129,12 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
     {
-        var target = request.Member.GetProperty(SymbolProperties.ExternalTarget)!;
-        if (!_methods.TryGetValue(target, out var method)
-            || !_implementations.TryGetValue(method.DeclaringType!, out var implementation))
+        if (EntryOf(request.Member) is not { } entry)
         {
             return NotImplemented(request, "nothing implements it yet");
         }
 
-        if (!TryMarshalArguments(method, request, resolver, out var arguments))
+        if (!TryMarshalArguments(entry, request, resolver, out var arguments))
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.InvalidProcedureCallOrArgument, request.CallSite,
@@ -144,18 +143,58 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
         // a class whose instances have state of their own is told which instance the call is on: the implementation is one object for the
         // whole class, and what is in a collection is the collection's.
-        if (implementation is IStdLibReceiverBound bound)
+        if (entry.Implementation is IStdLibReceiverBound bound)
         {
-            bound.Receiver = HasReceiver(request.Member) && TypedValue(request.Arguments[0]) is VBObjectValue receiver ? receiver.Value : null;
+            bound.Receiver = entry.HasReceiver && TypedValue(request.Arguments[0]) is VBObjectValue receiver ? receiver.Value : null;
         }
 
         // an implementation returns the outcome rather than throwing, the same as the rest of the semantics
         // layer - so an exception escaping one is a bug in it, not a program error, and must not be dressed
         // up as one.
-        var returned = method.Invoke(implementation, arguments);
+        var returned = entry.Method.Invoke(entry.Implementation, arguments);
         return returned is IRuntimeSemanticsEvaluationResult result
             ? new RuntimeSemanticsEvaluationResult(result.Result, result.ErrorInfo)
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // a member of the library, bound once to the code behind it (IR lowering S1.9): its method and implementation, found by the key the reader stamped on
+    // it, and what reflection says of each parameter - which it would otherwise be asked again on every call. A member nothing implements has no entry.
+    private sealed record class StdLibEntry(MethodInfo Method, object Implementation, ImmutableArray<StdLibParameter> Parameters, bool HasReceiver);
+
+    // a parameter of an implementation, as marshalling asks of it: its type, whether it is the `params` a ParamArray is declared as, and what is passed
+    // for it when the call leaves it out - when that is the same every time.
+    private sealed record class StdLibParameter(ParameterInfo Info, Type Type, bool IsParamArray, bool IsOptional, VBParameterSymbol? Symbol)
+    {
+        // a ParamArray told nothing is an empty array of its elements, which nothing can change.
+        public Array? EmptyParamArray { get; } = IsParamArray ? System.Array.CreateInstance(Type.GetElementType()!, 0) : null;
+    }
+
+    private readonly ConcurrentDictionary<VBTypeMemberSymbol, StdLibEntry?> _entries = new(ReferenceEqualityComparer.Instance);
+
+    // compared by reference: a symbol is a record, which two members of the same name and signature would be equal as.
+    private StdLibEntry? EntryOf(VBTypeMemberSymbol member)
+        => _entries.TryGetValue(member, out var entry) ? entry : _entries.GetOrAdd(member, BindEntry);
+
+    private StdLibEntry? BindEntry(VBTypeMemberSymbol member)
+    {
+        if (member.GetProperty(SymbolProperties.ExternalTarget) is not { } target
+            || !_methods.TryGetValue(target, out var method)
+            || !_implementations.TryGetValue(method.DeclaringType!, out var implementation))
+        {
+            return null;
+        }
+
+        // a member of a class is called on an object, which arrives as the implicit Me at parameter 0. The library's classes keep no state in the
+        // receiver - the error object is a view of the session's - so the implementation is written without it, and it is the arguments after it
+        // that marshal.
+        var hasReceiver = HasReceiver(member);
+        var symbols = RuntimeProcedureInvoker.GetParameters(member);
+        symbols = hasReceiver ? symbols.RemoveAt(0) : symbols;
+        var parameters = method.GetParameters().Select((parameter, index) => new StdLibParameter(
+            parameter, parameter.ParameterType, parameter.GetCustomAttribute<ParamArrayAttribute>() is not null, parameter.IsOptional,
+            index < symbols.Length ? symbols[index] : null));
+
+        return new StdLibEntry(method, implementation, [.. parameters], hasReceiver);
     }
 
     // MS-VBAL 6.1.3.2.1.2's "Application-defined or object-defined error" is what VBA says about a member it
@@ -186,18 +225,13 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
     // the reader built each parameter's declared type from the method's own, so this runs that backwards: a
     // VBTypedValue parameter takes the argument as it is, and a CLR enum parameter takes its numeric value.
-    private static bool TryMarshalArguments(MethodInfo method, ExternalCallRequest request, ISymbolResolver resolver, out object?[] arguments)
+    private static bool TryMarshalArguments(StdLibEntry entry, ExternalCallRequest request, ISymbolResolver resolver, out object?[] arguments)
     {
-        var parameters = method.GetParameters();
+        var parameters = entry.Parameters;
         arguments = new object?[parameters.Length];
 
-        // a member of a class is called on an object, which arrives as the implicit Me at parameter 0. The
-        // library's classes keep no state in the receiver - the error object is a view of the session's - so the
-        // implementation is written without it, and it is the arguments after it that marshal.
-        var hasReceiver = HasReceiver(request.Member);
-        var supplied = hasReceiver ? request.Arguments[1..] : request.Arguments;
-        var symbols = RuntimeProcedureInvoker.GetParameters(request.Member);
-        symbols = hasReceiver ? symbols.RemoveAt(0) : symbols;
+        // the receiver is no argument of the implementation (BindEntry).
+        var supplied = entry.HasReceiver ? request.Arguments.AsSpan(1) : request.Arguments;
 
         // a call from source never leaves an argument out: the interpreter fills an omitted Optional with what
         // an omitted argument gives it (RuntimeExpressionEvaluator.OmittedArgument) - its declared default, Missing
@@ -215,9 +249,9 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         for (var index = 0; index < parameters.Length; index++)
         {
             var parameter = parameters[index];
-            if (index >= supplied.Length || (parameter.IsOptional && TypedValue(supplied[index]) is VBMissingValue))
+            if (index >= supplied.Length)
             {
-                if (!TryOmit(parameter, index < symbols.Length ? symbols[index] : null, out arguments[index]))
+                if (!TryOmit(parameter, out arguments[index]))
                 {
                     return false;
                 }
@@ -225,9 +259,10 @@ public sealed class StdLibDispatcher : IExternalCallProvider
                 continue;
             }
 
-            if (supplied[index] is VBRuntimeReference)
+            var argument = supplied[index];
+            if (argument is VBRuntimeReference)
             {
-                if (!TryDereference(supplied[index], parameter, index < symbols.Length ? symbols[index] : null, resolver, out arguments[index]))
+                if (!TryDereference(argument, parameter.Info, parameter.Symbol, resolver, out arguments[index]))
                 {
                     return false;
                 }
@@ -235,7 +270,19 @@ public sealed class StdLibDispatcher : IExternalCallProvider
                 continue;
             }
 
-            if (!TryMarshal(supplied[index], parameter, out arguments[index]))
+            // the typed value is recovered once, to say whether it is Missing and to be what is passed.
+            var typed = TypedValue(argument);
+            if (parameter.IsOptional && typed is VBMissingValue)
+            {
+                if (!TryOmit(parameter, out arguments[index]))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!TryMarshal(argument, typed, parameter, out arguments[index]))
             {
                 return false;
             }
@@ -250,12 +297,12 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     // called. An optional one takes the default its symbol states as a literal - an enumeration constant, or a StdLibDefaultAttribute's
     // value, so that Split told nothing is told Limit -1, as it would be from source - and otherwise the implementation's own default:
     // null, the "Missing" its signature declares.
-    private static bool TryOmit(ParameterInfo parameter, VBParameterSymbol? symbol, out object? omitted)
+    private static bool TryOmit(StdLibParameter parameter, out object? omitted)
     {
         omitted = null;
-        if (parameter.GetCustomAttribute<ParamArrayAttribute>() is not null)
+        if (parameter.IsParamArray)
         {
-            omitted = System.Array.CreateInstance(parameter.ParameterType.GetElementType()!, 0);
+            omitted = parameter.EmptyParamArray;
             return true;
         }
 
@@ -264,31 +311,31 @@ public sealed class StdLibDispatcher : IExternalCallProvider
             return false;
         }
 
-        if (parameter.DefaultValue is null && symbol?.DefaultValue is LiteralExpressionNode { StaticValue: { } stated })
+        if (parameter.Info.DefaultValue is null && parameter.Symbol?.DefaultValue is LiteralExpressionNode { StaticValue: { } stated })
         {
-            return TryMarshal(stated.RuntimeValue, parameter.ParameterType, out omitted);
+            return TryMarshal(stated.RuntimeValue, TypedValue(stated.RuntimeValue), parameter.Type, out omitted);
         }
 
-        omitted = parameter.HasDefaultValue ? parameter.DefaultValue : null;
+        omitted = parameter.Info.HasDefaultValue ? parameter.Info.DefaultValue : null;
         return true;
     }
 
     // a ParamArray arrives as the one array the caller collected the rest of its arguments into, and is declared as `params`:
     // what the implementation takes is an array of the element type, each element a Variant.
-    private static bool TryMarshal(IRuntimeValue argument, ParameterInfo parameter, out object? marshalled)
+    private static bool TryMarshal(IRuntimeValue argument, VBTypedValue? typed, StdLibParameter parameter, out object? marshalled)
     {
-        if (parameter.GetCustomAttribute<ParamArrayAttribute>() is null)
+        if (!parameter.IsParamArray)
         {
-            return TryMarshal(argument, parameter.ParameterType, out marshalled);
+            return TryMarshal(argument, typed, parameter.Type, out marshalled);
         }
 
         marshalled = null;
-        if (TypedValue(argument) is not VBArrayValue collected)
+        if (typed is not VBArrayValue collected)
         {
             return false;
         }
 
-        var elementType = parameter.ParameterType.GetElementType()!;
+        var elementType = parameter.Type.GetElementType()!;
         var elements = System.Array.CreateInstance(elementType, collected.Length);
         for (var index = 0; index < collected.Length; index++)
         {
@@ -310,7 +357,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     private static bool HasReceiver(VBTypeMemberSymbol member)
         => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: "Me", ParameterKind: ParameterKind.ImplicitByRef }, ..];
 
-    private static bool TryMarshal(IRuntimeValue argument, Type parameterType, out object? marshalled)
+    // typed: the typed value argument is the storage of (TypedValue).
+    private static bool TryMarshal(IRuntimeValue argument, VBTypedValue? typed, Type parameterType, out object? marshalled)
     {
         marshalled = null;
 
@@ -324,15 +372,12 @@ public sealed class StdLibDispatcher : IExternalCallProvider
         // storage - a boxed double for a Double, a boxed short for an Integer - and the typed value it is the
         // storage of is all there is left to recover. One that is still the wrong type is a coercion the
         // caller was supposed to have done, not something to do quietly here.
-        marshalled = parameterType == typeof(VBVariantValue) ? Variant(argument) : TypedValue(argument);
+        // A Variant parameter takes anything, that being what a Variant is - MS-VBAL 5.5.1.2.2's Let-coercion to
+        // Variant has no failing case. Most of the library declares its parameters that way, so a Variant that
+        // rejected an argument would leave most of the library uncallable.
+        marshalled = parameterType == typeof(VBVariantValue) ? typed is null ? null : new VBVariantValue(typed) : typed;
         return marshalled is not null && parameterType.IsInstanceOfType(marshalled);
     }
-
-    // a Variant parameter takes anything, that being what a Variant is - MS-VBAL 5.5.1.2.2's Let-coercion to
-    // Variant has no failing case. Most of the library declares its parameters that way, so a Variant that
-    // rejected an argument would leave most of the library uncallable.
-    private static VBVariantValue? Variant(IRuntimeValue argument)
-        => TypedValue(argument) is { } typed ? new VBVariantValue(typed) : null;
 
     /// <summary>
     /// The typed value a runtime value is the storage of.
