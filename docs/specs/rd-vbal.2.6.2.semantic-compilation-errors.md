@@ -67,7 +67,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09342`](../diagnostics/vbc09342.md)|Wrong number of arguments or invalid property assignment|an argument no parameter takes|
 |[`VBC09343`](../diagnostics/vbc09343.md)|LSet allowed only on strings and user-defined types|the target of an `LSet` statement|
 |[`VBC09344`](../diagnostics/vbc09344.md)|RSet allowed only on strings|the target of an `RSet` statement|
-|[`VBC09345`](../diagnostics/vbc09345.md)|Invalid use of property|a `Set` of a property that has a `Property Get` and no `Property Set`|
+|[`VBC09345`](../diagnostics/vbc09345.md)|Invalid use of property|a `Set` of a property that has a `Property Get` and no `Property Set`, and of the default instance of an extensible class (a document module)|
 |[`VBC09346`](../diagnostics/vbc09346.md)|Assignment to constant not permitted|a `Let` or a `Set` of a constant|
 |[`VBC09347`](../diagnostics/vbc09347.md)|Object required|a `Set` of a variable that holds no object|
 |[`VBC09348`](../diagnostics/vbc09348.md)|Named argument already specified|a parameter given two arguments|
@@ -102,7 +102,7 @@ This specification refers to the following semantic compilation errors on other 
 |`VBC09301`|`AmbiguousName`|Within one tier of the project or global scope, a name resolves to more than one symbol of the highest rank: members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. The symbols of two libraries never share a rank. The reference must qualify the name. A declared type whose name ties this way is `VBC09311` instead.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09302`|`VariableNotDefined`|An unresolved simple name. The static-semantics layer consumes the module's `ModuleDirectives` to decide whether such a name is a deferred `VBUnknownType` or this error.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09303`|`DuplicateDeclaration`|A name is declared more than once within one module or procedure.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
-|`VBC09304`|`InvalidUseOfObject`|`Set Widget = New Widget` or `Set Widget = Nothing`, for a predeclared class `Widget`.|[**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)|
+|`VBC09304`|`InvalidUseOfObject`|The `Nothing` literal where a value is expected (`n = Nothing`), and a conditional-compilation expression that is an object.|[**RD-VBAL §5.5.1.1** Static Semantics](rd-vbal.5.5.1.1.static-semantics.md)|
 |`VBC09305`|`InvalidParamArrayUse`|A `ParamArray` parameter, bare or parenthesized, is the argument of a `ByRef` parameter of a procedure of the workspace's own.|[**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)|
 |`VBC09311`|`UserDefinedTypeNotDefined`|An unknown type should raise this error, and so does a declared type that names a procedural module; verbose diagnostic messages should help clarify its meaning.|[**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md), [**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions)|
 

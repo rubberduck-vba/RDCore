@@ -18,17 +18,21 @@ The target is a variable, a property or an unbound member: **MS-VBAL §5.4.3.9**
 library (`Set Err = Nothing`, `Set Left = Nothing`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`); see
 [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
 
-It is invalid for the default instance variable to be the target of a `Set` assignment, whatever is assigned to it
-([**MS-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/189fb41b-cc3a-4999-a6d2-ba89f72d2870)).
+The default instance variable of a predeclared class is a valid target of a `Set` assignment, whatever is assigned to it,
+as it is in **MS-VBA**.
+[**MS-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/189fb41b-cc3a-4999-a6d2-ba89f72d2870)
+says it is invalid; see
+[**RD-VBAL §5.2.4.1.2**](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics).
 
 |Statement, for a predeclared class `Widget`|Result|
 |---|---|
-|`Set Widget = New Widget`|Compile error `VBC09304`.|
-|`Set Widget = Nothing`|Compile error `VBC09304`.|
+|`Set Widget = New Widget`|Valid. The default instance holds the new object.|
+|`Set Widget = Nothing`|Valid. The default instance lets go of its object, and the next reference to `Widget` creates another.|
 |A `Set` assignment to a local variable or field that is itself named `Widget`|Valid. The local variable or field hides the default instance of class `Widget`, and is an ordinary `Set` target.|
+|`Set Sheet1 = …`, the default instance of an extensible class (a document module)|Compile error [`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_, whatever is assigned.|
+|`Set Debug = …`|Compile error [`VBC00001`](../diagnostics/vbc00001.md) _Syntax error_.|
 
-See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) (`VB_PredeclaredId`) and
-[**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md).
+See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) (`VB_PredeclaredId`, `VB_Extensible`).
 
 ## Runtime Semantics
 

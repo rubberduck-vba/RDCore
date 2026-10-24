@@ -92,14 +92,17 @@ setters it uses to initialize the object are `Friend` members that only the fact
 👉 Deferred class types cannot be presumed to have a default instance
 ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)).
 
-It is invalid for the default instance variable to be the target of a `Set` assignment, whatever is assigned to it
-(**MS-VBAL §5.2.4.1.2**): **RD-VBA** reports compile error `VBC09304`
-(see [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)).
-
 > [!IMPORTANT]
-> **MS-VBA** compiles a `Set` to a default instance and runs it. `Set Widget = Nothing` terminates the default
-> instance (its `Class_Terminate` runs, and its state is lost); the next reference to `Widget` creates another, and
-> runs `Class_Initialize` again. `Set Widget = New Widget` runs without an error too.
+> **MS-VBAL §5.2.4.1.2** says: "It is invalid for this named variable to be the target of a Set assignment". **MS-VBA**
+> compiles a `Set` to a default instance and runs it, and so does **RD-VBA**: the default instance variable is a valid
+> `Set` target, whatever is assigned to it (see [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)).
+> Two default instances are not, in MS-VBA as in RD-VBA:
+>
+> - The default instance of an extensible class, a document module such as `ThisWorkbook` or `Sheet1`
+>   ([**RD-VBAL §3.1.1.8** `VB_Extensible`](rd-vbal.3.1.1.attributes.md)). The host gives each of its documents a
+>   property of that name, and a `Set` of it, whatever is assigned, is compile error
+>   [`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_.
+> - The host's `Debug` object. `Set Debug = …` is compile error [`VBC00001`](../diagnostics/vbc00001.md) _Syntax error_.
 
 The language server reads the attribute off the module, with the module's other directives
 ([ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.PredeclaredId`, beside `.Creatable` and
@@ -116,6 +119,8 @@ default instance then, before the code of any module is loaded, so that the code
 |`Widget.Size = 3`, then `Widget.Size`|`3`: the default instance is a variable, and what is assigned to its members stays with it.|
 |`Widget.Create(42)`, a member of the class|A call on the default instance, like a call on any other object of the class.|
 |`Me Is Widget`, in the code of the class|`True` in a member called on the default instance, `False` in one called on any other object: the usual guard against a member being called on the wrong one.|
+|`Set Widget = Nothing`|The default instance lets go of its object, whose `Class_Terminate` runs if nothing else holds it: its state is gone. The next reference to `Widget` creates another object, and runs `Class_Initialize` again, before anything sees the variable - `Widget Is Nothing` is still `False`.|
+|`Set Widget = New Widget`|The default instance holds the new object from then on.|
 
 The module of a predeclared class can be defined again, as a shell does for every line it reads; the default instance
 keeps the object it holds.

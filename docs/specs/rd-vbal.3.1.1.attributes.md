@@ -185,19 +185,18 @@ Other than through its predeclared instance, a class module is never a name in t
 have a default instance
 ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md#2442-vbdeferredclasstype)).
 
-It is invalid for the default instance variable to be the target of a `Set` assignment, whatever is assigned to it
-(**MS-VBAL §5.2.4.1.2**; [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)). For a predeclared
-class `Widget`:
+The default instance variable is a valid target of a `Set` assignment, as it is in **MS-VBA**, where **MS-VBAL
+§5.2.4.1.2** says it is invalid
+([**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics);
+[**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)). For a predeclared class `Widget`:
 
 |Statement|Outcome|
 |---|---|
-|`Set Widget = New Widget`|Compile error `VBC09304`.|
-|`Set Widget = Nothing`|Compile error `VBC09304`.|
+|`Set Widget = New Widget`|Valid: the default instance holds the new object.|
+|`Set Widget = Nothing`|Valid: the default instance lets go of its object; the next reference to `Widget` creates another.|
 |`Widget.Size = 3`|Valid: it assigns a member of the object the default instance variable holds.|
 |`Set Widget = …`, where a local variable or field is itself named `Widget`|Valid: the local variable or field hides the default instance of class `Widget`, and is an ordinary `Set` target.|
-
-**MS-VBA** compiles a `Set` to a default instance and runs it; see
-[**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics).
+|`Set Sheet1 = …`, where `Sheet1` is also extensible (§3.1.1.8, a document module)|Compile error [`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_, whatever is assigned.|
 
 > [!NOTE]
 > **Not implemented.** The declaration-level validity of `As New`
