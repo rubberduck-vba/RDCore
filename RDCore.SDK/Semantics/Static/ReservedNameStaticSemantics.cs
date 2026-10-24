@@ -30,6 +30,12 @@ public static class ReservedNameStaticSemantics
     }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Whether <paramref name="name"/> is the name of one of the reserved-name functions, which MS-VBA parses with the arguments it takes.
+    /// </summary>
+    /// <param name="name">A name, as written.</param>
+    public static bool IsReservedName(string name) => _arities.ContainsKey(name);
+
+    /// <summary>
     /// The syntax error of a call of a reserved-name function with other than the arguments it takes, or <see langword="null"/>.
     /// </summary>
     /// <param name="call">An index expression: the call, when its callee is one of the functions.</param>

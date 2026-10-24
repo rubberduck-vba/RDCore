@@ -437,6 +437,14 @@ public sealed class StdLibSymbolReader
                 symbol = (VBParameterSymbol)symbol.With(SymbolProperties.DefaultsToOptionCompare, true);
             }
 
+            // the type library declares a Variant parameter a VARIANT*, and a few others by reference too: what refuses a call-site ByVal (RD-VBAL §5.6.13.1). One
+            // that reads the value of its argument (StdLibValue) is one the type library declares with a type of its own, by value: a $ function's String.
+            if (!asAny && (declaredType is VBVariantType && parameter.GetCustomAttribute<StdLibValueAttribute>() is null
+                || parameter.GetCustomAttribute<StdLibTypeLibraryByRefAttribute>() is not null))
+            {
+                symbol = (VBParameterSymbol)symbol.With(SymbolProperties.TypeLibraryByRef, true);
+            }
+
             // a Variant parameter that reads the value of its argument, as MS-VBA compiles it, which its declared type does not say.
             if (parameter.GetCustomAttribute<StdLibValueAttribute>() is { } value)
             {

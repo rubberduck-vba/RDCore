@@ -1058,6 +1058,15 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_ExpectedProcedureNotVariable", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Array argument must be ByRef.
+        /// </summary>
+        public static string VBCompileError_ArrayArgumentMustBeByRef {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArrayArgumentMustBeByRef", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..
@@ -1532,6 +1541,60 @@ namespace RDCore.SDK {
         public static string VBArgument_ArrayToAsAny_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ArrayToAsAny_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is ByRef: ByVal is written only before an argument of a ByVal parameter, of an As Any one, or of a Declare&apos;s..
+        /// </summary>
+        public static string VBArgument_ByValByRefParameter_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValByRefParameter_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is an array parameter, which is ByRef: an array is never passed ByVal..
+        /// </summary>
+        public static string VBArgument_ByValArrayParameter_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValArrayParameter_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a ParamArray, which takes no argument written ByVal..
+        /// </summary>
+        public static string VBArgument_ByValParamArray_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValParamArray_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The member is called late-bound: its parameters are not known, and are taken to be ByRef, which takes no argument written ByVal..
+        /// </summary>
+        public static string VBArgument_ByValLateBound_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValLateBound_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An index of an array is never written ByVal..
+        /// </summary>
+        public static string VBArgument_ByValIndex_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValIndex_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is compiled inline, and takes no argument written ByVal..
+        /// </summary>
+        public static string VBArgument_ByValInlineFunction_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_ByValInlineFunction_Verbose", resourceCulture);
             }
         }
 

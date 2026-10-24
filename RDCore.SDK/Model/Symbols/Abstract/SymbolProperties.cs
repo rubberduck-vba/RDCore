@@ -139,6 +139,15 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> DefaultsToOptionCompare = new(nameof(DefaultsToOptionCompare));
     /// <summary>
+    /// Whether the <c>VBA</c> type library declares a library parameter by reference - a <c>VARIANT*</c> for every <c>Variant</c> parameter, and a few others
+    /// (<c>StdLibTypeLibraryByRefAttribute</c>) - where the platform passes it by value: a call-site <c>ByVal</c> written for it is a compile error, as it is
+    /// for any parameter that is <c>ByRef</c> (<strong>MS-VBA</strong>, recorded in Excel; RD-VBAL §5.6.13.1).
+    /// </summary>
+    /// <remarks>
+    /// Set by the standard library's reader. It says nothing of how the argument is passed, which is the parameter's <see cref="VBParameterSymbol.ParameterKind"/>.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> TypeLibraryByRef = new(nameof(TypeLibraryByRef));
+    /// <summary>
     /// What a parameter declared <c>Variant</c> expects of an object given to it, when it reads the value of its argument as MS-VBA compiles it: <c>CInt</c>'s
     /// does, <c>Round</c>'s does not (<see cref="Semantics.Static.ObjectValueStaticSemantics"/>).
     /// </summary>

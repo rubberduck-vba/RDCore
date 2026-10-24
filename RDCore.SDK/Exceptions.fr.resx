@@ -282,6 +282,24 @@
   <data name="VBArgument_ArrayToAsAny_Verbose" xml:space="preserve">
     <value>'{0}' est un tableau, qu'un paramètre As Any ne prend pas : il prend une variable de tout autre type, ou un élément du tableau.</value>
   </data>
+  <data name="VBArgument_ByValByRefParameter_Verbose" xml:space="preserve">
+    <value>'{0}' est ByRef : ByVal ne s'écrit que devant l'argument d'un paramètre ByVal, d'un paramètre As Any, ou d'un paramètre d'un Declare.</value>
+  </data>
+  <data name="VBArgument_ByValArrayParameter_Verbose" xml:space="preserve">
+    <value>'{0}' est un paramètre tableau, qui est ByRef : un tableau n'est jamais passé ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValParamArray_Verbose" xml:space="preserve">
+    <value>'{0}' est un ParamArray, qui ne prend aucun argument écrit ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValLateBound_Verbose" xml:space="preserve">
+    <value>Le membre est appelé en liaison tardive : ses paramètres ne sont pas connus, et sont pris pour ByRef, ce qui ne prend aucun argument écrit ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValIndex_Verbose" xml:space="preserve">
+    <value>Un indice de tableau ne s'écrit jamais ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValInlineFunction_Verbose" xml:space="preserve">
+    <value>{0} est compilée en ligne, et ne prend aucun argument écrit ByVal.</value>
+  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>Cette opération résulte en une division par rézo, possiblement causée par l'arrondissement par la Méthode du Banquier (Banker's Rounding), qui aurait pu perdre suffisament de précision pour arrondir à un entier zéro.</value>
   </data>
@@ -689,6 +707,9 @@
   </data>
   <data name="VBCompileError_ExpectedProcedureNotVariable" xml:space="preserve">
     <value>Procédure attendue, et non une variable</value>
+  </data>
+  <data name="VBCompileError_ArrayArgumentMustBeByRef" xml:space="preserve">
+    <value>Un argument tableau doit être ByRef</value>
   </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>

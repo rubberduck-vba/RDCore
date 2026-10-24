@@ -347,10 +347,14 @@ public interface IStdStringsModule
     /// <param name="count">How many occurrences to replace. <c>-1</c>, the default, replaces every one of them.</param>
     /// <param name="compare">The string comparison to use. When omitted, the calling module's <c>Option Compare</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
+    /// <remarks>
+    /// The type library declares every parameter by reference (<see cref="StdLibTypeLibraryByRefAttribute"/>): <c>Replace(ByVal s, ...)</c> is a compile error,
+    /// whichever argument is written <c>ByVal</c> (<strong>MS-VBA</strong>, recorded in Excel).
+    /// </remarks>
     RuntimeSemanticsEvaluationResult<VBStringValue> Replace(
-        VBStringValue expression, VBStringValue find, VBStringValue replace,
-        [StdLibDefault(1)] VBLongValue? start = default, [StdLibDefault(-1)] VBLongValue? count = default,
-        [StdLibOptionCompare] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
+        [StdLibTypeLibraryByRef] VBStringValue expression, [StdLibTypeLibraryByRef] VBStringValue find, [StdLibTypeLibraryByRef] VBStringValue replace,
+        [StdLibDefault(1), StdLibTypeLibraryByRef] VBLongValue? start = default, [StdLibDefault(-1), StdLibTypeLibraryByRef] VBLongValue? count = default,
+        [StdLibOptionCompare, StdLibTypeLibraryByRef] VBCompareMethod compare = VBCompareMethod.VBBinaryCompare);
 
     /// <summary>
     /// <strong>MS-VBAL 6.1.2.11.1.30 Right</strong> Gets a given number of characters from the <em>end</em> of a string.

@@ -438,6 +438,17 @@ public static class StatementStaticSemanticsEvaluator
                     walk.Errors.Add(notAProcedure);
                 }
 
+                // an argument written ByVal is valid where MS-VBA compiles it (RD-VBAL §5.6.13.1), in a statement as in an expression.
+                var calleeType = ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, callStatement.Callee).Result;
+                if (ByValArgumentStaticSemantics.Error(context, callStatement.Callee, callStatement.Arguments, calleeType) is { } byValError)
+                {
+                    walk.Errors.Add(byValError);
+                }
+                else
+                {
+                    ByValArgumentStaticSemantics.MarkRedundant(context, callStatement.Callee, callStatement.Arguments, calleeType);
+                }
+
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {

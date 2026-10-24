@@ -80,7 +80,7 @@
   href: vbc09325.md
 - name: VBC09326 — Invalid event handler
   href: vbc09326.md
-- name: VBC09327 — ByVal argument not allowed here
+- name: VBC09327 — ByVal argument not allowed here (no longer raised)
   href: vbc09327.md
 - name: VBC09328 — Invalid Implements directive
   href: vbc09328.md
@@ -168,6 +168,8 @@
   href: vbc09369.md
 - name: VBC09370 — Expected procedure, not variable
   href: vbc09370.md
+- name: VBC09371 — Array argument must be ByRef
+  href: vbc09371.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub
@@ -387,8 +389,7 @@
 - name: RDC00308 — Obsolete While…Wend
   href: rdc00308.md
 - name: RDC00309 — Obsolete On Local Error statement
-  href: rdc00309.md
-- name: RDC00405 — Implementations should be private
+  href: rdc00309.md- name: RDC00405 — Implementations should be private
   href: rdc00405.md
 - name: RDC01001 — Use meaningful identifier names
   href: rdc01001.md

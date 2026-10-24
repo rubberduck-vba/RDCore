@@ -570,6 +570,12 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.4.2.1</strong> Call Statement.
     /// </summary>
     ExpectedProcedureNotVariable = 9370,
+    /// <summary>
+    /// An argument of an array parameter of a procedure of the workspace is written <c>ByVal</c>: an array parameter is <c>ByRef</c>, and an array is never
+    /// passed by value.<br/>
+    /// <strong>MS-VBAL §5.6.13.1</strong> Argument Lists.
+    /// </summary>
+    ArrayArgumentMustBeByRef = 9371,
 
 
     /***********************************************************************************************

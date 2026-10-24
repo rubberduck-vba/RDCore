@@ -58,4 +58,9 @@ public enum ValueExpressionSemanticFlags
     /// An argument that is passed by value, and an index of an array, is not.
     /// </summary>
     PassedAsArgument = 1 << 9,
+    /// <summary>
+    /// It is an argument written with <c>ByVal</c> for a parameter that is <c>ByVal</c> already: the keyword changes nothing. <strong>MS-VBA</strong> compiles
+    /// it, where <strong>MS-VBAL §5.6.13.1</strong> refuses it (RD-VBAL §5.6.13.1).
+    /// </summary>
+    RedundantByVal = 1 << 10,
 }

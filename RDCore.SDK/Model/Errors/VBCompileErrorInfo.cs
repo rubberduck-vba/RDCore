@@ -143,5 +143,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.InvalidUseOfNewKeyword] = Exceptions.VBCompileError_InvalidUseOfNewKeyword,
         [VBCompileErrorId.CantChangeDataTypesOfArrayElements] = Exceptions.VBCompileError_CantChangeDataTypesOfArrayElements,
         [VBCompileErrorId.ExpectedProcedureNotVariable] = Exceptions.VBCompileError_ExpectedProcedureNotVariable,
+        [VBCompileErrorId.ArrayArgumentMustBeByRef] = Exceptions.VBCompileError_ArrayArgumentMustBeByRef,
     };
 }

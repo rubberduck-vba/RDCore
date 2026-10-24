@@ -75,7 +75,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09324](vbc09324.md)|Invalid type for WithEvents variable — not a specific class with events, or the class of its own module|
 |[VBC09325](vbc09325.md)|Invalid event name — an Event declaration whose name has an underscore|
 |[VBC09326](vbc09326.md)|Invalid event handler — a procedure named for an event is not a subroutine with a compatible parameter list|
-|[VBC09327](vbc09327.md)|ByVal argument not allowed here — a ByVal argument in an argument list that is not an external procedure's|
+|[VBC09327](vbc09327.md)|ByVal argument not allowed here — no longer raised: a ByVal argument is the error MS-VBA reports (RD-VBAL §5.6.13.1)|
 |[VBC09328](vbc09328.md)|Invalid Implements directive — the class itself, a repeat, an underscore in a public member, or overlapping interface prefixes|
 |[VBC09329](vbc09329.md)|Object module needs to implement all members of its interface — a public member of the interface has no implemented name declaration|
 |[VBC09330](vbc09330.md)|Invalid implemented member — an implemented name declaration of another kind, parameters or type than its member|
@@ -119,6 +119,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09368](vbc09368.md)|Invalid use of New keyword — a variable is declared `As New` of a type that is no class, of a library's class that cannot be created, or `WithEvents`|
 |[VBC09369](vbc09369.md)|Can't change data types of array elements — a `ReDim` gives an array elements of another type than it is declared with|
 |[VBC09370](vbc09370.md)|Expected procedure, not variable — a call statement names a variable or a constant of a module, not a procedure|
+|[VBC09371](vbc09371.md)|Array argument must be ByRef — an argument of an array parameter is written `ByVal`|
 
 ### Runtime errors
 
@@ -238,8 +239,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00306](rdc00306.md)|Obsolete Let statement — an assignment written with the Let keyword|
 |[RDC00307](rdc00307.md)|Obsolete type hint — a name written with a type-declaration character|
 |[RDC00308](rdc00308.md)|Obsolete While…Wend — a loop written While…Wend|
-|[RDC00309](rdc00309.md)|Obsolete On Local Error statement — an error handler set with On Local Error|
-|[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
+|[RDC00309](rdc00309.md)|Obsolete On Local Error statement — an error handler set with On Local Error||[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names — a name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation — a name that begins with a prefix that states its type|
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|

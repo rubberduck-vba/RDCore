@@ -288,6 +288,24 @@
   <data name="VBArgument_ArrayToAsAny_Verbose" xml:space="preserve">
     <value>'{0}' is an array, which an As Any parameter does not take: it takes a variable of any other type, or an element of the array.</value>
   </data>
+  <data name="VBArgument_ByValByRefParameter_Verbose" xml:space="preserve">
+    <value>'{0}' is ByRef: ByVal is written only before an argument of a ByVal parameter, of an As Any one, or of a Declare's.</value>
+  </data>
+  <data name="VBArgument_ByValArrayParameter_Verbose" xml:space="preserve">
+    <value>'{0}' is an array parameter, which is ByRef: an array is never passed ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValParamArray_Verbose" xml:space="preserve">
+    <value>'{0}' is a ParamArray, which takes no argument written ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValLateBound_Verbose" xml:space="preserve">
+    <value>The member is called late-bound: its parameters are not known, and are taken to be ByRef, which takes no argument written ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValIndex_Verbose" xml:space="preserve">
+    <value>An index of an array is never written ByVal.</value>
+  </data>
+  <data name="VBArgument_ByValInlineFunction_Verbose" xml:space="preserve">
+    <value>{0} is compiled inline, and takes no argument written ByVal.</value>
+  </data>
   <data name="LanguageServerProtocolSdkException_ClientNotInitialized" xml:space="preserve">
     <value>Language client was not initialized.</value>
   </data>
@@ -689,6 +707,9 @@
   </data>
   <data name="VBCompileError_ExpectedProcedureNotVariable" xml:space="preserve">
     <value>Expected procedure, not variable</value>
+  </data>
+  <data name="VBCompileError_ArrayArgumentMustBeByRef" xml:space="preserve">
+    <value>Array argument must be ByRef</value>
   </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value.</value>

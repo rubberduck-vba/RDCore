@@ -197,13 +197,11 @@ public static class ExpressionStaticSemanticsEvaluator
             return StaticSemanticsEvaluationResult.Error(reservedNameError);
         }
 
-        // MS-VBAL §5.6.13.1: "It is invalid for an argument list to contain a ByVal argument unless it is the argument
-        // list for an invocation of an external procedure." Only the callee says which it is.
-        if (ByValArgumentIn(indexExpression.Arguments) is { } byValArgument && !IsExternalProcedure(context, indexExpression.Callee)
-            && !TakesByValAsAny(context, indexExpression.Callee, indexExpression.Arguments))
+        // an argument written ByVal is valid where MS-VBA compiles it, and not only before an argument of an external procedure as MS-VBAL §5.6.13.1 says
+        // (RD-VBAL §5.6.13.1): only the parameter it is written for says which.
+        if (ByValArgumentStaticSemantics.Error(context, indexExpression, calleeResult.Result) is { } byValError)
         {
-            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ByValArgumentNotAllowed, byValArgument.Location,
-                "ByVal can only be written before an argument of an external procedure's invocation (MS-VBAL §5.6.13.1)."));
+            return StaticSemanticsEvaluationResult.Error(byValError);
         }
 
         foreach (var argument in indexExpression.Arguments)
@@ -228,6 +226,8 @@ public static class ExpressionStaticSemanticsEvaluator
         {
             MarkPassedAsArguments(context, indexExpression.Arguments);
         }
+
+        ByValArgumentStaticSemantics.MarkRedundant(context, indexExpression, calleeResult.Result);
 
         // a ParamArray is no variable a ByRef parameter can be bound to (MS-VBAL §5.3.1.11), and an object given to a parameter that expects a value of it
         // must have one (MS-VBAL §5.5.1.1).
@@ -316,56 +316,6 @@ public static class ExpressionStaticSemanticsEvaluator
         return symbol as VBReturningMemberSymbol;
     }
 
-    // an argument written with ByVal, whether it is positional or named.
-    private static ExpressionNode? ByValArgumentIn(ImmutableArray<ExpressionNode> arguments)
-        => arguments.FirstOrDefault(argument => argument is ByValArgumentExpressionNode
-            || argument is NamedArgumentNode { Value: ByValArgumentExpressionNode });
-
-    // a member of the library whose `As Any` parameters take the ByVal arguments written for them: VarPtr(ByVal n) is n, the value given where an address
-    // goes, as a Declare's `As Any` takes it (MS-VBA, recorded in Excel: oracle\s21 R28, B05).
-    private static bool TakesByValAsAny(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
-    {
-        if (ObjectValueStaticSemantics.MemberOfCallee(context, callee) is not { } member || member.GetProperty(SymbolProperties.ExternalTarget) is null
-            || ObjectValueStaticSemantics.ParametersOfCallee(context, callee) is not { } parameters)
-        {
-            return false;
-        }
-
-        for (var index = 0; index < arguments.Length; index++)
-        {
-            var parameter = arguments[index] switch
-            {
-                ByValArgumentExpressionNode => index < parameters.Length ? parameters[index] : null,
-                NamedArgumentNode { Value: ByValArgumentExpressionNode } named
-                    => parameters.FirstOrDefault(candidate => string.Equals(candidate.Name, named.Name, StringComparison.OrdinalIgnoreCase)),
-                _ => null,
-            };
-
-            var isByVal = arguments[index] is ByValArgumentExpressionNode or NamedArgumentNode { Value: ByValArgumentExpressionNode };
-            if (isByVal && parameter is not { ResolvedType: VBUnknownType })
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // whether the expression a call is written on names an external procedure, a Declare: by its bare name, or qualified
-    // by the project or module that declares it (MS-VBAL §5.6.12).
-    private static bool IsExternalProcedure(StaticEvaluationContext context, ExpressionNode callee)
-    {
-        var symbol = callee switch
-        {
-            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
-            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
-                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
-            _ => null,
-        };
-
-        return symbol is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
-    }
-
     // MissingArgumentNode is a placeholder, not a value - nothing to evaluate. NamedArgumentNode and
     // AddressOfExpressionNode wrap the expression actually worth checking for errors; neither has a
     // declared type IndexExpressionStaticSemantics needs, so only the callee's type feeds it.
@@ -452,6 +402,13 @@ public static class ExpressionStaticSemanticsEvaluator
     {
         foreach (var operand in arrayBound.Inputs.OfType<ExpressionNode>())
         {
+            // LBound and UBound are parsed with their operands, which are never written ByVal (MS-VBA: "Syntax error", recorded in Excel).
+            if (operand is ByValArgumentExpressionNode byVal)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, byVal.Location,
+                    string.Format(Exceptions.VBArgument_ByValInlineFunction_Verbose, arrayBound.Kind is ArrayBoundKind.Lower ? Tokens.LBound : Tokens.UBound)));
+            }
+
             var result = Evaluate(context, operand);
             if (result.IsError)
             {
@@ -470,11 +427,18 @@ public static class ExpressionStaticSemanticsEvaluator
         return StaticSemanticsEvaluationResult.Success(VBLongType.TypeInfo);
     }
 
-    // the Array keyword yields a Variant whatever its elements, which are expressions like any other and can be wrong in their own right.
+    // the Array keyword yields a Variant whatever its elements, which are expressions like any other and can be wrong in their own right. Its elements are
+    // a ParamArray's, which takes none written ByVal (MS-VBA: "Type mismatch", recorded in Excel; RD-VBAL §5.6.13.1).
     private static StaticSemanticsEvaluationResult EvaluateArray(StaticEvaluationContext context, ArrayExpressionNode array)
     {
         foreach (var element in array.Elements)
         {
+            if (element is ByValArgumentExpressionNode byVal)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, byVal.Location,
+                    string.Format(Exceptions.VBArgument_ByValParamArray_Verbose, "Array")));
+            }
+
             var result = Evaluate(context, element);
             if (result.IsError)
             {
