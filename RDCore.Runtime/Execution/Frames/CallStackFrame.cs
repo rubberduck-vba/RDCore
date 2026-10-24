@@ -34,13 +34,25 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     // none does not hash a symbol's identity to find out - and, laid out, no variable without a slot and no variable that was given an address.
     private SymbolAddressTable? _addresses;
     private HashSet<SemanticId>? _declared;
-    private Dictionary<SemanticId, MemoryAddress>? _byRefAliases;
-    private Dictionary<SemanticId, VBType>? _referencedTypes;
-    private Dictionary<int, VBTypedValue>? _blockState;
-    private Dictionary<int, ScalarPayload>? _selectorPayloads;
-    private Dictionary<int, ForLoopState>? _forLoopState;
-    private Dictionary<int, ForEachState>? _forEachState;
-    private Stack<int>? _goSubReturns;
+
+    // what few activations have - a ByRef alias by address, a block, a loop, a GoSub, a variable declared at a stop - is kept apart, made when it is first
+    // needed (IR lowering S1.7): an activation that has none is that much smaller, and most calls make one that has none.
+    private sealed class Occasional
+    {
+        public Dictionary<SemanticId, MemoryAddress>? ByRefAliases;
+        public Dictionary<SemanticId, VBType>? ReferencedTypes;
+        public Dictionary<int, VBTypedValue>? BlockState;
+        public Dictionary<int, ScalarPayload>? SelectorPayloads;
+        public Dictionary<int, ForLoopState>? ForLoopState;
+        public Dictionary<int, ForEachState>? ForEachState;
+        public Stack<int>? GoSubReturns;
+        public Dictionary<int, (int? End, ValueBindingHandle Cell)>? BlockHolders;
+        public List<Symbol>? DeclaredAtAStop;
+    }
+
+    private Occasional? _occasional;
+
+    private Occasional Occasionally => _occasional ??= new();
 
     /// <inheritdoc/>
     public int Pc { get; set; }
@@ -141,7 +153,6 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     private ValueBindingHandle? _resultCell;
-    private Dictionary<int, (int? End, ValueBindingHandle Cell)>? _blockHolders;
 
     /// <summary>
     /// The cell of the function result variable, which holds the objects the result does while the activation runs
@@ -161,11 +172,11 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public ValueBindingHandle BlockHolder(int openerOffset, int? end)
     {
-        _blockHolders ??= [];
-        if (!_blockHolders.TryGetValue(openerOffset, out var holder))
+        var holders = Occasionally.BlockHolders ??= [];
+        if (!holders.TryGetValue(openerOffset, out var holder))
         {
             holder = (end, BindingKnowledge.NewCell(VBEmptyValue.Empty.RuntimeValue, isKnown: true));
-            _blockHolders[openerOffset] = holder;
+            holders[openerOffset] = holder;
         }
 
         return holder.Cell;
@@ -177,18 +188,18 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public IReadOnlyList<ValueBindingHandle> TakeBlockHoldersOutside(int? pc)
     {
-        if (_blockHolders is null || _blockHolders.Count == 0)
+        if (_occasional?.BlockHolders is not { Count: > 0 } holders)
         {
             return [];
         }
 
         List<ValueBindingHandle>? left = null;
-        foreach (var (opener, (end, cell)) in _blockHolders)
+        foreach (var (opener, (end, cell)) in holders)
         {
             if (pc is not { } at || (end is { } blockEnd && (at < opener || at >= blockEnd)))
             {
                 (left ??= []).Add(cell);
-                _blockHolders.Remove(opener);
+                holders.Remove(opener);
             }
         }
 
@@ -201,15 +212,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     /// <returns>The holder; <see langword="null"/> when the block holds nothing.</returns>
     public ValueBindingHandle? TakeBlockHolder(int openerOffset)
-        => _blockHolders is not null && _blockHolders.Remove(openerOffset, out var holder) ? holder.Cell : null;
+        => _occasional?.BlockHolders is { } holders && holders.Remove(openerOffset, out var holder) ? holder.Cell : null;
 
     /// <summary>
     /// Forgets the hidden state of the block opened at <paramref name="openerOffset"/>: a <c>With</c>'s target, after its <c>End With</c>.
     /// </summary>
     public void ClearBlockState(int openerOffset)
     {
-        _ = _blockState?.Remove(openerOffset);
-        _ = _selectorPayloads?.Remove(openerOffset);
+        _ = _occasional?.BlockState?.Remove(openerOffset);
+        _ = _occasional?.SelectorPayloads?.Remove(openerOffset);
     }
 
     /// <summary>
@@ -219,15 +230,15 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public void SetBlockState(int openerOffset, VBTypedValue value)
     {
-        (_blockState ??= [])[openerOffset] = value;
-        _ = _selectorPayloads?.Remove(openerOffset);
+        (Occasionally.BlockState ??= [])[openerOffset] = value;
+        _ = _occasional!.SelectorPayloads?.Remove(openerOffset);
     }
 
     /// <inheritdoc/>
     public bool TryGetBlockState(int openerOffset, [NotNullWhen(true)][MaybeNullWhen(false)] out VBTypedValue? value)
     {
         value = null;
-        return _blockState is not null && _blockState.TryGetValue(openerOffset, out value);
+        return _occasional?.BlockState is { } blockState && blockState.TryGetValue(openerOffset, out value);
     }
 
     /// <summary>
@@ -236,56 +247,56 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     internal void SetSelectorPayload(int openerOffset, ScalarPayload selector)
     {
-        (_selectorPayloads ??= [])[openerOffset] = selector;
-        _ = _blockState?.Remove(openerOffset);
+        (Occasionally.SelectorPayloads ??= [])[openerOffset] = selector;
+        _ = _occasional!.BlockState?.Remove(openerOffset);
     }
 
     internal bool TryGetSelectorPayload(int openerOffset, out ScalarPayload selector)
     {
         selector = default;
-        return _selectorPayloads is not null && _selectorPayloads.TryGetValue(openerOffset, out selector);
+        return _occasional?.SelectorPayloads is { } selectors && selectors.TryGetValue(openerOffset, out selector);
     }
 
     /// <summary>
     /// Stashes <paramref name="state"/> as this activation's hidden state for the <c>ForOpener</c>
     /// instruction at <paramref name="openerOffset"/>.
     /// </summary>
-    public void SetForLoopState(int openerOffset, ForLoopState state) => (_forLoopState ??= [])[openerOffset] = state;
+    public void SetForLoopState(int openerOffset, ForLoopState state) => (Occasionally.ForLoopState ??= [])[openerOffset] = state;
 
     /// <inheritdoc/>
     public bool TryGetForLoopState(int openerOffset, out ForLoopState state)
     {
         state = default;
-        return _forLoopState is not null && _forLoopState.TryGetValue(openerOffset, out state);
+        return _occasional?.ForLoopState is { } loops && loops.TryGetValue(openerOffset, out state);
     }
 
     /// <summary>
     /// Stashes <paramref name="state"/> as this activation's hidden state for the <c>ForEachOpener</c>
     /// instruction at <paramref name="openerOffset"/>.
     /// </summary>
-    public void SetForEachState(int openerOffset, ForEachState state) => (_forEachState ??= [])[openerOffset] = state;
+    public void SetForEachState(int openerOffset, ForEachState state) => (Occasionally.ForEachState ??= [])[openerOffset] = state;
 
     /// <inheritdoc/>
     public bool TryGetForEachState(int openerOffset, out ForEachState state)
     {
         state = default;
-        return _forEachState is not null && _forEachState.TryGetValue(openerOffset, out state);
+        return _occasional?.ForEachState is { } loops && loops.TryGetValue(openerOffset, out state);
     }
 
     /// <inheritdoc/>
-    public int GoSubDepth => _goSubReturns?.Count ?? 0;
+    public int GoSubDepth => _occasional?.GoSubReturns?.Count ?? 0;
 
     /// <summary>
     /// Pushes <paramref name="returnOffset"/> onto this activation's own GoSub Resumption List — a
     /// <c>GoSub</c> or a successful <c>On…GoSub</c> branch adds the offset right after itself, for a
     /// later <c>Return</c> to pop back to.
     /// </summary>
-    public void PushGoSubReturn(int returnOffset) => (_goSubReturns ??= new()).Push(returnOffset);
+    public void PushGoSubReturn(int returnOffset) => (Occasionally.GoSubReturns ??= new()).Push(returnOffset);
 
     /// <summary>
     /// The offsets this activation returns to, innermost first: the instruction after each <c>GoSub</c> that has not been <c>Return</c>ed from yet (its GoSub Resumption List).
     /// </summary>
-    public IReadOnlyCollection<int> GoSubReturns => (IReadOnlyCollection<int>?)_goSubReturns ?? [];
+    public IReadOnlyCollection<int> GoSubReturns => (IReadOnlyCollection<int>?)_occasional?.GoSubReturns ?? [];
 
     /// <summary>
     /// Where the <c>GoSub</c> statements this activation has not <c>Return</c>ed from are, innermost first: how it got to where it is. Each is the instruction
@@ -304,13 +315,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <returns><c>false</c> if the list is empty — error 3, "Return without GoSub".</returns>
     public bool TryPopGoSubReturn(out int returnOffset)
     {
-        if (_goSubReturns is not { Count: > 0 })
+        if (_occasional?.GoSubReturns is not { Count: > 0 } returns)
         {
             returnOffset = 0;
             return false;
         }
 
-        returnOffset = _goSubReturns.Pop();
+        returnOffset = returns.Pop();
         return true;
     }
 
@@ -545,15 +556,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public void PushDeclaredAtAStop(Symbol symbol, VBTypedValue value)
     {
         Push(symbol, value);
-        (_declaredAtAStop ??= []).Add(symbol);
+        (Occasionally.DeclaredAtAStop ??= []).Add(symbol);
     }
 
     /// <summary>
     /// The locals of this activation that statements typed where the program waited declared (<see cref="PushDeclaredAtAStop"/>), in the order they were.
     /// </summary>
-    public IReadOnlyList<Symbol> DeclaredAtAStop => (IReadOnlyList<Symbol>?)_declaredAtAStop ?? [];
-
-    private List<Symbol>? _declaredAtAStop;
+    public IReadOnlyList<Symbol> DeclaredAtAStop => (IReadOnlyList<Symbol>?)_occasional?.DeclaredAtAStop ?? [];
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame as a <c>ByRef</c> reference parameter binding
@@ -577,10 +586,10 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
         }
 
-        (_byRefAliases ??= [])[symbol.SemanticId] = address;
+        (Occasionally.ByRefAliases ??= [])[symbol.SemanticId] = address;
         if (referencedType is not null)
         {
-            (_referencedTypes ??= [])[symbol.SemanticId] = referencedType;
+            (_occasional!.ReferencedTypes ??= [])[symbol.SemanticId] = referencedType;
         }
     }
 
@@ -588,14 +597,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool TryGetReferencedType(Symbol symbol, [NotNullWhen(true)] out VBType? declaredType)
     {
         declaredType = null;
-        return _referencedTypes is not null && _referencedTypes.TryGetValue(symbol.SemanticId, out declaredType);
+        return _occasional?.ReferencedTypes is { } referencedTypes && referencedTypes.TryGetValue(symbol.SemanticId, out declaredType);
     }
 
     // the address a ByRef parameter is an alias of, if the symbol is one.
     private bool TryGetAlias(Symbol symbol, out MemoryAddress address)
     {
         address = default;
-        return _byRefAliases is not null && _byRefAliases.TryGetValue(symbol.SemanticId, out address);
+        return _occasional?.ByRefAliases is { } aliases && aliases.TryGetValue(symbol.SemanticId, out address);
     }
 
     /// <inheritdoc/>
@@ -682,7 +691,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <inheritdoc/>
-    public bool IsByRefParameter(Symbol symbol) => _byRefAliases is not null && _byRefAliases.ContainsKey(symbol.SemanticId);
+    public bool IsByRefParameter(Symbol symbol) => _occasional?.ByRefAliases is { } aliases && aliases.ContainsKey(symbol.SemanticId);
 
     /// <inheritdoc/>
     public bool LocksArray(VBArrayValue array)
@@ -693,7 +702,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // an element passed by reference: the parameter's address is bound to the element's own cell.
-        foreach (var address in _byRefAliases?.Values ?? Enumerable.Empty<MemoryAddress>())
+        foreach (var address in _occasional?.ByRefAliases?.Values ?? Enumerable.Empty<MemoryAddress>())
         {
             if (Storage.TryRead(address, out var handle) && IsCellOf(array, handle))
             {
@@ -702,7 +711,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // a For Each that is running holds what it enumerates (ProcedureExecutor.HoldForBlock): an array that shares its cells is the one.
-        foreach (var (_, (_, holder)) in _blockHolders ?? [])
+        foreach (var (_, (_, holder)) in _occasional?.BlockHolders ?? [])
         {
             if (holder.Value is VBRuntimeValue<VBRuntimeArrayValue> { StoredValue.Array: { Length: > 0 } enumerated }
                 && ReferenceEquals(enumerated.CellAt(0), array.CellAt(0)))
