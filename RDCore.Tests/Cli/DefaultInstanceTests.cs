@@ -36,14 +36,24 @@ public sealed class DefaultInstanceTests
     private static readonly (string Name, string Source) Globals = ("Globals", StandardModule("Globals",
         "Option Explicit",
         "Public Created As Long",
+        "Public Initialized As Long",
+        "Public Terminated As Long",
         "Public Function MakeFromAModule(ByVal v As Long) As IThing", "    Set MakeFromAModule = Thing.Create(v)", "End Function"));
 
     private static readonly (string Name, string Source) Maker = ("Maker", ClassModule("Maker",
         "Option Explicit",
         "Public Function Make(ByVal v As Long) As IThing", "    Set Make = Thing.Create(v)", "End Function"));
 
+    // the class of the Excel grid oracle\s18: a predeclared class whose objects count their Initialize and Terminate.
+    private static readonly (string Name, string Source) Widget = ("Widget", ClassModule("Widget",
+        "Attribute VB_PredeclaredId = True",
+        "Option Explicit",
+        "Public Size As Long",
+        "Private Sub Class_Initialize()", "    Initialized = Initialized + 1", "End Sub",
+        "Private Sub Class_Terminate()", "    Terminated = Terminated + 1", "End Sub"));
+
     private static Task<string[]> RunAsync(params string[] body)
-        => ModuleWorkspace.RunAsync([Interface, Thing, Maker], [Globals],
+        => ModuleWorkspace.RunAsync([Interface, Thing, Maker, Widget], [Globals],
             "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n" + string.Join("\r\n", body) + "\r\nEnd Sub\r\n");
 
     [TestMethod]
@@ -94,13 +104,55 @@ public sealed class DefaultInstanceTests
             "Set t = New Thing",
             "Debug.Print t.Value"));
 
+    // MS-VBAL §5.2.4.1.2 says a default instance cannot be the target of a Set; MS-VBA compiles one and runs it (oracle\s18 D02): the object it held is
+    // let go of, and terminates, and the next reference to the class's name makes another - with the state a new object has.
+    [TestMethod]
+    public async Task ADefaultInstanceSetToNothing_IsLetGoOf_AndTheNextReferenceMakesAnother()
+        => CollectionAssert.AreEqual(new[] { "5", "1", "0", "2" }, await RunAsync(
+            "Widget.Size = 5",
+            "Debug.Print Widget.Size",
+            "Set Widget = Nothing",
+            "Debug.Print Terminated",
+            "Debug.Print Widget.Size",
+            "Debug.Print Initialized"));
+
+    // oracle\s18 D03: a default instance can be given another object of its class.
+    [TestMethod]
+    public async Task ADefaultInstance_CanBeSetToAnotherObject()
+        => CollectionAssert.AreEqual(new[] { "0", "False" }, await RunAsync(
+            "Widget.Size = 5",
+            "Set Widget = New Widget",
+            "Debug.Print Widget.Size",
+            "Debug.Print Widget Is Nothing"));
+
+    // MS-VBAL §2.5.1: an automatic instantiation variable set to Nothing is never Nothing when it is referred to - the reference makes a new object, with
+    // the state a new object has, before Is ever sees it.
+    [TestMethod]
+    public async Task AVariableDeclaredAsNew_SetToNothing_IsANewObjectTheNextTimeItIsReferredTo()
+        => CollectionAssert.AreEqual(new[] { "1", "False", "0" }, await RunAsync(
+            "Dim Things As New Collection",
+            "Things.Add 42",
+            "Debug.Print Things.Count",
+            "Set Things = Nothing",
+            "Debug.Print Things Is Nothing",
+            "Debug.Print Things.Count"));
+
     // a class that is not predeclared has no default instance: its name is no variable (MS-VBAL §5.6.10 lists none).
     [TestMethod]
     public async Task AClassThatIsNotPredeclared_HasNoDefaultInstance()
     {
-        var errors = await LoadErrorsAsync([Interface, Thing, Maker], [Globals],
+        var errors = await LoadErrorsAsync([Interface, Thing, Maker, Widget], [Globals],
             "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDebug.Print TypeName(Maker)\r\nEnd Sub\r\n");
 
         Assert.IsTrue(errors.Any(error => error.Contains("Variable not defined")), string.Join(" / ", errors));
+    }
+
+    // the host's Debug object is not a name a Set can be written with: MS-VBA reports a syntax error (oracle\s18 D09).
+    [TestMethod]
+    public async Task TheDebugObject_IsNoTargetOfASetAssignment()
+    {
+        var errors = await LoadErrorsAsync([], [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nSet Debug = Nothing\r\nEnd Sub\r\n");
+
+        Assert.IsTrue(errors.Any(error => error.Contains("Syntax error")), string.Join(" / ", errors));
     }
 }

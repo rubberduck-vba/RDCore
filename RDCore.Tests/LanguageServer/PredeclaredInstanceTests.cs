@@ -106,20 +106,32 @@ public sealed class PredeclaredInstanceTests
     [TestMethod]
     [DataRow("Set Widget = New Widget")]
     [DataRow("Set Widget = Nothing")]
-    public void TheDefaultInstance_IsInvalidAsTheTargetOfASetAssignment(string statement)
-        // MS-VBAL 5.2.4.1.2: "It is invalid for this named variable to be the target of a Set assignment" - whatever
-        // is assigned to it, Nothing included.
+    public void TheDefaultInstance_IsAValidTargetOfASetAssignment(string statement)
+        // MS-VBAL 5.2.4.1.2 says "it is invalid for this named variable to be the target of a Set assignment"; MS-VBA compiles it and runs it
+        // (recorded in Excel, oracle\s18), and RD-VBA does what MS-VBA does (RD-VBAL 5.2.4.1.2).
+        => Assert.IsEmpty(Walk([statement], Widget("Attribute VB_PredeclaredId = True\r\n")));
+
+    // the default instance of an extensible class - a document module, ThisWorkbook or Sheet1 - is a property of the host that extends it: MS-VBA reports
+    // "Invalid use of property" for a Set of it, whatever is assigned, the instance itself included (recorded in Excel, oracle\s18 D06-D08).
+    [TestMethod]
+    [DataRow("Set Widget = New Widget")]
+    [DataRow("Set Widget = Nothing")]
+    [DataRow("Set Widget = Widget")]
+    public void TheDefaultInstanceOfAnExtensibleClass_IsNoTargetOfASetAssignment(string statement)
     {
-        var errors = Walk([statement], Widget("Attribute VB_PredeclaredId = True\r\n"));
+        var errors = Walk([statement], Widget("Attribute VB_PredeclaredId = True\r\nAttribute VB_Extensible = True\r\n"));
 
         Assert.HasCount(1, errors);
-        Assert.AreEqual(VBCompileErrorId.InvalidUseOfObject, errors[0].VBCompileErrorId);
-        StringAssert.Contains(errors[0].Verbose, "Widget");
+        Assert.AreEqual(VBCompileErrorId.InvalidUseOfProperty, errors[0].VBCompileErrorId);
     }
 
     [TestMethod]
-    public void AMemberAssignmentThroughTheDefaultInstance_IsNotASetOfIt()
-        // the rule is about the variable being the target; `Widget.Size = 3` assigns a member of the object it holds.
+    public void ASetToALocalNamedLikeAnExtensiblePredeclaredClass_IsNotASetOfTheDefaultInstance()
+        => Assert.IsEmpty(Walk(["Dim Widget As Widget", "Set Widget = New Widget"], Widget("Attribute VB_PredeclaredId = True\r\nAttribute VB_Extensible = True\r\n")));
+
+    [TestMethod]
+    public void AMemberAssignmentThroughTheDefaultInstance_IsValid()
+        // `Widget.Size = 3` assigns a member of the object the default instance holds.
         => Assert.IsEmpty(Walk(["Widget.Size = 3"], Widget("Attribute VB_PredeclaredId = True\r\n")));
 
     [TestMethod]

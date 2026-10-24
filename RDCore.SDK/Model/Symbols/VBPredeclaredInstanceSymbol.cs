@@ -16,14 +16,13 @@ namespace RDCore.SDK.Model.Symbols;
 /// A class module never binds as a name in the default binding context: its predeclared instance does
 /// (<c>ISymbolResolver.ResolveValue</c>). The class itself is still what an <c>As</c> clause or the
 /// operand of <c>New</c> names, in the type binding context. The variable is global rather than local to
-/// its class module — <strong>RD-VBAL §3.1.1.5</strong> calls it a <em>global auto-object</em>.
+/// its class module — <strong>RD-VBAL §3.1.1.6</strong> calls it a <em>global auto-object</em>.
 /// <para>
-/// It is invalid for this variable to be the target of a <c>Set</c> assignment
-/// (<strong>§5.2.4.1.2</strong>); <c>StatementStaticSemanticsEvaluator</c> reports it.
+/// The variable can be the target of a <c>Set</c> assignment, as it can in MS-VBA, where <strong>MS-VBAL §5.2.4.1.2</strong> says it is invalid:
+/// <c>Set Widget = Nothing</c> lets go of the object it holds, and the next reference to the variable creates another (<strong>RD-VBAL §5.2.4.1.2</strong>).
 /// </para>
 /// <para>
-/// Only the static side is modeled: the variable's declared type. That the variable is never
-/// <c>Nothing</c> — it is re-created the next time it is referred to — is a run-time concern.
+/// The variable is never <c>Nothing</c> when it is referred to: the reference creates the object, as it does for any automatic instantiation variable.
 /// </para>
 /// </remarks>
 public sealed record class VBPredeclaredInstanceSymbol
