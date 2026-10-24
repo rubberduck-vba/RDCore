@@ -21,6 +21,8 @@ For an `IndexExpressionNode`, whether its `Callee` is a bare name resolving to a
 is checked before the usual recursive `Evaluate(Callee)`. Such an index expression invokes the procedure with the
 index expression's own arguments. See
 [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).
+A member of the class module whose code it is, named bare, is invoked on the current instance
+([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md#members-of-the-current-instance)).
 
 The check precedes `Evaluate(Callee)` because, otherwise, a bare-name `Callee` would already have been auto-invoked
 with zero arguments by `SimpleName`'s own dispatch, before the index expression could supply its arguments. See

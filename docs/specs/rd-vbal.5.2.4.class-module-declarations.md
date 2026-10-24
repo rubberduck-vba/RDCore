@@ -70,9 +70,11 @@ determines whether the _environment host_ declares a global _auto-object_ instan
 ID_. The _identifier name_ of that global auto-object is the same as the name of the class module it is a
 predeclared instance of.
 
-#### Static Semantics
+A default instance is what object-oriented VBA code is built on: a _factory method_ called off a stateless default instance
+(`Set w = Widget.Create(42)`) returns a new object, often through an interface that only exposes getters, while the
+setters it uses to initialize the object are `Friend` members that only the factory calls.
 
-The static semantics of `VB_PredeclaredId` are modeled:
+#### Static Semantics
 
 - A class module with `VB_PredeclaredId = True` has a
   [VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global
@@ -91,19 +93,38 @@ The static semantics of `VB_PredeclaredId` are modeled:
 ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)).
 
 It is invalid for the default instance variable to be the target of a `Set` assignment, whatever is assigned to it
-(**MS-VBAL §5.2.4.1.2**; see [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)).
+(**MS-VBAL §5.2.4.1.2**): **RD-VBA** reports compile error `VBC09304`
+(see [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)).
+
+> [!IMPORTANT]
+> **MS-VBA** compiles a `Set` to a default instance and runs it. `Set Widget = Nothing` terminates the default
+> instance (its `Class_Terminate` runs, and its state is lost); the next reference to `Widget` creates another, and
+> runs `Class_Initialize` again. `Set Widget = New Widget` runs without an error too.
+
+The language server reads the attribute off the module, with the module's other directives
+([ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.PredeclaredId`, beside `.Creatable` and
+`.Extensible`), and the environment host is told it when the module's symbols are defined. The host defines the
+default instance then, before the code of any module is loaded, so that the code of every module can name it.
 
 #### Runtime Semantics
 
-In MS-VBA:
+|What the code does|What happens|
+|---|---|
+|Refers to the class's name for the first time|The reference creates the object, and runs its `Class_Initialize`.|
+|Refers to it again|The same object. `Class_Initialize` runs once.|
+|`Widget Is Nothing`|`False`: the default instance is never `Nothing` when it is referred to.|
+|`Widget.Size = 3`, then `Widget.Size`|`3`: the default instance is a variable, and what is assigned to its members stays with it.|
+|`Widget.Create(42)`, a member of the class|A call on the default instance, like a call on any other object of the class.|
+|`Me Is Widget`, in the code of the class|`True` in a member called on the default instance, `False` in one called on any other object: the usual guard against a member being called on the wrong one.|
 
-- Setting an _auto-object_ (predeclared instance) to `Nothing` destroys its internal state.
-- An auto-object reference is re-created as soon as it is referred to, including within an `Is Nothing`
-  reference check.
+The module of a predeclared class can be defined again, as a shell does for every line it reads; the default instance
+keeps the object it holds.
 
 > [!NOTE]
-> **Not implemented.** The run-time behavior of the default instance (it is never `Nothing`; it is re-created on
-> reference) is not modeled.
+> 🚧 **TODO** _Semantic flags_ identifying whether a predeclared class module is _stateful_ or not
+> ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)), and an `Is Nothing` check on a
+> default instance reported as _statically constant_ (`False`,
+> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)), are not implemented.
 
 
 ## 5.2.4.2 Implements Directive

@@ -91,6 +91,15 @@ resolves to:
 See [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)
 for the invocation itself.
 
+### Members of the Current Instance
+
+A member of a class module named bare in the module's own code is a member of the _current instance_: the call is
+made on `Me`. This holds for every form of the call: a `Sub` named alone (`Helper`) or with `Call` (`Call Helper`), a
+`Function` given arguments (`Twice(3)`), a `Property Get` read by its name (`If IsEmptyBox Then`), and a `Property Let`
+assigned by it (`Size = 3`). A member called on one object therefore reads and writes that object's state, and no
+other's, whichever object it is, the class's default instance included
+([**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics)).
+
 ### Implicit Calls
 
 `RuntimeExpressionEvaluator`'s bare `SimpleName` dispatch decides whether a name is an implicit call by checking the

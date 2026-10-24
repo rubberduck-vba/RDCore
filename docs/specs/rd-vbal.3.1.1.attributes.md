@@ -196,6 +196,9 @@ class `Widget`:
 |`Widget.Size = 3`|Valid: it assigns a member of the object the default instance variable holds.|
 |`Set Widget = …`, where a local variable or field is itself named `Widget`|Valid: the local variable or field hides the default instance of class `Widget`, and is an ordinary `Set` target.|
 
+**MS-VBA** compiles a `Set` to a default instance and runs it; see
+[**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics).
+
 > [!NOTE]
 > **Not implemented.** The declaration-level validity of `As New`
 > ([**MS-VBAL §5.2.3.1.4** Variable Type Declarations](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d27d3dae-ac46-4113-8927-c7f60d844dbf))
@@ -203,17 +206,16 @@ class `Widget`:
 
 ### Runtime Semantics
 
-> [!NOTE]
-> **Not implemented.** 🎯 The run-time behavior of the default instance described in this section (it is never
-> `Nothing`; it is re-created on reference) is not modeled.
+The first reference to the class's name creates the default instance and runs its `Class_Initialize`, once. The
+default instance is never `Nothing` when it is referred to, so `Is Nothing` of it is `False`, and what is assigned
+to its members stays with it. See
+[**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics).
 
-- Setting an auto-object (a predeclared instance) to `Nothing` destroys its internal state.
-- _Semantic flags_ should identify whether a predeclared class module is _stateful_ or not
-  ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)).
-- An auto-object reference is re-created as soon as it is referred to, including within an
-  `Is Nothing` reference check.
-- An `Is Nothing` check on an auto-object is therefore _statically constant_ (`False`)
-  ([**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)).
+> [!NOTE]
+> 🚧 **TODO** _Semantic flags_ identifying whether a predeclared class module is _stateful_ or not
+> ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)), and an `Is Nothing` check on a
+> default instance reported as _statically constant_ (`False`,
+> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)), are not implemented.
 
 ## 3.1.1.7 VB_Description
 
