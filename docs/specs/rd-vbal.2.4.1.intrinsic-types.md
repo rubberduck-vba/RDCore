@@ -120,8 +120,10 @@ The _declaration pass_ binds the _declared type_ of an array symbol from the _ar
 |---|---|---|
 |One or more _bounds_|`Dim g(1 To 3, 0 To 4) As Long`|`VBFixedSizeArrayType`|
 |Empty `()` clause|`Dim b() As Long`|`VBResizableArrayType`|
-|Trailing `()` on the `As` clause|`Dim b As Long()`|`VBResizableArrayType`|
-|Empty `()` clause, or trailing `()` on the `As` clause, with item type `Byte`|`Dim b() As Byte`, `Dim b As Byte()`|`VBResizableByteArrayType` (instead of `VBResizableArrayType`)|
+|Empty `()` clause, with item type `Byte`|`Dim b() As Byte`|`VBResizableByteArrayType` (instead of `VBResizableArrayType`)|
+
+A trailing `()` on the `As` clause (`As Long()`) is the type of what a `Function`, a `Property Get` or a `Declare`'s `Function` returns, an array of
+it; it is a syntax error on a variable ([**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md#52313-array-dimensions-and-bounds)).
 
 An omitted array _item type_ defaults to `Variant` ([**MS-VBAL §5.2.3.1** Module Variable Declaration Lists](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/0f9113df-fd9c-485a-9583-fdb0e9d68e1b)). This default is applied by a later normalization pass, not by the declaration pass.
 

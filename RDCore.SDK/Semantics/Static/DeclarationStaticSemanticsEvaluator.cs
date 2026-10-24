@@ -1,6 +1,7 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -121,6 +122,19 @@ public static class DeclarationStaticSemanticsEvaluator
             }
 
             declarations.Add((kind, child.SourceLocation));
+        }
+
+        // MS-VBAL §5.3.1.4: `As Long()` - a type written with () - is what a Function, a Property Get or a Declare's Function returns, and nothing else is
+        // declared with one: a variable, a constant, a field of a Type, a parameter or the elements of a ReDim are an array by the () after the name (MS-VBA:
+        // a syntax error, recorded in Excel, oracle\s23 T01-T18).
+        foreach (var declaration in module.Descendants().Where(node => node is not (MemberDeclarationNode { MemberKind: MemberKind.Function or MemberKind.PropertyGet
+            or MemberKind.ExternalFunction } or ExternalMemberDeclarationNode)))
+        {
+            foreach (var asType in declaration.Children.OfType<AsTypeExpressionNode>().Where(asType => asType.IsArrayDef))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, asType.Location,
+                    string.Format(Exceptions.VBCompileError_ArrayTypeOnlyReturned_Verbose, asType.TypeName)));
+            }
         }
 
         // an array parameter is passed by reference, and one declared ByVal is refused - of a procedure, a property, an event or a Declare alike (MS-VBA: "Array

@@ -429,9 +429,8 @@ public sealed class SyntaxTreeSymbolProviderTests
     }
 
     [TestMethod]
-    // MS-VBAL 5.2.3.1: an empty `()` clause, or a trailing `()` on the As-clause, declares a dynamic array.
+    // MS-VBAL 5.2.3.1: an empty `()` clause declares a dynamic array. A trailing `()` on the As-clause is a syntax error (ArrayTypeClauseTests).
     [DataRow("Dim Buffer() As Long")]
-    [DataRow("Dim Buffer As Long()")]
     public void LocalDynamicArray_YieldsResizableArrayType(string declaration)
     {
         var local = Single<VBLocalVariableSymbol>(Provide($"""

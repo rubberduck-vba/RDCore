@@ -59,10 +59,21 @@ An _array declaration_ creates an _array value_ of the appropriate _array type_ 
 |---|---|---|---|
 |One or more _bounds_ (dimension specifications)|`Dim g(1 To 3, 0 To 4) As Long`|[VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)|[VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|
 |An empty `()` clause|`Dim b() As Long`|[VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html)|[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|
-|A trailing `()` on the `As` clause|`Dim b As Long()`|`VBResizableArrayType`|`VBResizableArrayValue`|
-|An empty `()` clause, or a trailing `()` on the `As` clause, with a `Byte` _item type_|`Dim b() As Byte`|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)|[VBResizableByteArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
+|An empty `()` clause, with a `Byte` _item type_|`Dim b() As Byte`|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)|[VBResizableByteArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
 
 An array has up to 60 dimensions.
+
+An array is declared by the `()` after its name, and only so: a trailing `()` on the `As` clause (`As Long()`, the `array-designator` of
+**MS-VBAL §5.3.1.4**) is the type of what a `Function`, a `Property Get` or a `Declare`'s `Function` returns, and is a syntax error anywhere else, as it
+is in **MS-VBA** (recorded in Excel): a variable of a module, a local (`Dim`, `Static`), a field of a `Type`, a constant, a parameter (of a procedure, an
+event or a `Declare`), or the `As` clause of a `ReDim`. `DeclarationStaticSemanticsEvaluator.CheckSyntax` reports it.
+
+|Declaration|Outcome|
+|---|---|
+|`Function F() As Long()`, `Property Get P() As Long()`, `Declare Function F Lib "…" () As Long()`|Valid: what is returned is an array of `Long`.|
+|`Dim b As Long()`, `Public b As Long()`, `Static s As Long()`, `F As Long()` in a `Type`|[VBC00001](../diagnostics/vbc00001.md) _Syntax error_. Write `Dim b() As Long`.|
+|`Sub X(a As Long())`, `Event E(a As Long())`|`VBC00001` _Syntax error_. Write `Sub X(a() As Long)`.|
+|`ReDim a(2) As Long()`, `Const K As Long() = 1`|`VBC00001` _Syntax error_.|
 
 Resolving an omitted _lower bound_ against `Option Base` is specified in
 [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md) (§5.2.1.2).

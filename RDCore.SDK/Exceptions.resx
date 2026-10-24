@@ -714,6 +714,9 @@
   <data name="VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose" xml:space="preserve">
     <value>'{0}' is declared ByVal and an array: an array parameter is always ByRef.</value>
   </data>
+  <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
+    <value>'As {0}()' is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in 'Dim a() As {0}'.</value>
+  </data>
   <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
     <value>'{0}' is a ParamArray, which is written with neither ByVal nor ByRef.</value>
   </data>

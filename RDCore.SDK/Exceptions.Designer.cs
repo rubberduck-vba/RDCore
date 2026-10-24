@@ -1078,6 +1078,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;As {0}()&apos; is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in &apos;Dim a() As {0}&apos;..
+        /// </summary>
+        public static string VBCompileError_ArrayTypeOnlyReturned_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArrayTypeOnlyReturned_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a ParamArray, which is written with neither ByVal nor ByRef..
         /// </summary>
         public static string VBCompileError_ParamArrayPassingMode_Verbose {

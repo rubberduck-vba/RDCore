@@ -29,10 +29,11 @@ public sealed class ArrayOfObjectsTests
             "items = Both()",
             "Debug.Print TypeName(items) & \" \" & items(0).Name & \" \" & items(1).Name"));
 
+    // the () after the name: written on the type (`As Widget()`), it is a syntax error (ArrayTypeClauseTests).
     [TestMethod]
-    public async Task AVariableDeclaredAsAnArrayOfAClassWithTheParenthesesOnTheType_IsAResizableArrayOfIt()
+    public async Task AVariableDeclaredAsAnArrayOfAClass_IsAResizableArrayOfIt()
         => CollectionAssert.AreEqual(new[] { "Object() 2" }, await RunWith(string.Empty,
-            "Dim items As Widget()",
+            "Dim items() As Widget",
             "ReDim items(1 To 2)",
             "Debug.Print TypeName(items) & \" \" & UBound(items)"));
 

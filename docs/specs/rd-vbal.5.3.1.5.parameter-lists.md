@@ -41,10 +41,8 @@ declared `ByVal` is refused, as **MS-VBA** refuses it (recorded in Excel), where
 `DeclarationStaticSemanticsEvaluator.CheckSyntax` reports them, off the declarations of the syntax tree. An argument written `ByVal` for an array parameter
 is `VBC09371` too ([**RD-VBAL §5.6.13.1** Argument Lists](rd-vbal.5.6.13.index-expressions.md#56131-argument-lists)).
 
-> [!NOTE]
-> **Not implemented.** **MS-VBA** reads a trailing `()` on the `As` clause of a parameter (`ByVal a As Long()`, `a As Long()`) as a syntax error
-> (_Expected: list separator or )_, recorded in Excel), and of a `Dim` (`Dim b As Long()`) too; **RD-VBA** reads it as an array, as
-> [**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md) has it for `Dim`. A function's `As Long()` is valid in both.
+A parameter is an array by the `()` after its name: a trailing `()` on its `As` clause (`a As Long()`, `ByVal a As Long()`) is a syntax error, as it is in
+**MS-VBA** ([**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md#52313-array-dimensions-and-bounds)).
 
 ### Optional parameters
 

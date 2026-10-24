@@ -42,8 +42,10 @@ before any bound is evaluated:
 |---|---|---|
 |One or more bounds|`Dim g(1 To 3, 0 To 4) As Long`|[VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)|
 |An empty `()` clause|`Dim b() As Long`|[VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html)|
-|A trailing `()` on the `As` clause|`Dim b As Long()`|`VBResizableArrayType`|
-|An empty `()` clause or a trailing `()` on the `As` clause, with item type `Byte`|—|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html), instead of `VBResizableArrayType`|
+|An empty `()` clause, with item type `Byte`|`Dim b() As Byte`|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html), instead of `VBResizableArrayType`|
+
+A trailing `()` on the `As` clause of a local (`Dim b As Long()`, `Static s As Long()`) is a syntax error, as it is in **MS-VBA**
+([**RD-VBAL §5.2.3.1.3**](rd-vbal.5.2.3.module-declarations.md#52313-array-dimensions-and-bounds)).
 
 See [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md). An array declaration creates an array
 value of the appropriate array type in the scope of the declaration; see

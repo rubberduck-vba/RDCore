@@ -714,6 +714,9 @@
   <data name="VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose" xml:space="preserve">
     <value>'{0}' est déclaré ByVal et tableau : un paramètre tableau est toujours ByRef.</value>
   </data>
+  <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
+    <value>'As {0}()' est ce que renvoie une Function, une Property Get ou un Declare : un tableau se déclare avec () après son nom, comme dans 'Dim a() As {0}'.</value>
+  </data>
   <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
     <value>'{0}' est un ParamArray, qui s'écrit sans ByVal ni ByRef.</value>
   </data>
