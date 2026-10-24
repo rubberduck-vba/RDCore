@@ -121,7 +121,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: SimpleNameExpressionNode callee } index
                 when context.Resolver.ResolveValue(callee, ScopeKind.Local, context.Scope.Uri).Symbol is
                     VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index, onObject: false)),
+                => new BoundCall(index, procedure, BoundArgumentsOf(procedure, index)),
 
             // MS-VBAL §5.6.12: a member of a project or a procedural module - `Constants.vbCrLf`, `Module1.Count` - is what the name means unqualified there,
             // and a member of an enumeration named by its type is a constant: neither is a member of a value. Classified and resolved as the evaluation does.
@@ -133,7 +133,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier && NamespaceMemberOf(context, qualifier, access) is { } member
                 => member is VBTypeMemberSymbol procedure and (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
-                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index, onObject: false))
+                    ? new BoundCall(index, procedure, BoundArgumentsOf(procedure, index))
                     : new BoundIndex(index, new BoundQualifiedName(access, member), ArgumentNodes(index)),
 
             // a member of an object declared as a class, read or called: resolved in the class, as the evaluation resolves it. A function that takes no
@@ -157,7 +157,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: { } owner } access } index
                 when OwnerOf(context, owner) is var (ownerNode, declared) && InvocableMember(declared, access.Member.IdentifierName) is { } member
                     && !ReturnsToBeIndexed(member, index.Arguments)
-                => new BoundMember(index, access, ownerNode, declared, member, index, BoundArgumentsOf(member, index, onObject: true)),
+                => new BoundMember(index, access, ownerNode, declared, member, index, BoundArgumentsOf(member, index)),
 
             // an element of an array, or a default member of an object, a variable holds: the variable is read through its node (a procedure, which the name
             // calls, is a BoundCall above).
@@ -185,7 +185,7 @@ public sealed class ExpressionBindings
             IndexExpressionNode { Callee: MemberAccessExpressionNode { Owner: null } access } index
                 when WithTargetOf(context) is { } declared && InvocableMember(declared, access.Member.IdentifierName) is { } member
                     && !ReturnsToBeIndexed(member, index.Arguments)
-                => new BoundMember(index, access, null, declared, member, index, BoundArgumentsOf(member, index, onObject: true)),
+                => new BoundMember(index, access, null, declared, member, index, BoundArgumentsOf(member, index)),
 
             // a member of the target of a With block declared as anything else: the object is the block's, the member found from it.
             MemberAccessExpressionNode { Owner: null } access => new BoundMember(access, access, null, null, null, null),
@@ -278,9 +278,9 @@ public sealed class ExpressionBindings
         => member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && !arguments.IsDefaultOrEmpty && arguments is not [MissingArgumentNode]
             && ParametersOf(member).All(parameter => parameter.Name == "Me");
 
-    // how each argument of a call is passed, bound once (IR lowering S1.7): to the parameters of the procedure - those after its Me, for a member called on an
-    // object, which supplies its own. A member of a class called by its bare name has its Me supplied by the call, and is bound when it is made.
-    private ImmutableArray<BoundArgument>? BoundArgumentsOf(VBTypeMemberSymbol procedure, IndexExpressionNode call, bool onObject)
+    // how each argument of a call is passed, bound once (IR lowering S1.7): to the parameters of the procedure after its Me, if it has one - a member called
+    // on an object is given that object, and one of the class named bare in its own code the current instance (MS-VBAL §5.6.10).
+    private ImmutableArray<BoundArgument>? BoundArgumentsOf(VBTypeMemberSymbol procedure, IndexExpressionNode call)
     {
         if (procedure is not (VBProcedureMemberSymbol or VBReturningMemberSymbol))
         {
@@ -288,17 +288,7 @@ public sealed class ExpressionBindings
         }
 
         var parameters = ParametersOf(procedure);
-        if (parameters is [{ Name: Tokens.Me }, ..])
-        {
-            if (!onObject)
-            {
-                return null;
-            }
-
-            parameters = parameters.RemoveAt(0);
-        }
-
-        return ArgumentMapping.Bind(parameters, call.Arguments, NodeOf, DeclaredTypeOf);
+        return ArgumentMapping.Bind(parameters is [{ Name: Tokens.Me }, ..] ? parameters.RemoveAt(0) : parameters, call.Arguments, NodeOf, DeclaredTypeOf);
     }
 
     private static ImmutableArray<VBParameterSymbol> ParametersOf(VBTypeMemberSymbol member) => member switch

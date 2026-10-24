@@ -1686,6 +1686,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null, ImmutableArray<BoundArgument>? boundArguments = null)
     {
         var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
+
+        // MS-VBAL §5.6.10: a member of the class whose code is running, named bare - `Helper`, `Twice(3)`, a Property Get read by its name - is a member
+        // of the current instance, and is invoked on it: the call is made on the activation's own Me.
+        if (receiver is null && allParameters is [{ Name: Tokens.Me }, ..]
+            && session.Symbols.Resolver.ResolveValue(Tokens.Me, ScopeKind.Local, context.Scope).Symbol is { } me)
+        {
+            receiver = new VBObjectValue(session.Symbols.Resolver.GetValue(me)).RuntimeValue;
+        }
+
         // a call made on an object supplies its own implicit Me (parameter 0), so the arguments written at the call
         // site map onto the parameters after it - made once for each member (IR lowering S1.3).
         var parameters = receiver is not null && allParameters is [{ Name: "Me" }, ..]
