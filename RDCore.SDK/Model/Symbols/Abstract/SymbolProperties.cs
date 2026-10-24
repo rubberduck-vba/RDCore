@@ -1,6 +1,17 @@
 ﻿namespace RDCore.SDK.Model.Symbols.Abstract;
 
-public record class SymbolProperty<T>(string Name) { }
+/// <summary>
+/// The key of a property of a symbol (<see cref="Symbol.GetProperty{T}"/>), of the type of its value: two keys of the same name and type are the same key.
+/// </summary>
+/// <param name="Name">The name of the property.</param>
+public record class SymbolProperty<T>(string Name)
+{
+    // a property is read on every call of an external member, and a key is hashed each time it is looked up: its name is hashed once (IR lowering S1.9).
+    private readonly int _hashCode = HashCode.Combine(typeof(SymbolProperty<T>), Name);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => _hashCode;
+}
 
 /// <summary>
 /// Defines LSP-compliant extension properties for symbols. RDCore uses this to carry the <c>VB_Attribute</c> values associated with a symbol.
