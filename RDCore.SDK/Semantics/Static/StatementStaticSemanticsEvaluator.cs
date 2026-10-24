@@ -12,7 +12,6 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
@@ -214,7 +213,9 @@ public static class StatementStaticSemanticsEvaluator
             var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, withStatement.WithExpression);
             CollectError(targetResult, walk);
 
-            var bodyContext = targetResult.IsSuccess ? context with { EnclosingWithTargetType = targetResult.Result } : context;
+            // a target that is an error is reported once: the body is still in a With block, of a target whose type is not known, and its members are
+            // late-bound rather than each an implicit With-reference outside any.
+            var bodyContext = context with { EnclosingWithTargetType = targetResult.IsSuccess ? targetResult.Result : VBUnknownType.TypeInfo };
             EvaluateBlock(bodyContext, withStatement.Body, walk);
             return;
         }
@@ -859,12 +860,6 @@ public static class StatementStaticSemanticsEvaluator
             ? context.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope.Uri).Symbol as VBPredeclaredInstanceSymbol
             : null;
 
-    // the standard library's own Debug object (StdLibSymbolProvider), whose class is a member of the library's global module - not a class of the workspace
-    // that happens to be named Debug.
-    private static bool IsTheDebugObject(VBPredeclaredInstanceSymbol instance)
-        => string.Equals(instance.ClassModule.Name, StdLibSymbolProvider.DebugObjectName, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(instance.ClassModule.ParentUri.Fragment.TrimStart('#'), StdLibSymbolProvider.GlobalModuleName, StringComparison.OrdinalIgnoreCase);
-
     // MS-VBAL §5.4.3.6-7's LSet and RSet targets; §5.4.3.9's Set target, which holds an object; a property that has no accessor for the assignment
     // (§5.4.3.8, §5.4.3.9); and the default member a Let statement assigns through an object, which must be callable with no argument (§5.4.3.8).
     private static VBCompileErrorInfo? TargetKindError(StaticEvaluationContext context, AssignmentStatementNode assignment, VBType target)
@@ -880,21 +875,12 @@ public static class StatementStaticSemanticsEvaluator
             return VBCompileErrorInfo.For(isSet ? VBCompileErrorId.InvalidUseOfProperty : VBCompileErrorId.CantAssignToReadOnlyProperty, location, name);
         }
 
-        // the default instance of a class can be the target of a Set, as it is in MS-VBA (RD-VBAL §5.2.4.1.2), but for two (MS-VBA, Excel-verified,
-        // oracle\s18): an extensible class's - a document module, `ThisWorkbook`, `Sheet1` - is a property of the host that extends it, which a Set cannot
-        // assign ("Invalid use of property", whatever is assigned); and `Debug`, which is the host's, somewhere between an object and a keyword, is not a
-        // name a Set can be written with at all ("Syntax error").
-        if (isSet && DefaultInstanceNamedBy(context, assignment.Target) is { } instance)
+        // the default instance of a class can be the target of a Set, as it is in MS-VBA (RD-VBAL §5.2.4.1.2), but not an extensible class's - a document
+        // module, `ThisWorkbook`, `Sheet1` - which is a property of the host that extends it, and which a Set cannot assign (MS-VBA, Excel-verified,
+        // oracle\s18: "Invalid use of property", whatever is assigned). `Debug` is no target at all: its name is a syntax error (SimpleNameExpressionStaticSemantics).
+        if (isSet && DefaultInstanceNamedBy(context, assignment.Target) is { } instance && instance.ClassModule.GetProperty(SymbolProperties.Extensible))
         {
-            if (IsTheDebugObject(instance))
-            {
-                return VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, location, instance.Name);
-            }
-
-            if (instance.ClassModule.GetProperty(SymbolProperties.Extensible))
-            {
-                return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, location, instance.Name);
-            }
+            return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, location, instance.Name);
         }
 
         // a call of a function, written as the target of a Let statement, assigns the default member of what it returns: a value that is neither a Variant

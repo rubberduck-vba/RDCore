@@ -56,6 +56,20 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     public const string DebugObjectName = "Debug";
 
     /// <summary>
+    /// Whether <paramref name="symbol"/> is the <c>Debug</c> object this provider synthesizes: the default instance of its <c>Debug</c> class, a member of
+    /// the library's <see cref="GlobalModuleName"/> module - not a variable or a class of the workspace that happens to be named <c>Debug</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>Debug</c> is somewhere between an object and a keyword: it is only ever written as the <c>Debug.Print</c> and <c>Debug.Assert</c> statements,
+    /// and MS-VBA reads any other use of the name - a value, the target of an assignment or a <c>With</c> block - as a syntax error.
+    /// </remarks>
+    /// <param name="symbol">The symbol a name resolved to.</param>
+    public static bool IsDebugObject(Symbol symbol)
+        => symbol is VBPredeclaredInstanceSymbol { ClassModule: var classModule }
+            && string.Equals(classModule.Name, DebugObjectName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(classModule.ParentUri.Fragment.TrimStart('#'), GlobalModuleName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// <c>Debug.Print</c>: writes an output list to the environment's own output
     /// (<strong>MS-VBAL §5.4.5.8</strong>'s rules, against no file).
     /// </summary>

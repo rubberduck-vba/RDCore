@@ -142,6 +142,21 @@ public sealed class StatementStaticSemanticsEvaluatorTests
     }
 
     [TestMethod]
+    public void AWithBlockWhoseTargetIsAnError_ReportsItOnce_AndItsBodyIsStillInTheBlock()
+        // a procedural module is no value; what the body accesses with a dot is a member of the target, whose type is not known - not an implicit With-reference
+        // outside any With block, once for each.
+    {
+        var module = Module("Caller");
+        var context = ContextAt(module.Uri, module);
+
+        var block = Block(WithOf(NameOf("Caller"), AssignOf(WithRelativeMemberOf("Bar"), NameOf("value")), AssignOf(WithRelativeMemberOf("Baz"), NameOf("value"))));
+        var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
+
+        Assert.AreEqual(1, errors.Length);
+        Assert.AreEqual(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, errors[0].VBCompileErrorId);
+    }
+
+    [TestMethod]
     public void MultipleIndependentErrors_AreAllCollected_NotJustTheFirst()
     {
         var module = Module("Caller") with { Directives = new ModuleDirectives(Explicit: true) };

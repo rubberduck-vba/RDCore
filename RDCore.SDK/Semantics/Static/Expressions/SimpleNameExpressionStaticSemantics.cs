@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 
@@ -56,6 +57,14 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             if (result.Symbol is VBStandardModuleSymbol module)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, expression.Location, module.Name));
+            }
+
+            // the host's Debug object is only ever written as the statements that are its own, Debug.Print and Debug.Assert (DebugStatementNode, which no
+            // simple name of it is in): anywhere else - a value, the target of a Let or a Set, the target of a With block, `Call Debug.Print(…)` - MS-VBA reads
+            // the name as a syntax error (Excel-verified, oracle\s18 D09, D11-D17).
+            if (StdLibSymbolProvider.IsDebugObject(result.Symbol!))
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, expression.Location, simpleName.WrittenName));
             }
 
             return StaticSemanticsEvaluationResult.Success(result.Symbol is ITypedSymbol typed ? typed.ResolvedType : VBUnknownType.TypeInfo);

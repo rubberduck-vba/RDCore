@@ -147,12 +147,26 @@ public sealed class DefaultInstanceTests
         Assert.IsTrue(errors.Any(error => error.Contains("Variable not defined")), string.Join(" / ", errors));
     }
 
-    // the host's Debug object is not a name a Set can be written with: MS-VBA reports a syntax error (oracle\s18 D09).
+    // the host's Debug object is only ever written as its own statements, Debug.Print and Debug.Assert: anywhere else MS-VBA reads the name as a syntax error,
+    // and that is the one error (oracle\s18 D09, D11-D17).
     [TestMethod]
-    public async Task TheDebugObject_IsNoTargetOfASetAssignment()
+    [DataRow("Set Debug = Nothing", DisplayName = "the target of a Set")]
+    [DataRow("Let Debug = 1", DisplayName = "the target of a Let")]
+    [DataRow("Debug = 1", DisplayName = "the target of an implicit Let")]
+    [DataRow("Dim v As Variant\r\nv = Debug", DisplayName = "a value")]
+    [DataRow("Debug.Print TypeName(Debug)", DisplayName = "an argument")]
+    [DataRow("Dim o As Object\r\nSet o = Debug", DisplayName = "an object Set")]
+    [DataRow("Call Debug.Print(\"x\")", DisplayName = "the owner of a member called with Call")]
+    [DataRow("With Debug\r\n.Print \"x\"\r\nEnd With", DisplayName = "the target of a With block")]
+    public async Task TheDebugObject_AnywhereButItsOwnStatements_IsASyntaxError(string body)
     {
-        var errors = await LoadErrorsAsync([], [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nSet Debug = Nothing\r\nEnd Sub\r\n");
+        var errors = await LoadErrorsAsync([], [], $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\n{body}\r\nEnd Sub\r\n");
 
-        Assert.IsTrue(errors.Any(error => error.Contains("Syntax error")), string.Join(" / ", errors));
+        Assert.HasCount(1, errors, string.Join(" / ", errors));
+        StringAssert.Contains(errors[0], "Syntax error");
     }
+
+    [TestMethod]
+    public async Task TheDebugStatements_AreValid()
+        => Assert.IsEmpty(await LoadErrorsAsync([], [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDebug.Assert True\r\nDebug.Print \"ok\"\r\nEnd Sub\r\n"));
 }
