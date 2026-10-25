@@ -31,6 +31,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private const int TypeMismatch = unchecked((int)0x80020005);
     private const int ClassNotRegistered = unchecked((int)0x80040154);
     private const int Unspecified = unchecked((int)0x80004005);
+    private const int BadParameterCount = unchecked((int)0x8002000E);
 
     private readonly BlockingCollection<Action> _work = [];
     private readonly Lazy<Thread> _apartment;
@@ -61,6 +62,78 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         return Activator.CreateInstance(type) ?? throw new AutomationException(ClassNotRegistered, $"'{progId}' could not be created.");
     })!;
 
+    // what GetObject asks for that COM says the file, or the moniker, cannot be opened as: MS-VBA's 432 (recorded in Excel, oracle\s25 G02).
+    private const int CannotOpenFile = unchecked((int)0x800401EA);
+
+    /// <inheritdoc/>
+    public object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request) => OnApartment(() =>
+    {
+        try
+        {
+            return request.Source switch
+            {
+                SDK.Runtime.Abstract.Execution.ExternalObjectSource.Create => CreateOn(request.ProgId ?? string.Empty, request.ServerName),
+                SDK.Runtime.Abstract.Execution.ExternalObjectSource.Running => Running(request.ProgId ?? string.Empty),
+                _ => FromFile(request.PathName ?? string.Empty, request.ProgId),
+            };
+        }
+        catch (COMException failure)
+        {
+            throw new AutomationException(failure.HResult, failure.Message);
+        }
+    })!;
+
+    // a new object of the class, on the machine named - this one when none is.
+    private static object CreateOn(string progId, string? serverName)
+    {
+        var type = (serverName is { Length: > 0 } ? Type.GetTypeFromProgID(progId, serverName, throwOnError: false) : Type.GetTypeFromProgID(progId, throwOnError: false))
+            ?? throw new AutomationException(ClassNotRegistered, $"'{progId}' is not registered on this machine.");
+
+        return Activator.CreateInstance(type) ?? throw new AutomationException(ClassNotRegistered, $"'{progId}' could not be created.");
+    }
+
+    // the object of the class that is running: the one the running object table has for its class identifier.
+    private static object Running(string progId)
+    {
+        var status = CLSIDFromProgID(progId, out var classId);
+        if (status < 0)
+        {
+            throw new AutomationException(status, $"'{progId}' is not registered on this machine.");
+        }
+
+        status = GetActiveObject(ref classId, IntPtr.Zero, out var running);
+        return status < 0 ? throw new AutomationException(status, $"No object of '{progId}' is running.") : running;
+    }
+
+    // the object a file is, or a moniker names: the one its own class opens it as, or the class named (IPersistFile.Load).
+    private static object FromFile(string pathName, string? progId)
+    {
+        if (progId is not { Length: > 0 })
+        {
+            var dispatch = new Guid("00020400-0000-0000-C000-000000000046");
+            var status = CoGetObject(pathName, IntPtr.Zero, ref dispatch, out var named);
+            return status < 0 ? throw new AutomationException(status is unchecked((int)0x800401E4) ? CannotOpenFile : status, $"'{pathName}' cannot be opened.") : named;
+        }
+
+        var created = CreateOn(progId, serverName: null);
+        if (created is not IPersistFile file)
+        {
+            throw new AutomationException(CannotOpenFile, $"'{progId}' does not open files.");
+        }
+
+        file.Load(pathName, 0);
+        return created;
+    }
+
+    [DllImport("ole32.dll", CharSet = CharSet.Unicode)]
+    private static extern int CLSIDFromProgID(string progId, out Guid classId);
+
+    [DllImport("oleaut32.dll")]
+    private static extern int GetActiveObject(ref Guid classId, IntPtr reserved, [MarshalAs(UnmanagedType.IUnknown)] out object running);
+
+    [DllImport("ole32.dll", CharSet = CharSet.Unicode)]
+    private static extern int CoGetObject(string name, IntPtr bindOptions, ref Guid interfaceId, [MarshalAs(UnmanagedType.IUnknown)] out object named);
+
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
         => OnApartment(() => InvokeMember(target, member, invocation, arguments, byReference, culture));
@@ -70,22 +143,109 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     {
         try
         {
-            if (target is not IDispatchTypeInformation dispatch || dispatch.GetTypeInfoCount(out var count) != 0 || count == 0)
+            // the class the object says it is, or the class its library makes the interface it answers to the default one of: the class MS-VBA's TypeName
+            // names (`Dictionary`, of an object that answers to `IDictionary`; recorded in Excel, oracle\s25).
+            var typeInfo = ClassInfoOf(target);
+            if (typeInfo is null)
             {
-                return null;
+                if (target is not IDispatchTypeInformation dispatch || dispatch.GetTypeInfoCount(out var count) != 0 || count == 0)
+                {
+                    return null;
+                }
+
+                dispatch.GetTypeInfo(0, 0, out typeInfo);
             }
 
-            dispatch.GetTypeInfo(0, 0, out var typeInfo);
-            typeInfo.GetDocumentation(-1, out var className, out _, out _, out _);
             typeInfo.GetContainingTypeLib(out var library, out _);
             library.GetDocumentation(-1, out var libraryName, out _, out _, out _);
-            return $"{libraryName}.{className}";
+            return $"{libraryName}.{ClassNameOf(typeInfo, library)}";
         }
         catch (COMException)
         {
             return null;
         }
     });
+
+    // IProvideClassInfo, which not every object answers to, nor answers when it does.
+    private static ITypeInfo? ClassInfoOf(object target)
+    {
+        if (target is not IProvideClassInformation provider)
+        {
+            return null;
+        }
+
+        try
+        {
+            provider.GetClassInfo(out var classInfo);
+            return classInfo;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+    }
+
+    // the name of the class an interface is the default one of, by the interface's identifier: a library's classes are looked through once for each.
+    private readonly ConcurrentDictionary<Guid, string> _classesByInterface = new();
+
+    private string ClassNameOf(ITypeInfo typeInfo, ITypeLib library)
+    {
+        typeInfo.GetDocumentation(-1, out var name, out _, out _, out _);
+        var (kind, identifier, _) = AttributesOf(typeInfo);
+        if (kind is TYPEKIND.TKIND_COCLASS)
+        {
+            return name;
+        }
+
+        return _classesByInterface.GetOrAdd(identifier, _ => DefaultClassOf(library, identifier) ?? name);
+    }
+
+    private static string? DefaultClassOf(ITypeLib library, Guid interfaceIdentifier)
+    {
+        for (var index = 0; index < library.GetTypeInfoCount(); index++)
+        {
+            library.GetTypeInfoType(index, out var kind);
+            if (kind is not TYPEKIND.TKIND_COCLASS)
+            {
+                continue;
+            }
+
+            library.GetTypeInfo(index, out var candidate);
+            var (_, _, implemented) = AttributesOf(candidate);
+            for (var implementation = 0; implementation < implemented; implementation++)
+            {
+                candidate.GetImplTypeFlags(implementation, out var flags);
+                if (!flags.HasFlag(IMPLTYPEFLAGS.IMPLTYPEFLAG_FDEFAULT) || flags.HasFlag(IMPLTYPEFLAGS.IMPLTYPEFLAG_FSOURCE))
+                {
+                    continue;
+                }
+
+                candidate.GetRefTypeOfImplType(implementation, out var reference);
+                candidate.GetRefTypeInfo(reference, out var implementedInterface);
+                if (AttributesOf(implementedInterface).Identifier == interfaceIdentifier)
+                {
+                    candidate.GetDocumentation(-1, out var className, out _, out _, out _);
+                    return className;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static (TYPEKIND Kind, Guid Identifier, int Implemented) AttributesOf(ITypeInfo typeInfo)
+    {
+        typeInfo.GetTypeAttr(out var pointer);
+        try
+        {
+            var attributes = Marshal.PtrToStructure<TYPEATTR>(pointer);
+            return (attributes.typekind, attributes.guid, attributes.cImplTypes);
+        }
+        finally
+        {
+            typeInfo.ReleaseTypeAttr(pointer);
+        }
+    }
 
     /// <inheritdoc/>
     public bool MoveNext(object enumerator, out object? current)
@@ -539,6 +699,15 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         {
             throw new AutomationException(MemberNotFound, $"The object has no member '{member}'.");
         }
+        // the binder's DISP_E_BADPARAMCOUNT: `v = d` of a Dictionary, whose default member takes the key.
+        catch (TargetParameterCountException miscounted)
+        {
+            throw new AutomationException(BadParameterCount, miscounted.Message);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is TargetParameterCountException miscounted)
+        {
+            throw new AutomationException(BadParameterCount, miscounted.Message);
+        }
         catch (Exception exception) when (exception is ArgumentException or InvalidCastException or FormatException)
         {
             throw new AutomationException(TypeMismatch, exception.Message);
@@ -680,5 +849,13 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         int GetTypeInfoCount(out int count);
 
         void GetTypeInfo(int index, int lcid, out ITypeInfo typeInfo);
+    }
+
+    [ComImport]
+    [Guid("B196B283-BAB4-101A-B69C-00AA00341D07")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IProvideClassInformation
+    {
+        void GetClassInfo(out ITypeInfo typeInfo);
     }
 }

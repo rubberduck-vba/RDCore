@@ -72,12 +72,27 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
     {
         try
         {
-            return request.IsCreation ? Create(request) : IsEnumeratorMember(request) ? Enumerate(request) : Call(request, resolver);
+            return request.Obtains is { } obtained ? Obtain(obtained, resolver)
+                : request.IsCreation ? Create(request)
+                : IsEnumeratorMember(request) ? Enumerate(request)
+                : Call(request, resolver);
         }
         catch (AutomationException failure)
         {
-            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe()));
+            return RuntimeSemanticsEvaluationResult.Error(AutomationErrors.ToError(failure, request.CallSite, request.Describe(), obtaining: request.Obtains is not null));
         }
+    }
+
+    // CreateObject and GetObject: the object, an instance of the class of a referenced library that declares it, or a late-bound one (LateBinding).
+    private RuntimeSemanticsEvaluationResult Obtain(ExternalObjectRequest request, ISymbolResolver resolver)
+    {
+        object obtained;
+        using (session.Turn.Yield())
+        {
+            obtained = server.GetObject(request);
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(Wrap(obtained, VBObjectType.TypeInfo, resolver));
     }
 
     private RuntimeSemanticsEvaluationResult Create(ExternalCallRequest request)

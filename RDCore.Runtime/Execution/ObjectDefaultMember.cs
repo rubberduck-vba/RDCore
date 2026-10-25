@@ -34,7 +34,11 @@ internal static class ObjectDefaultMember
     /// </returns>
     public static bool TryFind(VBClassModuleSymbol classModule, [NotNullWhen(true)] out VBReturningMemberSymbol? member)
     {
-        member = VBClassType.FromClassModule(classModule).DefaultMember as VBReturningMemberSymbol;
+        // a late-bound object's default member is whatever answers to DISPID_VALUE: whether anything does, and with what arguments, is the object's to say.
+        member = External.Automation.LateBinding.IsLateBound(classModule)
+            ? (VBReturningMemberSymbol)External.Automation.LateBinding.MemberOf(
+                classModule, External.Automation.LateBinding.DefaultMemberName, RDCore.External.Automation.AutomationInvocation.Get)
+            : VBClassType.FromClassModule(classModule).DefaultMember as VBReturningMemberSymbol;
 
         // SymbolBuilder.BuildParameters gives every member of a class an implicit Me at slot 0; anything after it is the member's own.
         var parameters = member is null ? [] : RuntimeProcedureInvoker.GetParameters(member);

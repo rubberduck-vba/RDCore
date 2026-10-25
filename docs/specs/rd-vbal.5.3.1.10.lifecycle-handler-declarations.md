@@ -22,7 +22,7 @@ A handler is never called by name. Raising an event dispatches the interface mem
 |---|---|
 |The `New` operator|Implemented|
 |The first reference to a variable declared `As New`, and to a predeclared default instance|Implemented|
-|The `CreateObject` function|Not implemented|
+|The `CreateObject` function|Not applicable: it creates an object of a server or of the standard library, never of a class of the workspace|
 
 An error the handler leaves unhandled is the error of the creating operation.
 

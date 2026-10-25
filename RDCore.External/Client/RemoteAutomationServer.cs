@@ -56,6 +56,21 @@ public sealed class RemoteAutomationServer : IAutomationServer
     public void Prepare() => _ = Task.Run(() => _host.TryConnect(out _));
 
     /// <inheritdoc/>
+    public object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request)
+    {
+        var incarnation = Connect();
+        var obtained = Send<AutomationObtainParams, AutomationObjectResult>(incarnation, ExternalProtocol.AutomationObtain, new AutomationObtainParams
+        {
+            Source = request.Source,
+            ProgId = request.ProgId,
+            PathName = request.PathName,
+            ServerName = request.ServerName,
+            HandlingEvent = _handlingEvent,
+        });
+        return ObjectOf(incarnation, obtained.Handle);
+    }
+
+    /// <inheritdoc/>
     public object CreateObject(string progId)
     {
         var incarnation = Connect();

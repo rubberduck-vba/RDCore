@@ -34,7 +34,10 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// <param name="value">The handle of the object.</param>
     /// <param name="declared">The type it was declared to be.</param>
     /// <param name="resolver">Finds the classes of the referenced libraries.</param>
-    /// <exception cref="AutomationException">The class of the object is not one of the libraries'.</exception>
+    /// <remarks>
+    /// An object whose class no referenced library declares is a late-bound one, whose members are reached by name (<see cref="LateBinding"/>): what
+    /// <c>CreateObject</c> gives for a class the project does not reference, and what a member of one returns.
+    /// </remarks>
     public VBTypedValue Wrap(object value, VBType declared, ISymbolResolver resolver)
     {
         if (session.ExternalObjects.TryFind(server, value, out var existing))
@@ -42,8 +45,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
             return new VBObjectValue(existing);
         }
 
-        var classModule = ClassOf(value, declared, resolver)
-            ?? throw new AutomationException(unchecked((int)0x80020005), "The class of an object the server returned is not one of the referenced libraries'.");
+        var classModule = ClassOf(value, declared, resolver) ?? LateBinding.ClassNamed(server.ClassNameOf(value));
 
         var identity = session.Objects.CreateObject();
         session.Symbols.CreateInstance(identity, classModule);

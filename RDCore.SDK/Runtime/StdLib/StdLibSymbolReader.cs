@@ -241,6 +241,12 @@ public sealed class StdLibSymbolReader
             // raises 438 at run time (Excel-verified).
             .With(SymbolProperties.Extensible, true);
 
+        // a COM class the platform implements itself, which CreateObject finds by name before a server is asked.
+        if (attribute.ProgId is { Length: > 0 } progId)
+        {
+            symbol = (VBClassModuleSymbol)symbol.With(SymbolProperties.ProgId, progId);
+        }
+
         symbol = symbol with
         {
             Members =

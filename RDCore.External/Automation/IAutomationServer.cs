@@ -88,6 +88,22 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     object CreateObject(string progId);
 
     /// <summary>
+    /// Gets an object by name, as <c>CreateObject</c> and <c>GetObject</c> do: one created here or on a server machine, one that is running, or the one a file
+    /// or a moniker is.
+    /// </summary>
+    /// <remarks>
+    /// A server that only creates objects here creates them, and has none running and no file to open: the class is not registered, as far as the program can
+    /// tell (error <c>429</c>).
+    /// </remarks>
+    /// <param name="request">How the object is obtained.</param>
+    /// <returns>The handle of the object.</returns>
+    /// <exception cref="AutomationException">There is no such object, the server would not start, or the machine named is not there.</exception>
+    object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request)
+        => request is { Source: SDK.Runtime.Abstract.Execution.ExternalObjectSource.Create, ProgId: { Length: > 0 } progId, ServerName: null or "" }
+            ? CreateObject(progId)
+            : throw new AutomationException(unchecked((int)0x80040154), $"{request.Describe()}: nothing here can get it.");
+
+    /// <summary>
     /// Calls a member of an object by its name.
     /// </summary>
     /// <param name="target">The handle of the object.</param>

@@ -36,4 +36,12 @@ public sealed class StdLibClassAttribute(string? name = null) : Attribute
     /// resolved.
     /// </remarks>
     public bool IsCreatable { get; init; } = true;
+
+    /// <summary>
+    /// The programmatic identifier the class answers to in <c>CreateObject</c> (<c>VBScript.RegExp</c>), if it has one: the name of a COM class the platform
+    /// implements itself, found before the machine's own servers are asked - which is what makes a program that creates one by name portable to a machine that
+    /// has no such server.
+    /// </summary>
+    /// <remarks>The part after the last dot is the name of the class.</remarks>
+    public string? ProgId { get; init; }
 }

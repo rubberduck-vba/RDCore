@@ -4,6 +4,7 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
@@ -29,7 +30,7 @@ namespace RDCore.Runtime.StdLib;
 /// An analysis reaches none of it (<see cref="ExternalWorld.None"/>).
 /// </para>
 /// <para>
-/// 🚧 <see cref="Command"/>, <see cref="CommandString"/>, <see cref="CreateObject"/>, <see cref="GetObject"/> and <see cref="Partition"/> are
+/// 🚧 <see cref="Command"/>, <see cref="CommandString"/> and <see cref="Partition"/> are
 /// declared and not written, and <see cref="MacScript"/> never will be: each returns an error that says so.
 /// </para>
 /// </remarks>
@@ -201,6 +202,38 @@ public sealed class StdInteraction(
         if (!session.Symbols.TryGetInstance(objectValue.Value, out var instance) || session.Callables is not { } callables)
         {
             return Fail<VBVariantValue>(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, $"The object has no member '{procName.Value}' to call by name.");
+        }
+
+        // a late-bound object is called by the name, as the call type says: its arguments are the member's ParamArray, and an assignment's value is the last.
+        if (Execution.External.Automation.LateBinding.IsLateBound(instance.ClassModule))
+        {
+            var assigns = callType is VBCallType.VBLet or VBCallType.VBSet;
+            if (assigns && args.Length == 0)
+            {
+                return Fail<VBVariantValue>(VBRuntimeErrorId.ArgumentNotOptional, $"'{procName.Value}' was not given the value it is assigned.");
+            }
+
+            var lateBound = Execution.External.Automation.LateBinding.MemberOf(instance.ClassModule, procName.Value ?? string.Empty, callType switch
+            {
+                VBCallType.VBLet => RDCore.External.Automation.AutomationInvocation.Let,
+                VBCallType.VBSet => RDCore.External.Automation.AutomationInvocation.Set,
+                _ => RDCore.External.Automation.AutomationInvocation.Get,
+            });
+
+            var indexes = assigns ? args[..^1] : args;
+            var collected = new VBResizableArrayValue([(0, indexes.Length - 1)], VBVariantType.TypeInfo);
+            for (var index = 0; index < indexes.Length; index++)
+            {
+                collected.TrySetElement(BindingKnowledge.NewCell(indexes[index]), index);
+            }
+
+            IRuntimeValue[] lateArguments = assigns
+                ? [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(collected)), args[^1].RuntimeValue]
+                : [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(collected))];
+            var answered = callables.ForMember(lateBound, objectValue.RuntimeValue).Call(session.Symbols.Resolver, lateArguments);
+            return answered.IsSuccess
+                ? Succeed(answered.Result is null or VBVoidValue ? new VBVariantValue(VBEmptyValue.Empty) : InVariant(answered.Result))
+                : RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(answered.ErrorInfo ?? NotImplementedError(nameof(CallByName), "the call had no answer"));
         }
 
         var candidates = instance.ClassModule.DefaultInterfaceMembers
@@ -668,7 +701,77 @@ public sealed class StdInteraction(
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> CreateObject(VBStringValue objectClass, VBStringValue? serverName = default)
-        => NotImplemented<VBObjectValue>(nameof(CreateObject));
+    {
+        var progId = objectClass.Value ?? string.Empty;
+        if (string.IsNullOrEmpty(serverName?.Value) && NativeClassOf(progId) is { } native)
+        {
+            return Succeed(NewObjectOf(native));
+        }
+
+        return Obtain(new ExternalObjectRequest(ExternalObjectSource.Create, progId, ServerName: serverName?.Value));
+    }
+
+    // a class the platform implements itself that answers to a programmatic identifier: the class of the identifier's last part in the standard library, if it
+    // declares that identifier (StdLibClassAttribute.ProgId).
+    private VBClassModuleSymbol? NativeClassOf(string progId)
+    {
+        var name = progId[(progId.LastIndexOf('.') + 1)..];
+        return name.Length > 0
+            && VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName, name, StaticSymbol.GlobalUri).Symbol
+                is VBClassModuleSymbol classModule
+            && string.Equals(classModule.GetProperty(SymbolProperties.ProgId), progId, StringComparison.OrdinalIgnoreCase)
+            ? classModule
+            : null;
+    }
+
+    // what New makes of a class of the standard library: an identity, and the record of its instance.
+    private VBObjectValue NewObjectOf(VBClassModuleSymbol classModule)
+    {
+        var objectId = session.Objects.CreateObject();
+        session.Symbols.CreateInstance(objectId, classModule);
+        return new VBObjectValue(objectId);
+    }
+
+    // an object by name, from whatever reaches the machine's servers: through the session's external calls, which the policy over automation sees.
+    private RuntimeSemanticsEvaluationResult<VBObjectValue> Obtain(ExternalObjectRequest request)
+    {
+        if (session.External is not { } external)
+        {
+            return Fail<VBObjectValue>(VBRuntimeErrorId.ActiveXComponentCantCreateObject, $"{request.Describe()}: nothing here reaches an automation server.");
+        }
+
+        var obtained = external.Invoke(ExternalCallRequest.ForObject(request), session.Symbols.Resolver);
+        return obtained switch
+        {
+            { IsSuccess: true, Result: VBObjectValue objectValue } => Succeed(objectValue),
+            { IsSuccess: true } => Fail<VBObjectValue>(VBRuntimeErrorId.ActiveXComponentCantCreateObject, $"{request.Describe()} gave no object."),
+            _ => RuntimeSemanticsEvaluationResult<VBObjectValue>.Error(obtained.ErrorInfo!),
+        };
+    }
+
+    // the text of an argument that names a class or a file: Missing is none, Null is error 94.
+    private RuntimeSemanticsEvaluationResult<VBObjectValue>? TextOf(VBVariantValue? argument, out string? text)
+    {
+        text = null;
+        if (argument is null || argument.TypedValue is VBMissingValue)
+        {
+            return null;
+        }
+
+        if (argument.TypedValue is VBNullValue)
+        {
+            return Fail<VBObjectValue>(VBRuntimeErrorId.InvalidUseOfNull, "GetObject: a name is no Null");
+        }
+
+        var converted = ValueConversions.ToText(argument.TypedValue, session.Environment.Culture);
+        if (converted is not { IsSuccess: true, Value: VBStringValue value })
+        {
+            return Fail<VBObjectValue>(converted.Error ?? VBRuntimeErrorId.TypeMismatch, "GetObject: a name is a String");
+        }
+
+        text = value.Value ?? string.Empty;
+        return null;
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBLongValue> GetAttr(VBStringValue pathName)
@@ -682,7 +785,30 @@ public sealed class StdInteraction(
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> GetObject(VBVariantValue? pathName = default, VBVariantValue? className = default)
-        => NotImplemented<VBObjectValue>(nameof(GetObject));
+    {
+        if (TextOf(pathName, out var path) is { } badPath)
+        {
+            return badPath;
+        }
+
+        if (TextOf(className, out var progId) is { } badClass)
+        {
+            return badClass;
+        }
+
+        // as MS-VBA answers them (recorded in Excel, oracle\s25 G02, G03): nothing at all is a type mismatch, no file and no class an invalid argument, and
+        // no file but a class a new object of it.
+        return (path, progId) switch
+        {
+            (null, null) => Fail<VBObjectValue>(VBRuntimeErrorId.TypeMismatch, "GetObject(): neither a file nor a class"),
+            ("", null or "") => Fail<VBObjectValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument, "GetObject(\"\"): neither a file nor a class"),
+            ("", { } created) => CreateObject(new VBStringValue(created)),
+            (null, { } running) => NativeClassOf(running) is not null
+                ? Fail<VBObjectValue>(VBRuntimeErrorId.ActiveXComponentCantCreateObject, $"GetObject(, \"{running}\"): no object of it is running")
+                : Obtain(new ExternalObjectRequest(ExternalObjectSource.Running, running)),
+            ({ } file, var opener) => Obtain(new ExternalObjectRequest(ExternalObjectSource.File, opener is { Length: > 0 } ? opener : null, PathName: file)),
+        };
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval)

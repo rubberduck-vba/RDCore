@@ -40,6 +40,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
     {
         channel.Handle<AutomationStatusParams, AutomationStatusResult>(ExternalProtocol.AutomationStatus, Status);
         channel.Handle<AutomationCreateParams, AutomationObjectResult>(ExternalProtocol.AutomationCreate, Create);
+        channel.Handle<AutomationObtainParams, AutomationObjectResult>(ExternalProtocol.AutomationObtain, Obtain);
         channel.Handle<AutomationInvokeParams, AutomationInvokeResult>(ExternalProtocol.AutomationInvoke, Invoke);
         channel.Handle<AutomationClassNameParams, AutomationClassNameResult>(ExternalProtocol.AutomationClassName, ClassName);
         channel.Handle<AutomationMoveNextParams, AutomationMoveNextResult>(ExternalProtocol.AutomationMoveNext, MoveNext);
@@ -56,6 +57,13 @@ public sealed class ExternalAutomationService(IAutomationServer platform)
     /// <summary>Answers <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
     public AutomationObjectResult Create(AutomationCreateParams request)
         => Answer(request.HandlingEvent, () => new AutomationObjectResult { Handle = _handles.HandleOf(platform.CreateObject(request.ProgId)) }, Failed<AutomationObjectResult>);
+
+    /// <summary>Answers <see cref="ExternalProtocol.AutomationObtain"/>.</summary>
+    public AutomationObjectResult Obtain(AutomationObtainParams request)
+        => Answer(request.HandlingEvent, () => new AutomationObjectResult
+        {
+            Handle = _handles.HandleOf(platform.GetObject(new SDK.Runtime.Abstract.Execution.ExternalObjectRequest(request.Source, request.ProgId, request.PathName, request.ServerName))),
+        }, Failed<AutomationObjectResult>);
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationInvoke"/>.</summary>
     public AutomationInvokeResult Invoke(AutomationInvokeParams request) => Answer(request.HandlingEvent, () =>

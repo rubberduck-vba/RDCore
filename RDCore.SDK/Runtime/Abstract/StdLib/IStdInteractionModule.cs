@@ -61,10 +61,23 @@ public interface IStdInteractionModule
     RuntimeSemanticsEvaluationResult<VBStringValue> CommandString();
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.8.1.4 CreateObject</strong>
+    /// <strong>MS-VBAL 6.1.2.8.1.4 CreateObject</strong> Creates an object of the class a programmatic identifier names (<c>Scripting.Dictionary</c>), on this
+    /// machine or on the server machine named.
     /// </summary>
     /// <remarks>
-    /// Creates and returns an object reference to an <em>externally provided</em> and possibly <em>remote</em> object.
+    /// <para>
+    /// The name is looked for, whatever its case, among the classes the platform implements itself first (<see cref="StdLibClassAttribute.ProgId"/>), which
+    /// a program creates by name on any machine; then among the machine's automation servers - COM, on Windows - through the session's external calls, which
+    /// an administrator's policy sees. Error <c>429</c> <em>ActiveX component can't create object</em> when neither has the class.
+    /// </para>
+    /// <para>
+    /// A server's object is bound to late, as <strong>MS-VBA</strong> binds it: its members are reached by name, whatever a type library says of them - error
+    /// <c>438</c> for a name it does not answer to. It is an instance of the class of a referenced library when one declares its class.
+    /// </para>
+    /// <para>
+    /// As in <strong>MS-VBA</strong> (recorded in Excel): a server machine that is not there is the <c>HRESULT</c> of the failure (<c>-2147023174</c>), not
+    /// error <c>462</c>.
+    /// </para>
     /// </remarks>
     /// <param name="objectClass">A <see cref="VBStringValue"/> containing the <em>application name and class</em> of the object to create.</param>
     /// <param name="serverName">A <see cref="VBStringValue"/> containing the name of the network server where the object will be created.<br/><strong>Optional</strong>: the <em>local machine</em> is used unless specified otherwise.</param>
@@ -140,15 +153,22 @@ public interface IStdInteractionModule
     RuntimeSemanticsEvaluationResult<VBLongValue> GetAttr(VBStringValue pathName);
 
     /// <summary>
-    /// <strong>MS-VBAL 6.1.2.8.1.9 GetObject</strong>
+    /// <strong>MS-VBAL 6.1.2.8.1.9 GetObject</strong> Gets the object of a class that is running, the one a file is, or a new one.
     /// </summary>
     /// <remarks>
-    /// Gets (<strong>or creates</strong> if none is found) a <see cref="VBObjectValue"/> reference to an <em>externally provided</em> and possibly <em>remote</em> object.<br/>
-    /// 👉 This function <strong>cannot</strong> be used to get a reference to an object of a <em>workspace-defined</em> object class.<br/><br/>
-    /// 🎯 <strong>TODO</strong>: Clarify the specification of the behavior of an omitted <c>className</c> parameter.
+    /// As in <strong>MS-VBA</strong> (recorded in Excel), through the session's external calls as <see cref="CreateObject"/>, and bound to late as its objects are:
+    /// <list type="bullet">
+    /// <item><c>GetObject(, class)</c>: the object of the class that is running; error <c>429</c> when none is, or the class is not registered;</item>
+    /// <item><c>GetObject(path)</c>, <c>GetObject(path, class)</c>: the object the file is, opened by its own class or the one named - or the one a moniker
+    /// names (<c>winmgmts:</c>); error <c>432</c> <em>File name or class name not found</em> when the file is not there;</item>
+    /// <item><c>GetObject("", class)</c>: a new object of the class, as <see cref="CreateObject"/>;</item>
+    /// <item><c>GetObject()</c> is error <c>13</c>, and <c>GetObject("")</c> error <c>5</c>.</item>
+    /// </list>
+    /// A class the platform implements itself is a new object of it, the one <see cref="CreateObject"/> gives, for <c>GetObject("", class)</c>; it has none
+    /// running and opens no file.
     /// </remarks>
-    /// <param name="pathName">A <see cref="VBStringValue"/> expression containing the name of the <em>network server</em> where the object will be created.<br/><strong>Optional</strong>: the <em>local machine</em> is used unless specified otherwise.</param>
-    /// <param name="className">A <em>qualified</em> <see cref="VBStringValue"/> expression containing the <em>application name</em> and <em>class</em> of the object to create.<br/><strong>Optional</strong> (⚠️ but raises an error given <see cref="VBMissingValue"/>): returns the singleton instance of (the last created) <em>single-instance object</em> given an <em>empty string</em>.</param>
+    /// <param name="pathName">The file, or the moniker, of the object; a zero-length <c>String</c> for a new one.</param>
+    /// <param name="className">The programmatic identifier of the class (<c>Excel.Application</c>).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBObjectValue> GetObject(VBVariantValue? pathName = default, VBVariantValue? className = default);
 

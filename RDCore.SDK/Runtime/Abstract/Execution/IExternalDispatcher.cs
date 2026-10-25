@@ -35,12 +35,26 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// <see cref="Member"/> is then the <c>Initialize</c> of the class's implicit interface, and the only argument is the new object, which the provider binds the
 /// real one to. Creating an object is an external call like any other, and exactly the one a policy wants to see.
 /// </param>
+/// <param name="Obtains">
+/// The object being obtained by name, when this is neither a call to a member nor the creation of an object of a known class: <c>CreateObject</c>, <c>GetObject</c>.
+/// <see cref="Member"/> is then the <c>Initialize</c> of the class's implicit interface, as for a creation, and there is no argument; what the call returns is
+/// the object.
+/// </param>
 public sealed record class ExternalCallRequest(
     VBTypeMemberSymbol Member,
     IRuntimeValue[] Arguments,
     SourceLocation CallSite = default,
-    VBClassModuleSymbol? Creates = null)
+    VBClassModuleSymbol? Creates = null,
+    ExternalObjectRequest? Obtains = null)
 {
+    /// <summary>
+    /// The request that obtains an object by name (<c>CreateObject</c>, <c>GetObject</c>).
+    /// </summary>
+    /// <param name="request">How the object is obtained.</param>
+    /// <param name="callSite">Where the call is written.</param>
+    public static ExternalCallRequest ForObject(ExternalObjectRequest request, SourceLocation callSite = default)
+        => new(ClassLifecycleInterface.Initialize, [], callSite, Obtains: request);
+
     /// <summary>
     /// Whether this call creates an object of a class, rather than calling a member of one.
     /// </summary>
@@ -59,10 +73,10 @@ public sealed record class ExternalCallRequest(
     /// Whether this call is to a referenced library's object model - creating an object of one of its classes, or calling a member of one - which is what
     /// an administrator means by automation, as distinct from the standard library and from a <c>Declare</c>d import.
     /// </summary>
-    public bool IsAutomation => IsCreation
+    public bool IsAutomation => Obtains is not null || (IsCreation
         ? Creates!.GetProperty(SymbolProperties.Library) is { } created && created != StdLibSymbolProvider.LibraryName
         : Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
-            && Member.GetProperty(SymbolProperties.Library) is { } library && library != StdLibSymbolProvider.LibraryName;
+            && Member.GetProperty(SymbolProperties.Library) is { } library && library != StdLibSymbolProvider.LibraryName);
 
     /// <summary>
     /// Whether this call is to a native library a <c>Declare</c> named — the calls an administrator most
@@ -90,6 +104,11 @@ public sealed record class ExternalCallRequest(
     /// </remarks>
     public string Describe()
     {
+        if (Obtains is { } obtained)
+        {
+            return obtained.Describe();
+        }
+
         if (Creates is { } created)
         {
             return $"New {(created.GetProperty(SymbolProperties.Library) is { Length: > 0 } owner ? owner + "." : string.Empty)}{created.Name}";

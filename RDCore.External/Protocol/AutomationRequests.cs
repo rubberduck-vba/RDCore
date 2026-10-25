@@ -26,6 +26,9 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/automation/create</c>: creates an object by the name its class is registered under.</summary>
     public const string AutomationCreate = "rdcore/external/automation/create";
 
+    /// <summary><c>rdcore/external/automation/obtain</c>: gets an object by name, as <c>CreateObject</c> and <c>GetObject</c> do.</summary>
+    public const string AutomationObtain = "rdcore/external/automation/obtain";
+
     /// <summary><c>rdcore/external/automation/invoke</c>: calls a member of an object by its name.</summary>
     public const string AutomationInvoke = "rdcore/external/automation/invoke";
 
@@ -133,7 +136,23 @@ public sealed record class AutomationCreateParams : AutomationRequest
     public string ProgId { get; init; } = string.Empty;
 }
 
-/// <summary>Response for <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
+/// <summary>Request for <see cref="ExternalProtocol.AutomationObtain"/>: <see cref="IAutomationServer.GetObject"/>.</summary>
+public sealed record class AutomationObtainParams : AutomationRequest
+{
+    /// <summary>Where the object comes from.</summary>
+    public SDK.Runtime.Abstract.Execution.ExternalObjectSource Source { get; init; }
+
+    /// <summary>The programmatic identifier of its class, if one is given.</summary>
+    public string? ProgId { get; init; }
+
+    /// <summary>The file, or the moniker, of an object from a file.</summary>
+    public string? PathName { get; init; }
+
+    /// <summary>The machine a new object is created on.</summary>
+    public string? ServerName { get; init; }
+}
+
+/// <summary>Response for <see cref="ExternalProtocol.AutomationCreate"/> and <see cref="ExternalProtocol.AutomationObtain"/>.</summary>
 public sealed record class AutomationObjectResult : ExternalResult
 {
     /// <summary>The handle of the new object.</summary>

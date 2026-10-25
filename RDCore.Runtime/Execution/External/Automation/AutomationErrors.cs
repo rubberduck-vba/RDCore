@@ -39,7 +39,13 @@ internal static class AutomationErrors
         [0x800706BE] = VBRuntimeErrorId.RemoteMachineNotAvailable,           // RPC_S_CALL_FAILED
         [0x80010108] = VBRuntimeErrorId.RemoteMachineNotAvailable,           // RPC_E_DISCONNECTED
         [0x80070005] = VBRuntimeErrorId.PermissionDenied,                    // E_ACCESSDENIED
+        [0x800401EA] = VBRuntimeErrorId.FileOrClassNameNotFoundAutomation,   // MK_E_CANTOPENFILE
+        [0x800401E4] = VBRuntimeErrorId.FileOrClassNameNotFoundAutomation,   // MK_E_SYNTAX
+        [0x80070002] = VBRuntimeErrorId.FileOrClassNameNotFoundAutomation,   // ERROR_FILE_NOT_FOUND
     };
+
+    // MS-VBA reports a machine that is not there to create an object on by its HRESULT, not as 462 (recorded in Excel, oracle\s25 O03).
+    private const uint ServerUnavailable = 0x800706BA;
 
     /// <summary>
     /// The run-time error that <paramref name="failure"/> is.
@@ -47,13 +53,14 @@ internal static class AutomationErrors
     /// <param name="failure">What the server reported.</param>
     /// <param name="site">Where the call that failed is written.</param>
     /// <param name="call">The call, as the error says which one failed.</param>
-    public static IVBRaisableError ToError(AutomationException failure, SourceLocation site, string call)
+    /// <param name="obtaining">Whether the call was for an object by name (<c>CreateObject</c>, <c>GetObject</c>).</param>
+    public static IVBRaisableError ToError(AutomationException failure, SourceLocation site, string call, bool obtaining = false)
     {
         var code = unchecked((uint)failure.HResult);
         var said = string.IsNullOrWhiteSpace(failure.Message) ? null : failure.Message;
         var verbose = said is null ? $"{call} failed (0x{code:X8})." : $"{call} failed (0x{code:X8}): {said}";
 
-        if (Known.TryGetValue(code, out var known))
+        if (Known.TryGetValue(code, out var known) && !(obtaining && code == ServerUnavailable))
         {
             return VBRuntimeErrorInfo.For(known, site, verbose);
         }

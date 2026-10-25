@@ -1031,10 +1031,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // a member of a class's own interface that a read or a call invokes by name. A Property Let or Set derives from the subroutine's symbol and is not one:
     // reading the property is its Get.
+    // A late-bound object's class declares nothing, and every name reaches the member of that name, which the object answers to or not when it is called.
     private static VBTypeMemberSymbol? InvocableMemberOf(VBClassModuleSymbol classModule, string memberName)
-        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
-            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
+        => Execution.External.Automation.LateBinding.IsLateBound(classModule)
+            ? Execution.External.Automation.LateBinding.MemberOf(classModule, memberName, RDCore.External.Automation.AutomationInvocation.Get)
+            : classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+                candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol or VBProcedureMemberSymbol and not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
+                && string.Equals(candidate.Name, memberName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The default member of an object - the one a class marks with <c>VB_UserMemId = 0</c> - and the object it is invoked on
@@ -1048,6 +1051,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (objectValue.IsNothing() || !session.Symbols.TryGetInstance(objectValue.Value, out var instance))
         {
             return null;
+        }
+
+        // a late-bound object's default member is whatever answers to DISPID_VALUE, if anything does.
+        if (Execution.External.Automation.LateBinding.IsLateBound(instance.ClassModule))
+        {
+            return (objectValue.RuntimeValue, Execution.External.Automation.LateBinding.MemberOf(
+                instance.ClassModule, Execution.External.Automation.LateBinding.DefaultMemberName, RDCore.External.Automation.AutomationInvocation.Get));
         }
 
         var member = instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
@@ -1065,9 +1075,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         => !owner.IsNothing() && session.Symbols.TryGetInstance(owner.Value, out var instance) && EnumerationMemberOf(instance.ClassModule) is not null;
 
     private static VBTypeMemberSymbol? EnumerationMemberOf(VBClassModuleSymbol classModule)
-        => classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
-            candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol
-            && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.NewEnum);
+        => Execution.External.Automation.LateBinding.IsLateBound(classModule)
+            ? Execution.External.Automation.LateBinding.MemberOf(
+                classModule, Execution.External.Automation.LateBinding.EnumerationMemberName, RDCore.External.Automation.AutomationInvocation.Get)
+            : classModule.DefaultInterfaceMembers.FirstOrDefault(candidate =>
+                candidate is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol
+                && candidate.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.NewEnum);
 
     /// <summary>
     /// Invokes the enumeration member of <paramref name="owner"/>, the object a <c>For Each</c> over it enumerates with.
@@ -1214,6 +1227,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBClassModuleSymbol actual, bool isSet)
     {
         var memberName = memberAccess.Member.IdentifierName;
+
+        // a late-bound object's member is assigned by name: DISPATCH_PROPERTYPUT, or PROPERTYPUTREF for a Set.
+        if (Execution.External.Automation.LateBinding.IsLateBound(actual))
+        {
+            return (Execution.External.Automation.LateBinding.MemberOf(
+                actual, memberName, isSet ? RDCore.External.Automation.AutomationInvocation.Set : RDCore.External.Automation.AutomationInvocation.Let), true);
+        }
+
         var access = isSet ? ImplementationAccess.Set : ImplementationAccess.Let;
         if (DeclaredInterfaceOf(session, context, memberAccess.Owner, actual) is { } implementedInterface)
         {
