@@ -89,6 +89,21 @@ public static partial class FormDesigner
         return new FormDescriptor(block.Name, kind, @class, block.Properties, controls);
     }
 
+    /// <summary>
+    /// The designer's state of the form module <paramref name="source"/>: for a VBA UserForm, the compound file its companion file keeps at the offset its
+    /// <c>OleObjectBlob</c> says, which is what Microsoft Forms loads a form from (<c>IPersistStorage</c>). Empty when the module keeps no designer data in a
+    /// companion file.
+    /// </summary>
+    /// <remarks>
+    /// The state is opaque here: <see cref="Read"/> reads what a form declares from it, and the form host hands it, as it is, to the library that hosts the form.
+    /// </remarks>
+    /// <param name="source">The form module's source.</param>
+    /// <param name="companion">The content of the module's companion file (<see cref="CompanionOf"/>).</param>
+    /// <exception cref="FormDesignerFormatException">The designer block is not terminated, the module keeps designer data in a companion file and
+    /// <paramref name="companion"/> is empty, or the designer data is not where it says.</exception>
+    public static ReadOnlyMemory<byte> StateOf(string? source, ReadOnlyMemory<byte> companion)
+        => ReadBlock(source) is { } block && CompanionOf(block) is { } reference ? BlobAt(companion, reference.Offset) : ReadOnlyMemory<byte>.Empty;
+
     // the designer data at `offset` of a companion file: its blob header, then that many bytes
     private static ReadOnlyMemory<byte> BlobAt(ReadOnlyMemory<byte> companion, long offset)
     {

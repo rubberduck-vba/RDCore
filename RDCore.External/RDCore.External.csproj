@@ -32,6 +32,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RDCore.Tests" />
+    <!-- the Windows implementations of its abstractions say what fails in the same words: ExternalMessages. -->
+    <InternalsVisibleTo Include="RDCore.External.Windows" />
   </ItemGroup>
 
 </Project>

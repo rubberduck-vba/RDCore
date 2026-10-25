@@ -97,6 +97,60 @@ namespace RDCore.External {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The form &apos;{0}&apos; could not be loaded from its designer&apos;s state: {1}.
+        /// </summary>
+        internal static string FormStateUnreadable {
+            get {
+                return ResourceManager.GetString("FormStateUnreadable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to RDCore hosts forms in a 64-bit process only, and this one is 32-bit..
+        /// </summary>
+        internal static string FormsNeed64BitProcess {
+            get {
+                return ResourceManager.GetString("FormsNeed64BitProcess", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Microsoft Forms 2.0 is not installed on this machine: it comes with Microsoft Office..
+        /// </summary>
+        internal static string FormsNotInstalled {
+            get {
+                return ResourceManager.GetString("FormsNotInstalled", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Only the 32-bit Microsoft Forms 2.0 is installed on this machine, which a 32-bit Office installs: RDCore hosts forms in a 64-bit process, with the Microsoft Forms of a 64-bit Office..
+        /// </summary>
+        internal static string FormsOnly32Bit {
+            get {
+                return ResourceManager.GetString("FormsOnly32Bit", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Forms cannot be hosted on this platform: Microsoft Forms is a Windows library..
+        /// </summary>
+        internal static string FormsUnavailable {
+            get {
+                return ResourceManager.GetString("FormsUnavailable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The object is not a form of this host, or it was destroyed..
+        /// </summary>
+        internal static string NotAForm {
+            get {
+                return ResourceManager.GetString("NotAForm", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The object was let go of..
         /// </summary>
         internal static string ObjectReleased {

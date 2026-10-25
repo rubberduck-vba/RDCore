@@ -30,4 +30,22 @@
   <data name="HostFailed" xml:space="preserve">
     <value>L'hôte externe n'a pas pu répondre : {0}</value>
   </data>
+  <data name="FormsUnavailable" xml:space="preserve">
+    <value>Les formulaires ne peuvent pas être hébergés sur cette plateforme : Microsoft Forms est une bibliothèque Windows.</value>
+  </data>
+  <data name="FormsNotInstalled" xml:space="preserve">
+    <value>Microsoft Forms 2.0 n'est pas installé sur cette machine : il vient avec Microsoft Office.</value>
+  </data>
+  <data name="FormsOnly32Bit" xml:space="preserve">
+    <value>Seul le Microsoft Forms 2.0 32 bits est installé sur cette machine, celui qu'installe un Office 32 bits : RDCore héberge les formulaires dans un processus 64 bits, avec le Microsoft Forms d'un Office 64 bits.</value>
+  </data>
+  <data name="FormsNeed64BitProcess" xml:space="preserve">
+    <value>RDCore n'héberge les formulaires que dans un processus 64 bits, et celui-ci est 32 bits.</value>
+  </data>
+  <data name="FormStateUnreadable" xml:space="preserve">
+    <value>Le formulaire « {0} » n'a pas pu être chargé à partir de l'état de son concepteur : {1}</value>
+  </data>
+  <data name="NotAForm" xml:space="preserve">
+    <value>L'objet n'est pas un formulaire de cet hôte, ou il a été détruit.</value>
+  </data>
 </root>

@@ -30,4 +30,22 @@
   <data name="HostFailed" xml:space="preserve">
     <value>The external host could not answer: {0}</value>
   </data>
+  <data name="FormsUnavailable" xml:space="preserve">
+    <value>Forms cannot be hosted on this platform: Microsoft Forms is a Windows library.</value>
+  </data>
+  <data name="FormsNotInstalled" xml:space="preserve">
+    <value>Microsoft Forms 2.0 is not installed on this machine: it comes with Microsoft Office.</value>
+  </data>
+  <data name="FormsOnly32Bit" xml:space="preserve">
+    <value>Only the 32-bit Microsoft Forms 2.0 is installed on this machine, which a 32-bit Office installs: RDCore hosts forms in a 64-bit process, with the Microsoft Forms of a 64-bit Office.</value>
+  </data>
+  <data name="FormsNeed64BitProcess" xml:space="preserve">
+    <value>RDCore hosts forms in a 64-bit process only, and this one is 32-bit.</value>
+  </data>
+  <data name="FormStateUnreadable" xml:space="preserve">
+    <value>The form '{0}' could not be loaded from its designer's state: {1}</value>
+  </data>
+  <data name="NotAForm" xml:space="preserve">
+    <value>The object is not a form of this host, or it was destroyed.</value>
+  </data>
 </root>
