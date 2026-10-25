@@ -1078,6 +1078,78 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Automation type not supported in Visual Basic.
+        /// </summary>
+        public static string VBCompileError_AutomationTypeNotSupported {
+            get {
+                return ResourceManager.GetString("VBCompileError_AutomationTypeNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected user-defined type, not project.
+        /// </summary>
+        public static string VBCompileError_ExpectedUserDefinedTypeNotProject {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedUserDefinedTypeNotProject", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a procedural module of a library, not a type..
+        /// </summary>
+        public static string VBCompileError_DeclaredTypeIsALibraryModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DeclaredTypeIsALibraryModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a project, not a type: a type of the project is written after its name and a dot..
+        /// </summary>
+        public static string VBCompileError_DeclaredTypeIsAProject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_DeclaredTypeIsAProject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a type, not a value..
+        /// </summary>
+        public static string VBCompileError_BuiltInTypeIsNoValue_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_BuiltInTypeIsNoValue_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is an intrinsic type, which no object is: TypeOf ... Is tests an object against a class, an interface or Object..
+        /// </summary>
+        public static string VBCompileError_TypeOfIntrinsicType_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeOfIntrinsicType_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to TypeOf ... Is is followed by the name of a type: a class, an interface or Object..
+        /// </summary>
+        public static string VBCompileError_TypeOfNotATypeName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeOfNotATypeName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not the name of a type this project can see..
+        /// </summary>
+        public static string VBCompileError_TypeOfTypeNotResolved_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_TypeOfTypeNotResolved_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;As {0}()&apos; is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in &apos;Dim a() As {0}&apos;..
         /// </summary>
         public static string VBCompileError_ArrayTypeOnlyReturned_Verbose {
@@ -1433,6 +1505,15 @@ namespace RDCore.SDK {
         public static string VBMemberAccess_ObjectVariableNotSet_Verbose {
             get {
                 return ResourceManager.GetString("VBMemberAccess_ObjectVariableNotSet_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with &apos;Is Nothing&apos; first..
+        /// </summary>
+        public static string VBTypeOf_ObjectVariableNotSet_Verbose {
+            get {
+                return ResourceManager.GetString("VBTypeOf_ObjectVariableNotSet_Verbose", resourceCulture);
             }
         }
 

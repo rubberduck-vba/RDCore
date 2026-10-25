@@ -170,6 +170,10 @@
   href: vbc09370.md
 - name: VBC09371 — Array argument must be ByRef
   href: vbc09371.md
+- name: VBC09372 — Automation type not supported in Visual Basic
+  href: vbc09372.md
+- name: "VBC09373 — Expected user-defined type, not project"
+  href: vbc09373.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub

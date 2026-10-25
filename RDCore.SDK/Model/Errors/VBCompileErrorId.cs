@@ -576,6 +576,16 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.13.1</strong> Argument Lists.
     /// </summary>
     ArrayArgumentMustBeByRef = 9371,
+    /// <summary>
+    /// A name written as a type is a procedural module of a referenced library, <c>VBA.Strings</c>: a module declares members, and is no type of a value.<br/>
+    /// <strong>MS-VBAL §5.6.16.7</strong> Type Expressions.
+    /// </summary>
+    AutomationTypeNotSupported = 9372,
+    /// <summary>
+    /// A name written as a type is a project or a library, <c>VBA</c>: a project holds modules and types, and is no type of a value.<br/>
+    /// <strong>MS-VBAL §5.6.16.7</strong> Type Expressions.
+    /// </summary>
+    ExpectedUserDefinedTypeNotProject = 9373,
 
 
     /***********************************************************************************************

@@ -194,10 +194,11 @@ public sealed class BoundMemberTests
             "Set n = New Labelled",
             "Debug.Print n.Name"));
 
-    // MS-VBAL 5.6.9.9: TypeOf … Is is True of an object of the class, or of a class that implements it; False of Nothing.
+    // MS-VBAL 5.6.7: TypeOf … Is is True of an object of the class, or of a class that implements it; of Nothing, it is error 91 (MS-VBA too, Excel-verified,
+    // oracle\s29 T09).
     [TestMethod]
     public async Task TypeOfIs_TestsTheClassOfTheObject_AndTheInterfacesItImplements()
-        => CollectionAssert.AreEqual(new[] { "True", "False", "True", "True", "False", "False" }, await RunMainAsync(
+        => CollectionAssert.AreEqual(new[] { "True", "False", "True", "True", "False", "91" }, await RunMainAsync(
             "Dim c As New Counter, i As ICounter, o As Object",
             "Set i = New ByTen",
             "Debug.Print TypeOf c Is Counter",
@@ -205,7 +206,9 @@ public sealed class BoundMemberTests
             "Debug.Print TypeOf i Is ICounter",
             "Debug.Print TypeOf i Is ByTen",
             "Debug.Print TypeOf i Is ByOne",
-            "Debug.Print TypeOf o Is Counter"));
+            "On Error Resume Next",
+            "Debug.Print TypeOf o Is Counter",
+            "Debug.Print Err.Number"));
 
     // an object variable declared As New is never Nothing when it is referred to: the reference creates it.
     [TestMethod]

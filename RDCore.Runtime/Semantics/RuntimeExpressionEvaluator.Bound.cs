@@ -361,7 +361,7 @@ public sealed partial class RuntimeExpressionEvaluator
     private RuntimeSemanticsEvaluationResult EvaluateBoundTypeOf(IRuntimeSession session, BoundTypeOf typeOf, RuntimeEvaluationContext context)
     {
         var operand = EvaluateBoundNode(session, typeOf.Operand, context);
-        return operand.IsSuccess ? IsOfClass(session, operand, typeOf.Class) : operand;
+        return operand.IsSuccess ? IsOfClass(session, operand, typeOf.Class, typeOf.TypeOf) : operand;
     }
 
     // the member each bound member expression invoked last, and the class of the object it was invoked on: an expression meets objects of one class, nearly

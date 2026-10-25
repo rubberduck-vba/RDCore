@@ -252,6 +252,9 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member.</value>
   </data>
+  <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
+    <value>What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with 'Is Nothing' first.</value>
+  </data>
   <data name="VBIndex_NothingToIndex_Verbose" xml:space="preserve">
     <value>A {0} is neither an array nor an object: there is nothing to index.</value>
   </data>
@@ -716,6 +719,30 @@
   </data>
   <data name="VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose" xml:space="preserve">
     <value>'{0}' is declared ByVal and an array: an array parameter is always ByRef.</value>
+  </data>
+  <data name="VBCompileError_AutomationTypeNotSupported" xml:space="preserve">
+    <value>Automation type not supported in Visual Basic</value>
+  </data>
+  <data name="VBCompileError_ExpectedUserDefinedTypeNotProject" xml:space="preserve">
+    <value>Expected user-defined type, not project</value>
+  </data>
+  <data name="VBCompileError_DeclaredTypeIsALibraryModule_Verbose" xml:space="preserve">
+    <value>'{0}' is a procedural module of a library, not a type.</value>
+  </data>
+  <data name="VBCompileError_DeclaredTypeIsAProject_Verbose" xml:space="preserve">
+    <value>'{0}' is a project, not a type: a type of the project is written after its name and a dot.</value>
+  </data>
+  <data name="VBCompileError_BuiltInTypeIsNoValue_Verbose" xml:space="preserve">
+    <value>'{0}' is a type, not a value.</value>
+  </data>
+  <data name="VBCompileError_TypeOfIntrinsicType_Verbose" xml:space="preserve">
+    <value>'{0}' is an intrinsic type, which no object is: TypeOf ... Is tests an object against a class, an interface or Object.</value>
+  </data>
+  <data name="VBCompileError_TypeOfNotATypeName_Verbose" xml:space="preserve">
+    <value>TypeOf ... Is is followed by the name of a type: a class, an interface or Object.</value>
+  </data>
+  <data name="VBCompileError_TypeOfTypeNotResolved_Verbose" xml:space="preserve">
+    <value>'{0}' is not the name of a type this project can see.</value>
   </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in 'Dim a() As {0}'.</value>

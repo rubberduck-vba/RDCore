@@ -26,8 +26,9 @@ namespace RDCore.SDK.Semantics.Static;
 /// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.AmbiguousName"/>). That is a rule of
 /// the declarations as they are written, and not of the symbols they become (<see cref="CheckSyntax"/>).</item>
 /// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant of the
-/// module, a parameter, a function's or a property's result, and a local variable. A name that resolves to a procedural module does not: a module is not a
-/// type (<strong>MS-VBAL §5.6.16.7</strong>, <see cref="VBCompileErrorId.ModuleIsNotAValidType"/>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
+/// module, a parameter, a function's or a property's result, and a local variable. A name that resolves to a procedural module or a project does not: neither
+/// is a type (<strong>MS-VBAL §5.6.16.7</strong>, <see cref="VBCompileErrorId.ModuleIsNotAValidType"/>, <see cref="VBCompileErrorId.AutomationTypeNotSupported"/>
+/// for a library's module, <see cref="VBCompileErrorId.ExpectedUserDefinedTypeNotProject"/>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
 /// refused there, and a name that does not resolve is not. Whether a name resolves can only be told once everything the declaration can see is defined,
 /// which is why this rule is one a caller asks for (<see cref="DeclarationRules.DeclaredTypes"/>).</item>
 /// <item>What a module exposes (<see cref="PublicMemberSemantics"/>): a public member is not declared with a private type, and a class module exposes no
@@ -270,22 +271,19 @@ public static class DeclarationStaticSemanticsEvaluator
             return;
         }
 
-        var bound = Bind(name, module, resolver);
-        if (bound is TypeNameBinding.IsAType || onlyAModule && bound is not TypeNameBinding.IsAProceduralModule)
+        var (bound, _) = TypeNameClassifier.Classify(name, module.Uri, resolver);
+        if (bound is TypeNameClass.Type || onlyAModule && bound is TypeNameClass.Unresolved)
         {
+            return;
+        }
+
+        if (NoTypeError(bound, name, new SourceLocation(document, range)) is { } error)
+        {
+            errors.Add(error);
             return;
         }
 
         // a qualifier that is nothing this project can see is most likely a library that is not referenced: the error says so, where the name alone would not.
-        // A procedural module is a name the type binding context binds (MS-VBAL §5.6.10), so the name did resolve, to something that is not a type (MS-VBA: "A
-        // module is not a valid type", Excel-verified).
-        if (bound is TypeNameBinding.IsAProceduralModule)
-        {
-            errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ModuleIsNotAValidType, new SourceLocation(document, range),
-                string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name)));
-            return;
-        }
-
         var qualifier = name.LastIndexOf('.') is >= 0 and var split ? name[..split] : null;
         var verbose = qualifier is not null && resolver.ResolveQualifier(qualifier, ScopeKind.Global, module.Uri).Symbol is null
             ? string.Format(Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, name, qualifier)
@@ -294,12 +292,24 @@ public static class DeclarationStaticSemanticsEvaluator
         errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, new SourceLocation(document, range), verbose));
     }
 
-    private enum TypeNameBinding
+    /// <summary>
+    /// The error of a name written as a type that binds something the type binding context binds, and that is no type (<strong>MS-VBAL §5.6.10</strong>): a
+    /// procedural module, a library's, or a project. <see langword="null"/> for a type and for a name that does not resolve.
+    /// </summary>
+    /// <remarks>
+    /// MS-VBA's three errors, Excel-verified (oracle\s29): "A module is not a valid type", "Automation type not supported in Visual Basic", "Expected
+    /// user-defined type, not project".
+    /// </remarks>
+    internal static VBCompileErrorInfo? NoTypeError(TypeNameClass bound, string name, SourceLocation location) => bound switch
     {
-        IsAType,
-        IsAProceduralModule,
-        DoesNotResolve,
-    }
+        TypeNameClass.ProceduralModule => VBCompileErrorInfo.For(VBCompileErrorId.ModuleIsNotAValidType, location,
+            string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name)),
+        TypeNameClass.LibraryModule => VBCompileErrorInfo.For(VBCompileErrorId.AutomationTypeNotSupported, location,
+            string.Format(Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, name)),
+        TypeNameClass.Project => VBCompileErrorInfo.For(VBCompileErrorId.ExpectedUserDefinedTypeNotProject, location,
+            string.Format(Exceptions.VBCompileError_DeclaredTypeIsAProject_Verbose, name)),
+        _ => null,
+    };
 
     // the name a declared type was written with, when it did not resolve; for an array, its element's.
     private static string? Unresolved(VBType type) => type switch
@@ -308,23 +318,6 @@ public static class DeclarationStaticSemanticsEvaluator
         VBArrayType array => Unresolved(array.ItemType),
         _ => null,
     };
-
-    // MS-VBAL §5.6.16.7: "A <defined-type-expression> is invalid if it is not classified as a type", and a name that binds a procedural module, the
-    // project's or a library's, is classified as a procedural module (§5.6.10).
-    private static TypeNameBinding Bind(string name, Symbol module, ISymbolResolver resolver)
-    {
-        var split = name.LastIndexOf('.');
-        var (qualifier, typeName) = split < 0 ? ((string?)null, name) : (name[..split], name[(split + 1)..]);
-        if (qualifier is null && IntrinsicVBTypes.IsIntrinsic(typeName))
-        {
-            return TypeNameBinding.IsAType;
-        }
-
-        var result = VBProjectSymbol.ResolveQualifiedType(resolver, qualifier, typeName, module.Uri);
-        return !result.IsResolved ? TypeNameBinding.DoesNotResolve
-            : result.Symbol is VBStandardModuleSymbol ? TypeNameBinding.IsAProceduralModule
-            : TypeNameBinding.IsAType;
-    }
 }
 
 /// <summary>

@@ -246,6 +246,9 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
   </data>
+  <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
+    <value>Ce que TypeOf teste est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet dont le type pourrait être testé. Testez-la d'abord avec 'Is Nothing'.</value>
+  </data>
   <data name="VBIndex_NothingToIndex_Verbose" xml:space="preserve">
     <value>Un {0} n'est ni un tableau ni un objet : il n'y a rien à indexer.</value>
   </data>
@@ -716,6 +719,30 @@
   </data>
   <data name="VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose" xml:space="preserve">
     <value>'{0}' est déclaré ByVal et tableau : un paramètre tableau est toujours ByRef.</value>
+  </data>
+  <data name="VBCompileError_AutomationTypeNotSupported" xml:space="preserve">
+    <value>Type Automation non pris en charge par Visual Basic</value>
+  </data>
+  <data name="VBCompileError_ExpectedUserDefinedTypeNotProject" xml:space="preserve">
+    <value>Type défini par l'utilisateur attendu, et non un projet</value>
+  </data>
+  <data name="VBCompileError_DeclaredTypeIsALibraryModule_Verbose" xml:space="preserve">
+    <value>'{0}' est un module standard d'une bibliothèque, pas un type.</value>
+  </data>
+  <data name="VBCompileError_DeclaredTypeIsAProject_Verbose" xml:space="preserve">
+    <value>'{0}' est un projet, pas un type : un type du projet s'écrit après son nom et un point.</value>
+  </data>
+  <data name="VBCompileError_BuiltInTypeIsNoValue_Verbose" xml:space="preserve">
+    <value>'{0}' est un type, pas une valeur.</value>
+  </data>
+  <data name="VBCompileError_TypeOfIntrinsicType_Verbose" xml:space="preserve">
+    <value>'{0}' est un type intrinsèque, ce qu'aucun objet n'est : TypeOf ... Is teste un objet par rapport à une classe, une interface ou Object.</value>
+  </data>
+  <data name="VBCompileError_TypeOfNotATypeName_Verbose" xml:space="preserve">
+    <value>TypeOf ... Is est suivi du nom d'un type : une classe, une interface ou Object.</value>
+  </data>
+  <data name="VBCompileError_TypeOfTypeNotResolved_Verbose" xml:space="preserve">
+    <value>'{0}' n'est pas le nom d'un type que ce projet peut voir.</value>
   </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' est ce que renvoie une Function, une Property Get ou un Declare : un tableau se déclare avec () après son nom, comme dans 'Dim a() As {0}'.</value>

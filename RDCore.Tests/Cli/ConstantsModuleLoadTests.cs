@@ -90,7 +90,7 @@ public sealed class ConstantsModuleLoadTests
         var errors = excel ? await LoadErrorsAsync([], program, Excel) : await LoadErrorsAsync([], program);
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Constants"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, "Constants"));
     }
 
     [TestMethod]

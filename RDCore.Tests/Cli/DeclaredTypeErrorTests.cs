@@ -59,14 +59,35 @@ public sealed class DeclaredTypeErrorTests
     [DataRow("Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Strings", "", "", "Strings", DisplayName = "An external function's result")]
     [DataRow("Public Sub Work()", "Dim s As VBA.Strings", "End Sub", "VBA.Strings", DisplayName = "Qualified by its library")]
     [DataRow("Public Sub Work()", "Dim m As Program", "End Sub", "Program", DisplayName = "The module itself")]
+    [DataRow("Public Property Let Work(ByVal v As Long)", "Dim s As Strings", "End Property", "Strings", DisplayName = "A Property Let's local")]
+    [DataRow("Public Property Set Work(ByVal v As Object)", "Dim s As Strings", "End Property", "Strings", DisplayName = "A Property Set's local")]
+    [DataRow("Public Sub Work()", "Dim a() As Variant: ReDim a(1) As Strings", "End Sub", "Strings", DisplayName = "The type a ReDim states")]
+    [DataRow("Public Sub Work()", "Dim a() As Variant: ReDim a(1) As Program", "End Sub", "Program", DisplayName = "The type a ReDim states, the module itself")]
     public async Task AProceduralModule_IsNotAType_WhereverADeclarationNamesOne(string first, string second, string third, string name)
     {
         // the type binding context binds a procedural module (MS-VBAL §5.6.10), so the name resolved: the declaration loaded, and the variable failed with
-        // error 13 when it was assigned. A procedural module is not a type, so the declaration is not valid.
+        // error 13 when it was assigned. A procedural module is not a type, so the declaration is not valid. MS-VBA says so in two ways, Excel-verified
+        // (oracle\s29): "A module is not a valid type" of the project's, "Automation type not supported in Visual Basic" of a library's.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second, third));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, name));
+        StringAssert.Contains(errors[0], string.Format(name == "Program"
+            ? RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose
+            : RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, name));
+    }
+
+    [TestMethod]
+    [DataRow("Public Sub Work()", "Dim p As VBA", "End Sub", DisplayName = "A local")]
+    [DataRow("Public Sub Work(ByVal p As VBA)", "End Sub", "", DisplayName = "A parameter")]
+    [DataRow("Public Function Work() As VBA", "End Function", "", DisplayName = "A function's result")]
+    [DataRow("Private p As VBA", "", "", DisplayName = "A variable of the module")]
+    public async Task AProject_IsNotAType(string first, string second, string third)
+    {
+        // MS-VBA: "Expected user-defined type, not project" (Excel-verified, oracle\s29 D01, D08).
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second, third));
+
+        Assert.HasCount(1, errors, string.Join("; ", errors));
+        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProject_Verbose, "VBA"));
     }
 
     [TestMethod]
@@ -142,7 +163,7 @@ public sealed class DeclaredTypeErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([("Widget", ModuleWorkspace.ClassModule("Widget", "Public Event Changed(ByVal s As Strings)"))], Program());
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Strings"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, "Strings"));
     }
 
     [TestMethod]

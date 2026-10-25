@@ -379,6 +379,14 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(refused);
                     }
 
+                    // the type a ReDim states is a type expression as a declaration's is (MS-VBAL §5.6.16.7): a module or a project is no type (MS-VBA, Excel-
+                    // verified, oracle\s29 D03, D09). A ReDim that declares its array states the type of a declaration, which is checked as one.
+                    if (redim.AsType is { FixedLength: null } statedType && !DeclaresItsArray(context, redim)
+                        && NoTypeErrorOf(context, statedType) is { } notAType)
+                    {
+                        walk.Errors.Add(notAType);
+                    }
+
                     if (RequireVariable(context, redim.Target, "The target of a ReDim statement", "5.4.3.3", walk)
                         && redim.Target is SimpleNameExpressionNode redimName
                         && context.Resolver.ResolveValue(redimName, ScopeKind.Local, context.Scope.Uri).Symbol is { } array
@@ -914,6 +922,20 @@ public static class StatementStaticSemanticsEvaluator
 
         var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
         return DeclaredTypes.Resolve(context.Resolver, name, context.Scope.Uri, is64Bit: true) is { } type and not VBUnknownType ? type : null;
+    }
+
+    // whether the array a ReDim re-dimensions is the local it declares (MS-VBAL §5.4.3.3: "If the name has no matches").
+    private static bool DeclaresItsArray(StaticEvaluationContext context, RedimDeclarationNode redim)
+        => redim.Target is SimpleNameExpressionNode name
+            && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is VBLocalVariableSymbol { DeclaredBy: LocalDeclarationKind.ReDim };
+
+    // the error of a stated type that names a module or a project, which a type binding context binds and which is no type; null for anything else.
+    private static VBCompileErrorInfo? NoTypeErrorOf(StaticEvaluationContext context, AsTypeExpressionNode asType)
+    {
+        var (bound, _) = TypeNameClassifier.Classify(asType.QualifierName is { Length: > 0 } ? asType.QualifierName : null, asType.TypeName,
+            context.Scope.Uri, context.Resolver);
+        var written = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
+        return DeclarationStaticSemanticsEvaluator.NoTypeError(bound, written, asType.Location);
     }
 
     // whether the variable a bare name refers to is declared As New (MS-VBAL §2.5.1).

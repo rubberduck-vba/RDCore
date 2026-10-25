@@ -2869,9 +2869,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return operandResult;
         }
 
-        if (operandResult.Result is not VBObjectValue objectValue || objectValue.IsNothing())
+        if (NotAnObject(operandResult, expression) is { } notAnObject)
         {
-            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
+            return notAnObject;
         }
 
         if (TryGetQualifiedTypeName(typeOfIs.TypeExpression) is not var (qualifier, typeName) || typeName is null)
@@ -2879,20 +2879,49 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
+        // "The value type of <expression> is any class and <type-expression> specifies the type Object."
+        if (qualifier is null && string.Equals(typeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(true));
+        }
+
+        // a user-defined type or an enumeration is a type no object is (MS-VBA: False, Excel-verified); a name that binds no type is a compile error.
         var targetResult = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, qualifier, typeName, context.Scope);
-        return targetResult.Symbol is VBClassModuleSymbol targetClass
-            ? IsOfClass(session, operandResult, targetClass)
-            : RuntimeSemanticsEvaluationResult.InternalError();
+        return targetResult.Symbol switch
+        {
+            VBClassModuleSymbol targetClass => IsOfClass(session, operandResult, targetClass, expression),
+            VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false)),
+            _ => RuntimeSemanticsEvaluationResult.InternalError(),
+        };
     }
 
-    // whether the object an operand evaluated to is an instance of a class that is, or implements, the class tested against: Nothing and a value that is no
-    // object are not.
-    private static RuntimeSemanticsEvaluationResult IsOfClass(IRuntimeSession session, RuntimeSemanticsEvaluationResult operandResult, VBClassModuleSymbol targetClass)
+    // MS-VBAL §5.6.7: "If the value type of <expression> is Nothing, runtime error 91 (Object variable or With block variable not set) is raised" (MS-VBA
+    // does, whatever the type, Excel-verified); a value that is no object - a Variant holding a number, a record - is no instance of any type: False. Null
+    // when the operand is an object that is something.
+    private static RuntimeSemanticsEvaluationResult? NotAnObject(RuntimeSemanticsEvaluationResult operandResult, ExpressionNode expression)
     {
-        if (operandResult.Result is not VBObjectValue objectValue || objectValue.IsNothing())
+        if (operandResult.Result is not VBObjectValue objectValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
         }
+
+        return objectValue.IsNothing()
+            ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location,
+                Exceptions.VBTypeOf_ObjectVariableNotSet_Verbose))
+            : null;
+    }
+
+    // whether the object an operand evaluated to is an instance of a class that is, or implements, the class tested against: a value that is no object is not,
+    // and Nothing is error 91.
+    private static RuntimeSemanticsEvaluationResult IsOfClass(
+        IRuntimeSession session, RuntimeSemanticsEvaluationResult operandResult, VBClassModuleSymbol targetClass, ExpressionNode expression)
+    {
+        if (NotAnObject(operandResult, expression) is { } notAnObject)
+        {
+            return notAnObject;
+        }
+
+        var objectValue = (VBObjectValue)operandResult.Result!;
 
         return session.Symbols.TryGetInstance(objectValue.Value, out var instance)
             ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(IsOrImplements(instance.ClassModule, targetClass, [])))

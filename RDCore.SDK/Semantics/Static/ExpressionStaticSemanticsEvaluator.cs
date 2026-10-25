@@ -85,6 +85,9 @@ public static class ExpressionStaticSemanticsEvaluator
             PrintSpcClauseNode spc => EvaluateOperands(context, spc.Count),
             PrintTabClauseNode tab => EvaluateOperands(context, tab.Column),
             ObjectPrintExpressionNode print => EvaluateOperands(context, [print.Owner, .. print.Items]),
+            // MS-VBAL §3.3.5.3: an intrinsic type is no value, wherever an expression is written with one (MS-VBA: "Syntax error", Excel-verified).
+            BuiltInTypeExpressionNode builtInType => StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, builtInType.Location,
+                string.Format(Exceptions.VBCompileError_BuiltInTypeIsNoValue_Verbose, builtInType.TypeName))),
             _ => StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo),
         };
 

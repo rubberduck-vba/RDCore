@@ -1373,6 +1373,31 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value, identifier.TypeHint()));
     }
 
+    // MS-VBAL §3.3.5.3: an intrinsic type written where an expression is - after TypeOf ... Is, or where a value is. It is no value, and the static semantics
+    // refuse it there; it is built all the same, so that the refusal is where it was written rather than the name silently missing from the expression.
+    // `Object` is no reserved-type-identifier: MS-VBA reads it as a name, and so does this.
+    public override void ExitBuiltInTypeExpr([NotNull] VBAParser.BuiltInTypeExprContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+
+        var builtInType = context.builtInType();
+        var location = context.GetSourceLocation(_rootUri);
+        var isBracketed = builtInType.L_SQUARE_BRACKET() is not null;
+        if (builtInType.OBJECT() is { } objectToken)
+        {
+            OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, objectToken.GetText()));
+            return;
+        }
+
+        if (builtInType.baseType() is { } baseType)
+        {
+            OnExpression(new BuiltInTypeExpressionNode(GetCurrentNodeId(), location, baseType.GetText(), isBracketed));
+        }
+    }
+
     // `lExpression` (MS-VBAL §5.6.10-16) is left-recursive, same as `expression` — every alternative
     // below follows the same no-Enter-override, PopLastChildren-at-Exit discipline as the operators
     // above (see that block's own remarks on why it stays even though ModuleParser is walk-based now).

@@ -115,7 +115,7 @@ public static class SymbolDescriptorReader
                 var symbol = new VBPropertyLetMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.Property,
                     VBVoidType.TypeInfo, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return symbol with { Parameters = Parameters(symbol.Uri) };
+                yield return symbol with { Parameters = Parameters(symbol.Uri), Locals = Locals(symbol.Uri) };
                 break;
             }
             case SymbolDescriptorKind.PropertySet:
@@ -123,7 +123,7 @@ public static class SymbolDescriptorReader
                 var symbol = new VBPropertySetMemberSymbol(
                     workspaceRoot, parentUri, node.Name, node.Scope, SymbolKindExt.Property,
                     VBVoidType.TypeInfo, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return symbol with { Parameters = Parameters(symbol.Uri) };
+                yield return symbol with { Parameters = Parameters(symbol.Uri), Locals = Locals(symbol.Uri) };
                 break;
             }
             case SymbolDescriptorKind.ExternalProcedure:
