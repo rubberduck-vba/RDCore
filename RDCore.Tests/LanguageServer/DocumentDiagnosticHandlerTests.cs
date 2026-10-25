@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.LanguageServer;
@@ -15,7 +16,7 @@ public sealed class DocumentDiagnosticHandlerTests
 
     private readonly IDocumentDiagnosticsService _service = Substitute.For<IDocumentDiagnosticsService>();
 
-    private DocumentDiagnosticHandler Sut() => new(_service);
+    private DocumentDiagnosticHandler Sut() => new(_service, new WorkProgressReporter());
 
     private static DocumentDiagnosticParams Request(string? previousResultId = null) => new()
     {
@@ -34,7 +35,7 @@ public sealed class DocumentDiagnosticHandlerTests
             Severity = DiagnosticSeverity.Error,
             Range = new Range(new Position(3, 4), new Position(3, 18)),
         };
-        _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>())
+        _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
             .Returns(DocumentDiagnosticsResult.Fresh(2, [diagnostic]));
 
         var report = await Sut().Handle(Request(), CancellationToken.None);
@@ -47,7 +48,7 @@ public sealed class DocumentDiagnosticHandlerTests
     [TestMethod]
     public async Task UnchangedResult_MapsToARelatedUnchangedReport()
     {
-        _service.GetAsync(DocUri, "v5", Arg.Any<CancellationToken>())
+        _service.GetAsync(DocUri, "v5", Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>())
             .Returns(DocumentDiagnosticsResult.NotChanged(5));
 
         var report = await Sut().Handle(Request("v5"), CancellationToken.None);

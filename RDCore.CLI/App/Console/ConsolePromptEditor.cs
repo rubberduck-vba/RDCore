@@ -73,6 +73,31 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     public IReadOnlyList<string> History => _history;
 
     /// <summary>
+    /// What is drawn under the line while it is edited, above a completion list: a line for each piece of work the shell shows the progress of, say. Given the
+    /// cells of a line of the console, which each of them fits in.
+    /// </summary>
+    public Func<int, IReadOnlyList<string>>? Status { get; set; }
+
+    /// <summary>
+    /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
+    /// edited holds it too.
+    /// </summary>
+    public object Sync { get; } = new();
+
+    /// <summary>Whether a line is being edited now: what is drawn of the shell's own is drawn under it then (<see cref="Status"/>), and not where the line is.</summary>
+    public bool IsEditing => Volatile.Read(ref _editing) != 0;
+
+    private int _editing;
+    private TaskCompletionSource _invalidation = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Has the line drawn again, from any thread: what <see cref="Status"/> says has changed. Nothing is drawn while no line is being edited.
+    /// </summary>
+    public void Invalidate() => Interlocked.Exchange(ref _invalidation, new(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
+
+    private Task Invalidation => Volatile.Read(ref _invalidation).Task;
+
+    /// <summary>
     /// Reads a line.
     /// </summary>
     /// <param name="token">Stops waiting for a key.</param>
@@ -86,7 +111,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         }
 
         var line = new Line(this);
-        var entered = await line.EditAsync(token);
+        Volatile.Write(ref _editing, 1);
+        string entered;
+        try
+        {
+            entered = await line.EditAsync(token);
+        }
+        finally
+        {
+            Volatile.Write(ref _editing, 0);
+        }
+
         if (entered.Length > 0 && (_history.Count == 0 || _history[^1] != entered))
         {
             _history.Add(entered);
@@ -124,16 +159,26 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         {
             _history = editor._history.Count;
             Task<ConsoleKeyInfo>? key = null;
+            var invalidated = editor.Invalidation;
             Draw();
             try
             {
                 while (true)
                 {
                     key ??= Task.Run(() => editor._keys.ReadKey(token), CancellationToken.None);
-                    // a list that is there is shown before the next key is taken.
-                    if (_asked is { } asked && await Task.WhenAny(asked, key) == asked)
+
+                    // a list that is there is shown before the next key is taken; what is drawn under the line is drawn again when it changes.
+                    var done = _asked is { } asked ? await Task.WhenAny(asked, key, invalidated) : await Task.WhenAny(key, invalidated);
+                    if (done == _asked)
                     {
-                        Arrived(await asked);
+                        Arrived(await _asked!);
+                        Draw();
+                        continue;
+                    }
+
+                    if (done == invalidated)
+                    {
+                        invalidated = editor.Invalidation;
                         Draw();
                         continue;
                     }
@@ -142,9 +187,10 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     key = null;
                     if (Press(pressed))
                     {
+                        // the line is entered: nothing is left under it, for what is written after it is written there.
                         Close();
                         (_cursor, _start) = (_text.Length, 0);
-                        Draw();
+                        Draw(entered: true);
                         Output.WriteLine();
                         return Text;
                     }
@@ -442,27 +488,37 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
         // ---- drawing ----
 
-        private void Draw()
+        // the line, and what is under it - unless the line is entered, which leaves nothing under it.
+        private void Draw(bool entered = false)
         {
-            var columns = Math.Max(10, editor._width());
+            lock (editor.Sync)
+            {
+                var columns = Math.Max(10, editor._width());
 
-            // the line scrolls to keep the cursor in it, when it is longer than the console is wide.
-            var room = columns - 1;
-            _start = Math.Clamp(_start, Math.Max(0, _cursor - room + 1), _cursor);
-            var shown = Text.Substring(_start, Math.Min(room, _text.Length - _start));
+                // the line scrolls to keep the cursor in it, when it is longer than the console is wide.
+                var room = columns - 1;
+                _start = Math.Clamp(_start, Math.Max(0, _cursor - room + 1), _cursor);
+                var shown = Text.Substring(_start, Math.Min(room, _text.Length - _start));
 
-            Output.Write('\r');
-            Output.Write(shown);
-            Output.Write(ClearToEnd);
-            DrawList(columns);
-            Output.Write(ToColumn(_cursor - _start + 1));
-            Output.Flush();
+                Output.Write('\r');
+                Output.Write(shown);
+                Output.Write(ClearToEnd);
+                DrawUnder(columns, entered);
+                Output.Write(ToColumn(_cursor - _start + 1));
+                Output.Flush();
+            }
         }
 
-        // the list under the line, at the column of its word: its border, the items in view - the selected one in reverse video - and what the selected one is.
-        private void DrawList(int columns)
+        // under the line: what the editor is given to show there (Status), and the list under it, at the column of its word - its border, the items in view, the
+        // selected one in reverse video, and what the selected one is.
+        private void DrawUnder(int columns, bool entered)
         {
             var rows = new List<string>();
+            if (!entered && editor.Status?.Invoke(columns) is { } status)
+            {
+                rows.AddRange(status.Select(row => ToColumn(1) + row));
+            }
+
             if (_list is { IsEmpty: false } list)
             {
                 var border = editor._border;

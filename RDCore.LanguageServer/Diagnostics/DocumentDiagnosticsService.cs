@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
@@ -9,6 +10,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Diagnostics;
@@ -23,7 +25,11 @@ internal interface IDocumentDiagnosticsService
     /// <summary>
     /// Every finding there is for a document: all the phases, awaited.
     /// </summary>
-    Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token);
+    /// <param name="documentUri">The document.</param>
+    /// <param name="previousResultId">The result id of the findings the client has, which are not sent again when the document has not changed since.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <param name="progress">Where the steps of the analysis are reported: the parse, the semantic model, and each provider as it answers.</param>
+    Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
     /// The findings of one phase of the analysis of a document, and nothing of the others (<see cref="AnalysisPhase"/>).
@@ -48,8 +54,9 @@ internal interface IDocumentDiagnosticsService
     /// <param name="documentUri">The URI the analysis is addressed under.</param>
     /// <param name="source">The source to analyze.</param>
     /// <param name="token">A token that cancels the fan-out.</param>
+    /// <param name="progress">Where the steps of the analysis are reported: the parse, the semantic model, and each provider as it answers.</param>
     /// <returns>The diagnostics, and how many providers answered.</returns>
-    Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token);
+    Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 }
 
 /// <summary>
@@ -73,7 +80,7 @@ internal sealed class DocumentDiagnosticsService(
     ISymbolSyncService symbols,
     ILogger<DocumentDiagnosticsService> logger) : IDocumentDiagnosticsService
 {
-    public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token)
+    public async Task<(IReadOnlyList<Diagnostic> Diagnostics, int Providers)> AnalyzeFragmentAsync(Uri documentUri, string source, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var providers = DiagnosticsProviders();
         if (providers.Length == 0)
@@ -81,18 +88,40 @@ internal sealed class DocumentDiagnosticsService(
             return ([], 0);
         }
 
+        progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
         var parseResult = await parsing.ParseFragmentAsync(documentUri, source, token);
 
         // a module the client supplied has no code in the host until it is put there: defined, and loaded - which is not run - so that the host's pass
         // analyzes it and has the facts to answer for it, as it has for a module of the workspace.
+        progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         var semantics = await AnalyzeInHostAsync(documentUri.Fragment.TrimStart('#'), parseResult, token);
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, 0, parseResult, semantics));
-        var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));
+        var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
         return (Aggregate(reports), providers.Length);
     }
 
-    public async Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token)
+    // how much of an analysis is done once the module is parsed, and once the semantic model is there: the providers take the rest of it, each their share.
+    private const int ParsedShare = 20;
+    private const int ModelShare = 50;
+
+    // every provider asked at once, and each that answers reported: how many of them have.
+    private async Task<IReadOnlyList<Diagnostic>[]> ProvidersAsync(
+        IRDCoreClientApp[] providers, Uri documentUri, string payloadJson, CancellationToken token, IProgress<WorkProgressStep>? progress)
+    {
+        progress?.Report(new WorkProgressStep(string.Format(ProgressMessages.Providers, 0, providers.Length), ModelShare));
+
+        var answered = 0;
+        return await Task.WhenAll(providers.Select(async provider =>
+        {
+            var report = await AnalyzeAsync(provider, documentUri, payloadJson, token);
+            var count = Interlocked.Increment(ref answered);
+            progress?.Report(new WorkProgressStep(string.Format(ProgressMessages.Providers, count, providers.Length), ModelShare + (100 - ModelShare) * count / providers.Length));
+            return report;
+        }));
+    }
+
+    public async Task<DocumentDiagnosticsResult> GetAsync(Uri documentUri, string? previousResultId, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var document = Resolve(documentUri);
         var version = document?.Version ?? 0;
@@ -103,7 +132,7 @@ internal sealed class DocumentDiagnosticsService(
                 : DocumentDiagnosticsResult.NotChanged(version);
         }
 
-        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token);
+        return await AnalyzePhaseAsync(document, AnalysisPhase.All, token, progress);
     }
 
     public async Task<DocumentDiagnosticsResult> GetPhaseAsync(Uri documentUri, AnalysisPhase phase, CancellationToken token)
@@ -114,7 +143,7 @@ internal sealed class DocumentDiagnosticsService(
             : await AnalyzePhaseAsync(document, phase, token);
     }
 
-    private async Task<DocumentDiagnosticsResult> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token)
+    private async Task<DocumentDiagnosticsResult> AnalyzePhaseAsync(WorkspaceDocument document, AnalysisPhase phase, CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         var documentUri = document.Id.Uri.ToUri();
         var version = document.Version;
@@ -125,13 +154,15 @@ internal sealed class DocumentDiagnosticsService(
             return DocumentDiagnosticsResult.Fresh(version, []);
         }
 
+        progress?.Report(new WorkProgressStep(ProgressMessages.Parsing, 0));
         var parseResult = await parsing.ParseDocumentAsync(documentUri, token);
         // the module is named the way the workspace sync names it when it defines it in the host. The host answers a request for the static phase at once, and one
         // for the runtime phase when it has evaluated the code: the phases are asked for apart so that what is ready is not kept waiting for what is not.
+        progress?.Report(new WorkProgressStep(ProgressMessages.SemanticModel, ParsedShare));
         var semantics = await SemanticsOfAsync(parseResult.SyntaxTree?.GetDeclaredName() ?? document.Name, phase, token);
         var payloadJson = PlatformJson.Serialize(new DiagnoseDocumentPayload(documentUri, version, parseResult, semantics, phase));
 
-        var reports = await Task.WhenAll(providers.Select(provider => AnalyzeAsync(provider, documentUri, payloadJson, token)));
+        var reports = await ProvidersAsync(providers, documentUri, payloadJson, token, progress);
 
         // the document moved under us while providers were running — the report would be stale, so drop it.
         var currentVersion = Resolve(documentUri)?.Version ?? 0;

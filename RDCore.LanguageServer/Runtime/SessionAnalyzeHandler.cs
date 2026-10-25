@@ -4,9 +4,11 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Diagnostics;
+using RDCore.LanguageServer.Progress;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Server.Services;
 
 namespace RDCore.LanguageServer.Runtime;
@@ -22,6 +24,7 @@ namespace RDCore.LanguageServer.Runtime;
 /// </remarks>
 internal sealed class SessionAnalyzeHandler(
     IDocumentDiagnosticsService diagnostics,
+    IWorkProgressReporter progress,
     IPlatformClientCapabilitiesService clientCapabilities,
     IOptions<SdkAppOptions> options,
     ILogger<SessionAnalyzeHandler> logger)
@@ -39,7 +42,8 @@ internal sealed class SessionAnalyzeHandler(
         }
 
         var moduleUri = new UriBuilder(new Uri(options.Value.Workspace.WorkspaceUri)) { Fragment = request.ModuleName }.Uri;
-        var (found, providers) = await diagnostics.AnalyzeFragmentAsync(moduleUri, request.Source, token);
+        using var work = progress.BeginFor(request, string.Format(ProgressMessages.Analyzing, request.ModuleName));
+        var (found, providers) = await diagnostics.AnalyzeFragmentAsync(moduleUri, request.Source, token, work);
 
         if (logger.IsEnabled(LogLevel.Information))
         {

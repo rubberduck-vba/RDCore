@@ -168,6 +168,27 @@ A verb is registered once. It is registered again only when its descriptor chang
 
 A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line) and `THEME` (`LIST`, `<theme>`) the first time one is completed. A command it does not describe is offered nothing after its verb.
 
+### `window/workDoneProgress`
+
+The language server reports the progress of its work to a client that shows it (`window.workDoneProgress`; **LSP 3.17** §Work Done Progress):
+
+- **Work for a request:** reported to the token the request gave (`workDoneToken`). `rdcore/session/analyze` and `textDocument/diagnostic` report the parse, the semantic model, and each diagnostics provider as it answers.
+- **Work the server does of its own:** reported to a token it creates (`window/workDoneProgress/create`). As the workspace comes up, it reports:
+  - parsing the workspace, a module at a time;
+  - composing the project: each module defined, then its code loaded;
+  - the first analysis of every document.
+
+Progress is for work that takes longer than an answer does. Work that is done within the threshold ([`WorkProgressReporter.DefaultThreshold`](../api/RDCore.SDK.Server.Progress.WorkProgressReporter.html), 300 ms) is reported nothing, and no token is created for it. Work that is still going on then begins, with the last step it reported. Once begun, it always ends, whatever comes of it; work that fails ends with its error's message. Its percentage only goes up.
+
+The code that does the work reports to an `IProgress<WorkProgressStep>` ([`IWorkProgress`](../api/RDCore.SDK.Server.Progress.IWorkProgress.html)), and knows nothing of LSP.
+
+A client tracks what it is reported with [`WorkProgressTracker`](../api/RDCore.SDK.Client.Progress.WorkProgressTracker.html). It shows the work for its requests (`TrackWorkDone`) and the work the server begins (`WorkProgressOrigin.Server`). The interactive shell draws each piece of work as a bar, as PowerShell's `Write-Progress` does:
+
+- while a line is edited at the prompt, under it;
+- while a command runs, the work for that command, on the line its output starts on, cleared before the output is written.
+
+The work the server begins of its own is not drawn among a command's output.
+
 ### `rdcore/session/interaction`
 
 A program runs in the environment host; the person it asks is at a client. A `MsgBox` or an `InputBox` travels in two hops, and the program waits for the answer as it waits for a dialog:

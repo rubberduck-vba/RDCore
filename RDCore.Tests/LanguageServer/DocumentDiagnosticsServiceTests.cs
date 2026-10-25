@@ -14,6 +14,7 @@ using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Tests.LanguageServer;
@@ -338,6 +339,37 @@ public sealed class DocumentDiagnosticsServiceTests
 
         await _symbols.DidNotReceive().SyncModuleAsync(Arg.Any<string>(), Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
         Assert.IsNull(PayloadSentTo(provider).Semantics);
+    }
+
+    // what an analysis reports of its progress, as it reports it.
+    private sealed class Steps : IProgress<WorkProgressStep>
+    {
+        public List<WorkProgressStep> Reported { get; } = [];
+
+        public void Report(WorkProgressStep value)
+        {
+            lock (Reported)
+            {
+                Reported.Add(value);
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task AnAnalysis_ReportsItsSteps_TheParse_TheSemanticModel_AndEachProviderAsItAnswers()
+    {
+        FragmentParses();
+        HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(FragmentUri, false, [], [], [])])));
+        ProvidersAre(Provider("RDCore.Diagnostics", 0), Provider("Another", 0));
+        var steps = new Steps();
+
+        await Sut().AnalyzeFragmentAsync(FragmentUri, "Public Sub Foo()\r\nEnd Sub", CancellationToken.None, steps);
+
+        var percentages = steps.Reported.Select(step => step.Percentage ?? -1).ToArray();
+        CollectionAssert.AreEqual(percentages.Order().ToArray(), percentages, "the percentage only goes up");
+        Assert.AreEqual(100, percentages[^1], "every provider answered");
+        Assert.AreEqual(5, steps.Reported.Count, "the parse, the model, the providers asked, and each that answered");
+        StringAssert.Contains(steps.Reported[^1].Message, "2");
     }
 
     [TestMethod]

@@ -27,8 +27,12 @@ internal sealed class ReplShell(
     ReplDocument document,
     IReplCommandDispatcher dispatcher,
     ILogger<ReplShell> logger,
-    ConsolePromptEditor? editor = null)
+    ConsolePromptEditor? editor = null,
+    ReplProgressDisplay? progress = null)
 {
+    // the progress of the language server's work is drawn while the shell runs: its display is the shell's for as long.
+    private readonly ReplProgressDisplay? _progress = progress;
+
     /// <summary>
     /// How long the language server may wait for the runtime session to come up before the shell
     /// gives up and reports that there is none. Platform bring-up launches three processes.

@@ -1,5 +1,6 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 
 namespace RDCore.SDK.Platform.Protocol;
@@ -15,8 +16,14 @@ namespace RDCore.SDK.Platform.Protocol;
 /// the code in its buffer.
 /// </remarks>
 [Method(RDCorePlatformProtocol.SessionAnalyze, Direction.ClientToServer)]
-public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResult>
+public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResult>, IWorkDoneProgressParams
 {
+    /// <summary>
+    /// The token the progress of the analysis is reported to (<strong>LSP 3.17</strong> §Work Done Progress): the parse, the semantic model, and each
+    /// diagnostics provider as it answers. <see langword="null"/> for a client that does not show it.
+    /// </summary>
+    public ProgressToken? WorkDoneToken { get; init; }
+
     /// <summary>
     /// The complete source of the module to analyze.
     /// </summary>

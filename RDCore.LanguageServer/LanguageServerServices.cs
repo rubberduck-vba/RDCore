@@ -58,6 +58,7 @@ internal static class LanguageServerServices
             .AddSingleton<IParsingClientService, ParsingClientService>()
             .AddSingleton<ISemanticTokensService, SemanticTokensService>()
             .AddSingleton<IClientVerbRegistry, ClientVerbRegistry>()
+            .AddSingleton<RDCore.SDK.Server.Progress.IWorkProgressReporter>(_ => new RDCore.SDK.Server.Progress.WorkProgressReporter())
             .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()

@@ -195,7 +195,14 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ReplCompletion>().CompleteAsync,
-                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single));
+                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single))
+                // the progress of the work the language server reports, drawn under the prompt's line, or where a command's output is about to be written.
+                .AddSingleton(provider => new ReplProgressDisplay(
+                    provider.GetRequiredService<RDCoreConsoleClientApp>().WorkProgress,
+                    System.Console.Out,
+                    () => System.Console.WindowWidth,
+                    provider.GetRequiredService<ConsolePromptEditor>(),
+                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii));
         }
     }
 
@@ -272,6 +279,9 @@ internal class RDCoreConsoleClientApp(
     : RDCoreClientApp(options, connectionFactory, logger)
 {
     public override CoreServerComponent PlatformComponent => CoreServerComponent.ClientApp;
+
+    // the shell shows the progress of the work the language server does, where its console can draw it.
+    protected override bool SupportsWorkDoneProgress => !System.Console.IsOutputRedirected;
 
     // what rdc.exe asks the language server to serve beyond LSP. The language server records these
     // and refuses a request family the client never advertised, so the negotiation is real in both

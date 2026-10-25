@@ -9,6 +9,7 @@ using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server.Handlers.Document;
@@ -21,6 +22,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
 
@@ -48,6 +50,7 @@ internal sealed class CoreLanguageServerApp(
     IDocumentDiagnosticsService diagnostics,
     IDiagnosticsPublisher publisher,
     IClientInteractionRelay interaction,
+    IWorkProgressReporter progress,
     ILogger<CoreLanguageServerApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
@@ -128,6 +131,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISemanticTokensService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ISymbolResolver>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IPlatformOrchestrationService>());
@@ -240,6 +244,9 @@ internal sealed class CoreLanguageServerApp(
         // the dialogs of the program that runs in the environment host are relayed to this client, if it answers them.
         interaction.Attach(new LanguageServerInteractionClient(server));
 
+        // and the progress of the work the server does is reported to it, if it shows it.
+        progress.Attach(server.WorkDoneManager);
+
         // Bring up the core child components once the client<->LS connection is live. Each runs as a
         // supervised background task (not awaited): a child that is slow or fails to attach must not
         // block or fault the language server.
@@ -286,24 +293,36 @@ internal sealed class CoreLanguageServerApp(
 
     private async Task ParseWorkspaceThenSyncSymbolsAsync(CancellationToken token)
     {
-        await parsing.ParseWorkspaceAsync(token);
-        await symbolSync.SyncWorkspaceAsync(token);
-        await RunDiagnosticsBringUpAsync(token);
+        // the work the server does of its own as it brings the workspace up is reported to the client, each part of it.
+        using (var parsingWork = progress.Begin(ProgressMessages.ParsingWorkspace))
+        {
+            await parsing.ParseWorkspaceAsync(token, parsingWork);
+        }
+
+        using (var composingWork = progress.Begin(ProgressMessages.ComposingProject))
+        {
+            await symbolSync.SyncWorkspaceAsync(token, composingWork);
+        }
+
+        using var analyzingWork = progress.Begin(ProgressMessages.AnalyzingWorkspace);
+        await RunDiagnosticsBringUpAsync(token, analyzingWork);
     }
 
     /// <summary>
     /// Pulls diagnostics for every loaded document once, exercising the provider fan-out without an
     /// editor. Not a push — nothing is sent to the client; it is the seam the future push hangs off.
     /// </summary>
-    private async Task RunDiagnosticsBringUpAsync(CancellationToken token)
+    private async Task RunDiagnosticsBringUpAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         try
         {
             var total = 0;
-            foreach (var document in workspaceDocuments.GetAllDocuments())
+            var all = workspaceDocuments.GetAllDocuments().ToList();
+            for (var index = 0; index < all.Count; index++)
             {
                 token.ThrowIfCancellationRequested();
-                var uri = document.Id.Uri.ToUri();
+                var uri = all[index].Id.Uri.ToUri();
+                progress?.Report(new WorkProgressStep(string.Format(ProgressMessages.ItemOf, all[index].Name, index + 1, all.Count), 100 * index / all.Count));
                 var result = await diagnostics.GetAsync(uri, previousResultId: null, token);
                 total += result.Diagnostics.Count;
                 LogIfEnabled(LogLevel.Information, $"🔎 {uri}: {result.Diagnostics.Count} diagnostic(s)");

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Client;
@@ -10,6 +11,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Server.Progress;
 using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Symbols;
@@ -24,7 +26,9 @@ internal interface ISymbolSyncService
     /// <summary>
     /// Sends the symbols of every workspace module with a cached parse result to the environment host.
     /// </summary>
-    Task SyncWorkspaceAsync(CancellationToken token);
+    /// <param name="token">A token that cancels the sync.</param>
+    /// <param name="progress">Where each module is reported as it is defined, and then as its code is loaded.</param>
+    Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
     /// Sends the symbols of one parsed module to the environment host.
@@ -152,7 +156,7 @@ internal sealed class SymbolSyncService(
         return moduleUri;
     }
 
-    public async Task SyncWorkspaceAsync(CancellationToken token)
+    public async Task SyncWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         try
         {
@@ -183,10 +187,16 @@ internal sealed class SymbolSyncService(
                 workspaceRoot, modules.Select(module => (module.Uri, module.Kind, module.Parse)), resolver,
                 implicitScope: ImplicitScope, libraries: referencedLibraries.SymbolsUnder(workspaceRoot));
 
+            // a module is defined, and then its code is loaded: two steps of each, half the work each.
             var totalDefined = 0;
+            var step = 0;
+            void Step(string message, string module) => progress?.Report(new WorkProgressStep(
+                string.Format(ProgressMessages.ItemOf, string.Format(message, module), step % modules.Count + 1, modules.Count), 100 * step++ / (2 * modules.Count)));
+
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
+                Step(ProgressMessages.Defining, module.Name);
                 try
                 {
                     totalDefined += await DefineModuleSymbolsAsync(workspaceRoot, module.Uri, module.Name, module.Kind, module.Parse, workspaceResolver, replace: false, withCode: false, token);
@@ -206,6 +216,7 @@ internal sealed class SymbolSyncService(
             foreach (var module in modules)
             {
                 token.ThrowIfCancellationRequested();
+                Step(ProgressMessages.Loading, module.Name);
                 try
                 {
                     await SendModuleCodeAsync(workspaceRoot, module.Uri, module.Name, module.Parse, token);

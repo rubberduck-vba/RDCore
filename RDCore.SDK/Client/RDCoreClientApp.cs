@@ -7,7 +7,9 @@ using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.SDK.Client.Connection;
+using RDCore.SDK.Client.Progress;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
@@ -46,6 +48,31 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// The extension manifest when this client connects to a <see cref="CoreServerComponent.Extension"/>; <c>null</c> otherwise.
     /// </summary>
     ExtensionInfo? ExtensionInfo { get; }
+
+    /// <summary>
+    /// The work the server reports the progress of to this client (<strong>LSP 3.17</strong> §Work Done Progress): the work it begins of its own, and the work
+    /// it does for a request given a token by <see cref="TrackWorkDone"/>. Nothing is ever tracked for a client that does not support progress
+    /// (<see cref="RDCoreClientApp.SupportsWorkDoneProgress"/>).
+    /// </summary>
+    WorkProgressTracker WorkProgress { get; }
+
+    /// <summary>
+    /// A token to give a request for the progress of the work done for it (<see cref="IWorkDoneProgressParams.WorkDoneToken"/>), which
+    /// <see cref="WorkProgress"/> tracks while the tracking is not disposed.
+    /// </summary>
+    /// <returns>The tracking; its <see cref="WorkDoneTracking.Token"/> is <see langword="null"/> when the client cannot be reported progress to.</returns>
+    WorkDoneTracking TrackWorkDone();
+}
+
+/// <summary>
+/// The progress of the work done for one request, tracked (<see cref="IRDCoreClientApp.TrackWorkDone"/>): its token, and what stops the tracking.
+/// </summary>
+/// <param name="Token">The token to give the request; <see langword="null"/> when the client cannot be reported progress to.</param>
+/// <param name="Tracking">What stops the tracking.</param>
+public sealed record class WorkDoneTracking(ProgressToken? Token, IDisposable? Tracking) : IDisposable
+{
+    /// <summary>Stops the tracking: the request is answered, and its work is done, whether it was reported as ended or not.</summary>
+    public void Dispose() => Tracking?.Dispose();
 }
 
 /// <summary>
@@ -118,6 +145,28 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 #pragma warning restore VSTHRD110 // Observe result of async calls
 
     public PlatformInitializeResult? PlatformInfo => _connection?.PlatformInfo;
+
+    /// <inheritdoc/>
+    public WorkProgressTracker WorkProgress { get; } = new();
+
+    /// <summary>
+    /// Whether this client shows the progress of the server's work (<c>window.workDoneProgress</c>): a client that does says so in its capabilities, tracks the
+    /// work the server begins of its own (<c>window/workDoneProgress/create</c>), and gives a token to the requests it makes the progress of tracked
+    /// (<see cref="TrackWorkDone"/>). The base implementation does not.
+    /// </summary>
+    protected virtual bool SupportsWorkDoneProgress => false;
+
+    /// <inheritdoc/>
+    public WorkDoneTracking TrackWorkDone()
+    {
+        if (!SupportsWorkDoneProgress || _connection?.State.Value is not ConnectionStateValue.Ready || !Connection.Client.WorkDoneManager.IsSupported)
+        {
+            return new WorkDoneTracking(null, null);
+        }
+
+        ProgressToken token = Guid.NewGuid().ToString("N");
+        return new WorkDoneTracking(token, WorkProgress.Track(token, Connection.Client.WorkDoneManager.Monitor(token)));
+    }
 
     /// <summary>
     /// The platform capabilities this app expects the child to provide (sent in the platform handshake).
@@ -233,7 +282,11 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         GC.SuppressFinalize(this);
     }
 
-    protected virtual ClientCapabilities GetClientCapabilities() => new();
+    protected virtual ClientCapabilities GetClientCapabilities() => new()
+    {
+        // said either way: the language client says it supports progress unless it is told otherwise, and a server would create tokens for nothing.
+        Window = new WindowClientCapabilities { WorkDoneProgress = SupportsWorkDoneProgress },
+    };
 
     protected virtual InitializeParams CreateInitializationParams() => new()
     {
@@ -278,6 +331,16 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
         if (initialization.RootUri is { } rootUri)
         {
             options.WithRootUri(rootUri);
+        }
+
+        // the work the server begins of its own is tracked from the token it creates for it.
+        if (SupportsWorkDoneProgress)
+        {
+            options.OnWorkDoneProgressCreate((request, _) =>
+            {
+                WorkProgress.Track(request.Token!, Connection.Client.WorkDoneManager.Monitor(request.Token!), WorkProgressOrigin.Server);
+                return Task.CompletedTask;
+            });
         }
 
         // everything else the app wants to do:

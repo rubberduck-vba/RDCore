@@ -1,11 +1,13 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
+using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.LanguageServer.Parsing;
@@ -44,7 +46,9 @@ internal interface IParsingClientService
     /// <summary>
     /// Parses every currently-loaded workspace source document. Failures are logged, not thrown.
     /// </summary>
-    Task ParseWorkspaceAsync(CancellationToken token);
+    /// <param name="token">A token that cancels the parse.</param>
+    /// <param name="progress">Where each document is reported as it is parsed.</param>
+    Task ParseWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null);
 
     /// <summary>
     /// Gets the last <see cref="ModuleParseResult"/> cached for <paramref name="documentUri"/>.
@@ -167,7 +171,7 @@ internal sealed class ParsingClientService(
         return result;
     }
 
-    public async Task ParseWorkspaceAsync(CancellationToken token)
+    public async Task ParseWorkspaceAsync(CancellationToken token, IProgress<WorkProgressStep>? progress = null)
     {
         try
         {
@@ -175,10 +179,13 @@ internal sealed class ParsingClientService(
 
             var parsed = 0;
             var failed = 0;
-            foreach (var document in documents.GetAllDocuments())
+            var all = documents.GetAllDocuments().ToList();
+            foreach (var document in all)
             {
                 token.ThrowIfCancellationRequested();
                 var uri = document.Id.Uri.ToUri();
+                progress?.Report(new WorkProgressStep(
+                    string.Format(ProgressMessages.ItemOf, document.Name, parsed + failed + 1, all.Count), 100 * (parsed + failed) / Math.Max(1, all.Count)));
                 try
                 {
                     await ParseDocumentAsync(uri, token);
