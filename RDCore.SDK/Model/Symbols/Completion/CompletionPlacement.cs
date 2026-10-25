@@ -62,10 +62,16 @@ public enum CompletionProcedure
 /// </remarks>
 /// <param name="Procedure">The procedure the line is in; <see langword="null"/> in the declarations section, or between procedures.</param>
 /// <param name="Blocks">The blocks the line is inside of, innermost first.</param>
-/// <param name="FollowsDeclarations">Whether a declaration comes before the line in the declarations section: an <c>Option</c> cannot be written after one.</param>
+/// <param name="Options">
+/// The options the module states on its other lines - <c>Explicit</c>, <c>Base</c>, <c>Compare</c>, <c>Private</c> - each of which a module states once at most
+/// (<strong>MS-VBAL §5.2.1</strong>).
+/// </param>
 /// <param name="Labels">The labels and the line numbers of the procedure the line is in, in the order they are written.</param>
-public sealed record class CompletionPlacement(CompletionProcedure? Procedure, ImmutableArray<CompletionBlock> Blocks, bool FollowsDeclarations, ImmutableArray<string> Labels)
+public sealed record class CompletionPlacement(CompletionProcedure? Procedure, ImmutableArray<CompletionBlock> Blocks, ImmutableArray<string> Options, ImmutableArray<string> Labels)
 {
+    /// <summary>The options a module can state, as the word after <c>Option</c>.</summary>
+    public static IReadOnlyList<string> AllOptions { get; } = ["Base", "Compare", "Explicit", "Private"];
+
     private static readonly string[] Modifiers = ["Public", "Private", "Friend", "Global", "Static"];
 
     /// <summary>Whether the line is in a procedure, where statements are written; outside of one, only declarations are.</summary>
@@ -85,7 +91,6 @@ public sealed record class CompletionPlacement(CompletionProcedure? Procedure, I
         CompletionProcedure? procedure = null;
         var procedureStart = 0;
         var blocks = new List<CompletionBlock>();
-        var declarations = false;
 
         foreach (var (start, statement, _) in Statements(lines, 0, line))
         {
@@ -104,7 +109,6 @@ public sealed record class CompletionPlacement(CompletionProcedure? Procedure, I
 
             if (procedure is null)
             {
-                declarations |= !tokens[0].Is("Option") && !tokens[0].Is("Attribute") && !tokens[0].StartsWith('#');
                 continue;
             }
 
@@ -119,25 +123,27 @@ public sealed record class CompletionPlacement(CompletionProcedure? Procedure, I
         }
 
         var labels = procedure is null ? [] : LabelsOf(lines, procedureStart, line);
-        return new CompletionPlacement(procedure, [.. Enumerable.Reverse(blocks)], declarations, [.. labels]);
+        return new CompletionPlacement(procedure, [.. Enumerable.Reverse(blocks)], [.. OptionsOf(lines, line)], [.. labels]);
     }
+
+    // the options the module states anywhere but on the line being written: one that is stated is not stated again.
+    private static IEnumerable<string> OptionsOf(IReadOnlyList<string> lines, int line)
+        => Statements(lines, 0, lines.Count)
+            .Where(statement => statement.Line != line)
+            .Select(statement => CompletionStatement.Tokenize(statement.Statement))
+            .Where(tokens => tokens.Count > 1 && tokens[0].Is("Option"))
+            .Select(tokens => AllOptions.FirstOrDefault(option => tokens[1].Is(option)))
+            .OfType<string>()
+            .Distinct();
 
     /// <summary>
-    /// The line the first procedure of a module starts on - its header - or <c>-1</c> for a module that has none.
+    /// The line of a module that is labelled - or numbered - <paramref name="label"/> (<strong>MS-VBAL §5.4.1.1</strong>), or <c>-1</c> for a label the module does
+    /// not have.
     /// </summary>
     /// <param name="lines">The lines of the module's source.</param>
-    public static int FirstProcedureOf(IReadOnlyList<string> lines)
-    {
-        foreach (var (start, statement, _) in Statements(lines, 0, lines.Count))
-        {
-            if (ProcedureOf(CompletionStatement.Tokenize(statement)) is not null)
-            {
-                return start;
-            }
-        }
-
-        return -1;
-    }
+    /// <param name="label">The label, or the line number.</param>
+    public static int LineLabelled(IReadOnlyList<string> lines, string label)
+        => Statements(lines, 0, lines.Count).FirstOrDefault(statement => statement.Label?.Is(label) == true) is { Label: not null } found ? found.Line : -1;
 
     /// <summary>
     /// The lines of a module that are numbered (<strong>MS-VBAL §5.4.1.1</strong>), and the statements they are: what a line number of the module names - the

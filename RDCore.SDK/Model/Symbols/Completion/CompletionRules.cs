@@ -67,7 +67,9 @@ public static class CompletionRules
     private static IReadOnlyList<CompletionCandidate> DeclarationStart(CompletionPlacement placement, CompletionLanguage language)
     {
         IEnumerable<string> keywords = [.. DeclarationKeywords, .. language.IsClassModule ? ClassDeclarationKeywords : []];
-        if (!placement.FollowsDeclarations)
+
+        // an Option is written anywhere in the declarations section, while there is one left that the module does not state.
+        if (OptionsLeft(placement).Any())
         {
             keywords = keywords.Prepend("Option");
         }
@@ -130,7 +132,7 @@ public static class CompletionRules
         {
             return count switch
             {
-                1 => Keywords(["Base", "Compare", "Explicit", "Private"]),
+                1 => Keywords(OptionsLeft(placement)),
                 2 when last.Is("Compare") => Keywords(["Binary", "Database", "Text"]),
                 2 when last.Is("Private") => Keywords(["Module"]),
                 _ => [],
@@ -452,6 +454,10 @@ public static class CompletionRules
     private static IReadOnlyList<CompletionCandidate> Operators() => Keywords(OperatorKeywords);
 
     private static string[] When(bool condition, params string[] keywords) => condition ? keywords : [];
+
+    // the options a module can state that it does not state yet: each is stated once at most (MS-VBAL §5.2.1).
+    private static IEnumerable<string> OptionsLeft(CompletionPlacement placement)
+        => CompletionPlacement.AllOptions.Except(placement.Options, StringComparer.OrdinalIgnoreCase);
 
     private static IReadOnlyList<CompletionCandidate> Keywords(IEnumerable<string> keywords)
         => [.. keywords.Select(keyword => new CompletionCandidate(keyword, CompletionItemKind.Keyword, Rank: KeywordRank))];

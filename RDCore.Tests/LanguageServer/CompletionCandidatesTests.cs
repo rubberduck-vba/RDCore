@@ -180,7 +180,7 @@ public sealed class CompletionCandidatesTests
     public void TheItems_RankWhatIsNearerFirst()
     {
         var (tree, _) = Workspace();
-        var placement = new CompletionPlacement(CompletionProcedure.Sub, [], FollowsDeclarations: true, []);
+        var placement = new CompletionPlacement(CompletionProcedure.Sub, [], [], []);
         var items = CompletionRules.At(tree, InRun(tree), new CompletionSite(CompletionSiteKind.Name, IsStatementStart: true), placement, new CompletionLanguage())
             .Select(candidate => candidate.ToCompletionItem()).ToList();
 
