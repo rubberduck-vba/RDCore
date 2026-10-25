@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.SDK.Semantics.Static;
 
@@ -74,6 +75,22 @@ public static class MemberRoles
                 }
 
                 Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, roles);
+            }
+        }
+
+        // a form handles its own events by procedures named UserForm_EventName, whatever its name: those of the Microsoft Forms UserForm it hosts, and those of
+        // the VBA form object (FormObject). One that does not match its event is never called by it, as for a control's.
+        if (module.Members.Any(FormObject.IsDeclaredBy))
+        {
+            var userForm = VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, FormObject.ClassName, module.Uri).Symbol as VBClassModuleSymbol;
+            foreach (var handled in (userForm?.Events ?? []).Concat(FormObject.ClassIn(module.WorkspaceRoot).Events))
+            {
+                foreach (var candidate in module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
+                    && string.Equals(member.Name, $"{FormObject.ClassName}_{handled.Name}", StringComparison.OrdinalIgnoreCase)))
+                {
+                    roles.TryAdd(candidate.SemanticId,
+                        ClassModuleEventSemantics.Matches(candidate, handled) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
+                }
             }
         }
 

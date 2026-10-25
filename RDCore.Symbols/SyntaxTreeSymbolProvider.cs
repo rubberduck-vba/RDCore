@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Symbols;
 
@@ -175,14 +176,29 @@ public sealed class SyntaxTreeSymbolProvider(
             }
         }
 
-        // a form's controls are fields of its class that its designer declares, not its code. A name the code declares too is a compile error of the code's
-        // declaration (DeclarationStaticSemanticsEvaluator.CheckDesigner); the code's declaration is the symbol of that name, so that each name has one.
-        var declaredByCode = DeclaredNamesOf(module);
-        foreach (var control in parseResult.Designer?.DeclaredControls() ?? [])
+        // a form's controls are members of its class that its designer declares, not its code. A name the code declares too is a compile error of the code's
+        // declaration (DeclarationStaticSemanticsEvaluator.CheckDesigner); the code's declaration is the symbol of that name, so that each name has one. The
+        // designer declares the form's own members alongside them: the VBA form object's and the Microsoft Forms UserForm's (SymbolBuilder.BuildFormMembers).
+        if (parseResult.Designer is not { } designer)
         {
-            if (!declaredByCode.Contains(control.Name))
+            yield break;
+        }
+
+        var taken = DeclaredNamesOf(module);
+        foreach (var control in designer.DeclaredControls())
+        {
+            if (taken.Add(control.Name))
             {
-                yield return builder.BuildDesignerControl(control);
+                yield return builder.BuildDesignerControl(control, designer.Name);
+            }
+        }
+
+        // a VB6 form is VB6's, whose runtime is out of scope: only a UserForm has the VBA form object
+        if (designer.Kind == FormDesignerKind.MSForms)
+        {
+            foreach (var member in builder.BuildFormMembers(designer.Name, taken))
+            {
+                yield return member;
             }
         }
     }

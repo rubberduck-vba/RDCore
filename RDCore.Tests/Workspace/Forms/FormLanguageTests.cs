@@ -42,7 +42,16 @@ public sealed class FormLanguageTests
         Name = "MSForms",
         Classes =
         [
-            new ClassDescription { Name = "UserForm", Members = [new MemberDescription { Name = "Caption", Kind = MemberKind.PropertyGet, Type = "String" }] },
+            new ClassDescription
+            {
+                Name = "UserForm",
+                Members =
+                [
+                    new MemberDescription { Name = "Caption", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "Caption", Kind = MemberKind.PropertyLet, Parameters = [new ParameterDescription { Name = "Caption", Type = "String" }] },
+                ],
+                Events = [new EventDescription { Name = "Click" }],
+            },
             new ClassDescription
             {
                 Name = "TextBox",
@@ -321,6 +330,47 @@ public sealed class FormLanguageTests
             Form("Public Sub Reset()", $"    {form}", "End Sub"), $"Public Sub Main()\r\n    {program}\r\nEnd Sub");
 
         Assert.AreEqual(VBCompileErrorId.InvalidUseOfProperty, Assert.ContainsSingle(errors).Id);
+    }
+
+    // ---- the form's own members and events: the Microsoft Forms UserForm's and the VBA form object's (oracle\s32b, s32c) ----
+
+    [TestMethod]
+    public async Task TheFormsOwnMembers_AreMembersOfItsClass_ByMe_ByItsName_AndBare()
+        => Assert.IsEmpty(await DeclarationErrorsAsync(
+            Form("Public Sub Reset()", "    Me.Caption = \"a\"", "    Debug.Print Caption", "    Me.Left = 10", "    Hide", "End Sub"),
+            "Public Sub Main()\r\n    Form1.Caption = \"b\"\r\n    Form1.Move 1, 2\r\n    Form1.Show\r\n    Debug.Print Form1.Name\r\nEnd Sub"));
+
+    [TestMethod]
+    [DataRow("Debug.Print Form1.ShowModal", DisplayName = "s32b M14 a designer property, not a member")]
+    [DataRow("Debug.Print Form1.Parent", DisplayName = "s32b M19")]
+    public async Task WhatTheFormObjectDoesNotHave_IsMethodOrDataMemberNotFound(string statement)
+        => Assert.AreEqual(VBCompileErrorId.MethodOrDataMemberNotFound, Assert.ContainsSingle(await DeclarationErrorsAsync(Form(), $"Public Sub Main()\r\n    {statement}\r\nEnd Sub")).Id);
+
+    [TestMethod]
+    public async Task MeDot_OffersTheFormsOwnMembers()
+        => CollectionAssert.IsSubsetOf(new[] { "Caption", "Show", "Hide", "Left", "Move", "TextBox1" }, await CompletionAtAsync(Form("Private Sub Fill()", "    Me.|", "End Sub")));
+
+    [TestMethod]
+    [DataRow("Private Sub UserForm_Initialize()", DisplayName = "the form object's")]
+    [DataRow("Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", DisplayName = "the form object's, with its parameters")]
+    [DataRow("Private Sub UserForm_Click()", DisplayName = "the Microsoft Forms UserForm's")]
+    public async Task AHandlerOfTheFormsOwnEvent_IsAHandler(string declaration)
+        => Assert.IsEmpty(await UnmatchedHandlersAsync(declaration, "End Sub"));
+
+    [TestMethod]
+    public async Task AnUnmatchedHandlerOfTheFormsOwnEvent_IsDead()
+        => Assert.AreEqual(RDCoreDiagnosticId.UnmatchedEventHandler,
+            Assert.ContainsSingle(await UnmatchedHandlersAsync("Private Sub UserForm_QueryClose(ByVal Cancel As Long)", "End Sub")).Id);
+
+    [TestMethod]
+    public async Task ShowingAForm_WithNothingToHostIt_IsARunTimeError_NotAnInternalOne()
+    {
+        var printed = await ModuleWorkspace.RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nOn Error Resume Next\r\nForm1.Show\r\nDebug.Print Err.Number\r\nEnd Sub\r\n",
+            References, [("Form1", Form(), Designer)]);
+
+        var number = int.Parse(Assert.ContainsSingle(printed));
+        Assert.AreNotEqual(0, number, "nothing hosts the form yet");
+        Assert.AreNotEqual(51, number, "a member the designer declares is dispatched outside the workspace's code, not looked for in it");
     }
 
     [TestMethod]

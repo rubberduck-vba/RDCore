@@ -68,6 +68,7 @@ public static class SymbolDescriptorProjector
             Constants = ConstantsOf(symbol, children, moduleKey),
             IsWithEvents = symbol.GetProperty(SymbolProperties.WithEvents),
             IsDesignerControl = symbol.GetProperty(SymbolProperties.DesignerControl),
+            ExternalTarget = symbol.GetProperty(SymbolProperties.ExternalTarget),
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
             Members = [.. children.Where(IsNestableMember).Select(child => Describe(child, KindOf(child)!.Value, [], moduleKey))],
