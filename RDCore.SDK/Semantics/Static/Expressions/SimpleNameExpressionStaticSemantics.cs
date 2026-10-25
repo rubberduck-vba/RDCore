@@ -52,11 +52,12 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
                 return StaticSemanticsEvaluationResult.Error(mismatch);
             }
 
-            // a procedural module only qualifies the names of its members (MS-VBAL §5.6.12, which classifies it as a namespace before it is ever evaluated as
-            // an owner): by itself it is no value, variable or procedure (MS-VBA: "Expected variable or procedure, not module", Excel-verified).
-            if (result.Symbol is VBStandardModuleSymbol module)
+            // a project, a procedural module and an enumeration only qualify the names of what they declare (MS-VBAL §5.6.12, which classifies them before
+            // they are ever evaluated as an owner): by itself each is no value, variable or procedure (MS-VBA: "Expected variable or procedure, not
+            // module", "not project", "not enum type", Excel-verified, oracle\s29).
+            if (NameClassificationStaticSemantics.NotAValueError(result.Symbol!, expression.Location, simpleName.WrittenName) is { } notAValue)
             {
-                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, expression.Location, module.Name));
+                return StaticSemanticsEvaluationResult.Error(notAValue);
             }
 
             // the host's Debug object is only ever written as the statements that are its own, Debug.Print and Debug.Assert (DebugStatementNode, which no

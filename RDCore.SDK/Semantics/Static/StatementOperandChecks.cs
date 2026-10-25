@@ -267,7 +267,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
                 ? access.Member.IdentifierName
                 : null,
         MemberAccessExpressionNode { Owner: { } owner } access
-            when ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsSuccess: true, Result: VBEnumType enumType }
+            when NameClassificationStaticSemantics.EnumerationOf(context, owner) is { } enumType
             => enumType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))?.Name,
         _ => null,
     };
@@ -318,7 +318,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
             => NotAVariable(context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol, functions),
         // and a member of an Enum is one of its constants (MS-VBAL §5.2.3.4); a name that is none of them is not found, which is another error.
         MemberAccessExpressionNode { Owner: { } owner } access
-            when ExpressionStaticSemanticsEvaluator.Evaluate(context, owner) is { IsSuccess: true, Result: VBEnumType enumType }
+            when NameClassificationStaticSemantics.EnumerationOf(context, owner) is { } enumType
             && enumType.Members.FirstOrDefault(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)) is { } constant
             => $"the constant {constant.Name}",
         _ => null,

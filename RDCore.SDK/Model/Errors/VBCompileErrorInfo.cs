@@ -148,5 +148,9 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.AutomationTypeNotSupported] = Exceptions.VBCompileError_AutomationTypeNotSupported,
         [VBCompileErrorId.ExpectedUserDefinedTypeNotProject] = Exceptions.VBCompileError_ExpectedUserDefinedTypeNotProject,
         [VBCompileErrorId.InvalidLengthForFixedLengthString] = Exceptions.VBCompileError_InvalidLengthForFixedLengthString,
+        [VBCompileErrorId.ExpectedVariableOrProcedureNotProject] = Exceptions.VBCompileError_ExpectedVariableOrProcedureNotProject,
+        [VBCompileErrorId.ExpectedVariableOrProcedureNotEnumType] = Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType,
+        [VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant] = Exceptions.VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant,
+        [VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray] = Exceptions.VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray,
     };
 }

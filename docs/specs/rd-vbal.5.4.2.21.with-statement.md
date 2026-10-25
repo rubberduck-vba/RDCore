@@ -18,6 +18,13 @@ opener's `End` or beyond, goes past it.
 
 ## Static Semantics
 
+What a `With` block is about is an object, a record of a user-defined type, or a `Variant`: what its `.Member`
+references can be members of. Any other value is
+[VBC09378](../diagnostics/vbc09378.md) _With object must be user-defined type, Object, or Variant_, as **MS-VBA** has
+it (recorded in Excel): a variable of an intrinsic type (`With n`), a literal or an operator's result (`With 5`,
+`With n + 1`), a project, a module or an Enum type (`With VBA`, `With Strings`, `With Color`). `With Nothing` compiles.
+The error is reported once: the body is still in a `With` block, of a target whose type is not known.
+
 Lowering records the enclosing `With` block on every instruction inside it
 ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)):
 
