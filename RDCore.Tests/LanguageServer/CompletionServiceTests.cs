@@ -467,6 +467,39 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(0, list.Items.Count());
     }
 
+    private static readonly VerbDescriptor Config = new()
+    {
+        Name = "CONFIG",
+        Forms =
+        [
+            [
+                new VerbArgument { Name = "reset", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = "RESET" }] },
+                new VerbArgument { Name = "setting", Kind = VerbArgumentKind.Setting, Settings = SettingsSchema.Platform.Settings.Where(setting => setting.IsSettable).ToList() },
+            ],
+            [
+                new VerbArgument { Name = "setting", Kind = VerbArgumentKind.Setting, Settings = SettingsSchema.Platform.Settings.Where(setting => setting.IsSettable).ToList() },
+                new VerbArgument { Name = "value", Kind = VerbArgumentKind.SettingValue, ValueOf = "setting" },
+            ],
+        ],
+    };
+
+    // CONFIG SERVER.VERBOSE FALSE, completed all the way through: a section, a setting of it, a value of that.
+    [TestMethod]
+    public async Task ASetting_IsCompletedAPartAtATime_ThenItsValue()
+    {
+        var sections = (await CommandAsync(" ", verb: Config)).Items.ToList();
+        CollectionAssert.IsSubsetOf(new[] { "RESET", "Server", "Environment" }, sections.Select(item => item.Label).ToArray());
+        Assert.AreEqual(CompletionItemKind.Module, sections.Single(item => item.Label == "Server").Kind);
+
+        var server = (await CommandAsync(" SERVER.", verb: Config)).Items.ToList();
+        var verbose = server.Single(item => item.Label == "Verbose");
+        Assert.AreEqual(CompletionItemKind.Property, verbose.Kind);
+        Assert.IsFalse(string.IsNullOrEmpty(verbose.Detail), "what it does");
+
+        CollectionAssert.AreEqual(new[] { "True", "False" }, (await CommandAsync(" SERVER.VERBOSE F", verb: Config)).Items.Select(item => item.Label).ToArray());
+        Assert.AreEqual(0, (await CommandAsync(" Workspace.WorkspaceUri ", verb: Config)).Items.Count(), "any text: nothing to offer");
+    }
+
     // a module of an editor, not a program: two procedures, and lines numbered in the second.
     private const string Module = """
         Private Total As Long

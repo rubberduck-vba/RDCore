@@ -43,4 +43,4 @@ Depending on the _workspace application_ configuration, a failing workspace appl
 - enter _break mode_ and offer to _debug_ at the failing location.
 
 ---
-> ⏮️ [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md) | ⏭️ [**RD-VBAL §2.4** Static Types](rd-vbal.2.4.static-types.md)
+> ⏮️ [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md) | ⏭️ [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)

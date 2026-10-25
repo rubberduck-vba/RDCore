@@ -24,7 +24,9 @@ public class ProcessWatchdogTests
         // graceSeconds 0 is clamped to a 1s minimum.
         ProcessWatchdog.Arm(42, graceSeconds: 0, terminate: terminated.SetResult);
 
-        var code = await terminated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // the bound is for a watchdog that never fires, not for how soon it does: the wait is ended by the thread pool, which a runner busy with the rest of
+        // the suite can keep from it for seconds after the watchdog has fired.
+        var code = await terminated.Task.WaitAsync(TimeSpan.FromSeconds(60));
 
         Assert.AreEqual(42, code);
     }

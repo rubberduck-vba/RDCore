@@ -157,16 +157,18 @@ The line being typed seldom parses. The language server takes it out of the modu
 
 `rdcore/session/completion` ([`SessionCompletionParams`](../api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
 
-A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths and text.
+A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths, text, settings and their values.
 
 A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described ([`VerbCompletion`](../api/RDCore.SDK.Platform.Commands.VerbCompletion.html)):
 
 - a keyword or a choice with its values;
 - a line number with the numbered lines of the module, each shown with its statement;
 - an expression where it is evaluated: before the line its form names (`EvaluatedAt`), in that line's procedure and blocks, which is where a breakpoint's program waits. An expression that names no line, or a line the module does not have, is completed at module level: the module's names and the project's, and no procedure's locals;
+- a setting a part at a time, as a member is: the sections of the settings the argument carries (`Settings`), then what is in the section written before the last `.` - a section of it, or a setting with its description. The client asks again after each `.`;
+- the value of a setting with the values of the setting its form names (`ValueOf`), as it is written before it: `True` and `False`, or the names of a choice. Other values are offered nothing;
 - a path or text with nothing.
 
-A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line) and `THEME` (`LIST`, `<theme>`) the first time one is completed. A command it does not describe is offered nothing after its verb.
+A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb.
 
 ### `window/workDoneProgress`
 

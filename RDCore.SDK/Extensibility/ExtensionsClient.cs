@@ -113,7 +113,7 @@ public class ExtensionsClient(
             .Select(capability => new PlatformExtensionServerCapability(capability))
             .ToArray();
 
-        return new(name, title, version, publisher, string.Empty, effectiveDescription, signature, capabilities);
+        return new ExtensionInfo(name, title, version, publisher, string.Empty, effectiveDescription, signature, capabilities).WithSettingsOf(assembly);
     }
 
     /// <summary>

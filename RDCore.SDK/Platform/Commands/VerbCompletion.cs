@@ -15,6 +15,21 @@ public sealed record class VerbCompletionSite(VerbArgument Argument, string Type
     /// it is evaluated at none.
     /// </summary>
     public string? EvaluatedAt => Argument.EvaluatedAt is { } name && Written.TryGetValue(name, out var line) ? line : null;
+
+    /// <summary>
+    /// The arguments of the form the argument is of, in the order they are written.
+    /// </summary>
+    public IReadOnlyList<VerbArgument> Form { get; init; } = [];
+
+    /// <summary>
+    /// The setting a <see cref="VerbArgumentKind.SettingValue"/> is a value of (<see cref="VerbArgument.ValueOf"/>), as its key is written before it;
+    /// <see langword="null"/> when it is of no setting the form knows.
+    /// </summary>
+    public Server.Configuration.SettingDescriptor? Setting
+        => Argument.ValueOf is { } name && Written.TryGetValue(name, out var key)
+            && Form.FirstOrDefault(argument => argument.Name == name) is { Kind: VerbArgumentKind.Setting } owner
+                ? owner.Settings.FirstOrDefault(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase))
+                : null;
 }
 
 /// <summary>
@@ -56,12 +71,12 @@ public static class VerbCompletion
             if (argument.TakesTheRest)
             {
                 var start = index < complete.Count ? complete[index].Start : typing is { } word && index == complete.Count ? word.Start : arguments.Length;
-                return index <= complete.Count ? new VerbCompletionSite(argument, arguments[start..], written) : null;
+                return index <= complete.Count ? new VerbCompletionSite(argument, arguments[start..], written) { Form = form } : null;
             }
 
             if (index == complete.Count)
             {
-                return new VerbCompletionSite(argument, typing?.Text ?? string.Empty, written);
+                return new VerbCompletionSite(argument, typing?.Text ?? string.Empty, written) { Form = form };
             }
 
             if (!Matches(argument, complete[index].Text))
@@ -76,11 +91,40 @@ public static class VerbCompletion
         return null;
     }
 
+    /// <summary>
+    /// What a key of a setting can go on as, after what is typed of it (<see cref="VerbArgumentKind.Setting"/>): the next part of the keys that start with what
+    /// is typed up to its last <c>.</c> - a section, or the name of a setting in it.
+    /// </summary>
+    /// <param name="settings">The settings.</param>
+    /// <param name="typed">What is typed of the key: <c>server.Ve</c>.</param>
+    /// <returns>Each part once, in the order of the settings, with the setting it is the name of; <see langword="null"/> for a section.</returns>
+    public static IReadOnlyList<(string Part, Server.Configuration.SettingDescriptor? Setting)> SettingPartsAfter(
+        IEnumerable<Server.Configuration.SettingDescriptor> settings, string typed)
+    {
+        var dot = typed.LastIndexOf('.');
+        var section = dot < 0 ? string.Empty : typed[..(dot + 1)];
+        var parts = new List<(string Part, Server.Configuration.SettingDescriptor? Setting)>();
+        foreach (var setting in settings.Where(setting => setting.Key.StartsWith(section, StringComparison.OrdinalIgnoreCase)))
+        {
+            var rest = setting.Key[section.Length..];
+            var end = rest.IndexOf('.');
+            (string Part, Server.Configuration.SettingDescriptor? Setting) part = end < 0 ? (rest, setting) : (rest[..end], null);
+            if (part.Part.Length > 0 && !parts.Any(other => string.Equals(other.Part, part.Part, StringComparison.OrdinalIgnoreCase)))
+            {
+                parts.Add(part);
+            }
+        }
+
+        return parts;
+    }
+
     // what a complete word can be, for the argument it is written for.
     private static bool Matches(VerbArgument argument, string word) => argument.Kind switch
     {
         VerbArgumentKind.Keyword => argument.Values.Any(value => string.Equals(value.Value, word, StringComparison.OrdinalIgnoreCase)),
         VerbArgumentKind.LineNumber => word.All(char.IsAsciiDigit),
+        VerbArgumentKind.Setting => argument.Settings.Any(setting => string.Equals(setting.Key, word, StringComparison.OrdinalIgnoreCase)
+            || setting.Key.StartsWith(word + ".", StringComparison.OrdinalIgnoreCase)),
         _ => true,
     };
 

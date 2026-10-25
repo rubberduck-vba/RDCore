@@ -110,6 +110,19 @@ public sealed class SettingsSchema
     }
 
     /// <summary>
+    /// The languages the platform describes its settings in, by their two-letter name: what an extension's manifest carries a description of each setting in
+    /// (<see cref="Extensibility.ExtensionInfo.SettingDescriptions"/>). The first is the language of a description no other one is found in.
+    /// </summary>
+    public static IReadOnlyList<string> Languages { get; } = ["en", "fr"];
+
+    /// <summary>
+    /// A schema of settings that are already described: those of an extension's manifest (<see cref="Extensibility.ExtensionInfo.SettingsIn"/>).
+    /// </summary>
+    /// <param name="settings">The settings.</param>
+    /// <exception cref="ArgumentException">Two settings have the same key.</exception>
+    public static SettingsSchema From(IEnumerable<SettingDescriptor> settings) => new(settings);
+
+    /// <summary>
     /// The settings every platform application has (<see cref="SdkAppOptions"/>), described in the language of the user interface.
     /// </summary>
     public static SettingsSchema Platform => For<SdkAppOptions>(string.Empty, PlatformDescriptions);
