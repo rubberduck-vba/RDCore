@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Static;
@@ -67,6 +68,48 @@ public static class DeclarationStaticSemanticsEvaluator
         {
             errors.AddRange(ClassModuleEventSemantics.Evaluate(classModule, resolver));
             errors.AddRange(ImplementsSemantics.Evaluate(classModule, resolver));
+        }
+
+        return errors.ToImmutable();
+    }
+
+    /// <summary>
+    /// Checks that the code of a form module declares no member with the name of one of the form's controls
+    /// (<see cref="VBCompileErrorId.MemberAlreadyExistsInDesigner"/>): the form's designer already declares a field of the form's class of that name.
+    /// </summary>
+    /// <remarks>
+    /// MS-VBA reports a variable, a constant, a procedure or a <c>Declare</c> of a control's name (Excel-measured, <c>oracle\s30</c> C09/C10). It compiles a
+    /// <c>WithEvents</c> variable of a control's name and class (C17), a quirk RD-VBA does not follow: that variable would be a second field of the one name.
+    /// </remarks>
+    /// <param name="module">The parsed module.</param>
+    /// <param name="designer">What the module's designer declares (<see cref="ModuleParseResult.Designer"/>), or <c>null</c> when it is no form.</param>
+    /// <returns>One error for each declaration of a control's name, at the declaration; empty when there is none, or no designer.</returns>
+    public static ImmutableArray<VBCompileErrorInfo> CheckDesigner(ModuleNode module, FormDescriptor? designer)
+    {
+        if (designer is null)
+        {
+            return [];
+        }
+
+        var controls = designer.DeclaredControls().Select(control => control.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
+        foreach (var child in module.Children)
+        {
+            var name = child switch
+            {
+                VariableDeclarationNode variable => variable.Name,
+                ConstantDeclarationNode constant => constant.Name,
+                ExternalMemberDeclarationNode external => external.Name,
+                // the name of a type is bound in another context than a value's (MS-VBAL §5.6.4), as CheckSyntax has it
+                MemberDeclarationNode { MemberKind: not (MemberKind.UserDefinedTypeField or MemberKind.Enum or MemberKind.UserDefinedType) } member => member.Name,
+                _ => string.Empty,
+            };
+
+            if (controls.Contains(name))
+            {
+                errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.MemberAlreadyExistsInDesigner, child.SourceLocation,
+                    string.Format(Exceptions.VBCompileError_MemberAlreadyExistsInDesigner_Verbose, name)));
+            }
         }
 
         return errors.ToImmutable();

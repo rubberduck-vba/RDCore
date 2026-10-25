@@ -78,8 +78,8 @@ user-defined type, a local of any procedure), the `As` clause of a `ReDim`, and 
 |It binds|Example|Error|
 |---|---|---|
 |A procedural module of the project|`Dim g As Globals`|[VBC09366](../diagnostics/vbc09366.md) _A module is not a valid type_|
-|A procedural module of a library|`Dim s As Strings`, `Dim s As VBA.Strings`|[VBC09372](../diagnostics/vbc09372.md) _Automation type not supported in Visual Basic_|
-|A project or a library|`Dim p As VBA`|[VBC09373](../diagnostics/vbc09373.md) _Expected user-defined type, not project_|
+|A procedural module of a library|`Dim s As Strings`, `Dim s As VBA.Strings`|[VBC09373](../diagnostics/vbc09373.md) _Automation type not supported in Visual Basic_|
+|A project or a library|`Dim p As VBA`|[VBC09374](../diagnostics/vbc09374.md) _Expected user-defined type, not project_|
 |Nothing that is a type, or nothing at all|`Dim w As Widgit`|[VBC09311](../diagnostics/vbc09311.md) _User-defined type not defined_|
 
 `New` naming a procedural module is [VBC09310](../diagnostics/vbc09310.md) _Type mismatch_, as is `New` naming

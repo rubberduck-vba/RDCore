@@ -209,6 +209,12 @@ internal sealed class CompletionService(
             return Empty;
         }
 
+        // a form's controls are declared by its designer, which the parse of a fragment of its text does not read: the document's own parse has it.
+        if (parsing.TryGetCached(address, out var cached) && cached.Designer is { } designer)
+        {
+            parse = parse with { Designer = designer };
+        }
+
         var workspaceRoot = new Uri(documents.WorkspaceRoot);
         var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(

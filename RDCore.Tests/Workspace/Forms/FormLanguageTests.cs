@@ -1,0 +1,281 @@
+﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using RDCore.LanguageServer.Completion;
+using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Symbols;
+using RDCore.LanguageServer.Workspace;
+using RDCore.LanguageServer.Workspace.Services;
+using RDCore.LanguageServer.Workspace.States;
+using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Workspace.Forms;
+using RDCore.Parsing;
+using RDCore.Symbols;
+using RDCore.Tests.Cli;
+using RDCore.Tests.Platform;
+using RDCore.Tests.Runtime.Libraries;
+using System.IO.Abstractions.TestingHelpers;
+using MemberKind = RDCore.SDK.Runtime.Libraries.MemberKind;
+
+namespace RDCore.Tests.Workspace.Forms;
+
+/// <summary>
+/// A form's controls in the language: each is a <c>Public</c>, <c>WithEvents</c> field of the form's class, of the control's class, which its code refers to
+/// and handles the events of; its code declares no member of a control's name (MS-VBA, Excel-measured: <c>oracle\s30</c>).
+/// </summary>
+[TestClass]
+public sealed class FormLanguageTests
+{
+    // the part of Microsoft Forms 2.0 the tests use, as `rdc export-library` describes FM20.DLL
+    private static readonly LibraryDescription MSForms = new()
+    {
+        Name = "MSForms",
+        Classes =
+        [
+            new ClassDescription { Name = "UserForm", Members = [new MemberDescription { Name = "Caption", Kind = MemberKind.PropertyGet, Type = "String" }] },
+            new ClassDescription
+            {
+                Name = "TextBox",
+                Members =
+                [
+                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyLet, Parameters = [new ParameterDescription { Name = "Text", Type = "String" }] },
+                ],
+                Events = [new EventDescription { Name = "Change" }],
+            },
+            new ClassDescription { Name = "OptionButton", Events = [new EventDescription { Name = "Click" }] },
+            new ClassDescription { Name = "Frame", Events = [new EventDescription { Name = "Click" }] },
+            new ClassDescription { Name = "MultiPage", Events = [new EventDescription { Name = "Change" }] },
+            new ClassDescription { Name = "Page" },
+        ],
+    };
+
+    private static readonly ModuleWorkspace.WorkspaceLibraries References = new(["MSForms"], new InMemoryLibrarySource(MSForms));
+
+    private static FormControlDescriptor Control(string name, string className, params FormControlDescriptor[] children)
+        => new(name, new FormControlClass("MSForms", className), TabIndex: null, Index: null, children);
+
+    // TextBox1; Frame1 holding OptionButton1; MultiPage1, whose Page1 holds TextBox2 - the form s30 measures
+    private static readonly FormDescriptor Designer = new(
+        "Form1", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm", FormDesigner.MSFormsClassId),
+        new Dictionary<string, string> { ["Caption"] = "Form1" },
+        [
+            Control("TextBox1", "TextBox"),
+            Control("Frame1", "Frame", Control("OptionButton1", "OptionButton")),
+            Control("MultiPage1", "MultiPage", Control("Page1", "Page", Control("TextBox2", "TextBox"))),
+        ]);
+
+    private static string Form(params string[] body)
+        => "VERSION 5.00\r\n" +
+           "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Form1 \r\n" +
+           "   Caption         =   \"Form1\"\r\n" +
+           "   OleObjectBlob   =   \"Form1.frx\":0000\r\n" +
+           "End\r\n" +
+           "Attribute VB_Name = \"Form1\"\r\n" +
+           "Attribute VB_GlobalNameSpace = False\r\n" +
+           "Attribute VB_Creatable = False\r\n" +
+           "Attribute VB_PredeclaredId = True\r\n" +
+           "Attribute VB_Exposed = False\r\n" +
+           "Option Explicit\r\n" +
+           string.Join("\r\n", body) + "\r\n";
+
+    private static async Task<IReadOnlyList<(VBCompileErrorId Id, int Line)>> DeclarationErrorsAsync(string form, string program = "")
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n{program}\r\n", libraries: References, forms: [("Form1", form, Designer)]);
+        return [.. payload.Modules.SelectMany(module => module.DeclarationErrors.Concat(module.Procedures.SelectMany(procedure => procedure.CompileErrors)))
+            .Select(error => (error.Id, error.Location.Range.Start.Line))];
+    }
+
+    // ---- the controls are fields of the form's class ----
+
+    private static VBClassModuleSymbol ComposedForm(string form)
+    {
+        var root = Wire.FileUri(ModuleWorkspace.Root);
+        var formUri = new UriBuilder(root) { Fragment = "Form1" }.Uri;
+        var parse = new ModuleParser().Parse(formUri, form) with { Designer = Designer };
+        var libraries = new LibrarySymbolProvider(root, ReferencedLibraries.Load(References.Source, ["MSForms"], [])).ProvideSymbols().ToList();
+        var resolver = WorkspaceSymbolResolver.Compose(root, [(formUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver(), libraries: libraries);
+        return Assert.IsInstanceOfType<VBClassModuleSymbol>(resolver.ResolveType("Form1", ScopeKind.Global, formUri).Symbol);
+    }
+
+    [TestMethod]
+    public void EveryControl_IsAPublicWithEventsFieldOfItsClass_ButTheMultiPagesPages()
+    {
+        var form = ComposedForm(Form());
+
+        var fields = form.Members.OfType<VBModuleFieldVariableMemberSymbol>().ToDictionary(field => field.Name);
+        CollectionAssert.AreEquivalent(new[] { "TextBox1", "Frame1", "OptionButton1", "MultiPage1", "TextBox2" }, fields.Keys.ToArray());
+        var textBox = fields["TextBox1"];
+        Assert.AreEqual(AccessModifier.Public, textBox.AccessModifier);
+        Assert.IsTrue(textBox.GetProperty(SymbolProperties.WithEvents));
+        Assert.IsTrue(textBox.GetProperty(SymbolProperties.DesignerControl));
+        Assert.AreEqual("TextBox", Assert.IsInstanceOfType<VBClassType>(textBox.ResolvedType).Symbol.Name);
+    }
+
+    [TestMethod]
+    public void TheControls_AreMembersOfTheFormsInterface()
+    {
+        var form = ComposedForm(Form("Public Sub Refresh()", "End Sub"));
+
+        CollectionAssert.IsSubsetOf(new[] { "TextBox1", "OptionButton1", "TextBox2", "Refresh" }, form.DefaultInterfaceMembers.Select(member => member.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ANameTheCodeDeclares_IsTheCodesMember()
+    {
+        var form = ComposedForm(Form("Private TextBox1 As Long"));
+
+        var field = Assert.ContainsSingle(form.Members.Where(member => member.Name == "TextBox1"));
+        Assert.IsFalse(field.GetProperty(SymbolProperties.DesignerControl));
+    }
+
+    // ---- what the host checks ----
+
+    [TestMethod]
+    public async Task AFormWithItsHandlers_HasNoErrors()
+    {
+        var errors = await DeclarationErrorsAsync(
+            Form("Private Sub TextBox1_Change()", "End Sub", "Private Sub OptionButton1_Click()", "End Sub", "Public Sub Fill()", "    TextBox1.Text = \"a\"", "    Me.TextBox2.Text = \"b\"", "End Sub"),
+            "Public Sub Main()\r\n    Debug.Print Form1.TextBox1.Text\r\nEnd Sub");
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    [DataRow("Private TextBox1 As Long")]
+    [DataRow("Private Sub TextBox1()\r\nEnd Sub")]
+    [DataRow("Public Function OptionButton1() As Long\r\nEnd Function")]
+    [DataRow("Private Const TextBox2 = 1")]
+    public async Task AMemberOfAControlsName_IsMemberAlreadyExists_AtItsDeclaration(string declaration)
+    {
+        var errors = await DeclarationErrorsAsync(Form(declaration));
+
+        var error = Assert.ContainsSingle(errors);
+        Assert.AreEqual(VBCompileErrorId.MemberAlreadyExistsInDesigner, error.Id);
+        Assert.AreEqual(11, error.Line, "the line of the declaration, after the header and Option Explicit");
+    }
+
+    [TestMethod]
+    public async Task APagesName_IsNoControlsName()
+        => Assert.IsEmpty(await DeclarationErrorsAsync(Form("Private Page1 As Long")));
+
+    [TestMethod]
+    public async Task AHandlerThatDoesNotMatchTheEvent_IsAnInvalidEventHandler()
+    {
+        // MS-VBA compiles it (s30 C06), and the event's call would not match it; the event handler declarations of MS-VBAL §5.3.1.8 say it is an error
+        var errors = await DeclarationErrorsAsync(Form("Private Sub TextBox1_Change(ByVal Value As Long)", "End Sub"));
+
+        Assert.AreEqual(VBCompileErrorId.InvalidEventHandler, Assert.ContainsSingle(errors).Id);
+    }
+
+    // ---- completion ----
+
+    private static async Task<string[]> CompletionAtAsync(string form)
+    {
+        // the cursor is where the `|` is
+        var lines = form.Split("\r\n");
+        var line = Array.FindIndex(lines, text => text.Contains('|'));
+        var position = new Position(line, lines[line].IndexOf('|'));
+        var text = form.Replace("|", string.Empty);
+
+        var root = ModuleWorkspace.Root;
+        var document = new WorkspaceDocument("Form1.frm", root, text);
+        var uri = document.Id.Uri.ToUri();
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        documents.WorkspaceRoot.Returns(root);
+        documents.GetAllDocuments().Returns([document]);
+        documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
+
+        // as the language server keeps it: the parse of the document, with what its designer declares
+        var parsing = Substitute.For<IParsingClientService>();
+        var cached = new ModuleParser().Parse(uri, text) with { Designer = Designer };
+        parsing.TryGetCached(uri, out Arg.Any<SDK.Model.AST.ModuleParseResult>()).Returns(call => { call[1] = cached; return true; });
+        parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
+
+        var libraries = Substitute.For<IReferencedLibraryService>();
+        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(References.Source, ["MSForms"], [SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
+        var options = Options.Create(new SDK.Server.Configuration.SdkAppOptions
+        {
+            Workspace = new SDK.Server.Configuration.SdkWorkspaceOptions { WorkspaceUri = root, Language = "vba" },
+        });
+        var completion = new CompletionService(
+            documents, parsing, new IntrinsicSymbolResolver(), libraries, References.Source, new ClientVerbRegistry(), options,
+            NullLogger<CompletionService>.Instance);
+
+        var list = await completion.CompleteDocumentAsync(uri, position, CancellationToken.None);
+        return [.. list.Items.Select(item => item.Label)];
+    }
+
+    [TestMethod]
+    public async Task MeDot_OffersTheControls_ButNotThePages()
+    {
+        var labels = await CompletionAtAsync(Form("Private Sub Fill()", "    Me.|", "End Sub"));
+
+        CollectionAssert.IsSubsetOf(new[] { "TextBox1", "Frame1", "OptionButton1", "MultiPage1", "TextBox2" }, labels);
+        CollectionAssert.DoesNotContain(labels, "Page1");
+    }
+
+    [TestMethod]
+    public async Task AControlDot_OffersTheMembersOfItsClass()
+    {
+        var labels = await CompletionAtAsync(Form("Private Sub Fill()", "    Me.TextBox1.|", "End Sub"));
+
+        CollectionAssert.Contains(labels, "Text");
+    }
+
+    // ---- the language server reads the companion file ----
+
+    [TestMethod]
+    public async Task AFormModule_IsLoadedWithItsFrx_AndOpenedWithItToo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "rdcore-form-ws");
+        var files = new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [Path.Combine(root, "Form1.frm")] = new(Form()),
+            [Path.Combine(root, "Form1.frx")] = new([1, 2, 3]),
+            [Path.Combine(root, "Module1.bas")] = new("Attribute VB_Name = \"Module1\"\r\n"),
+        });
+        var formUri = new Uri(Path.Combine(root, "Form1.frm"));
+        var moduleUri = new Uri(Path.Combine(root, "Module1.bas"));
+        var states = new DocumentStateProvider(NullLogger<DocumentStateProvider>.Instance);
+        states.Initialize([new TextDocumentIdentifier(formUri), new TextDocumentIdentifier(moduleUri)]);
+        var service = new WorkspaceDocumentService(states, NullLogger<WorkspaceDocumentService>.Instance, files.Path, files.File);
+        service.Initialize(root);
+
+        Assert.IsTrue(await service.TryLoadAsync(new TextDocumentIdentifier(formUri)));
+        Assert.IsTrue(await service.TryLoadAsync(new TextDocumentIdentifier(moduleUri)));
+
+        Assert.IsTrue(service.TryGetDocument(formUri, out var loaded));
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, loaded.Companion.ToArray());
+        Assert.IsTrue(service.TryGetDocument(new Uri(Path.Combine(root, "Module1.bas")), out var module));
+        Assert.IsTrue(module.Companion.IsEmpty, "a module that is no form has no companion");
+
+        var opened = service.Open(formUri, Form("' edited"), version: 7);
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, opened.Companion.ToArray(), "no client sends the .frx: the server reads it");
+    }
+
+    // ---- the designer travels with the parse ----
+
+    [TestMethod]
+    public void TheDesigner_RoundTripsWithTheParse()
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///Form1.frm"), Form()) with { Designer = Designer };
+
+        var travelled = PlatformJson.Deserialize<SDK.Model.AST.ModuleParseResult>(PlatformJson.Serialize(parse))!.Designer!;
+
+        CollectionAssert.AreEqual(Designer.DeclaredControls().Select(control => control.Name).ToArray(), travelled.DeclaredControls().Select(control => control.Name).ToArray());
+        Assert.AreEqual("Form1", travelled.Properties["caption"], "property names still compare case-insensitively");
+    }
+}

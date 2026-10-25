@@ -33,6 +33,15 @@ public interface IPlatformEnvironment
     /// </summary>
     /// <param name="rootRelativePath">A path relative to <see cref="Root"/>, using either <c>/</c> or <c>\</c>.</param>
     string Resolve(string rootRelativePath);
+
+    /// <summary>
+    /// Absolute path of the folder of the platform's user: <c>%USERAPPDATA%/RDCore</c>, where what the user sets for themselves is kept - their settings
+    /// (<see cref="Server.Configuration.UserSettingsStore"/>). Not created: nothing is kept there until something is.
+    /// </summary>
+    /// <remarks>
+    /// It is not under <see cref="Root"/>: a platform that is deployed again replaces what is there, and what the user set is theirs to keep.
+    /// </remarks>
+    string UserDataDirectory { get; }
 }
 
 /// <inheritdoc/>
@@ -49,6 +58,12 @@ public sealed class PlatformEnvironment : IPlatformEnvironment
     /// (<see cref="Runtime.Libraries.DirectoryLibrarySource"/>).
     /// </summary>
     public const string SymbolsDirectory = "Symbols";
+
+    /// <summary>
+    /// Name of the environment variable that overrides the folder of the platform's user (<see cref="UserDataDirectory"/>): what a test sets, so that it never reads
+    /// nor writes the settings of whoever runs it. Inherited by spawned children.
+    /// </summary>
+    public const string UserDataEnvironmentVariable = "RDCORE_USER_DATA";
 
     private static readonly Lazy<IPlatformEnvironment> _default = new(() => new PlatformEnvironment(new FileSystem()));
 
@@ -75,6 +90,12 @@ public sealed class PlatformEnvironment : IPlatformEnvironment
     }
 
     public string Root { get; }
+
+    // the roaming application data of the user: %APPDATA% on Windows, ~/.config elsewhere.
+    public string UserDataDirectory
+        => Environment.GetEnvironmentVariable(UserDataEnvironmentVariable) is { Length: > 0 } overridden
+            ? _fileSystem.Path.GetFullPath(overridden)
+            : _fileSystem.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RDCore");
 
     public string ManifestPath => _fileSystem.Path.Combine(Root, "rdcore.json");
 

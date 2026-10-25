@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
 namespace RDCore.Symbols;
@@ -178,6 +179,26 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
 
         // MS-VBAL §5.2.3.1.2: what makes the procedures named for this variable event handlers.
         return node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
+    }
+
+    /// <summary>
+    /// The field of a form's class that one of its controls is: a <c>Public</c>, <c>WithEvents</c> field of the control's class
+    /// (<see cref="SymbolProperties.DesignerControl"/>).
+    /// </summary>
+    /// <remarks>
+    /// The designer declares it, so no text of the module does: it has no range of its own. A control whose class the designer names by its CLSID only (an
+    /// ActiveX control that is not one of the referenced libraries') has a type that is not resolved, as an unknown <c>As</c> type is.
+    /// </remarks>
+    /// <param name="control">The control, as the form's designer describes it.</param>
+    public Symbol BuildDesignerControl(FormControlDescriptor control)
+    {
+        var type = control.Class.Name is { } className
+            ? ResolveTypeName(className, moduleUri, control.Class.Library)
+            : new VBUnresolvedType(control.Class.ToString());
+        return new VBModuleFieldVariableMemberSymbol(
+                workspaceRoot, moduleUri, control.Name, memberScope, type, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
+            .With(SymbolProperties.WithEvents, true)
+            .With(SymbolProperties.DesignerControl, true);
     }
 
     // a fixed-size array is as big as its bounds say, which are constant expressions the type has no room for: they ride the symbol,

@@ -129,10 +129,12 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             ("Configuration:Workspace:Language", SupportedLanguages.BASIC.Id),
         ];
 
+    protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
-            .Configure<AppOptions>(configuration.GetSection("Configuration:CLI"))
+            .Configure<AppOptions>(configuration.GetSection($"{SettingsSchema.Root}:{AppOptions.Section}"))
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
@@ -359,10 +361,12 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
     protected override async Task BeforeAppStartAsync(IServiceProvider provider)
         => await provider.GetRequiredService<IAppThemeService>().InitializeAsync(CancellationToken.None);
 
+    protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
+
     protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
     {
         services
-            .Configure<AppOptions>(configuration.GetSection("Configuration:CLI"))
+            .Configure<AppOptions>(configuration.GetSection($"{SettingsSchema.Root}:{AppOptions.Section}"))
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IConsoleShellFrame, ConsoleShellFrame>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()

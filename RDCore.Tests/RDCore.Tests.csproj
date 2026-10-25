@@ -29,6 +29,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- form designer fixtures: binary .frx/storage files, read as bytes on every platform -->
+    <EmbeddedResource Include="Workspace\Forms\Fixtures\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 

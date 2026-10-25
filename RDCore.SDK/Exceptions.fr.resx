@@ -753,4 +753,37 @@
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>
   </data>
+  <data name="FormDesigner_UnterminatedBlock" xml:space="preserve">
+    <value>Le bloc de concepteur du module de formulaire (Begin … End) n&apos;a pas de End correspondant.</value>
+  </data>
+  <data name="FormDesigner_MissingCompanion" xml:space="preserve">
+    <value>Le formulaire garde ses contrôles dans son fichier .frx, qui n&apos;a pas été fourni.</value>
+  </data>
+  <data name="FormDesigner_BlobOutOfRange" xml:space="preserve">
+    <value>Les données de concepteur du formulaire ne sont pas là où son module les situe dans son fichier .frx.</value>
+  </data>
+  <data name="FormDesigner_NotACompoundFile" xml:space="preserve">
+    <value>Les données de concepteur du formulaire ne sont pas un fichier composé (un stockage OLE).</value>
+  </data>
+  <data name="FormDesigner_CorruptCompoundFile" xml:space="preserve">
+    <value>Les données de concepteur du formulaire sont un fichier composé endommagé.</value>
+  </data>
+  <data name="FormDesigner_MissingFormStream" xml:space="preserve">
+    <value>Les données de concepteur du formulaire n&apos;ont pas de flux de formulaire (f).</value>
+  </data>
+  <data name="FormDesigner_UnsupportedVersion" xml:space="preserve">
+    <value>Les données de concepteur du formulaire ont été écrites par une version de Microsoft Forms qui n&apos;est pas prise en charge.</value>
+  </data>
+  <data name="FormDesigner_Truncated" xml:space="preserve">
+    <value>Les données de concepteur du formulaire se terminent avant la description de ses contrôles.</value>
+  </data>
+  <data name="FormDesigner_InvalidControl" xml:space="preserve">
+    <value>Un contrôle du formulaire ne nomme aucune classe que le formulaire décrit.</value>
+  </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner" xml:space="preserve">
+    <value>Le membre existe déjà dans un module objet dont ce module objet dérive</value>
+  </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
+    <value>&apos;{0}&apos; est le nom d&apos;un contrôle du formulaire, qui est déjà un membre de la classe du formulaire.</value>
+  </data>
 </root>

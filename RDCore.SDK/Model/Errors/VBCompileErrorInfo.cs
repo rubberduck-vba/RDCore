@@ -144,6 +144,7 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.CantChangeDataTypesOfArrayElements] = Exceptions.VBCompileError_CantChangeDataTypesOfArrayElements,
         [VBCompileErrorId.ExpectedProcedureNotVariable] = Exceptions.VBCompileError_ExpectedProcedureNotVariable,
         [VBCompileErrorId.ArrayArgumentMustBeByRef] = Exceptions.VBCompileError_ArrayArgumentMustBeByRef,
+        [VBCompileErrorId.MemberAlreadyExistsInDesigner] = Exceptions.VBCompileError_MemberAlreadyExistsInDesigner,
         [VBCompileErrorId.AutomationTypeNotSupported] = Exceptions.VBCompileError_AutomationTypeNotSupported,
         [VBCompileErrorId.ExpectedUserDefinedTypeNotProject] = Exceptions.VBCompileError_ExpectedUserDefinedTypeNotProject,
     };

@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.LanguageServer.Parsing;
 
@@ -148,7 +149,7 @@ internal sealed class ParsingClientService(
         // an error response from the parser comes back as a null envelope; degrade this one document
         // rather than abort the whole workspace parse.
         var result = envelope is not null
-            ? envelope.Unwrap<ModuleParseResult>()
+            ? envelope.Unwrap<ModuleParseResult>() with { Designer = DesignerOf(document) }
             : ModuleParseResult.Failed(new SourceLocation(documentUri, SourceRange.Empty), "the parser returned no result");
 
         // what the parser answered is the parse of the version it was sent. A failure to answer is not: it is kept under no version, so that it is what the last
@@ -212,6 +213,22 @@ internal sealed class ParsingClientService(
         catch (Exception exception)
         {
             logger.LogError(exception, "❌ Workspace parse failed.");
+        }
+    }
+
+    // what a form module's designer declares, from its text and its companion file: the parser reads text alone. A form whose designer data cannot be read
+    // declares no controls; the designer's own problem is logged.
+    // TODO: report an unreadable designer as a diagnostic of the form module, by its FormDesignerFormatProblem.
+    private FormDescriptor? DesignerOf(WorkspaceDocument document)
+    {
+        try
+        {
+            return FormDesigner.Read(document.Text, document.Companion);
+        }
+        catch (FormDesignerFormatException exception)
+        {
+            logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, exception.Message);
+            return null;
         }
     }
 

@@ -1967,5 +1967,104 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBDeclare_ObjectNotPassed_Verbose", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The designer block of the form module (Begin … End) has no matching End..
+        /// </summary>
+        public static string FormDesigner_UnterminatedBlock {
+            get {
+                return ResourceManager.GetString("FormDesigner_UnterminatedBlock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form keeps its controls in its .frx file, which was not supplied..
+        /// </summary>
+        public static string FormDesigner_MissingCompanion {
+            get {
+                return ResourceManager.GetString("FormDesigner_MissingCompanion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data is not where its module says it is in its .frx file..
+        /// </summary>
+        public static string FormDesigner_BlobOutOfRange {
+            get {
+                return ResourceManager.GetString("FormDesigner_BlobOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data is not a compound file (an OLE storage)..
+        /// </summary>
+        public static string FormDesigner_NotACompoundFile {
+            get {
+                return ResourceManager.GetString("FormDesigner_NotACompoundFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data is a damaged compound file..
+        /// </summary>
+        public static string FormDesigner_CorruptCompoundFile {
+            get {
+                return ResourceManager.GetString("FormDesigner_CorruptCompoundFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data has no form stream (f)..
+        /// </summary>
+        public static string FormDesigner_MissingFormStream {
+            get {
+                return ResourceManager.GetString("FormDesigner_MissingFormStream", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data was written by a version of Microsoft Forms that is not supported..
+        /// </summary>
+        public static string FormDesigner_UnsupportedVersion {
+            get {
+                return ResourceManager.GetString("FormDesigner_UnsupportedVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The form&apos;s designer data ends before the description of its controls does..
+        /// </summary>
+        public static string FormDesigner_Truncated {
+            get {
+                return ResourceManager.GetString("FormDesigner_Truncated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A control of the form names no class the form describes..
+        /// </summary>
+        public static string FormDesigner_InvalidControl {
+            get {
+                return ResourceManager.GetString("FormDesigner_InvalidControl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Member already exists in an object module from which this object module derives.
+        /// </summary>
+        public static string VBCompileError_MemberAlreadyExistsInDesigner {
+            get {
+                return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the name of a control of the form, which is already a member of the form&apos;s class..
+        /// </summary>
+        public static string VBCompileError_MemberAlreadyExistsInDesigner_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner_Verbose", resourceCulture);
+            }
+        }
     }
 }

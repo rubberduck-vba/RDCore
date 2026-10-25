@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
+using RDCore.SDK.Workspace.Forms;
 using System.Text;
 using TextDocumentRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
@@ -134,7 +135,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 }
 
                 var content = await ioFile.ReadAllTextAsync(path);
-                var document = new WorkspaceDocument(relativeUri, WorkspaceRoot, content);
+                var document = WithCompanion(new WorkspaceDocument(relativeUri, WorkspaceRoot, content), path);
                 _documents[document.Id] = document;
 
                 documentStateProvider.OnDocumentLoaded(document.Id);
@@ -300,6 +301,31 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return false;
     }
 
+    // a form module keeps its controls in a companion file next to it (a UserForm's .frx, which its text names), read with the text: it is the document's
+    // too, and no client has it to send. A companion that cannot be read leaves the form without controls, and the parse of its designer says so.
+    private WorkspaceDocument WithCompanion(WorkspaceDocument document, string path)
+    {
+        try
+        {
+            if (FormDesigner.CompanionOf(document.Text) is { } reference
+                && ioPath.Combine(ioPath.GetDirectoryName(path) ?? string.Empty, reference.FileName) is var companionPath
+                && ioFile.Exists(companionPath))
+            {
+                return document with { Companion = ioFile.ReadAllBytes(companionPath) };
+            }
+        }
+        catch (FormDesignerFormatException exception)
+        {
+            logger.LogWarning("⚠️ The designer block of '{path}' cannot be read: {reason}", path, exception.Message);
+        }
+        catch (IOException exception)
+        {
+            logger.LogWarning(exception, "⚠️ The companion file of '{path}' could not be read.", path);
+        }
+
+        return document;
+    }
+
     public WorkspaceDocument Open(Uri documentUri, string text, int version)
     {
         var id = new TextDocumentIdentifier(documentUri);
@@ -311,7 +337,9 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         // a document the client opens need not be in the workspace folder: its own path is what addresses it then.
         var path = DocumentUri.From(documentUri).GetFileSystemPath();
         var relativePath = ioPath.GetRelativePath(WorkspaceRoot, path);
-        var document = new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, WorkspaceRoot, text, version);
+        var document = WithCompanion(
+            new WorkspaceDocument(relativePath.StartsWith("..", StringComparison.Ordinal) || ioPath.IsPathRooted(relativePath) ? path : relativePath, WorkspaceRoot, text, version),
+            path);
 
         _documents[id] = document;
         documentStateProvider.OnDocumentOpenedByClient(id);
@@ -379,7 +407,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 // what is on disk is the document again, and it may not be what the client had: a later version, so that whatever was derived from the text of
                 // the client is derived again.
                 var content = await ioFile.ReadAllTextAsync(path);
-                var reloaded = new WorkspaceDocument(document.RelativePath, document.WorkspaceRoot, content, document.Version + 1);
+                var reloaded = WithCompanion(new WorkspaceDocument(document.RelativePath, document.WorkspaceRoot, content, document.Version + 1), path);
                 _documents[id] = reloaded;
                 documentStateProvider.OnDocumentOpenedByClient(id);
                 documentStateProvider.OnDocumentClosed(id);
@@ -417,7 +445,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             }
 
             _documents.Remove(id);
-            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version) { IsDirty = document.IsDirty };
+            _documents[newId] = new WorkspaceDocument(newRelativePath, WorkspaceRoot, document.Text, document.Version) { IsDirty = document.IsDirty, Companion = document.Companion };
 
             documentStateProvider.OnDocumentUnloaded(id);
             documentStateProvider.OnDocumentLoaded(newId);

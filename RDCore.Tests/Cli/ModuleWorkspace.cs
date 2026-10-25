@@ -10,6 +10,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using RDCore.Symbols;
@@ -113,14 +114,14 @@ internal static class ModuleWorkspace
     /// <param name="libraries">The libraries the project references, and the source they and others are found in; only the standard library when omitted.</param>
     public static async Task<SemanticsPayload> SemanticsAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null,
-        WorkspaceLibraries? libraries = null)
+        WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
     {
         SemanticsPayload? payload = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        }, language: language, libraries: libraries);
+        }, language: language, libraries: libraries, forms: forms);
 
         return payload!;
     }
@@ -175,12 +176,14 @@ internal static class ModuleWorkspace
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
         Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, TimeSpan? cancelAfter = null, bool debug = false,
-        WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null)
+        WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
     {
         var loadErrors = new List<string>();
         (string Name, string Extension, ModuleType Type, string Source)[] allModules =
         [
             .. classes.Select(module => (module.Name, "cls", ModuleType.ClassModule, module.Source)),
+            .. (forms ?? []).Select(module => (module.Name, "frm", ModuleType.ClassModule, module.Source)),
             .. (modules ?? []).Select(module => (module.Name, "bas", ModuleType.StdModule, module.Source)),
             ("Program", "bas", ModuleType.StdModule, program),
         ];
@@ -209,6 +212,9 @@ internal static class ModuleWorkspace
         {
             var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
             Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+
+            // as the language server does: the parse of a form has what its designer declares, which the parser does not read.
+            parse = parse with { Designer = forms?.FirstOrDefault(form => form.Name == module.Name).Designer };
             return (Module: module, Uri: new UriBuilder(workspaceRoot) { Fragment = module.Name }.Uri, Parse: parse);
         }).ToArray();
 

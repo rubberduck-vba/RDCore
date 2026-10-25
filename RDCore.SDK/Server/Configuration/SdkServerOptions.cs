@@ -4,6 +4,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model;
+using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 
 namespace RDCore.SDK.Server.Configuration;
 
@@ -158,6 +159,7 @@ public record class SdkAppOptions
     /// <remarks>
     /// Configures a platform server application within the RDCore platform.
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public SdkServerAppOptions ServerApp { get; set; } = new();
     /// <summary>
     /// LSP Server options.
@@ -169,6 +171,7 @@ public record class SdkAppOptions
     /// <summary>
     /// Workspace options.
     /// </summary>
+    [Setting(SettingReach.NextStart)]
     public SdkWorkspaceOptions Workspace { get; set; } = new();
     /// <summary>
     /// Platform options.
@@ -177,6 +180,10 @@ public record class SdkAppOptions
     /// <summary>
     /// Runtime environment profile options — the host facts VBA semantics depend on.
     /// </summary>
+    /// <remarks>
+    /// A session's environment profile is made when the session starts: a change is the next session's.
+    /// </remarks>
+    [Setting(SettingReach.NextStart)]
     public SdkEnvironmentOptions Environment { get; set; } = new();
 }
 
@@ -227,6 +234,7 @@ public record class SdkEnvironmentOptions
     /// <c>IExternalCallInterceptor</c>'s job, and this is the one policy the platform ships with so that the
     /// refusal path is exercised whether or not anybody wrote one.
     /// </remarks>
+    [TrustSensitiveSetting]
     public bool AllowDllImports { get; set; } = true;
 
     /// <summary>
@@ -237,6 +245,7 @@ public record class SdkEnvironmentOptions
     /// Its own switch, apart from <see cref="AllowDllImports"/>: automating a spreadsheet and calling an arbitrary export are not the same risk.
     /// Finer-grained answers - per library, per member, per caller - are an <c>IExternalCallInterceptor</c>'s job.
     /// </remarks>
+    [TrustSensitiveSetting]
     public bool AllowAutomation { get; set; } = true;
 
     /// <summary>
@@ -247,6 +256,7 @@ public record class SdkEnvironmentOptions
     /// <remarks>
     /// Only Windows has a registry: elsewhere this is ignored, and the workspace application settings are used either way.
     /// </remarks>
+    [TrustSensitiveSetting]
     public bool LegacyRegistrySettings { get; set; }
 
     /// <summary>
@@ -332,6 +342,7 @@ public record class SdkServerOptions
     /// <remarks>
     /// 🧩 For an extension, the <c>ClientProcessID</c> is the process ID of the <em>language server</em> application.
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public int ClientProcessId { get; set; }
     /// <summary>
     /// The minimum Microsoft.Extensions.Logging.LogLevel of a trace message that makes it through to the trace output.
@@ -360,6 +371,7 @@ public record class SdkServerOptions
     /// <summary>
     /// The <strong>number of seconds</strong> a client will await a server connection before a connection is aborted.
     /// </summary>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int ConnectTimeoutSeconds { get; set; }
     /// <summary>
     /// The <strong>number of seconds</strong> between health check pings.
@@ -367,6 +379,7 @@ public record class SdkServerOptions
     /// <remarks>
     /// 👉 Determines how long the server process remains orphaned before initiating a shutdown when the client process that owns it fails to respond, for example if it crashes or is otherwise abruptly terminated.
     /// </remarks>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int HealthCheckIntervalSeconds { get; set; }
     /// <summary>
     /// The <strong>number of seconds</strong> the server will wait for an <c>Exit</c> notification from the client after receiving a <c>Shutdown</c> request.
@@ -374,18 +387,22 @@ public record class SdkServerOptions
     /// <remarks>
     /// 👉 The server process <em>exit code</em> depends on whether the <c>Exit</c> notification was received after processing a <c>Shutdown</c> request.
     /// </remarks>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int ShutdownTimeoutSeconds { get; set; }
     /// <summary>
     /// How many times a supervised child connection is restarted after it fails unexpectedly, before the failure is escalated.
     /// </summary>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int MaxRestartAttempts { get; set; } = 3;
     /// <summary>
     /// The base delay, in milliseconds, before the first restart attempt. Doubles per attempt, capped at <see cref="RestartBackoffMaxMs"/>.
     /// </summary>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int RestartBackoffBaseMs { get; set; } = 500;
     /// <summary>
     /// The maximum delay, in milliseconds, between restart attempts.
     /// </summary>
+    [Setting(SettingReach.NextStart), Range(0, int.MaxValue)]
     public int RestartBackoffMaxMs { get; set; } = 10_000;
     /// <summary>
     /// ⚠️ Allows the server platform to load <strong>unsigned plug-ins</strong>.
@@ -394,6 +411,7 @@ public record class SdkServerOptions
     /// 🧩 This is useful for developing plug-ins with a private fork.<br/>
     /// This setting is <strong>read-only</strong> and must be explicitly overridden via a command-line argument.
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public bool UnsafeDevMode { get; set; }
     /// <summary>
     /// Whether the standard streams of the child processes this server starts are its own to read, instead of the ones it was started with.
@@ -403,6 +421,7 @@ public record class SdkServerOptions
     /// <strong>DAP</strong> over <c>stdio</c>) cannot let anything else write to it - one stray line is a corrupt message - nor let anything else read from its input. When
     /// this is set, a child's input is closed, and what it writes is logged at <see cref="LogLevel.Trace"/> and goes nowhere else.
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public bool CaptureChildOutput { get; set; }
 }
 
@@ -463,10 +482,12 @@ public record class SdkPlatformOptions
     /// <summary>
     /// The base URL for the platform's cloud and online services.
     /// </summary>
+    [Setting(SettingReach.Deployment)]
     public string BaseWebUrl { get; set; } = _defaultBaseUrl;
     /// <summary>
     /// The URL (relative to the <c>BaseWebUrl</c>) of the backend API.
     /// </summary>
+    [Setting(SettingReach.Deployment)]
     public string ApiEndpoint { get; set; } = _defaultApiEndpoint;
     /// <summary>
     /// The location of the RDCore LSP language server executable.
@@ -474,6 +495,7 @@ public record class SdkPlatformOptions
     /// <remarks>
     /// 👉 This setting is used by <strong>client applications</strong> to locate the RDCore LSP language server executable.<br/>
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public string ServerExecutable { get; set; } = _defaultServerExecutable;
     /// <summary>
     /// The location of the RDCore LSP parsing server executable.
@@ -481,14 +503,20 @@ public record class SdkPlatformOptions
     /// <remarks>
     /// 👉 This setting is used by the <strong>language server</strong> to locate the RDCore LSP parser executable.<br/>
     /// </remarks>
+    [Setting(SettingReach.Deployment)]
     public string ParserExecutable { get; set; } = _defaultParserExecutable;
     /// <summary>
     /// Configures platform-wide transport layer settings.
     /// </summary>
+    [Setting(SettingReach.Deployment)]
     public TransportOptions Transport { get; set; } = new();
     /// <summary>
     /// Configures extension settings.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ An extension runs code of its own, with the platform's rights: which extensions are loaded is a decision about trust.
+    /// </remarks>
+    [Setting(SettingReach.NextStart), TrustSensitiveSetting]
     public ExtensionsOptions Extensions { get; set; } = new();
 }
 /// <summary>
@@ -502,6 +530,7 @@ public record class ExtensionsOptions
     /// <summary>
     /// The location RDCore extensions are discovered from. Plugins/extensions are identified by a folder containing a RDCore extension manifest.<br/>
     /// </summary>
+    [Setting(SettingReach.Deployment)]
     public string Path { get; set; } = _defaultExtensionsLocation;
     /// <summary>
     /// The name of the RDCore extension manifest file.
