@@ -278,7 +278,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         {
             var elementValue = _expressionEvaluator.Evaluate(session, assignment.Value, context);
             return elementValue.IsSuccess
-                ? _assignments.AssignArrayElement(session, context, element.Callee, element.Arguments, assignment.Value, elementValue.Result!, isSet: true)
+                ? _assignments.AssignArrayElement(session, context, assignment, element.Callee, element.Arguments, assignment.Value, elementValue.Result!, isSet: true)
                 : elementValue.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(elementValue.ErrorInfo!);
         }
 

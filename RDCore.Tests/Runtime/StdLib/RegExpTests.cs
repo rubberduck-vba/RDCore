@@ -146,9 +146,8 @@ public sealed class RegExpTests
         => Assert.AreEqual("438|450|450|", Run(New +
             """Dim m As Object ;; r.Pattern = "a" ;; Set m = r.Execute("a") ;; Err.Clear ;; P CStr(r) ;; P Err.Number ;; Err.Clear ;; P CStr(m) ;; P Err.Number ;; Err.Clear ;; P CStr(m(0).SubMatches) ;; P Err.Number"""));
 
-    // 🚧 R17: late-bound, MS-VBA's IDispatch reports 450 for a property a library's object cannot assign; RD-VBA raises the 451 of a workspace's class.
+    // R17: late-bound, MS-VBA's IDispatch reports 450 for a property a library's object cannot assign, where a workspace's class raises 451.
     [TestMethod]
-    [Ignore("a read-only property of a standard library object is error 451 when assigned late-bound, as for a workspace's class, where MS-VBA's IDispatch reports 450")]
     public void AReadOnlyProperty_AssignedLateBound_IsError450()
         => Assert.AreEqual("450|450|450|", Run(New +
             """Dim m As Object ;; r.Pattern = "a" ;; Set m = r.Execute("a") ;; Err.Clear ;; m(0).Value = "x" ;; P Err.Number ;; Err.Clear ;; m.Count = 3 ;; P Err.Number ;; Err.Clear ;; m(0).FirstIndex = 3 ;; P Err.Number"""));

@@ -150,6 +150,21 @@ public sealed class AssignmentTargetTests
         CollectionAssert.AreEqual(new[] { "5" }, output);
     }
 
+    // MS-VBAL §5.6.13: an object indexed is its default member given the arguments, and one assigned is too - through its Property Let, or its Property Set.
+    [TestMethod]
+    public async Task AnAssignment_ToAnIndexedObject_AssignsItsDefaultMember()
+    {
+        var cells = ("Cells", ClassModule("Cells", "Option Explicit", "Private m(1 To 2) As Variant",
+            "Public Property Get Item(ByVal i As Long) As Variant", "Attribute Item.VB_UserMemId = 0", "If IsObject(m(i)) Then Set Item = m(i) Else Item = m(i)", "End Property",
+            "Public Property Let Item(ByVal i As Long, ByVal v As Variant)", "Attribute Item.VB_UserMemId = 0", "m(i) = v", "End Property",
+            "Public Property Set Item(ByVal i As Long, ByVal v As Object)", "Attribute Item.VB_UserMemId = 0", "Set m(i) = v", "End Property"));
+
+        var output = await RunAsync([cells], Program("Private c As New Cells",
+            "c(1) = 5\r\nDebug.Print c(1)\r\nSet c(2) = c\r\nDebug.Print TypeName(c(2))\r\nDim o As Object\r\nSet o = c\r\no(1) = 7\r\nDebug.Print c.Item(1)"));
+
+        CollectionAssert.AreEqual(new[] { "5", "Cells", "7" }, output);
+    }
+
     [TestMethod]
     [DataRow("", "Err = 5", DisplayName = "A function of the library that returns an object, whose default member is assigned")]
     [DataRow("", "Left = \"x\"", DisplayName = "A function of the library that returns a Variant")]

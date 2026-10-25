@@ -1113,6 +1113,22 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, default, $"The object has no member '{memberName}'."));
 
+    /// <summary>
+    /// Invokes <paramref name="member"/> of <paramref name="owner"/> with the arguments written after its name, as a read of it does: what an assignment to a
+    /// member that has no <c>Property Let</c> invokes instead, to assign the default member of what it returns (<strong>MS-VBAL §5.4.3.8</strong>).
+    /// </summary>
+    /// <param name="session">The session the object lives in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="owner">The object the member is invoked on.</param>
+    /// <param name="member">The <c>Property Get</c>, <c>Function</c> or <c>Sub</c>.</param>
+    /// <param name="arguments">The arguments, as written.</param>
+    /// <param name="reachedThrough">The expression the object was reached through, which says whether the call is made through its <c>IDispatch</c>.</param>
+    /// <returns>What the member returned, or the error it raised.</returns>
+    public RuntimeSemanticsEvaluationResult InvokeOn(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBObjectValue owner, VBTypeMemberSymbol member, ImmutableArray<ExpressionNode> arguments,
+        ExpressionNode? reachedThrough)
+        => InvokeProcedure(session, context, member, arguments, owner.RuntimeValue, reachedThrough: reachedThrough);
+
     // What the expression an object is reached through is declared as is what decides which of its interfaces a member
     // is a member of: the value carries the object, and nothing of how it was declared. So the declaration is asked of
     // the same rules that type the expression at compile time. It is asked only of an object whose class implements an

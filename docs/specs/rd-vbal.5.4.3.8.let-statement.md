@@ -101,7 +101,10 @@ A Let-assignment to a bare reference to a procedure's own name, from within its 
 raises error 91. The member is the `Property Let` declared for it (an indexed one takes the index arguments before the value) or else a
 public variable of the class, found through the declared interface when `obj` is declared as one its object's class implements
 ([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)). A public variable is assigned by Let-coercing the value to
-its declared type; with no such member, error 438 is raised. A `With` block assigns the same way.
+its declared type; with no such member, error 438 is raised. A `With` block assigns the same way. A member of an object of a standard-library class
+reached late-bound that has no `Property Let` is assigned as MS-VBA's `IDispatch` assigns it: 450 for a read-only property, 438 for a method, and a
+member written with arguments invoked, to assign the default member of what it returns
+([**RD-VBAL §6.0** Late-Bound Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 
 ### Elements of an array
 
@@ -109,6 +112,14 @@ its declared type; with no such member, error 438 is raised. A `With` block assi
 (`LetAssignmentEvaluator.AssignArrayElement`), assigns an element in place: the value is Let-coerced to the element type of the array and
 written to the element's own cell, and the array is never copied. A subscript outside the bounds of the array is error 9. `Set a(i) = obj` does
 the same with Set-coercion, and lets go of the object the element held and takes a reference to the one it is given.
+
+What is indexed can be an object - or a `Variant` holding one - rather than an array: `c(1) = value` assigns the object's default member with the
+arguments, as `c.Item(1) = value` does, and `Set c(1) = obj` its `Property Set` ([**RD-VBAL §5.6.13** Object
+Callee](rd-vbal.5.6.13.index-expressions.md#object-callee)).
+
+> [!NOTE]
+> **Not implemented.** Early-bound, the default member of a standard-library object that is a function given arguments (`c(1) = 5` with
+> `Dim c As Collection`) is error 438, where MS-VBA invokes it and raises 424 for what it returns.
 
 A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.
 

@@ -58,8 +58,8 @@ replacement that is not text is written as text - a `Boolean` as `-1` or `0`, `E
 
 ## Differences
 
-- 🚧 A read-only property of these classes assigned late-bound (`Dim m As Object`) is error `451`, as for a class of the workspace's, where MS-VBA's
-  `IDispatch` reports `450`. A member called late-bound is called as MS-VBA calls it through `IDispatch` ([**RD-VBAL §6.0** Late-Bound
+- A member of these classes called or assigned late-bound (`Dim m As Object`) is called as MS-VBA calls it through `IDispatch`, whose errors are not
+  those of an early-bound call: `Null` for a `String` is `13`, a read-only property assigned `450` ([**RD-VBAL §6.0** Late-Bound
   Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 - 🚧 A match is not bounded in time: a pattern that backtracks without end does here what it does in MS-VBA.
 

@@ -66,6 +66,7 @@ dimension"; MS-VBA coerces it as any value is coerced to a `Long`
 An index expression whose `Callee` is an object - or a `Variant` holding one - calls the object's **default member**, the one its class marks with `VB_UserMemId = 0`: `c(1)` is
 `c.Item(1)`, and `c(1)(2)` indexes what that returns. A class of the workspace and a class of the library are found alike
 ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)). An object with no such member is runtime error 438, and `Nothing` is runtime error 91.
+The target of an assignment is the same call: `c(1) = 5` assigns `c.Item(1)` ([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md#elements-of-an-array)).
 
 
 ## 5.6.13.1 Argument Lists

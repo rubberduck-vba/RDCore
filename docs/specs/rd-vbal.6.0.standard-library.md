@@ -66,6 +66,11 @@ the member:
 |Late-bound call|Error|Early-bound|
 |---|---|---|
 |`Null` given for a parameter, or as the value of a property, that is not a `Variant` (`r.Pattern = Null`, `e.HelpContext = Null`, `m(Null)`)|13 — Type mismatch|94 — Invalid use of Null|
+|A property with no `Property Let`, assigned with no argument (`m.Count = 3`, `e.LastDllError = 1`, `mt = "x"` for a `Match`); one that returns an object has the default member of the object assigned instead|450 — Wrong number of arguments or invalid property assignment|Compile error|
+|A member with no `Property Let`, assigned with arguments (`c.Item(1) = 5`, `r.Test("a") = True`): it is invoked with them, and the default member of the object it returns is assigned; an error it raises is the assignment's (`e.Raise(5) = 1` is 5)|451 — Property let procedure not defined and property get procedure did not return an object, for what is no object|Compile error|
+|A method, or a member that takes arguments, assigned with none (`c.Count = 3`, `Collection.Count` being a function; `m.Item = 1`)|438 — Object doesn't support this property or method|Compile error|
+|A property with no `Property Set` in a `Set` (`Set m.Count = r`); a method, or a property with no argument that returns an object (`Set m(0).SubMatches = r`), is 438|450|Compile error|
+|The default member of the object a variable declared `Variant` holds, assigned with arguments (`v(1) = 5`): it is not invoked to have what it returns assigned; a method, or a member given arguments it does not take, is 438|450|—|
 
 The object is reached late-bound through a variable, a parameter or a `With` block declared `Object` or `Variant`, and through what a late-bound call
 returns: `m(0).SubMatches(Null)` is 13, `MatchCollection.Item` being declared `Object`, as the library's own type library declares it. Recorded in Excel
