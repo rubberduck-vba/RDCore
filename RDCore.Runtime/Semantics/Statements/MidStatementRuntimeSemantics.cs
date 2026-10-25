@@ -68,7 +68,16 @@ public sealed record class MidStatementRuntimeSemantics(
             ? ReplaceBytes(target, (int)start - 1, length, value!)
             : ReplaceBytes(target, 2 * ((int)start - 1), 2 * CharactersReplaced(target, (int)start - 1, length, value!), value!);
 
-        return Assignments.Assign(session, context, mid, mid.Target, mid.Value, replaced);
+        // the characters are written where they are: a String whose characters are in a BSTR (StrPtr) is in the same one once it is assigned.
+        var storage = session.Storage as Execution.Memory.SessionStorage;
+        var inPlace = storage?.BlockOf(target.RuntimeValue);
+        var assigned = Assignments.Assign(session, context, mid, mid.Target, mid.Value, replaced);
+        if (inPlace is not null)
+        {
+            storage!.KeepInPlace(inPlace);
+        }
+
+        return assigned;
     }
 
     private static string Text(VBStringValue value) => value.Handle.Value.BoxedValue as string ?? string.Empty;

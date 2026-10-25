@@ -141,6 +141,36 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
         return true;
     }
 
+    /// <summary>
+    /// The <c>BSTR</c> <paramref name="text"/>, the very <c>String</c>, is in, if it is in one: what the <c>Mid</c> statement writes the characters of in place.
+    /// </summary>
+    public StringBlock? BlockOf(IRuntimeValue text)
+    {
+        foreach (var block in _stringBlocks.Values)
+        {
+            if (ReferenceEquals(block.Value, text))
+            {
+                return block;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Says that the <c>String</c> the holder of <paramref name="block"/> holds now is in it, at the same address, when it is as long as the one it was: the
+    /// <c>Mid</c> statement writes the characters of its target in place (<strong>MS-VBA</strong>, recorded in Excel, oracle\s17 S07).
+    /// </summary>
+    public void KeepInPlace(StringBlock block)
+    {
+        if (_stringBlocks.ContainsKey(block.Start) && TryFindStringAt(block.Holder, out var text)
+            && VBRuntimeByteStringValue.BytesOf(text).Length == VBRuntimeByteStringValue.BytesOf(block.Value).Length)
+        {
+            block.Value = text;
+            Generation++;
+        }
+    }
+
     // the address of the characters of the String at an address, which is what its bytes are; 0 when there is none, as for vbNullString.
     private long StringPointerAt(MemoryAddress holder) => TryGetStringPointer(holder, out var pointer) ? pointer : 0;
 

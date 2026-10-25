@@ -44,8 +44,8 @@ public sealed class StrPtrTests
     public async Task StrPtr_IsTheAddressOfTheCharacters(string body, string expected)
         => Assert.AreEqual(expected, await RunAsync(body));
 
+    // S07: the Mid statement writes the characters where they are.
     [TestMethod]
-    [Ignore("the Mid statement assigns a String made of the target's, which is in another BSTR: MS-VBA writes the characters in place (oracle\\s17 S07)")]
     public async Task TheMidStatement_WritesTheCharactersInPlace()
         => Assert.AreEqual("True|zbc|", await RunAsync("Dim s As String, s0 As LongPtr ;; s = \"abc\" ;; s0 = StrPtr(s) ;; Mid$(s, 1, 1) = \"z\" ;; P (StrPtr(s) = s0) ;; P s"));
 

@@ -96,13 +96,12 @@ As in **MS-VBA** (recorded in Excel):
 |A `Variant` holding a `String`|The address of the `Variant`'s own characters.|
 |What is no `String` variable: a literal, an expression, a fixed-length `String`, a number|The address of the characters of a `String` made of it, a temporary freed when the statement is over.|
 
-A `POKE` into the characters changes the `String`, in place: `StrPtr(s)` is where it was.
+A `POKE` into the characters changes the `String`, in place: `StrPtr(s)` is where it was. So does the `Mid` statement, which writes the characters of its
+target where they are.
 
 > [!NOTE]
 > 🚧 Not implemented yet:
 >
-> - The `Mid` statement assigns a `String` made of its target's, which is in another `BSTR`; **MS-VBA** writes the characters in place, and `StrPtr` of the
->   target is the same after it.
 > - The `String`s of a fixed-size array field of a record are given to `StrPtr` as copies.
 > - `s = s` keeps the characters where they are when the program is evaluated boxed (`RDCORE_UNBOXED=0`).
 > - A `POKE` into the length, or into a `String` variable's pointer, is refused (*Ptr plan phase B: a pointer copied into a `String` variable).
