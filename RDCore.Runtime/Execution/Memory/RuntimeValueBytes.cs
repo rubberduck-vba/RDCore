@@ -22,8 +22,12 @@ internal static class RuntimeValueBytes
     /// <summary>
     /// The byte image of <paramref name="value"/>, or <c>null</c> when it has none.
     /// </summary>
-    public static byte[]? Of(IRuntimeValue value) => value switch
+    /// <param name="value">The value.</param>
+    /// <param name="pointerWidth">The session's pointer width, which a record is laid out for.</param>
+    public static byte[]? Of(IRuntimeValue value, int pointerWidth = sizeof(long)) => value switch
     {
+        // a record is its fields at their offsets (MS-VBA's layout), each as it is in memory: what LSet copies, and what is at the address of the record.
+        VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } => SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerWidth),
         // a Boolean boxes as an Int32 but occupies two bytes (MS-VBAL §2.1), so it is matched on its
         // own runtime type rather than on what it boxes to.
         VBRuntimeBooleanValue boolean => BitConverter.GetBytes(boolean.StoredValue),
@@ -59,8 +63,11 @@ internal static class RuntimeValueBytes
     /// </summary>
     /// <param name="value">The value whose shape the result takes.</param>
     /// <param name="bytes">The mutated byte image, the same length <see cref="Of"/> produced.</param>
-    public static IRuntimeValue? From(IRuntimeValue value, byte[] bytes) => value switch
+    /// <param name="pointerWidth">The session's pointer width, which a record is laid out for.</param>
+    public static IRuntimeValue? From(IRuntimeValue value, byte[] bytes, int pointerWidth = sizeof(long)) => value switch
     {
+        // a record takes the bytes into its fields, in place: it is the same record, which every name of it reads.
+        VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } => WrittenInto(record, bytes, pointerWidth, value),
         // MS-VBAL Boolean is two bytes, and anything non-zero is True.
         VBRuntimeBooleanValue => new VBRuntimeBooleanValue(BitConverter.ToInt16(bytes)),
         VBRuntimeByteStringValue => VBRuntimeByteStringValue.FromBytes(bytes),
@@ -84,6 +91,12 @@ internal static class RuntimeValueBytes
         string => VBRuntimeByteStringValue.FromBytes(bytes),
         _ => null,
     };
+
+    private static IRuntimeValue WrittenInto(SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue record, byte[] bytes, int pointerWidth, IRuntimeValue value)
+    {
+        SDK.Model.Types.VBUserDefinedTypeImage.WriteInto(record, bytes, pointerWidth);
+        return value;
+    }
 
     // an arbitrary Double is not necessarily a representable date; a poke that lands outside the range
     // is the caller's business, not a reason to throw out of a byte write.

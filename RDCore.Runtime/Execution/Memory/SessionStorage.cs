@@ -16,6 +16,67 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
     private readonly Dictionary<MemoryAddress, IBindingHandle> _handleByAddress = [];
     private readonly Dictionary<MemoryAddress, byte[]> _bytesByAddress = [];
 
+    // the blocks the elements of arrays are laid out in (ArrayBlock), by the address each starts at, and by the array: an array that is gone is not kept
+    // alive by its block, which is freed the next time a block is made.
+    private readonly Dictionary<MemoryAddress, ArrayBlock> _arrayBlocks = [];
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SDK.Model.Values.Intrinsic.VBArrayValue, System.Runtime.CompilerServices.StrongBox<MemoryAddress>> _blockOfArray = new();
+
+    /// <summary>
+    /// The address of the element at <paramref name="flatIndex"/> of <paramref name="array"/>, in the order <see cref="SDK.Model.Values.Intrinsic.VBArrayValue.IndexOf"/>
+    /// numbers them: in the block the array's elements are laid out in side by side (<see cref="ArrayBlock"/>), made the first time the address of one of
+    /// them is asked for. Every element of the array is at the start of the block plus its index times the width of an element (<c>VarPtr</c>).
+    /// </summary>
+    /// <returns><see langword="false"/> when there is no element at the index, or no room for the block.</returns>
+    public bool TryAddressOfElement(SDK.Model.Values.Intrinsic.VBArrayValue array, int flatIndex, out MemoryAddress address)
+    {
+        address = default;
+        if (flatIndex < 0 || flatIndex >= array.Length)
+        {
+            return false;
+        }
+
+        if (!_blockOfArray.TryGetValue(array, out var start))
+        {
+            FreeBlocksOfArraysThatAreGone();
+            var made = new ArrayBlock(array, pointerSize);
+            if (!allocator.TryAllocate(made.Size, out var at))
+            {
+                return false;
+            }
+
+            _arrayBlocks[at] = made;
+            _blockOfArray.Add(array, start = new System.Runtime.CompilerServices.StrongBox<MemoryAddress>(at));
+            Generation++;
+        }
+
+        address = new MemoryAddress(start.Value.Value + flatIndex * _arrayBlocks[start.Value].ElementWidth);
+        return true;
+    }
+
+    private void FreeBlocksOfArraysThatAreGone()
+    {
+        foreach (var (at, _) in _arrayBlocks.Where(block => !block.Value.TryGetArray(out _)).ToList())
+        {
+            _arrayBlocks.Remove(at);
+            allocator.TryDeallocate(at, out _);
+            Generation++;
+        }
+    }
+
+    // the block of an array that an address falls in, and where in it.
+    private bool TryFindArrayBlock(MemoryAddress address, [NotNullWhen(true)] out ArrayBlock? block, out int offset)
+    {
+        block = null;
+        offset = 0;
+        if (_arrayBlocks.Count == 0 || !allocator.TryFindBlock(address, out var found) || !_arrayBlocks.TryGetValue(found.Address, out block))
+        {
+            return false;
+        }
+
+        offset = address.Value - found.Address.Value;
+        return true;
+    }
+
     /// <summary>
     /// How many times what is bound at an address has changed: an allocation, a deallocation, a rebinding (a <c>POKE</c>). A binding read through an
     /// address is the binding there for as long as this has not changed (IR lowering S1.5).
@@ -25,7 +86,13 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
     public bool TryAllocate(int size, IBindingHandle handle, out MemoryAddress address)
     {
         // a value whose Size is 0 (vbNullString, Null, an array with no elements yet, an empty ParamArray) is held by a variable all the same, and a
-        // variable has an address a program can take (VarPtr): MS-VBA's String or dynamic array is a pointer that is 0, which is a pointer's size.
+        // variable has an address a program can take (VarPtr): MS-VBA's String or dynamic array is a pointer that is 0, which is a pointer's size. A record
+        // occupies its layout for the session's pointer width, which its own Size is not (VBUserDefinedTypeLayout.DefaultPointerWidth).
+        if (handle is ValueBindingHandle { Value: SDK.Model.Values.Runtime.VBRuntimeValue<SDK.Model.Values.Runtime.VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } })
+        {
+            size = Math.Max(size, SDK.Model.Types.VBUserDefinedTypeLayout.Of(record, pointerSize).Size);
+        }
+
         if (!allocator.TryAllocate(size <= 0 ? pointerSize : size, out address))
         {
             return false;
@@ -56,13 +123,22 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
     }
 
     public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? handle)
-        => _handleByAddress.TryGetValue(address, out handle);
+    {
+        if (_handleByAddress.TryGetValue(address, out handle))
+        {
+            return true;
+        }
+
+        // an element of an array, at its place in the array's block.
+        handle = TryFindArrayBlock(address, out var block, out var offset) ? block.CellAt(offset) : null;
+        return handle is not null;
+    }
 
     public bool TryDeallocate(MemoryAddress address)
     {
         Generation++;
         Unbind(address);
-        return (_handleByAddress.Remove(address) || _bytesByAddress.Remove(address)) && allocator.TryDeallocate(address, out _);
+        return (_handleByAddress.Remove(address) || _bytesByAddress.Remove(address) || _arrayBlocks.Remove(address)) && allocator.TryDeallocate(address, out _);
     }
 
     public bool TryRebind(MemoryAddress address, IBindingHandle handle)
@@ -146,9 +222,16 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
             return true;
         }
 
+        // the element of an array the byte is part of, which the array holds.
+        if (_arrayBlocks.TryGetValue(block, out var elements))
+        {
+            Generation++;
+            return elements.Write(image, offset);
+        }
+
         return _handleByAddress.TryGetValue(block, out var handle)
             && CanRead(handle)
-            && RuntimeValueBytes.From(handle.Value, image) is { } rebuilt
+            && RuntimeValueBytes.From(handle.Value, image, pointerSize) is { } rebuilt
             && TryRebind(block, new ValueBindingHandle(rebuilt));
     }
 
@@ -176,8 +259,14 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
             return true;
         }
 
+        if (_arrayBlocks.TryGetValue(block, out var elements))
+        {
+            image = elements.Image();
+            return true;
+        }
+
         if (_handleByAddress.TryGetValue(block, out var handle) && CanRead(handle)
-            && RuntimeValueBytes.Of(handle.Value) is { } valueImage)
+            && RuntimeValueBytes.Of(handle.Value, pointerSize) is { } valueImage)
         {
             image = valueImage;
             return true;

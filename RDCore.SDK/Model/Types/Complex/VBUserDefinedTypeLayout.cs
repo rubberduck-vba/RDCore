@@ -140,6 +140,20 @@ public sealed class VBUserDefinedTypeLayout
     public int Alignment { get; }
 
     /// <summary>
+    /// How many bytes a value of <paramref name="type"/> occupies in memory, as a field of it would: what an element of an array of the type is wide, each
+    /// element being at the address of the one before it plus this (<strong>MS-VBA</strong>, recorded in Excel: 1 for a <c>Byte</c>, 2 for an <c>Integer</c>
+    /// or a <c>Boolean</c>, 4 for a <c>Long</c>, 8 for a <c>Double</c> or a <c>Currency</c>, a pointer for a <c>String</c> or an object, a <c>VARIANT</c>
+    /// for a <c>Variant</c>).
+    /// </summary>
+    /// <param name="type">The declared type.</param>
+    /// <param name="pointerWidth">The host's pointer width in bytes.</param>
+    /// <remarks>
+    /// A record is as wide as its type's layout, padding included; one whose fields are fixed-size arrays is as wide as a record of it says
+    /// (<see cref="Of(VBUserDefinedTypeValue, int)"/>), which a type alone does not know.
+    /// </remarks>
+    public static int WidthOf(VBType type, int pointerWidth) => MeasureOf(type, held: null, pointerWidth, []).Width;
+
+    /// <summary>
     /// The offset of the field named <paramref name="name"/>, or <c>null</c> when the type has no such field.
     /// </summary>
     /// <param name="name">The field name, compared the way VBA compares identifiers.</param>

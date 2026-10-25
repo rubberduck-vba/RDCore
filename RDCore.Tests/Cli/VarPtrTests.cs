@@ -20,6 +20,10 @@ public sealed class VarPtrTests
         "Option Explicit",
         "Public Declare PtrSafe Sub RtlMove Lib \"kernel32\" Alias \"RtlMoveMemory\" (Dest As Any, Src As Any, ByVal n As LongPtr)",
         "Public Type TPair", "    X As Long", "    Y As Long", "End Type",
+        "Public Type TOuter", "    Head As Byte", "    Inner As TPair", "    Tail As Double", "End Type",
+        "Public Type TFixed", "    B As Byte", "    N(2) As Long", "    After As Integer", "End Type",
+        "Public Type TDyn", "    A() As Long", "End Type",
+        "Public Type Mixed", "    B As Byte", "    L As Long", "    D As Double", "    I As Integer", "    S As String", "    V As Variant", "    F As String * 3", "    C As Currency", "End Type",
         "Public G As Long",
         "Public Function Twice(ByVal n As Long) As Long", "    Twice = n * 2", "End Function",
         "Public Sub ByRefAddr(ByRef x As Long, ByRef addr As LongPtr)", "    addr = VarPtr(x)", "End Sub",
@@ -119,13 +123,49 @@ public sealed class VarPtrTests
     public async Task AnElementOfAnArrayGivenToAsAny_IsValid()
         => Assert.IsEmpty(await ErrorsOf("Dim a(1) As Long, b As Long ;; RtlMove a(0), b, 0"));
 
+    // the elements of an array are side by side, each as wide as its type: in a block of the array's own (oracle\s17 V02-V12, oracle\s24).
     [TestMethod]
-    [Ignore("*Ptr plan P2: the elements of an array are not laid out side by side in the session's memory yet (oracle\\s17 V02).")]
-    public async Task TheElementsOfAnArray_AreSideBySide()
-        => Assert.AreEqual("4|12|", await RunAsync("Dim a(3) As Long ;; P VarPtr(a(1)) - VarPtr(a(0)) ;; P VarPtr(a(3)) - VarPtr(a(0))"));
+    [DataRow("Dim a(3) As Long ;; P VarPtr(a(1)) - VarPtr(a(0)) ;; P VarPtr(a(3)) - VarPtr(a(0))", "4|12|", DisplayName = "V02 Long")]
+    [DataRow("Dim a(3) As Byte ;; P VarPtr(a(1)) - VarPtr(a(0))", "1|", DisplayName = "V03 Byte")]
+    [DataRow("Dim a(3) As Integer ;; P VarPtr(a(1)) - VarPtr(a(0))", "2|", DisplayName = "V04 Integer")]
+    [DataRow("Dim a(3) As Double ;; P VarPtr(a(1)) - VarPtr(a(0))", "8|", DisplayName = "V05 Double")]
+    [DataRow("Dim a(3) As String ;; P VarPtr(a(1)) - VarPtr(a(0))", "8|", DisplayName = "V06 String, a pointer")]
+    [DataRow("Dim a(3) As Variant ;; P VarPtr(a(1)) - VarPtr(a(0))", "24|", DisplayName = "V07 Variant, a VARIANT")]
+    [DataRow("Dim a(3) As Object ;; P VarPtr(a(1)) - VarPtr(a(0))", "8|", DisplayName = "V08 Object, a pointer")]
+    [DataRow("Dim a(3) As Currency ;; P VarPtr(a(1)) - VarPtr(a(0))", "8|", DisplayName = "V09 Currency")]
+    [DataRow("Dim a(3) As Boolean ;; P VarPtr(a(1)) - VarPtr(a(0))", "2|", DisplayName = "V10 Boolean")]
+    [DataRow("Dim m(1, 1) As Long ;; P VarPtr(m(1, 0)) - VarPtr(m(0, 0)) ;; P VarPtr(m(0, 1)) - VarPtr(m(0, 0))", "4|8|", DisplayName = "V12 two dimensions, column-major")]
+    [DataRow("Dim a(1) As TPair ;; P VarPtr(a(1)) - VarPtr(a(0))", "8|", DisplayName = "P01 records")]
+    [DataRow("Dim a(1) As TPair ;; P VarPtr(a(1).Y) - VarPtr(a(0))", "12|", DisplayName = "P02 a field of an element")]
+    [DataRow("Dim r As TDyn ;; ReDim r.A(2) ;; P VarPtr(r.A(1)) - VarPtr(r.A(0))", "4|", DisplayName = "P05 a dynamic array field")]
+    [DataRow("Dim v As Variant ;; v = Array(1, 2) ;; P VarPtr(v(1)) - VarPtr(v(0))", "24|", DisplayName = "P06 a Variant holding an array")]
+    [DataRow("Dim a(1, 1) As TPair ;; P VarPtr(a(1, 0)) - VarPtr(a(0, 0)) ;; P VarPtr(a(0, 1)) - VarPtr(a(0, 0))", "8|16|", DisplayName = "P07 records in two dimensions")]
+    [DataRow("Dim a(3) As Long, q As LongPtr ;; q = VarPtr(a(2)) ;; a(2) = 7 ;; P (VarPtr(a(2)) = q)", "True|", DisplayName = "P08 stays where it is")]
+    [DataRow("Dim a(2) As Long ;; P (VarPtr(a(0)) Mod 4)", "0|", DisplayName = "P10 aligned")]
+    public async Task TheElementsOfAnArray_AreSideBySide(string body, string expected)
+        => Assert.AreEqual(expected, await RunAsync(body));
 
+    // V11: every ReDim moves the data, Preserve or not; P09: an array assigned is a copy, elsewhere.
     [TestMethod]
-    [Ignore("*Ptr plan P2: the fields of a user-defined type are not laid out in the session's memory yet (oracle\\s21 R10, R30).")]
-    public async Task TheFieldsOfARecord_AreAtTheirOffsets()
-        => Assert.AreEqual("True|4|True|", await RunAsync("Dim r As TPair ;; P (VarPtr(r) = VarPtr(r.X)) ;; P (VarPtr(r.Y) - VarPtr(r)) ;; P (VarPtr(r.X) = VarPtr(r.X))"));
+    [DataRow("Dim a() As Long, a0 As LongPtr ;; ReDim a(3) ;; a0 = VarPtr(a(0)) ;; ReDim a(3) ;; P (VarPtr(a(0)) = a0) ;; a0 = VarPtr(a(0)) ;; ReDim Preserve a(5) ;; P (VarPtr(a(0)) = a0)",
+        "False|False|", DisplayName = "V11 ReDim")]
+    [DataRow("Dim a() As Long, b() As Long, q As LongPtr ;; ReDim a(2) ;; q = VarPtr(a(0)) ;; b = a ;; P (VarPtr(b(0)) = q) ;; P (VarPtr(a(0)) = q)",
+        "False|True|", DisplayName = "P09 assigned")]
+    public async Task AnotherArray_IsElsewhere(string body, string expected)
+        => Assert.AreEqual(expected, await RunAsync(body));
+
+    // the fields of a record are at their offsets, in MS-VBA's layout for a 64-bit host (oracle\s17 V13, oracle\s21 R10, R30, oracle\s24).
+    [TestMethod]
+    [DataRow("Dim r As TPair ;; P (VarPtr(r) = VarPtr(r.X)) ;; P (VarPtr(r.Y) - VarPtr(r)) ;; P (VarPtr(r.X) = VarPtr(r.X))", "True|4|True|", DisplayName = "R10 R30")]
+    [DataRow("Dim r As Mixed, b As LongPtr ;; b = VarPtr(r) ;; P VarPtr(r.B) - b ;; P VarPtr(r.L) - b ;; P VarPtr(r.D) - b ;; P VarPtr(r.I) - b ;; P VarPtr(r.S) - b ;; P VarPtr(r.V) - b ;; P VarPtr(r.C) - b ;; P LenB(r) ;; P Len(r)",
+        "0|4|8|16|24|32|64|72|58|", DisplayName = "V13 every kind of field")]
+    [DataRow("Dim r As TOuter ;; P VarPtr(r.Inner) - VarPtr(r) ;; P VarPtr(r.Inner.Y) - VarPtr(r) ;; P VarPtr(r.Tail) - VarPtr(r) ;; P LenB(r)", "4|8|16|24|", DisplayName = "P03 P11 a nested record")]
+    [DataRow("Dim r As TFixed ;; P VarPtr(r.N(0)) - VarPtr(r) ;; P VarPtr(r.N(2)) - VarPtr(r) ;; P VarPtr(r.After) - VarPtr(r)", "4|12|16|", DisplayName = "P04 a fixed-size array field, inline")]
+    public async Task TheFieldsOfARecord_AreAtTheirOffsets(string body, string expected)
+        => Assert.AreEqual(expected, await RunAsync(body));
+
+    // V20: a fixed-length String is passed to VarPtr as a String made of it, a temporary; a field of one too.
+    [TestMethod]
+    public async Task AFixedLengthString_IsATemporary()
+        => Assert.AreEqual("False|False|", await RunAsync("Dim f As String * 4, r As Mixed ;; P (VarPtr(f) = VarPtr(f)) ;; P (VarPtr(r.F) = VarPtr(r.F))"));
 }

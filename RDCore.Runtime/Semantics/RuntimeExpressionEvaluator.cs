@@ -2253,7 +2253,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // says which one, and the marshaller passes the array's data from there (a String a Declare takes ByVal is a buffer, not this).
         if (argument is IndexExpressionNode element && (!external || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)))
         {
-            return TryResolveElementByRefArgument(session, context, element, parameter, borrowed, out reference, out evaluated, external || anyByAddress);
+            return TryResolveElementByRefArgument(session, context, element, parameter, borrowed, out reference, out evaluated, external || anyByAddress,
+                atItsAddress: anyByAddress && parameter.ResolvedType is VBUnknownType);
         }
 
         // `As Any` is a parameter of a Declare, or of a library member (VarPtr), that takes whatever it is given, a variable of any type by reference - and
@@ -2262,6 +2263,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (takesAny && argument is SimpleNameExpressionNode anyName
             && session.Symbols.Resolver.ResolveValue(anyName, ScopeKind.Local, context.Scope).Symbol is { } anySymbol and ITypedSymbol anyTyped)
         {
+            // a fixed-length String is passed to VarPtr as a String made of it, a temporary of its own (MS-VBA, recorded in Excel: oracle\s17 V20).
+            if (anyByAddress && anyTyped.ResolvedType is VBFixedStringType)
+            {
+                return false;
+            }
+
             // a Variant reference parameter given a variable of another type is a VARIANT of its own that refers to the variable: that is its address.
             if (anyByAddress && session.CallStack.Current is Execution.Frames.CallStackFrame frame
                 && frame.TryGetReferenceVariantAddress(anySymbol, session.Environment.Is64Bit ? VariantSize64 : VariantSize32, out var variant))
@@ -2281,8 +2288,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var qualified = argument is MemberAccessExpressionNode qualifiedAccess ? ResolveNamespaceQualified(session, context, qualifiedAccess) : null;
         if (qualified is null && argument is MemberAccessExpressionNode memberAccess)
         {
-            // a public variable of an object is a property of its interface to `As Any`, which is given a temporary (MS-VBA: VarPtr(h.Value) is a new
-            // address each time, VarPtr(Me.Value) too - recorded in Excel, oracle\s21 R07).
+            // a field of a record is where the record is, at its offset (VarPtr(r.X), oracle\s21 R10). A public variable of an object is a property of its
+            // interface to `As Any`, which is given a temporary (MS-VBA: VarPtr(h.Value) is a new address each time, VarPtr(Me.Value) too - oracle\s21 R07).
+            if (anyByAddress && takesAny)
+            {
+                return TryResolveRecordFieldAddress(session, context, memberAccess, out reference, out evaluated);
+            }
+
             return !takesAny && TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference);
         }
 
@@ -2329,6 +2341,102 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         _ => Conversion.ValueConversions.WholeValueOf(value),
     };
 
+    // the address of a field of a record (VarPtr(r.X)): the record's, plus the field's offset in MS-VBA's layout for the session's pointer width (oracle\s17
+    // V13, oracle\s21 R10). A fixed-length String field is passed as a String made of it, a temporary (V20), and what is no record's field is too.
+    private bool TryResolveRecordFieldAddress(
+        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, out VBRuntimeReference reference,
+        out RuntimeSemanticsEvaluationResult? evaluated)
+    {
+        reference = VBRuntimeReference.NullRef;
+        evaluated = null;
+        if (access.Owner is not { } owner || !TryAddressOfRecord(session, context, owner, out var start, out var record, out evaluated))
+        {
+            return false;
+        }
+
+        var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+        var index = FieldIndexOf(fields, access.Member.IdentifierName);
+        if (index < 0 || fields[index].Symbol.ResolvedType is VBFixedStringType or null)
+        {
+            return false;
+        }
+
+        reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[index].Offset), fields[index].Symbol.ResolvedType);
+        return true;
+    }
+
+    private static int FieldIndexOf(IReadOnlyList<VBUserDefinedTypeField> fields, string name)
+    {
+        for (var index = 0; index < fields.Count; index++)
+        {
+            if (string.Equals(fields[index].Symbol.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // where a record is in the session's memory, and the record: a variable of a user-defined type, an element of an array of one, or a field of a record
+    // that is one itself.
+    private bool TryAddressOfRecord(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, out MemoryAddress address,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBUserDefinedTypeValue? record, out RuntimeSemanticsEvaluationResult? evaluated)
+    {
+        address = default;
+        record = null;
+        evaluated = null;
+        switch (expression)
+        {
+            case SimpleNameExpressionNode name
+                when session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is { } symbol and ITypedSymbol { ResolvedType: VBUserDefinedType }
+                    && session.Symbols.Resolver.TryGetAddress(symbol, out address):
+                record = Evaluate(session, name, context).Result as VBUserDefinedTypeValue;
+                return record is not null;
+
+            case IndexExpressionNode element when !element.Arguments.IsDefaultOrEmpty && DenotesAVariable(session, context, element.Callee):
+                if (Evaluate(session, element.Callee, context).Result is not VBArrayValue { IsIndeterminate: false, ItemType: VBUserDefinedType } array)
+                {
+                    return false;
+                }
+
+                if (EvaluateSubscripts(session, context, element.Arguments, out var indices, out var indicesKnown) is { } failed)
+                {
+                    evaluated = failed;
+                    return false;
+                }
+
+                if (!indicesKnown || array[indices] is not VBUserDefinedTypeValue held)
+                {
+                    evaluated = indicesKnown
+                        ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, element.Location, string.Join(", ", indices)))
+                        : null;
+                    return false;
+                }
+
+                record = held;
+                return session.Storage is Execution.Memory.SessionStorage storage && storage.TryAddressOfElement(array, array.IndexOf(indices), out address);
+
+            case MemberAccessExpressionNode { Owner: { } owner } nested
+                when TryAddressOfRecord(session, context, owner, out var outer, out var outerRecord, out evaluated):
+                var layout = VBUserDefinedTypeLayout.Of(outerRecord, PointerWidthOf(session));
+                var index = FieldIndexOf(layout.Fields, nested.Member.IdentifierName);
+                if (index < 0 || outerRecord.FieldAt(index) is not VBUserDefinedTypeValue inner)
+                {
+                    return false;
+                }
+
+                address = new MemoryAddress(outer.Value + layout.Fields[index].Offset);
+                record = inner;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static int PointerWidthOf(IRuntimeSession session) => session.Environment.Is64Bit ? sizeof(long) : sizeof(int);
+
     // the size of a VARIANT, in a 32-bit and a 64-bit environment.
     private const int VariantSize32 = 16;
     private const int VariantSize64 = 24;
@@ -2338,9 +2446,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // default, as an assignment to it would. A callee that is not a variable - a function, a property - is not reached into: its element is a value.
     // Once the subscripts are evaluated, an element that is not bound is passed as what they select - an error, or a value - and they are not evaluated again
     // (MS-VBA evaluates them once: a subscript outside the bounds is error 9, raised by the call's argument).
+    // atItsAddress: the element is given the address it has in the block the array's elements are laid out in (VarPtr), which lasts as long as the array.
     private bool TryResolveElementByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode element, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
-        out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated, bool external = false)
+        out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated, bool external = false, bool atItsAddress = false)
     {
         reference = VBRuntimeReference.NullRef;
         evaluated = null;
@@ -2387,6 +2496,34 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         {
             array.TrySetElement(BindingKnowledge.NewCell(array.ItemType.DefaultValue.RuntimeValue, isKnown: true), indices);
             cell = array.GetElementHandle(indices)!;
+        }
+
+        // the elements of an array are side by side, at the addresses MS-VBA gives them (oracle\s17 V02-V12): those of a fixed-size array field of a record
+        // in the record, at the field's offset (oracle\s24 P04), and those of any other array in a block of the array's own.
+        if (atItsAddress)
+        {
+            if (element.Callee is MemberAccessExpressionNode { Owner: { } owner } field && array is VBFixedSizeArrayValue
+                && TryAddressOfRecord(session, context, owner, out var start, out var record, out _))
+            {
+                var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
+                var index = FieldIndexOf(fields, field.Member.IdentifierName);
+                if (index < 0)
+                {
+                    return false;
+                }
+
+                var width = VBUserDefinedTypeLayout.WidthOf(array.ItemType, PointerWidthOf(session));
+                reference = new VBRuntimeReference(new MemoryAddress(start.Value + fields[index].Offset + array.IndexOf(indices) * width), array.ItemType);
+                return true;
+            }
+
+            if (session.Storage is not Execution.Memory.SessionStorage storage || !storage.TryAddressOfElement(array, array.IndexOf(indices), out var laidOut))
+            {
+                return false;
+            }
+
+            reference = new VBRuntimeReference(laidOut, array.ItemType);
+            return true;
         }
 
         if (!session.Storage.TryAllocate(array.ItemType.DefaultValue.Size, cell, out var address))

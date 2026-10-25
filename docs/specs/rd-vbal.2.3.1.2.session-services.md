@@ -108,6 +108,14 @@ field uses; one of a member of a class lives in the object heap, with the fields
 
 See [**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md) for `ScopeKind` and the allocation scopes.
 
+The session's address space begins above the first 64 KiB, so that no address is `0`. A variable is at an address whatever it holds, one that holds
+nothing being given a pointer's size. The elements of an array are not at an address each: the first time the address of one of them is asked for
+(`VarPtr`), the array is given a block of the session's memory as wide as all of its elements side by side, and every element is at its place in it, as
+**MS-VBA** lays them out ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#varptr)). The block belongs to the array, and does not keep it
+alive: an array that is gone - `ReDim`'d, assigned another, a local of an activation that returned - is let go of with its block, which the session frees
+when it next makes one. A `PEEK` reads the block as the elements' bytes, and a `POKE` writes the element the byte is part of; a record's address reads,
+and writes, its fields at their offsets.
+
 The order in which names are looked up in these heaps is specified in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 

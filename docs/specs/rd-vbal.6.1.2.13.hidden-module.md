@@ -58,18 +58,23 @@ As in **MS-VBA** (recorded in Excel):
 |A variable - a local, a parameter, a `Static` local, a variable of a module bare or qualified, a field of the class in its own code by its bare name|Its address: never `0`, aligned to its size, and the same for as long as the variable exists, whatever is assigned to it (a `String`, a `Variant`, an `Object` set and set to `Nothing`).|
 |A `ByRef` parameter|The address of the variable it was given; a `ByVal` parameter has its own.|
 |A `Variant` `ByRef` parameter given a variable of another type|The address of a `VARIANT` of its own, the same for the whole call, which is not the variable's.|
-|An element of an array|An address of the element's for as long as the call runs. Error 9 for an array that has no elements.|
+|An element of an array|Its address in the block the array's elements are laid out in, side by side: the first element's plus its index times the width of an element (1 for a `Byte`, 2 for an `Integer` or a `Boolean`, 4 for a `Long`, 8 for a `Double`, a `Currency` or a `Date`, a pointer for a `String` or an object, a `VARIANT` for a `Variant`, a record's in-memory size for a record), the first subscript varying fastest. The block is the array's for as long as the array is: every `ReDim` makes another, `Preserve` or not, and so does an array assigned another. Error 9 for an array that has no elements.|
+|An element of a fixed-size array field of a record (`r.N(2)`)|Inline, in the record: the record's address, plus the field's offset, plus the element's.|
+|A field of a record (`r.X`, `a(1).X`, `r.Inner.X`)|The record's address plus the field's offset, in **MS-VBA**'s layout for the session's pointer width: each field aligned to its own size, a nested record to its strictest field's. A fixed-length `String`, a variable or a field, is passed as a `String` made of it: a temporary.|
 |What is no variable: a literal, an expression, `(x)`, a constant, what a function returns, a public variable of an object named through it (`h.Value`, `Me.Value`)|The address of a temporary, which is freed when the statement is over: two temporaries of one statement have two addresses, so `VarPtr(1) = VarPtr(1)` is `False`.|
 |`ByVal n`|The bytes `n` is stored in, read as a whole number: a whole number or a `Boolean` is itself, a `Double`, a `Date` or a `Currency` its eight bytes, a `Variant` its `VARIANT`'s type (`VarPtr(ByVal Null)` is `1`). A `String` or an object is passed in a temporary.|
 |An array|Compile error [`VBC09310`](../diagnostics/vbc09310.md) _Type mismatch_, as it is for a `Declare`'s `As Any`; an element of it is valid.|
 
 > [!NOTE]
-> 🚧 Not implemented yet (*Ptr plan P2-P4):
+The bytes at an element's or a record's address are what it holds, laid out as **MS-VBA** lays them out: a number, a `Boolean`, a `Date` and a
+fixed-length `String` are their bytes, and a record its fields' at their offsets, padding zeroed. A `POKE` there writes the element or the field the byte
+is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
+
+> [!NOTE]
+> 🚧 Not implemented yet (*Ptr plan P3, P4):
 >
-> - The elements of an array, and the fields of a user-defined type, are not laid out in the session's memory side by side as **MS-VBA** lays them out:
->   an element's address is the element's only for as long as the call that takes it runs, and a field of a record is a temporary.
 > - The bytes at a variable's address are the managed image of its value: a `String`'s characters, not a pointer to a `BSTR`; no bytes for a `Variant`,
->   an object or an array (**MS-VBA**'s layout is the one these will follow).
+>   an object or an array, nor for an element or a field of those types, which read as zeros (**MS-VBA**'s layout is the one these will follow).
 > - `VarPtr` of a function's result variable, in the function, is a temporary.
 > - A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
 

@@ -195,6 +195,24 @@ public abstract record class VBArrayValue : VBTypedValue
     public IBindingHandle? CellAt(int flatIndex) => flatIndex < 0 || flatIndex >= _cells.Length ? null : _cells[flatIndex];
 
     /// <summary>
+    /// Rebinds the element at a flat index, in the order <see cref="ElementAt"/> reads them, to <paramref name="value"/>: what writes an element at its
+    /// address in memory, which is where it is in that order.
+    /// </summary>
+    /// <param name="flatIndex">From 0 to <see cref="Length"/> - 1.</param>
+    /// <param name="value">The element's new binding.</param>
+    /// <returns><c>false</c> when there is no element at the index.</returns>
+    public bool TrySetElementAt(int flatIndex, IBindingHandle value)
+    {
+        if (flatIndex < 0 || flatIndex >= _cells.Length)
+        {
+            return false;
+        }
+
+        _cells[flatIndex] = value;
+        return true;
+    }
+
+    /// <summary>
     /// Rebinds the element at the given subscripts to <paramref name="value"/>. Mutates the cell in
     /// place — array element storage is mutable. Returns <c>false</c> when the subscripts are out of
     /// bounds or their count does not match the array rank.
