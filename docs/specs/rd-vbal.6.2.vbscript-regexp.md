@@ -12,7 +12,7 @@
 |Class|SDK interface|What it is|
 |---|---|---|
 |`RegExp`|[IStdRegExpClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdRegExpClass.html)|A pattern and its options: `Pattern` (`""`), `Global`, `IgnoreCase`, `Multiline` (all `False` for a new object); `Test`, `Execute`, `Replace`. It has no default member.|
-|`MatchCollection`|[IStdMatchCollectionClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMatchCollectionClass.html)|What `Execute` found: `Count`, and `Item`, its default member, from `0`. A `For Each` enumerates it.|
+|`MatchCollection`|[IStdMatchCollectionClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMatchCollectionClass.html)|What `Execute` found: `Count`, and `Item`, its default member, from `0`, declared `Object` as MS-VBA's type library declares it. A `For Each` enumerates it.|
 |`Match`|[IStdMatchClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMatchClass.html)|One match: `Value`, its default member; `FirstIndex`, from `0`; `Length`; `SubMatches`.|
 |`SubMatches`|[IStdSubMatchesClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdSubMatchesClass.html)|What each group matched: `Count`, and `Item`, its default member, from `0` - a `String`, or `Empty` for a group that took no part in the match. A `For Each` enumerates it.|
 
@@ -58,9 +58,9 @@ replacement that is not text is written as text - a `Boolean` as `-1` or `0`, `E
 
 ## Differences
 
-- 🚧 A member of these classes is called as it is declared, whichever way the object is declared. MS-VBA calls one late-bound (`Dim r As Object`) through
-  `IDispatch`, which reports `Null` given for a `String` or a `Boolean` as error `13`, and an assignment to a read-only property as `450`; RD-VBA reports
-  them as MS-VBA does for an early-bound call: `94`, and `451`.
+- 🚧 A read-only property of these classes assigned late-bound (`Dim m As Object`) is error `451`, as for a class of the workspace's, where MS-VBA's
+  `IDispatch` reports `450`. A member called late-bound is called as MS-VBA calls it through `IDispatch` ([**RD-VBAL §6.0** Late-Bound
+  Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 - 🚧 A match is not bounded in time: a pattern that backtracks without end does here what it does in MS-VBA.
 
 ---

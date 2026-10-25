@@ -300,6 +300,9 @@
   <data name="VBArgument_ByValLateBound_Verbose" xml:space="preserve">
     <value>The member is called late-bound: its parameters are not known, and are taken to be ByRef, which takes no argument written ByVal.</value>
   </data>
+  <data name="VBArgument_NullThroughDispatch_Verbose" xml:space="preserve">
+    <value>The object is called late-bound, through its IDispatch, which converts each argument to the type of its parameter: Null converts to no type but Variant.</value>
+  </data>
   <data name="VBArgument_ByValIndex_Verbose" xml:space="preserve">
     <value>An index of an array is never written ByVal.</value>
   </data>

@@ -430,7 +430,8 @@ public sealed class LetAssignmentEvaluator(
 
         if (member.Accessor is { } accessor)
         {
-            var invocation = expressions.InvokeAssignment(session, context, accessor, member.Receiver!, indexArguments, value, source, isSet);
+            var invocation = expressions.InvokeAssignment(session, context, accessor, member.Receiver!, indexArguments, value, source, isSet,
+                memberAccess.Owner ?? context.EnclosingWithTargetExpression);
             return invocation.IsSuccess ? RuntimeExecutionOutcome.Next
                 : invocation.IsInternalError ? RuntimeExecutionOutcome.InternalError
                 : RuntimeExecutionOutcome.Error(invocation.ErrorInfo!);

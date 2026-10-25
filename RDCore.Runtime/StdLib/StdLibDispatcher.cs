@@ -130,9 +130,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// name of the library (<see cref="SymbolProperties.Library"/>); those are its provider's, and answering
     /// them here would report as unimplemented what only has not been asked of the right provider.
     /// </remarks>
-    public bool CanDispatch(ExternalCallRequest request)
-        => request.Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
-        && request.Member.GetProperty(SymbolProperties.Library) is null or StdLibSymbolProvider.LibraryName;
+    public bool CanDispatch(ExternalCallRequest request) => StdLibSymbolProvider.IsLibraryMember(request.Member);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)

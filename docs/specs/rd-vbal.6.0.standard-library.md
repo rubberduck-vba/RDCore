@@ -57,6 +57,20 @@ managed type: a `short` for `Integer` and an `int` for `Long`
 👉 Because each intrinsic stores its exact managed type, `Len` returns "the number of bytes required to store a
 variable" ([**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)).
 
+### Late-Bound Calls
+
+A member of an object of a standard-library class (`Collection`, `ErrObject`, `RegExp` and the classes of its matches) reached through an expression
+declared `Object` or `Variant` is called as MS-VBA calls it late-bound, through the object's `IDispatch`, whose errors are not those of a call bound to
+the member:
+
+|Late-bound call|Error|Early-bound|
+|---|---|---|
+|`Null` given for a parameter, or as the value of a property, that is not a `Variant` (`r.Pattern = Null`, `e.HelpContext = Null`, `m(Null)`)|13 — Type mismatch|94 — Invalid use of Null|
+
+The object is reached late-bound through a variable, a parameter or a `With` block declared `Object` or `Variant`, and through what a late-bound call
+returns: `m(0).SubMatches(Null)` is 13, `MatchCollection.Item` being declared `Object`, as the library's own type library declares it. Recorded in Excel
+(`oracle\s26`, grids `grid-lb` to `grid-lb6`), as for Scripting's `Dictionary`.
+
 
 ## 6.0.1 Symbol Injection
 

@@ -47,7 +47,8 @@ public static class SymbolResolverNameExtensions
     public static SymbolResolutionResult ResolveValue(this ISymbolResolver resolver, SimpleNameExpressionNode name, ScopeKind scope, Uri handle)
     {
         var bare = resolver.ResolveValue(name.IdentifierName, scope, handle);
-        if (name.TypeHint is not { Length: > 0 } || bare.IsError || bare.IsResolved && !IsLibraryMember(bare.Symbol!))
+        // a member of the standard library is the only one that declares twins; a referenced library's, and the workspace's declarations, are an answer as they stand.
+        if (name.TypeHint is not { Length: > 0 } || bare.IsError || bare.IsResolved && !StdLibSymbolProvider.IsLibraryMember(bare.Symbol!))
         {
             return bare;
         }
@@ -77,11 +78,4 @@ public static class SymbolResolverNameExtensions
 
         return resolver.ResolveMember(owner, member.IdentifierName, handle);
     }
-
-    // a member of the standard library, the only one that declares twins: a symbol carrying the key its reader stamps, that no other library claims as its
-    // own - the same test the standard library's dispatcher answers a call by. A referenced library's members carry a key of their own kind and the name of
-    // their library, and are an answer as they stand, as the workspace's declarations are.
-    private static bool IsLibraryMember(Symbol symbol)
-        => symbol.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
-        && symbol.GetProperty(SymbolProperties.Library) is null or StdLibSymbolProvider.LibraryName;
 }

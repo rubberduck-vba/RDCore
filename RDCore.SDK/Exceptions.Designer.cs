@@ -1608,6 +1608,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The object is called late-bound, through its IDispatch, which converts each argument to the type of its parameter: Null converts to no type but Variant..
+        /// </summary>
+        public static string VBArgument_NullThroughDispatch_Verbose {
+            get {
+                return ResourceManager.GetString("VBArgument_NullThroughDispatch_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to An index of an array is never written ByVal..
         /// </summary>
         public static string VBArgument_ByValIndex_Verbose {

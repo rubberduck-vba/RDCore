@@ -294,6 +294,9 @@
   <data name="VBArgument_ByValLateBound_Verbose" xml:space="preserve">
     <value>Le membre est appelé en liaison tardive : ses paramètres ne sont pas connus, et sont pris pour ByRef, ce qui ne prend aucun argument écrit ByVal.</value>
   </data>
+  <data name="VBArgument_NullThroughDispatch_Verbose" xml:space="preserve">
+    <value>L'objet est appelé en liaison tardive, par son IDispatch, qui convertit chaque argument au type de son paramètre : Null ne se convertit en aucun type sauf Variant.</value>
+  </data>
   <data name="VBArgument_ByValIndex_Verbose" xml:space="preserve">
     <value>Un indice de tableau ne s'écrit jamais ByVal.</value>
   </data>

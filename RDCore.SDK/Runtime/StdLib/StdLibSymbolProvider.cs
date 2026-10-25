@@ -91,6 +91,20 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
     /// </remarks>
     public const string LibraryName = "VBA";
 
+    /// <summary>
+    /// Whether <paramref name="symbol"/> is a member the standard library declares: a procedure of one of its modules, or a member of one of its classes.
+    /// </summary>
+    /// <remarks>
+    /// It carries the key the library's reader stamps on what it reads (<see cref="SymbolProperties.ExternalTarget"/>), and no other library claims it as
+    /// its own: a referenced library's members carry a key of their own kind, and the name of their library (<see cref="SymbolProperties.Library"/>). A
+    /// member of a class is not stamped with the library's name, as the class is: it is carried by the class, and never provided on its own.
+    /// </remarks>
+    /// <param name="symbol">The member.</param>
+    /// <returns><see langword="true"/> for a member of the standard library's; <see langword="false"/> for the workspace's, or a referenced library's.</returns>
+    public static bool IsLibraryMember(Symbol symbol)
+        => symbol.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
+        && symbol.GetProperty(SymbolProperties.Library) is null or LibraryName;
+
     private readonly Uri _workspaceRoot;
     private readonly bool _is64Bit;
 

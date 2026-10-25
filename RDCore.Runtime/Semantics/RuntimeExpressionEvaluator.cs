@@ -930,7 +930,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         return TryResolveDefaultMember(session, indexed) is { } defaultMember
-            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver)
+            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
     }
@@ -951,7 +951,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         return ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments)
             ? (InvokeProcedure(session, context, found.Member, [], found.Receiver), false)
-            : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver), true);
+            : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver, reachedThrough: ReachedThrough(qualified, context)), true);
     }
 
     private RuntimeSemanticsEvaluationResult AccessMember(
@@ -1272,14 +1272,18 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <param name="value">The value assigned, which is Let- or Set-coerced to the type of the accessor's value parameter.</param>
     /// <param name="source">The expression the value came from, for the location of an error.</param>
     /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
+    /// <param name="reachedThrough">
+    /// For a property of an object, the expression the object was reached through: one of the standard library's reached through an expression declared
+    /// <c>Object</c> or <c>Variant</c> is assigned through its <c>IDispatch</c>, for which a <c>Null</c> is a type mismatch (13), not error 94.
+    /// </param>
     public RuntimeSemanticsEvaluationResult InvokeAssignment(
         IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol accessor, IRuntimeValue? receiver,
-        ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet)
+        ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet, ExpressionNode? reachedThrough = null)
     {
         var borrowed = new List<MemoryAddress>();
         try
         {
-            return InvokeAssignment(session, context, accessor, receiver, indexArguments, value, source, isSet, borrowed);
+            return InvokeAssignment(session, context, accessor, receiver, indexArguments, value, source, isSet, borrowed, DispatchedThrough(accessor, reachedThrough));
         }
         finally
         {
@@ -1289,7 +1293,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     private RuntimeSemanticsEvaluationResult InvokeAssignment(
         IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol accessor, IRuntimeValue? receiver,
-        ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet, List<MemoryAddress> borrowed)
+        ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet, List<MemoryAddress> borrowed,
+        ExpressionNode? dispatchedThrough)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(accessor);
         parameters = receiver is not null && parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
@@ -1301,7 +1306,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // the value parameter is the last one, and the ones before it are what the property is indexed by.
         var valueParameter = parameters[^1];
-        if (BindArguments(session, context, parameters.RemoveAt(parameters.Length - 1), indexArguments, out var arguments, out _, borrowed) is { } bindingError)
+        if (BindArguments(session, context, parameters.RemoveAt(parameters.Length - 1), indexArguments, out var arguments, out _, borrowed,
+                dispatchedThrough: dispatchedThrough) is { } bindingError)
         {
             return bindingError;
         }
@@ -1334,7 +1340,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (!letResult.IsSuccess)
             {
-                return RuntimeSemanticsEvaluationResult.Error(letResult.ErrorInfo!);
+                return RuntimeSemanticsEvaluationResult.Error(AsDispatched(session, context, dispatchedThrough, letResult.ErrorInfo!));
             }
 
             coerced = letResult.Result!;
@@ -1728,8 +1734,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private readonly ConcurrentDictionary<ExpressionNode, IndexExpressionNode> _statementCalls = new(ReferenceEqualityComparer.Instance);
 
     // boundArguments: how each argument is passed, bound with the call (S1.7), for the parameters of the very procedure invoked; null when it was not bound.
+    // reachedThrough: for a call on an object, the expression the object was reached through (DispatchedThrough).
     private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
-        ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null, ImmutableArray<BoundArgument>? boundArguments = null)
+        ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null, ImmutableArray<BoundArgument>? boundArguments = null,
+        ExpressionNode? reachedThrough = null)
     {
         var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
 
@@ -1770,7 +1778,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var external = procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
             if (BindArguments(session, context, parameters, argumentNodes, out var arguments, out var argumentsKnown, borrowed,
                     external: external, cellReferences: InvokerOf(procedure) is not null, boundArguments: boundArguments,
-                    anyByAddress: !external && procedure.GetProperty(SymbolProperties.ExternalTarget) is not null)
+                    anyByAddress: !external && procedure.GetProperty(SymbolProperties.ExternalTarget) is not null,
+                    dispatchedThrough: DispatchedThrough(procedure, reachedThrough))
                 is { } bindingError)
             {
                 return bindingError;
@@ -1794,6 +1803,28 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     private List<MemoryAddress>? _spareBorrowed;
+
+    // MS-VBA calls a member of an object of the standard library that is reached late-bound - through an expression declared Object or Variant - by the
+    // object's IDispatch, which is given each argument as a Variant and converts it to the type of the parameter with VariantChangeType: Null converts to
+    // none, a type mismatch (13), where the let-coercion of a call bound to the member is "Invalid use of Null" (94). Recorded in Excel (oracle s26: grid-lb,
+    // grid-lb2, grid-lb3, grid-lb4, grid-lb6): String, Boolean and Long parameters and property values of RegExp, MatchCollection, SubMatches and ErrObject,
+    // as of Scripting's Dictionary; the same calls early-bound are 94. Asked only of an error, so that a call that binds pays nothing for it.
+    private static IVBRaisableError AsDispatched(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode? dispatchedThrough, IVBRaisableError error)
+        => error.ErrorId == (int)VBRuntimeErrorId.InvalidUseOfNull && dispatchedThrough is not null
+            && DeclaredTypeOfOwner(session, context, dispatchedThrough) is VBObjectType or VBVariantType
+            ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, error.Location, Exceptions.VBArgument_NullThroughDispatch_Verbose)
+            : error;
+
+    // the expression the object a member of the standard library is called on was reached through, which says whether the call is made through the object's
+    // IDispatch (AsDispatched). A member of the workspace's is called as its code is, however the object is reached.
+    private static ExpressionNode? DispatchedThrough(VBTypeMemberSymbol member, ExpressionNode? reachedThrough)
+        => reachedThrough is not null && SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(member) ? reachedThrough : null;
+
+    // the expression the object a member access is on was reached through: the owner written before the dot, the target of the enclosing With block for one
+    // that names none.
+    private static ExpressionNode? ReachedThrough(MemberAccessExpressionNode memberAccess, RuntimeEvaluationContext context)
+        => memberAccess.Owner ?? context.EnclosingWithTargetExpression;
 
     private readonly ConcurrentDictionary<VBTypeMemberSymbol, ImmutableArray<VBParameterSymbol>> _parametersAfterMe = new(ReferenceEqualityComparer.Instance);
 
@@ -1927,11 +1958,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// How each argument is passed, bound with the call (<see cref="BoundArgument"/>), one for each of <paramref name="parameters"/>: what is mapped once, and
     /// an argument that is no variable is not tried as one. <see langword="null"/> maps <paramref name="argumentNodes"/> here.
     /// </param>
+    /// <param name="dispatchedThrough">
+    /// For a member of an object of the standard library, the expression the object was reached through: when it is declared <c>Object</c> or
+    /// <c>Variant</c>, the call is MS-VBA's late-bound one, through the object's <c>IDispatch</c> (<see cref="AsDispatched"/>).
+    /// </param>
     /// <returns>The error that stopped the binding, or <see langword="null"/> when every argument was bound.</returns>
     private RuntimeSemanticsEvaluationResult? BindArguments(
         IRuntimeSession session, RuntimeEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters,
         ImmutableArray<ExpressionNode> argumentNodes, out IRuntimeValue[] arguments, out bool isKnown, List<MemoryAddress> borrowed, bool external = false,
-        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false)
+        bool cellReferences = false, ImmutableArray<BoundArgument>? boundArguments = null, bool anyByAddress = false, ExpressionNode? dispatchedThrough = null)
     {
         arguments = [];
         isKnown = true;
@@ -2127,7 +2162,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
             if (!coercionResult.IsSuccess)
             {
-                return RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo!);
+                return RuntimeSemanticsEvaluationResult.Error(AsDispatched(session, context, dispatchedThrough, coercionResult.ErrorInfo!));
             }
 
             // an array coerced to an array parameter is a fresh copy nothing has bound yet, so it has no

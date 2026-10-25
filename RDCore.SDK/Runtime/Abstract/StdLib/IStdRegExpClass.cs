@@ -146,7 +146,11 @@ public interface IStdMatchCollectionClass
     /// <param name="index">From <c>0</c> to <c>Count - 1</c>.<br/>
     /// 💥<see cref="Model.Errors.VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> for any other.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> whose value is a <c>Match</c> (<see cref="IStdMatchClass"/>).</returns>
-    [StdLibMember(Kind = StdLibMemberKind.PropertyGet, ReturnType = typeof(IStdMatchClass), UserMemId = WellKnownDispIds.Value)]
+    /// <remarks>
+    /// It is declared <c>Object</c>, as the library's own type library declares it (<c>IDispatch</c>): <c>m(0).SubMatches(Null)</c> is a late-bound call
+    /// whatever <c>m</c> is declared as, a type mismatch where an early-bound one is error 94 (MS-VBA, recorded in Excel).
+    /// </remarks>
+    [StdLibMember(Kind = StdLibMemberKind.PropertyGet, UserMemId = WellKnownDispIds.Value)]
     RuntimeSemanticsEvaluationResult<VBObjectValue> Item(VBLongValue index);
 
     /// <summary>
