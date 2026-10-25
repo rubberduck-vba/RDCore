@@ -1,4 +1,5 @@
 using NSubstitute;
+using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Themes;
@@ -34,9 +35,55 @@ public sealed class ReplInteractionTests
 
         Assert.AreEqual(VBMsgBoxResult.VBNo, answer);
         var text = output.ToString();
-        StringAssert.Contains(text, "⚠️ Project1");
-        StringAssert.Contains(text, "  Line one" + Environment.NewLine + "  Line two");
+        StringAssert.Contains(text, "═ Project1 ═");
+        StringAssert.Contains(text, "║  ⚠️ Line one");
+        StringAssert.Contains(text, "║     Line two");
         StringAssert.Contains(text, "[ No ]");
+    }
+
+    [TestMethod]
+    public void AMessage_IsABox_CentredOnTheConsole_ItsEdgesLinedUp()
+    {
+        var output = new StringWriter();
+        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 100);
+
+        interaction.ShowMessage(new MessageBoxRequest("Saved.", "Project1", VBMsgBoxStyle.VBOkOnly | VBMsgBoxStyle.VBInformation));
+
+        var lines = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Trim().Length > 0).ToArray();
+        Assert.IsTrue(lines.First().TrimStart().StartsWith('╔') && lines.Last().TrimStart().StartsWith('╚'), "the box is drawn top to bottom");
+        Assert.AreEqual(1, lines.Select(ConsoleText.WidthOf).Distinct().Count(), "every line of the box ends at its right edge");
+
+        var margin = lines[0].Length - lines[0].TrimStart().Length;
+        Assert.IsTrue(margin > 0);
+        Assert.AreEqual(margin, 100 - ConsoleText.WidthOf(lines[0]), 1, "the box is centred");
+    }
+
+    [TestMethod]
+    public void AMessageTooLongForALine_IsWrapped_InsideTheBox()
+    {
+        var output = new StringWriter();
+        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 60);
+
+        interaction.ShowMessage(new MessageBoxRequest(string.Join(' ', Enumerable.Repeat("duck", 40)), "t", VBMsgBoxStyle.VBOkOnly));
+
+        var lines = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Trim().Length > 0).ToArray();
+        Assert.IsTrue(lines.Count(line => line.Contains("duck")) > 1);
+        Assert.IsTrue(lines.All(line => ConsoleText.WidthOf(line) <= 60), "nothing goes past the edge of the console");
+        Assert.AreEqual(1, lines.Select(ConsoleText.WidthOf).Distinct().Count());
+    }
+
+    [TestMethod]
+    public void WithAnsi_TheWholeBoxIsDrawn_BeforeTheButtonsAreChosen()
+    {
+        var output = new StringWriter();
+        var interaction = new ReplUserInteraction(new ScriptedKeys().Press(Key(ConsoleKey.Enter)), output, ansi: true);
+
+        interaction.ShowMessage(new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOkOnly));
+
+        var text = output.ToString();
+        Assert.IsTrue(text.IndexOf('╝') < text.IndexOf("[ OK ]", StringComparison.Ordinal), "the bottom edge is there before the buttons are drawn in it");
+        StringAssert.Contains(text, "\u001b[2A", "the cursor goes back up to the row of buttons");
+        StringAssert.Contains(text, "\u001b[1B", "and past the box once one is chosen");
     }
 
     [TestMethod]
@@ -87,8 +134,26 @@ public sealed class ReplInteractionTests
     {
         var (interaction, output) = Shell(new ScriptedKeys().Press(Key(ConsoleKey.Enter)));
         Assert.AreEqual("42", interaction.Prompt(new InputBoxRequest("How many?", "Project1", "42")));
-        StringAssert.Contains(output.ToString(), "How many?");
-        StringAssert.Contains(output.ToString(), "> 42");
+        StringAssert.Contains(output.ToString(), "═ Project1 ═");
+        StringAssert.Contains(output.ToString(), "║  How many?");
+        StringAssert.Contains(output.ToString(), "║  > 42");
+    }
+
+    [TestMethod]
+    public void TheLineOfAnInputBox_StaysInsideTheBox_HoweverLongWhatIsTyped()
+    {
+        var output = new StringWriter();
+        var interaction = new ReplUserInteraction(new ScriptedKeys().Type(new string('x', 200)).Press(Key(ConsoleKey.Enter)), output, consoleWidth: () => 80);
+
+        Assert.AreEqual(new string('x', 200), interaction.Prompt(new InputBoxRequest("Name?", "t")));
+
+        // each time the line is drawn, it is drawn from the start of the row to its right edge, and never past it.
+        foreach (var drawn in output.ToString().Split('\r').Where(part => part.Contains("> ")))
+        {
+            var row = drawn.Split('\b')[0];
+            StringAssert.EndsWith(row, "  ║");
+            Assert.IsTrue(ConsoleText.WidthOf(row) <= 80);
+        }
     }
 
     [TestMethod]

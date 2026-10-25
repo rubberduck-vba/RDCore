@@ -152,14 +152,15 @@ public sealed class ConsoleMenu
     /// <param name="output">Where the menu is drawn.</param>
     /// <param name="indent">What the line starts with.</param>
     /// <param name="token">Stops waiting for a key.</param>
+    /// <param name="suffix">What the line ends with, after the items: the right edge of the box the menu is in, say.</param>
     /// <returns>The index of the item chosen, or <see langword="null"/> when the menu was dismissed.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before a choice was made.</exception>
-    public int? Run(IConsoleKeys keys, TextWriter output, string indent, CancellationToken token)
+    public int? Run(IConsoleKeys keys, TextWriter output, string indent, CancellationToken token, string suffix = "")
     {
         var drawn = 0;
         void Draw()
         {
-            var line = indent + Render();
+            var line = indent + Render() + suffix;
             output.Write('\r');
             output.Write(line.PadRight(drawn));
             output.Flush();

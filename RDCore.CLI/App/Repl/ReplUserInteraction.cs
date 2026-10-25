@@ -5,8 +5,9 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 namespace RDCore.CLI.App.Repl;
 
 /// <summary>
-/// The dialogs of a program run from the shell, asked at the shell's console: a <c>MsgBox</c> is its message and a row of buttons (<see cref="ConsoleMenu"/>), and an
-/// <c>InputBox</c> its message and a line to type on (<see cref="ConsoleLineEditor"/>).
+/// The dialogs of a program run from the shell, asked at the shell's console: each is a box with a border (<see cref="ConsoleDialogBox"/>), centred on the
+/// console, with its title in the top edge and its message inside. A <c>MsgBox</c> ends with a row of buttons (<see cref="ConsoleMenu"/>), and an
+/// <c>InputBox</c> with a line to type on (<see cref="ConsoleLineEditor"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,10 +26,18 @@ namespace RDCore.CLI.App.Repl;
 /// </remarks>
 /// <param name="keys">Where the keys are read.</param>
 /// <param name="output">Where the dialogs are drawn.</param>
-/// <param name="ansi">Whether <paramref name="output"/> understands ANSI escape sequences, which show the selected default text of an input box.</param>
-public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bool ansi = false) : IUserInteraction
+/// <param name="ansi">
+/// Whether <paramref name="output"/> understands ANSI escape sequences, which show the selected default text of an input box, and draw the whole box before it is
+/// answered.
+/// </param>
+/// <param name="consoleWidth">The cells of a line of the console, which a box is centred in; 80 when it is not said.</param>
+public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bool ansi = false, Func<int>? consoleWidth = null) : IUserInteraction
 {
-    private const string Indent = "  ";
+    private const int DefaultConsoleWidth = 80;
+    private const string InputPrompt = "> ";
+
+    // the cells the line of an input box is given, at the least: room enough for an answer that is a sentence.
+    private const int InputWidth = 40;
 
     // what a button is called and which key chooses it, as a Windows dialog has it.
     private static string LabelOf(VBMsgBoxResult choice) => choice switch
@@ -52,27 +61,30 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         _ => string.Empty,
     };
 
+    private int ConsoleWidth => consoleWidth?.Invoke() is > 0 and var width ? width : DefaultConsoleWidth;
+
     /// <inheritdoc/>
     public VBMsgBoxResult ShowMessage(MessageBoxRequest request, CancellationToken token = default)
     {
-        WriteHeader(GlyphOf(request.Icon) + request.Title, request.Prompt);
-
         var labels = request.Choices.Select(LabelOf).ToArray();
         var menu = new ConsoleMenu(labels, request.DefaultChoice, canDismiss: request.EscapeResult is not null);
+        var buttons = menu.Render();
+        var box = new ConsoleDialogBox(request.Title, GlyphOf(request.Icon), request.Prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true);
+        var (before, after) = box.Centring(buttons);
+
         if (!keys.IsInteractive)
         {
+            box.Show(output, box.RowPrefix + before + buttons + after + box.RowSuffix);
             return AnswerFromLine(request, menu);
         }
 
-        var chosen = menu.Run(keys, output, Indent, token);
-        output.WriteLine();
+        var chosen = box.Show(output, ansi, () => menu.Run(keys, output, box.RowPrefix + before, token, after + box.RowSuffix));
         return chosen is { } index ? request.Choices[index] : request.EscapeResult!.Value;
     }
 
     // a line of a script names a button by its text or its key; anything else is asked again, until the script runs out.
     private VBMsgBoxResult AnswerFromLine(MessageBoxRequest request, ConsoleMenu menu)
     {
-        output.WriteLine(Indent + menu.Render());
         while (true)
         {
             var line = keys.ReadLine(CancellationToken.None)?.Trim();
@@ -99,30 +111,14 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
     /// <inheritdoc/>
     public string? Prompt(InputBoxRequest request, CancellationToken token = default)
     {
-        WriteHeader(request.Title, request.Prompt);
+        var box = new ConsoleDialogBox(request.Title, string.Empty, request.Prompt, InputWidth, ConsoleWidth, ConsoleBorder.For(output), separated: false);
+        var field = box.Width - InputPrompt.Length;
         if (!keys.IsInteractive)
         {
-            output.Write($"{Indent}> ");
-            output.Flush();
+            box.Show(output, box.Row(InputPrompt + ConsoleText.Truncate(request.Default, field)));
             return keys.ReadLine(token);
         }
 
-        var answer = new ConsoleLineEditor(request.Default).Run(keys, output, $"{Indent}> ", ansi, token);
-        output.WriteLine();
-        return answer;
-    }
-
-    private void WriteHeader(string title, string prompt)
-    {
-        output.WriteLine();
-        if (title.Length > 0)
-        {
-            output.WriteLine(title);
-        }
-
-        foreach (var line in prompt.ReplaceLineEndings("\n").Split('\n'))
-        {
-            output.WriteLine(Indent + line);
-        }
+        return box.Show(output, ansi, () => new ConsoleLineEditor(request.Default).Run(keys, output, box.RowPrefix + InputPrompt, ansi, token, field, box.RowSuffix));
     }
 }

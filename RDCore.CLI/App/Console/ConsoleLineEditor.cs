@@ -124,23 +124,33 @@ public sealed class ConsoleLineEditor(string initial, bool selected = true)
     /// <param name="prompt">What the line starts with.</param>
     /// <param name="ansi">Whether the output understands ANSI escape sequences, which show the selection in reverse video; without them it is not shown, and is there all the same.</param>
     /// <param name="token">Stops waiting for a key.</param>
+    /// <param name="width">
+    /// The characters of the field the text is shown in, which scrolls to keep the cursor in it when the text is longer; <c>0</c> - the default - shows the whole
+    /// text, however long.
+    /// </param>
+    /// <param name="suffix">What the line ends with, after the field: the right edge of the box the line is in, say.</param>
     /// <returns>The text confirmed, or <see langword="null"/> when the line was abandoned.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before the line was confirmed.</exception>
-    public string? Run(IConsoleKeys keys, TextWriter output, string prompt, bool ansi, CancellationToken token)
+    public string? Run(IConsoleKeys keys, TextWriter output, string prompt, bool ansi, CancellationToken token, int width = 0, string suffix = "")
     {
         var drawn = 0;
+        var start = 0;
         void Draw()
         {
-            var text = Text;
+            var (shown, cursor) = width > 0 ? Window(ref start, width) : (Text, Cursor);
             output.Write('\r');
             output.Write(prompt);
-            output.Write(IsSelected && ansi ? $"{ReverseVideo}{text}{NormalVideo}" : text);
+            output.Write(IsSelected && ansi ? $"{ReverseVideo}{shown}{NormalVideo}" : shown);
 
-            // what was drawn before and is longer than the line now is blanked, and the cursor goes back to where a character is typed.
-            var length = prompt.Length + text.Length;
+            // a field is filled to its width; what was drawn before and is longer than the line now is blanked. Then the cursor goes back to where a character
+            // is typed.
+            var field = Math.Max(width, shown.Length);
+            var length = prompt.Length + field + suffix.Length;
             var blank = Math.Max(0, drawn - length);
+            output.Write(new string(' ', field - shown.Length));
+            output.Write(suffix);
             output.Write(new string(' ', blank));
-            output.Write(new string('\b', blank + text.Length - Cursor));
+            output.Write(new string('\b', blank + suffix.Length + field - cursor));
             output.Flush();
             drawn = length;
         }
@@ -162,5 +172,15 @@ public sealed class ConsoleLineEditor(string initial, bool selected = true)
                     break;
             }
         }
+    }
+
+    // the part of the text a field of `width` characters shows, from `start` on, and where the cursor is in it: the field scrolls as little as it takes to keep the
+    // cursor in it, and it is filled as far as the text goes.
+    private (string Shown, int Cursor) Window(ref int start, int width)
+    {
+        var text = Text;
+        start = Math.Clamp(start, Math.Max(0, Cursor - (width - 1)), Cursor);
+        start = Math.Min(start, Math.Max(0, text.Length - (width - 1)));
+        return (text.Substring(start, Math.Min(width, text.Length - start)), Cursor - start);
     }
 }

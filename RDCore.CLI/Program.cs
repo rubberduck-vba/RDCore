@@ -146,7 +146,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplConsole, ReplConsole>()
             // the dialogs a program opens are asked at the shell's console.
             .AddSingleton<IConsoleKeys, SystemConsoleKeys>()
-            .AddSingleton(provider => new ReplUserInteraction(provider.GetRequiredService<IConsoleKeys>(), System.Console.Out))
+            .AddSingleton(provider => new ReplUserInteraction(
+                provider.GetRequiredService<IConsoleKeys>(),
+                System.Console.Out,
+                ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
+                consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
