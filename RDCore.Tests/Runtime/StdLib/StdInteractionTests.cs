@@ -611,14 +611,6 @@ public sealed class StdInteractionTests
     public void MacScript_IsNotImplemented_AndSaysSo()
         => StringAssert.Contains(Fail("Debug.Print MacScript(\"tell application \"\"Finder\"\" to activate\")").Verbose, "MacScript");
 
-    // ---- what is not implemented ----
-
-    [TestMethod]
-    [DataRow("Debug.Print Command()", "Command")]
-    [DataRow("Debug.Print Partition(1, 0, 10, 5)", "Partition")]
-    public void AMemberThatNothingImplementsYet_SaysSo_ByNameInAnErrorOfItsOwn(string statement, string member)
-        => StringAssert.Contains(Fail(statement).Verbose, member);
-
     // ---- what the declaration says ----
 
     private static readonly Uri Root = new("file://rdcore-test");

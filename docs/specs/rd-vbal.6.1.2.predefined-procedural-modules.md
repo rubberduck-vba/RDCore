@@ -15,10 +15,10 @@ The SDK defines the twelve **MS-VBAL §6.1.2** predefined procedural modules:
 |6.1.2.6|[Financial](rd-vbal.6.1.2.6.financial.md)|[IStdFinancialModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdFinancialModule.html)|
 |6.1.2.7|[Information](rd-vbal.6.1.2.7.information.md)|[IStdInformationModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule.html)|
 |6.1.2.8|[Interaction](rd-vbal.6.1.2.8.interaction.md)|[IStdInteractionModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
-|6.1.2.9|[KeyCodeConstants](rd-vbal.6.1.2.9.keycodeconstants.md)|[VBKeyCodeConstants](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBKeyCodeConstants.html)|
+|6.1.2.9|[KeyCodeConstants](rd-vbal.6.1.2.9.keycodeconstants.md)|[IStdKeyCodeConstantsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdKeyCodeConstantsModule.html)|
 |6.1.2.10|[Math](rd-vbal.6.1.2.10.math.md)|[IStdMathModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMathModule.html)|
 |6.1.2.11|[Strings](rd-vbal.6.1.2.11.strings.md)|[IStdStringsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdStringsModule.html)|
-|6.1.2.12|[SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)|[VBSystemColorConstants](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBSystemColorConstants.html)|
+|6.1.2.12|[SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)|[IStdSystemColorConstantsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdSystemColorConstantsModule.html)|
 
 And one that the specification does not name but the language has: the library's hidden module, which holds `Array`, `Input$` and `Width`
 (`_HiddenModule`, **RD-VBAL §6.1.2.13**):

@@ -26,12 +26,11 @@ namespace RDCore.Runtime.StdLib;
 /// <para>
 /// What this module reaches is the outside world's (<see cref="ExternalWorld"/>), and the host says what that is: the dialogs of <c>MsgBox</c> and <c>InputBox</c> are
 /// the person running the program's to answer - Windows' own, the interactive shell's console, or nobody's - the desktop of <c>DoEvents</c>, <c>AppActivate</c>,
-/// <c>SendKeys</c> and <c>Shell</c> is Windows' or nothing, and the settings are the workspace's <c>appsettings.json</c>, or the registry when the workspace asks for it.
-/// An analysis reaches none of it (<see cref="ExternalWorld.None"/>).
+/// <c>SendKeys</c> and <c>Shell</c> is Windows' or nothing, the settings are the workspace's <c>appsettings.json</c>, or the registry when the workspace asks for it,
+/// and the arguments of <see cref="Command"/> are none unless the host gives some. An analysis reaches none of it (<see cref="ExternalWorld.None"/>).
 /// </para>
 /// <para>
-/// 🚧 <see cref="Command"/>, <see cref="CommandString"/> and <see cref="Partition"/> are
-/// declared and not written, and <see cref="MacScript"/> never will be: each returns an error that says so.
+/// <see cref="MacScript"/> is not written, and never will be: it returns an error that says so.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose objects <see cref="CallByName"/> calls, and whose turn <see cref="DoEvents"/> gives up.</param>
@@ -694,12 +693,6 @@ public sealed class StdInteraction(
         => RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(NotImplementedError(nameof(MacScript), "it runs AppleScript, which RD-VBA has none of"));
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBVariantValue> Command() => NotImplemented<VBVariantValue>(nameof(Command));
-
-    /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBStringValue> CommandString() => NotImplemented<VBStringValue>("Command$");
-
-    /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBObjectValue> CreateObject(VBStringValue objectClass, VBStringValue? serverName = default)
     {
         var progId = objectClass.Value ?? string.Empty;
@@ -810,9 +803,70 @@ public sealed class StdInteraction(
         };
     }
 
+    #endregion
+
+    // what the program was started with, as the host says (ExternalWorld.CommandLine): a String in a Variant, as in MS-VBA.
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult<VBVariantValue> Command() => Succeed(new VBVariantValue(new VBStringValue(_outside.CommandLine)));
+
+    /// <inheritdoc/>
+    public RuntimeSemanticsEvaluationResult<VBStringValue> CommandString() => Succeed(new VBStringValue(_outside.CommandLine));
+
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBVariantValue> Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval)
-        => NotImplemented<VBVariantValue>(nameof(Partition));
+    {
+        // "If any of the parts is Null, Partition returns the data value Null": before what is wrong with the others is (oracle\s27 P03).
+        VBVariantValue[] parts = [number, start, stop, interval];
+        if (parts.Any(part => Unwrapped(part) is VBNullValue))
+        {
+            return Succeed(new VBVariantValue(VBNullValue.Null));
+        }
 
-    #endregion
+        var whole = new long[parts.Length];
+        for (var index = 0; index < parts.Length; index++)
+        {
+            var read = WholeNumberOf(parts[index]);
+            if (!read.IsSuccess)
+            {
+                return RuntimeSemanticsEvaluationResult<VBVariantValue>.Error(read.ErrorInfo!);
+            }
+
+            whole[index] = read.Result!.Value;
+        }
+
+        var (value, first, last, size) = (whole[0], whole[1], whole[2], whole[3]);
+        if (first < 0 || last <= first || size < 1)
+        {
+            return Fail<VBVariantValue>(VBRuntimeErrorId.InvalidProcedureCallOrArgument,
+                $"Partition's range starts at {first}, ends at {last}, and is split {size} at a time: it starts at 0 or above, ends after it starts, and is split one or more at a time.");
+        }
+
+        // each side of the colon is as wide as the widest number either can be - what is before the range or after it - so that the ranges sort as text
+        // (MS-VBA, oracle\s27: the spec's "characters in Stop, plus one" is that for a Start of 0 and a Stop below a power of ten).
+        var below = (first - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var above = (last + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var width = Math.Max(below.Length, above.Length);
+        string Side(string text) => text.PadLeft(width);
+        string Range(long lower, long upper) => Side(lower.ToString(System.Globalization.CultureInfo.InvariantCulture)) + ":" + Side(upper.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        var range = value < first ? Side(string.Empty) + ":" + Side(below)
+            : value > last ? Side(above) + ":" + Side(string.Empty)
+            : Range(first + (value - first) / size * size, Math.Min(first + (value - first) / size * size + size - 1, last));
+        return Succeed(new VBVariantValue(new VBStringValue(range)));
+    }
+
+    // a part of Partition, rounded to a whole number as a Long is (half to even): one too large for a Long is a number all the same, past the range.
+    private RuntimeSemanticsEvaluationResult<VBLongLongValue> WholeNumberOf(VBVariantValue part)
+    {
+        var converted = Convert(part, source => ValueConversions.ToNumeric(source, VBDoubleType.TypeInfo, session.Environment.Regional), "Double");
+        if (!converted.IsSuccess)
+        {
+            return RuntimeSemanticsEvaluationResult<VBLongLongValue>.Error(converted.ErrorInfo!);
+        }
+
+        var rounded = Math.Round(((VBDoubleValue)converted.Result!).Value, MidpointRounding.ToEven);
+        return rounded is >= long.MinValue and <= long.MaxValue
+            ? Succeed(new VBLongLongValue((long)rounded))
+            : Fail<VBLongLongValue>(VBRuntimeErrorId.Overflow, $"{rounded} is too large a part of a partition.");
+    }
 }

@@ -47,6 +47,10 @@ public interface IStdInteractionModule
     /// </summary>
     /// <remarks>
     /// Gets a <see cref="VBVariantValue"/> containing the <em>command-line arguments</em> (if any) that were used to initiate the execution of the currently running <em>workspace application</em>.
+    /// <para>
+    /// What those are is the host's to say ("implementation dependent"): none - an empty <c>String</c> - unless it says otherwise, as in a program an Office
+    /// application runs (recorded in Excel). The <see cref="VBVariantValue"/> holds a <c>String</c>.
+    /// </para>
     /// </remarks>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Command();
@@ -254,6 +258,17 @@ public interface IStdInteractionModule
     /// </summary>
     /// <remarks>
     /// Returns a <see cref="VBStringValue"/> indicating where a number occurs within a calculated series of ranges.
+    /// <para>
+    /// As in <strong>MS-VBA</strong> (recorded in Excel):
+    /// <list type="bullet">
+    /// <item>a range is <c>lower:upper</c>, the last one ending at <c>stop</c>; before the first it is <c>:start-1</c>, and after the last <c>stop+1:</c>;</item>
+    /// <item>each side of the colon is padded with leading spaces to the width of the wider of <c>start-1</c> and <c>stop+1</c>, so that the ranges sort as
+    /// text (<c>Partition(195, 20, 199, 10)</c> is <c>"190:199"</c>, not the spec's four characters a side);</item>
+    /// <item>each part is a number rounded to a whole one as a <c>Long</c> is, half to even - one too large for a <c>Long</c> is past the range, not an
+    /// overflow - and one that is no number is error <c>13</c>;</item>
+    /// <item>a <c>Null</c> part makes the result <c>Null</c>, whatever the others are; the result is otherwise a <c>String</c> in a <see cref="VBVariantValue"/>.</item>
+    /// </list>
+    /// </para>
     /// </remarks>
     /// <param name="number">A <see cref="VBLongValue"/> expression containing the <em>value</em> to be evaluated against the <em>range</em>.</param>
     /// <param name="start">A <see cref="VBLongValue"/> expression containing the <strong>start</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>0</c> 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>

@@ -51,6 +51,12 @@ public sealed record class ExternalWorld(IAutomationServer Automation, INativeLi
     public IWorkspaceSettings WorkspaceSettings { get; init; } = NoSettings.Instance;
 
     /// <summary>
+    /// What <c>Command</c> returns: the arguments of the command that started the program (<strong>MS-VBAL §6.1.2.8.1.3</strong>, "implementation dependent").
+    /// Empty unless the host says otherwise, as it is in a program an Office application runs.
+    /// </summary>
+    public string CommandLine { get; init; } = string.Empty;
+
+    /// <summary>
     /// The outside world of a runtime that reaches none of it.
     /// </summary>
     public static ExternalWorld None { get; } = new(UnavailableAutomationServer.Instance, UnavailableNativeLibraryHost.Instance);
