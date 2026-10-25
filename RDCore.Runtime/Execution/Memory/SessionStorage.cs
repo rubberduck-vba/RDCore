@@ -12,7 +12,7 @@ namespace RDCore.Runtime.Execution.Memory;
 /// </summary>
 /// <param name="allocator">The session's memory allocator; reserves address space only, never values.</param>
 /// <param name="pointerSize">The size of an address in the session's memory, in bytes: what a variable that holds nothing is given.</param>
-internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int pointerSize = sizeof(long)) : ISessionStorage
+internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, int pointerSize = sizeof(long)) : ISessionStorage
 {
     private readonly Dictionary<MemoryAddress, IBindingHandle> _handleByAddress = [];
     private readonly Dictionary<MemoryAddress, byte[]> _bytesByAddress = [];
@@ -67,196 +67,10 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
         }
     }
 
-    // the BSTRs of the variable-length Strings held in the session's memory (StringBlock), by the address each starts at and by where its String is held; and
-    // the addresses of the variables that are variable-length Strings, whose bytes are the address of their characters.
-    private readonly Dictionary<MemoryAddress, StringBlock> _stringBlocks = [];
-    private readonly Dictionary<MemoryAddress, StringBlock> _stringOfHolder = [];
-    private readonly HashSet<MemoryAddress> _stringVariables = [];
-
-    /// <summary>
-    /// Says that the variable at <paramref name="address"/> is a variable-length <c>String</c>: its bytes are a pointer to its characters, as
-    /// <strong>MS-VBA</strong>'s are (recorded in Excel, oracle\s17 S04), which nothing else here can tell from a fixed-length one's, which are its
-    /// characters. What gives the address of a variable away (<c>VarPtr</c>) says so of the ones it gives.
-    /// </summary>
-    public void HoldsString(MemoryAddress address)
-    {
-        if (_handleByAddress.ContainsKey(address))
-        {
-            _stringVariables.Add(address);
-        }
-    }
-
-    /// <summary>
-    /// The address of the characters of the variable-length <c>String</c> held at <paramref name="holder"/> - a variable, an element of an array, a field of a
-    /// record, a <c>Variant</c> holding one - in the <c>BSTR</c> it is in (<see cref="StringBlock"/>), made the first time it is asked for; <c>0</c> for
-    /// <c>vbNullString</c>. It is what <c>StrPtr</c> is, and the same for as long as the holder holds that <c>String</c>.
-    /// </summary>
-    /// <returns><see langword="false"/> when nothing at the address holds a <c>String</c>, or there is no room for its block.</returns>
-    public bool TryGetStringPointer(MemoryAddress holder, out long pointer)
-    {
-        pointer = 0;
-        if (!TryFindStringAt(holder, out var text))
-        {
-            return false;
-        }
-
-        if (_handleByAddress.TryGetValue(holder, out var variable) && variable.Value is not VBRuntimeVariantValue)
-        {
-            _stringVariables.Add(holder);
-        }
-
-        if (_stringOfHolder.TryGetValue(holder, out var known) && ReferenceEquals(known.Value, text))
-        {
-            pointer = known.Characters.Value;
-            return true;
-        }
-
-        // the String it was is not held any more, and MS-VBA frees its BSTR when another is assigned - once the other is made, so the two are never at one
-        // address (oracle\s17 S02).
-        var made = (StringBlock?)null;
-        if (text.BoxedValue is not null)
-        {
-            if (!allocator.TryAllocate(StringBlock.SizeFor(VBRuntimeByteStringValue.BytesOf(text).Length), out var start))
-            {
-                return false;
-            }
-
-            made = new StringBlock(start, holder, text);
-        }
-
-        if (known is not null)
-        {
-            FreeStringBlock(known);
-        }
-
-        if (made is null)
-        {
-            return true;
-        }
-
-        _stringBlocks[made.Start] = made;
-        _stringOfHolder[holder] = made;
-        Generation++;
-        pointer = made.Characters.Value;
-        return true;
-    }
-
-    /// <summary>
-    /// The <c>BSTR</c> <paramref name="text"/>, the very <c>String</c>, is in, if it is in one: what the <c>Mid</c> statement writes the characters of in place.
-    /// </summary>
-    public StringBlock? BlockOf(IRuntimeValue text)
-    {
-        foreach (var block in _stringBlocks.Values)
-        {
-            if (ReferenceEquals(block.Value, text))
-            {
-                return block;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Says that the <c>String</c> the holder of <paramref name="block"/> holds now is in it, at the same address, when it is as long as the one it was: the
-    /// <c>Mid</c> statement writes the characters of its target in place (<strong>MS-VBA</strong>, recorded in Excel, oracle\s17 S07).
-    /// </summary>
-    public void KeepInPlace(StringBlock block)
-    {
-        if (_stringBlocks.ContainsKey(block.Start) && TryFindStringAt(block.Holder, out var text)
-            && VBRuntimeByteStringValue.BytesOf(text).Length == VBRuntimeByteStringValue.BytesOf(block.Value).Length)
-        {
-            block.Value = text;
-            Generation++;
-        }
-    }
-
-    // the address of the characters of the String at an address, which is what its bytes are; 0 when there is none, as for vbNullString.
-    private long StringPointerAt(MemoryAddress holder) => TryGetStringPointer(holder, out var pointer) ? pointer : 0;
-
-    private bool TryFindStringAt(MemoryAddress holder, out IRuntimeValue text)
-    {
-        text = null!;
-        if (_handleByAddress.TryGetValue(holder, out var handle))
-        {
-            return CanRead(handle) && StringHolders.TryStringOf(handle.Value, out text);
-        }
-
-        if (!allocator.TryFindBlock(holder, out var found))
-        {
-            return false;
-        }
-
-        var offset = holder.Value - found.Address.Value;
-        if (_arrayBlocks.TryGetValue(found.Address, out var elements))
-        {
-            return elements.TryFindStringAt(offset, out text);
-        }
-
-        return _handleByAddress.TryGetValue(found.Address, out var outer) && CanRead(outer) && RecordOf(outer) is { } record
-            && StringHolders.TryFindField(record, offset, pointerSize, out var field)
-            && StringHolders.TryStringOf(field, out text);
-    }
-
-    // makes what holds the String at an address hold another: where a POKE into its characters leaves them.
-    private bool TryWriteStringAt(MemoryAddress holder, IRuntimeValue text)
-    {
-        if (_handleByAddress.TryGetValue(holder, out var handle))
-        {
-            if (handle is not ValueBindingHandle cell)
-            {
-                return TryRebind(holder, new ValueBindingHandle(StringHolders.Replacing(handle.Value, text)));
-            }
-
-            cell.Store(StringHolders.Replacing(cell.Value, text), isKnown: true);
-            Generation++;
-            return true;
-        }
-
-        if (!allocator.TryFindBlock(holder, out var found))
-        {
-            return false;
-        }
-
-        var offset = holder.Value - found.Address.Value;
-        if (_arrayBlocks.TryGetValue(found.Address, out var elements))
-        {
-            Generation++;
-            return elements.TryWriteStringAt(offset, text);
-        }
-
-        Generation++;
-        return _handleByAddress.TryGetValue(found.Address, out var outer) && RecordOf(outer) is { } record
-            && StringHolders.TryFindField(record, offset, pointerSize, out var field)
-            && StringHolders.TryWrite(field, text);
-    }
-
     private static SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue? RecordOf(IBindingHandle handle)
         => handle is ValueBindingHandle { Value: SDK.Model.Values.Runtime.VBRuntimeValue<SDK.Model.Values.Runtime.VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } }
             ? record
             : null;
-
-    private void FreeStringBlock(StringBlock block)
-    {
-        _stringBlocks.Remove(block.Start);
-        _stringOfHolder.Remove(block.Holder);
-        allocator.TryDeallocate(block.Start, out _);
-        Generation++;
-    }
-
-    // the BSTRs of the Strings held in what is freed, a variable, a record or an array's block, are freed with it.
-    private void FreeStringBlocksIn(MemoryAddress start, int size)
-    {
-        if (_stringOfHolder.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var block in _stringOfHolder.Values.Where(block => block.Holder.Value >= start.Value && block.Holder.Value < start.Value + size).ToList())
-        {
-            FreeStringBlock(block);
-        }
-    }
 
     // the block of an array that an address falls in, and where in it.
     private bool TryFindArrayBlock(MemoryAddress address, [NotNullWhen(true)] out ArrayBlock? block, out int offset)
@@ -412,30 +226,18 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
             return false;
         }
 
-        // the address a String variable holds: what it would point at is no String the session has (🚧 *Ptr phase B, a pointer copied into it).
-        if (_stringVariables.Contains(block))
+        // the pointer a String is: the String is the one it points at (StringBlock).
+        if (TryFindStringSlot(address, out var holder, out var within))
         {
-            return false;
+            return TryPokePointer(holder, within, value);
         }
 
         image[offset] = value;
 
-        // the characters of a String: the String it is held as is what they spell now, at the same address (oracle\s17 S12).
+        // a BSTR: the String it is held as is what its length says of its characters now, at the same address (oracle\s17 S12, grid-p3 L01).
         if (_stringBlocks.TryGetValue(block, out var characters))
         {
-            if (StringBlock.Spelled(image, offset) is not { } spelled || !TryFindStringAt(characters.Holder, out var held)
-                || !ReferenceEquals(held, characters.Value) || !TryWriteStringAt(characters.Holder, spelled))
-            {
-                return false;
-            }
-
-            if (TryFindStringAt(characters.Holder, out var written))
-            {
-                characters.Value = written;
-            }
-
-            Generation++;
-            return true;
+            return TryPokeCharacters(characters, image);
         }
 
         // a raw byte buffer takes the mutated image as it is. A bound value is rebuilt from it, and
@@ -487,13 +289,13 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
         if (_arrayBlocks.TryGetValue(block, out var elements))
         {
             var start = block;
-            image = elements.Image(at => StringPointerAt(new MemoryAddress(start.Value + at)));
+            image = elements.Image(at => PointerAt(new MemoryAddress(start.Value + at)));
             return true;
         }
 
         if (_stringBlocks.TryGetValue(block, out var characters))
         {
-            image = characters.Image();
+            image = (byte[])characters.Bytes.Clone();
             return true;
         }
 
@@ -505,14 +307,14 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
         // a String variable is the address of its characters; a record its fields, a String field the address of its characters too.
         if (_stringVariables.Contains(block))
         {
-            image = StringHolders.PointerBytes(StringPointerAt(block), pointerSize);
+            image = StringHolders.PointerBytes(PointerAt(block), pointerSize);
             return true;
         }
 
         if (RecordOf(handle) is { } record)
         {
             var start = block;
-            image = SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerSize, at => StringPointerAt(new MemoryAddress(start.Value + at)));
+            image = SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerSize, at => PointerAt(new MemoryAddress(start.Value + at)));
             return true;
         }
 

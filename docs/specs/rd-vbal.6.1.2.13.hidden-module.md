@@ -99,10 +99,12 @@ As in **MS-VBA** (recorded in Excel):
 A `POKE` into the characters changes the `String`, in place: `StrPtr(s)` is where it was. So does the `Mid` statement, which writes the characters of its
 target where they are.
 
-> [!NOTE]
-> 🚧 Not implemented yet:
->
-> - A `POKE` into the length, or into a `String` variable's pointer, is refused (*Ptr plan phase B: a pointer copied into a `String` variable).
+The bytes of the `BSTR` are its own, as in **MS-VBA** (recorded in Excel):
+
+|A `POKE` into|Makes|
+|---|---|
+|The length, `StrPtr(s) - 4`|The `String` as long as the length says, at the same address: `LenB` and `Len` are what it says, and the characters past it stay where they are - the length written back is the `String` it was. A length of `0` is a zero-length `String`, not `vbNullString`. A length that goes on past the `BSTR` is refused, as reading memory it is not.|
+|A `String`'s pointer, `VarPtr(t)` - a variable, an element, a field|`0`: `vbNullString`; the `BSTR` it pointed at is not freed, and pointing at it again is the `String` again. `StrPtr(s)`: the `String` of `s`, which the two then hold - a change to the characters through either, a `POKE` or the `Mid` statement, is the other's. A pointer is written a byte at a time, and one that points at no `BSTR` yet leaves the `String` as it was, its bytes as they were written.|
 
 ---
 > ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)

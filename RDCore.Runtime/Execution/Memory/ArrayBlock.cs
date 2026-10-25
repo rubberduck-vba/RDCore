@@ -140,6 +140,30 @@ internal sealed class ArrayBlock
     }
 
     /// <summary>
+    /// Where the pointer that is a variable-length <c>String</c> element begins that <paramref name="offset"/> falls in - or a field of a record element;
+    /// <c>-1</c> when the offset falls in no such pointer.
+    /// </summary>
+    public int SlotOfStringAt(int offset)
+    {
+        var index = offset / ElementWidth;
+        if (!TryGetArray(out var array) || index >= array.Length)
+        {
+            return -1;
+        }
+
+        var start = index * ElementWidth;
+        if (array.ItemType is VBUserDefinedType)
+        {
+            return array.ElementAt(index) is VBUserDefinedTypeValue record && StringHolders.SlotOfStringAt(record, offset - start, _pointerWidth) is >= 0 and var slot
+                ? start + slot
+                : -1;
+        }
+
+        // the order matters: a fixed-length String is a VBStringType, and is its characters.
+        return array.ItemType is VBStringType and not VBFixedStringType ? start : -1;
+    }
+
+    /// <summary>
     /// Makes what holds the <c>String</c> at <paramref name="offset"/> hold <paramref name="text"/> (<see cref="TryFindStringAt"/>).
     /// </summary>
     public bool TryWriteStringAt(int offset, IRuntimeValue text)

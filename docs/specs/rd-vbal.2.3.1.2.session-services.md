@@ -120,7 +120,9 @@ A variable-length `String` is a pointer, as in **MS-VBA**: the address of its ch
 bytes, the characters, a null character ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#strptr)). The `BSTR` is made for what holds the `String`
 (a variable, an element, a field, a `Variant`) the first time the address is asked for, by `StrPtr` or by a `PEEK` of the pointer, and is that holder's for
 as long as it holds that `String`: a `String` assigned to it is in another `BSTR`, and the one it was is freed, as is the `BSTR` of a holder that is freed. A
-`POKE` into the characters changes the `String` in place, at the same address; one into the length, or into the pointer, is refused.
+`POKE` into the characters changes the `String` in place, at the same address, and one into the length makes it as long as the length says. A `POKE` into a
+`String`'s pointer makes it the `String` of the `BSTR` the pointer points at - which the two holders then share, each change to the characters being the
+other's - or `vbNullString` for `0`; the `BSTR` it pointed at is let go of, not freed, as **MS-VBA** leaves it.
 
 The order in which names are looked up in these heaps is specified in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).

@@ -89,6 +89,55 @@ internal static class StringHolders
         return false;
     }
 
+    /// <summary>
+    /// Where, in <paramref name="record"/>, the pointer that is a variable-length <c>String</c> field begins that <paramref name="offset"/> falls in - in a
+    /// nested record, and an element of a fixed-size array field, too; <c>-1</c> when the offset falls in no such pointer.
+    /// </summary>
+    public static int SlotOfStringAt(VBUserDefinedTypeValue record, int offset, int pointerWidth)
+    {
+        var fields = VBUserDefinedTypeLayout.Of(record, pointerWidth).Fields;
+        for (var at = 0; at < fields.Count; at++)
+        {
+            var field = fields[at];
+            if (offset < field.Offset || offset >= field.Offset + field.Width)
+            {
+                continue;
+            }
+
+            if (field.Symbol.ResolvedType is VBUserDefinedType && record.FieldAt(at) is VBUserDefinedTypeValue nested)
+            {
+                return Within(field.Offset, SlotOfStringAt(nested, offset - field.Offset, pointerWidth));
+            }
+
+            if (record.FieldAt(at) is VBFixedSizeArrayValue { ItemType: var item } array)
+            {
+                var width = Math.Max(1, VBUserDefinedTypeLayout.WidthOf(item, pointerWidth));
+                var element = (offset - field.Offset) / width;
+                if (element >= array.Length)
+                {
+                    return -1;
+                }
+
+                var start = field.Offset + element * width;
+                if (item is VBStringType and not VBFixedStringType)
+                {
+                    return start;
+                }
+
+                return item is VBUserDefinedType && array.ElementAt(element) is VBUserDefinedTypeValue inner
+                    ? Within(start, SlotOfStringAt(inner, offset - start, pointerWidth))
+                    : -1;
+            }
+
+            return field.Symbol.ResolvedType is VBStringType and not VBFixedStringType ? field.Offset : -1;
+        }
+
+        return -1;
+    }
+
+    // a slot found inside a part that begins at `start`, from the start of the whole.
+    private static int Within(int start, int slot) => slot < 0 ? -1 : start + slot;
+
     // what a variable-length String, or a Variant that can hold one, is a value of. The order matters: a fixed-length String is a VBStringType, and is its
     // characters.
     private static bool HoldsAString(VBType type) => type is VBStringType and not VBFixedStringType or VBVariantType;
