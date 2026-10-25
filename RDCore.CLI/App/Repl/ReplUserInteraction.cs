@@ -54,10 +54,10 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
 
     private static string GlyphOf(VBMsgBoxStyle icon) => icon switch
     {
-        VBMsgBoxStyle.VBCritical => "⛔ ",
-        VBMsgBoxStyle.VBQuestion => "❓ ",
-        VBMsgBoxStyle.VBExclamation => "⚠️ ",
-        VBMsgBoxStyle.VBInformation => "ℹ️ ",
+        VBMsgBoxStyle.VBCritical => "⛔",
+        VBMsgBoxStyle.VBQuestion => "❓",
+        VBMsgBoxStyle.VBExclamation => "⚠️",
+        VBMsgBoxStyle.VBInformation => "ℹ️",
         _ => string.Empty,
     };
 
@@ -69,7 +69,7 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         var labels = request.Choices.Select(LabelOf).ToArray();
         var menu = new ConsoleMenu(labels, request.DefaultChoice, canDismiss: request.EscapeResult is not null);
         var buttons = menu.Render();
-        var box = new ConsoleDialogBox(request.Title, GlyphOf(request.Icon), request.Prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true);
+        var box = new ConsoleDialogBox(request.Title, GlyphOf(request.Icon), request.Prompt, ConsoleText.WidthOf(buttons), ConsoleWidth, ConsoleBorder.For(output), separated: true, ansi);
         var (before, after) = box.Centring(buttons);
 
         if (!keys.IsInteractive)
@@ -111,7 +111,7 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
     /// <inheritdoc/>
     public string? Prompt(InputBoxRequest request, CancellationToken token = default)
     {
-        var box = new ConsoleDialogBox(request.Title, string.Empty, request.Prompt, InputWidth, ConsoleWidth, ConsoleBorder.For(output), separated: false);
+        var box = new ConsoleDialogBox(request.Title, string.Empty, request.Prompt, InputWidth, ConsoleWidth, ConsoleBorder.For(output), separated: false, ansi);
         var field = box.Width - InputPrompt.Length;
         if (!keys.IsInteractive)
         {

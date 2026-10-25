@@ -57,10 +57,15 @@ public sealed class ConsoleDialogBox
     private const int Padding = 2;
     private const int Margin = 2;
 
+    // the cells an icon is given, whatever it takes: the two of an emoji. The column of the message is that far, and one more, from the edge of the box.
+    private const int IconWidth = 2;
+
     private const string CursorUp = "\u001b[{0}A";
     private const string CursorDown = "\u001b[{0}B";
+    private const string CursorToColumn = "\u001b[{0}G";
 
     private readonly ConsoleBorder _border;
+    private readonly bool _ansi;
     private readonly string _margin;
     private readonly List<string> _header = [];
     private readonly List<string> _footer = [];
@@ -69,18 +74,25 @@ public sealed class ConsoleDialogBox
     /// Lays out a box.
     /// </summary>
     /// <param name="title">The title, drawn in the top edge; nothing is drawn there when it is empty.</param>
-    /// <param name="icon">What stands before the message, with the space after it - or nothing.</param>
+    /// <param name="icon">What stands before the message - an emoji, which is given a column of its own - or nothing.</param>
     /// <param name="message">The message, its lines separated by any line ending.</param>
     /// <param name="rowWidth">The cells the row that asks takes: the width of its buttons, or the least a line to type on should have.</param>
     /// <param name="consoleWidth">The cells of a line of the console.</param>
     /// <param name="border">What the box is drawn with.</param>
     /// <param name="separated">Whether a separator stands between the message and the row that asks, as it does above the buttons of a dialog.</param>
-    public ConsoleDialogBox(string title, string icon, string message, int rowWidth, int consoleWidth, ConsoleBorder border, bool separated)
+    /// <param name="ansi">
+    /// Whether the box is drawn on an output that understands ANSI escape sequences: the message and the right edge are then put at the columns they belong in,
+    /// rather than after the cells the text before them is measured to take - terminals do not agree on how wide an emoji is, and the right edge stays in line
+    /// with the others whatever the one of the icon is drawn as.
+    /// </param>
+    public ConsoleDialogBox(string title, string icon, string message, int rowWidth, int consoleWidth, ConsoleBorder border, bool separated, bool ansi = false)
     {
         _border = border;
+        _ansi = ansi;
 
-        var iconWidth = ConsoleText.WidthOf(icon);
-        var messageWidth = message.ReplaceLineEndings("\n").Split('\n').Max(ConsoleText.WidthOf) + iconWidth;
+        // the icon's column, and the space between it and the message, are the same on every line of the message: the lines under the icon hang indented under it.
+        var gutter = icon.Length == 0 ? 0 : Math.Max(IconWidth, ConsoleText.WidthOf(icon)) + 1;
+        var messageWidth = message.ReplaceLineEndings("\n").Split('\n').Max(ConsoleText.WidthOf) + gutter;
         var widest = Math.Max(MinimumWidth, consoleWidth - 2 * (Margin + Padding + 1));
         Width = Math.Min(widest, Math.Max(MinimumWidth, Math.Max(rowWidth, Math.Max(ConsoleText.WidthOf(title) + 4, Math.Min(messageWidth, ComfortableWidth)))));
 
@@ -89,10 +101,10 @@ public sealed class ConsoleDialogBox
 
         _header.Add(TopEdge(title));
         _header.Add(Row(string.Empty));
-        var lines = ConsoleText.Wrap(message, Math.Max(1, Width - iconWidth));
+        var lines = ConsoleText.Wrap(message, Math.Max(1, Width - gutter));
         for (var index = 0; index < lines.Count; index++)
         {
-            _header.Add(Row((index == 0 ? icon : new string(' ', iconWidth)) + lines[index]));
+            _header.Add(MessageRow(index == 0 ? icon : string.Empty, gutter, lines[index]));
         }
 
         _header.Add(Row(string.Empty));
@@ -127,7 +139,22 @@ public sealed class ConsoleDialogBox
     /// A row of the box with <paramref name="text"/> in it, filled to the right edge.
     /// </summary>
     /// <param name="text">The text, no wider than <see cref="Width"/>.</param>
-    public string Row(string text) => RowPrefix + ConsoleText.PadToWidth(text, Width) + RowSuffix;
+    public string Row(string text) => _ansi
+        ? RowPrefix + text + RightEdge()
+        : RowPrefix + ConsoleText.PadToWidth(text, Width) + RowSuffix;
+
+    // a line of the message: the icon - on the first line - in its own column, and the text in the column after it.
+    private string MessageRow(string icon, int gutter, string text) => _ansi
+        ? RowPrefix + icon + string.Format(CursorToColumn, ContentColumn + gutter) + text + RightEdge()
+        : Row(ConsoleText.PadToWidth(icon, gutter) + text);
+
+    // the 1-based columns of the console the text of a row starts at, and the right edge is at.
+    private int ContentColumn => _margin.Length + 1 + Padding + 1;
+
+    private int RightEdgeColumn => _margin.Length + 1 + Padding + Width + Padding + 1;
+
+    // the right edge, put at its column: whatever the text before it is drawn as, it is where the others are.
+    private string RightEdge() => string.Format(CursorToColumn, RightEdgeColumn) + _border.Vertical;
 
     /// <summary>
     /// The blank cells before <paramref name="text"/> that centre it in a row, and the ones after it that fill the row to the right edge.

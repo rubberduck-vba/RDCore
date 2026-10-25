@@ -73,6 +73,24 @@ public sealed class ReplInteractionTests
     }
 
     [TestMethod]
+    public void WithAnsi_TheMessageAndTheRightEdge_ArePutAtTheirColumns_HoweverWideTheIconIsDrawn()
+    {
+        var output = new StringWriter();
+        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, ansi: true, consoleWidth: () => 80);
+
+        interaction.ShowMessage(new MessageBoxRequest("Line one\r\nLine two", "t", VBMsgBoxStyle.VBOkOnly | VBMsgBoxStyle.VBExclamation));
+
+        var rows = output.ToString().ReplaceLineEndings("\n").Split('\n').Where(line => line.Contains("Line ")).ToArray();
+        Assert.AreEqual(2, rows.Length);
+
+        // the column the text is put at is the same under the icon as beside it, and so is the one of the right edge.
+        var columns = rows.Select(row => System.Text.RegularExpressions.Regex.Matches(row, "\u001b\\[(\\d+)G").Select(match => match.Groups[1].Value).ToArray()).ToArray();
+        CollectionAssert.AreEqual(columns[0], columns[1]);
+        StringAssert.Contains(rows[0], "⚠️\u001b[");
+        Assert.AreEqual(2, columns[0].Length, "the text, then the right edge");
+    }
+
+    [TestMethod]
     public void WithAnsi_TheWholeBoxIsDrawn_BeforeTheButtonsAreChosen()
     {
         var output = new StringWriter();
