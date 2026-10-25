@@ -452,17 +452,22 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             }
         }
 
-        // pass 2 — ReDim. an unqualified target that resolves to nothing implicitly declares a
-        // dynamic-array local (MS-VBAL 5.4.3.3; legal under Option Explicit). NOTE cross-module
-        // globals aren't visible here, so a ReDim of one is introduced until the resolver reconciles
-        // it — the LocalDeclarationKind.ReDim marker is that pass's hook.
+        // pass 2 — ReDim. an unqualified target that matches nothing implicitly declares a
+        // dynamic-array local (MS-VBAL 5.4.3.3: "If the name has no matches"; legal under Option
+        // Explicit). What it matches is a variable or a constant, of another module or of a library
+        // too, and the result of the function the ReDim is in: a ReDim of another module's
+        // `Public Items() As Long` re-dimensions that array. A procedure, a module or a project is no
+        // match - `ReDim Left(1)` declares an array that hides the function (MS-VBA, Excel-verified,
+        // oracle\s29 R01-R11, E01-E16).
         foreach (var redim in body.OfType<RedimDeclarationNode>())
         {
-            if (!redim.IsSimpleName || outerScopeNames.Contains(redim.Name) || !declared.Add(redim.Name))
+            if (!redim.IsSimpleName || outerScopeNames.Contains(redim.Name) || declared.Contains(redim.Name)
+                || redim.Target is SimpleNameExpressionNode target && MatchesARedimTarget(target, procedureUri))
             {
                 continue;
             }
 
+            declared.Add(redim.Name);
             results.Add(BuildRedimLocal(redim, procedureUri));
         }
 
@@ -538,6 +543,28 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         => resolved.Symbol is VBModuleFieldVariableMemberSymbol variable
             && variable.GetProperty(SymbolProperties.ImplicitlyDeclared)
             && variable.ParentUri.AbsoluteUri == moduleUri.AbsoluteUri;
+
+    // what a ReDim's target matches (MS-VBAL §5.4.3.3), as MS-VBA has it: a variable or a constant of any module or library, a member of an enumeration,
+    // the result of the function or the Property Get the ReDim is in; and a name that is ambiguous, which the ReDim has to qualify. The local an earlier pass
+    // declared for the ReDim, or an implicit one, is that pass's output: what else the name matches is looked up from the module, past the procedure's locals.
+    private bool MatchesARedimTarget(SimpleNameExpressionNode target, Uri procedureUri)
+    {
+        var resolved = resolver.ResolveValue(target, ScopeKind.Local, procedureUri);
+        if (IsOwnLocal(resolved, procedureUri))
+        {
+            resolved = resolver.ResolveValue(target, ScopeKind.Local, moduleUri);
+        }
+
+        return resolved switch
+        {
+            { IsError: true } => true,
+            { Symbol: null } => false,
+            _ when IsOwnModuleVariable(resolved) => false,
+            { Symbol: var symbol } when symbol.Uri.AbsoluteUri == procedureUri.AbsoluteUri => symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol,
+            { Symbol: VBModuleFieldVariableMemberSymbol or VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol } => true,
+            _ => false,
+        };
+    }
 
     /// <summary>
     /// The simple name expressions of <paramref name="statement"/>, and of the statements in its body, that sit in the <em>default</em> binding context

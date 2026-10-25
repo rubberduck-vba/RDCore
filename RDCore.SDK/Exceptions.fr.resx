@@ -810,6 +810,9 @@
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' n'est pas une variable dont la taille peut être mesurée : {1}</value>
   </data>
+  <data name="VBCompileError_RedimOfAConstant_Verbose" xml:space="preserve">
+    <value>'{0}' est une constante, le nom que ce ReDim redimensionne, et non un tableau. Déclarez un tableau d'un autre nom.</value>
+  </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>
   </data>

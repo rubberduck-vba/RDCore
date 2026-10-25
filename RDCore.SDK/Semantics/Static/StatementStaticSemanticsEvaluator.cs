@@ -405,13 +405,21 @@ public static class StatementStaticSemanticsEvaluator
                         walk.Errors.Add(notAType);
                     }
 
-                    if (RequireVariable(context, redim.Target, "The target of a ReDim statement", "5.4.3.3", walk)
-                        && redim.Target is SimpleNameExpressionNode redimName
-                        && context.Resolver.ResolveValue(redimName, ScopeKind.Local, context.Scope.Uri).Symbol is { } array
+                    var redimensionedSymbol = RedimensionedSymbolOf(context, redim.Target);
+                    if (redimensionedSymbol is VBConstantMemberSymbol or VBLocalConstantSymbol or VBEnumConstMemberSymbol)
+                    {
+                        // a constant - the module's, another's, the library's (vbCrLf), a member of an enumeration - is the name the ReDim matches, and no array
+                        // (MS-VBA: "Expected array", Excel-verified, oracle\s29 E01, E03, E11, E15), rather than a constant that is assigned.
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, redim.Target.Location,
+                            string.Format(Exceptions.VBCompileError_RedimOfAConstant_Verbose, redimensionedSymbol.Name)));
+                    }
+                    else if (RequireVariable(context, redim.Target, "The target of a ReDim statement", "5.4.3.3", walk)
+                        && redimensionedSymbol is { } array
                         && array.TryGetProperty(SymbolProperties.ArrayBounds, out var fixedBounds) && !fixedBounds.IsDefaultOrEmpty)
                     {
-                        // an array declared with fixed dimensions keeps them (MS-VBA: "Array already dimensioned", Excel-verified).
-                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayAlreadyDimensioned, redim.Target.Location, redimName.IdentifierName));
+                        // an array declared with fixed dimensions keeps them, this module's or another's, bare or qualified (MS-VBA: "Array already
+                        // dimensioned", Excel-verified, oracle\s29 E04, E14).
+                        walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.ArrayAlreadyDimensioned, redim.Target.Location, array.Name));
                     }
                     else if (redimensioned.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
                     {
@@ -982,6 +990,15 @@ public static class StatementStaticSemanticsEvaluator
         var name = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
         return DeclaredTypes.Resolve(context.Resolver, name, context.Scope.Uri, is64Bit: true) is { } type and not VBUnknownType ? type : null;
     }
+
+    // what a ReDim's target names: a name, or a member of a project or a procedural module (`Globals.Items`).
+    private static Symbol? RedimensionedSymbolOf(StaticEvaluationContext context, ExpressionNode target) => target switch
+    {
+        SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+        MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+            => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+        _ => null,
+    };
 
     // whether the array a ReDim re-dimensions is the local it declares (MS-VBAL §5.4.3.3: "If the name has no matches").
     private static bool DeclaresItsArray(StaticEvaluationContext context, RedimDeclarationNode redim)

@@ -1204,6 +1204,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a constant, which is the name this ReDim re-dimensions, and no array. Declare an array of another name..
+        /// </summary>
+        public static string VBCompileError_RedimOfAConstant_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_RedimOfAConstant_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Expected variable or procedure, not project.
         /// </summary>
         public static string VBCompileError_ExpectedVariableOrProcedureNotProject {
