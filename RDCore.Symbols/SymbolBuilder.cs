@@ -190,7 +190,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// ActiveX control that is not one of the referenced libraries') has a type that is not resolved, as an unknown <c>As</c> type is.
     /// </remarks>
     /// <param name="control">The control, as the form's designer describes it.</param>
-    public Symbol BuildDesignerControl(FormControlDescriptor control)
+    /// <param name="form">The name of the form, which names what hosts it (<see cref="FormObject.TargetOf"/>).</param>
+    public Symbol BuildDesignerControl(FormControlDescriptor control, string form)
     {
         var type = control.Class.Name is { } className
             ? ResolveTypeName(className, moduleUri, control.Class.Library)
@@ -198,7 +199,86 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         return (new VBPropertyGetMemberSymbol(workspaceRoot, moduleUri, memberScope, control.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
                 with { ResolvedType = type })
             .With(SymbolProperties.WithEvents, true)
-            .With(SymbolProperties.DesignerControl, true);
+            .With(SymbolProperties.DesignerControl, true)
+            .With(SymbolProperties.ExternalTarget, FormObject.TargetOf(form, control.Name, "get"));
+    }
+
+    /// <summary>
+    /// The members a form's class has besides its controls and its code: those of the VBA form object (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>,
+    /// <c>Left</c>…), and those of the Microsoft Forms <c>UserForm</c> it hosts (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft
+    /// Forms. They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
+    /// <c>Caption</c>, there, is too.
+    /// </summary>
+    /// <remarks>
+    /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
+    /// (<see cref="FormObject.TargetOf"/>). A name the form's code or one of its controls declares is not declared again: that one is the member of that name.
+    /// </remarks>
+    /// <param name="form">The name of the form.</param>
+    /// <param name="taken">The names the form's code and its controls declare.</param>
+    public IEnumerable<Symbol> BuildFormMembers(string form, IReadOnlySet<string> taken)
+    {
+        var userForm = VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, FormObject.ClassName, moduleUri).Symbol as VBClassModuleSymbol;
+        var inherited = (userForm?.Members ?? []).Concat(FormObject.ClassIn(workspaceRoot).Members)
+            .Where(member => member is not VBEventMemberSymbol && !taken.Contains(member.Name));
+        foreach (var member in inherited)
+        {
+            if (Rehome(member) is { } rehomed)
+            {
+                yield return rehomed.With(SymbolProperties.ExternalTarget, FormObject.TargetOf(form, member.Name, KindOf(member)));
+            }
+        }
+    }
+
+    private static string KindOf(VBTypeMemberSymbol member) => member switch
+    {
+        VBPropertyGetMemberSymbol => "get",
+        VBPropertyLetMemberSymbol => "let",
+        VBPropertySetMemberSymbol => "set",
+        _ => "method",
+    };
+
+    // a library member declared again as a member of the module: the same kind of member, of the same type and parameters, whose parent is the module. A
+    // symbol's identity is its parent's, made when it is constructed, so it is built anew; its default-member id and its flags (hidden) go with it.
+    private Symbol? Rehome(VBTypeMemberSymbol member)
+    {
+        Symbol? rehomed = member switch
+        {
+            VBPropertyGetMemberSymbol => new VBPropertyGetMemberSymbol(
+                workspaceRoot, moduleUri, memberScope, member.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public) { ResolvedType = member.ResolvedType },
+            VBPropertyLetMemberSymbol => new VBPropertyLetMemberSymbol(
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+            VBPropertySetMemberSymbol => new VBPropertySetMemberSymbol(
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Property, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+            VBFunctionMemberSymbol => new VBFunctionMemberSymbol(
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Function, member.ResolvedType, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+            VBProcedureMemberSymbol => new VBProcedureMemberSymbol(
+                workspaceRoot, moduleUri, member.Name, memberScope, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public),
+            _ => null,
+        };
+
+        var parameters = member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        };
+        ImmutableArray<VBParameterSymbol> RehomedParameters(Uri owner) => [.. parameters.Select(parameter => parameter is ParamArrayParameterSymbol
+            ? new ParamArrayParameterSymbol(workspaceRoot, owner, parameter.Name, SourceRange.Empty, SourceRange.Empty, parameter.ParameterKind)
+            : new VBParameterSymbol(workspaceRoot, owner, parameter.Name, SourceRange.Empty, SourceRange.Empty, parameter.ParameterKind, parameter.ResolvedType,
+                parameter.IsOptional, parameter.DefaultValue))];
+        rehomed = rehomed switch
+        {
+            VBReturningMemberSymbol returning => returning with { Parameters = RehomedParameters(returning.Uri) },
+            VBProcedureMemberSymbol procedure => procedure with { Parameters = RehomedParameters(procedure.Uri) },
+            _ => rehomed,
+        };
+
+        if (rehomed is not null && member.TryGetProperty(SymbolProperties.UserMemId, out var userMemId))
+        {
+            rehomed = rehomed.With(SymbolProperties.UserMemId, userMemId);
+        }
+
+        return rehomed?.With(SymbolProperties.MemberFlags, member.GetProperty(SymbolProperties.MemberFlags));
     }
 
     // a fixed-size array is as big as its bounds say, which are constant expressions the type has no room for: they ride the symbol,

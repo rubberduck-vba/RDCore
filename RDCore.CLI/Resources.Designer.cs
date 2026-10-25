@@ -1212,5 +1212,158 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Warn_ThemingDisabled_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Shows the settings of the platform, and sets them for you.
+        /// </summary>
+        public static string Config_Summary {
+            get {
+                return ResourceManager.GetString("Config_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Puts a setting, a section, or every setting back as the platform was deployed.
+        /// </summary>
+        public static string Config_Reset_Detail {
+            get {
+                return ResourceManager.GetString("Config_Reset_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Every setting is as the platform was deployed..
+        /// </summary>
+        public static string Config_NothingSet {
+            get {
+                return ResourceManager.GetString("Config_NothingSet", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0}: not set by you; each component uses the value it was deployed with..
+        /// </summary>
+        public static string Config_NotSet {
+            get {
+                return ResourceManager.GetString("Config_NotSet", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is set by the platform's deployment only: it is read before there is a console to change it..
+        /// </summary>
+        public static string Config_Deployment {
+            get {
+                return ResourceManager.GetString("Config_Deployment", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to There is no setting '{0}'..
+        /// </summary>
+        public static string Config_Unknown {
+            get {
+                return ResourceManager.GetString("Config_Unknown", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to '{0}' is not a value of {1}..
+        /// </summary>
+        public static string Config_Invalid {
+            get {
+                return ResourceManager.GetString("Config_Invalid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} cannot be read, and is not written over. CONFIG RESET deletes it..
+        /// </summary>
+        public static string Config_Unreadable {
+            get {
+                return ResourceManager.GetString("Config_Unreadable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} = {1}. It takes effect the next time the platform starts..
+        /// </summary>
+        public static string Config_Set {
+            get {
+                return ResourceManager.GetString("Config_Set", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} decides what a program may do to this machine. Change it only for code you trust..
+        /// </summary>
+        public static string Config_TrustSensitive {
+            get {
+                return ResourceManager.GetString("Config_TrustSensitive", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to {0} setting(s) reset: the values the platform was deployed with apply again..
+        /// </summary>
+        public static string Config_Reset {
+            get {
+                return ResourceManager.GetString("Config_Reset", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing to reset..
+        /// </summary>
+        public static string Config_NothingToReset {
+            get {
+                return ResourceManager.GetString("Config_NothingToReset", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Values: True or False..
+        /// </summary>
+        public static string Config_Values_Boolean {
+            get {
+                return ResourceManager.GetString("Config_Values_Boolean", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Values: a whole number from {0} to {1}..
+        /// </summary>
+        public static string Config_Values_Integer {
+            get {
+                return ResourceManager.GetString("Config_Values_Integer", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Values: {0}..
+        /// </summary>
+        public static string Config_Values_Choice {
+            get {
+                return ResourceManager.GetString("Config_Values_Choice", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Values: any text..
+        /// </summary>
+        public static string Config_Values_Text {
+            get {
+                return ResourceManager.GetString("Config_Values_Text", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Values: texts separated by commas..
+        /// </summary>
+        public static string Config_Values_TextList {
+            get {
+                return ResourceManager.GetString("Config_Values_TextList", resourceCulture);
+            }
+        }
     }
 }

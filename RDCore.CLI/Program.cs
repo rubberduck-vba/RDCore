@@ -8,6 +8,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
+using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
@@ -174,6 +175,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplCommand, ShowMemoryReplCommand>()
             .AddSingleton<IReplCommand, ThemeReplCommand>()
             .AddSingleton<IReplCommand, ClearReplCommand>()
+            .AddSingleton<IPlatformSettings, PlatformSettings>()
+            .AddSingleton<ConfigCommand>()
+            .AddSingleton<IReplCommand, ConfigReplCommand>()
             .AddSingleton<IReplCommandDispatcher, ReplCommandDispatcher>()
             .AddSingleton<ReplShell>()
             // the shell owns the break keys - Ctrl+C is BREAK, not quit - so the default console
@@ -378,6 +382,9 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, NewWorkspaceCommand>()
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
+            .AddSingleton<IPlatformSettings, PlatformSettings>()
+            .AddSingleton<ConfigCommand>()
+            .AddSingleton<ICliCommand, ConfigCliCommand>()
             // rdc bench runs a workspace in-process, as the environment host runs one: it needs what the host's errors are described with.
             .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
             .AddVerboseMessages()

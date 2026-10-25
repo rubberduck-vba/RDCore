@@ -50,6 +50,8 @@
               href: rd-vbal.2.3.1.3.name-resolution.md
         - name: "2.3.2 Mode / State"
           href: rd-vbal.2.3.2.mode-state.md
+        - name: "2.3.3 Configuration"
+          href: rd-vbal.2.3.3.configuration.md
     - name: "2.4 Static Types"
       href: rd-vbal.2.4.static-types.md
       items:

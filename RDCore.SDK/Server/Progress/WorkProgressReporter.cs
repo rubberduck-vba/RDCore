@@ -217,6 +217,8 @@ public sealed class WorkProgressReporter(TimeSpan? threshold = null) : IWorkProg
 
         public void Dispose() => Complete();
 
+        // OmniSharp's observer sends the end when it is disposed, and OnCompleted sends one too: disposing of it is the one end, and what lets go of its token
+        // (HexIDE saw two, a millisecond apart, for each piece of work).
         private static void End(IWorkDoneObserver observer, string? message)
         {
             if (message is not null)
@@ -224,7 +226,6 @@ public sealed class WorkProgressReporter(TimeSpan? threshold = null) : IWorkProg
                 observer.OnNext(message, 100, false);
             }
 
-            observer.OnCompleted();
             observer.Dispose();
         }
     }

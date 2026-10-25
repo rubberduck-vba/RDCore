@@ -20,7 +20,9 @@ By default, the environment host may restrict capabilities requested by **unsign
     "PublisherWebUrl": "url-string",
     "Description": "string",
     "Signature": "string",
-    "Capabilities": [ { "Name": "string", "IsSupported": true } ]
+    "Capabilities": [ { "Name": "string", "IsSupported": true } ],
+    "Settings": [ { "Key": "string", "Kind": 0, "Choices": [], "Minimum": null, "Maximum": null, "Reach": 0, "IsTrustSensitive": false } ],
+    "SettingDescriptions": { "en": { "key": "string" }, "fr": { "key": "string" } }
 }
 ```
 
@@ -34,6 +36,8 @@ By default, the environment host may restrict capabilities requested by **unsign
 |`Description`|A short description of the extension.|
 |`Signature`|The Base64-encoded `SHA512` file-hash signature of the extension executable (.exe) file. It **must** be identical to the file hash of the discovered extension executable (.exe).|
 |`Capabilities`|The platform capabilities the extension advertises, recorded by `rdc.exe describe-ext`. Each entry names a capability (`Name`) and whether it is supported (`IsSupported`, `true` by default). The host ignores an entry whose `IsSupported` is `false`.|
+|`Settings`|The settings the extension is configured with ([`SettingDescriptor`](../api/RDCore.SDK.Server.Configuration.SettingDescriptor.html)), recorded by `rdc.exe describe-ext` from the extension's [`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html). A client offers them to a user without starting the extension ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)). Empty for an extension that has none.|
+|`SettingDescriptions`|The description of each setting, by its key, in each language of the platform, by its two-letter name. A description in a language the platform has none in is the first language's (`en`).|
 
 An extension declares a capability so that `rdc.exe describe-ext` records it in the extension's manifest:
 

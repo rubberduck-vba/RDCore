@@ -288,9 +288,15 @@ public record class SymbolDescriptor
     public bool IsWithEvents { get; init; }
 
     /// <summary>
-    /// Whether a module field is one of a form's controls: declared by the form's designer, not by its code (<see cref="SymbolProperties.DesignerControl"/>).
+    /// Whether a member is one of a form's controls: declared by the form's designer, not by its code (<see cref="SymbolProperties.DesignerControl"/>).
     /// </summary>
     public bool IsDesignerControl { get; init; }
+
+    /// <summary>
+    /// What runs a member whose code is not the module's (<see cref="SymbolProperties.ExternalTarget"/>): a member a form's designer declares on its class - a
+    /// control, a member of the form object - is dispatched to whatever hosts the form (<see cref="Workspace.Forms.FormObject.TargetOf"/>).
+    /// </summary>
+    public string? ExternalTarget { get; init; }
 
     /// <summary>
     /// The member's <c>VB_UserMemId</c> (<strong>MS-VBAL §5.2.1</strong>), when its module says one: <c>0</c> marks the default member of a class, <c>-4</c> its enumeration

@@ -22,6 +22,17 @@ public enum VerbArgumentKind
 
     /// <summary>Any text, to the end of the line.</summary>
     Text,
+
+    /// <summary>
+    /// The key of a setting of <see cref="VerbArgument.Settings"/>, or of a section of them: <c>CONFIG Server.Verbose</c>. It is completed a part at a time, as a
+    /// member is: the sections, then what is in the one before the last <c>.</c>.
+    /// </summary>
+    Setting,
+
+    /// <summary>
+    /// A value of the setting the argument <see cref="VerbArgument.ValueOf"/> names, to the end of the line: the <c>False</c> of <c>CONFIG Server.Verbose False</c>.
+    /// </summary>
+    SettingValue,
 }
 
 /// <summary>
@@ -58,9 +69,20 @@ public sealed record class VerbArgument
     public string? EvaluatedAt { get; init; }
 
     /// <summary>
-    /// Whether the argument takes the rest of the line: an expression, a path, and text do - a space is in them, and does not end them.
+    /// For a <see cref="VerbArgumentKind.Setting"/>, the settings it can be the key of, as the client has them: what it offers to set, and what each one is.
     /// </summary>
-    public bool TakesTheRest => Kind is VerbArgumentKind.Expression or VerbArgumentKind.Path or VerbArgumentKind.Text;
+    public IReadOnlyList<Server.Configuration.SettingDescriptor> Settings { get; init; } = [];
+
+    /// <summary>
+    /// For a <see cref="VerbArgumentKind.SettingValue"/>, the <see cref="Name"/> of the <see cref="VerbArgumentKind.Setting"/> argument of the same form whose
+    /// setting it is a value of.
+    /// </summary>
+    public string? ValueOf { get; init; }
+
+    /// <summary>
+    /// Whether the argument takes the rest of the line: an expression, a path, text, and the value of a setting do - a space is in them, and does not end them.
+    /// </summary>
+    public bool TakesTheRest => Kind is VerbArgumentKind.Expression or VerbArgumentKind.Path or VerbArgumentKind.Text or VerbArgumentKind.SettingValue;
 }
 
 /// <summary>

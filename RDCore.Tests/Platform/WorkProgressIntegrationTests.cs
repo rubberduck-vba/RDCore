@@ -36,6 +36,9 @@ public sealed class WorkProgressIntegrationTests
         public required WorkProgressTracker Tracker { get; init; }
         public required List<WorkProgressState> Seen { get; init; }
 
+        // everything the server sent the client, as it was sent
+        public required System.Text.StringBuilder Wire { get; init; }
+
         public ValueTask DisposeAsync()
         {
             Server.Dispose();
@@ -50,6 +53,33 @@ public sealed class WorkProgressIntegrationTests
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
         using var connecting = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+        // what the server writes is copied as it goes to the client: the client's own view of progress keeps only what it makes sense of
+        var toClient = new Pipe();
+        var wire = new System.Text.StringBuilder();
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                var read = await serverToClient.Reader.ReadAsync();
+                foreach (var segment in read.Buffer)
+                {
+                    lock (wire)
+                    {
+                        wire.Append(System.Text.Encoding.UTF8.GetString(segment.Span));
+                    }
+
+                    await toClient.Writer.WriteAsync(segment);
+                }
+
+                serverToClient.Reader.AdvanceTo(read.Buffer.End);
+                if (read.IsCompleted)
+                {
+                    await toClient.Writer.CompleteAsync();
+                    return;
+                }
+            }
+        });
 
         var serverTask = OmniSharpLanguageServer.From(options => options
             .WithInput(clientToServer.Reader)
@@ -76,7 +106,7 @@ public sealed class WorkProgressIntegrationTests
         var clientTask = LanguageClient.From(options =>
         {
             options
-                .WithInput(serverToClient.Reader)
+                .WithInput(toClient.Reader)
                 .WithOutput(clientToServer.Writer)
                 .WithClientCapabilities(new ClientCapabilities { Window = new WindowClientCapabilities { WorkDoneProgress = clientSupportsProgress } });
             if (clientSupportsProgress)
@@ -93,7 +123,7 @@ public sealed class WorkProgressIntegrationTests
         var server = await serverTask;
         client = await clientTask;
         reporter.Attach(server.WorkDoneManager);
-        return new Connected { Server = server, Client = client, Tracker = tracker, Seen = seen };
+        return new Connected { Server = server, Client = client, Tracker = tracker, Seen = seen, Wire = wire };
     }
 
     private static async Task<WorkProgressState[]> SettledAsync(Connected connected)
@@ -126,6 +156,56 @@ public sealed class WorkProgressIntegrationTests
         }
 
         Assert.AreEqual(0, connected.Tracker.Active.Count);
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "work that is done")]
+    [DataRow(true, DisplayName = "work that fails")]
+    public async Task WorkThatIsBegun_IsEndedOnce(bool throws)
+    {
+        await using var connected = await ConnectAsync(new WorkProgressReporter(TimeSpan.FromMilliseconds(50)));
+
+        ProgressToken token = "request-once";
+        using (connected.Tracker.Track(token, connected.Client.WorkDoneManager.Monitor(token)))
+        {
+            try
+            {
+                await connected.Client.SendRequest(new WorkParams { WorkDoneToken = token, Throws = throws }, CancellationToken.None);
+            }
+            catch (Exception) when (throws)
+            {
+                // the request failed, as it was made to: what was reported of its work is what is counted
+            }
+
+            await SettledAsync(connected);
+        }
+
+        Assert.AreEqual(1, EndsOn(connected), "one end for the work, as it is sent");
+    }
+
+    [TestMethod]
+    public async Task WorkTheServerDoesOfItsOwn_IsEndedOnce()
+    {
+        var reporter = new WorkProgressReporter(TimeSpan.Zero);
+        await using var connected = await ConnectAsync(reporter);
+
+        using (var work = reporter.Begin("Parsing the workspace"))
+        {
+            work.Report(new WorkProgressStep("Module1", 50));
+            await Task.Delay(200);
+        }
+
+        await SettledAsync(connected);
+        Assert.AreEqual(1, EndsOn(connected), "one end for the work, as it is sent");
+    }
+
+    // the end notifications the server wrote, whatever the client made of them: its own view of a token completes on the first, and drops the others
+    private static int EndsOn(Connected connected)
+    {
+        lock (connected.Wire)
+        {
+            return System.Text.RegularExpressions.Regex.Matches(connected.Wire.ToString(), "\"kind\"\\s*:\\s*\"end\"").Count;
+        }
     }
 
     [TestMethod]

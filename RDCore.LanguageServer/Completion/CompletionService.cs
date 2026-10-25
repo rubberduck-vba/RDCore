@@ -153,6 +153,26 @@ internal sealed class CompletionService(
                 case VerbArgumentKind.Expression:
                     items.AddRange(await CompleteExpressionAsync(moduleName, source, site.Typed, site.EvaluatedAt, token));
                     break;
+
+                // a key is completed a part at a time, as a member is: the client asks again after each `.`, for what is in the section before it.
+                case VerbArgumentKind.Setting:
+                    items.AddRange(VerbCompletion.SettingPartsAfter(site.Argument.Settings, site.Typed).Select((part, index) => new CompletionItem
+                    {
+                        Label = part.Part,
+                        Kind = part.Setting is null ? CompletionItemKind.Module : CompletionItemKind.Property,
+                        Detail = part.Setting?.Description,
+                        SortText = $"0{index:D4}",
+                    }));
+                    break;
+
+                case VerbArgumentKind.SettingValue when site.Setting is { } setting:
+                    items.AddRange(setting.Choices.Select((choice, index) => new CompletionItem
+                    {
+                        Label = choice,
+                        Kind = CompletionItemKind.EnumMember,
+                        SortText = $"0{index:D4}",
+                    }));
+                    break;
             }
         }
 
