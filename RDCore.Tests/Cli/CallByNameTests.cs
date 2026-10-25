@@ -81,7 +81,7 @@ public sealed class CallByNameTests
             "Debug.Print CallByName(c, \"Total\", VbGet)"));
 
     [TestMethod]
-    public async Task AnOmittedOptionalArgument_IsItsTypesDefault()
+    public async Task AnOmittedOptionalArgument_ThatDeclaresNoDefault_IsItsTypesDefault()
         => CollectionAssert.AreEqual(new[] { "Hello", "Hello you" }, await Run(
             "Debug.Print CallByName(c, \"Greet\", VbMethod)",
             "Debug.Print CallByName(c, \"Greet\", VbMethod, \"you\")"));
@@ -126,4 +126,69 @@ public sealed class CallByNameTests
     [TestMethod]
     public async Task AMissingArgument_IsError449()
         => StringAssert.Contains(await FailsWith("Debug.Print CallByName(c, \"Add\", VbMethod, 1)"), "449");
+
+    #region what MS-VBA does, recorded in Excel (oracle\s40 B01-B34)
+
+    private static readonly (string Name, string Source)[] Classes =
+    [
+        ("Point", ClassModule("Point", "Public X As Long", "Public Inner As Point")),
+        ("Opt", ClassModule("Opt",
+            "Public Items As Collection",
+            "Public Tag As Variant",
+            "Public Function F(Optional ByVal n As Long = 7) As Long", "    F = n", "End Function",
+            "Public Function G(Optional v As Variant) As Boolean", "    G = IsMissing(v)", "End Function",
+            "Public Function K(Optional ByVal d As Double = 2.5, Optional ByVal t As String = \"x\") As String", "    K = d & t", "End Function",
+            "Public Function M(ByVal a As Long, Optional ByVal b As Long = 10) As Long", "    M = a + b", "End Function",
+            "Public Function V(Optional ByVal x As Variant = 3) As Variant", "    V = x", "End Function")),
+    ];
+
+    // runs the statements with `pt` a new Point and `o` a new Opt, an error resumed and printed.
+    private static Task<string[]> Probe(params string[] lines)
+        => RunAsync(Classes, string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub Main()",
+            "    Dim pt As New Point, o As New Opt",
+            "    On Error Resume Next",
+            "    " + string.Join("\r\n    ", lines),
+            "End Sub",
+            string.Empty));
+
+    [TestMethod]
+    [DataRow("CallByName pt, \"X\", VbLet, 5", "Debug.Print pt.X", "5")]
+    [DataRow("CallByName pt, \"X\", VbLet, \"12\"", "Debug.Print pt.X", "12")]
+    [DataRow("CallByName o, \"Tag\", VbLet, \"t\"", "Debug.Print o.Tag", "t")]
+    [DataRow("Dim q As New Point: q.X = 9: CallByName pt, \"Inner\", VbSet, q", "Debug.Print pt.Inner.X", "9")]
+    [DataRow("CallByName o, \"Items\", VbSet, New Collection", "Debug.Print TypeName(o.Items)", "Collection")]
+    [DataRow("CallByName o, \"Tag\", VbSet, New Collection", "Debug.Print TypeName(o.Tag)", "Collection")]
+    public async Task APublicVariable_IsAssigned_ByName(string assign, string print, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await Probe(assign, print));
+
+    [TestMethod]
+    [DataRow("CallByName pt, \"X\", VbLet", "446", DisplayName = "no value")]
+    [DataRow("CallByName pt, \"X\", VbLet, 1, 2", "451", DisplayName = "two values")]
+    [DataRow("CallByName pt, \"X\", VbLet, \"abc\"", "13", DisplayName = "a value of no type the variable can hold")]
+    [DataRow("CallByName pt, \"X\", VbSet, New Point", "451", DisplayName = "a Set into a variable that holds no object")]
+    [DataRow("CallByName pt, \"X\", VbSet, 1", "451", DisplayName = "a Set of what is no object into a variable that holds no object")]
+    [DataRow("CallByName o, \"Items\", VbSet, 5", "13", DisplayName = "a Set of what is no object")]
+    [DataRow("CallByName pt, \"Inner\", VbSet, New Collection", "13", DisplayName = "a Set of an object of another class")]
+    [DataRow("CallByName pt, \"Inner\", VbLet, 1", "91", DisplayName = "a Let into a variable of an object that is Nothing")]
+    [DataRow("Set pt.Inner = New Point: CallByName pt, \"Inner\", VbLet, 1", "438", DisplayName = "a Let into a variable of an object with no default member")]
+    [DataRow("CallByName o, \"Tag\", VbLet, New Collection", "450", DisplayName = "a Let of an object whose default member takes arguments")]
+    [DataRow("CallByName pt, \"X\", VbMethod", "438", DisplayName = "a variable called as a method")]
+    [DataRow("Debug.Print CallByName(o, \"F\", VbGet)", "450", DisplayName = "a function got as a property")]
+    [DataRow("Debug.Print CallByName(o, \"M\", VbGet, 1)", "450", DisplayName = "a function got as a property, with an argument")]
+    public async Task AnAssignmentOrACallOfTheWrongKind_IsTheErrorMSVBARaises(string statement, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await Probe(statement, "Debug.Print Err.Number"));
+
+    [TestMethod]
+    [DataRow("Debug.Print CallByName(o, \"F\", VbMethod)", "7", DisplayName = "a declared default")]
+    [DataRow("Debug.Print CallByName(o, \"G\", VbMethod)", "True", DisplayName = "a Variant that declares none is Missing")]
+    [DataRow("Debug.Print CallByName(o, \"K\", VbMethod)", "2.5x", DisplayName = "two declared defaults")]
+    [DataRow("Debug.Print CallByName(o, \"K\", VbMethod, 1)", "1x", DisplayName = "the first given, the second its default")]
+    [DataRow("Debug.Print CallByName(o, \"M\", VbMethod, 1)", "11", DisplayName = "a required argument and a declared default")]
+    [DataRow("Debug.Print CallByName(o, \"V\", VbMethod)", "3", DisplayName = "a Variant's declared default")]
+    public async Task AnOmittedOptionalArgument_IsWhatACallWrittenInSourceGivesIt(string statement, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await Probe(statement));
+
+    #endregion
 }
