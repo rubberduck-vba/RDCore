@@ -132,7 +132,13 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         VBType ownerType;
-        if (memberAccess.Owner is { } owner)
+        if (memberAccess.Owner is { } enumeration && NameClassificationStaticSemantics.EnumerationOf(context, enumeration) is { } enumerationType)
+        {
+            // an enumeration qualifies the names of its members (`Color.Red`, `Globals.Color.Red`): as the owner of one it is the type, which by itself
+            // it is no value of.
+            ownerType = enumerationType;
+        }
+        else if (memberAccess.Owner is { } owner)
         {
             var ownerResult = Evaluate(context, owner);
             if (ownerResult.IsError)
@@ -178,9 +184,13 @@ public static class ExpressionStaticSemanticsEvaluator
                 VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, memberName));
         }
 
-        // 🚧 TODO a namespace that is the whole expression (`Debug.Print VBA`, `x = Strings`) is not a value, which
-        // §5.6.1's classification rules reject where a value is required; no diagnostic says so yet, so it is typed
-        // Unknown rather than rejected. One that is only the left-hand side of another member access never gets here.
+        // a module, a project or an enumeration a namespace declares is no value, qualified as it is not bare (`VBA.Strings`, `Globals.Color`). One that is
+        // only the owner of another member access never gets here.
+        if (NameClassificationStaticSemantics.NotAValueError(member, expression.Location, memberName) is { } notAValue)
+        {
+            return StaticSemanticsEvaluationResult.Error(notAValue);
+        }
+
         return StaticSemanticsEvaluationResult.Success(
             member is ITypedSymbol typed && !NamespaceExpressions.IsNamespace(member) ? typed.ResolvedType : VBUnknownType.TypeInfo);
     }
@@ -212,7 +222,10 @@ public static class ExpressionStaticSemanticsEvaluator
             var argumentResult = EvaluateIndexArgument(context, argument);
             if (argumentResult is { IsError: true })
             {
-                return argumentResult.Value;
+                return ObjectValueStaticSemantics.NotAValueArgumentError(context, indexExpression.Callee, indexExpression.Arguments, argument,
+                    argumentResult.Value.ErrorInfo as VBCompileErrorInfo) is { } variableRequired
+                    ? StaticSemanticsEvaluationResult.Error(variableRequired)
+                    : argumentResult.Value;
             }
 
             // a subscript of an element is let-coerced to a Long (RD-VBAL §5.6.13), which MS-VBA refuses a LongLong to at compile time, whatever its value
@@ -472,18 +485,26 @@ public static class ExpressionStaticSemanticsEvaluator
         return TypeOfIsExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, operandResult.Result!);
     }
 
+    // a project, a module or an enumeration as the operand of a binary operator is a type mismatch, as MS-VBA has it (Excel-verified, oracle\s29 O01-O18), and
+    // not its classification: that is what the operand of a unary operator is.
+    private static StaticSemanticsEvaluationResult NoOperand(ExpressionNode operand, StaticSemanticsEvaluationResult result)
+        => NameClassificationStaticSemantics.IsNotAValue(operand, result.ErrorInfo as VBCompileErrorInfo)
+            ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, operand.Location,
+                string.Format(Exceptions.VBCompileError_NameIsNoOperand_Verbose, NameClassificationStaticSemantics.NameOf(operand), result.ErrorInfo!.Verbose)))
+            : result;
+
     private static StaticSemanticsEvaluationResult EvaluateBinaryOperator(
         StaticEvaluationContext context, ExpressionNode expression, VBBinaryOperatorExpressionNode binaryOperator)
     {
         var leftResult = Evaluate(context, binaryOperator.Left);
         if (leftResult.IsError)
         {
-            return leftResult;
+            return NoOperand(binaryOperator.Left, leftResult);
         }
         var rightResult = Evaluate(context, binaryOperator.Right);
         if (rightResult.IsError)
         {
-            return rightResult;
+            return NoOperand(binaryOperator.Right, rightResult);
         }
 
         // an operand whose type is not known - a member of a library's class that names a class not read yet, a member an extensible class has without declaring

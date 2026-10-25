@@ -210,7 +210,7 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
-            var targetResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, withStatement.WithExpression);
+            var targetResult = WithTarget(withStatement.WithExpression, ExpressionStaticSemanticsEvaluator.Evaluate(context, withStatement.WithExpression));
             CollectError(targetResult, walk);
 
             // a target that is an error is reported once: the body is still in a With block, of a target whose type is not known, and its members are
@@ -266,6 +266,16 @@ public static class StatementStaticSemanticsEvaluator
             CollectError(targetResult, walk);
             MarkWritten(context, assignment.Target);
             var valueResult = ExpressionStaticSemanticsEvaluator.Evaluate(context, assignment.Value);
+
+            // what a Set statement assigns is an object, which a project, a module or an enumeration is not: a type mismatch (MS-VBA, Excel-verified,
+            // oracle\s29 C03, C04, O20), rather than what the name is classified as.
+            if (assignment.Kind == AssignmentKind.Set && NameClassificationStaticSemantics.IsNotAValue(assignment.Value, valueResult.ErrorInfo as VBCompileErrorInfo))
+            {
+                valueResult = StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, assignment.Value.Location,
+                    string.Format(Exceptions.VBCompileError_NameIsNoObject_Verbose, NameClassificationStaticSemantics.NameOf(assignment.Value),
+                        valueResult.ErrorInfo!.Verbose)));
+            }
+
             CollectError(valueResult, walk);
 
             // MS-VBAL §5.4.3.8: a value let-assigned to an object is assigned to its default member, which is not the coercion of the value to the object.
@@ -351,7 +361,10 @@ public static class StatementStaticSemanticsEvaluator
             {
                 if (input is ExpressionNode expression)
                 {
-                    CollectError(ExpressionStaticSemanticsEvaluator.Evaluate(context, expression), walk);
+                    var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
+                    CollectError(statement is ForEachStatementNode forEach && ReferenceEquals(expression, forEach.CollectionExpression)
+                        ? ForEachSource(expression, result)
+                        : result, walk);
                 }
             }
 
@@ -559,6 +572,47 @@ public static class StatementStaticSemanticsEvaluator
                 EvaluateBlock(context, caseElseClauseStatement.Body, walk);
                 break;
         }
+    }
+
+    // MS-VBAL §5.4.2.21: a With block is about an object, a record or a Variant, whose members a with-member-access refers to. MS-VBA refuses any other value,
+    // a project, a module or an enumeration included (Excel-verified, oracle\s29 C20, C33, O21, W1-W3, W9, Y8, Y10); Nothing is an object's value.
+    private static StaticSemanticsEvaluationResult WithTarget(ExpressionNode target, StaticSemanticsEvaluationResult result)
+    {
+        if (NameClassificationStaticSemantics.IsNotAValue(target, result.ErrorInfo as VBCompileErrorInfo))
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant, target.Location,
+                string.Format(Exceptions.VBCompileError_WithName_Verbose, result.ErrorInfo!.Verbose)));
+        }
+
+        return result is { IsSuccess: true, Result: var type } && !HasMembers(type!)
+            ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant, target.Location,
+                string.Format(Exceptions.VBCompileError_WithObject_Verbose, NameClassificationStaticSemantics.NameOf(target) is { Length: > 0 } name ? name : type!.Name, type!.Name)))
+            : result;
+    }
+
+    private static bool HasMembers(VBType type) => type is VBUserDefinedType or VBClassType or VBObjectType or VBVariantType or VBUnknownType;
+
+    // MS-VBAL §5.4.2.4: what a For Each loop iterates is an array or an object, written as a name, a member or a call: a literal, an operator's result and
+    // anything in parentheses are a syntax error, and a value of any other type, a record, a project, a module or an enumeration a compile error of its own
+    // (MS-VBA, Excel-verified, oracle\s29 C21, C34, O22, W4-W7, Y1-Y7).
+    private static StaticSemanticsEvaluationResult ForEachSource(ExpressionNode source, StaticSemanticsEvaluationResult result)
+    {
+        if (source is LiteralExpressionNode or VBUnaryOperatorExpressionNode or VBBinaryOperatorExpressionNode or TypeOfIsExpressionNode)
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, source.Location, Tokens.In));
+        }
+
+        if (NameClassificationStaticSemantics.IsNotAValue(source, result.ErrorInfo as VBCompileErrorInfo))
+        {
+            return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray, source.Location,
+                string.Format(Exceptions.VBCompileError_ForEachName_Verbose, result.ErrorInfo!.Verbose)));
+        }
+
+        return result is { IsSuccess: true, Result: VBNumericType or VBStringType or VBBooleanType or VBDateType or VBUserDefinedType }
+            ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray, source.Location,
+                string.Format(Exceptions.VBCompileError_ForEachSource_Verbose,
+                    NameClassificationStaticSemantics.NameOf(source) is { Length: > 0 } name ? name : result.Result!.Name, result.Result!.Name)))
+            : result;
     }
 
     // MS-VBAL §5.4.2.1: what a call statement calls is a procedure; a variable or a constant is none. MS-VBA says which by where it is declared (Excel-

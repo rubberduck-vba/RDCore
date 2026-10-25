@@ -599,6 +599,27 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.2.3.1.4</strong> Variable Type Declarations.
     /// </summary>
     InvalidLengthForFixedLengthString = 9375,
+    /// <summary>
+    /// A project or a library, <c>VBA</c>, is written where a value, a variable or a procedure is: a project qualifies the names of what it declares, and is
+    /// none of them.<br/>
+    /// <strong>MS-VBAL §5.6.10</strong> Simple Name Expressions, <strong>§5.6.12</strong> Member Access Expressions.
+    /// </summary>
+    ExpectedVariableOrProcedureNotProject = 9376,
+    /// <summary>
+    /// An enumeration, <c>Color</c>, is written where a value, a variable or a procedure is: its members are values, and it is none.<br/>
+    /// <strong>MS-VBAL §5.6.10</strong> Simple Name Expressions, <strong>§5.6.12</strong> Member Access Expressions.
+    /// </summary>
+    ExpectedVariableOrProcedureNotEnumType = 9377,
+    /// <summary>
+    /// A <c>With</c> block is about a value that is no object, no record and no <c>Variant</c>: it has no members to refer to.<br/>
+    /// <strong>MS-VBAL §5.4.2.21</strong> With Statement.
+    /// </summary>
+    WithObjectMustBeUserDefinedTypeObjectOrVariant = 9378,
+    /// <summary>
+    /// A <c>For Each</c> loop iterates what is no array and no object: it has no elements to iterate.<br/>
+    /// <strong>MS-VBAL §5.4.2.4</strong> For Each Statement.
+    /// </summary>
+    ForEachMayOnlyIterateOverACollectionObjectOrAnArray = 9379,
 
 
     /***********************************************************************************************

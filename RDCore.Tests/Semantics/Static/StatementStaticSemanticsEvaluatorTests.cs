@@ -143,8 +143,8 @@ public sealed class StatementStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void AWithBlockWhoseTargetIsAnError_ReportsItOnce_AndItsBodyIsStillInTheBlock()
-        // a procedural module is no value; what the body accesses with a dot is a member of the target, whose type is not known - not an implicit With-reference
-        // outside any With block, once for each.
+        // a procedural module is no value, and no object a With block can be about (MS-VBA, Excel-verified, oracle\s29 C20); what the body accesses with a dot
+        // is a member of the target, whose type is not known - not an implicit With-reference outside any With block, once for each.
     {
         var module = Module("Caller");
         var context = ContextAt(module.Uri, module);
@@ -153,7 +153,7 @@ public sealed class StatementStaticSemanticsEvaluatorTests
         var errors = StatementStaticSemanticsEvaluator.Evaluate(context, block);
 
         Assert.AreEqual(1, errors.Length);
-        Assert.AreEqual(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, errors[0].VBCompileErrorId);
+        Assert.AreEqual(VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant, errors[0].VBCompileErrorId);
     }
 
     [TestMethod]

@@ -1195,6 +1195,141 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is no variable whose size can be measured: {1}.
+        /// </summary>
+        public static string VBCompileError_NameIsNoVariable_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsNoVariable_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected variable or procedure, not project.
+        /// </summary>
+        public static string VBCompileError_ExpectedVariableOrProcedureNotProject {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotProject", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected variable or procedure, not enum type.
+        /// </summary>
+        public static string VBCompileError_ExpectedVariableOrProcedureNotEnumType {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotEnumType", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to With object must be user-defined type, Object, or Variant.
+        /// </summary>
+        public static string VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant {
+            get {
+                return ResourceManager.GetString("VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to For Each may only iterate over a collection object or an array.
+        /// </summary>
+        public static string VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray {
+            get {
+                return ResourceManager.GetString("VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
+        /// </summary>
+        public static string VBCompileError_NameIsAProject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsAProject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a module of the {1} library: it qualifies the names of its members, and is no value of its own..
+        /// </summary>
+        public static string VBCompileError_NameIsALibraryModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsALibraryModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a module of this project: it qualifies the names of its members, and is no value of its own..
+        /// </summary>
+        public static string VBCompileError_NameIsAModule_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsAModule_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is an enumeration: each of its members is a value, written after its name and a dot, and it is none..
+        /// </summary>
+        public static string VBCompileError_NameIsAnEnumType_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsAnEnumType_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is no value an operator can work on: {1}.
+        /// </summary>
+        public static string VBCompileError_NameIsNoOperand_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsNoOperand_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is no object a Set statement can assign: {1}.
+        /// </summary>
+        public static string VBCompileError_NameIsNoObject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NameIsNoObject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A With block refers to the members of an object, a record or a Variant; &apos;{0}&apos; is of type {1}..
+        /// </summary>
+        public static string VBCompileError_WithObject_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_WithObject_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A With block refers to the members of an object, a record or a Variant: {0}.
+        /// </summary>
+        public static string VBCompileError_WithName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_WithName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to For Each iterates the elements of an array or the items of a collection object; &apos;{0}&apos; is of type {1}..
+        /// </summary>
+        public static string VBCompileError_ForEachSource_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ForEachSource_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to For Each iterates the elements of an array or the items of a collection object: {0}.
+        /// </summary>
+        public static string VBCompileError_ForEachName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ForEachName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;As {0}()&apos; is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in &apos;Dim a() As {0}&apos;..
         /// </summary>
         public static string VBCompileError_ArrayTypeOnlyReturned_Verbose {

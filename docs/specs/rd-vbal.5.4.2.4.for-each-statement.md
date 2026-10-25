@@ -16,7 +16,17 @@ The resolved targets have the same shape as a `For` loop's
 
 ## Static Semantics
 
-MS-VBAL requires the `For Each` collection to be an array or an enumeration-capable object reference.
+MS-VBAL requires the `For Each` collection to be an array or an enumeration-capable object reference. What **MS-VBA**
+refuses, RD-VBA refuses the same way (recorded in Excel):
+
+|The collection is|Example|Error|
+|---|---|---|
+|No name, member or call: a literal, an operator's result, anything in parentheses|`For Each v In 5`, `For Each v In "abc"`, `For Each v In (a)`|[VBC00001](../diagnostics/vbc00001.md) _Syntax error_|
+|A value of an intrinsic type, or a record|`For Each v In n`, of a `Long`; `For Each v In LongFn()`; `For Each v In q`, of a `Type`|[VBC09379](../diagnostics/vbc09379.md) _For Each may only iterate over a collection object or an array_|
+|A project, a module or an Enum type|`For Each v In Strings`, `For Each v In Color`|`VBC09379`|
+
+A `Variant` is iterated as what it holds when the loop runs: one that holds no array and no object is run-time error
+92 (see [Errors](#errors)).
 
 A [VBCollectionType](../api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) can be efficiently iterated using
 a `For Each...Next` loop. `For Each...Next` enumeration is intended to be used with collections containing objects

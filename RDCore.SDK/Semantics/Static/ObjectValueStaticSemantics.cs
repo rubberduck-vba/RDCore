@@ -216,6 +216,43 @@ public static class ObjectValueStaticSemantics
         return null;
     }
 
+    /// <summary>
+    /// The error of an argument that is a project, a module or an enumeration (<paramref name="error"/>, the argument's own), given to a parameter that takes a
+    /// <c>String</c> or a variable - what <c>Len</c> and <c>LenB</c> measure: MS-VBA requires a variable there (Excel-verified, oracle\s29 C05, C06, C35, O19).
+    /// </summary>
+    /// <param name="context">The compile-time context the call is evaluated against.</param>
+    /// <param name="callee">What is called.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="argument">The argument whose evaluation is <paramref name="error"/>.</param>
+    /// <param name="error">The argument's error.</param>
+    /// <returns>The error to report instead, or <see langword="null"/> when <paramref name="error"/> is the one.</returns>
+    public static VBCompileErrorInfo? NotAValueArgumentError(
+        StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, ExpressionNode argument, VBCompileErrorInfo? error)
+    {
+        var value = argument switch
+        {
+            NamedArgumentNode named => named.Value,
+            ByValArgumentExpressionNode byVal => byVal.Operand,
+            _ => argument,
+        };
+
+        if (!NameClassificationStaticSemantics.IsNotAValue(value, error) || ParametersOfCallee(context, callee) is not { } parameters)
+        {
+            return null;
+        }
+
+        var own = OwnParameters(parameters).ToImmutableArray();
+        var position = arguments.IndexOf(argument);
+        var parameter = argument is NamedArgumentNode { Name: var name }
+            ? own.FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))
+            : position >= 0 && position < own.Length ? own[position] : null;
+
+        return parameter is not null && DestinationOf(parameter) is ValueDestination.StringOrVariable
+            ? VBCompileErrorInfo.For(VBCompileErrorId.VariableRequired, value.Location,
+                string.Format(Exceptions.VBCompileError_NameIsNoVariable_Verbose, NameClassificationStaticSemantics.NameOf(value), error!.Verbose))
+            : null;
+    }
+
     // Len and LenB: "any valid string expression, or any valid variable name" (MS-VBAL §6.1.2.11.1.22). A value that is a String or a Variant is a string
     // expression, and so is one MS-VBA reads as one when it runs (an object, a record); a value of any other declared type must be a variable, whose size is
     // measured. An object stands for its default member's value, which is no variable: MS-VBA refuses it unless that value is a String or a Variant.

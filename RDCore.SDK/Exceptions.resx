@@ -759,11 +759,56 @@
   <data name="VBCompileError_ArrayBoundOverflow_Verbose" xml:space="preserve">
     <value>A bound of the array '{0}' is past the range of a Long, which every bound is.</value>
   </data>
+  <data name="VBCompileError_ExpectedVariableOrProcedureNotProject" xml:space="preserve">
+    <value>Expected variable or procedure, not project</value>
+  </data>
+  <data name="VBCompileError_ExpectedVariableOrProcedureNotEnumType" xml:space="preserve">
+    <value>Expected variable or procedure, not enum type</value>
+  </data>
+  <data name="VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant" xml:space="preserve">
+    <value>With object must be user-defined type, Object, or Variant</value>
+  </data>
+  <data name="VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray" xml:space="preserve">
+    <value>For Each may only iterate over a collection object or an array</value>
+  </data>
+  <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
+    <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
+  </data>
+  <data name="VBCompileError_NameIsALibraryModule_Verbose" xml:space="preserve">
+    <value>'{0}' is a module of the {1} library: it qualifies the names of its members, and is no value of its own.</value>
+  </data>
+  <data name="VBCompileError_NameIsAModule_Verbose" xml:space="preserve">
+    <value>'{0}' is a module of this project: it qualifies the names of its members, and is no value of its own.</value>
+  </data>
+  <data name="VBCompileError_NameIsAnEnumType_Verbose" xml:space="preserve">
+    <value>'{0}' is an enumeration: each of its members is a value, written after its name and a dot, and it is none.</value>
+  </data>
+  <data name="VBCompileError_NameIsNoOperand_Verbose" xml:space="preserve">
+    <value>'{0}' is no value an operator can work on: {1}</value>
+  </data>
+  <data name="VBCompileError_NameIsNoObject_Verbose" xml:space="preserve">
+    <value>'{0}' is no object a Set statement can assign: {1}</value>
+  </data>
+  <data name="VBCompileError_WithObject_Verbose" xml:space="preserve">
+    <value>A With block refers to the members of an object, a record or a Variant; '{0}' is of type {1}.</value>
+  </data>
+  <data name="VBCompileError_WithName_Verbose" xml:space="preserve">
+    <value>A With block refers to the members of an object, a record or a Variant: {0}</value>
+  </data>
+  <data name="VBCompileError_ForEachSource_Verbose" xml:space="preserve">
+    <value>For Each iterates the elements of an array or the items of a collection object; '{0}' is of type {1}.</value>
+  </data>
+  <data name="VBCompileError_ForEachName_Verbose" xml:space="preserve">
+    <value>For Each iterates the elements of an array or the items of a collection object: {0}</value>
+  </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in 'Dim a() As {0}'.</value>
   </data>
   <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
     <value>'{0}' is a ParamArray, which is written with neither ByVal nor ByRef.</value>
+  </data>
+  <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
+    <value>'{0}' is no variable whose size can be measured: {1}</value>
   </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value.</value>

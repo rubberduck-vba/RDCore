@@ -178,13 +178,13 @@ public sealed class NamespaceMemberAccessStaticSemanticsTests
     }
 
     [TestMethod]
-    public void ANamespaceAsTheWholeExpression_IsTypedUnknown()
-        // 🚧 TODO see ExpressionStaticSemanticsEvaluator.EvaluateNamespaceMember: no diagnostic rejects it yet.
+    public void ANamespaceAsTheWholeExpression_IsNoValue()
+        // a module a project declares, qualified by the project, is no value as it is not bare (MS-VBA: "Expected variable or procedure, not module",
+        // Excel-verified, oracle\s29 N03).
     {
         var result = Evaluate(MemberOf(NameOf("VBA"), "Strings"));
 
-        Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Description);
-        Assert.AreEqual(VBUnknownType.TypeInfo, result.Result);
+        Assert.AreEqual(VBCompileErrorId.ExpectedVariableOrProcedureNotModule, result.ErrorInfo?.VBCompileErrorId);
     }
 
     [TestMethod]

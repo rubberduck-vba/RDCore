@@ -124,6 +124,10 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09373](vbc09373.md)|Automation type not supported in Visual Basic — a type is written with the name of a library's module, `Strings`|
 |[VBC09374](vbc09374.md)|Expected user-defined type, not project — a type is written with the name of a project or a library, `VBA`|
 |[VBC09375](vbc09375.md)|Invalid length for fixed-length string — a `String * n` is declared with a length under 1 or past 65526|
+|[VBC09376](vbc09376.md)|Expected variable or procedure, not project — a project, `VBA`, is written where a value is|
+|[VBC09377](vbc09377.md)|Expected variable or procedure, not enum type — an enumeration, `Color`, is written where a value is|
+|[VBC09378](vbc09378.md)|With object must be user-defined type, Object, or Variant — a `With` block is about a value that has no members|
+|[VBC09379](vbc09379.md)|For Each may only iterate over a collection object or an array — a `For Each` loop iterates a value that has no elements|
 
 ### Runtime errors
 

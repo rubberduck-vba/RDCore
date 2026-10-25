@@ -69,6 +69,35 @@ decide whether an unresolved simple name is a deferred `VBUnknownType` or a **VB
 compile-time error. See [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md) and
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#module-directives).
 
+### A Name That Is No Value
+
+A project, a procedural module and an Enum type qualify the names of what they declare (`VBA.Len`, `Strings.Left`,
+`Color.Red`): as the owner of a member access they are what they are, and by themselves they are no value, variable or
+procedure. Written bare or qualified (`VBA.Strings`, `Globals.Color`) where an expression is, each is an error of what it
+is, as **MS-VBA** reports it (recorded in Excel), with a verbose message that says what the name is
+([NameClassificationStaticSemantics](../api/RDCore.SDK.Semantics.Static.NameClassificationStaticSemantics.html)):
+
+|The name is|Error|
+|---|---|
+|A project or a library (`VBA`)|[VBC09376](../diagnostics/vbc09376.md) _Expected variable or procedure, not project_|
+|A procedural module, of the project or of a library (`Globals`, `Strings`)|[VBC09363](../diagnostics/vbc09363.md) _Expected variable or procedure, not module_|
+|An Enum type (`Color`)|[VBC09377](../diagnostics/vbc09377.md) _Expected variable or procedure, not enum type_|
+
+That is the error wherever the name is: a value, an argument, the target of a `Let` or a `Set`, the operand of `Not`,
+of a negation or of parentheses, a condition, a statement by itself. A few places report it as what they require of the
+name instead:
+
+|Where|Example|Error|
+|---|---|---|
+|The operand of a binary operator|`Strings + 1`, `VBA & "x"`, `Color = 1`, `Strings Is Nothing`|[VBC09310](../diagnostics/vbc09310.md) _Type mismatch_|
+|The value a `Set` statement assigns|`Set o = Strings`, `Set o = Color`|`VBC09310` _Type mismatch_|
+|What `Len` and `LenB` measure|`Len(Globals)`, `LenB(Strings)`|[VBC09333](../diagnostics/vbc09333.md) _Variable required_|
+|What a `With` block is about|`With Strings`|[VBC09378](../diagnostics/vbc09378.md) ([**RD-VBAL §5.4.2.21**](rd-vbal.5.4.2.21.with-statement.md))|
+|What a `For Each` loop iterates|`For Each v In VBA`|[VBC09379](../diagnostics/vbc09379.md) ([**RD-VBAL §5.4.2.4**](rd-vbal.5.4.2.4.for-each-statement.md))|
+
+A user-defined type or a class is no candidate of `ResolveValue` at all: its name is an undefined variable
+(`x = Pair`), and _Method or data member not found_ qualified by its module (`Program.Pair`).
+
 ### Unresolved Names
 
 MS-VBA permits an implicit `Variant` declaration for an unresolved name (without `Option Explicit`).

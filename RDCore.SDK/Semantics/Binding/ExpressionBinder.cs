@@ -223,17 +223,7 @@ public sealed class ExpressionBindings
 
     // the enumeration an expression names - `Mode`, or `Widgets.Mode` - classified by what the name resolves to.
     private static VBEnumType? EnumerationOf(StaticEvaluationContext context, ExpressionNode owner)
-    {
-        var named = owner switch
-        {
-            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
-            MemberAccessExpressionNode { Owner: { } namespaceOwner } access when context.Resolver.NamespaceOf(namespaceOwner, context.Scope.Uri) is { } qualifier
-                => NamespaceMemberOf(context, qualifier, access),
-            _ => null,
-        };
-
-        return named is VBEnumMemberSymbol { ResolvedType: VBEnumType enumeration } ? enumeration : null;
-    }
+        => NameClassificationStaticSemantics.EnumerationOf(context, owner);
 
     // the name of a class a type expression is - bare, or qualified by its project - as New and TypeOf … Is name it.
     private static (string? Qualifier, string TypeName)? QualifiedTypeName(ExpressionNode typeExpression) => typeExpression switch

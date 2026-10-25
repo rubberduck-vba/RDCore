@@ -759,11 +759,56 @@
   <data name="VBCompileError_ArrayBoundOverflow_Verbose" xml:space="preserve">
     <value>Une borne du tableau '{0}' dépasse la plage d'un Long, ce qu'est toute borne.</value>
   </data>
+  <data name="VBCompileError_ExpectedVariableOrProcedureNotProject" xml:space="preserve">
+    <value>Variable ou procédure attendue, et non un projet</value>
+  </data>
+  <data name="VBCompileError_ExpectedVariableOrProcedureNotEnumType" xml:space="preserve">
+    <value>Variable ou procédure attendue, et non un type énumération</value>
+  </data>
+  <data name="VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant" xml:space="preserve">
+    <value>L'objet de With doit être de type défini par l'utilisateur, Object ou Variant</value>
+  </data>
+  <data name="VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray" xml:space="preserve">
+    <value>For Each ne peut parcourir qu'un objet collection ou un tableau</value>
+  </data>
+  <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
+    <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
+  </data>
+  <data name="VBCompileError_NameIsALibraryModule_Verbose" xml:space="preserve">
+    <value>'{0}' est un module de la bibliothèque {1} : il qualifie les noms de ses membres, et n'est pas une valeur en soi.</value>
+  </data>
+  <data name="VBCompileError_NameIsAModule_Verbose" xml:space="preserve">
+    <value>'{0}' est un module de ce projet : il qualifie les noms de ses membres, et n'est pas une valeur en soi.</value>
+  </data>
+  <data name="VBCompileError_NameIsAnEnumType_Verbose" xml:space="preserve">
+    <value>'{0}' est une énumération : chacun de ses membres est une valeur, écrite après son nom et un point, et elle n'en est pas une.</value>
+  </data>
+  <data name="VBCompileError_NameIsNoOperand_Verbose" xml:space="preserve">
+    <value>'{0}' n'est pas une valeur sur laquelle un opérateur peut agir : {1}</value>
+  </data>
+  <data name="VBCompileError_NameIsNoObject_Verbose" xml:space="preserve">
+    <value>'{0}' n'est pas un objet qu'une instruction Set peut assigner : {1}</value>
+  </data>
+  <data name="VBCompileError_WithObject_Verbose" xml:space="preserve">
+    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant ; '{0}' est de type {1}.</value>
+  </data>
+  <data name="VBCompileError_WithName_Verbose" xml:space="preserve">
+    <value>Un bloc With fait référence aux membres d'un objet, d'un enregistrement ou d'un Variant : {0}</value>
+  </data>
+  <data name="VBCompileError_ForEachSource_Verbose" xml:space="preserve">
+    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection ; '{0}' est de type {1}.</value>
+  </data>
+  <data name="VBCompileError_ForEachName_Verbose" xml:space="preserve">
+    <value>For Each parcourt les éléments d'un tableau ou d'un objet collection : {0}</value>
+  </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' est ce que renvoie une Function, une Property Get ou un Declare : un tableau se déclare avec () après son nom, comme dans 'Dim a() As {0}'.</value>
   </data>
   <data name="VBCompileError_ParamArrayPassingMode_Verbose" xml:space="preserve">
     <value>'{0}' est un ParamArray, qui s'écrit sans ByVal ni ByRef.</value>
+  </data>
+  <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
+    <value>'{0}' n'est pas une variable dont la taille peut être mesurée : {1}</value>
   </data>
   <data name="VBCompileError_TypeOfParenthesizedOperand_Verbose" xml:space="preserve">
     <value>Ce que {0} teste est un objet, écrit sans parenthèses : entre parenthèses, ce serait la valeur de son membre par défaut.</value>
