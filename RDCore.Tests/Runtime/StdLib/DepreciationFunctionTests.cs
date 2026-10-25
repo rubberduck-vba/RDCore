@@ -23,7 +23,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
 public sealed class DepreciationFunctionTests
 {
-    private static readonly StdFinancial Financial = new();
+    private static readonly StdFinancial Financial = new(NSubstitute.Substitute.For<IRuntimeSession>());
 
     // a supplied optional argument, which arrives wrapped in the Variant it is declared as.
     private static VBVariantValue Variant(double value) => new(new VBDoubleValue(value));

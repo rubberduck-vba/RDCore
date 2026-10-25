@@ -24,7 +24,7 @@ the whole module:
 |A `Double` result overflows|`6`, rather than an infinity|
 |`MIRR` has no payment to finance|`11`, the division by zero it is|
 |An optional argument is `Null`|`94`|
-|An optional argument is not a number, a `String` included|`13`|
+|An optional argument is not a number, nor a `String` that reads as one|`13`|
 
 A result that is infinite is error `6` — a present value at a rate of `-1`, say, which divides by (1+_r_)ⁿ = 0 —
 except `MIRR`'s missing payment, which is error `11`.
@@ -59,12 +59,14 @@ is not left out: it is `0`, as `Empty` Let-coerced to a `Double` is
 result only where the default is not `0`: an explicit `Empty` `Guess` to `Rate` or `IRR` is a guess of `0`, and an
 explicit `Empty` `Factor` to `DDB` is a factor of `0`, which is error `5`.
 
-> [!NOTE]
-> **Not implemented.** A `String` optional argument is not coerced, even one that reads as a number: it is error `13`.
-> The call site Let-coerces a `String` argument to a required `Double` parameter, which reads the number invariantly for
-> now ([**RD-VBAL §5.5.1.2.4**](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)). An optional one is a `Variant`
-> the module would have to coerce itself, and the module does not take the session, whose regional settings that reading
-> is to follow.
+A `String` optional argument is Let-coerced to a `Double`, as a required parameter's argument is: read in the regional
+settings of the session ([**RD-VBAL §5.5.1.2.4**](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)), so that
+`Pmt(0.1, 12, -1000, "0", "1")` is `Pmt(0.1, 12, -1000, 0, 1)`, as **MS-VBA** has it (recorded in Excel). One that reads
+as no number is error `13`.
+
+👉 MS-VBA's last digit of a `PV` or a `PPmt` can differ from RD-VBA's (`649.506100518608` and `649.506100518607`), and
+its `Rate` converges a few units in the eleventh digit away: both compute the same equation in a different order, and
+iterate it as the specification allows ("accurate to within 0.00001 percent").
 
 
 ## Iteration

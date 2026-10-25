@@ -1,6 +1,9 @@
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 
@@ -8,7 +11,8 @@ namespace RDCore.Runtime.StdLib;
 
 /// <inheritdoc cref="IStdFinancialModule"/>
 /// <remarks>
-/// Every member is a function of its arguments alone, so this takes no session.
+/// Every member is a function of its arguments alone: the session is what a <c>String</c> given for an optional argument is read by, the regional settings
+/// of its environment, as a Let-coercion to <c>Double</c> reads it.
 /// <para>
 /// The five annuity functions — <see cref="FV"/>, <see cref="PV"/>, <see cref="Pmt"/>, <see cref="NPer"/>
 /// and <see cref="Rate"/> — are one equation solved for a different unknown each time: the present value
@@ -30,7 +34,8 @@ namespace RDCore.Runtime.StdLib;
 /// 11, the division by zero it would take.
 /// </para>
 /// </remarks>
-public sealed class StdFinancial : IStdFinancialModule
+/// <param name="session">The session whose regional settings a <c>String</c> argument is read by.</param>
+public sealed class StdFinancial(IRuntimeSession session) : IStdFinancialModule
 {
     // MS-VBAL 6.1.2.6.1.1: "If omitted, the data value 2 (double-declining method) is assumed."
     private const double DefaultFactor = 2;
@@ -898,11 +903,10 @@ public sealed class StdFinancial : IStdFinancialModule
     // an omitted Optional arrives as null - the dispatcher passes null for an argument the call left out, and for
     // a Missing one, such as an omitted Optional Variant passed on - and stands for the value the specification
     // says an omitted one is. An explicit Empty is not an omitted argument but a value: it is 0, as it would be
-    // Let-coerced to a Double parameter. Anything else is coerced to a Double the way a Let-coercion would, except
-    // a String.
-    // 🚧 TODO: a String is error 13 here, where the call site Let-coerces a String argument to a required Double
-    // parameter: parsing one takes the session's regional settings, and this module does not take the session.
-    private static bool TryReadOptional(
+    // Let-coerced to a Double parameter. Anything else is coerced to a Double the way a Let-coercion would: a String
+    // is read in the session's regional settings, as a required Double parameter's argument is (MS-VBA, Excel-verified,
+    // oracle\s40 F01-F16).
+    private bool TryReadOptional(
         VBVariantValue? argument, double whenOmitted,
         out double number, out RuntimeSemanticsEvaluationResult<VBDoubleValue> error)
     {
@@ -933,6 +937,17 @@ public sealed class StdFinancial : IStdFinancialModule
                 error = RuntimeSemanticsEvaluationResult<VBDoubleValue>.Error(VBRuntimeErrorInfo.For(
                     VBRuntimeErrorId.InvalidUseOfNull, default, "an optional argument of a financial function is Null."));
                 return false;
+            case VBStringValue text:
+                var read = ValueConversions.ToNumeric(text, VBDoubleType.TypeInfo, session.Environment.Regional);
+                if (read is { IsSuccess: true, Value: VBNumericTypedValue parsed })
+                {
+                    number = parsed.AsDouble;
+                    return true;
+                }
+
+                error = RuntimeSemanticsEvaluationResult<VBDoubleValue>.Error(VBRuntimeErrorInfo.For(
+                    read.Error ?? VBRuntimeErrorId.TypeMismatch, default, $"an optional argument of a financial function, \"{text.Value}\", is not a number."));
+                return false;
             default:
                 error = RuntimeSemanticsEvaluationResult<VBDoubleValue>.Error(VBRuntimeErrorInfo.For(
                     VBRuntimeErrorId.TypeMismatch, default, "an optional argument of a financial function is not a number."));
@@ -943,7 +958,7 @@ public sealed class StdFinancial : IStdFinancialModule
     // "Use the data value 0 if payments are due at the end of the payment period, or use the data value 1 if
     // payments are due at the beginning of the period": the number of periods early a payment is made. The
     // specification describes no other value, and any value other than 0 is True - so it means the beginning.
-    private static bool TryReadDue(
+    private bool TryReadDue(
         VBVariantValue? due, out double early, out RuntimeSemanticsEvaluationResult<VBDoubleValue> error)
     {
         var read = TryReadOptional(due, 0, out var value, out error);

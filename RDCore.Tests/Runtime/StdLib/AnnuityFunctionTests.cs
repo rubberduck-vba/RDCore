@@ -25,7 +25,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
 public sealed class AnnuityFunctionTests
 {
-    private static readonly StdFinancial Financial = new();
+    private static readonly StdFinancial Financial = new(NSubstitute.Substitute.For<IRuntimeSession>());
 
     // "accurate to within 0.00001 percent": what an iterated rate is compared to.
     private const double IteratedAccuracy = 1e-7;
@@ -419,13 +419,22 @@ public sealed class AnnuityFunctionTests
             ErrorOf(Financial.Pmt(new(0.05), new(10), new(1000), new(VBNullValue.Null))));
 
     [TestMethod]
-    public void AnOptionalArgumentThatIsAString_IsError13()
+    public void AnOptionalArgumentThatIsAString_IsTheNumberItReadsAs()
     {
-        // even one that reads as a number: parsing it takes the regional settings of a session this module does
-        // not have, where the call site coerces a String to a required Double parameter with them.
+        // Let-coerced to a Double, as a required parameter's argument is, in the regional settings of the session (MS-VBA, Excel-verified, oracle\s40
+        // F01, F04, F06-F08, F16): "0" and "1" are 0 and 1.
+        Assert.AreEqual(ValueOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), Variant(0), Variant(1))),
+            ValueOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(new VBStringValue("0")), new(new VBStringValue("1")))));
+        CollectionAssert.AreEqual(Run("Debug.Print Pmt(0.1, 12, -1000, 0, 1)").ToArray(), Run("Debug.Print Pmt(0.1, 12, -1000, \"0\", \"1\")").ToArray());
+        CollectionAssert.AreEqual(Run("Debug.Print PV(0.1, 12, -100, 100)").ToArray(), Run("Debug.Print PV(0.1, 12, -100, \"100\")").ToArray());
+    }
+
+    [TestMethod]
+    public void AnOptionalArgumentThatIsAStringOfNoNumber_IsError13()
+    {
         Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch,
-            ErrorOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(new VBStringValue("1")))));
-        Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, RunToError("Debug.Print Pmt(0.1 / 12, 48, -8000, , \"1\")"));
+            ErrorOf(Financial.Pmt(new(0.1 / 12), new(48), new(-8000), new(new VBStringValue("abc")))));
+        Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, RunToError("Debug.Print Pmt(0.1, 12, -1000, \"abc\")"));
     }
 
     [TestMethod]

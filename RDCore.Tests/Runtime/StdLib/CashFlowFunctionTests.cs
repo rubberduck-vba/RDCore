@@ -28,7 +28,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestCategory("MS-VBAL 6.1.2.6 Financial")]
 public sealed class CashFlowFunctionTests
 {
-    private static readonly StdFinancial Financial = new();
+    private static readonly StdFinancial Financial = new(NSubstitute.Substitute.For<IRuntimeSession>());
 
     // "accurate to within 0.00001 percent": what an iterated rate is compared to.
     private const double IteratedAccuracy = 1e-7;
