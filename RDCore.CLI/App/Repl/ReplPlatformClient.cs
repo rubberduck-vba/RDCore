@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
@@ -122,6 +123,20 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     public Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token)
         => client.SendRequestAsync<AnalyzeSessionParams, AnalyzeSessionResult>(
             new AnalyzeSessionParams { Source = source, ModuleName = moduleName }, token);
+
+    /// <inheritdoc/>
+    public Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token)
+        => client.SendRequestAsync<SessionCompletionParams, CompletionList>(
+            new SessionCompletionParams { Source = source, ModuleName = moduleName, Line = line, Character = character }, token);
+
+    /// <inheritdoc/>
+    public Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token)
+        => client.SendRequestAsync<SessionCommandsParams, SessionCommandsResult>(new SessionCommandsParams { Verbs = verbs }, token);
+
+    /// <inheritdoc/>
+    public Task<CompletionList> CompleteCommandAsync(string source, string moduleName, SessionCommandCompletion command, CancellationToken token)
+        => client.SendRequestAsync<SessionCompletionParams, CompletionList>(
+            new SessionCompletionParams { Source = source, ModuleName = moduleName, Command = command }, token);
 
     /// <inheritdoc/>
     public Task<PeekSessionResult> PeekAsync(int address, CancellationToken token)

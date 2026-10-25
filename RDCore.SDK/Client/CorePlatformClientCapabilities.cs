@@ -291,6 +291,11 @@ public static class RDCorePlatformProtocol
     public const string SessionCompletion = "rdcore/session/completion";
 
     /// <summary>
+    /// Registers the verbs of a client's own commands with the language server, described, which completes them as they are typed.
+    /// </summary>
+    public const string SessionCommands = "rdcore/session/commands";
+
+    /// <summary>
     /// Reads one byte of the runtime session's memory.
     /// </summary>
     public const string SessionPeek = "rdcore/session/memory/peek";

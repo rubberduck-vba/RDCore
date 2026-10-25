@@ -708,7 +708,34 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Break_Summary", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Disables the breakpoint of a line, or enables it again.
+        /// </summary>
+        public static string Repl_Break_Toggle_Detail {
+            get {
+                return ResourceManager.GetString("Repl_Break_Toggle_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Removes every breakpoint.
+        /// </summary>
+        public static string Repl_Break_Clear_Detail {
+            get {
+                return ResourceManager.GetString("Repl_Break_Clear_Detail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Shows the themes to choose from.
+        /// </summary>
+        public static string Repl_Theme_List_Detail {
+            get {
+                return ResourceManager.GetString("Repl_Theme_List_Detail", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to BREAKPOINT CLEARED AT {0}.
         /// </summary>

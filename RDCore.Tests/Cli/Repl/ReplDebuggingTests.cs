@@ -836,6 +836,23 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task ADisabledBreakpoint_IsItsMarkInTheMargin_AndTheLineIsNotMarked()
+    {
+        await CommandAsync(new BreakReplCommand(), "20");
+        await CommandAsync(new BreakReplCommand(), "TOGGLE 20");
+        await CommandAsync(new BreakReplCommand(), "10 X > 1");
+        await CommandAsync(new BreakReplCommand(), "TOGGLE 10");
+        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+
+        foreach (var number in new[] { 10, 20 })
+        {
+            var line = Listed(number);
+            Assert.AreNotEqual(" ", line.Margin.Text, "the mark of the disabled breakpoint is in the margin");
+            Assert.AreEqual(ReplLineStyle.Plain, line.Style, "the program goes past a disabled breakpoint: the line is not marked");
+        }
+    }
+
+    [TestMethod]
     public async Task AListing_MarksTheStatementTheProgramWaitsBefore_AsAWhole()
     {
         ExecuteReturns(SuspendedAt(2));

@@ -42,7 +42,8 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             var text = $"{number} {statement}";
 
             // A listing has a margin of one character for the mark of a breakpoint, and a space between it and the line. The line is marked as a whole when it has
-            // one, or is the statement the program that was stopped waits before; the mark in the margin is outside that, on the shell's own background.
+            // one the program waits at, or is the statement the program that was stopped waits before; the mark in the margin is outside that, on the shell's own
+            // background. A disabled breakpoint is its mark in the margin and nothing more: the program goes past it.
             var breakpoint = debugger.Breakpoints.SingleOrDefault(bp => bp.LineNumber == number);
             var waitsBefore = debugger.State is ReplDebugState.Suspended && debugger.StoppedAt == number;
             var glyph = breakpoint == default ? " "
@@ -53,8 +54,8 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             var margin = breakpoint != default ? new ReplTextRun(glyph, ReplTextStyle.BreakpointGlyph) : new ReplTextRun(" ", ReplTextStyle.Plain);
 
             var style = waitsBefore ? ReplLineStyle.CurrentStatement
-                : breakpoint == default ? ReplLineStyle.Plain
-                : ReplLineStyle.Breakpoint;
+                : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
+                : ReplLineStyle.Plain;
 
             var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
             ReplTextRun[] runs = highlighted is not null && highlighted.TryGetValue(context.Program.IndexOf(number), out var tokens)

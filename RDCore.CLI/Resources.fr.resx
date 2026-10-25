@@ -515,4 +515,13 @@
   <data name="Repl_Breakpoint_ConditionFailed" xml:space="preserve">
     <value>ÉCHEC DE LA CONDITION DU POINT D'ARRÊT : {0}</value>
   </data>
+  <data name="Repl_Break_Toggle_Detail" xml:space="preserve">
+    <value>Désactive le point d'arrêt d'une ligne, ou le réactive</value>
+  </data>
+  <data name="Repl_Break_Clear_Detail" xml:space="preserve">
+    <value>Retire tous les points d'arrêt</value>
+  </data>
+  <data name="Repl_Theme_List_Detail" xml:space="preserve">
+    <value>Affiche les thèmes parmi lesquels choisir</value>
+  </data>
 </root>

@@ -131,21 +131,42 @@ The interactive shell renders a run-time error from this result, as:
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
 
-What the list offers depends on the text of the line before the cursor ([`CompletionSite`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionSite.html)):
+What the list offers depends on what is being written, and where. The language server reads two things:
+
+- **The line before the cursor** ([`CompletionSite`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionSite.html)): the name being typed, and the statement it is in, as tokens ([`CompletionStatement`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionStatement.html)). Is a statement, an operand or an operator next?
+- **Where the line is in the module** ([`CompletionPlacement`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionPlacement.html)): in the declarations section or in a procedure, which kind of procedure, which blocks are open around it, and the procedure's labels. This is read off the text, not the parse: a `For` whose `Next` is not written yet is still open.
 
 |Written|Offered|
 |---|---|
-|A name|The names visible from the procedure the cursor is in, nearest first: its locals and parameters, the module's members, the project's, the libraries', the standard library's. A name declared nearer shadows one declared farther. Then the expression keywords, and the statement keywords where a statement starts.|
+|A declaration, in the declarations section|What can be declared there. `Option` anywhere in it, with only the options the module does not state yet: each is stated once at most. `Event`, `Implements`, `Friend` and `WithEvents` in a class module only. No statement and no name.|
+|A statement, in a procedure|The names visible from the procedure, nearest first (its locals and parameters, the module's members, the project's, the libraries', the standard library's). The statement keywords. The statements of the blocks the line is in (`Next` and `Exit For` in a `For`, `Loop` and `Exit Do` in a `Do`, `Case` and `End Select` in a `Select Case`, `Else` and `End If` in a block `If`). `Exit` and `End` for the kind of procedure. `Me` and `RaiseEvent` in a class module only.|
+|An operand|The names, and the keywords an expression starts with (`Not`, `New`, `Nothing`, `True`). `AddressOf` only in an argument.|
+|After a complete operand|The operators (`And`, `Mod`, `Like`, `Is`), and the keyword the statement goes on with (`Then`, `To`, `Step`, `In`). No name.|
+|A name being declared (`Dim `, `Sub `, `Const `)|Nothing: it is a new name. After it, `As`. In a parameter list, `ByVal`, `ByRef`, `Optional` and `ParamArray`.|
+|A statement's own words|`Exit ` the blocks and the procedure it can exit; `End ` what it can end; `GoTo `, `GoSub `, `Resume ` and `On Error GoTo ` the procedure's labels and line numbers; `RaiseEvent ` the class's events; `Implements ` and `TypeOf x Is ` the classes; `Option `, `Property `, `Declare `, `Open … For ` their keywords.|
 |A member, after `.` or `!`|The members of the type of the expression before it (`w.Grow(2).Parts.`), or the members of the project or module it names (`VBA.`, `Module1.`). After a `.` with nothing before it, the members of the object of the enclosing `With` block.|
-|A type, after `As`|The intrinsic types, and the classes, user-defined types and Enums the project and the libraries declare.|
-|A class, after `New`|The classes that can be created.|
+|A type, after `As`|The intrinsic types; the classes, user-defined types and Enums the project and the libraries declare; the projects and the libraries, which qualify a type name; and `New`. No procedural module, local or other keyword.|
+|A class, after `New`|The classes that can be created, and the projects and the libraries.|
 |In a comment or a string literal|Nothing.|
 
-A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
+Which keyword is legal where is decided by [`CompletionRules`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionRules.html). A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
+
+An `Object` or a `Variant` has no members known when the code is written. For a variable of one, the list offers the members of every class the module `Set`s it to an object of with `CreateObject` and a constant identifier (`Set o = CreateObject("Scripting.Dictionary")`), wherever the module does it ([`ObjectClassInference`](../api/RDCore.SDK.Semantics.Static.ObjectClassInference.html)). A class of a library the project does not reference is read from the library's description, and its names are still not names of the project. This is a fact for tooling only: the variable keeps its declared type, nothing about the class is a compile error, and the member stays late-bound when the code runs.
 
 The line being typed seldom parses. The language server takes it out of the module before the module is parsed. For a member access, it puts it back as an assignment of the expression the member is accessed on, whose type comes from the static semantics. The module is composed with the rest of the workspace and the referenced libraries. Nothing of it is sent to the environment host.
 
 `rdcore/session/completion` ([`SessionCompletionParams`](../api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
+
+A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths and text.
+
+A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described ([`VerbCompletion`](../api/RDCore.SDK.Platform.Commands.VerbCompletion.html)):
+
+- a keyword or a choice with its values;
+- a line number with the numbered lines of the module, each shown with its statement;
+- an expression where it is evaluated: before the line its form names (`EvaluatedAt`), in that line's procedure and blocks, which is where a breakpoint's program waits. An expression that names no line, or a line the module does not have, is completed at module level: the module's names and the project's, and no procedure's locals;
+- a path or text with nothing.
+
+A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line) and `THEME` (`LIST`, `<theme>`) the first time one is completed. A command it does not describe is offered nothing after its verb.
 
 ### `rdcore/session/interaction`
 

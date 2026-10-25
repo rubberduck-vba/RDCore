@@ -57,22 +57,6 @@ public sealed record class CompletionCandidate(string Label, CompletionItemKind 
 /// </remarks>
 public static class CompletionCandidates
 {
-    // the keywords a statement starts with (MS-VBAL §5.4), and the ones that start a declaration in a module (§5.2.3).
-    private static readonly string[] StatementKeywords =
-    [
-        "Call", "Close", "Const", "Debug", "Declare", "Dim", "Do", "Else", "ElseIf", "End", "Enum", "Erase", "Error", "Event", "Exit", "For", "Friend", "Function",
-        "Get", "Global", "GoSub", "GoTo", "If", "Implements", "Input", "Let", "Line", "Lock", "Loop", "LSet", "Mid", "Next", "On", "Open", "Option", "Private",
-        "Property", "Public", "Put", "RaiseEvent", "ReDim", "Rem", "Resume", "Return", "RSet", "Seek", "Select", "Set", "Static", "Stop", "Sub", "Type", "Unlock",
-        "Wend", "While", "With", "Write",
-    ];
-
-    // the keywords an expression can have in it (MS-VBAL §5.6), and the ones that go on with a statement once it is started.
-    private static readonly string[] ExpressionKeywords =
-    [
-        "AddressOf", "And", "As", "ByRef", "ByVal", "Each", "Empty", "Eqv", "False", "Imp", "In", "Is", "Like", "Me", "Mod", "New", "Not", "Nothing", "Null",
-        "Optional", "Or", "ParamArray", "Step", "Then", "To", "True", "TypeOf", "Until", "WithEvents", "Xor",
-    ];
-
     // the intrinsic types a declared type can name (MS-VBAL §5.6.13.3 <type-expression>); Decimal is a subtype of Variant, which nothing is declared as.
     private static readonly string[] IntrinsicTypeNames =
     [
@@ -120,14 +104,12 @@ public static class CompletionCandidates
         => range.Start.CompareTo(position) <= 0 && position.CompareTo(range.End) <= 0;
 
     /// <summary>
-    /// The names that can be written as a simple name expression where <paramref name="origin"/> is (<see cref="CompletionSiteKind.Name"/>): what the
-    /// procedure, the module, the project, the libraries and the language declare, nearest first, and the keywords.
+    /// The names that can be written as a simple name expression where <paramref name="origin"/> is: what the procedure, the module, the project, the libraries
+    /// and the language declare, nearest first. The keywords are not names; which of them can be written where is <see cref="CompletionRules"/>' to say.
     /// </summary>
     /// <param name="tree">The scope tree of the composed workspace.</param>
     /// <param name="origin">Where the lookup originates (<see cref="OriginAt"/>).</param>
-    /// <param name="isStatementStart">Whether the name starts a statement, where the statement keywords are offered too.</param>
-    /// <param name="barePrint">Whether the language has a bare <c>Print</c> statement (<see cref="SupportedLanguage.HasBarePrint"/>), which is a keyword then.</param>
-    public static IReadOnlyList<CompletionCandidate> Names(ScopeTree tree, Uri origin, bool isStatementStart, bool barePrint = false)
+    public static IReadOnlyList<CompletionCandidate> Names(ScopeTree tree, Uri origin)
     {
         var candidates = new Candidates();
         foreach (var scope in tree.ScopeFor(origin).SelfAndAncestors())
@@ -139,24 +121,14 @@ public static class CompletionCandidates
             }
         }
 
-        var keywords = isStatementStart ? StatementKeywords.Concat(ExpressionKeywords) : ExpressionKeywords;
-        if (isStatementStart && barePrint)
-        {
-            keywords = keywords.Append("Print");
-        }
-
-        foreach (var keyword in keywords)
-        {
-            candidates.Add(new CompletionCandidate(keyword, CompletionItemKind.Keyword), KeywordRank);
-        }
-
         return candidates.ToList();
     }
 
     /// <summary>
     /// The names that can be written as a declared type where <paramref name="origin"/> is (<see cref="CompletionSiteKind.Type"/>), or as the class of a
-    /// <c>New</c> (<see cref="CompletionSiteKind.NewType"/>): the intrinsic types, and the classes, user-defined types and Enums the project and the libraries
-    /// declare - or only the classes that can be created, for <c>New</c>. The projects and the modules, which qualify a type name, are offered too.
+    /// <c>New</c> (<see cref="CompletionSiteKind.NewType"/>). After <c>As</c>: the intrinsic types; the classes, user-defined types and Enums the project and the
+    /// libraries declare; the projects and the libraries, which qualify a type name; and <c>New</c>. After <c>New</c>: the classes that can be created, and the
+    /// projects and the libraries. Nothing that is no type is offered - not a procedural module, not a local, not a keyword but <c>New</c>.
     /// </summary>
     /// <param name="tree">The scope tree of the composed workspace.</param>
     /// <param name="origin">Where the lookup originates (<see cref="OriginAt"/>).</param>
@@ -175,10 +147,40 @@ public static class CompletionCandidates
 
         if (!creatable)
         {
+            // an intrinsic type is the language's own, and ranks before the types of the libraries.
             foreach (var name in IntrinsicTypeNames)
             {
-                candidates.Add(new CompletionCandidate(name, CompletionItemKind.Keyword), KeywordRank);
+                candidates.Add(new CompletionCandidate(name, CompletionItemKind.TypeParameter), ProjectRank);
             }
+
+            // `As New` declares a variable that is auto-instantiated (MS-VBAL §5.2.3.1.1).
+            candidates.Add(new CompletionCandidate("New", CompletionItemKind.Keyword), KeywordRank);
+        }
+
+        return candidates.ToList();
+    }
+
+    /// <summary>
+    /// The classes that can be named where <paramref name="origin"/> is, as the interface of an <c>Implements</c> (<strong>MS-VBAL §5.2.4.2</strong>) or the type
+    /// of a <c>TypeOf ... Is</c> (<strong>§5.6.9.8.1</strong>): the class modules of the project, and the classes of the libraries.
+    /// </summary>
+    /// <param name="tree">The scope tree of the composed workspace.</param>
+    /// <param name="origin">Where the lookup originates (<see cref="OriginAt"/>).</param>
+    public static IReadOnlyList<CompletionCandidate> Classes(ScopeTree tree, Uri origin)
+        => [.. Types(tree, origin, creatable: false).Where(candidate => candidate.Kind is CompletionItemKind.Class or CompletionItemKind.Interface or CompletionItemKind.Folder)];
+
+    /// <summary>
+    /// The events the class module that <paramref name="origin"/> is in declares: what a <c>RaiseEvent</c> raises (<strong>MS-VBAL §5.4.2.20</strong>).
+    /// </summary>
+    /// <param name="tree">The scope tree of the composed workspace.</param>
+    /// <param name="origin">Where the lookup originates (<see cref="OriginAt"/>).</param>
+    public static IReadOnlyList<CompletionCandidate> EventsOf(ScopeTree tree, Uri origin)
+    {
+        var candidates = new Candidates();
+        var module = tree.ScopeFor(origin).SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module);
+        foreach (var symbol in module?.Declarations.Where(symbol => symbol.Kind == SymbolKindExt.Event && IsWritable(symbol)) ?? [])
+        {
+            candidates.Add(Describe(symbol), ModuleRank);
         }
 
         return candidates.ToList();
@@ -362,8 +364,9 @@ public static class CompletionCandidates
             || symbol.Kind is SymbolKindExt.UserDefinedType or SymbolKindExt.Enum;
     }
 
-    // what qualifies a type name: a project, or a module (MS-VBAL §5.6.4).
-    private static bool IsQualifier(Symbol symbol) => IsWritable(symbol) && symbol is VBProjectSymbol or VBStandardModuleSymbol;
+    // what qualifies a type name in a list of types: a project, or a library. A procedural module can qualify one too (MS-VBAL §5.6.4), but the type it declares
+    // is offered by its own name, and a module is no type: it is not offered where a type is written.
+    private static bool IsQualifier(Symbol symbol) => IsWritable(symbol) && symbol is VBProjectSymbol;
 
     // what a member access can name: anything a module or a type declares but its events, which are raised and handled and never accessed (MS-VBAL §5.3.1.13).
     private static bool IsMemberName(Symbol symbol)

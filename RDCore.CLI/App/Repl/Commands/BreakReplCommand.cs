@@ -1,4 +1,5 @@
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Platform.Commands;
 
 namespace RDCore.CLI.App.Repl.Commands;
 
@@ -15,11 +16,34 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// that reaches it - not before, since the names it has are that procedure's, and its locals are not there until it runs.
 /// </para>
 /// </remarks>
-internal sealed class BreakReplCommand : IReplCommand
+internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
 {
+    private const string Toggle = "TOGGLE";
+    private const string Clear = "CLEAR";
+
     public string Name => ReplCommandNames.Break;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Break_Summary;
+
+    // BREAK CLEAR, BREAK TOGGLE <line>, and BREAK <line> [condition] - the condition an expression of the program, completed as one.
+    public VerbDescriptor Descriptor => new()
+    {
+        Name = Name,
+        Summary = Summary,
+        Forms =
+        [
+            [new VerbArgument { Name = "clear", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = Clear, Description = Resources.Repl_Break_Clear_Detail }] }],
+            [
+                new VerbArgument { Name = "toggle", Kind = VerbArgumentKind.Keyword, Values = [new() { Value = Toggle, Description = Resources.Repl_Break_Toggle_Detail }] },
+                new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber },
+            ],
+            [
+                new VerbArgument { Name = "line", Kind = VerbArgumentKind.LineNumber },
+                // the program waits before the line, and the condition is evaluated there: in its procedure, with its locals.
+                new VerbArgument { Name = "condition", Kind = VerbArgumentKind.Expression, EvaluatedAt = "line" },
+            ],
+        ],
+    };
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
@@ -34,7 +58,7 @@ internal sealed class BreakReplCommand : IReplCommand
             return ReplCommandResult.Continue;
         }
 
-        if (string.Equals(text, "CLEAR", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(text, Clear, StringComparison.OrdinalIgnoreCase))
         {
             debugger.ClearBreakpoints();
             _ = await TellAsync(context, token);
@@ -44,7 +68,7 @@ internal sealed class BreakReplCommand : IReplCommand
 
         // the line number is the first word, and whatever follows it is the condition, as it was typed: a string literal in it keeps its spaces.
         var (first, rest) = SplitFirstWord(text);
-        if (first.Equals("TOGGLE", StringComparison.OrdinalIgnoreCase))
+        if (first.Equals(Toggle, StringComparison.OrdinalIgnoreCase))
         {
             if (!int.TryParse(rest, out var line))
             {

@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
@@ -37,4 +37,51 @@ public record class SessionCompletionParams : IRequest, IRequest<CompletionList>
     /// The zero-based character of <see cref="Line"/> the cursor is at, in UTF-16 code units: what is before it is what the list completes.
     /// </summary>
     public int Character { get; init; }
+
+    /// <summary>
+    /// The verb of the client that the line at its prompt starts with, and what is typed after it - for a line that is no code of the module but a command of the
+    /// client: its arguments are completed as the verb's registered descriptor describes them (<see cref="SessionCommandsParams"/>), and <see cref="Line"/> and
+    /// <see cref="Character"/> are not read. <see langword="null"/> for a line of code.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Source"/> is still the module the command acts on: the lines a line number names, and where an expression is evaluated, are its.
+    /// </remarks>
+    public SessionCommandCompletion? Command { get; init; }
+}
+
+/// <summary>
+/// A command of a client that is being typed at its prompt: the verb, which the client registered, and its arguments as they are typed.
+/// </summary>
+public sealed record class SessionCommandCompletion
+{
+    /// <summary>The verb, by its name or one of its aliases, as the client registered it.</summary>
+    public string Verb { get; init; } = string.Empty;
+
+    /// <summary>What is typed after the verb, up to the cursor, as it is typed: not trimmed.</summary>
+    public string Arguments { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Request for <c>rdcore/session/commands</c>: a client registers the verbs of its own commands with the language server, described
+/// (<see cref="Commands.VerbDescriptor"/>), so that what is typed after one at its prompt is completed as its descriptor says.
+/// </summary>
+/// <remarks>
+/// A verb is registered once, and again only when its descriptor changes - a choice of what the client has (its themes) that it has more or fewer of: a verb
+/// registered again replaces what it was registered as. A completion request then names the verb, and nothing more of it travels
+/// (<see cref="SessionCommandCompletion"/>).
+/// </remarks>
+[Method(RDCorePlatformProtocol.SessionCommands, Direction.ClientToServer)]
+public record class SessionCommandsParams : IRequest, IRequest<SessionCommandsResult>
+{
+    /// <summary>The verbs, described.</summary>
+    public IReadOnlyList<Commands.VerbDescriptor> Verbs { get; init; } = [];
+}
+
+/// <summary>
+/// What the language server made of the verbs a client registered.
+/// </summary>
+public record class SessionCommandsResult
+{
+    /// <summary>How many verbs the client has registered now, the ones it registered before included.</summary>
+    public int Registered { get; init; }
 }

@@ -517,4 +517,13 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Breakpoint_ConditionFailed" xml:space="preserve">
     <value>BREAKPOINT CONDITION FAILED: {0}</value>
   </data>
+  <data name="Repl_Break_Toggle_Detail" xml:space="preserve">
+    <value>Disables the breakpoint of a line, or enables it again</value>
+  </data>
+  <data name="Repl_Break_Clear_Detail" xml:space="preserve">
+    <value>Removes every breakpoint</value>
+  </data>
+  <data name="Repl_Theme_List_Detail" xml:space="preserve">
+    <value>Shows the themes to choose from</value>
+  </data>
 </root>

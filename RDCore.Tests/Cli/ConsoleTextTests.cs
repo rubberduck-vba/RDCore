@@ -1,4 +1,4 @@
-using RDCore.CLI.App.Console;
+﻿using RDCore.CLI.App.Console;
 
 namespace RDCore.Tests.Cli;
 

@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
+using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -231,6 +232,32 @@ public interface IReplPlatformClient
     Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what can be written at a position of a module: the completion list of the line at the prompt.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="line">The zero-based line of the cursor in <paramref name="source"/>.</param>
+    /// <param name="character">The zero-based character of the cursor on <paramref name="line"/>.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
+
+    /// <summary>
+    /// Registers the verbs of the shell's commands with the language server, described: what it completes their arguments by.
+    /// </summary>
+    /// <param name="verbs">The verbs, described.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<SessionCommandsResult> RegisterCommandsAsync(IReadOnlyList<VerbDescriptor> verbs, CancellationToken token);
+
+    /// <summary>
+    /// Asks the language server what can be written for the arguments of a command of the shell, as its registered verb describes them.
+    /// </summary>
+    /// <param name="source">The complete source of the module the command acts on.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="command">The verb, and what is typed after it.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<CompletionList> CompleteCommandAsync(string source, string moduleName, SessionCommandCompletion command, CancellationToken token);
+
+    /// <summary>
     /// Reads the byte at an address in the runtime session's memory.
     /// </summary>
     /// <param name="address">The address to read.</param>
@@ -299,4 +326,17 @@ public interface IReplCommand
     /// <param name="arguments">Everything the user typed after the verb, trimmed.</param>
     /// <param name="token">A token that cancels the command — what <kbd>Ctrl</kbd>+<kbd>Break</kbd> trips.</param>
     Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token);
+}
+
+/// <summary>
+/// A command of the shell that describes its arguments (<see cref="VerbDescriptor"/>): what the language server completes them by, as they are typed.
+/// </summary>
+/// <remarks>
+/// The arguments of a command are no VBA - but for the ones that are an expression of the program, which the descriptor says - and a command that describes none is
+/// given no list after its verb at all.
+/// </remarks>
+public interface IReplCommandDescriptor
+{
+    /// <summary>The verb and the forms of its arguments, as they are now: a choice can be of what the shell has at the time (its themes).</summary>
+    VerbDescriptor Descriptor { get; }
 }

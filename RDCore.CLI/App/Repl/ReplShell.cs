@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using RDCore.CLI.App.Console;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 
@@ -25,7 +26,8 @@ internal sealed class ReplShell(
     IReplPlatformClient platform,
     ReplDocument document,
     IReplCommandDispatcher dispatcher,
-    ILogger<ReplShell> logger)
+    ILogger<ReplShell> logger,
+    ConsolePromptEditor? editor = null)
 {
     /// <summary>
     /// How long the language server may wait for the runtime session to come up before the shell
@@ -203,14 +205,16 @@ internal sealed class ReplShell(
         WriteReady();
     }
 
-    // Console.ReadLine blocks its thread and nothing can interrupt it, so it runs on a pool thread
-    // and the shell waits on the token instead: the host shutting down (a lost language server)
-    // must not need the user to press Enter first.
-    private static async Task<string?> ReadLineAsync(CancellationToken token)
+    // a line is read with the editor where there is one - the keys are a console's, and it is drawn on one that understands ANSI escape sequences - and with
+    // Console.ReadLine otherwise. Neither can be interrupted from outside, so the shell waits on the token instead: the host shutting down (a lost language
+    // server) must not need the user to press Enter first.
+    private async Task<string?> ReadLineAsync(CancellationToken token)
     {
         try
         {
-            return await Task.Run(System.Console.ReadLine, CancellationToken.None).WaitAsync(token);
+            return editor is not null
+                ? await editor.ReadLineAsync(token).WaitAsync(token)
+                : await Task.Run(System.Console.ReadLine, CancellationToken.None).WaitAsync(token);
         }
         catch (OperationCanceledException)
         {

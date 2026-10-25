@@ -1,4 +1,4 @@
-namespace RDCore.CLI.App.Console;
+﻿namespace RDCore.CLI.App.Console;
 
 /// <summary>
 /// The characters a <see cref="ConsoleDialogBox"/> is drawn with.
@@ -17,6 +17,9 @@ public sealed record class ConsoleBorder(
 {
     /// <summary>The double-line border of a QBasic dialog, in box-drawing characters.</summary>
     public static ConsoleBorder Double { get; } = new('╔', '═', '╗', '║', '╚', '╝', '╟', '─', '╢');
+
+    /// <summary>A single-line border, in box-drawing characters: what a dropdown is drawn with, under the line it drops from.</summary>
+    public static ConsoleBorder Single { get; } = new('┌', '─', '┐', '│', '└', '┘', '├', '─', '┤');
 
     /// <summary>A border of plain ASCII characters, for an output that cannot show box-drawing ones.</summary>
     public static ConsoleBorder Ascii { get; } = new('+', '-', '+', '|', '+', '+', '+', '-', '+');
