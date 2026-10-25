@@ -57,7 +57,8 @@ public sealed class FileSystemModuleTests
     [DataRow("a.txt,sub/", "P Dir(\"/ws/\") ;; P \"[\" & Dir() & \"]\" ;; P Dir(\"/ws/sub\", vbDirectory) ;; P \"[\" & Dir(\"/ws/sub\") & \"]\"", "a.txt|[]|sub|[]|", DisplayName = "D04 what is in a directory")]
     [DataRow("a.txt", "P Dir(\"/ws/A.TXT\") ;; P Dir(\"/ws/?.txt\") ;; P TypeName(Dir(\"/ws/a.txt\"))", "a.txt|a.txt|String|", DisplayName = "D05 whatever the case, ? a character")]
     [DataRow("B.TXT,a.txt,_c.txt,10.txt,9.txt", "P Dir(\"/ws/*.txt\") ;; P Dir() ;; P Dir() ;; P Dir() ;; P Dir()", "10.txt|9.txt|a.txt|B.TXT|_c.txt|", DisplayName = "D11 in the order of their upper-case spelling")]
-    [DataRow("sub/,sub/x.txt", "P Dir(\"/ws/sub/\") ;; P Dir(\"/ws/sub/*.*\") ;; P Dir(\"/ws/SUB/X.TXT\")", "x.txt|x.txt|x.txt|", DisplayName = "D12 in a directory")]
+    // the name matches whatever its case; the directory is found as the file system finds it, which on Linux is by its case - so this spells it as it is.
+    [DataRow("sub/,sub/x.txt", "P Dir(\"/ws/sub/\") ;; P Dir(\"/ws/sub/*.*\") ;; P Dir(\"/ws/sub/X.TXT\")", "x.txt|x.txt|x.txt|", DisplayName = "D12 in a directory")]
     public void Dir_IsTheNamesThatMatch(string files, string body, string expected) => AssertPrinted(expected, files, body);
 
     // D06: a hidden file only with vbHidden.

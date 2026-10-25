@@ -43,7 +43,8 @@ public interface IStdFileSystemModule
     /// As in <strong>MS-VBA</strong> (recorded in Excel):
     /// <list type="bullet">
     /// <item>the name has no directory part, and is spelled as the file system spells it; names match a pattern whatever their case, <c>*</c> and <c>?</c>
-    /// being wildcards, and come in the order of their upper-case spelling;</item>
+    /// being wildcards, and come in the order of their upper-case spelling. The directory the pattern is in is found as the file system finds it: whatever its
+    /// case on Windows, by its case on a file system whose names are, as Linux's are;</item>
     /// <item>a pattern that names a directory, ending in a separator, matches what is in it; a directory itself only matches with
     /// <see cref="VBFileAttribute.VBDirectory"/>, which matches <c>.</c> and <c>..</c> too, and files with it;</item>
     /// <item>a hidden or a system file only matches with <see cref="VBFileAttribute.VBHidden"/> or <see cref="VBFileAttribute.VBSystem"/>;</item>
