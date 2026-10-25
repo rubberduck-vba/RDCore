@@ -127,7 +127,9 @@ other's - or `vbNullString` for `0`; the `BSTR` it pointed at is let go of, not 
 An object is a pointer too: the address of an interface of the object, a block the session makes for each interface it is asked for through
 ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#objptr)) and frees when the object is destroyed. A dynamic array is the address of a
 `SAFEARRAY` the session makes for what holds it, which describes the array and points at its elements ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#safearray)).
-A `Variant` is a `VARIANT`: its type, then its data, a `String`'s, an object's or an array's being the pointer it is.
+A `Variant` is a `VARIANT`: its type, then its data, a `String`'s, an object's or an array's being the pointer it is. A procedure of a standard module has an
+address too, what `AddressOf` gives ([**RD-VBAL §5.6.16.8**](rd-vbal.5.6.16.constrained-expressions.md#56168-addressof-expressions)): a block the session
+makes the first time it is asked for, which lasts as long as the session.
 
 The order in which names are looked up in these heaps is specified in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).

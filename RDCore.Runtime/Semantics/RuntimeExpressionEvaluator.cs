@@ -2698,9 +2698,34 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             NamedArgumentNode named => Evaluate(session, named.Value, context),
             // AddressOf's Target names a procedure to reference, never one to call or read a value
             // from, so this never delegates to Evaluate the way every other argument shape does.
-            AddressOfExpressionNode => RuntimeSemanticsEvaluationResult.InternalError(),
+            AddressOfExpressionNode addressOf => EvaluateAddressOf(session, addressOf, context),
             _ => Evaluate(session, argument, context),
         };
+
+    // MS-VBAL §5.6.16.8: the address of the procedure the target names, a LongPtr (MS-VBA, recorded in Excel: oracle\s17 A01) - what is no procedure of a
+    // standard module is a compile error the static semantics raise first (VBC09364, VBC09367).
+    private RuntimeSemanticsEvaluationResult EvaluateAddressOf(IRuntimeSession session, AddressOfExpressionNode addressOf, RuntimeEvaluationContext context)
+    {
+        var procedure = addressOf.Target switch
+        {
+            SimpleNameExpressionNode name => session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol,
+            MemberAccessExpressionNode access => ResolveNamespaceQualified(session, context, access),
+            _ => null,
+        };
+
+        if (procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+            || session.Storage is not Execution.Memory.SessionStorage storage)
+        {
+            return RuntimeSemanticsEvaluationResult.InternalError();
+        }
+
+        if (!storage.TryGetProcedureAddress(procedure, out var address))
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfMemory, addressOf.Location, addressOf.Target.ToString()));
+        }
+
+        return RuntimeSemanticsEvaluationResult.Success(session.Environment.Is64Bit ? new VBLongPtrValue((long)address.Value) : new VBLongPtrValue(address.Value));
+    }
 
     // what EvaluateIndexArgument evaluates an argument to, from the node it was bound to with the call (S1.7). One the call's binding did not bind - an
     // omitted argument, AddressOf, an argument written ByVal - is evaluated as it is written, bound on its own.

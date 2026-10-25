@@ -241,8 +241,8 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             return TryPokeSlot(holder, within, slotType, value);
         }
 
-        // an object's interface is the session's, which a program does not write.
-        if (_headers.ContainsKey(block) || _vtables.ContainsValue(block))
+        // an object's interface, and a procedure's address, are the session's, which a program does not write.
+        if (_headers.ContainsKey(block) || _vtables.ContainsValue(block) || _stubs.ContainsKey(block))
         {
             return false;
         }
@@ -330,6 +330,12 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (_vtables.ContainsValue(block))
         {
             image = new byte[VTableSize];
+            return true;
+        }
+
+        if (_stubs.ContainsKey(block))
+        {
+            image = new byte[StubSize];
             return true;
         }
 

@@ -209,7 +209,6 @@ public sealed class MsVbaErrorParityTests
 
     // MS-VBA runs it: the address is a number, which a LongPtr parameter holds (Excel-verified, as `Debug.Print AddressOf ...` prints one).
     [TestMethod]
-    [Ignore("AddressOf is evaluated as an internal error: RD-VBA makes no address of a procedure yet (*Ptr plan P5)")]
     public async Task TheAddressOfAProcedure_IsANumber_WhenItRuns()
         => Assert.AreEqual("True", (await RunAsync(Classes, Modules, Program("Debug.Print Globals.IsAnAddress(AddressOf Globals.SomeSub)"))).Last());
 

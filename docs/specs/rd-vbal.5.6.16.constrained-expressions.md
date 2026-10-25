@@ -99,8 +99,21 @@ class; `New` with a name nothing declares is VBC09311
 
 This section corresponds to [**MS-VBAL §5.6.16.8** AddressOf Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/0e8eb1ba-f6fb-4865-a334-17ec012c1756).
 
+`AddressOf <procedure>` is an argument, and only an argument, as the grammar of **MS-VBAL** has it: `x = AddressOf P` is a syntax error, as it is in
+**MS-VBA**. As in **MS-VBA** (recorded in Excel):
+
+- **Static semantics.** What it names is a `Sub`, a `Function` or a `Property Get` of a standard module, named bare or qualified by its module, `Private` ones
+  of the module it is written in included. A variable is [`VBC09364`](../diagnostics/vbc09364.md) _Expected Sub, Function, or Property_, and a member of a
+  class module or of an object [`VBC09367`](../diagnostics/vbc09367.md) _Invalid use of AddressOf operator_. Its declared type is implementation-defined: it
+  is the environment's `LongPtr`, which a `LongPtr` or a `Variant` parameter takes - and a `Long` one does not, in a 64-bit environment
+  ([**RD-VBAL §5.5.1.1**](rd-vbal.5.5.1.1.static-semantics.md)).
+- **Runtime semantics.** It is the address of the procedure in the session's memory: never `0`, the same every time, bare or qualified, and another for
+  another procedure ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)). The address is made the first time it is asked for and
+  lasts as long as the session; what is at it reads as zeros, and a `POKE` there is refused.
+
 > [!NOTE]
-> Reserved. This section has no content yet.
+> 🚧 Not implemented yet (*Ptr plan phase B): native code given the address - the callback of `EnumWindows`, say - has nothing it can call that runs the
+> procedure. In **MS-VBA** the procedure runs inside the native call, and an error raised in it is the error of the `Declare` call.
 
 ---
 > ⏮️ [**RD-VBAL §5.6.15** With Expressions](rd-vbal.5.6.15.with-expressions.md) | ⏭️ [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)
