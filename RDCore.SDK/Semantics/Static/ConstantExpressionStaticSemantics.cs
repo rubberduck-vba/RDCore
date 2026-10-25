@@ -52,6 +52,15 @@ public static class ConstantExpressionStaticSemantics
                 yield return boundError;
             }
 
+            // a field of a user-defined type that is an array is declared with bounds as a variable is (MS-VBA, Excel-verified, oracle\s29 A09, A10).
+            foreach (var field in member is VBUserDefinedTypeMemberSymbol { Members.IsDefault: false } userDefinedType ? userDefinedType.Members : [])
+            {
+                foreach (var boundError in BoundErrors(resolver, field))
+                {
+                    yield return boundError;
+                }
+            }
+
             foreach (var local in DeclarationStaticSemanticsEvaluator.LocalsOf(member))
             {
                 if (local is VBLocalConstantSymbol { Value: { } localValue }
@@ -148,6 +157,17 @@ public static class ConstantExpressionStaticSemantics
                 {
                     yield return error;
                 }
+            }
+
+            // a bound is a Long (MS-VBAL §5.2.3.1.3: "Let-coerced to Long"): one past its range is an overflow, before any range is looked at (MS-VBA: "Overflow",
+            // Excel-verified, oracle\s29 A13, A25-A27).
+            var outOfRange = new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>()
+                .FirstOrDefault(expression => LiteralValue(expression) is { } value && (value < int.MinValue || value > int.MaxValue));
+            if (outOfRange is not null)
+            {
+                yield return VBCompileErrorInfo.For(VBCompileErrorId.Overflow, outOfRange.Location,
+                    string.Format(Exceptions.VBCompileError_ArrayBoundOverflow_Verbose, array.Name));
+                continue;
             }
 
             // an upper bound less than the lower one leaves the dimension no element (MS-VBA: "Range has no values", Excel-verified). Bounds written as

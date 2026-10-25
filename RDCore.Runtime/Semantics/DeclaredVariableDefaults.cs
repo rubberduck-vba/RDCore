@@ -30,8 +30,9 @@ namespace RDCore.Runtime.Semantics;
 /// by the same fold a <c>Const</c>'s is; one that declares none starts as Missing when it is a <c>Variant</c>.
 /// </para>
 /// <para>
-/// 🚧 TODO a bound that cannot be reduced - a non-constant expression, an upper bound below the lower - is a compile error that
-/// nothing reports yet; the array is left with no dimensions, which is what it was before bounds reached the host at all.
+/// A bound that cannot be reduced - a non-constant expression, one past the range of a <c>Long</c>, an upper bound below the lower - is a
+/// compile error of the module (<see cref="RDCore.SDK.Semantics.Static.ConstantExpressionStaticSemantics"/>, <see cref="DeclaredSizeStaticSemantics"/>),
+/// which is then not loaded; were one to reach this all the same, the array is left with no dimensions.
 /// </para>
 /// </remarks>
 /// <param name="session">The session the variables are allocated in, which resolves what the bounds name.</param>

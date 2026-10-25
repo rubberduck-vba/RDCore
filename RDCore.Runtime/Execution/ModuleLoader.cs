@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Precompiler;
+using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
@@ -77,6 +78,11 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         SizeFixedSizeArrays(members);
 
+        // the sizes the declarations are written with - a String * n's length, a bound that names a constant - are reduced now that the constants are.
+        var sizeErrors = DeclaredSizeStaticSemantics.Check(session, new ArrayBoundEvaluator(pipeline.Expressions, pipeline.LetCoercion), module,
+            syntaxTree.Children.Select(node => (node, node is MemberDeclarationNode declaration && FindMember(members, declaration) is { } member ? member.Uri : module.Uri)),
+            members);
+
         // the structure of the #If blocks, whatever they evaluated to: what says that a name declared in each branch of one is declared once.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
         var options = new InstructionLoweringOptions(deadRanges, IsReleaseBuild: !session.IsDebugBuild(), Language: session.Environment.Language);
@@ -117,6 +123,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
             .AddRange(constantErrors)
+            .AddRange(sizeErrors)
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckSyntax(syntaxTree, blocks))
             .AddRange(DeclarationStaticSemanticsEvaluator.CheckDesigner(syntaxTree, parseResult.Designer))
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))

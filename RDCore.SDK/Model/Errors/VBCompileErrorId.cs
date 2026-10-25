@@ -594,6 +594,11 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.16.7</strong> Type Expressions.
     /// </summary>
     ExpectedUserDefinedTypeNotProject = 9374,
+    /// <summary>
+    /// A fixed-length <c>String * n</c> is declared with a length it cannot be: less than 1, or more than 65526 characters.<br/>
+    /// <strong>MS-VBAL §5.2.3.1.4</strong> Variable Type Declarations.
+    /// </summary>
+    InvalidLengthForFixedLengthString = 9375,
 
 
     /***********************************************************************************************

@@ -362,52 +362,43 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     }
 
     // MS-VBAL 5.2.3.1.4: "the data value of its <INTEGER> element or the data value referenced by its <constant-name> Let-coerced to declared type Long" -
-    // a number as written, or a constant whose value is one.
+    // a number as written, a constant whose value is a literal, or a member of an enumeration whose value is one. A length no fixed-length string can be
+    // (0, 70000) is no type at all: the host reports it (DeclaredSizeStaticSemantics), and the declaration is the variable-length String it was written with.
     private int? FixedLengthOf(string length, Uri handle)
     {
-        if (TryParseInteger(length, out var written))
-        {
-            return written;
-        }
+        var characters = VBFixedStringType.TryParseLengthLiteral(length, out var written) ? written : ConstantLengthOf(length, handle);
+        return characters is { } valid && VBFixedStringType.IsValidLength(valid) ? (int)valid : null;
+    }
 
-        var constant = resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol;
-        var value = constant switch
+    private long? ConstantLengthOf(string length, Uri handle)
+    {
+        var value = resolver.ResolveValue(length, ScopeKind.Local, handle).Symbol switch
         {
-            VBConstantMemberSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue,
-            VBLocalConstantSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue,
+            VBConstantMemberSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue.RuntimeValue.BoxedValue,
+            VBLocalConstantSymbol { Value: LiteralExpressionNode literal } => literal.StaticValue.RuntimeValue.BoxedValue,
+            VBEnumConstMemberSymbol { DeclaredValue: null } => 0,
+            VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: null, Offset: var offset } } => offset,
+            VBEnumConstMemberSymbol { DeclaredValue: { BaseValue: LiteralExpressionNode literal, Offset: var offset } }
+                when literal.StaticValue.RuntimeValue.BoxedValue is { } number && IsNumber(number)
+                => Convert.ToDouble(number, System.Globalization.CultureInfo.InvariantCulture) + offset,
             _ => null,
         };
 
-        return value?.RuntimeValue.BoxedValue is { } number && number is byte or short or int or long or float or double or decimal
-            ? Convert.ToInt32(number, System.Globalization.CultureInfo.InvariantCulture)
-            : null;
+        // Let-coerced to Long: a fraction rounds half to even (Const K = 2.5 is 2), and a String that reads as a number is that number (Const K = "3" is 3),
+        // as MS-VBA has it (Excel-verified, oracle\s29 F05, F06).
+        return value switch
+        {
+            _ when value is not null && IsNumber(value) => RoundToLong(Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)),
+            string text when double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number)
+                => RoundToLong(number),
+            _ => null,
+        };
     }
 
-    // an integer literal as VBA writes one: decimal, &H hexadecimal or &O octal, with or without a type-declaration character.
-    private static bool TryParseInteger(string text, out int value)
-    {
-        var digits = text.TrimEnd('%', '&', '^', '!', '#', '@');
-        if (digits.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
-        {
-            return int.TryParse(digits[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out value);
-        }
+    private static bool IsNumber(object value) => value is byte or short or int or long or float or double or decimal;
 
-        if (digits.StartsWith("&O", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                value = Convert.ToInt32(digits[2..], 8);
-                return true;
-            }
-            catch (FormatException)
-            {
-                value = 0;
-                return false;
-            }
-        }
-
-        return int.TryParse(digits, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
-    }
+    private static long? RoundToLong(double value)
+        => Math.Round(value, MidpointRounding.ToEven) is var rounded && rounded >= long.MinValue && rounded <= long.MaxValue ? (long)rounded : null;
 
     // Binds a reserved/declared type name through the resolver, optionally qualified by a project name
     // (MS-VBAL 5.6.4); an unresolved name stays Unknown, and remembers the name (VBUnresolvedType). A resolved user-defined type, enum or class
