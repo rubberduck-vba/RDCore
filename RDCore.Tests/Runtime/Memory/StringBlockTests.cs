@@ -211,6 +211,49 @@ public sealed class StringBlockTests
         Assert.AreEqual("y", ((VBStringValue)array.ElementAt(0)!).Value);
     }
 
+    private static (SessionStorage Storage, VBUserDefinedTypeValue Record, VBFixedSizeArrayValue Field, MemoryAddress Address) WithArrayField(VBType itemType)
+    {
+        var uri = TestUri.TestModuleUserDefinedTypeUri("TInline");
+        var symbol = new VBUserDefinedTypeMemberSymbol(uri, uri, "TInline", ScopeKind.Module, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+        var record = new VBUserDefinedTypeValue(new VBUserDefinedType(symbol, [Field("B", VBByteType.TypeInfo), Field("N", new VBFixedSizeArrayType(itemType))]));
+        var field = new VBFixedSizeArrayValue([(0, 2)], itemType);
+        Assert.IsTrue(record.TrySetFieldAt(1, field));
+        field = (VBFixedSizeArrayValue)record.FieldAt(1)!;
+
+        var storage = Storage();
+        var handle = new ValueBindingHandle(new VBRuntimeValue<VBRuntimeUserDefinedTypeValue>(new VBRuntimeUserDefinedTypeValue(record)));
+        Assert.IsTrue(storage.TryAllocate(record.Size, handle, out var address));
+        return (storage, record, field, address);
+    }
+
+    // oracle\s24 P04: a fixed-size array field is in the record, its elements side by side - and its bytes are theirs.
+    [TestMethod]
+    public void AFixedSizeArrayFieldsElements_AreTheirBytes_InTheRecord()
+    {
+        var (storage, _, field, address) = WithArrayField(VBLongType.TypeInfo);
+        Assert.IsTrue(field.TrySetElementAt(1, new ValueBindingHandle(new VBRuntimeValue<int>(300))));
+
+        Assert.AreEqual(300, BitConverter.ToInt32(Peek(storage, address.Value + 8, 4)), "N(1) is 4 bytes past N(0), at offset 4");
+        Assert.IsTrue(storage.TryPoke(new MemoryAddress(address.Value + 12), 7));
+
+        Assert.AreEqual(7, ((VBLongValue)field.ElementAt(2)!).Value);
+    }
+
+    [TestMethod]
+    public void AStringElementOfAFixedSizeArrayField_IsTheAddressOfItsCharacters()
+    {
+        var (storage, _, field, address) = WithArrayField(VBStringType.TypeInfo);
+        Assert.IsTrue(field.TrySetElementAt(1, new ValueBindingHandle(new VBRuntimeValue<string>("q"))));
+        var element = new MemoryAddress(address.Value + 16);
+
+        var characters = PointerOf(storage, element);
+
+        Assert.AreEqual(characters, BitConverter.ToInt64(Peek(storage, element.Value, 8)));
+        Assert.AreEqual(0, BitConverter.ToInt64(Peek(storage, address.Value + 8, 8)), "N(0) holds vbNullString");
+        Assert.IsTrue(storage.TryPoke(new MemoryAddress((int)characters), 114));
+        Assert.AreEqual("r", ((VBStringValue)field.ElementAt(1)!).Value);
+    }
+
     // S11: a String field of a record is the address of its characters, at the field's offset.
     [TestMethod]
     public void AStringFieldsBytes_AreTheAddressOfItsCharacters()

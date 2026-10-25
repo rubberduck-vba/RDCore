@@ -13,6 +13,7 @@ public sealed class StrPtrTests
     private static readonly (string Name, string Source) Globals = ("Globals", StandardModule("Globals",
         "Option Explicit",
         "Public Type Mixed", "    B As Byte", "    S As String", "    V As Variant", "    F As String * 3", "End Type",
+        "Public Type Names", "    B As Byte", "    N(2) As String", "End Type",
         "Public Sub ByValStr(ByVal s As String, ByRef addr As LongPtr)", "    addr = StrPtr(s)", "End Sub",
         "Public Sub ByRefStr(ByRef s As String, ByRef addr As LongPtr)", "    addr = StrPtr(s)", "End Sub"));
 
@@ -37,6 +38,8 @@ public sealed class StrPtrTests
         DisplayName = "S10 an element, and one nothing was assigned to")]
     [DataRow("Dim r As Mixed ;; r.S = \"hey\" ;; P (StrPtr(r.S) <> 0) ;; P (StrPtr(r.S) = StrPtr(r.S))", "True|True|",
         DisplayName = "S11 a field of a record")]
+    [DataRow("Dim r As Names, s0 As LongPtr ;; r.N(1) = \"q\" ;; s0 = StrPtr(r.N(1)) ;; P (s0 <> 0) ;; P (StrPtr(r.N(1)) = s0) ;; P StrPtr(r.N(0)) ;; Mid$(r.N(1), 1, 1) = \"z\" ;; P (StrPtr(r.N(1)) = s0)",
+        "True|True|0|True|", DisplayName = "an element of a fixed-size array field")]
     [DataRow("Dim s As String, t As String ;; s = \"a\" ;; t = \"b\" ;; P (StrPtr(s) <> StrPtr(t))", "True|", DisplayName = "two Strings, two addresses")]
     [DataRow("P TypeName(StrPtr(\"abc\")) ;; P (StrPtr(\"abc\") <> 0)", "LongLong|True|", DisplayName = "a LongPtr, and a value is a temporary")]
     [DataRow("Dim n As Long, f As String * 3, r As Mixed ;; n = 5 ;; P (StrPtr(n) <> 0) ;; P (StrPtr(f) <> 0) ;; P (StrPtr(r.F) <> 0)", "True|True|True|",

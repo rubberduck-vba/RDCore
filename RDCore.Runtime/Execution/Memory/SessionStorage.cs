@@ -194,8 +194,8 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
         }
 
         return _handleByAddress.TryGetValue(found.Address, out var outer) && CanRead(outer) && RecordOf(outer) is { } record
-            && StringHolders.TryFindField(record, offset, pointerSize, out var owner, out var index)
-            && StringHolders.TryStringOf(owner.FieldAt(index), out text);
+            && StringHolders.TryFindField(record, offset, pointerSize, out var field)
+            && StringHolders.TryStringOf(field, out text);
     }
 
     // makes what holds the String at an address hold another: where a POKE into its characters leaves them.
@@ -227,9 +227,8 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
 
         Generation++;
         return _handleByAddress.TryGetValue(found.Address, out var outer) && RecordOf(outer) is { } record
-            && StringHolders.TryFindField(record, offset, pointerSize, out var owner, out var index)
-            && owner.FieldAt(index) is { } held
-            && owner.TrySetFieldAt(index, StringHolders.Replacing(held, text));
+            && StringHolders.TryFindField(record, offset, pointerSize, out var field)
+            && StringHolders.TryWrite(field, text);
     }
 
     private static SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue? RecordOf(IBindingHandle handle)

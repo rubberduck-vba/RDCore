@@ -131,8 +131,8 @@ internal sealed class ArrayBlock
         if (array.ItemType is VBUserDefinedType)
         {
             return array.ElementAt(index) is VBUserDefinedTypeValue record
-                && StringHolders.TryFindField(record, within, _pointerWidth, out var owner, out var field)
-                && StringHolders.TryStringOf(owner.FieldAt(field), out text);
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var field)
+                && StringHolders.TryStringOf(field, out text);
         }
 
         return within == 0 && array.CellAt(index) is { } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue)
@@ -154,9 +154,8 @@ internal sealed class ArrayBlock
         if (array.ItemType is VBUserDefinedType)
         {
             return array.ElementAt(index) is VBUserDefinedTypeValue record
-                && StringHolders.TryFindField(record, within, _pointerWidth, out var owner, out var field)
-                && owner.FieldAt(field) is { } held
-                && owner.TrySetFieldAt(field, StringHolders.Replacing(held, text));
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var field)
+                && StringHolders.TryWrite(field, text);
         }
 
         return within == 0 && array.CellAt(index) is { } cell

@@ -102,7 +102,6 @@ target where they are.
 > [!NOTE]
 > 🚧 Not implemented yet:
 >
-> - The `String`s of a fixed-size array field of a record are given to `StrPtr` as copies.
 > - A `POKE` into the length, or into a `String` variable's pointer, is refused (*Ptr plan phase B: a pointer copied into a `String` variable).
 
 ---

@@ -2566,12 +2566,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (element.Callee is MemberAccessExpressionNode { Owner: { } owner } field && array is VBFixedSizeArrayValue
                 && TryAddressOfRecord(session, context, owner, out var start, out var record, out _))
             {
-                // 🚧 the Strings of a fixed-size array field are pointers in the record that nothing here makes BSTRs of yet: StrPtr is given a copy.
-                if (parameter.ResolvedType is not VBUnknownType)
-                {
-                    return false;
-                }
-
                 var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
                 var index = FieldIndexOf(fields, field.Member.IdentifierName);
                 if (index < 0)

@@ -74,33 +74,47 @@ public static class VBUserDefinedTypeImage
         for (var index = 0; index < layout.Fields.Count; index++)
         {
             var field = layout.Fields[index];
-            var offset = field.Offset;
-
-            // the order matters: a fixed-length String is a VBStringType, and is its characters.
-            if (stringPointer is not null && field.Symbol.ResolvedType is VBStringType and not VBFixedStringType)
+            if (field.Symbol.ResolvedType is { } type
+                && ImageOf(type, value.FieldAt(index), field.Width, pointerWidth, stringPointer, field.Offset) is { } bytes)
             {
-                var pointer = stringPointer(offset);
-                (pointerWidth == sizeof(int) ? BitConverter.GetBytes(unchecked((int)pointer)) : BitConverter.GetBytes(pointer))
-                    .AsSpan(0, Math.Min(pointerWidth, field.Width)).CopyTo(image.AsSpan(offset));
-                continue;
-            }
-
-            if (stringPointer is not null && field.Symbol.ResolvedType is VBUserDefinedType && value.FieldAt(index) is VBUserDefinedTypeValue nested)
-            {
-                var inner = Of(nested, pointerWidth, at => stringPointer(offset + at));
-                inner.AsSpan(0, Math.Min(inner.Length, field.Width)).CopyTo(image.AsSpan(offset));
-                continue;
-            }
-
-            if (value.FieldAt(index) is { } held && field.Symbol.ResolvedType is { } type
-                && Encoded(type, held, field.Width, pointerWidth) is { } bytes)
-            {
-                bytes.CopyTo(image.AsSpan(field.Offset, Math.Min(bytes.Length, field.Width)));
+                bytes.AsSpan(0, Math.Min(bytes.Length, field.Width)).CopyTo(image.AsSpan(field.Offset));
             }
         }
 
         return image;
     }
+
+    // what a field, or an element of a fixed-size array field, is in memory at an offset of the outermost record: a variable-length String the address of its
+    // characters (which only the host knows), a record its own fields, a fixed-size array its elements side by side - in the record (oracle\s24 P04) - and
+    // anything else as Encoded lays it out.
+    private static byte[]? ImageOf(VBType type, VBTypedValue? value, int width, int pointerWidth, Func<int, long>? stringPointer, int at) => type switch
+    {
+        _ when value is null => null,
+        // the order matters: a fixed-length String is a VBStringType, and is its characters.
+        VBFixedStringType => Encoded(type, value, width, pointerWidth),
+        VBStringType => stringPointer is null ? null : PointerBytes(stringPointer(at), pointerWidth),
+        VBUserDefinedType when value is VBUserDefinedTypeValue nested => Of(nested, pointerWidth, stringPointer is null ? null : offset => stringPointer(at + offset)),
+        _ when value is VBFixedSizeArrayValue inline => InlineImage(inline, width, pointerWidth, stringPointer, at),
+        _ => Encoded(type, value, width, pointerWidth),
+    };
+
+    private static byte[] InlineImage(VBFixedSizeArrayValue array, int width, int pointerWidth, Func<int, long>? stringPointer, int at)
+    {
+        var image = new byte[width];
+        var elementWidth = Math.Max(1, VBUserDefinedTypeLayout.WidthOf(array.ItemType, pointerWidth));
+        for (var element = 0; element < array.Length && (element + 1) * elementWidth <= width; element++)
+        {
+            if (ImageOf(array.ItemType, array.ElementAt(element), elementWidth, pointerWidth, stringPointer, at + element * elementWidth) is { } bytes)
+            {
+                bytes.AsSpan(0, Math.Min(bytes.Length, elementWidth)).CopyTo(image.AsSpan(element * elementWidth));
+            }
+        }
+
+        return image;
+    }
+
+    private static byte[] PointerBytes(long pointer, int pointerWidth)
+        => pointerWidth == sizeof(int) ? BitConverter.GetBytes(unchecked((int)pointer)) : BitConverter.GetBytes(pointer);
 
     /// <summary>
     /// Reads an image back into <paramref name="destination"/>, in place: each field that has bytes of its own takes what the image holds at its offset - what a
@@ -116,19 +130,44 @@ public static class VBUserDefinedTypeImage
         for (var index = 0; index < layout.Fields.Count; index++)
         {
             var field = layout.Fields[index];
-            if (field.Symbol.ResolvedType is not { } type || !HasImage(type) || field.Offset + field.Width > image.Length)
+            if (field.Symbol.ResolvedType is not { } type || field.Offset + field.Width > image.Length)
             {
                 continue;
             }
 
+            // a nested record, and a fixed-size array field, take the bytes of what in them has bytes of its own: they are in the record.
             var bytes = image.Slice(field.Offset, field.Width);
-            if (type is VBUserDefinedType && destination.FieldAt(index) is VBUserDefinedTypeValue nested)
+            switch (destination.FieldAt(index))
             {
-                WriteInto(nested, bytes, pointerWidth);
-                continue;
+                case VBUserDefinedTypeValue nested when type is VBUserDefinedType:
+                    WriteInto(nested, bytes, pointerWidth);
+                    continue;
+                case VBFixedSizeArrayValue inline:
+                    WriteInline(inline, bytes, pointerWidth);
+                    continue;
             }
 
-            destination.TrySetFieldAt(index, Decoded(type, bytes));
+            if (HasImage(type))
+            {
+                destination.TrySetFieldAt(index, Decoded(type, bytes));
+            }
+        }
+    }
+
+    private static void WriteInline(VBFixedSizeArrayValue array, ReadOnlySpan<byte> image, int pointerWidth)
+    {
+        var elementWidth = Math.Max(1, VBUserDefinedTypeLayout.WidthOf(array.ItemType, pointerWidth));
+        for (var element = 0; element < array.Length && (element + 1) * elementWidth <= image.Length; element++)
+        {
+            var bytes = image.Slice(element * elementWidth, elementWidth);
+            if (array.ItemType is VBUserDefinedType && array.ElementAt(element) is VBUserDefinedTypeValue record)
+            {
+                WriteInto(record, bytes, pointerWidth);
+            }
+            else if (HasImage(array.ItemType))
+            {
+                array.TrySetElementAt(element, new Values.Bindings.ValueBindingHandle(Decoded(array.ItemType, bytes).RuntimeValue));
+            }
         }
     }
 
