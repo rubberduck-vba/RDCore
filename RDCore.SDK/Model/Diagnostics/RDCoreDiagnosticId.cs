@@ -83,4 +83,5 @@ public enum RDCoreDiagnosticId
     LateBoundMemberAccess,
     UnresolvedLateBoundMemberAccess,
     VariantNumberStringComparison = 11011, // two Variants, a number and a String: the number is always less
+    SetThroughACallFails = 11012, // Set of a call that returns no object (424), or one whose default member has no Property Set (438): MS-VBA compiles it
 }

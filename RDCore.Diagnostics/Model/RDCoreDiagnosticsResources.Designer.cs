@@ -518,5 +518,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("UnmatchedEventHandler_Message", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ce Set appelle &apos;{0}&apos; et assigne le membre par défaut de ce qu&apos;il retourne, qui n&apos;a pas de Property Set : il lève l&apos;erreur d&apos;exécution 438 (Cet objet ne gère pas cette propriété ou méthode) chaque fois qu&apos;il s&apos;exécute..
+        /// </summary>
+        public static string SetThroughACallFails_NoDefaultMemberToSet_Message {
+            get {
+                return ResourceManager.GetString("SetThroughACallFails_NoDefaultMemberToSet_Message", resourceCulture);
+            }
+        }
     }
 }

@@ -290,6 +290,11 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
+            if (assignment.Kind == AssignmentKind.Set)
+            {
+                MarkSetThroughACall(context, assignment.Target);
+            }
+
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, targetResult.Result!), walk);
@@ -1055,12 +1060,58 @@ public static class StatementStaticSemanticsEvaluator
             return false;
         }
 
-        // a Variant one named by its bare name is called, and what it returns is assigned through, or is error 424 when it runs: a Set of it is a call of it too
-        // (MS-VBA, Excel-measured, oracle\s28 W4, against s30 C32 for one of a class and s28 W3 for a Long)
         return members.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() is { } get
-            && (isSet ? !(target is SimpleNameExpressionNode && get.ResolvedType is VBVariantType) : get.ResolvedType is not (VBClassType or VBObjectType or VBVariantType))
+            && (isSet ? !SetsThroughWhatItReturns(context, get.ResolvedType) : get.ResolvedType is not (VBClassType or VBObjectType or VBVariantType))
             && !members.Any(member => member.Kind == SymbolKindExt.Field || (isSet ? member is VBPropertySetMemberSymbol : member is VBPropertyLetMemberSymbol));
     }
+
+    // MS-VBAL §5.4.3.9: a function, or a property that has no Property Set, named as the target of a Set outside its own body is called, and what it returns
+    // is Set through its default member. MS-VBA compiles it, and a call of a class whose default member has no Property Set fails whenever it runs: error 438
+    // (Excel-measured, oracle\s28 B25), which its declared type alone says. A call of another type that is no object is a compile error already (B23); an
+    // Object or a Variant can return an object whose default member has one (s31 D02, D07), or no object at all (s28 W4, W5: error 424), which only its value
+    // says. The fact is the callee's, for an analyzer to report what the language leaves to the run time.
+    private static void MarkSetThroughACall(StaticEvaluationContext context, ExpressionNode target)
+    {
+        var callee = target is IndexExpressionNode { Callee: var called } ? called : target;
+        if (context.Facts is not { } facts
+            // a variable of the module is a VBReturningMemberSymbol too: what is called is a function, or a Property Get
+            || ObjectValueStaticSemantics.MemberOfCallee(context, callee) is not VBReturningMemberSymbol { } member
+            || member is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
+            || member.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri
+            || member is VBPropertyGetMemberSymbol && HasAPropertySet(context, callee, member))
+        {
+            return;
+        }
+
+        if (member.ResolvedType is VBClassType returned && !SetsThroughWhatItReturns(context, returned) && facts.TryGet(callee.Identity, out var fact))
+        {
+            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.SetHasNoDefaultMemberToSet });
+        }
+    }
+
+    // whether the property a target names has a Property Set, which a Set of it invokes: among what its module declares of the name, or its class.
+    private static bool HasAPropertySet(StaticEvaluationContext context, ExpressionNode target, VBTypeMemberSymbol property)
+    {
+        IEnumerable<Symbol> named = target is MemberAccessExpressionNode { Owner: { } owner } access
+            && ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner).Result is VBClassType { Symbol: var snapshot }
+            ? (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+                .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))
+            : context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name))
+                .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri);
+        return named.Any(member => member is VBPropertySetMemberSymbol);
+    }
+
+    // a Set of a property that has no Property Set is a Set of the default member of what its Property Get returns (MS-VBA, Excel-measured): an object of a
+    // class whose default member has a Property Set takes it (oracle\s31 D04, D08), and what an Object or a Variant property returns is only known when it
+    // runs (D07, s28 W4); an object of a class whose default member has none has nothing to Set (s30 C32, C35, s31 D09, D10: "Invalid use of property").
+    private static bool SetsThroughWhatItReturns(StaticEvaluationContext context, VBType returned) => returned switch
+    {
+        VBObjectType or VBVariantType => true,
+        VBClassType { DefaultMember: { } defaultMember, Symbol: var snapshot }
+            => (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).Members.Any(member
+                => member is VBPropertySetMemberSymbol && string.Equals(member.Name, defaultMember.Name, StringComparison.OrdinalIgnoreCase)),
+        _ => false,
+    };
 
     private static void CollectError(StaticSemanticsEvaluationResult result, Walk walk)
     {

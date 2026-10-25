@@ -63,4 +63,15 @@ public enum ValueExpressionSemanticFlags
     /// it, where <strong>MS-VBAL §5.6.13.1</strong> refuses it (RD-VBAL §5.6.13.1).
     /// </summary>
     RedundantByVal = 1 << 10,
+
+    /// <summary>
+    /// It is a call of a function, or of a property that has no <c>Property Set</c>, named as the target of a <c>Set</c> statement outside its own body, of a
+    /// class whose default member has no <c>Property Set</c>: what it returns has nothing to Set, and the <c>Set</c> raises run-time error 438 (Object doesn't
+    /// support this property or method) whenever it runs. <strong>MS-VBA</strong> compiles it (<strong>MS-VBAL §5.4.3.9</strong>).
+    /// </summary>
+    /// <remarks>
+    /// A call of a type that is neither an object nor a <c>Variant</c> is a compile error as the target of a <c>Set</c> already; one of an <c>Object</c> or a
+    /// <c>Variant</c> fails or not by the value it returns, which only an evaluation of it can tell.
+    /// </remarks>
+    SetHasNoDefaultMemberToSet = 1 << 11,
 }

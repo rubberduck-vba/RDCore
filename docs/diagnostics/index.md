@@ -252,6 +252,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation — two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String — the number is less, whatever the values|
+|[RDC11012](rdc11012.md)|Set of a call that always fails — a function whose default member has no Property Set, as the target of a Set|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)
