@@ -218,13 +218,70 @@ public sealed class StdHiddenTests
             RuntimeSourceHarness.ModuleUri).Symbol is { } member ? "_HiddenModule" : string.Empty);
     }
 
-    [TestMethod]
-    public void AnUnimplementedMember_SaysSoWhenItIsCalled()
-    {
-        var (_, outcome, _) = Run(null, ModuleDirectives.None, "Debug.Print InputB(1, 1)");
+    #endregion
 
+    #region InputB and InputB$
+
+    // each expectation is what MS-VBA printed for the same code, in Excel (oracle\s40 I01-I11).
+    private static string[] ReadOf(string content, string open, params string[] body)
+    {
+        var (output, outcome, _) = Run(WithFile(content), ModuleDirectives.None, [$"Open \"{Root}/data.txt\" {open} As #1", .. body]);
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Description);
+        return output;
+    }
+
+    private static int ErrorOf(string content, string open, params string[] body)
+    {
+        var (_, outcome, _) = Run(WithFile(content), ModuleDirectives.None, [$"Open \"{Root}/data.txt\" {open} As #1", .. body]);
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        StringAssert.Contains(outcome.ErrorInfo!.Verbose, "InputB");
+        return outcome.ErrorInfo!.ErrorId;
+    }
+
+    [TestMethod]
+    public void InputB_ReadsTheBytes_AsAStringOfThoseBytes()
+        // two bytes are one character of a String: LenB is 2, Len is 1, and StrConv reads them as the characters they are.
+        => CollectionAssert.AreEqual(new[] { "2", "1", "AB", "65" }, ReadOf("ABC", "For Input",
+            "Dim s As String", "s = InputB(2, #1)", "Debug.Print LenB(s)", "Debug.Print Len(s)", "Debug.Print StrConv(s, vbUnicode)", "Debug.Print AscB(s)"));
+
+    [TestMethod]
+    public void InputB_OnABinaryFile_MovesThePosition()
+        => CollectionAssert.AreEqual(new[] { "ABC", "False", "3" }, ReadOf("ABC", "For Binary",
+            "Debug.Print StrConv(InputB(3, #1), vbUnicode)", "Debug.Print EOF(1)", "Debug.Print Loc(1)"));
+
+    [TestMethod]
+    public void InputB_ThenInput_ReadAtTheSamePosition()
+        => CollectionAssert.AreEqual(new[] { "BC" }, ReadOf("ABCD", "For Input", "Dim a As String", "a = InputB(1, #1)", "Debug.Print Input(2, #1)"));
+
+    [TestMethod]
+    public void InputB_IsAVariantString_AndInputBDollarAString()
+        => CollectionAssert.AreEqual(new[] { "String", "2", "String" }, ReadOf("AB", "For Input",
+            "Dim v As Variant", "v = InputB(2, #1)", "Debug.Print TypeName(v)", "Debug.Print LenB(v)", "Debug.Print TypeName(InputB$(0, #1))"));
+
+    [TestMethod]
+    public void InputB_OfNoBytes_IsAZeroLengthString()
+        => CollectionAssert.AreEqual(new[] { "[]" }, ReadOf("ABC", "For Input", "Debug.Print \"[\" & InputB(0, #1) & \"]\""));
+
+    [TestMethod]
+    public void InputB_PastTheEndOfTheFile_IsError62()
+        => Assert.AreEqual((int)VBRuntimeErrorId.InputPastEndOfFile, ErrorOf("ABC", "For Input", "Debug.Print InputB(4, #1)"));
+
+    [TestMethod]
+    public void InputB_OfANegativeNumberOfBytes_IsError5()
+        => Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, ErrorOf("ABC", "For Input", "Debug.Print InputB(-1, #1)"));
+
+    [TestMethod]
+    [DataRow("For Output")]
+    [DataRow("For Append")]
+    [DataRow("For Random")]
+    public void InputB_OnAFileNotOpenedForInputOrBinary_IsError54(string open)
+        => Assert.AreEqual((int)VBRuntimeErrorId.BadFileMode, ErrorOf("AB", open, "Debug.Print InputB(1, #1)"));
+
+    [TestMethod]
+    public void InputB_OnAFileNumberThatIsNotOpen_IsError52()
+    {
+        var (_, outcome, _) = Run(null, ModuleDirectives.None, "Debug.Print InputB(1, #99)");
+
+        Assert.AreEqual((int)VBRuntimeErrorId.BadFileNameOrNumber, outcome.ErrorInfo?.ErrorId);
     }
 
     #endregion
