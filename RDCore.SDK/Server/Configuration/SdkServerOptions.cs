@@ -250,8 +250,8 @@ public record class SdkEnvironmentOptions
     public bool LegacyRegistrySettings { get; set; }
 
     /// <summary>
-    /// 🎯 The regional settings a <c>String</c> is read by as a number or a date (<see cref="Runtime.RegionalSettings"/>): en-US unless said otherwise,
-    /// whatever the machine's are.
+    /// 🎯 The regional settings a number or a date is written by as a <c>String</c>, and a <c>String</c> read by as one
+    /// (<see cref="Runtime.RegionalSettings"/>): en-US unless said otherwise, whatever the machine's are.
     /// </summary>
     public SdkRegionalOptions Regional { get; set; } = new();
 }
@@ -282,9 +282,35 @@ public record class SdkRegionalOptions
     public int TwoDigitYearMax { get; set; } = Runtime.RegionalSettings.Default.TwoDigitYearMax;
 
     /// <summary>
+    /// The Short Date format a date is written in: <c>M/d/yyyy</c> by default.
+    /// </summary>
+    public string ShortDatePattern { get; set; } = Runtime.RegionalSettings.Default.ShortDatePattern;
+
+    /// <summary>
+    /// The Long Time format a time is written in: <c>h:mm:ss tt</c> by default.
+    /// </summary>
+    public string LongTimePattern { get; set; } = Runtime.RegionalSettings.Default.LongTimePattern;
+
+    /// <summary>
+    /// What a time before noon is written with: <c>AM</c> by default.
+    /// </summary>
+    public string AMDesignator { get; set; } = Runtime.RegionalSettings.Default.AMDesignator;
+
+    /// <summary>
+    /// What a time from noon on is written with: <c>PM</c> by default.
+    /// </summary>
+    public string PMDesignator { get; set; } = Runtime.RegionalSettings.Default.PMDesignator;
+
+    /// <summary>
     /// The settings these options say.
     /// </summary>
-    public Runtime.RegionalSettings ToSettings() => new(DecimalSymbol, DigitGroupingSymbol, CurrencySymbol, TwoDigitYearMax);
+    public Runtime.RegionalSettings ToSettings() => new(DecimalSymbol, DigitGroupingSymbol, CurrencySymbol, TwoDigitYearMax)
+    {
+        ShortDatePattern = ShortDatePattern,
+        LongTimePattern = LongTimePattern,
+        AMDesignator = AMDesignator,
+        PMDesignator = PMDesignator,
+    };
 }
 
 public record class SdkServerAppOptions

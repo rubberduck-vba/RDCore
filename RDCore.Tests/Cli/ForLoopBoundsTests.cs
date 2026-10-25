@@ -75,7 +75,7 @@ public sealed class ForLoopBoundsTests
     [DataRow("n = Array(1)", "1 To n", "err 13")]
     // a Variant counter counts in a Date, and "1" is no date - a loop does not read it as the number a Let-coercion to Date would.
     [DataRow("n = \"1\"", "n To CDate(3)", "err 13")]
-    [DataRow("n = \"1/1/1900\"", "n To CDate(3)", "2 01/03/1900 Date")]
+    [DataRow("n = \"1/1/1900\"", "n To CDate(3)", "2 1/3/1900 Date")]
     public Task AnOperandThatIsNoNumber(string setup, string clause, string expected) => AssertLoop("Dim i As Variant", setup, "i", clause, expected);
 
     [TestMethod]

@@ -98,7 +98,7 @@ public sealed class SplitTests
     {
         CollectionAssert.AreEqual(new[] { "a", "b" }, ElementsOf(Module().Split(new VBStringValue("a1b"), V(1), All, Binary)));
         // a number is written in the regional settings: 1.5 is "1,5" in German.
-        CollectionAssert.AreEqual(new[] { "", "x2" }, ElementsOf(Module(lcid: 1031).Split(new VBStringValue("1,5x2"), V(1.5), All, Binary)));
+        CollectionAssert.AreEqual(new[] { "", "x2" }, ElementsOf(Module(lcid: 1031, regional: German).Split(new VBStringValue("1,5x2"), V(1.5), All, Binary)));
         Assert.AreEqual((int)VBRuntimeErrorId.InvalidUseOfNull, ErrorOf(Module().Split(new VBStringValue("a b"), VNull, All, Binary)));
         Assert.AreEqual((int)VBRuntimeErrorId.TypeMismatch, ErrorOf(Module().Split(new VBStringValue("a b"), V(new VBErrorValue(5)), All, Binary)));
     }

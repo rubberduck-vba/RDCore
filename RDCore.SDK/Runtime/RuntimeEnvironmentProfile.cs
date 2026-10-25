@@ -17,7 +17,7 @@ namespace RDCore.SDK.Runtime;
 /// <param name="AllowAutomation">Whether a program may create and call the objects of a referenced library, a host application among them; <c>true</c> unless said otherwise.</param>
 /// <param name="SourceLanguage">The language the code is written in; RD-VBA unless said otherwise.</param>
 /// <param name="LegacyRegistrySettings">Whether the legacy settings members use the Windows Registry rather than the workspace application settings; <c>false</c> unless said otherwise.</param>
-/// <param name="RegionalSettings">The regional settings a string is read by as a number or a date; en-US (<see cref="Runtime.RegionalSettings.Default"/>) unless said otherwise.</param>
+/// <param name="RegionalSettings">The regional settings a number or a date is written by as a string, and a string read by as one; en-US (<see cref="Runtime.RegionalSettings.Default"/>) unless said otherwise.</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,

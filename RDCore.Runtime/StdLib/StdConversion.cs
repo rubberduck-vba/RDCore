@@ -142,7 +142,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     public RuntimeSemanticsEvaluationResult<VBStringValue> CStr(VBVariantValue expression)
         => Unwrapped(expression) is VBErrorValue error
             ? Succeed(new VBStringValue($"Error {ErrorCodeText(error)}"))
-            : Convert<VBStringValue>(expression, source => ValueConversions.ToText(source, session.Environment.Culture), nameof(String), errorAsCode: false);
+            : Convert<VBStringValue>(expression, source => ValueConversions.ToText(source, session.Environment.Culture, session.Environment.Regional), nameof(String), errorAsCode: false);
 
     /// <inheritdoc/>
     /// <remarks>"The argument data value is returned" (<strong>MS-VBAL §6.1.2.3.1.13</strong>).</remarks>
@@ -357,7 +357,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             // "If the value type of Number is Date, the returned value is the result of Let-coercing Number to String" -
             // in the regional settings of the session's environment, as Let-coercion writes it.
             case VBDateValue:
-                return Convert<VBStringValue>(number, source => ValueConversions.ToText(source, session.Environment.Culture), nameof(String), errorAsCode: false);
+                return Convert<VBStringValue>(number, source => ValueConversions.ToText(source, session.Environment.Culture, session.Environment.Regional), nameof(String), errorAsCode: false);
 
             // "If the data value of Number is any numeric value type, let S be the result of Let-coercing Number to
             // String using "." as the decimal separator" - which the conversion does, in the invariant culture.

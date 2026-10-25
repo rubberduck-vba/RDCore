@@ -164,7 +164,7 @@ internal sealed class StdRegExp : IStdRegExpClass, IStdLibReceiverBound
             VBNullValue => null,
             VBEmptyValue => string.Empty,
             VBBooleanValue boolean => IsTrue(boolean) ? "-1" : "0",
-            _ => ValueConversions.ToText(value, session.Environment.Culture) is { IsSuccess: true, Value: VBStringValue text } ? text.Value ?? string.Empty : null,
+            _ => ValueConversions.ToText(value, session.Environment.Culture, session.Environment.Regional) is { IsSuccess: true, Value: VBStringValue text } ? text.Value ?? string.Empty : null,
         };
     }
 

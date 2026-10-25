@@ -101,7 +101,7 @@ public sealed class StdInteraction(
     }
 
     // a String is written in the regional settings of the session's environment, as Let-coercion writes it.
-    private RuntimeSemanticsEvaluationResult<VBTypedValue> ToText(VBTypedValue value) => Convert(value, source => ValueConversions.ToText(source, session.Environment.Culture), "String");
+    private RuntimeSemanticsEvaluationResult<VBTypedValue> ToText(VBTypedValue value) => Convert(value, source => ValueConversions.ToText(source, session.Environment.Culture, session.Environment.Regional), "String");
 
     private RuntimeSemanticsEvaluationResult<VBTypedValue> ToLong(VBTypedValue value)
         => Convert(value, source => ValueConversions.ToNumeric(source, VBLongType.TypeInfo, session.Environment.Regional), "Long");
@@ -319,7 +319,7 @@ public sealed class StdInteraction(
         Func<VBTypedValue, ValueConversionResult>? conversion = value is VBObjectValue ? null : declared switch
         {
             VBNumericType numeric => source => ValueConversions.ToNumeric(source, numeric, session.Environment.Regional),
-            VBStringType => source => ValueConversions.ToText(source, session.Environment.Culture),
+            VBStringType => source => ValueConversions.ToText(source, session.Environment.Culture, session.Environment.Regional),
             VBBooleanType => source => ValueConversions.ToBoolean(source, session.Environment.Regional),
             VBDateType => source => ValueConversions.ToDate(source, session.Environment.Regional),
             _ => null,
@@ -756,7 +756,7 @@ public sealed class StdInteraction(
             return Fail<VBObjectValue>(VBRuntimeErrorId.InvalidUseOfNull, "GetObject: a name is no Null");
         }
 
-        var converted = ValueConversions.ToText(argument.TypedValue, session.Environment.Culture);
+        var converted = ValueConversions.ToText(argument.TypedValue, session.Environment.Culture, session.Environment.Regional);
         if (converted is not { IsSuccess: true, Value: VBStringValue value })
         {
             return Fail<VBObjectValue>(converted.Error ?? VBRuntimeErrorId.TypeMismatch, "GetObject: a name is a String");

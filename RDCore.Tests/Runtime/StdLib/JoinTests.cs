@@ -51,7 +51,8 @@ public sealed class JoinTests
         var elements = VariantArray(new VBLongValue(1), new VBDoubleValue(2.5), new VBBooleanValue(true));
 
         Assert.AreEqual("1 2.5 True", TextOf(Module().Join(elements)));
-        Assert.AreEqual("1 2,5 True", TextOf(Module(lcid: 1031).Join(elements)));
+        Assert.AreEqual("1 2,5 True", TextOf(Module(lcid: 1031, regional: German).Join(elements)));
+        Assert.AreEqual("1 2.5 True", TextOf(Module(lcid: 1031).Join(elements)), "a culture is no regional settings");
     }
 
     [TestMethod]

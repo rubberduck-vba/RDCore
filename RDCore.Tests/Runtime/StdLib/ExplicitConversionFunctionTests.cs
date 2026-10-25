@@ -32,11 +32,22 @@ public sealed class ExplicitConversionFunctionTests
         return new StdConversion(session);
     }
 
-    // a session whose environment writes in German: a ',' for the decimal symbol, and dd.MM.yyyy for a date.
+    // a session whose environment's regional settings are German: a ',' for the decimal symbol, and dd.MM.yyyy for a date.
     private static StdConversion InGerman()
     {
         var session = Substitute.For<IRuntimeSession>();
         session.Environment.Culture.Returns(CultureInfo.GetCultureInfo(1031));
+        session.Environment.Regional.Returns(StdStringsTestHarness.German);
+        return new StdConversion(session);
+    }
+
+    // a session whose environment's culture is German but whose regional settings are en-US's: the culture decides how text compares, not how a value
+    // is written.
+    private static StdConversion InAGermanCultureOnly()
+    {
+        var session = Substitute.For<IRuntimeSession>();
+        session.Environment.Culture.Returns(CultureInfo.GetCultureInfo(1031));
+        session.Environment.Regional.Returns(RDCore.SDK.Runtime.RegionalSettings.Default);
         return new StdConversion(session);
     }
 
@@ -165,6 +176,44 @@ public sealed class ExplicitConversionFunctionTests
     [TestMethod]
     public void CStr_WritesADateInTheEnvironmentsRegionalSettings()
         => Assert.AreEqual("15.01.2020", ValueOf(InGerman().CStr(Variant(new VBDateValue(new DateTime(2020, 1, 15).ToOADate())))).Value);
+
+    [TestMethod]
+    public void CStr_IsNotWrittenInTheEnvironmentsCulture()
+    {
+        // MS-VBA writes a value in the regional settings it reads one in; the LCID a session runs under is no regional settings.
+        Assert.AreEqual("2.5", ValueOf(InAGermanCultureOnly().CStr(Variant(new VBDoubleValue(2.5)))).Value);
+        Assert.AreEqual("1/15/2020", ValueOf(InAGermanCultureOnly().CStr(Variant(new VBDateValue(new DateTime(2020, 1, 15).ToOADate())))).Value);
+    }
+
+    [TestMethod]
+    public void CStr_ThenCDbl_IsTheSameNumber_InAnyRegionalSettings()
+    {
+        foreach (var conversion in new[] { Conversion(), InGerman() })
+        {
+            var text = ValueOf(conversion.CStr(Variant(new VBDoubleValue(1234.5)))).Value;
+            Assert.AreEqual(1234.5, ValueOf(conversion.CDbl(Variant(new VBStringValue(text)))).Value, text);
+        }
+    }
+
+    [TestMethod]
+    public void CStr_ThenCDate_IsTheSameDate_InEnUSRegionalSettings()
+    {
+        var date = new DateTime(2020, 1, 15, 15, 45, 0);
+        var text = ValueOf(Conversion().CStr(Variant(new VBDateValue(date.ToOADate())))).Value;
+
+        Assert.AreEqual(date, ValueOf(Conversion().CDate(Variant(new VBStringValue(text)))).Value, text);
+    }
+
+    [TestMethod]
+    [Ignore("TODO: a String is read as a Date by the rules of MS-VBAL 3.3.3, month first with '/', '-' or ',' between the parts, whatever the regional "
+        + "Short Date says - how MS-VBA reads a day-first date with '.' between its parts is not measured yet (it needs a machine in such regional settings)")]
+    public void CStr_ThenCDate_IsTheSameDate_InGermanRegionalSettings()
+    {
+        var date = new DateTime(2020, 1, 15, 15, 45, 0);
+        var text = ValueOf(InGerman().CStr(Variant(new VBDateValue(date.ToOADate())))).Value;
+
+        Assert.AreEqual(date, ValueOf(InGerman().CDate(Variant(new VBStringValue(text)))).Value, text);
+    }
 
     [TestMethod]
     public void CStr_OfAnError_IsTheSameInAnyRegionalSettings()

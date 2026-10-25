@@ -110,7 +110,7 @@ public sealed class FormatTests
     {
         Assert.AreEqual("23", TextOf(Module(EnUS).Format(V(23))));
         Assert.AreEqual("1.5", TextOf(Module(EnUS).Format(V(1.5))));
-        Assert.AreEqual("1,5", TextOf(Module(1036).Format(V(1.5))));
+        Assert.AreEqual("1,5", TextOf(Module(1036, regional: German).Format(V(1.5))));
         Assert.AreEqual("True", TextOf(Module(EnUS).Format(V(true))));
         Assert.AreEqual(string.Empty, TextOf(Module(EnUS).Format(VEmpty)));
         Assert.AreEqual("23", TextOf(Module(EnUS).Format(V(23), V(string.Empty))), "a zero-length format is none");
