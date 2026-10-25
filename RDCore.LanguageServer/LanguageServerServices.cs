@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
@@ -56,6 +57,7 @@ internal static class LanguageServerServices
             .AddSingleton<IWorkspaceService, WorkspaceService>()
             .AddSingleton<IParsingClientService, ParsingClientService>()
             .AddSingleton<ISemanticTokensService, SemanticTokensService>()
+            .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
             .AddSingleton<IDocumentLifecycleService, DocumentLifecycleService>()

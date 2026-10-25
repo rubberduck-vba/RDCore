@@ -84,6 +84,12 @@ public sealed class LexicalScope
     public IEnumerable<Symbol> DeclaredAs(string name) => _declarations[name];
 
     /// <summary>
+    /// Every symbol this scope declares directly, whatever its name: what a name written here could be, before the lookup decides which one it is - the
+    /// candidates a completion list offers (<see cref="Completion.CompletionCandidates"/>).
+    /// </summary>
+    public IEnumerable<Symbol> Declarations => _declarations.SelectMany(group => group);
+
+    /// <summary>
     /// This scope, then each enclosing scope out to the global scope — the order a name lookup
     /// visits them (<strong>RD-VBAL §2.3.1.2</strong>).
     /// </summary>

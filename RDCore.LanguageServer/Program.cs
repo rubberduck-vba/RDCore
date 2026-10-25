@@ -11,6 +11,7 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionDiscard>]
 [assembly: ProvidesCorePlatformClientCapability<ProgramDebugging>]
 [assembly: ProvidesCorePlatformClientCapability<SessionAnalyze>]
+[assembly: ProvidesCorePlatformClientCapability<SessionCompletion>]
 [assembly: ProvidesCorePlatformClientCapability<SessionMemoryAccess>]
 // it relays the dialogs of the program that runs in the environment host to a client that answers them:
 [assembly: ProvidesCorePlatformClientCapability<SessionInteraction>]
