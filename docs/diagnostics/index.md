@@ -246,6 +246,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00310](rdc00310.md)|Redundant ByVal argument — an argument written `ByVal` for a parameter that is `ByVal` already|
 |[RDC00311](rdc00311.md)|Early binding opportunity — `CreateObject` of a class that a referenced library declares|
 |[RDC00405](rdc00405.md)|Implementations should be private — a Public implementation of an interface member or handler of an event|
+|[RDC00407](rdc00407.md)|Unmatched event handler — a handler of a form control's event that does not match the event, and that nothing calls|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names — a name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation — a name that begins with a prefix that states its type|
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|

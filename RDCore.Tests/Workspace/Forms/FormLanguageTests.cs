@@ -9,6 +9,7 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
@@ -170,13 +171,49 @@ public sealed class FormLanguageTests
         => Assert.IsEmpty(await DeclarationErrorsAsync(Form("Private Page1 As Long")));
 
     [TestMethod]
-    public async Task AHandlerThatDoesNotMatchTheEvent_IsAnInvalidEventHandler()
-    {
-        // MS-VBA compiles it (s30 C06), and the event's call would not match it; the event handler declarations of MS-VBAL §5.3.1.8 say it is an error
-        var errors = await DeclarationErrorsAsync(Form("Private Sub TextBox1_Change(ByVal Value As Long)", "End Sub"));
+    [DataRow("Private Sub TextBox1_Change(ByVal Value As Long)", "End Sub")]
+    [DataRow("Private Function TextBox1_Change() As Long", "End Function")]
+    public async Task AControlsHandlerThatDoesNotMatchTheEvent_IsNoError(string declaration, string end)
+        // MS-VBA compiles it (s30 C06, C19): the event never calls it, which makes it dead code (RDC00407), not an invalid handler
+        => Assert.IsEmpty(await DeclarationErrorsAsync(Form(declaration, end)));
 
-        Assert.AreEqual(VBCompileErrorId.InvalidEventHandler, Assert.ContainsSingle(errors).Id);
+    // ---- RDC00407: a control's handler that does not match the event is dead, unless something calls it ----
+
+    private static async Task<AnalyzerFinding[]> UnmatchedHandlersAsync(params string[] body)
+    {
+        var form = Form(body);
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", libraries: References, forms: [("Form1", form, Designer)]);
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Form1");
+        var uri = new Uri(Path.Combine(ModuleWorkspace.Root, "Form1.frm"));
+        return [.. new RDCore.Diagnostics.Analyzers.UnmatchedEventHandlerAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, form), model))];
     }
+
+    [TestMethod]
+    public async Task AControlsHandlerThatDoesNotMatchTheEvent_IsDeadCode_OverItsWholeDeclaration()
+    {
+        var findings = await UnmatchedHandlersAsync("Private Sub TextBox1_Change(ByVal Value As Long)", "    Debug.Print Value", "End Sub");
+
+        var finding = Assert.ContainsSingle(findings);
+        Assert.AreEqual(RDCoreDiagnosticId.UnmatchedEventHandler, finding.Id);
+        Assert.AreEqual(DiagnosticSeverity.Hint, finding.Severity);
+        CollectionAssert.AreEqual(new[] { DiagnosticTag.Unnecessary }, finding.Tags.ToArray(), "rendered as code that cannot be reached");
+        Assert.AreEqual((11, 13), (finding.Range.Start.Line, finding.Range.End.Line), "from Sub to End Sub");
+    }
+
+    [TestMethod]
+    public async Task AHandlerThatMatches_IsNotDead()
+        => Assert.IsEmpty(await UnmatchedHandlersAsync("Private Sub TextBox1_Change()", "End Sub"));
+
+    [TestMethod]
+    public async Task AnUnmatchedHandlerThatTheModuleCalls_IsNotDead()
+        => Assert.IsEmpty(await UnmatchedHandlersAsync(
+            "Private Sub TextBox1_Change(ByVal Value As Long)", "End Sub",
+            "Public Sub Refresh()", "    TextBox1_Change 42", "End Sub"));
+
+    [TestMethod]
+    public async Task APublicUnmatchedHandler_MayBeCalledThroughTheForm_AndIsNotReported()
+        => Assert.IsEmpty(await UnmatchedHandlersAsync("Public Sub TextBox1_Change(ByVal Value As Long)", "End Sub"));
 
     // ---- completion ----
 

@@ -288,6 +288,11 @@ public record class SymbolDescriptor
     public bool IsWithEvents { get; init; }
 
     /// <summary>
+    /// Whether a module field is one of a form's controls: declared by the form's designer, not by its code (<see cref="SymbolProperties.DesignerControl"/>).
+    /// </summary>
+    public bool IsDesignerControl { get; init; }
+
+    /// <summary>
     /// The member's <c>VB_UserMemId</c> (<strong>MS-VBAL §5.2.1</strong>), when its module says one: <c>0</c> marks the default member of a class, <c>-4</c> its enumeration
     /// member (<c>_NewEnum</c>). <see langword="null"/> for a member with none.
     /// </summary>

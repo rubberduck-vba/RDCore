@@ -60,6 +60,18 @@ public static class MemberRoles
 
             foreach (var handled in source.Events)
             {
+                // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (oracle\s30 C06)
+                if (variable.GetProperty(SymbolProperties.DesignerControl))
+                {
+                    foreach (var candidate in ClassModuleEventSemantics.HandlersOf(module, variable, handled))
+                    {
+                        roles.TryAdd(candidate.SemanticId,
+                            ClassModuleEventSemantics.Matches(candidate, handled) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
+                    }
+
+                    continue;
+                }
+
                 Mark(module, $"{variable.Name}_{handled.Name}", DeclarationRole.EventHandler, roles);
             }
         }

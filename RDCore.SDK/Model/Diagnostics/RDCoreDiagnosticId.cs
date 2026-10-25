@@ -62,6 +62,7 @@ public enum RDCoreDiagnosticId
 
     ImplementationsShouldBePrivate = 405,
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
+    UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,

@@ -23,7 +23,8 @@ internal sealed class ImplementationsShouldBePrivateAnalyzer : IModuleAnalyzer
 {
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.Semantics?.Declarations ?? [])
-            .Where(declaration => declaration is { Role: not DeclarationRole.None, Kind: DeclarationKind.Procedure or DeclarationKind.Property }
+            .Where(declaration => declaration is
+                    { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler, Kind: DeclarationKind.Procedure or DeclarationKind.Property }
                 && declaration.Access is AccessModifier.Public or AccessModifier.Implicit)
             .Select(declaration => new AnalyzerFinding(
                 RDCoreDiagnosticId.ImplementationsShouldBePrivate,

@@ -120,14 +120,20 @@ public static class ClassModuleEventSemantics
         return source;
     }
 
+    // a form's control is no variable the code declares: MS-VBA binds the handlers of its events when the event is raised, and compiles one that does not match
+    // the event, which is then never called (Excel-measured, oracle\s30 C06, C19). It is dead code, which the static pass says (DeclarationRole.UnmatchedEventHandler),
+    // and not an error.
     private static void CheckHandlers(
         VBClassModuleSymbol module, VBTypeMemberSymbol variable, VBClassModuleSymbol source, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
+        if (variable.GetProperty(SymbolProperties.DesignerControl))
+        {
+            return;
+        }
+
         foreach (var handled in source.Events)
         {
-            var name = $"{variable.Name}_{handled.Name}";
-            foreach (var candidate in module.Members.Where(member => IsProcedure(member)
-                && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)))
+            foreach (var candidate in HandlersOf(module, variable, handled))
             {
                 if (!IsSubroutine(candidate))
                 {
@@ -142,6 +148,21 @@ public static class ClassModuleEventSemantics
             }
         }
     }
+
+    /// <summary>
+    /// The procedures of <paramref name="module"/> that are named as the handler of <paramref name="handled"/>, an event of <paramref name="variable"/>'s class:
+    /// <c>VariableName_EventName</c> (<strong>MS-VBAL §5.3.1.8</strong>), whether or not they are valid handlers.
+    /// </summary>
+    internal static IEnumerable<VBTypeMemberSymbol> HandlersOf(VBClassModuleSymbol module, VBTypeMemberSymbol variable, VBEventMemberSymbol handled)
+        => module.Members.Where(member => IsProcedure(member)
+            && string.Equals(member.Name, $"{variable.Name}_{handled.Name}", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Whether <paramref name="candidate"/>, named as the handler of <paramref name="handled"/>, is one the event can call: a subroutine whose parameter list is
+    /// compatible with the event's (<strong>MS-VBAL §5.3.1.8</strong>).
+    /// </summary>
+    internal static bool Matches(VBTypeMemberSymbol candidate, VBEventMemberSymbol handled)
+        => IsSubroutine(candidate) && ParameterLists.Incompatibility(ParameterLists.Of(candidate), handled.Parameters) is null;
 
     private static bool IsProcedure(VBTypeMemberSymbol member) => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol;
 

@@ -83,6 +83,7 @@ internal class CoreDiagnosticsApp(
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnmatchedEventHandlerAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
     }

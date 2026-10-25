@@ -72,8 +72,10 @@ public static class DeclarationUsage
                 continue;
             }
 
+            var role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var found) ? found : DeclarationRole.None;
             DeclarationReferences? counted = null;
-            if (IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed))
+            if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
+                && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed))
             {
                 counted = references.GetValueOrDefault(symbol.SemanticId);
             }
@@ -81,7 +83,7 @@ public static class DeclarationUsage
             facts.Add(new DeclarationFact(
                 symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted)
             {
-                Role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var role) ? role : DeclarationRole.None,
+                Role = role,
             });
         }
 
@@ -110,6 +112,11 @@ public static class DeclarationUsage
         // 🚧 TODO count the references of a constant once the expressions of declarations are evaluated.
         _ => false,
     };
+
+    // a Private handler that does not match the event it is named for is no handler: no event calls it, and nothing outside the module can, so what calls it is an
+    // expression of the module's code. A Public one may be called through the form's interface, by code the pass does not see.
+    private static bool IsCalledOnlyByItsOwnCode(Symbol symbol, DeclarationRole role)
+        => role is DeclarationRole.UnmatchedEventHandler && symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private };
 
     // the code that could refer to a local or a parameter is the code of its procedure; to anything else that is confined to the module, any procedure of it.
     private static bool CodeThatCanReferToIt(Symbol symbol, List<ProcedureSemanticModel> models, bool moduleIsFullyAnalyzed)

@@ -509,5 +509,14 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("VariantNumberStringComparison_Message", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; porte le nom du gestionnaire d&apos;un événement d&apos;un contrôle, et ne correspond pas à l&apos;événement : l&apos;événement ne l&apos;appelle jamais, et rien d&apos;autre non plus..
+        /// </summary>
+        public static string UnmatchedEventHandler_Message {
+            get {
+                return ResourceManager.GetString("UnmatchedEventHandler_Message", resourceCulture);
+            }
+        }
     }
 }

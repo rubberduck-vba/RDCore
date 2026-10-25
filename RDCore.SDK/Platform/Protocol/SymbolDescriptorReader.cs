@@ -208,6 +208,7 @@ public static class SymbolDescriptorReader
                     node.Range, node.SelectionRange, node.AccessModifier);
                 field = WithArrayBounds(field, node.Array);
                 field = node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
+                field = node.IsDesignerControl ? field.With(SymbolProperties.DesignerControl, true) : field;
                 yield return node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field;
                 break;
             }

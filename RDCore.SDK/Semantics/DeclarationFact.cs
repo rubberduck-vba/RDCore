@@ -78,6 +78,13 @@ public enum DeclarationRole
     /// It handles an event of a <c>WithEvents</c> variable of the class module, by being named <c>VariableName_EventName</c> (<strong>MS-VBAL §5.3.1.8</strong>).
     /// </summary>
     EventHandler,
+
+    /// <summary>
+    /// It is named as the handler of an event of one of a form's controls (<c>TextBox1_Change</c>), and does not match the event: it is not a subroutine, or
+    /// its parameter list is not compatible with the event's. MS-VBA compiles it, and the event never calls it: it is dead code, unless the module's own code
+    /// calls it as the procedure it also is.
+    /// </summary>
+    UnmatchedEventHandler,
 }
 
 /// <summary>

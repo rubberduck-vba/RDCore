@@ -131,6 +131,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.RedundantByValArgument, 310),
         (RDCoreDiagnosticId.EarlyBindingOpportunity, 311),
         (RDCoreDiagnosticId.ImplementationsShouldBePrivate, 405),
+        (RDCoreDiagnosticId.UnmatchedEventHandler, 407),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
     ];

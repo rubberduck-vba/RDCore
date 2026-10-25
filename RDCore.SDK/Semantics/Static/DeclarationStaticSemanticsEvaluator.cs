@@ -79,7 +79,8 @@ public static class DeclarationStaticSemanticsEvaluator
     /// </summary>
     /// <remarks>
     /// MS-VBA reports a variable, a constant, a procedure or a <c>Declare</c> of a control's name (Excel-measured, <c>oracle\s30</c> C09/C10). It compiles a
-    /// <c>WithEvents</c> variable of a control's name and class (C17), a quirk RD-VBA does not follow: that variable would be a second field of the one name.
+    /// <c>WithEvents</c> variable of a control's name and class (C17), which reads as though it shadowed the control and does not: RD-VBA refuses it with the
+    /// same error, which is the error it should have been all along (the author's ruling).
     /// </remarks>
     /// <param name="module">The parsed module.</param>
     /// <param name="designer">What the module's designer declares (<see cref="ModuleParseResult.Designer"/>), or <c>null</c> when it is no form.</param>
