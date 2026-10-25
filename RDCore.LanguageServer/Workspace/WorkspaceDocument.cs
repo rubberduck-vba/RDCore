@@ -75,6 +75,15 @@ internal record class WorkspaceDocument
     public string Text { get; init; }
 
     /// <summary>
+    /// The content of the document's companion file, when it is a form module that keeps its designer data in one (a UserForm's <c>.frx</c>,
+    /// <see cref="RDCore.SDK.Workspace.Forms.FormDesigner.CompanionOf"/>); empty otherwise, and when the file is missing.
+    /// </summary>
+    /// <remarks>
+    /// Read from disk with the text: no client edits it. An edit of the text keeps it.
+    /// </remarks>
+    public ReadOnlyMemory<byte> Companion { get; init; }
+
+    /// <summary>
     /// The document with the specified text, an edit the server made: one version later, and with changes that are not saved.
     /// </summary>
     public WorkspaceDocument WithText(string text) => this with { Text = text, Version = Version + 1, IsDirty = true };

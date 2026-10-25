@@ -753,4 +753,10 @@
   <data name="FormDesigner_InvalidControl" xml:space="preserve">
     <value>A control of the form names no class the form describes.</value>
   </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner" xml:space="preserve">
+    <value>Member already exists in an object module from which this object module derives</value>
+  </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
+    <value>&apos;{0}&apos; is the name of a control of the form, which is already a member of the form&apos;s class.</value>
+  </data>
 </root>

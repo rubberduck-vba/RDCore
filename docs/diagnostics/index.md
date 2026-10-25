@@ -120,6 +120,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09369](vbc09369.md)|Can't change data types of array elements — a `ReDim` gives an array elements of another type than it is declared with|
 |[VBC09370](vbc09370.md)|Expected procedure, not variable — a call statement names a variable or a constant of a module, not a procedure|
 |[VBC09371](vbc09371.md)|Array argument must be ByRef — an argument of an array parameter is written `ByVal`|
+|[VBC09372](vbc09372.md)|Member already exists in an object module from which this object module derives — the code of a form declares something with the name of one of its controls|
 
 ### Runtime errors
 

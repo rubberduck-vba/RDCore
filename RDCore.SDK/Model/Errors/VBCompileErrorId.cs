@@ -576,6 +576,14 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §5.6.13.1</strong> Argument Lists.
     /// </summary>
     ArrayArgumentMustBeByRef = 9371,
+    /// <summary>
+    /// A form module's code declares a member with the name of one of the form's controls, which the form's designer already declares a field of the form's
+    /// class for.
+    /// </summary>
+    /// <remarks>
+    /// ℹ️ Unable to find an official <c>learn.microsoft.com</c> documentation link for this error. MS-VBA reports it with this message (recorded in Excel).
+    /// </remarks>
+    MemberAlreadyExistsInDesigner = 9372,
 
 
     /***********************************************************************************************

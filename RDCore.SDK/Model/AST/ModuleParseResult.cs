@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.AST;
@@ -36,6 +37,16 @@ public record class ModuleParseResult
     /// </remarks>
     public ImmutableArray<SyntaxNode> Trivia { get; init; } = [];
     public ImmutableArray<VBSyntaxErrorInfo> SyntaxErrors { get; init; } = [];
+
+    /// <summary>
+    /// What the module's designer declares, when the module is a form module: the form's class and its controls, read from the module's designer block and
+    /// its companion <c>.frx</c> file (<see cref="FormDesigner.Read"/>); <c>null</c> for any other module, and for a form whose designer data cannot be read.
+    /// </summary>
+    /// <remarks>
+    /// The parser, which reads text alone, never sets it: the language server, which has the companion file, does, on the parse it caches. It travels with the
+    /// parse to the host, whose checks of the module's declarations need to know the names its controls take.
+    /// </remarks>
+    public FormDescriptor? Designer { get; init; }
 
     public bool IsSuccess => SyntaxTree is not null && SyntaxErrors.Length == 0;
 }

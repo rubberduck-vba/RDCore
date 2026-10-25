@@ -104,6 +104,11 @@ public sealed record class FormDescriptor(
     IReadOnlyList<FormControlDescriptor> Controls)
 {
     /// <summary>
+    /// The form's own designer properties, by name, case-insensitively (whatever comparer the given dictionary had: one that went over the wire has none).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Properties { get; init; } = new Dictionary<string, string>(Properties, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The form's <c>Caption</c> designer property, or <c>null</c> when the designer block does not set it.
     /// </summary>
     public string? Caption => Properties.GetValueOrDefault("Caption");
@@ -130,4 +135,18 @@ public sealed record class FormDescriptor(
     /// Every control of the form, at any depth, in the order the designer persisted them.
     /// </summary>
     public IEnumerable<FormControlDescriptor> AllControls() => Controls.SelectMany(control => control.DescendantsAndSelf());
+
+    /// <summary>
+    /// The controls the form's class has a field for, one per name, in the order the designer persisted them.
+    /// </summary>
+    /// <remarks>
+    /// Every control is one, at any depth: the controls of a <c>Frame</c> and of a <c>MultiPage</c>'s pages are fields of the form, like the form's own
+    /// (<c>UserForm1.OptionButton1</c>). The pages of a <c>MultiPage</c> are not (MS-VBA: <c>UserForm1.Page1</c> is "Method or data member not found", and the
+    /// form's <c>Controls</c> collection does not have them; Excel-measured), and are reached through their <c>MultiPage</c> (<c>MultiPage1.Pages("Page1")</c>).
+    /// The controls of a Visual Basic 6.0 control array share their name, which is the one field.
+    /// </remarks>
+    public IEnumerable<FormControlDescriptor> DeclaredControls()
+        => AllControls()
+            .Where(control => !(Kind == FormDesignerKind.MSForms && control.Class is { Library: MSFormsDesignerStorage.Library, Name: "Page" }))
+            .DistinctBy(control => control.Name, StringComparer.OrdinalIgnoreCase);
 }

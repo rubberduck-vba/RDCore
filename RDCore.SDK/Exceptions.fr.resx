@@ -753,4 +753,10 @@
   <data name="FormDesigner_InvalidControl" xml:space="preserve">
     <value>Un contrôle du formulaire ne nomme aucune classe que le formulaire décrit.</value>
   </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner" xml:space="preserve">
+    <value>Le membre existe déjà dans un module objet dont ce module objet dérive</value>
+  </data>
+  <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
+    <value>&apos;{0}&apos; est le nom d&apos;un contrôle du formulaire, qui est déjà un membre de la classe du formulaire.</value>
+  </data>
 </root>

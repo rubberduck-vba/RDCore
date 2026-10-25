@@ -58,6 +58,15 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> ImplicitlyDeclared = new(nameof(ImplicitlyDeclared));
     /// <summary>
+    /// Whether a field of a form's class is one of the form's controls: declared by the form's designer, not by its code
+    /// (<see cref="Workspace.Forms.FormDescriptor.DeclaredControls"/>).
+    /// </summary>
+    /// <remarks>
+    /// A control is a <c>Public</c>, <c>WithEvents</c> field of the control's class, so the procedures named for it handle its events
+    /// (<c>TextBox1_Change</c>). It is not a variable the code can assign to: MS-VBA says "Invalid use of property" to <c>Set UserForm1.TextBox1 = …</c>.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> DesignerControl = new(nameof(DesignerControl));
+    /// <summary>
     /// The name of the library project a symbol belongs to — <c>VBA</c> for the standard library of a VBA
     /// environment — or unset for a symbol of the enclosing project.
     /// </summary>

@@ -148,6 +148,8 @@ public sealed class SyntaxTreeSymbolProvider(
             }
         }
 
+        moduleScopeNames.UnionWith(parseResult.Designer?.DeclaredControls().Select(control => control.Name) ?? []);
+
         foreach (var child in module.Children)
         {
             switch (child)
@@ -172,7 +174,28 @@ public sealed class SyntaxTreeSymbolProvider(
                     break;
             }
         }
+
+        // a form's controls are fields of its class that its designer declares, not its code. A name the code declares too is a compile error of the code's
+        // declaration (DeclarationStaticSemanticsEvaluator.CheckDesigner); the code's declaration is the symbol of that name, so that each name has one.
+        var declaredByCode = DeclaredNamesOf(module);
+        foreach (var control in parseResult.Designer?.DeclaredControls() ?? [])
+        {
+            if (!declaredByCode.Contains(control.Name))
+            {
+                yield return builder.BuildDesignerControl(control);
+            }
+        }
     }
+
+    private static HashSet<string> DeclaredNamesOf(ModuleNode module)
+        => new(module.Children.Select(child => child switch
+        {
+            VariableDeclarationNode variable => variable.Name,
+            ConstantDeclarationNode constant => constant.Name,
+            ExternalMemberDeclarationNode external => external.Name,
+            MemberDeclarationNode member => member.Name,
+            _ => string.Empty,
+        }).Where(name => name.Length > 0), StringComparer.OrdinalIgnoreCase);
 
     private static IEnumerable<Symbol> FromMember(
         SymbolBuilder builder, MemberDeclarationNode member, IReadOnlySet<string> moduleScopeNames,

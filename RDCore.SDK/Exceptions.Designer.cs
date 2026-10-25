@@ -1967,5 +1967,23 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("FormDesigner_InvalidControl", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Member already exists in an object module from which this object module derives.
+        /// </summary>
+        public static string VBCompileError_MemberAlreadyExistsInDesigner {
+            get {
+                return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the name of a control of the form, which is already a member of the form&apos;s class..
+        /// </summary>
+        public static string VBCompileError_MemberAlreadyExistsInDesigner_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner_Verbose", resourceCulture);
+            }
+        }
     }
 }
