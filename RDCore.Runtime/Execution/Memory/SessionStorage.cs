@@ -37,13 +37,15 @@ internal sealed class SessionStorage(ISessionMemoryAllocator allocator, int poin
 
         if (!_blockOfArray.TryGetValue(array, out var start))
         {
-            FreeBlocksOfArraysThatAreGone();
             var made = new ArrayBlock(array, pointerSize);
             if (!allocator.TryAllocate(made.Size, out var at))
             {
                 return false;
             }
 
+            // the blocks of the arrays that are gone are freed once this one is made, so that it is never where one of them was: an array ReDim'd is
+            // elsewhere (oracle\s17 V11), whenever the one it was is collected.
+            FreeBlocksOfArraysThatAreGone();
             _arrayBlocks[at] = made;
             _blockOfArray.Add(array, start = new System.Runtime.CompilerServices.StrongBox<MemoryAddress>(at));
             Generation++;
