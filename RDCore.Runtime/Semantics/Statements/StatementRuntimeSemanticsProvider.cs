@@ -266,6 +266,15 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
         var isElementOfAQualifiedArray = assignment.Target is IndexExpressionNode { Callee: MemberAccessExpressionNode calleeAccess }
             && _expressionEvaluator.ResolveNamespaceQualified(session, context, calleeAccess) is not null;
 
+        // `Set G() = x`: a call of a function, Set-assigned through what it returns.
+        if (_assignments.IsACallOfAFunction(session, context, assignment.Target))
+        {
+            var called = _expressionEvaluator.Evaluate(session, assignment.Value, context);
+            return called.IsSuccess
+                ? _assignments.AssignThroughFunction(session, context, assignment, assignment.Target, assignment.Value, called.Result!, isSet: true)
+                : called.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(called.ErrorInfo!);
+        }
+
         if (qualified is null && !isElementOfAQualifiedArray && assignment.Target is MemberAccessExpressionNode or IndexExpressionNode { Callee: MemberAccessExpressionNode })
         {
             var memberValue = _expressionEvaluator.Evaluate(session, assignment.Value, context);
@@ -322,6 +331,16 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             var resultFrame = (CallStackFrame)enclosing;
             resultFrame.ReturnValue = ObjectReferences.AssignResult(session, resultFrame.ResultCell, coercionResult.Result!);
             return RuntimeExecutionOutcome.Next;
+        }
+
+        // MS-VBAL §5.4.3.9: a function named outside its own body is called, and what it returns is Set-assigned through its default member - and so is a
+        // property of a module that has no Property Set (MS-VBA, oracle\s28 W4, W5: `Set Now = Nothing` is error 424).
+        if (target is VBFunctionMemberSymbol
+            || target is VBPropertyGetMemberSymbol property && RuntimeProcedureInvoker.GetParameters(property) is not [{ Name: Tokens.Me }, ..]
+                && !session.Symbols.MembersOf(property.ParentUri).OfType<VBPropertySetMemberSymbol>()
+                    .Any(candidate => string.Equals(candidate.Name, property.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return _assignments.AssignThroughFunction(session, context, assignment, assignment.Target, assignment.Value, coercionResult.Result!, isSet: true);
         }
 
         var handle = boundHandle ?? session.Symbols.Resolver.GetValue((Symbol)target);

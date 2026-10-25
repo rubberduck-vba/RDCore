@@ -25,6 +25,7 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 |`Null`|`#NULL#`|
 |An `Error` value|`#ERROR n#`, where `n` is the error value's number.|
 |`Date`|`#yyyy-mm-dd hh:mm:ss#`|
+|An object|What it stands for, its default member's value, let-coerced to `String` and quoted (`"7"` for an Excel range that holds 7), as in MS-VBA (recorded in Excel). `Nothing` is error 91, and an object whose default member takes an argument (a `Collection`) error 450.|
 
 A `Variant` is written as the value it holds, through a `Variant` within a `Variant`: a `Boolean`, `Null`, `Error`,
 `Date` or number held in a `Variant` takes the form of its own type above, as **MS-VBAL §5.4.5.9**'s rules are about

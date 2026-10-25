@@ -72,7 +72,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09347`](../diagnostics/vbc09347.md)|Object required|a `Set` of a variable that holds no object|
 |[`VBC09348`](../diagnostics/vbc09348.md)|Named argument already specified|a parameter given two arguments|
 |[`VBC09349`](../diagnostics/vbc09349.md)|Named argument not found|a named argument the procedure does not declare|
-|[`VBC09350`](../diagnostics/vbc09350.md)|Constant expression required|a constant's value reads a variable or calls a function|
+|[`VBC09350`](../diagnostics/vbc09350.md)|Constant expression required|a constant's value reads a variable or calls a function, or names the constant itself|
 |[`VBC09351`](../diagnostics/vbc09351.md)|Invalid data type for constant|a constant's value is `Nothing`|
 |[`VBC09352`](../diagnostics/vbc09352.md)|Overflow|a constant's value does not fit its type|
 |[`VBC09353`](../diagnostics/vbc09353.md)|Division by zero|a constant's value divides by zero|

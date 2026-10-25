@@ -788,9 +788,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         // a constant expression may name another constant, so folding one can fold others; a cycle
-        // between them is a compile error MS-VBA reports and nothing here reports yet, so without this
-        // guard it would recurse until the stack ran out.
-        // 🚧 TODO: report circular constant declarations as a compile-time diagnostic instead.
+        // between them is a compile error of the module (ConstantExpressionStaticSemantics), which does not
+        // load: only another module, read while that one did not load, can still ask for one, and the guard
+        // keeps that from recursing until the stack runs out.
         if (!_foldingConstants.Add(id))
         {
             return RuntimeSemanticsEvaluationResult.InternalError();

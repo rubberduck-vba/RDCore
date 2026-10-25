@@ -429,11 +429,10 @@ public sealed class HostExecuteHandlerTests
     }
 
     [TestMethod]
-    public async Task CircularConstants_FailWithoutExhaustingTheStack()
+    public async Task CircularConstants_AreRefusedBeforeTheyRun()
     {
-        // folding one constant can fold another, so a cycle between them would recurse forever. VBA
-        // rejects this at compile time and nothing here does yet, so the guard is what keeps a bad
-        // declaration from taking the whole host down with it.
+        // folding one constant can fold another, so a cycle between them would recurse forever: as in VBA, it is
+        // a compile error ("Constant expression required", oracle\s28 C01), and the module does not load.
         var result = await ExecuteAsync(
             $"Attribute VB_Name = \"{ModuleName}\"\r\n"
             + "Public Const A As Long = B\r\n"
@@ -442,7 +441,8 @@ public sealed class HostExecuteHandlerTests
             + "Debug.Print \"k=\" & A\r\n"
             + "End Sub\r\n");
 
-        Assert.AreEqual(ExecutionOutcome.NotImplemented, result.Outcome);
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome);
+        Assert.IsEmpty(result.Output);
     }
 
     [TestMethod]

@@ -7,7 +7,9 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Facts;
 
@@ -395,9 +397,30 @@ public sealed record class FileStatementRuntimeSemantics(
         var isVariant = evaluated.Result! is VBVariantValue;
         if (!record.Channel.TryWriteRecord(evaluated.Result!, isVariant, out var written))
         {
-            // the format's ERROR rows: an object, a UDT, or a Variant holding one. A UDT is the case that is
-            // specified and not implemented, and RecordDataFormat's own TODO names it.
+            // the format's ERROR rows: an object, or a Variant that holds one. A variable declared as one is a compile error (VBC); a Variant that holds one -
+            // Nothing too - is error 13, once its descriptor (vbObject) is written to a Binary file: a Random record is not written at all (MS-VBA,
+            // oracle\s28 U02, U05, U06, B11-B13).
+            if (isVariant && Unwrapped(evaluated.Result!) is VBObjectValue)
+            {
+                if (record.Channel.Mode is VBFileMode.Binary)
+                {
+                    _ = record.Channel.TryWriteRecord(new VBIntegerValue((short)VBVarType.VBObject), isVariant: false, out _);
+                }
+
+                return Failed(VBRuntimeErrorId.TypeMismatch, statement, "a Variant that holds an object is written to a file as no record");
+            }
+
             return RuntimeExecutionOutcome.InternalError;
+        }
+
+        static VBTypedValue Unwrapped(VBTypedValue value)
+        {
+            while (value is VBVariantValue { TypedValue: { } wrapped })
+            {
+                value = wrapped;
+            }
+
+            return value;
         }
 
         // "If the number of bytes written is more than the specified <rec-length>, an error is generated (#59,

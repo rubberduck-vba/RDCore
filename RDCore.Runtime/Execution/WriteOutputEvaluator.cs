@@ -1,5 +1,8 @@
 using RDCore.Runtime.Semantics;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -57,7 +60,27 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                         : RuntimeExecutionOutcome.Error(evaluated.ErrorInfo!);
                 }
 
-                output.Write(OutputString(evaluated.Result!));
+                // an object is written as what it stands for, as Print # prints it: let-coerced to a String, and quoted as one (MS-VBA, oracle\s28 D02, D04).
+                var written = evaluated.Result!;
+                if (Unwrapped(written) is VBObjectValue)
+                {
+                    var read = ObjectDefaultMember.ValueOf(session, written);
+                    if (!read.IsSuccess)
+                    {
+                        return RuntimeExecutionOutcome.Error(read.ErrorInfo!);
+                    }
+
+                    var text = ValueConversions.ToText(read.Result!, session.Environment.Culture);
+                    if (!text.IsSuccess || text.Value is not VBStringValue converted)
+                    {
+                        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, item.Value.Location,
+                            "What the object stands for cannot be written as text."));
+                    }
+
+                    written = converted;
+                }
+
+                output.Write(OutputString(written));
             }
 
             // a char-position between two values is an <output-item> of its own (the grammar's `outputItem :

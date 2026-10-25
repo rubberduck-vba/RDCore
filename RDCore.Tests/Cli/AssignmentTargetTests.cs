@@ -34,11 +34,8 @@ public sealed class AssignmentTargetTests
         StringAssert.Contains(errors[0], $"and this is {what}");
     }
 
+    // a function named as the target of a Let or a Set is a call of it, and its own errors are MS-VBA's (FunctionTargetTests).
     [TestMethod]
-    [DataRow("", "Left$ = \"x\"", "the function Left$ of the VBA library", DisplayName = "A function of the library that returns a String, by its name with a type character")]
-    [DataRow("", "Strings.Left$ = \"x\"", "the function Left$ of the VBA library", DisplayName = "A function of the library that returns a String, qualified by its module")]
-    [DataRow("", "Set Err = Nothing", "the function Err of the VBA library", DisplayName = "The target of a Set assignment, a function of the library that returns an object")]
-    [DataRow("", "Set Left = Nothing", "the function Left of the VBA library", DisplayName = "The target of a Set assignment, a function of the library that returns a Variant")]
     [DataRow("Private Const Label = \"abc\"", "LSet Label = \"x\"", "the constant Label", DisplayName = "The target of an LSet statement")]
     [DataRow("Private Const Label = \"abc\"", "RSet Label = \"x\"", "the constant Label", DisplayName = "The target of an RSet statement")]
     [DataRow("", "LSet Err = \"x\"", "the function Err of the VBA library", DisplayName = "The target of an LSet statement, a function of the library that returns an object")]
@@ -84,9 +81,10 @@ public sealed class AssignmentTargetTests
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.4.3.4 Erase Statement")]
-    public async Task AnErase_OfAFunctionOfTheLibrary_IsNotRefused()
-        // an element of an Erase statement may be a function (MS-VBAL §5.4.3.4); only whether the module loads is asserted.
-        => CollectionAssert.AreEqual(Array.Empty<string>(), await LoadErrorsAsync([], Program(string.Empty, "Erase Left")));
+    public async Task AnErase_OfAFunctionOfTheLibrary_ThatTakesNoArgument_IsNotRefused()
+        // an element of an Erase statement may be a function (MS-VBAL §5.4.3.4), called with no argument: `Erase Left` is "Argument not optional"
+        // (FunctionTargetTests); only whether the module loads is asserted.
+        => CollectionAssert.AreEqual(Array.Empty<string>(), await LoadErrorsAsync([], Program(string.Empty, "Erase Now")));
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.4.3.3 ReDim Statement")]
@@ -167,15 +165,15 @@ public sealed class AssignmentTargetTests
 
     [TestMethod]
     [DataRow("", "Err = 5", DisplayName = "A function of the library that returns an object, whose default member is assigned")]
-    [DataRow("", "Left = \"x\"", DisplayName = "A function of the library that returns a Variant")]
+    [DataRow("", "Command = \"x\"", DisplayName = "A function of the library that returns a Variant, and takes no argument")]
     [DataRow("", "Array = 5", DisplayName = "Another function of the library that returns a Variant")]
-    [DataRow("", "Strings.Left = \"x\"", DisplayName = "A function of the library that returns a Variant, qualified by its module")]
+    [DataRow("", "Interaction.Command = \"x\"", DisplayName = "A function of the library that returns a Variant, qualified by its module")]
     [DataRow("Private m As Long\r\nPublic Property Get Level() As Long\r\nLevel = m\r\nEnd Property\r\nPublic Property Let Level(ByVal v As Long)\r\nm = v\r\nEnd Property",
         "Level = 5", DisplayName = "A property of the module, by its bare name")]
     public async Task AnAssignment_ThatMayBeValid_IsNotRefused(string declarations, string body)
         // only whether the module loads is asserted: these are not refused for what they assign to. MS-VBAL §5.4.3.8 admits a Let to a function whose
-        // declared type is a class, Object or Variant, and has the one of a Variant raise error 450 when it runs; here the library's functions still fail
-        // when they run, as they did, and the property of the module is assigned through its Property Let.
+        // declared type is a class, Object or Variant, which is called and assigned through when it runs (FunctionTargetTests); the property of the
+        // module is assigned through its Property Let.
         => CollectionAssert.AreEqual(Array.Empty<string>(), await LoadErrorsAsync([], Program(declarations, body)));
 
     [TestMethod]

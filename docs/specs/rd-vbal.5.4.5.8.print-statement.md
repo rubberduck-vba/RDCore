@@ -58,6 +58,10 @@ settings of the session's environment ([**RD-VBAL §5.5.1.2.4** Let-coercion to 
 Every form of `Print` is a text channel: a `String` is written as its whole characters, and a trailing byte is not
 written ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).
 
+An object is printed as what it stands for, its default member's value, as the value it is (` 7 ` for an Excel range that
+holds 7). As in MS-VBA (recorded in Excel), for `Print #` and `Debug.Print` alike, `Nothing` is error 91 and an object
+whose default member takes an argument (a `Collection`) error 450.
+
 ## Implementation
 
 `Print #` writes through the channel's character output surface,

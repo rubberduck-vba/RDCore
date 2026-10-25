@@ -41,7 +41,8 @@ public static class ConstantExpressionStaticSemantics
     {
         foreach (var member in members)
         {
-            if (member is VBConstantMemberSymbol { Value: { } value } && ValueError(resolver, member.ParentUri, value) is { } moduleError)
+            if (member is VBConstantMemberSymbol { Value: { } value }
+                && (ValueError(resolver, member.ParentUri, value) ?? CycleError(resolver, member, value)) is { } moduleError)
             {
                 yield return moduleError;
             }
@@ -53,7 +54,8 @@ public static class ConstantExpressionStaticSemantics
 
             foreach (var local in DeclarationStaticSemanticsEvaluator.LocalsOf(member))
             {
-                if (local is VBLocalConstantSymbol { Value: { } localValue } && ValueError(resolver, local.ParentUri, localValue) is { } localError)
+                if (local is VBLocalConstantSymbol { Value: { } localValue }
+                    && (ValueError(resolver, local.ParentUri, localValue) ?? CycleError(resolver, local, localValue)) is { } localError)
                 {
                     yield return localError;
                 }
@@ -63,6 +65,70 @@ public static class ConstantExpressionStaticSemantics
                     yield return boundError;
                 }
             }
+        }
+    }
+
+    // a constant whose value names itself - directly, or through the constants it names - has no value to be folded to: "Constant expression required", as
+    // MS-VBA reports it however the cycle is made, in a module or in a procedure, and whether or not anything reads the constant (Excel-verified, oracle\s28
+    // C01-C05). Each constant on the cycle is one.
+    private static VBCompileErrorInfo? CycleError(ISymbolResolver resolver, Symbol constant, ExpressionNode value)
+    {
+        var start = constant.Uri.AbsoluteUri;
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<(Uri Scope, ExpressionNode Value)>();
+        pending.Push((constant.ParentUri, value));
+        while (pending.TryPop(out var next))
+        {
+            foreach (var named in ConstantsNamedBy(resolver, next.Scope, next.Value))
+            {
+                if (named.Uri.AbsoluteUri == start)
+                {
+                    return VBCompileErrorInfo.For(VBCompileErrorId.ConstantExpressionRequired, value.Location, $"the value of {constant.Name} names {constant.Name} itself");
+                }
+
+                if (visited.Add(named.Uri.AbsoluteUri) && ValueOf(named) is { } namedValue)
+                {
+                    pending.Push((named.ParentUri, namedValue));
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static ExpressionNode? ValueOf(Symbol constant) => constant switch
+    {
+        VBConstantMemberSymbol { Value: var value } => value,
+        VBLocalConstantSymbol { Value: var value } => value,
+        _ => null,
+    };
+
+    // the constants a constant expression names, by their names or through their modules.
+    private static IEnumerable<Symbol> ConstantsNamedBy(ISymbolResolver resolver, Uri scope, ExpressionNode expression)
+    {
+        switch (expression)
+        {
+            case VBUnaryOperatorExpressionNode unary:
+                foreach (var named in ConstantsNamedBy(resolver, scope, unary.Operand))
+                {
+                    yield return named;
+                }
+
+                break;
+            case VBBinaryOperatorExpressionNode binary:
+                foreach (var named in ConstantsNamedBy(resolver, scope, binary.Left).Concat(ConstantsNamedBy(resolver, scope, binary.Right)))
+                {
+                    yield return named;
+                }
+
+                break;
+            case SimpleNameExpressionNode name when resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol is VBConstantMemberSymbol or VBLocalConstantSymbol:
+                yield return resolver.ResolveValue(name, ScopeKind.Local, scope).Symbol!;
+                break;
+            case MemberAccessExpressionNode { Owner: { } owner } access when resolver.NamespaceOf(owner, scope) is { } qualifier
+                && resolver.ResolveMember(qualifier, access.Member, scope).Symbol is VBConstantMemberSymbol member:
+                yield return member;
+                break;
         }
     }
 

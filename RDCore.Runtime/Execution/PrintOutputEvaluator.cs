@@ -180,9 +180,11 @@ public sealed class PrintOutputEvaluator(
         };
     }
 
+    // what an object stands for where a value is wanted, read as a function of the library reads its argument: Nothing is error 91, and an object whose default
+    // member takes an argument (a Collection) error 450 - for Debug.Print, Print # and Write # alike (MS-VBA, oracle\s28 D01-D04, U10).
     private RuntimeSemanticsEvaluationResult DataValueOf(IRuntimeSession session, ExpressionNode expression, VBTypedValue value)
     {
-        var data = Coerce(session, expression, value, VBVariantType.TypeInfo);
+        var data = ObjectDefaultMember.ValueOf(session, value);
         return data.IsSuccess ? ToOutputString(session, expression, data.Result!) : data;
     }
 

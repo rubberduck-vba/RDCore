@@ -14,9 +14,17 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 ## Static Semantics
 
 The target is a variable, a property or an unbound member: **MS-VBAL §5.4.3.9** makes the statement invalid when it
-"is classified as something other than a variable, property or unbound member". A constant or a function of the
-library (`Set Err = Nothing`, `Set Left = Nothing`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`); see
-[**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
+"is classified as something other than a variable, property or unbound member". A constant is
+[`VBC09346`](../diagnostics/vbc09346.md) (`AssignmentToConstantNotPermitted`).
+
+A function named as the target outside its own body - or a property of a module that has no `Property Set` - is a call of
+it, as it is for a `Let` statement ([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)), and what
+it returns is Set-assigned through its default member. As in MS-VBA (recorded in Excel), one that takes an argument is
+[`VBC09339`](../diagnostics/vbc09339.md) _Argument not optional_ - before what its type is (`Set Left = Nothing`,
+`Set Left$ = Nothing`) - and one whose declared type is neither a `Variant` nor an object is
+[`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_ (`Set F = Nothing` of a `Function F() As Long`), as is
+`Set Err = Nothing`: MS-VBA's library declares `Err` a property. What passes is called when it runs, and what returns no
+object is error `424` (`Set Command = Nothing`, `Set Now = Nothing`).
 
 The default instance variable of a predeclared class is a valid target of a `Set` assignment, whatever is assigned to it,
 as it is in **MS-VBA**.

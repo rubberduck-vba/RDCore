@@ -26,37 +26,31 @@ or `Object`, which is so of a constant, or is classified as a function that is n
 declared type is not a class, `Object` or `Variant`. Assigning to a constant - one the standard library declares
 (`vbCrLf`, `vbSunday`), a `Const` of a module or of a procedure, or a member of an `Enum`, by its name, qualified by its
 project or its module, or qualified by the `Enum` that declares it, a library's or the workspace's
-(`VbDayOfWeek.vbSunday`, `Colour.Red`) - or to a function of the library whose declared type is not a class, `Object`
-or `Variant` (`Left$ = "x"`, a `String`) is
-[`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`), and the module does not load. So is a constant or a
-function of the library, whatever its declared type, as the target of a `Set` statement, which must be a variable, a
-property or an unbound member (**MS-VBAL §5.4.3.9**), and as the target of an `LSet` or an `RSet` statement or the
-control variable of a `For` or a `For Each` loop, each of which must be a variable (**MS-VBAL §5.6.16.6**; see
+(`VbDayOfWeek.vbSunday`, `Colour.Red`) - is [`VBC09346`](../diagnostics/vbc09346.md) (`AssignmentToConstantNotPermitted`),
+and the module does not load. A constant or a function of the library is [`VBC09333`](../diagnostics/vbc09333.md)
+(`VariableRequired`) as the target of an `LSet` or an `RSet` statement or the control variable of a `For` or a
+`For Each` loop, each of which must be a variable (**MS-VBAL §5.6.16.6**; see
 [**RD-VBAL §5.6.16.6** Bound Variable Expressions](rd-vbal.5.6.16.constrained-expressions.md#56166-bound-variable-expressions)):
-`Set Left = Nothing` and `LSet Err = "x"` are refused, though `Left` returns a `Variant` and `Err` an object.
+`LSet Err = "x"` is refused.
 
-A function of the library whose declared type is a class, `Object` or `Variant` is not refused as the target of a `Let`
-statement, since **MS-VBAL §5.4.3.8** admits it: it assigns the value to an object's default member (`Err = 5`), and
-has the statement raise error `450` when it runs for a `Variant` (`Left = "x"`, `Array = 5`). A function of the workspace
-assigned inside its own body is its result, and is not refused; nor is a property, nor a variable named like a member of
-the library. A name written with a type-declaration character is what its identifier names (**MS-VBAL §5.6.10**):
-after `Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused, and assigns the variable or the result
-when it runs.
+A function named as the target outside its own body - one of the library, of the workspace, or a `Declare`, by its name
+or qualified by its module - is a call of it, and so is a property of a module that has no `Property Let`, the
+library's (`Now`, `Timer`) as the workspace's: what it returns is assigned through its default member. As in MS-VBA
+(recorded in Excel), what cannot be called so is a compile error, and the module does not load:
 
-> [!NOTE]
-> **Not implemented.** A function of the library whose declared type is `Variant`, let-assigned to (`Left = "x"`), does
-> not raise error `450` when it runs: the statement fails in the host rather than raising a run-time error, and
-> qualified by its module (`Strings.Left = "x"`) it stops as not yet implemented.
+|Target|Error|Example|
+|---|---|---|
+|A function whose declared type is neither a `Variant` nor an object|[`VBC09355`](../diagnostics/vbc09355.md) _Function call on left-hand side of assignment must return Variant or Object_ - before what its parameters are|`Left$ = "x"`, `F = 6` of a `Function F() As Long`, a `Declare`d function|
+|A property of a module of such a type|[`VBC09341`](../diagnostics/vbc09341.md) _Can't assign to read-only property_|`Timer = 5`|
+|One that takes an argument|[`VBC09339`](../diagnostics/vbc09339.md) _Argument not optional_|`Left = "x"`, `Strings.Left = "x"`, `Environ = "x"`|
 
-> [!NOTE]
-> **Not implemented.** A function of the library that returns an object, let-assigned to (`Err = 5`), does not
-> assign the object's default member yet: the statement raises error `438`.
-
-> [!NOTE]
-> **Not implemented.** A function of the workspace or a `Declare`d function assigned from outside its own body
-> (`F = 6` in another procedure) is not refused, though **MS-VBAL §5.4.3.8** makes the statement invalid when its
-> declared type is not a class, `Object` or `Variant`. It does not run: it fails in the host rather than raising a
-> run-time error.
+What passes is called when the statement runs, given the arguments written after it, if any (`G() = 6`,
+`Left("ab", 1) = "x"`): what it returns is assigned through its default member (`Err = 5` assigns `Err.Number`), and
+what returns no object is error `424` (`Command = "x"`, `Now = 5`, a `Variant` function of the workspace). A function of
+the workspace assigned inside its own body is its result; a variable named like a member of the library is the
+variable. A name written with a type-declaration character is what its identifier names (**MS-VBAL §5.6.10**): after
+`Dim Left$`, or inside a `Function Left$`, `Left$ = "x"` is not refused, and assigns the variable or the result when it
+runs.
 
 ## Runtime Semantics
 

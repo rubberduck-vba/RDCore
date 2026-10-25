@@ -415,6 +415,7 @@ public static class StatementStaticSemanticsEvaluator
                     foreach (var element in erase.Inputs.OfType<ExpressionNode>())
                     {
                         elements.RequireNotAValue(element, "An element of an Erase statement", "5.4.3.4");
+                        elements.RequireErasable(element);
                     }
                     walk.Errors.AddRange(elements.Errors);
 

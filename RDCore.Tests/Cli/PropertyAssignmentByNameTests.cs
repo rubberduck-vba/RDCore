@@ -45,7 +45,14 @@ public sealed class PropertyAssignmentByNameTests
     public Task APropertyOfAClass_AssignedByNameFromItsOwnCode_IsAssignedOnTheObject()
         => AssertPrintsAsync("42", "Dim h As New Holder", "h.Grow", "Debug.Print CStr(h.Current)");
 
+    // MS-VBA (Excel-verified, oracle\s28 W1): a property of a module with no Property Let, of a type that is neither a Variant nor an object, is no target
+    // at all; one of a Variant is called, and what it returns that is no object is error 424 (FunctionTargetTests).
     [TestMethod]
-    public Task APropertyWithNoPropertyLet_ThatReturnsNoObject_IsError451()
-        => AssertPrintsAsync("Error 451", "ReadOnly = 2");
+    public async Task APropertyWithNoPropertyLet_ThatReturnsNoObject_IsCantAssignToReadOnlyProperty()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Property Get ReadOnly() As Long\r\nReadOnly = 1\r\nEnd Property\r\nPublic Sub Main()\r\nReadOnly = 2\r\nEnd Sub\r\n");
+
+        Assert.HasCount(1, errors, string.Join(" | ", errors));
+        StringAssert.StartsWith(errors[0], "Can't assign to read-only property");
+    }
 }

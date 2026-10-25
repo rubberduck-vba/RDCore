@@ -31,6 +31,7 @@ The record format follows MS-VBA's, so that a file RD-VBA writes is a file MS-VB
 |`String`, in `Random` mode|Carries a two-byte length prefix.|
 |`String`, in `Binary` mode|Carries no length prefix.|
 |`Variant`|Preceded by its two-byte type descriptor.|
+|A `Variant` that holds an object, or `Nothing`|No record: error 13, as in MS-VBA (recorded in Excel) - once its descriptor, `vbObject` (`09 00`), is written in `Binary` mode; nothing is written in `Random` mode. A variable declared as an object, or a UDT with one in it, is a compile error.|
 |A variable or a field of an `Enum`|The `Long` it holds, four bytes ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).|
 |A UDT|Each member of the UDT, in declaration order, recursively through a nested UDT (see [User-Defined Types](#user-defined-types)).|
 

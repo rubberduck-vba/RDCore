@@ -100,6 +100,9 @@ public sealed class LetAssignmentEvaluator(
             ? Assign(session, context, statement, qualified, target, source, value)
             : target is MemberAccessExpressionNode memberAccess
             ? AssignField(session, context, statement, memberAccess, source, value)
+            // `G() = 6`, `Left("ab", 1) = "x"`: a call of a function, given its arguments, assigned through what it returns.
+            : IsACallOfAFunction(session, context, target)
+            ? AssignThroughFunction(session, context, statement, target, source, value, isSet: false)
             : IsMemberOfObject(target) && !IsElementOfAQualifiedArray(session, context, target)
                 ? AssignObjectMember(session, context, statement, target, source, value, isSet: false)
                 : target is IndexExpressionNode element
@@ -141,6 +144,23 @@ public sealed class LetAssignmentEvaluator(
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="target"/> is a call of a function, given arguments - by its name, or qualified by its module - outside the function's own body:
+    /// what an assignment to it assigns through is what it returns (<see cref="AssignThroughFunction"/>).
+    /// </summary>
+    public bool IsACallOfAFunction(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode target)
+    {
+        var callee = target is IndexExpressionNode { Callee: var named } ? named : null;
+        var symbol = callee switch
+        {
+            SimpleNameExpressionNode name => session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol,
+            MemberAccessExpressionNode access => expressions.ResolveNamespaceQualified(session, context, access),
+            _ => null,
+        };
+
+        return symbol is VBFunctionMemberSymbol function && function.Uri.AbsoluteUri != context.Scope.AbsoluteUri;
     }
 
     // `owner.Property(index) = value`: an index expression whose callee is a member access.
@@ -863,6 +883,12 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Next;
         }
 
+        // MS-VBAL §5.4.3.8: a function named outside its own body is called, and what it returns is assigned through (AssignThroughFunction).
+        if (symbol is VBFunctionMemberSymbol)
+        {
+            return AssignThroughFunction(session, context, statement, target, source, value, isSet: false);
+        }
+
         // MS-VBAL §5.4.3.8: a property is assigned by invoking its Property Let with the value - a property of a module, the workspace's or the library's
         // (Calendar, Time), as much as one of an object. It has no storage of its own for the value to be written to.
         if (symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
@@ -915,6 +941,13 @@ public sealed class LetAssignmentEvaluator(
 
         if (accessor is null)
         {
+            // a property of a module is called as a function is, and what it returns that is no object is error 424 (MS-VBA, oracle\s28 W2, B01: `Now = 5`); a
+            // class's own, invoked on the object, is error 451.
+            if (property is VBPropertyGetMemberSymbol && RuntimeProcedureInvoker.GetParameters(property) is not [{ Name: Tokens.Me }, ..])
+            {
+                return AssignThroughFunction(session, context, statement, target, source, value, isSet: false);
+            }
+
             return property is VBPropertyGetMemberSymbol { ResolvedType: VBClassType or VBObjectType or VBVariantType }
                 ? AssignDefaultMember(session, context, statement, target, source, value)
                 : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(
@@ -971,7 +1004,7 @@ public sealed class LetAssignmentEvaluator(
     // returned - is no access of the code's, and is not stated as one (observed).
     private RuntimeExecutionOutcome AssignDefaultMemberOf(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode reachedThrough, VBObjectValue owner,
-        ExpressionNode source, VBTypedValue value, bool observed)
+        ExpressionNode source, VBTypedValue value, bool observed, bool isSet = false)
     {
         if (owner.IsNothing())
         {
@@ -988,8 +1021,45 @@ public sealed class LetAssignmentEvaluator(
 
         var access = DefaultMemberAccess(reachedThrough, defaultMember.Name);
         return observed
-            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet: false)
-            : AssignMemberOf(session, context, statement, access, [], owner, source, value, isSet: false);
+            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet)
+            : AssignMemberOf(session, context, statement, access, [], owner, source, value, isSet);
+    }
+
+    /// <summary>
+    /// Assigns <paramref name="value"/> through what a function returns, called with no argument: the target of an assignment that names a function outside
+    /// its own body (<strong>MS-VBAL §5.4.3.8</strong>, <strong>§5.4.3.9</strong>).
+    /// </summary>
+    /// <remarks>
+    /// What the function returns is assigned through its default member, as an object variable assigned a value is (<c>Err = 5</c> assigns <c>Err.Number</c>).
+    /// What returns no object has nothing to assign through: error <c>424</c>, as MS-VBA has it (Excel-verified, oracle\s28: <c>Command = "x"</c>, a
+    /// <c>Variant</c> function of the workspace assigned or Set from another procedure). What cannot be called so is a compile error the static pass reports.
+    /// </remarks>
+    /// <param name="session">The session the function is called in.</param>
+    /// <param name="context">The scope of the assignment.</param>
+    /// <param name="statement">The assignment.</param>
+    /// <param name="target">The target, which names the function.</param>
+    /// <param name="source">The expression the value came from, for the location of a coercion error.</param>
+    /// <param name="value">The value, already evaluated - and Set-coerced, for a <c>Set</c>.</param>
+    /// <param name="isSet">Whether it is a <c>Set</c> assignment.</param>
+    public RuntimeExecutionOutcome AssignThroughFunction(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, ExpressionNode source, VBTypedValue value, bool isSet)
+    {
+        var called = expressions.Evaluate(session, target, context);
+        if (!called.IsSuccess)
+        {
+            return called.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(called.ErrorInfo!);
+        }
+
+        var returned = called.Result;
+        while (returned is VBVariantValue { TypedValue: { } wrapped })
+        {
+            returned = wrapped;
+        }
+
+        return returned is VBObjectValue owner
+            ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value, observed: false, isSet)
+            : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, target.Location,
+                "The function returned no object to assign through."));
     }
 
     // the access of the default member of the object an expression is the value of, which an assignment to it writes through: one for each expression and

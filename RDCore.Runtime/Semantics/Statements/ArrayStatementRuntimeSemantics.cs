@@ -175,6 +175,25 @@ public sealed record class ArrayStatementRuntimeSemantics(
             // §5.4.3.4 allows any l-expression classified as a variable, property, function or unbound member: a simple name is a symbol, and
             // the rest - a member access, an element - are expressions.
             var name = element is SimpleNameExpressionNode simpleName ? simpleName.IdentifierName : element.ToString() ?? string.Empty;
+
+            // a function named outside its own body - a property of a module too - is called, and what it returns is erased: an array it returns is a copy
+            // nothing else holds, and anything else is error 13 (MS-VBA, oracle\s28 B19, B21, B22). What cannot return an array is a compile error.
+            if (NamesAFunction(session, context, element))
+            {
+                var returned = Expressions.Evaluate(session, element, context);
+                if (!returned.IsSuccess)
+                {
+                    return returned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(returned.ErrorInfo!);
+                }
+
+                if (Unwrapped(returned.Result) is not VBArrayValue)
+                {
+                    return Failed(statement, VBRuntimeErrorId.TypeMismatch, $"{name} returned no array");
+                }
+
+                continue;
+            }
+
             if (!TryResolveTarget(session, context, element is SimpleNameExpressionNode ? null : element, name, out var target, out var targetFailure))
             {
                 return targetFailure;
@@ -215,6 +234,21 @@ public sealed record class ArrayStatementRuntimeSemantics(
         }
 
         return RuntimeExecutionOutcome.Next;
+    }
+
+    // a function, by its name or qualified by its module, that is not the procedure being run - or a property of a module.
+    private bool NamesAFunction(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode element)
+    {
+        var symbol = element switch
+        {
+            SimpleNameExpressionNode name => session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol,
+            MemberAccessExpressionNode access => Expressions.ResolveNamespaceQualified(session, context, access),
+            _ => null,
+        };
+
+        return symbol is SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol or SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol
+            && symbol.Uri.AbsoluteUri != context.Scope.AbsoluteUri
+            && RuntimeProcedureInvoker.GetParameters((VBTypeMemberSymbol)symbol) is not [{ Name: Tokens.Me }, ..];
     }
 
     // classified by the type the owner is declared as, without evaluating it again. A Variant owner is one too: what it holds is an object by the time the

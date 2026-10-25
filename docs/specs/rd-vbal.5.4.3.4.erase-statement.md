@@ -14,11 +14,13 @@
 The declared type of each `erase-element` must be an array or a `Variant`.
 
 An `erase-element` is "classified as a variable, property, function or unbound member" (**MS-VBAL §5.4.3.4**): a
-constant (`Erase vbCrLf`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`). A function is not refused.
+constant (`Erase vbCrLf`) is [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).
 
-> [!NOTE]
-> **Not implemented.** An `erase-element` that is a function of the library (`Erase Left`) fails in the host when it
-> runs, rather than raising a run-time error.
+A function named outside its own body - or a property of a module - is a call of it, and what it returns is what is
+erased. As in MS-VBA (recorded in Excel), one that takes an argument is [`VBC09339`](../diagnostics/vbc09339.md)
+_Argument not optional_, before what its type is (`Erase Left`, `Erase Left$`), and one whose declared type is not a
+`Variant` cannot return an array: [`VBC09307`](../diagnostics/vbc09307.md) _Expected array_ (`Erase F` of a
+`Function F() As Long`, `Erase Err`, `Erase Timer`).
 
 ## Runtime Semantics
 
@@ -32,6 +34,7 @@ at run time may change them.
 |A resizable array|Set to an empty array of the same element type. The dimensions and the data are gone.|
 |A `Variant` holding an array|The same. The variable keeps storing a `Variant`.|
 |A fixed-size array|The dimensions stay. Every element is reset to its element type's default value.|
+|A function, or a property of a module|Called: an array it returns is a copy of its own, and nothing else changes; anything else is error 13 (`Erase Now`).|
 |Anything else|Runtime error 13, `Type mismatch`.|
 
 An `Erase` statement erases each element of its `erase-list`, in source order.
