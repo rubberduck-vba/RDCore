@@ -123,6 +123,20 @@ public sealed class FormDesignerTests
     }
 
     [TestMethod]
+    public void Read_UserForm_KeepsItsDesignersState_WhichTravelsWithIt()
+    {
+        var form = FormDesigner.Read(Text("ExampleView.frm"), Fixture("ExampleView.frx"))!;
+
+        // the compound file the .frx keeps after its 24-byte header, as Microsoft Forms loads it
+        CollectionAssert.AreEqual(Fixture("ExampleView.frx")[24..], form.State.ToArray());
+        CollectionAssert.AreEqual(form.State.ToArray(), FormDesigner.StateOf(Text("ExampleView.frm"), Fixture("ExampleView.frx")).ToArray());
+
+        // the environment host has no file of the workspace: what it creates the form from is what the parse result carries to it.
+        var travelled = RDCore.SDK.Platform.Protocol.PlatformJson.Deserialize<FormDescriptor>(RDCore.SDK.Platform.Protocol.PlatformJson.Serialize(form));
+        CollectionAssert.AreEqual(form.State.ToArray(), travelled.State.ToArray());
+    }
+
+    [TestMethod]
     public void Read_UserFormWithoutControls_HasNone()
     {
         var form = FormDesigner.Read(Text("ExampleDynamicView.frm"), Fixture("ExampleDynamicView.frx"))!;

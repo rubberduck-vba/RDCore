@@ -81,12 +81,14 @@ public static partial class FormDesigner
 
         var (kind, @class) = ClassOf(block.Class);
         var controls = block.Children.Select(ToDescriptor).ToList();
+        var state = ReadOnlyMemory<byte>.Empty;
         if (kind == FormDesignerKind.MSForms && CompanionOf(block) is { } reference)
         {
-            controls = [.. MSFormsDesignerStorage.ReadControls(CompoundFile.Open(BlobAt(companion, reference.Offset)))];
+            state = BlobAt(companion, reference.Offset);
+            controls = [.. MSFormsDesignerStorage.ReadControls(CompoundFile.Open(state))];
         }
 
-        return new FormDescriptor(block.Name, kind, @class, block.Properties, controls);
+        return new FormDescriptor(block.Name, kind, @class, block.Properties, controls) { State = state };
     }
 
     /// <summary>
