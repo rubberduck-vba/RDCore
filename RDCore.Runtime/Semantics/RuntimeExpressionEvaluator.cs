@@ -2020,9 +2020,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // one passed to a Variant, which holds the object itself: "if the value type of the argument is a specific class
             // or Nothing, its data value is Set-assigned" to the local - not what the object's default member returns. That is
             // the argument's value type, which is the object's class whether the object is held by an object variable or by a Variant.
+            // a parameter passed by address (ObjPtr) is given the object where it is, or in a temporary (below).
             if (SetCoercion is { } setCoercion
                 && HeldObject(argumentResult.Value.Result) is { } passedObject
-                && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType)
+                && parameter.ResolvedType is VBClassType or VBObjectType or VBVariantType
+                && !(anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress)))
             {
                 var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, passedObject, parameter.ResolvedType);
                 if (!setResult.IsSuccess)
@@ -2056,7 +2058,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 }
 
                 // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5" (StdLibByAddressAttribute).
-                if (typedByAddress)
+                // An object is one as it is: ObjPtr(New Thing) is the address of the new object's interface.
+                if (typedByAddress && !(parameter.ResolvedType is VBObjectType && HeldObject(passed) is not null))
                 {
                     var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
                         passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
@@ -2075,7 +2078,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                         Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
                 }
 
-                HoldsString(session, temporary, passed.TypeInfo);
+                HoldsPointer(session, temporary, passed.TypeInfo);
                 session.Objects.PushTemporary(new ArgumentTemporary(temporary));
                 bound[i] = new VBRuntimeReference(temporary, passed.TypeInfo);
                 continue;
@@ -2293,12 +2296,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return false;
             }
 
+            // an object variable declared `As New` is given an object when it is used, which passing it to ObjPtr is (MS-VBA, recorded in Excel: oracle\s17 O01).
+            if (typedByAddress && parameter.ResolvedType is VBObjectType && Evaluate(session, anyName, context) is { IsSuccess: false } instantiation)
+            {
+                evaluated = instantiation;
+                return false;
+            }
+
             // the name of a Function or a Property Get, in its own code, is its result variable (MS-VBAL §5.3.1), which has an address of its own (oracle\s24 F01).
             if (anyByAddress && anySymbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && anySymbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
                 && session.CallStack.Current is Execution.Frames.CallStackFrame activation
                 && activation.TryGetResultAddress(Math.Max(1, VBUserDefinedTypeLayout.WidthOf(anyTyped.ResolvedType, PointerWidthOf(session))), out var result))
             {
-                HoldsString(session, result, anyTyped.ResolvedType);
+                HoldsPointer(session, result, anyTyped.ResolvedType);
                 reference = new VBRuntimeReference(result, anyTyped.ResolvedType);
                 return true;
             }
@@ -2315,7 +2325,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (session.Symbols.Resolver.TryGetAddress(anySymbol, out var anyAddress))
             {
                 var declaredAs = DeclaredTypeOf(session, anySymbol, anyTyped.ResolvedType);
-                HoldsString(session, anyAddress, declaredAs);
+                HoldsPointer(session, anyAddress, declaredAs);
                 reference = new VBRuntimeReference(anyAddress, declaredAs);
                 return true;
             }
@@ -2360,7 +2370,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var declared = DeclaredTypeOf(session, argumentSymbol, typed.ResolvedType);
         if (anyByAddress)
         {
-            HoldsString(session, address, declared);
+            HoldsPointer(session, address, declared);
         }
 
         reference = new VBRuntimeReference(address, takesAny ? declared : ReferencedType(parameter, declared));
@@ -2481,20 +2491,35 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     private static int PointerWidthOf(IRuntimeSession session) => session.Environment.Is64Bit ? sizeof(long) : sizeof(int);
 
-    // whether what is given to a parameter of a type of its own passed by address (StrPtr) is given at its address: a variable of the type, or a Variant
-    // holding a value of it. A fixed-length String is its characters, and is given a String made of them, as anything else is a temporary of the type.
+    // whether what is given to a parameter of a type of its own passed by address (StrPtr, ObjPtr) is given at its address: a variable of the type, or a
+    // Variant holding a value of it. A fixed-length String is its characters, and is given a String made of them, as anything else is a temporary of the type.
     private static bool HoldsValueOf(VBParameterSymbol parameter, VBType declared, Func<VBTypedValue?> current)
         => declared is not VBFixedStringType
-            && (IsOfDeclaredType(parameter, declared)
-                || declared is VBVariantType && current() is VBVariantValue { TypedValue: not VBFixedStringValue and var held } && IsOfDeclaredType(parameter, held.TypeInfo));
+            && (IsOfTypeAtItsAddress(parameter, declared)
+                || declared is VBVariantType && current() is VBVariantValue { TypedValue: not VBFixedStringValue and var held }
+                    && IsOfTypeAtItsAddress(parameter, held.TypeInfo));
 
-    // a variable-length String variable's bytes are the address of its characters, which nothing but its declared type tells from a fixed-length one's: what
-    // gives its address away says so of it (SessionStorage.HoldsString).
-    private static void HoldsString(IRuntimeSession session, MemoryAddress address, VBType? declared)
+    // an object parameter passed by address (ObjPtr) takes an object of any class, which is where it is whatever it is declared as.
+    private static bool IsOfTypeAtItsAddress(VBParameterSymbol parameter, VBType type)
+        => parameter.ResolvedType is VBObjectType ? type is VBObjectType or VBClassType : IsOfDeclaredType(parameter, type);
+
+    // a variable-length String variable's bytes are the address of its characters, which nothing but its declared type tells from a fixed-length one's, and
+    // an object variable's the address of the interface of its object its declared type says: what gives its address away says so of it
+    // (SessionStorage.HoldsString, HoldsObject).
+    private static void HoldsPointer(IRuntimeSession session, MemoryAddress address, VBType? declared)
     {
-        if (declared is VBStringType and not VBFixedStringType && session.Storage is Execution.Memory.SessionStorage storage)
+        if (session.Storage is not Execution.Memory.SessionStorage storage)
+        {
+            return;
+        }
+
+        if (declared is VBStringType and not VBFixedStringType)
         {
             storage.HoldsString(address);
+        }
+        else if (declared is VBObjectType or VBClassType)
+        {
+            storage.HoldsObject(address, declared);
         }
     }
 

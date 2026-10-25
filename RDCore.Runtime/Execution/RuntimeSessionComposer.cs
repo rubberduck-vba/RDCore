@@ -105,6 +105,10 @@ public static class RuntimeSessionComposer
         var storage = new SessionStorage(memory, (int)memory.PointerSize);
         var symbols = new SessionSymbols(storage, callStack, declared);
         var objects = new SessionObjects();
+
+        // the interfaces of an object (ObjPtr) are those of its class, and are let go of with it.
+        storage.ClassOf = held => symbols.TryGetInstance(held, out var instance) ? instance.ClassModule.Uri.AbsoluteUri : null;
+        objects.OnDestroying(storage.ReleaseHeadersOf);
         var errors = new SessionErrorState(callStack);
         // the file system is already abstracted platform-wide, so a session composed with a fake one does real
         // VBA file I/O against nothing on disk - which is what a test and a CI run both want.

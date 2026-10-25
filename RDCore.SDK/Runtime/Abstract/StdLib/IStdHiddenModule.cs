@@ -72,17 +72,23 @@ public interface IStdHiddenModule
     RuntimeSemanticsEvaluationResult<VBStringValue> InputBString(VBLongValue number, VBIntegerValue fileNumber);
 
     /// <summary>
-    /// <strong>ObjPtr</strong> Gets a number that identifies an object: the same one for as long as it lives, and a different one
-    /// for every other object.
+    /// <strong>ObjPtr</strong> Gets the address of an interface of an object in the session's memory.
     /// </summary>
     /// <remarks>
-    /// <c>0</c> for <c>Nothing</c>. The number is the identity the session gives the object, not an address in memory
-    /// the program could read through: nothing in the runtime lays objects out in an address space.
+    /// Declared as the <c>VBA</c> type library declares it, <c>ObjPtr(Ptr As Unknown) As LongPtr</c>, and given where its argument is
+    /// (<see cref="StdLibByAddressAttribute"/>): the interface is the one the variable it is passed is declared as. As in <strong>MS-VBA</strong> (recorded
+    /// in Excel):
+    /// <list type="bullet">
+    /// <item><c>Nothing</c> is <c>0</c>, and an object's address is the same for as long as it lives;</item>
+    /// <item>a variable of the object's class, of <c>Object</c>, and a <c>Variant</c> give one address; a variable of an interface the class implements gives
+    /// another, and one of <c>IUnknown</c> another still;</item>
+    /// <item>the bytes of an object variable are this address, and the first pointer at it is the same for every object of a class.</item>
+    /// </list>
     /// </remarks>
-    /// <param name="object">The object.</param>
+    /// <param name="ptr">The address of the object variable.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember(IsHidden = true)]
-    RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr(VBObjectValue @object);
+    RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr([StdLibByAddress(typeof(VBObjectValue))] VBLongLongValue ptr);
 
     /// <summary>
     /// <strong>StrPtr</strong> Gets the address of the characters of a string in the session's memory.

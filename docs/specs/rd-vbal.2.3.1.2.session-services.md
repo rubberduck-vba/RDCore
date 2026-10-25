@@ -124,6 +124,10 @@ as long as it holds that `String`: a `String` assigned to it is in another `BSTR
 `String`'s pointer makes it the `String` of the `BSTR` the pointer points at - which the two holders then share, each change to the characters being the
 other's - or `vbNullString` for `0`; the `BSTR` it pointed at is let go of, not freed, as **MS-VBA** leaves it.
 
+An object is a pointer too: the address of an interface of the object, a block the session makes for each interface it is asked for through
+([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#objptr)) and frees when the object is destroyed. A `Variant` is a `VARIANT`: its type, then its
+data, a `String`'s or an object's being the pointer it is.
+
 The order in which names are looked up in these heaps is specified in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 

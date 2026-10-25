@@ -102,6 +102,12 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             size = Math.Max(size, SDK.Model.Types.VBUserDefinedTypeLayout.Of(record, pointerSize).Size);
         }
 
+        // a Variant is a VARIANT, whatever it holds (V16).
+        if (handle is ValueBindingHandle { Value: VBRuntimeVariantValue })
+        {
+            size = Math.Max(size, VariantSize);
+        }
+
         if (!allocator.TryAllocate(size <= 0 ? pointerSize : size, out address))
         {
             return false;
@@ -152,6 +158,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         }
 
         _stringVariables.Remove(address);
+        _objectVariables.Remove(address);
         Unbind(address);
         return (_handleByAddress.Remove(address) || _bytesByAddress.Remove(address) || _arrayBlocks.Remove(address)) && allocator.TryDeallocate(address, out _);
     }
@@ -226,10 +233,16 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             return false;
         }
 
-        // the pointer a String is: the String is the one it points at (StringBlock).
-        if (TryFindStringSlot(address, out var holder, out var within))
+        // the pointer a String or an object is, a VARIANT: what the session lays out, the value being what the bytes say (StringBlock, ObjectHeader).
+        if (TryFindSlot(address, out var holder, out var within, out var slotType))
         {
-            return TryPokePointer(holder, within, value);
+            return TryPokeSlot(holder, within, slotType, value);
+        }
+
+        // an object's interface is the session's, which a program does not write.
+        if (_headers.ContainsKey(block) || _vtables.ContainsValue(block))
+        {
+            return false;
         }
 
         image[offset] = value;
@@ -289,7 +302,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (_arrayBlocks.TryGetValue(block, out var elements))
         {
             var start = block;
-            image = elements.Image(at => PointerAt(new MemoryAddress(start.Value + at)));
+            image = elements.Image(at => HostBytesAt(new MemoryAddress(start.Value + at)));
             return true;
         }
 
@@ -299,22 +312,35 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
             return true;
         }
 
+        if (_headers.TryGetValue(block, out var header))
+        {
+            image = header.Image(pointerSize);
+            return true;
+        }
+
+        if (_vtables.ContainsValue(block))
+        {
+            image = new byte[VTableSize];
+            return true;
+        }
+
         if (!_handleByAddress.TryGetValue(block, out var handle) || !CanRead(handle))
         {
             return false;
         }
 
-        // a String variable is the address of its characters; a record its fields, a String field the address of its characters too.
-        if (_stringVariables.Contains(block))
+        // a String variable is the address of its characters, an object variable its interface's, a Variant its VARIANT; a record its fields, those of these
+        // types laid out as they are.
+        if (_stringVariables.Contains(block) || _objectVariables.ContainsKey(block) || handle.Value is VBRuntimeVariantValue)
         {
-            image = StringHolders.PointerBytes(PointerAt(block), pointerSize);
+            image = HostBytesAt(block) ?? [];
             return true;
         }
 
         if (RecordOf(handle) is { } record)
         {
             var start = block;
-            image = SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerSize, at => PointerAt(new MemoryAddress(start.Value + at)));
+            image = SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerSize, at => HostBytesAt(new MemoryAddress(start.Value + at)));
             return true;
         }
 

@@ -98,11 +98,16 @@ public sealed class StdHidden(IRuntimeSession session) : IStdHiddenModule
         => NotImplemented<VBStringValue>("InputB$", "a file channel reads characters, and nothing in it reads a byte");
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr(VBObjectValue @object)
+    public RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr(VBLongLongValue ptr)
     {
-        var identity = @object.IsNothing() ? 0 : @object.Value.Identity;
+        // what is at the address is an object, or a Variant holding one: the evaluator passes nothing else here (StdLibByAddressAttribute).
+        if (session.Storage is not Execution.Memory.SessionStorage storage || !storage.TryGetObjectPointer(new MemoryAddress(unchecked((int)ptr.Value)), out var pointer))
+        {
+            return Failed<VBLongPtrValue>(VBRuntimeErrorId.OutOfMemory, "no room for the interface of the object");
+        }
+
         return RuntimeSemanticsEvaluationResult<VBLongPtrValue>.Success(
-            session.Environment.Is64Bit ? new VBLongPtrValue(identity) : new VBLongPtrValue(unchecked((int)identity)));
+            session.Environment.Is64Bit ? new VBLongPtrValue(pointer) : new VBLongPtrValue(unchecked((int)pointer)));
     }
 
     /// <inheritdoc/>

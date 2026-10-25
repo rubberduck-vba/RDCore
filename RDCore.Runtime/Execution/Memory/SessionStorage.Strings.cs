@@ -1,3 +1,5 @@
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Shared;
@@ -241,12 +243,14 @@ internal sealed partial class SessionStorage
             ? pointerSize == sizeof(int) ? BitConverter.ToInt32(pending) : BitConverter.ToInt64(pending)
             : TryGetStringPointer(holder, out var pointer) ? pointer : 0;
 
-    // the pointer a variable-length String is that an address falls in: a variable's, an element's, a field's - and where in it.
-    private bool TryFindStringSlot(MemoryAddress address, out MemoryAddress holder, out int within)
+    // what the session lays out that an address falls in (VBUserDefinedTypeImage.IsLaidOutByTheHost) - the pointer a String or an object is, a VARIANT - of a
+    // variable, an element, a field; its declared type, and where in it the address is.
+    private bool TryFindSlot(MemoryAddress address, out MemoryAddress holder, out int within, out VBType type)
     {
         holder = default;
         within = 0;
-        if ((_stringVariables.Count == 0 && _stringOfHolder.Count == 0 && _pendingPointers.Count == 0) || !allocator.TryFindBlock(address, out var found))
+        type = VBUnknownType.TypeInfo;
+        if (!allocator.TryFindBlock(address, out var found))
         {
             return false;
         }
@@ -255,15 +259,26 @@ internal sealed partial class SessionStorage
         var slot = -1;
         if (_stringVariables.Contains(found.Address))
         {
-            slot = offset < pointerSize ? 0 : -1;
+            (slot, type) = (offset < pointerSize ? 0 : -1, VBStringType.TypeInfo);
+        }
+        else if (_objectVariables.TryGetValue(found.Address, out var declared))
+        {
+            (slot, type) = (offset < pointerSize ? 0 : -1, declared);
         }
         else if (_arrayBlocks.TryGetValue(found.Address, out var elements))
         {
-            slot = elements.SlotOfStringAt(offset);
+            slot = elements.SlotAt(offset, out type);
         }
-        else if (_handleByAddress.TryGetValue(found.Address, out var handle) && RecordOf(handle) is { } record)
+        else if (_handleByAddress.TryGetValue(found.Address, out var handle) && CanRead(handle))
         {
-            slot = StringHolders.SlotOfStringAt(record, offset, pointerSize);
+            if (RecordOf(handle) is { } record)
+            {
+                slot = StringHolders.SlotAt(record, offset, pointerSize, out type);
+            }
+            else if (handle.Value is VBRuntimeVariantValue)
+            {
+                (slot, type) = (offset < VariantSize ? 0 : -1, VBVariantType.TypeInfo);
+            }
         }
 
         if (slot < 0)
@@ -275,6 +290,21 @@ internal sealed partial class SessionStorage
         within = offset - slot;
         return true;
     }
+
+    // the bytes the session lays out for what is held at an address (TryFindSlot): a String's pointer, an object's, a VARIANT.
+    private byte[]? HostBytesAt(MemoryAddress holder)
+        => !TryFindSlot(holder, out _, out var within, out var type) || within != 0 ? null
+            : type is VBVariantType ? VariantImageAt(holder)
+            : type is VBStringType ? StringHolders.PointerBytes(PointerAt(holder), pointerSize)
+            : StringHolders.PointerBytes(ObjectPointerAt(holder), pointerSize);
+
+    // a POKE into what the session lays out: the pointer a String is, an object's, a VARIANT.
+    private bool TryPokeSlot(MemoryAddress holder, int within, VBType type, byte value) => type switch
+    {
+        VBVariantType => TryPokeVariant(holder, within, value),
+        VBStringType => TryPokePointer(holder, within, value),
+        _ => TryPokeObjectPointer(holder, within, value),
+    };
 
     private bool TryFindStringAt(MemoryAddress holder, out IRuntimeValue text)
     {

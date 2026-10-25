@@ -18,7 +18,7 @@ A hidden member is left out of a completion list and resolves anyway, being a me
 |`Array(ParamArray arglist())`|✅ See below.|
 |`Input(Number, FileNumber)`, `Input$(Number, FileNumber)`|✅ The characters read from a file opened for `Input` or `Binary`, with no parsing: a quotation mark or a comma is a character. Error 62 when the file ends first, 52 when the file number is not open, 54 when it was opened in a mode that cannot be read this way ([**RD-VBAL §5.4.5.1**](rd-vbal.5.4.5.file-statements.md)).|
 |`InputB(Number, FileNumber)`, `InputB$(Number, FileNumber)`|🚧 A file channel reads characters, and nothing in it reads a byte.|
-|`ObjPtr(Object)`|✅ A number that identifies the object, the same one for as long as it lives, and `0` for `Nothing`. It is the identity the session gives the object, not an address the program could read through: nothing in the runtime lays objects out in an address space.|
+|`ObjPtr(Ptr As Unknown)`|✅ The address of an interface of an object in the session's memory, a `LongPtr`. See below.|
 |`StrPtr(Ptr As String)`|✅ The address of the characters of a `String` in the session's memory, a `LongPtr`. See below.|
 |`VarPtr(Ptr As Any)`|✅ The address of a variable in the session's memory, a `LongPtr`. See below.|
 |`Width(FileNumber, Width)`|✅ The member the [**Width statement**](rd-vbal.5.4.5.file-statements.md) is the syntax of: error 5 outside `0`–`255`, 52 and 54 as for any file statement.|
@@ -68,16 +68,23 @@ As in **MS-VBA** (recorded in Excel):
 
 > [!NOTE]
 The bytes at an element's or a record's address are what it holds, laid out as **MS-VBA** lays them out: a number, a `Boolean`, a `Date` and a
-fixed-length `String` are their bytes, a variable-length `String` the address of its characters ([StrPtr](#strptr)), and a record its fields' at their
-offsets, padding zeroed. A `POKE` there writes the element or the field the byte
-is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
+fixed-length `String` are their bytes, a variable-length `String` the address of its characters ([StrPtr](#strptr)), an object the address of its interface
+([ObjPtr](#objptr)), a `Variant` its `VARIANT` ([below](#variant)), and a record its fields' at their offsets, padding zeroed. A `POKE` there writes the element
+or the field the byte is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 > [!NOTE]
-> 🚧 Not implemented yet (*Ptr plan P4):
+> 🚧 Not implemented yet:
 >
-> - No bytes for a `Variant`, an object or an array, nor for an element or a field of those types, which read as zeros (**MS-VBA**'s layout is the one
->   these will follow): a `Variant` variable reads as the managed image of what it holds.
+> - A dynamic array, and a `Variant` holding an array, is the address of a `SAFEARRAY` in **MS-VBA**, which nothing makes here: its bytes are zeros.
 > - A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
+
+### Variant
+
+A `Variant` is a `VARIANT`, 24 bytes in a 64-bit session and 16 in a 32-bit one, as in **MS-VBA** (recorded in Excel): its first two bytes are what `VarType`
+says it holds - an array's being `vbArray` and its elements' - and its data is eight bytes in. A number, a `Boolean`, a `Date` and a `Currency` are their
+bytes, a `String` the address of its characters, an object the address of its class's interface, and a `Decimal` is a `DECIMAL` over the whole of it but its
+type. A `POKE` into the type or the data makes it what they say; into the data of a `String` or an object, it is the pointer it is, as a variable's is. A
+type changed to or from a `String`'s or an object's is refused: what it would point at is nothing the session has.
 
 ## StrPtr
 
@@ -105,6 +112,34 @@ The bytes of the `BSTR` are its own, as in **MS-VBA** (recorded in Excel):
 |---|---|
 |The length, `StrPtr(s) - 4`|The `String` as long as the length says, at the same address: `LenB` and `Len` are what it says, and the characters past it stay where they are - the length written back is the `String` it was. A length of `0` is a zero-length `String`, not `vbNullString`. A length that goes on past the `BSTR` is refused, as reading memory it is not.|
 |A `String`'s pointer, `VarPtr(t)` - a variable, an element, a field|`0`: `vbNullString`; the `BSTR` it pointed at is not freed, and pointing at it again is the `String` again. `StrPtr(s)`: the `String` of `s`, which the two then hold - a change to the characters through either, a `POKE` or the `Mid` statement, is the other's. A pointer is written a byte at a time, and one that points at no `BSTR` yet leaves the `String` as it was, its bytes as they were written.|
+
+## ObjPtr
+
+`ObjPtr` is declared as the `VBA` type library declares it, `ObjPtr(Ptr As Unknown) As LongPtr`, and is given where its argument is
+([StdLibByAddressAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibByAddressAttribute.html)): it gives the address of the interface of the object
+that the variable it is passed is declared as. An object has one for each interface it is asked for through, made the first time its address is asked for and
+the same for as long as the object lives; it is freed with the object. The bytes of an object variable, at `VarPtr(o)`, are this address.
+
+As in **MS-VBA** (recorded in Excel):
+
+|Argument|`ObjPtr` gives|
+|---|---|
+|`Nothing`|`0`.|
+|A variable of the object's class, of `Object`, a `Variant` holding the object|The address of the class's own interface: one address for the three.|
+|A variable of an interface the class implements, of `IUnknown`|The address of another interface, one for each.|
+|An object variable declared `As New` that holds nothing yet|The new object's: passing it is using it.|
+|What is no variable: `New Collection`, what a function returns|The address of an interface of the object, which lives as long as something holds it.|
+
+The first pointer at the address is the address of the table of the class's interface, which every object of the class shares and an object of another class
+does not; what is past it reads as zeros. A `POKE` there is refused: the interface is the session's.
+
+A `POKE` into an object variable's pointer makes it the object whose interface the pointer is the address of - without a reference of its own, as **MS-VBA**
+counts none: the weak reference programs make so - and `0` makes it `Nothing`. A pointer that points at no interface yet leaves the variable as it was, its
+bytes as they were written.
+
+> [!NOTE]
+> 🚧 Not implemented yet: the table of an interface holds no address a program can call through, and an object the session keeps no instance of, which
+> tells its class, shares its table with every other such.
 
 ---
 > ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)

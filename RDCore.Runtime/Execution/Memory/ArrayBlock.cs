@@ -15,8 +15,8 @@ namespace RDCore.Runtime.Execution.Memory;
 /// <remarks>
 /// <para>
 /// The elements stay in the array: the block is where they are, and its bytes are what they hold, read and written through them. A variable-length
-/// <c>String</c> element is the address of its characters (<see cref="StringBlock"/>). An element that is a pointer to anything else in MS-VBA - an object, a
-/// <c>Variant</c>, an array - has no bytes of its own here yet (*Ptr plan P4), and reads as zeros.
+/// <c>String</c> element is the address of its characters (<see cref="StringBlock"/>), an object the address of its interface (<see cref="ObjectHeader"/>), a
+/// <c>Variant</c> its <c>VARIANT</c>. 🚧 An array element of an array of arrays is the address of a <c>SAFEARRAY</c> in MS-VBA, which nothing makes here: zeros.
 /// </para>
 /// <para>
 /// The block belongs to the array object, which it does not keep alive: an array that is <c>ReDim</c>'d, or assigned another, is another array object, and the
@@ -51,9 +51,9 @@ internal sealed class ArrayBlock
     /// <summary>
     /// The block's bytes: each element's image at its offset.
     /// </summary>
-    /// <param name="stringPointer">The address of the characters of the variable-length <c>String</c> at an offset of the block, an element or a field of
-    /// a record element: what its bytes are (<see cref="StringBlock"/>).</param>
-    public byte[] Image(Func<int, long> stringPointer)
+    /// <param name="hostBytes">The bytes the session lays out for what is at an offset of the block, an element or a field of a record element, that is no
+    /// bytes of its own (<see cref="VBUserDefinedTypeImage.IsLaidOutByTheHost"/>): a <c>String</c>'s pointer, an object's, a <c>VARIANT</c>.</param>
+    public byte[] Image(Func<int, byte[]?> hostBytes)
     {
         var image = new byte[Size];
         if (!TryGetArray(out var array))
@@ -64,17 +64,19 @@ internal sealed class ArrayBlock
         for (var index = 0; index < array.Length; index++)
         {
             var at = index * ElementWidth;
-
-            // the order matters: a fixed-length String is a VBStringType, and is its characters.
-            if (array.ItemType is VBStringType and not VBFixedStringType)
+            if (VBUserDefinedTypeImage.IsLaidOutByTheHost(array.ItemType))
             {
-                StringHolders.PointerBytes(stringPointer(at), _pointerWidth).AsSpan(0, Math.Min(_pointerWidth, ElementWidth)).CopyTo(image.AsSpan(at));
+                if (hostBytes(at) is { } laidOut)
+                {
+                    laidOut.AsSpan(0, Math.Min(laidOut.Length, ElementWidth)).CopyTo(image.AsSpan(at));
+                }
+
                 continue;
             }
 
             if (array.ItemType is VBUserDefinedType && array.ElementAt(index) is VBUserDefinedTypeValue record)
             {
-                var fields = VBUserDefinedTypeImage.Of(record, _pointerWidth, offset => stringPointer(at + offset));
+                var fields = VBUserDefinedTypeImage.Of(record, _pointerWidth, offset => hostBytes(at + offset));
                 fields.AsSpan(0, Math.Min(fields.Length, ElementWidth)).CopyTo(image.AsSpan(at));
                 continue;
             }
@@ -140,11 +142,12 @@ internal sealed class ArrayBlock
     }
 
     /// <summary>
-    /// Where the pointer that is a variable-length <c>String</c> element begins that <paramref name="offset"/> falls in - or a field of a record element;
-    /// <c>-1</c> when the offset falls in no such pointer.
+    /// Where the element the session lays out (<see cref="VBUserDefinedTypeImage.IsLaidOutByTheHost"/>) begins that <paramref name="offset"/> falls in - or a
+    /// field of a record element - and its declared type; <c>-1</c> when the offset falls in none.
     /// </summary>
-    public int SlotOfStringAt(int offset)
+    public int SlotAt(int offset, out VBType type)
     {
+        type = VBUnknownType.TypeInfo;
         var index = offset / ElementWidth;
         if (!TryGetArray(out var array) || index >= array.Length)
         {
@@ -154,13 +157,70 @@ internal sealed class ArrayBlock
         var start = index * ElementWidth;
         if (array.ItemType is VBUserDefinedType)
         {
-            return array.ElementAt(index) is VBUserDefinedTypeValue record && StringHolders.SlotOfStringAt(record, offset - start, _pointerWidth) is >= 0 and var slot
+            return array.ElementAt(index) is VBUserDefinedTypeValue record && StringHolders.SlotAt(record, offset - start, _pointerWidth, out type) is >= 0 and var slot
                 ? start + slot
                 : -1;
         }
 
-        // the order matters: a fixed-length String is a VBStringType, and is its characters.
-        return array.ItemType is VBStringType and not VBFixedStringType ? start : -1;
+        if (!VBUserDefinedTypeImage.IsLaidOutByTheHost(array.ItemType))
+        {
+            return -1;
+        }
+
+        type = array.ItemType;
+        return start;
+    }
+
+    /// <summary>
+    /// What is held at <paramref name="offset"/>, as a variable's cell holds it, by an element that begins there or a field of a record element the session
+    /// lays out.
+    /// </summary>
+    public bool TryRawAt(int offset, out IRuntimeValue raw)
+    {
+        raw = null!;
+        var index = offset / ElementWidth;
+        var within = offset % ElementWidth;
+        if (!TryGetArray(out var array) || index >= array.Length)
+        {
+            return false;
+        }
+
+        if (array.ItemType is VBUserDefinedType)
+        {
+            return array.ElementAt(index) is VBUserDefinedTypeValue record
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var field)
+                && StringHolders.TryRawOf(field, out raw);
+        }
+
+        if (within != 0 || array.CellAt(index) is not { } cell || !cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue))
+        {
+            return false;
+        }
+
+        raw = cell.Value;
+        return true;
+    }
+
+    /// <summary>
+    /// Makes what is held at <paramref name="offset"/> hold <paramref name="raw"/> (<see cref="TryRawAt"/>).
+    /// </summary>
+    public bool TryWriteRawAt(int offset, IRuntimeValue raw)
+    {
+        var index = offset / ElementWidth;
+        var within = offset % ElementWidth;
+        if (!TryGetArray(out var array) || index >= array.Length)
+        {
+            return false;
+        }
+
+        if (array.ItemType is VBUserDefinedType)
+        {
+            return array.ElementAt(index) is VBUserDefinedTypeValue record
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var field)
+                && StringHolders.TryWriteRaw(field, raw);
+        }
+
+        return within == 0 && array.TrySetElementAt(index, new ValueBindingHandle(raw));
     }
 
     /// <summary>
