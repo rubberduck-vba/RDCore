@@ -116,8 +116,8 @@ public sealed class ConfigCommandTests
         var outputs = Sut.Run("Environment.AllowDllImports False");
 
         Assert.AreEqual(MessageKind.Success, outputs[0].Kind);
-        Assert.AreEqual(MessageKind.Warning, outputs[1].Kind);
-        StringAssert.StartsWith(outputs[1].Text, "⚠️");
+        Assert.AreEqual(MessageKind.Warning, outputs[1].Kind, "the console draws a warning with its ⚠️ glyph");
+        Assert.AreEqual(string.Format(Resources.Config_TrustSensitive, "Environment.AllowDllImports"), outputs[1].Text);
         Assert.IsNotNull(outputs[1].Detail, "what the setting does");
     }
 

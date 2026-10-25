@@ -563,7 +563,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>{0} = {1}. It takes effect the next time the platform starts.</value>
   </data>
   <data name="Config_TrustSensitive" xml:space="preserve">
-    <value>⚠️ {0} decides what a program may do to this machine. Change it only for code you trust.</value>
+    <value>{0} decides what a program may do to this machine. Change it only for code you trust.</value>
   </data>
   <data name="Config_Reset" xml:space="preserve">
     <value>{0} setting(s) reset: the values the platform was deployed with apply again.</value>

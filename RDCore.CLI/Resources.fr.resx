@@ -561,7 +561,7 @@
     <value>{0} = {1}. Ce réglage prend effet au prochain démarrage de la plateforme.</value>
   </data>
   <data name="Config_TrustSensitive" xml:space="preserve">
-    <value>⚠️ {0} décide de ce qu'un programme peut faire à cette machine. Ne le changez que pour du code en lequel vous avez confiance.</value>
+    <value>{0} décide de ce qu'un programme peut faire à cette machine. Ne le changez que pour du code en lequel vous avez confiance.</value>
   </data>
   <data name="Config_Reset" xml:space="preserve">
     <value>{0} paramètre(s) réinitialisé(s) : les valeurs avec lesquelles la plateforme a été déployée s'appliquent de nouveau.</value>

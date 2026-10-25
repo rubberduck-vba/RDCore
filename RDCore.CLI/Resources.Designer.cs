@@ -1295,7 +1295,7 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to ⚠️ {0} decides what a program may do to this machine. Change it only for code you trust..
+        ///   Looks up a localized string similar to {0} decides what a program may do to this machine. Change it only for code you trust..
         /// </summary>
         public static string Config_TrustSensitive {
             get {
