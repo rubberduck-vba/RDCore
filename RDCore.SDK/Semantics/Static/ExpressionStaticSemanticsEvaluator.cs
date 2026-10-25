@@ -425,15 +425,31 @@ public static class ExpressionStaticSemanticsEvaluator
                     string.Format(Exceptions.VBArgument_ByValInlineFunction_Verbose, arrayBound.Kind is ArrayBoundKind.Lower ? Tokens.LBound : Tokens.UBound)));
             }
 
+            var isArray = ReferenceEquals(operand, arrayBound.Array);
+
+            // what the bounds are asked of is written as a name, a member or a call: a literal, an operator's result and anything in parentheses are a
+            // syntax error (MS-VBA, Excel-verified, oracle\s29 U05, U20-U24, U32).
+            if (isArray && operand is LiteralExpressionNode or VBUnaryOperatorExpressionNode or VBBinaryOperatorExpressionNode or TypeOfIsExpressionNode)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, operand.Location,
+                    arrayBound.Kind is ArrayBoundKind.Lower ? Tokens.LBound : Tokens.UBound));
+            }
+
             var result = Evaluate(context, operand);
+            if (isArray && NameClassificationStaticSemantics.IsNotAValue(operand, result.ErrorInfo as VBCompileErrorInfo))
+            {
+                // a project, a module or an enumeration is no array either (MS-VBA: "Expected array", oracle\s29 U26-U28).
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, operand.Location, result.ErrorInfo!.Verbose));
+            }
+
             if (result.IsError)
             {
                 return result;
             }
 
-            // MS-VBAL §3.3.5.2: what the bounds are asked of is an array; one declared as an intrinsic type other than Variant never holds one (MS-VBA:
-            // "Expected array", Excel-verified).
-            if (ReferenceEquals(operand, arrayBound.Array) && result.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType)
+            // MS-VBAL §3.3.5.2: what the bounds are asked of is an array; one declared as an intrinsic type other than Variant, an object, a class or a
+            // user-defined type never holds one (MS-VBA: "Expected array", Excel-verified, oracle\s29 U01-U12, U29-U31). A Variant may, when it runs.
+            if (isArray && result.Result is VBNumericType or VBStringType or VBBooleanType or VBDateType or VBObjectType or VBClassType or VBUserDefinedType)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.ExpectedArray, operand.Location,
                     string.Format(Exceptions.VBCompileError_ExpectedArray_Verbose, result.Result.Name)));

@@ -24,6 +24,13 @@ Array declarations are described in [**RD-VBAL §5.2.3** Module Declarations](rd
 - An array has up to 60 dimensions.
 - Each dimension records only its _lower bound_ and _upper bound_. These are the operands of `LBound` and `UBound`.
 
+What `LBound` and `UBound` ask the bounds of is written as a name, a member or a call, of an array or of a `Variant` that
+may hold one, as **MS-VBA** has it (recorded in Excel): a literal, an operator's result or anything in parentheses
+(`UBound(5)`, `UBound((a))`) is [VBC00001](../diagnostics/vbc00001.md) _Syntax error_, and a declared type that never
+holds an array - an intrinsic type other than `Variant`, an object, a class, a user-defined type - or a project, a module
+or an Enum type is [VBC09307](../diagnostics/vbc09307.md) _Expected array_. A `Variant` that holds no array is run-time
+error 13.
+
 The value associated with an array type encodes the array dimensions. Evaluating each bound to a `Long`, and resolving an omitted lower bound against `Option Base`, is the concern of whatever allocates the storage of the variable; see [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md).
 
 ### Declared arrays
