@@ -1,3 +1,4 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -15,11 +16,44 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// that reaches it - not before, since the names it has are that procedure's, and its locals are not there until it runs.
 /// </para>
 /// </remarks>
-internal sealed class BreakReplCommand : IReplCommand
+internal sealed class BreakReplCommand : IReplCommand, IReplCommandArguments
 {
+    private const string Toggle = "TOGGLE";
+    private const string Clear = "CLEAR";
+
     public string Name => ReplCommandNames.Break;
     public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Repl_Break_Summary;
+
+    // the first argument is a line, TOGGLE or CLEAR, and the one after TOGGLE a line; what follows a line is a condition, which is VBA and no word of BREAK's.
+    public IReadOnlyList<CompletionItem> CompleteArguments(ReplProgram program, string arguments)
+    {
+        var words = arguments.TrimStart().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var typingNext = arguments.EndsWith(' ');
+        var position = words.Length - (typingNext ? 0 : 1);
+
+        if (position <= 0)
+        {
+            return
+            [
+                new CompletionItem { Label = Toggle, Kind = CompletionItemKind.Keyword, Detail = Resources.Repl_Break_Toggle_Detail, SortText = $"1{Toggle}" },
+                new CompletionItem { Label = Clear, Kind = CompletionItemKind.Keyword, Detail = Resources.Repl_Break_Clear_Detail, SortText = $"1{Clear}" },
+                .. LinesOf(program),
+            ];
+        }
+
+        return position == 1 && words[0].Equals(Toggle, StringComparison.OrdinalIgnoreCase) ? [.. LinesOf(program)] : [];
+    }
+
+    // a line is named by its number, and shown with its statement.
+    private static IEnumerable<CompletionItem> LinesOf(ReplProgram program)
+        => program.Lines().Select((line, index) => new CompletionItem
+        {
+            Label = line.Number.ToString(),
+            Kind = CompletionItemKind.Value,
+            Detail = line.Statement,
+            SortText = $"0{index:D6}",
+        });
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
     {
@@ -34,7 +68,7 @@ internal sealed class BreakReplCommand : IReplCommand
             return ReplCommandResult.Continue;
         }
 
-        if (string.Equals(text, "CLEAR", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(text, Clear, StringComparison.OrdinalIgnoreCase))
         {
             debugger.ClearBreakpoints();
             _ = await TellAsync(context, token);
@@ -44,7 +78,7 @@ internal sealed class BreakReplCommand : IReplCommand
 
         // the line number is the first word, and whatever follows it is the condition, as it was typed: a string literal in it keeps its spaces.
         var (first, rest) = SplitFirstWord(text);
-        if (first.Equals("TOGGLE", StringComparison.OrdinalIgnoreCase))
+        if (first.Equals(Toggle, StringComparison.OrdinalIgnoreCase))
         {
             if (!int.TryParse(rest, out var line))
             {

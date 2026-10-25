@@ -1,7 +1,10 @@
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Repl;
+using RDCore.CLI.App.Repl.Commands;
+using RDCore.CLI.Themes;
 using RDCore.SDK.Client;
+using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli.Repl;
 
@@ -84,6 +87,58 @@ public sealed class ReplCompletionTests
 
         CollectionAssert.AreEqual(new[] { "RUN", "C" }, first.Select(item => item.Label).ToArray(), "a command and a name of the same name are one item");
         CollectionAssert.AreEqual(new[] { "Run", "C" }, later.Select(item => item.Label).ToArray(), "a command is only ever the first word");
+    }
+
+    // the shell's own commands, with a language server that would answer with VBA names were it asked.
+    private static (ReplCompletion Completion, IReplPlatformClient Platform) WithCommands()
+    {
+        var platform = Substitute.For<IReplPlatformClient>();
+        platform.Provides<SessionCompletion>().Returns(true);
+        platform.CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new CompletionList(new CompletionItem { Label = "I" }));
+
+        var themes = Substitute.For<IAppThemeService>();
+        themes.Theme.Returns(new AppTheme(new AppThemeLoaderService(new MockFileSystem()).LoadBuiltInDefault()));
+        themes.ThemeNames.Returns(["zebra", "amber"]);
+        var load = Substitute.For<IReplCommand>();
+        load.Name.Returns("LOAD");
+        load.Aliases.Returns([]);
+
+        var dispatcher = new ReplCommandDispatcher([new BreakReplCommand(), new ThemeReplCommand(themes, new ScriptedKeys()), load]);
+        return (new ReplCompletion(Program(), platform, dispatcher), platform);
+    }
+
+    private static async Task<string[]> LabelsAsync(ReplCompletion completion, string line)
+        => [.. (await completion.CompleteAsync(line, line.Length, CancellationToken.None)).Select(item => item.Label)];
+
+    [TestMethod]
+    public async Task TheArgumentsOfACommand_AreNotVba_AndAreOfferedNothing_UnlessItSaysWhatTheyCanBe()
+    {
+        var (completion, platform) = WithCommands();
+
+        Assert.AreEqual(0, (await LabelsAsync(completion, @"LOAD c:\dev\fi")).Length);
+        Assert.AreEqual(0, (await LabelsAsync(completion, "load ")).Length);
+        await platform.DidNotReceiveWithAnyArgs().CompleteAsync(default!, default!, default, default, default);
+    }
+
+    [TestMethod]
+    public async Task Break_IsOfferedItsWords_AndTheLinesOfTheProgram()
+    {
+        var (completion, _) = WithCommands();
+
+        CollectionAssert.AreEqual(new[] { "TOGGLE", "CLEAR", "10", "30" }, await LabelsAsync(completion, "BREAK "));
+        CollectionAssert.AreEqual(new[] { "TOGGLE", "CLEAR", "10", "30" }, await LabelsAsync(completion, "break 1"));
+        CollectionAssert.AreEqual(new[] { "10", "30" }, await LabelsAsync(completion, "BREAK TOGGLE "));
+        Assert.AreEqual(0, (await LabelsAsync(completion, "BREAK 30 C.")).Length, "a condition is the program's VBA, and no word of BREAK's");
+    }
+
+    [TestMethod]
+    public async Task Theme_IsOfferedList_AndTheThemes()
+    {
+        var (completion, _) = WithCommands();
+
+        CollectionAssert.AreEqual(new[] { "LIST", "amber", "zebra" }, await LabelsAsync(completion, "THEME "));
+        Assert.AreEqual(0, (await LabelsAsync(completion, "THEME amber ")).Length);
     }
 
     [TestMethod]

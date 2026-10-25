@@ -272,6 +272,13 @@ public sealed class ChildConnection(
             logger.LogInformation("← {method} completed", method);
             return result;
         }
+        catch (Exception exception) when (token.IsCancellationRequested)
+        {
+            // a request the caller cancelled is one it does not want the answer to any more - a completion list for a word that is not being typed now - and
+            // not one that failed: the caller is told, and nothing is wrong.
+            logger.LogDebug(exception, "← {method} cancelled", method);
+            throw;
+        }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "← {method} faulted", method);

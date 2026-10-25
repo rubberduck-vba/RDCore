@@ -25,6 +25,14 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
     /// <param name="token">A token that cancels the request.</param>
     public async Task<IReadOnlyList<CompletionItem>> CompleteAsync(string line, int cursor, CancellationToken token)
     {
+        // the arguments of a command are the command's to say: they are no VBA, and nothing is offered in them unless the command says what they can be.
+        var typed = line[..Math.Min(cursor, line.Length)].TrimStart();
+        var verb = typed.Length > 0 && !char.IsAsciiDigit(typed[0]) ? typed[..IndexOfSeparator(typed)] : string.Empty;
+        if (verb.Length < typed.Length && commands.IsCommandName(verb))
+        {
+            return CommandNamed(verb) is IReplCommandArguments arguments ? arguments.CompleteArguments(program, typed[verb.Length..]) : [];
+        }
+
         var items = new List<CompletionItem>();
         if (IsCommandWord(line, cursor))
         {
@@ -45,6 +53,16 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         }
 
         return items;
+    }
+
+    private IReplCommand? CommandNamed(string verb)
+        => commands.Commands.FirstOrDefault(command => command.Aliases.Prepend(command.Name).Contains(verb, StringComparer.OrdinalIgnoreCase));
+
+    // a verb ends at the first whitespace, as the shell reads it (ReplInputParser).
+    private static int IndexOfSeparator(string text)
+    {
+        var index = text.AsSpan().IndexOfAny(' ', '\t');
+        return index < 0 ? text.Length : index;
     }
 
     // the first word of a line that has no number, which a command is named by.

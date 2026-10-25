@@ -310,3 +310,21 @@ public interface IReplCommand
     /// <param name="token">A token that cancels the command — what <kbd>Ctrl</kbd>+<kbd>Break</kbd> trips.</param>
     Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token);
 }
+
+/// <summary>
+/// A command of the shell that says what its arguments can be, as they are typed: the completion list of a line that starts with its verb.
+/// </summary>
+/// <remarks>
+/// The arguments of a command are no VBA, and the language server has nothing to say of them; a command that does not say what they can be - a path, a condition -
+/// is given no list after its verb at all.
+/// </remarks>
+public interface IReplCommandArguments
+{
+    /// <summary>
+    /// What can be written at the end of <paramref name="arguments"/>: the words of the argument the cursor is in, which the list is narrowed to as it is typed.
+    /// </summary>
+    /// <param name="program">The program buffer, whose lines an argument can name.</param>
+    /// <param name="arguments">What is typed after the verb, up to the cursor, as it is typed: not trimmed.</param>
+    /// <returns>The items; none where nothing is to be offered.</returns>
+    IReadOnlyList<CompletionItem> CompleteArguments(ReplProgram program, string arguments);
+}

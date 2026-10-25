@@ -236,7 +236,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
             if (key.KeyChar is var typed and not '\0' && !char.IsControl(typed))
             {
-                var startsWord = IsNameCharacter(typed) && char.IsLetter(typed) && (_cursor == 0 || !IsNameCharacter(_text[_cursor - 1]));
+                // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
+                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == 0 || !IsNameCharacter(_text[_cursor - 1]));
                 _text.Insert(_cursor++, typed);
                 if (typed is '.' or '!')
                 {
@@ -528,6 +529,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             CompletionItemKind.Folder => 'P',
             CompletionItemKind.Event => '!',
             CompletionItemKind.Keyword => 'k',
+            CompletionItemKind.Value => '#',
+            CompletionItemKind.Color => '*',
             _ => '·',
         };
     }
