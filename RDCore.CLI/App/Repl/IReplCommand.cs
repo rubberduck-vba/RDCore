@@ -231,6 +231,16 @@ public interface IReplPlatformClient
     Task<AnalyzeSessionResult> AnalyzeAsync(string source, string moduleName, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server what can be written at a position of a module: the completion list of the line at the prompt.
+    /// </summary>
+    /// <param name="source">The complete module source.</param>
+    /// <param name="moduleName">The module's programmatic name.</param>
+    /// <param name="line">The zero-based line of the cursor in <paramref name="source"/>.</param>
+    /// <param name="character">The zero-based character of the cursor on <paramref name="line"/>.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    Task<CompletionList> CompleteAsync(string source, string moduleName, int line, int character, CancellationToken token);
+
+    /// <summary>
     /// Reads the byte at an address in the runtime session's memory.
     /// </summary>
     /// <param name="address">The address to read.</param>

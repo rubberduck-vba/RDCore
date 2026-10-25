@@ -233,6 +233,67 @@ public sealed class ReplProgram
         return source.ToString();
     }
 
+    /// <summary>
+    /// The module a line that is being typed at the prompt is completed in, and where the cursor is in it: the program with the line stored at its number, for a
+    /// numbered line, and the module an immediate statement is run as (<see cref="ToImmediateModuleSource"/>) otherwise - what the line will be part of once it
+    /// is entered. A leading <c>?</c> is the <c>Print</c> it expands to, as it will be.
+    /// </summary>
+    /// <param name="typed">The line, as it is typed so far.</param>
+    /// <param name="cursor">Where the cursor is in <paramref name="typed"/>.</param>
+    /// <returns>The module source, and the zero-based line and character of the cursor in it; <see langword="null"/> while the cursor is in a line number.</returns>
+    public (string Source, int Line, int Character)? ToCompletionSource(string typed, int cursor)
+    {
+        var start = typed.Length - typed.TrimStart().Length;
+        var digits = start;
+        while (digits < typed.Length && char.IsAsciiDigit(typed[digits]))
+        {
+            digits++;
+        }
+
+        if (digits > start && int.TryParse(typed[start..digits], out var number))
+        {
+            if (cursor <= digits)
+            {
+                return null;
+            }
+
+            var statementStart = digits;
+            while (statementStart < typed.Length && char.IsWhiteSpace(typed[statementStart]))
+            {
+                statementStart++;
+            }
+
+            var (statement, character) = Expanded(typed[statementStart..], Math.Max(0, cursor - statementStart));
+            var label = $"{number} ";
+            var lines = new SortedDictionary<int, string>(_lines) { [number] = statement };
+            var source = new StringBuilder();
+            AppendProcedure(source, EntryPointName, lines.Select(line => $"{line.Key} {line.Value}"));
+
+            // the procedure's header is the line above the first of the program's.
+            return (source.ToString(), 1 + lines.Keys.TakeWhile(key => key != number).Count(), label.Length + character);
+        }
+
+        var (immediate, at) = Expanded(typed[start..], Math.Max(0, cursor - start));
+
+        // the program's procedure - its header, its lines, its end - and the line between the two, then the immediate procedure's header.
+        return (ToImmediateModuleSource(immediate), _lines.Count + 4, at);
+    }
+
+    // a statement with its leading `?` written as the Print it is, and where the cursor is once it is.
+    private static (string Statement, int Cursor) Expanded(string statement, int cursor)
+    {
+        if (!statement.StartsWith('?'))
+        {
+            return (statement, Math.Min(cursor, statement.Length));
+        }
+
+        var rest = statement[1..];
+        var skipped = 1 + rest.Length - rest.TrimStart().Length;
+        var expanded = $"{ReplInputParser.PrintShorthandExpansion} {rest.TrimStart()}";
+        var offset = ReplInputParser.PrintShorthandExpansion.Length + 1;
+        return (expanded, cursor < skipped ? offset : Math.Min(expanded.Length, cursor - skipped + offset));
+    }
+
     private static void AppendProcedure(StringBuilder source, string name, IEnumerable<string> statements)
     {
         source.Append("Public Sub ").Append(name).Append("()").Append(NewLine);

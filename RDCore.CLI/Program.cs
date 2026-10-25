@@ -183,6 +183,20 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             // where the program is a document while it is no file's.
             services.AddSingleton(scratchWorkspace);
         }
+
+        // the prompt is a line editor, with completion lists that drop down under it, where it is typed at a console that can draw them; a script piped to the
+        // shell, or a console that cannot, reads its lines as they come.
+        if (!System.Console.IsInputRedirected && !System.Console.IsOutputRedirected && Spectre.Console.AnsiConsole.Console.Profile.Capabilities.Ansi)
+        {
+            services
+                .AddSingleton<ReplCompletion>()
+                .AddSingleton(provider => new ConsolePromptEditor(
+                    provider.GetRequiredService<IConsoleKeys>(),
+                    System.Console.Out,
+                    () => System.Console.WindowWidth,
+                    provider.GetRequiredService<ReplCompletion>().CompleteAsync,
+                    ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single));
+        }
     }
 
     // client mode renders its logs through the same Spectre-backed writer; framework lifetime
@@ -271,6 +285,8 @@ internal class RDCoreConsoleClientApp(
             SessionDiscard = new SessionDiscard(true),
             ProgramDebugging = new ProgramDebugging(true),
             SessionAnalyze = new SessionAnalyze(true),
+            // the line at the prompt is completed as it is typed.
+            SessionCompletion = new SessionCompletion(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
             // the shell answers the dialogs a program opens, at its console.
             SessionInteraction = new SessionInteraction(true),
