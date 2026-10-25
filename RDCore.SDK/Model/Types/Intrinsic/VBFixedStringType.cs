@@ -29,4 +29,50 @@ public sealed record class VBFixedStringType(int Length) : VBStringType
     /// <strong>MS-VBAL 2.2 Entities and Data Types</strong> restricts the maximum length of a fixed-length string to 65,526 characters.
     /// </summary>
     public static int MaxLength { get; } = _maxLength;
+
+    /// <summary>
+    /// The largest number a length can be written as, as a literal: one past it is no length at all (MS-VBA: "Syntax error", Excel-verified).
+    /// </summary>
+    public const int MaxWrittenLength = 65535;
+
+    /// <summary>
+    /// Whether a fixed-length string can be <paramref name="length"/> characters long: from 1 to <see cref="MaxLength"/> (MS-VBA: "Invalid length for
+    /// fixed-length string" otherwise, Excel-verified).
+    /// </summary>
+    /// <param name="length">The length, Let-coerced to <c>Long</c>.</param>
+    public static bool IsValidLength(long length) => length >= 1 && length <= _maxLength;
+
+    /// <summary>
+    /// Reads a length written as a literal (<strong>MS-VBAL §5.2.3.1.4</strong> <c>&lt;string-length&gt;</c>, an <c>INTEGER</c>): decimal, <c>&amp;H</c>
+    /// hexadecimal or <c>&amp;O</c> octal, with or without a type-declaration character.
+    /// </summary>
+    /// <param name="text">The length as written.</param>
+    /// <param name="length">The number it is.</param>
+    /// <returns><see langword="false"/> when the text is no integer literal: <c>1.5</c>, or a name.</returns>
+    public static bool TryParseLengthLiteral(string text, out long length)
+    {
+        length = 0;
+        var digits = text.TrimEnd('%', '&', '^', '!', '#', '@');
+        if (digits.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
+        {
+            return long.TryParse(digits[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out length);
+        }
+
+        if (digits.StartsWith("&O", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var digit in digits[2..])
+            {
+                if (digit is < '0' or > '7' || length > long.MaxValue / 8)
+                {
+                    return false;
+                }
+
+                length = length * 8 + (digit - '0');
+            }
+
+            return digits.Length > 2;
+        }
+
+        return long.TryParse(digits, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out length);
+    }
 }

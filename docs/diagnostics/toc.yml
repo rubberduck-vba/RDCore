@@ -176,6 +176,8 @@
   href: vbc09373.md
 - name: "VBC09374 — Expected user-defined type, not project"
   href: vbc09374.md
+- name: VBC09375 — Invalid length for fixed-length string
+  href: vbc09375.md
 - name: VBR-0001 — Application-defined or object-defined error
   href: vbr-0001.md
 - name: VBR00003 — Return without GoSub
@@ -414,3 +416,5 @@
   href: rdc11006.md
 - name: RDC11011 — Variant number compared with a Variant String
   href: rdc11011.md
+- name: RDC11012 — Set of a call that always fails
+  href: rdc11012.md

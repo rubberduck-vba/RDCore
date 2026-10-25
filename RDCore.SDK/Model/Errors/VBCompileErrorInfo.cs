@@ -147,5 +147,6 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.MemberAlreadyExistsInDesigner] = Exceptions.VBCompileError_MemberAlreadyExistsInDesigner,
         [VBCompileErrorId.AutomationTypeNotSupported] = Exceptions.VBCompileError_AutomationTypeNotSupported,
         [VBCompileErrorId.ExpectedUserDefinedTypeNotProject] = Exceptions.VBCompileError_ExpectedUserDefinedTypeNotProject,
+        [VBCompileErrorId.InvalidLengthForFixedLengthString] = Exceptions.VBCompileError_InvalidLengthForFixedLengthString,
     };
 }

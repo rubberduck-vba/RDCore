@@ -58,7 +58,8 @@ public static class MemberRoles
                 continue;
             }
 
-            foreach (var handled in source.Events)
+            // a form's control raises the events of the extender it is wrapped in too (Enter, Exit, BeforeUpdate, AfterUpdate)
+            foreach (var handled in FormControlExtender.EventsOf(variable, source, resolver))
             {
                 // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (oracle\s30 C06)
                 if (variable.GetProperty(SymbolProperties.DesignerControl))

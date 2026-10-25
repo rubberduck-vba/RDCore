@@ -1150,6 +1150,51 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Invalid length for fixed-length string.
+        /// </summary>
+        public static string VBCompileError_InvalidLengthForFixedLengthString {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidLengthForFixedLengthString", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A fixed-length string is 1 to 65526 characters long: &apos;String * {0}&apos; is not..
+        /// </summary>
+        public static string VBCompileError_InvalidLengthForFixedLengthString_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_InvalidLengthForFixedLengthString_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is no length of a fixed-length string: a length is a whole number up to 65535, or the name of a constant..
+        /// </summary>
+        public static string VBCompileError_FixedLengthNotALength_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_FixedLengthNotALength_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The length of a fixed-length string is known when the code is compiled: &apos;{0}&apos; is not a constant..
+        /// </summary>
+        public static string VBCompileError_FixedLengthNotAConstant_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_FixedLengthNotAConstant_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A bound of the array &apos;{0}&apos; is past the range of a Long, which every bound is..
+        /// </summary>
+        public static string VBCompileError_ArrayBoundOverflow_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ArrayBoundOverflow_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;As {0}()&apos; is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in &apos;Dim a() As {0}&apos;..
         /// </summary>
         public static string VBCompileError_ArrayTypeOnlyReturned_Verbose {

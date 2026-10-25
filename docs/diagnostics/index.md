@@ -123,6 +123,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09372](vbc09372.md)|Member already exists in an object module from which this object module derives — the code of a form declares something with the name of one of its controls|
 |[VBC09373](vbc09373.md)|Automation type not supported in Visual Basic — a type is written with the name of a library's module, `Strings`|
 |[VBC09374](vbc09374.md)|Expected user-defined type, not project — a type is written with the name of a project or a library, `VBA`|
+|[VBC09375](vbc09375.md)|Invalid length for fixed-length string — a `String * n` is declared with a length under 1 or past 65526|
 
 ### Runtime errors
 
@@ -252,6 +253,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11005](rdc11005.md)|Bitwise operator — a logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation — two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String — the number is less, whatever the values|
+|[RDC11012](rdc11012.md)|Set of a call that always fails — a function whose default member has no Property Set, as the target of a Set|
 
 ---
 > ⏭️ [**VBC00001** Syntax error](vbc00001.md)

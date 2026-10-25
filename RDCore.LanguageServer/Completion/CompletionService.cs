@@ -309,12 +309,22 @@ internal sealed class CompletionService(
     // written, those of the classes the module Sets it to an object of - a fact for the list, which changes nothing of what the expression is.
     private IReadOnlyList<CompletionCandidate> MembersOfValue(MemberSite site, ExpressionNode expression, VBType? with, VBType? type)
     {
+        var context = new StaticEvaluationContext(site.Composition.Resolver, site.Scope, EnclosingWithTargetType: with, Environment: site.Environment);
         if (type is not (VBObjectType or VBVariantType))
         {
-            return type is null ? [] : CompletionCandidates.MembersOf(type);
+            if (type is null)
+            {
+                return [];
+            }
+
+            // a form's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender)
+            return ObjectValueStaticSemantics.DesignerControlOf(context, expression) is not null
+                && FormControlExtender.Of(site.Composition.Resolver, site.ModuleUri) is { } extender
+                ? [.. CompletionCandidates.MembersOf(type).Concat(CompletionCandidates.MembersOf(VBClassType.Of(extender)))
+                    .DistinctBy(candidate => candidate.Label, StringComparer.OrdinalIgnoreCase)]
+                : CompletionCandidates.MembersOf(type);
         }
 
-        var context = new StaticEvaluationContext(site.Composition.Resolver, site.Scope, EnclosingWithTargetType: with, Environment: site.Environment);
         return [.. ObjectClassInference.CandidateClassesOf(context, expression, site.Composition.ScopeTree, site.ModuleUri, site.Module)
             .Select(candidate => ObjectClassInference.ClassOf(candidate, site.Composition.Resolver, site.Scope.Uri,
                 library => referencedLibraries.DescribedSymbolsOf(site.WorkspaceRoot, library)))

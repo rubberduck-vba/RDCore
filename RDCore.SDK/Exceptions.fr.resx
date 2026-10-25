@@ -744,6 +744,21 @@
   <data name="VBCompileError_TypeOfTypeNotResolved_Verbose" xml:space="preserve">
     <value>'{0}' n'est pas le nom d'un type que ce projet peut voir.</value>
   </data>
+  <data name="VBCompileError_InvalidLengthForFixedLengthString" xml:space="preserve">
+    <value>Longueur incorrecte pour une chaîne de longueur fixe</value>
+  </data>
+  <data name="VBCompileError_InvalidLengthForFixedLengthString_Verbose" xml:space="preserve">
+    <value>Une chaîne de longueur fixe compte de 1 à 65526 caractères : 'String * {0}' n'en est pas une.</value>
+  </data>
+  <data name="VBCompileError_FixedLengthNotALength_Verbose" xml:space="preserve">
+    <value>'{0}' n'est pas une longueur de chaîne de longueur fixe : une longueur est un nombre entier d'au plus 65535, ou le nom d'une constante.</value>
+  </data>
+  <data name="VBCompileError_FixedLengthNotAConstant_Verbose" xml:space="preserve">
+    <value>La longueur d'une chaîne de longueur fixe est connue à la compilation : '{0}' n'est pas une constante.</value>
+  </data>
+  <data name="VBCompileError_ArrayBoundOverflow_Verbose" xml:space="preserve">
+    <value>Une borne du tableau '{0}' dépasse la plage d'un Long, ce qu'est toute borne.</value>
+  </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' est ce que renvoie une Function, une Property Get ou un Declare : un tableau se déclare avec () après son nom, comme dans 'Dim a() As {0}'.</value>
   </data>

@@ -78,6 +78,16 @@ event or a `Declare`), or the `As` clause of a `ReDim`. `DeclarationStaticSemant
 Resolving an omitted _lower bound_ against `Option Base` is specified in
 [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md) (§5.2.1.2).
 
+A bound is a constant expression Let-coerced to `Long`, reduced when the module is compiled, of a variable, a local and a
+field of a `Type` alike, as **MS-VBA** reduces it (recorded in Excel):
+
+|Bound|Example|Outcome|
+|---|---|---|
+|No constant expression|`Dim a(n) As Long`, `X(Count) As Long` in a `Type`|[VBC09350](../diagnostics/vbc09350.md) _Constant expression required_|
+|Past the range of a `Long`, written or given by a constant|`Dim a(1E10) As Long`, `Const K = 1E10: Dim a(K) As Byte`|[VBC09352](../diagnostics/vbc09352.md) _Overflow_|
+|An upper bound below the lower one|`Dim a(5 To 1) As Long`, `Dim a(-1) As Long`|[VBC09365](../diagnostics/vbc09365.md) _Range has no values_|
+|A fraction, or a `String` that reads as a number|`Dim a(2.6) As Long`, `Dim a("3") As Long`|Valid: the bound is rounded half to even, or read, as Let-coercion to `Long` does: `3`.|
+
 ### 5.2.3.1.4 Variable Type Declarations
 
 > [!NOTE]
@@ -88,9 +98,28 @@ A declared type name binds in the _type binding context_. With the
 binds to a sibling module's `Type` or `Enum`, or to a class, not only to a reserved data-type name
 ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)). A name that binds an `Enum` type, of the
 workspace or of a library, declares a `Long` ([**RD-VBAL §5.2.3.4** Enum Declarations](#5234-enum-declarations)). A
-name that binds a procedural module, the project's or a library's, is not a type (**MS-VBAL §5.6.16.7**), and the
-declaration is [VBC09311](../diagnostics/vbc09311.md) _User-defined type not defined_. A type of the project ranks
+name that binds a procedural module or a project is not a type, and the declaration is the error
+[**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions) lists for it. A type of the project ranks
 ahead of a library's procedural module of the same name ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#lookup-order)).
+
+The length of a fixed-length `String * n` is "the data value of its `<INTEGER>` element or the data value referenced by
+its `<constant-name>` Let-coerced to declared type Long", reduced when the module is compiled, wherever it is written:
+a variable, a local, an element of an array, a field of a `Type`, the `As` clause of a `ReDim`. **MS-VBA** refuses
+what is no length (recorded in Excel):
+
+|Length|Example|Outcome|
+|---|---|---|
+|1 to 65526, written or given by a constant or an `Enum` member|`String * 10`, `String * &H10`, `String * Red`|Valid.|
+|A constant whose value is a fraction or a numeric `String`|`Const K = 2.5`, `Const K = "3"`|Valid: `2` and `3`, as Let-coercion to `Long` has them.|
+|Less than 1, or more than 65526|`String * 0`, `String * 65527`, `Const K = 70000: … String * K`|[VBC09375](../diagnostics/vbc09375.md) _Invalid length for fixed-length string_|
+|A number written past 65535, or no integer|`String * 65536`, `String * 1.5`|[VBC00001](../diagnostics/vbc00001.md) _Syntax error_|
+|A name that is no constant|`String * n`, a variable|[VBC09350](../diagnostics/vbc09350.md) _Constant expression required_|
+|A name nothing declares, under `Option Explicit`|`String * NoSuch`|[VBC09302](../diagnostics/vbc09302.md) _Variable not defined_|
+
+> [!NOTE]
+> **Not implemented.** A constant whose value is an expression (`Const K = 1 + 2`) is reduced to report a length that
+> is invalid, but the variable `String * K` declares is a variable-length `String`: its type is decided before the
+> constants are folded.
 
 **MS-VBAL §5.2.3.1.4**: the type specified in an `As New` clause must be a named class, and must be creatable unless
 it is declared in the same project. `DeclarationStaticSemanticsEvaluator` checks every declaration that has an

@@ -744,6 +744,21 @@
   <data name="VBCompileError_TypeOfTypeNotResolved_Verbose" xml:space="preserve">
     <value>'{0}' is not the name of a type this project can see.</value>
   </data>
+  <data name="VBCompileError_InvalidLengthForFixedLengthString" xml:space="preserve">
+    <value>Invalid length for fixed-length string</value>
+  </data>
+  <data name="VBCompileError_InvalidLengthForFixedLengthString_Verbose" xml:space="preserve">
+    <value>A fixed-length string is 1 to 65526 characters long: 'String * {0}' is not.</value>
+  </data>
+  <data name="VBCompileError_FixedLengthNotALength_Verbose" xml:space="preserve">
+    <value>'{0}' is no length of a fixed-length string: a length is a whole number up to 65535, or the name of a constant.</value>
+  </data>
+  <data name="VBCompileError_FixedLengthNotAConstant_Verbose" xml:space="preserve">
+    <value>The length of a fixed-length string is known when the code is compiled: '{0}' is not a constant.</value>
+  </data>
+  <data name="VBCompileError_ArrayBoundOverflow_Verbose" xml:space="preserve">
+    <value>A bound of the array '{0}' is past the range of a Long, which every bound is.</value>
+  </data>
   <data name="VBCompileError_ArrayTypeOnlyReturned_Verbose" xml:space="preserve">
     <value>'As {0}()' is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in 'Dim a() As {0}'.</value>
   </data>

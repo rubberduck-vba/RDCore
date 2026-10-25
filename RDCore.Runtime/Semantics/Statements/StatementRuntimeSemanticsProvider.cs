@@ -314,6 +314,20 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             : ((IBindingHandle?)null, session.CallStack.Current is { } frame && frame.TryGetReferencedType((Symbol)target, out var referencedType) ? referencedType : null);
         var declared = referenced ?? target.ResolvedType;
 
+        // MS-VBAL §5.4.3.9: a function named outside its own body is called, and what it returns is Set-assigned through its default member - and so is a
+        // property of a module that has no Property Set (MS-VBA, oracle\s28 W4, W5: `Set Now = Nothing` is error 424). The value is Set-coerced to what the
+        // default member's Property Set takes, and not to what the function returns: `Set One = New Collection` sets One's default member to the collection
+        // (oracle\s31 D01, D04).
+        var isOwnResult = target is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && ((Symbol)target).Uri.AbsoluteUri == context.Scope.AbsoluteUri;
+        if (!isOwnResult
+            && (target is VBFunctionMemberSymbol
+                || target is VBPropertyGetMemberSymbol property && RuntimeProcedureInvoker.GetParameters(property) is not [{ Name: Tokens.Me }, ..]
+                    && !session.Symbols.MembersOf(property.ParentUri).OfType<VBPropertySetMemberSymbol>()
+                        .Any(candidate => string.Equals(candidate.Name, property.Name, StringComparison.OrdinalIgnoreCase))))
+        {
+            return _assignments.AssignThroughFunction(session, context, assignment, assignment.Target, assignment.Value, valueResult.Result!, isSet: true);
+        }
+
         // Set-coercion (MS-VBAL §5.5.2.2) is not an operator - the same direct entry point
         // WithStatementRuntimeSemantics already uses for its own With-target coercion.
         var coercionResult = _setCoercion.EvaluateSetCoercion(session, assignment.Value, valueResult.Result!, declared);
@@ -331,16 +345,6 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             var resultFrame = (CallStackFrame)enclosing;
             resultFrame.ReturnValue = ObjectReferences.AssignResult(session, resultFrame.ResultCell, coercionResult.Result!);
             return RuntimeExecutionOutcome.Next;
-        }
-
-        // MS-VBAL §5.4.3.9: a function named outside its own body is called, and what it returns is Set-assigned through its default member - and so is a
-        // property of a module that has no Property Set (MS-VBA, oracle\s28 W4, W5: `Set Now = Nothing` is error 424).
-        if (target is VBFunctionMemberSymbol
-            || target is VBPropertyGetMemberSymbol property && RuntimeProcedureInvoker.GetParameters(property) is not [{ Name: Tokens.Me }, ..]
-                && !session.Symbols.MembersOf(property.ParentUri).OfType<VBPropertySetMemberSymbol>()
-                    .Any(candidate => string.Equals(candidate.Name, property.Name, StringComparison.OrdinalIgnoreCase)))
-        {
-            return _assignments.AssignThroughFunction(session, context, assignment, assignment.Target, assignment.Value, coercionResult.Result!, isSet: true);
         }
 
         var handle = boundHandle ?? session.Symbols.Resolver.GetValue((Symbol)target);
