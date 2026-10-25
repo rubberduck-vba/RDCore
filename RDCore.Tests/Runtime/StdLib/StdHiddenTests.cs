@@ -221,10 +221,10 @@ public sealed class StdHiddenTests
     [TestMethod]
     public void AnUnimplementedMember_SaysSoWhenItIsCalled()
     {
-        var (_, outcome, _) = Run(null, ModuleDirectives.None, "Debug.Print StrPtr(\"abc\")");
+        var (_, outcome, _) = Run(null, ModuleDirectives.None, "Debug.Print InputB(1, 1)");
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.Error, outcome.Kind);
-        StringAssert.Contains(outcome.ErrorInfo!.Verbose, "StrPtr");
+        StringAssert.Contains(outcome.ErrorInfo!.Verbose, "InputB");
     }
 
     #endregion

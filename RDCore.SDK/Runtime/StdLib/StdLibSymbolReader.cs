@@ -372,6 +372,20 @@ public sealed class StdLibSymbolReader
         {
             var name = StdLibNames.ParameterName(parameter.Name);
             var declared = parameter.ParameterType.IsByRef ? parameter.ParameterType.GetElementType()! : parameter.ParameterType;
+
+            // given the address of what it is passed, and declared as a type of its own (StrPtr).
+            var byAddress = parameter.GetCustomAttribute<StdLibByAddressAttribute>();
+            if (byAddress is not null)
+            {
+                if (declared != typeof(VBLongLongValue) || parameter.IsOptional || parameter.ParameterType.IsByRef || parameter.GetCustomAttribute<ParamArrayAttribute>() is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"'{name}' in '{method.DeclaringType?.Name}.{method.Name}' is passed by address, which only a required ByVal parameter declared as a {nameof(VBLongLongValue)} is.");
+                }
+
+                declared = byAddress.DeclaredAs;
+            }
+
             // `ByRef … As Any`: what the member is given is the address of the variable passed to it (VarPtr).
             var asAny = parameter.GetCustomAttribute<StdLibAsAnyAttribute>() is not null;
             if (asAny && (declared != typeof(VBLongLongValue) || parameter.IsOptional || parameter.GetCustomAttribute<ParamArrayAttribute>() is not null))
@@ -430,6 +444,11 @@ public sealed class StdLibSymbolReader
                 _workspaceRoot, memberUri, name, SourceRange.Empty, SourceRange.Empty,
                 byRef ? ParameterKind.ExplicitByRef : ParameterKind.ExplicitByVal,
                 declaredType, parameter.IsOptional, DefaultValueOf(parameter, declaredType, name, method, memberUri));
+
+            if (byAddress is not null)
+            {
+                symbol = (VBParameterSymbol)symbol.With(SymbolProperties.PassedByAddress, true);
+            }
 
             // the declared default stays: it is what a caller with no calling module gets.
             if (optionCompare)

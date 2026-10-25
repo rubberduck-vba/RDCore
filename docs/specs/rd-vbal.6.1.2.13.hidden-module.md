@@ -19,7 +19,7 @@ A hidden member is left out of a completion list and resolves anyway, being a me
 |`Input(Number, FileNumber)`, `Input$(Number, FileNumber)`|✅ The characters read from a file opened for `Input` or `Binary`, with no parsing: a quotation mark or a comma is a character. Error 62 when the file ends first, 52 when the file number is not open, 54 when it was opened in a mode that cannot be read this way ([**RD-VBAL §5.4.5.1**](rd-vbal.5.4.5.file-statements.md)).|
 |`InputB(Number, FileNumber)`, `InputB$(Number, FileNumber)`|🚧 A file channel reads characters, and nothing in it reads a byte.|
 |`ObjPtr(Object)`|✅ A number that identifies the object, the same one for as long as it lives, and `0` for `Nothing`. It is the identity the session gives the object, not an address the program could read through: nothing in the runtime lays objects out in an address space.|
-|`StrPtr(String)`|🚧 The characters of a string live in the value that holds them, not at an address of the session's memory.|
+|`StrPtr(Ptr As String)`|✅ The address of the characters of a `String` in the session's memory, a `LongPtr`. See below.|
 |`VarPtr(Ptr As Any)`|✅ The address of a variable in the session's memory, a `LongPtr`. See below.|
 |`Width(FileNumber, Width)`|✅ The member the [**Width statement**](rd-vbal.5.4.5.file-statements.md) is the syntax of: error 5 outside `0`–`255`, 52 and 54 as for any file statement.|
 
@@ -68,15 +68,44 @@ As in **MS-VBA** (recorded in Excel):
 
 > [!NOTE]
 The bytes at an element's or a record's address are what it holds, laid out as **MS-VBA** lays them out: a number, a `Boolean`, a `Date` and a
-fixed-length `String` are their bytes, and a record its fields' at their offsets, padding zeroed. A `POKE` there writes the element or the field the byte
+fixed-length `String` are their bytes, a variable-length `String` the address of its characters ([StrPtr](#strptr)), and a record its fields' at their
+offsets, padding zeroed. A `POKE` there writes the element or the field the byte
 is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 > [!NOTE]
-> 🚧 Not implemented yet (*Ptr plan P3, P4):
+> 🚧 Not implemented yet (*Ptr plan P4):
 >
-> - The bytes at a variable's address are the managed image of its value: a `String`'s characters, not a pointer to a `BSTR`; no bytes for a `Variant`,
->   an object or an array, nor for an element or a field of those types, which read as zeros (**MS-VBA**'s layout is the one these will follow).
+> - No bytes for a `Variant`, an object or an array, nor for an element or a field of those types, which read as zeros (**MS-VBA**'s layout is the one
+>   these will follow): a `Variant` variable reads as the managed image of what it holds.
 > - A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
+
+## StrPtr
+
+`StrPtr` is declared as the `VBA` type library declares it, `StrPtr(Ptr As String) As LongPtr`, and is given where its argument is
+([StdLibByAddressAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibByAddressAttribute.html)): it gives the address of the characters of the very
+`String` it is passed. Those are in a `BSTR` of the session's memory, as **MS-VBA** lays one out: a `Long` of the length in bytes just before them
+(`StrPtr(s) - 4`), the characters two bytes each - and the odd byte of a `String` that has one - then a null character
+([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)). The bytes of a `String` variable, at `VarPtr(s)`, are this address.
+
+As in **MS-VBA** (recorded in Excel):
+
+|Argument|`StrPtr` gives|
+|---|---|
+|`vbNullString`, a `String` variable nothing was assigned to|`0`. A zero-length `String`, `""`, is not `0`.|
+|A `String` variable, an element of a `String` array, a `String` field of a record|The address of its characters, the same until a `String` is assigned to it - any `String`: the same text, and `s = s` itself, are another (🚧 below). `t = s` gives `t` characters of its own, and so does a `ByVal` parameter; a `ByRef` one is the variable's.|
+|A `Variant` holding a `String`|The address of the `Variant`'s own characters.|
+|What is no `String` variable: a literal, an expression, a fixed-length `String`, a number|The address of the characters of a `String` made of it, a temporary freed when the statement is over.|
+
+A `POKE` into the characters changes the `String`, in place: `StrPtr(s)` is where it was.
+
+> [!NOTE]
+> 🚧 Not implemented yet:
+>
+> - The `Mid` statement assigns a `String` made of its target's, which is in another `BSTR`; **MS-VBA** writes the characters in place, and `StrPtr` of the
+>   target is the same after it.
+> - The `String`s of a fixed-size array field of a record are given to `StrPtr` as copies.
+> - `s = s` keeps the characters where they are when the program is evaluated boxed (`RDCORE_UNBOXED=0`).
+> - A `POKE` into the length, or into a `String` variable's pointer, is refused (*Ptr plan phase B: a pointer copied into a `String` variable).
 
 ---
 > ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md)

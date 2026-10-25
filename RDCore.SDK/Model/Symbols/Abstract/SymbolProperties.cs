@@ -148,6 +148,14 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> TypeLibraryByRef = new(nameof(TypeLibraryByRef));
     /// <summary>
+    /// Whether a library parameter declared with a type of its own is given the address of what it is passed - a variable of its type, or a <c>Variant</c>
+    /// holding a value of it - rather than the value (<c>StdLibByAddressAttribute</c>): <c>StrPtr</c>'s, which is the address of the very <c>String</c>.
+    /// </summary>
+    /// <remarks>
+    /// Set by the standard library's reader. The parameter is <c>ByVal</c> to the language: it takes what any argument of its type is.
+    /// </remarks>
+    public static readonly SymbolProperty<bool> PassedByAddress = new(nameof(PassedByAddress));
+    /// <summary>
     /// What a parameter declared <c>Variant</c> expects of an object given to it, when it reads the value of its argument as MS-VBA compiles it: <c>CInt</c>'s
     /// does, <c>Round</c>'s does not (<see cref="Semantics.Static.ObjectValueStaticSemantics"/>).
     /// </summary>

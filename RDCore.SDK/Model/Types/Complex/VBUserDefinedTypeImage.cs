@@ -54,7 +54,19 @@ public static class VBUserDefinedTypeImage
     /// </summary>
     /// <param name="value">The value to lay out.</param>
     /// <param name="pointerWidth">The host's pointer width in bytes.</param>
-    public static byte[] Of(VBUserDefinedTypeValue value, int pointerWidth)
+    public static byte[] Of(VBUserDefinedTypeValue value, int pointerWidth) => Of(value, pointerWidth, stringPointer: null);
+
+    /// <summary>
+    /// The memory image of <paramref name="value"/>, laid out for a host whose pointers are <paramref name="pointerWidth"/> bytes wide, with the pointer each
+    /// variable-length <c>String</c> field is: the address of its characters, where the host has them (<c>StrPtr</c>).
+    /// </summary>
+    /// <param name="value">The value to lay out.</param>
+    /// <param name="pointerWidth">The host's pointer width in bytes.</param>
+    /// <param name="stringPointer">
+    /// The address of the characters of the variable-length <c>String</c> field that begins at an offset of the image, <c>0</c> for <c>vbNullString</c>; in a
+    /// nested record, the offset is from the start of the outermost one. <see langword="null"/> leaves those fields zero.
+    /// </param>
+    public static byte[] Of(VBUserDefinedTypeValue value, int pointerWidth, Func<int, long>? stringPointer)
     {
         var layout = VBUserDefinedTypeLayout.Of(value, pointerWidth);
         var image = new byte[layout.Size];
@@ -62,6 +74,24 @@ public static class VBUserDefinedTypeImage
         for (var index = 0; index < layout.Fields.Count; index++)
         {
             var field = layout.Fields[index];
+            var offset = field.Offset;
+
+            // the order matters: a fixed-length String is a VBStringType, and is its characters.
+            if (stringPointer is not null && field.Symbol.ResolvedType is VBStringType and not VBFixedStringType)
+            {
+                var pointer = stringPointer(offset);
+                (pointerWidth == sizeof(int) ? BitConverter.GetBytes(unchecked((int)pointer)) : BitConverter.GetBytes(pointer))
+                    .AsSpan(0, Math.Min(pointerWidth, field.Width)).CopyTo(image.AsSpan(offset));
+                continue;
+            }
+
+            if (stringPointer is not null && field.Symbol.ResolvedType is VBUserDefinedType && value.FieldAt(index) is VBUserDefinedTypeValue nested)
+            {
+                var inner = Of(nested, pointerWidth, at => stringPointer(offset + at));
+                inner.AsSpan(0, Math.Min(inner.Length, field.Width)).CopyTo(image.AsSpan(offset));
+                continue;
+            }
+
             if (value.FieldAt(index) is { } held && field.Symbol.ResolvedType is { } type
                 && Encoded(type, held, field.Width, pointerWidth) is { } bytes)
             {

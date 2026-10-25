@@ -85,15 +85,24 @@ public interface IStdHiddenModule
     RuntimeSemanticsEvaluationResult<VBLongPtrValue> ObjPtr(VBObjectValue @object);
 
     /// <summary>
-    /// <strong>StrPtr</strong> Gets the address of the characters of a string.
+    /// <strong>StrPtr</strong> Gets the address of the characters of a string in the session's memory.
     /// </summary>
     /// <remarks>
-    /// 🚧 Not implemented: the characters of a string live in the value that holds them, not at an address of the session's memory.
+    /// Declared as the <c>VBA</c> type library declares it, <c>StrPtr(Ptr As String) As LongPtr</c>, and given where its argument is
+    /// (<see cref="StdLibByAddressAttribute"/>): the characters are those of the very <c>String</c> it is passed, in the <c>BSTR</c> it is in - a <c>Long</c>
+    /// of its length in bytes just before them, a null character just after. As in <strong>MS-VBA</strong> (recorded in Excel):
+    /// <list type="bullet">
+    /// <item><c>vbNullString</c>, and a <c>String</c> variable nothing was assigned to, is <c>0</c>; a zero-length <c>String</c> is not;</item>
+    /// <item>a <c>String</c> variable, an element of a <c>String</c> array, a field of a record and a <c>Variant</c> holding a <c>String</c> each have their own
+    /// characters, the same until another <c>String</c> is assigned to them: <c>t = s</c> copies them, and so does a <c>ByVal</c> parameter;</item>
+    /// <item>the bytes of a <c>String</c> variable are this address;</item>
+    /// <item>what is no variable, <c>StrPtr("abc")</c>, is a <c>String</c> of its own until the statement is over.</item>
+    /// </list>
     /// </remarks>
-    /// <param name="string">The string.</param>
+    /// <param name="ptr">The address of the <c>String</c>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember(IsHidden = true)]
-    RuntimeSemanticsEvaluationResult<VBLongPtrValue> StrPtr(VBStringValue @string);
+    RuntimeSemanticsEvaluationResult<VBLongPtrValue> StrPtr([StdLibByAddress(typeof(VBStringValue))] VBLongLongValue ptr);
 
     /// <summary>
     /// <strong>VarPtr</strong> Gets the address of a variable in the session's memory.
@@ -108,10 +117,10 @@ public interface IStdHiddenModule
     /// variable of another type is a <c>VARIANT</c> of its own, at one address for the call;</item>
     /// <item>what is no variable - <c>VarPtr(1)</c>, <c>VarPtr(x + 0)</c>, <c>VarPtr((x))</c>, a public variable of an object named through it - is passed
     /// as a temporary, which has an address of its own until the statement is over;</item>
-    /// <item><c>VarPtr(ByVal n)</c> is the bytes <c>n</c> is stored in, read as a whole number.</item>
+    /// <item><c>VarPtr(ByVal n)</c> is the bytes <c>n</c> is stored in, read as a whole number;</item>
+    /// <item>an element of an array is in a block of the array's elements side by side, and a field of a record at its offset in the record, as
+    /// <strong>MS-VBA</strong> lays them out.</item>
     /// </list>
-    /// 🚧 An element of an array, and a field of a user-defined type, have an address of their own only for as long as the call runs: they are not laid
-    /// out in the session's memory as <strong>MS-VBA</strong> lays them out, side by side.
     /// </remarks>
     /// <param name="ptr">The address of the variable.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>

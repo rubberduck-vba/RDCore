@@ -11,7 +11,7 @@ namespace RDCore.Runtime.StdLib;
 
 /// <inheritdoc cref="IStdHiddenModule"/>
 /// <remarks>
-/// 🚧 <see cref="StrPtr"/>, <see cref="InputB"/> and <see cref="InputBString"/> are declared and not written:
+/// 🚧 <see cref="InputB"/> and <see cref="InputBString"/> are declared and not written:
 /// each says why, in the declaration.
 /// </remarks>
 /// <param name="session">The session whose file channels, call stack and environment these members read.</param>
@@ -106,8 +106,17 @@ public sealed class StdHidden(IRuntimeSession session) : IStdHiddenModule
     }
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult<VBLongPtrValue> StrPtr(VBStringValue @string)
-        => NotImplemented<VBLongPtrValue>(nameof(StrPtr), "the characters of a string live in its value, not at an address of the session's memory");
+    public RuntimeSemanticsEvaluationResult<VBLongPtrValue> StrPtr(VBLongLongValue ptr)
+    {
+        // what is at the address is a String, or a Variant holding one: the evaluator passes nothing else here (StdLibByAddressAttribute).
+        if (session.Storage is not Execution.Memory.SessionStorage storage || !storage.TryGetStringPointer(new MemoryAddress(unchecked((int)ptr.Value)), out var pointer))
+        {
+            return Failed<VBLongPtrValue>(VBRuntimeErrorId.OutOfMemory, "no room for the characters of the string");
+        }
+
+        return RuntimeSemanticsEvaluationResult<VBLongPtrValue>.Success(
+            session.Environment.Is64Bit ? new VBLongPtrValue(pointer) : new VBLongPtrValue(unchecked((int)pointer)));
+    }
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult<VBLongPtrValue> VarPtr(VBLongLongValue ptr)

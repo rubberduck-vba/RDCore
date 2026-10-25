@@ -1965,7 +1965,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             // an argument bound as no variable is not tried as one - but by a library that takes what it is given, which passes a value by reference too.
             var aliased = RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) && (external || boundArgument is not { Passing: ArgumentPassing.Value })
-                || external && parameter.ResolvedType is VBStringType;
+                || external && parameter.ResolvedType is VBStringType
+                || anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress) && argumentNode is not ByValArgumentExpressionNode;
             var value = boundArgument?.Value;
             RuntimeSemanticsEvaluationResult? evaluatedInstead = null;
 
@@ -2042,15 +2043,30 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             // a library member's `As Any` is given an address (VarPtr): what is no variable is passed in a temporary of the statement, which has one until
             // the statement is over (MS-VBA: VarPtr(1) is not 0, and two of one statement differ - ArgumentTemporary).
-            if (anyByAddress && parameter.ResolvedType is VBUnknownType)
+            var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
+            if (anyByAddress && parameter.ResolvedType is VBUnknownType || typedByAddress)
             {
                 var passed = argumentResult.Value.Result!;
 
                 // `ByVal` passes the bytes the value is stored in where an address goes (StdLibAsAnyAttribute): VarPtr(ByVal 1234) is 1234.
-                if (argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
+                if (!typedByAddress && argumentNode is ByValArgumentExpressionNode && PassedByValAsAny(passed) is { } pointer)
                 {
                     bound[i] = new VBRuntimeValue<long>(pointer);
                     continue;
+                }
+
+                // a parameter of a type of its own is given a temporary of that type: StrPtr(5) is the address of the characters of "5" (StdLibByAddressAttribute).
+                if (typedByAddress)
+                {
+                    var temporaryFrame = new LetCoercionStackFrame(argumentNode.Identity, InputIndex.CoercionSourceValue,
+                        passed, new VBTypeDescValue(parameter.ResolvedType), ConversionSite.Argument);
+                    var coerced = LetCoercionProvider.EvaluateLetCoercionSemantics(session.Symbols.Resolver, argumentNode, temporaryFrame);
+                    if (!coerced.IsSuccess)
+                    {
+                        return coerced.IsApplicable ? RuntimeSemanticsEvaluationResult.Error(coerced.ErrorInfo!) : RuntimeSemanticsEvaluationResult.InternalError();
+                    }
+
+                    passed = coerced.Result!;
                 }
 
                 if (!session.Storage.TryAllocate(passed.Size, SymbolAddressTable.FreshBinding(passed), out var temporary))
@@ -2059,6 +2075,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                         Exceptions.VBProcedureCall_OutOfMemory_Temporary_Verbose));
                 }
 
+                HoldsString(session, temporary, passed.TypeInfo);
                 session.Objects.PushTemporary(new ArgumentTemporary(temporary));
                 bound[i] = new VBRuntimeReference(temporary, passed.TypeInfo);
                 continue;
@@ -2254,12 +2271,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (argument is IndexExpressionNode element && (!external || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)))
         {
             return TryResolveElementByRefArgument(session, context, element, parameter, borrowed, out reference, out evaluated, external || anyByAddress,
-                atItsAddress: anyByAddress && parameter.ResolvedType is VBUnknownType);
+                atItsAddress: anyByAddress && (parameter.ResolvedType is VBUnknownType || parameter.GetProperty(SymbolProperties.PassedByAddress)));
         }
 
         // `As Any` is a parameter of a Declare, or of a library member (VarPtr), that takes whatever it is given, a variable of any type by reference - and
-        // passes it as the type it is.
-        var takesAny = (external || anyByAddress) && parameter.ResolvedType is VBUnknownType;
+        // passes it as the type it is. A library parameter of a type of its own passed by address (StrPtr) takes a variable of its type, which it is given the
+        // address of the same way, and a Variant holding a value of it.
+        var typedByAddress = anyByAddress && parameter.GetProperty(SymbolProperties.PassedByAddress);
+        var takesAny = (external || anyByAddress) && parameter.ResolvedType is VBUnknownType || typedByAddress;
         if (takesAny && argument is SimpleNameExpressionNode anyName
             && session.Symbols.Resolver.ResolveValue(anyName, ScopeKind.Local, context.Scope).Symbol is { } anySymbol and ITypedSymbol anyTyped)
         {
@@ -2269,17 +2288,24 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return false;
             }
 
+            if (typedByAddress && !HoldsValueOf(parameter, anyTyped.ResolvedType, () => Evaluate(session, anyName, context).Result))
+            {
+                return false;
+            }
+
             // the name of a Function or a Property Get, in its own code, is its result variable (MS-VBAL §5.3.1), which has an address of its own (oracle\s24 F01).
             if (anyByAddress && anySymbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && anySymbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
                 && session.CallStack.Current is Execution.Frames.CallStackFrame activation
                 && activation.TryGetResultAddress(Math.Max(1, VBUserDefinedTypeLayout.WidthOf(anyTyped.ResolvedType, PointerWidthOf(session))), out var result))
             {
+                HoldsString(session, result, anyTyped.ResolvedType);
                 reference = new VBRuntimeReference(result, anyTyped.ResolvedType);
                 return true;
             }
 
-            // a Variant reference parameter given a variable of another type is a VARIANT of its own that refers to the variable: that is its address.
-            if (anyByAddress && session.CallStack.Current is Execution.Frames.CallStackFrame frame
+            // a Variant reference parameter given a variable of another type is a VARIANT of its own that refers to the variable: that is its address. What
+            // StrPtr is given of one is the variable it refers to, which holds the String.
+            if (anyByAddress && !typedByAddress && session.CallStack.Current is Execution.Frames.CallStackFrame frame
                 && frame.TryGetReferenceVariantAddress(anySymbol, session.Environment.Is64Bit ? VariantSize64 : VariantSize32, out var variant))
             {
                 reference = new VBRuntimeReference(variant, VBVariantType.TypeInfo);
@@ -2288,7 +2314,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (session.Symbols.Resolver.TryGetAddress(anySymbol, out var anyAddress))
             {
-                reference = new VBRuntimeReference(anyAddress, DeclaredTypeOf(session, anySymbol, anyTyped.ResolvedType));
+                var declaredAs = DeclaredTypeOf(session, anySymbol, anyTyped.ResolvedType);
+                HoldsString(session, anyAddress, declaredAs);
+                reference = new VBRuntimeReference(anyAddress, declaredAs);
                 return true;
             }
         }
@@ -2301,7 +2329,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // interface to `As Any`, which is given a temporary (MS-VBA: VarPtr(h.Value) is a new address each time, VarPtr(Me.Value) too - oracle\s21 R07).
             if (anyByAddress && takesAny)
             {
-                return TryResolveRecordFieldAddress(session, context, memberAccess, out reference, out evaluated);
+                return TryResolveRecordFieldAddress(session, context, memberAccess, out reference, out evaluated)
+                    && (!typedByAddress || HoldsValueOf(parameter, reference.DeclaredType!, () => Evaluate(session, memberAccess, context).Result));
             }
 
             return !takesAny && TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference);
@@ -2316,7 +2345,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // a ParamArray is never passed by reference: MS-VBA refuses it as an argument of a ByRef parameter ("Invalid ParamArray use"), and passes it to the
         // library as a value - IsMissing of one that collected nothing is True (recorded in Excel).
         if (named is not { } argumentSymbol || argumentSymbol is ParamArrayParameterSymbol || argumentSymbol is not ITypedSymbol typed
-            || (!takesAny && !IsOfDeclaredType(parameter, typed.ResolvedType) && parameter.ResolvedType is not VBVariantType))
+            || (!takesAny && !IsOfDeclaredType(parameter, typed.ResolvedType) && parameter.ResolvedType is not VBVariantType)
+            || typedByAddress && !HoldsValueOf(parameter, typed.ResolvedType, () => Evaluate(session, argument, context).Result))
         {
             return false;
         }
@@ -2328,6 +2358,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         var declared = DeclaredTypeOf(session, argumentSymbol, typed.ResolvedType);
+        if (anyByAddress)
+        {
+            HoldsString(session, address, declared);
+        }
+
         reference = new VBRuntimeReference(address, takesAny ? declared : ReferencedType(parameter, declared));
         return true;
     }
@@ -2446,6 +2481,23 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     private static int PointerWidthOf(IRuntimeSession session) => session.Environment.Is64Bit ? sizeof(long) : sizeof(int);
 
+    // whether what is given to a parameter of a type of its own passed by address (StrPtr) is given at its address: a variable of the type, or a Variant
+    // holding a value of it. A fixed-length String is its characters, and is given a String made of them, as anything else is a temporary of the type.
+    private static bool HoldsValueOf(VBParameterSymbol parameter, VBType declared, Func<VBTypedValue?> current)
+        => declared is not VBFixedStringType
+            && (IsOfDeclaredType(parameter, declared)
+                || declared is VBVariantType && current() is VBVariantValue { TypedValue: not VBFixedStringValue and var held } && IsOfDeclaredType(parameter, held.TypeInfo));
+
+    // a variable-length String variable's bytes are the address of its characters, which nothing but its declared type tells from a fixed-length one's: what
+    // gives its address away says so of it (SessionStorage.HoldsString).
+    private static void HoldsString(IRuntimeSession session, MemoryAddress address, VBType? declared)
+    {
+        if (declared is VBStringType and not VBFixedStringType && session.Storage is Execution.Memory.SessionStorage storage)
+        {
+            storage.HoldsString(address);
+        }
+    }
+
     // the size of a VARIANT, in a 32-bit and a 64-bit environment.
     private const int VariantSize32 = 16;
     private const int VariantSize64 = 24;
@@ -2514,6 +2566,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (element.Callee is MemberAccessExpressionNode { Owner: { } owner } field && array is VBFixedSizeArrayValue
                 && TryAddressOfRecord(session, context, owner, out var start, out var record, out _))
             {
+                // 🚧 the Strings of a fixed-size array field are pointers in the record that nothing here makes BSTRs of yet: StrPtr is given a copy.
+                if (parameter.ResolvedType is not VBUnknownType)
+                {
+                    return false;
+                }
+
                 var fields = VBUserDefinedTypeLayout.Of(record, PointerWidthOf(session)).Fields;
                 var index = FieldIndexOf(fields, field.Member.IdentifierName);
                 if (index < 0)

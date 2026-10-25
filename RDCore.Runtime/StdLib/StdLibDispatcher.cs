@@ -172,8 +172,8 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     // for it when the call leaves it out - when that is the same every time.
     private sealed record class StdLibParameter(ParameterInfo Info, Type Type, bool IsParamArray, bool IsOptional, VBParameterSymbol? Symbol)
     {
-        // `ByRef … As Any` (StdLibAsAnyAttribute): given an address.
-        public bool IsAsAny { get; } = Info.GetCustomAttribute<StdLibAsAnyAttribute>() is not null;
+        // `ByRef … As Any` (StdLibAsAnyAttribute), and a parameter passed by address (StdLibByAddressAttribute): given an address.
+        public bool IsAsAny { get; } = Info.GetCustomAttribute<StdLibAsAnyAttribute>() is not null || Info.GetCustomAttribute<StdLibByAddressAttribute>() is not null;
 
         // a ParamArray told nothing is an empty array of its elements, which nothing can change.
         public Array? EmptyParamArray { get; } = IsParamArray ? System.Array.CreateInstance(Type.GetElementType()!, 0) : null;

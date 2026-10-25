@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Runtime.Execution.Memory;
@@ -13,8 +14,9 @@ namespace RDCore.Runtime.Execution.Memory;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The elements stay in the array: the block is where they are, and its bytes are what they hold, read and written through them. An element that is a pointer
-/// in MS-VBA - a variable-length <c>String</c>, an object, a <c>Variant</c>, an array - has no bytes of its own here yet (*Ptr plan P3, P4), and reads as zeros.
+/// The elements stay in the array: the block is where they are, and its bytes are what they hold, read and written through them. A variable-length
+/// <c>String</c> element is the address of its characters (<see cref="StringBlock"/>). An element that is a pointer to anything else in MS-VBA - an object, a
+/// <c>Variant</c>, an array - has no bytes of its own here yet (*Ptr plan P4), and reads as zeros.
 /// </para>
 /// <para>
 /// The block belongs to the array object, which it does not keep alive: an array that is <c>ReDim</c>'d, or assigned another, is another array object, and the
@@ -49,7 +51,9 @@ internal sealed class ArrayBlock
     /// <summary>
     /// The block's bytes: each element's image at its offset.
     /// </summary>
-    public byte[] Image()
+    /// <param name="stringPointer">The address of the characters of the variable-length <c>String</c> at an offset of the block, an element or a field of
+    /// a record element: what its bytes are (<see cref="StringBlock"/>).</param>
+    public byte[] Image(Func<int, long> stringPointer)
     {
         var image = new byte[Size];
         if (!TryGetArray(out var array))
@@ -59,6 +63,22 @@ internal sealed class ArrayBlock
 
         for (var index = 0; index < array.Length; index++)
         {
+            var at = index * ElementWidth;
+
+            // the order matters: a fixed-length String is a VBStringType, and is its characters.
+            if (array.ItemType is VBStringType and not VBFixedStringType)
+            {
+                StringHolders.PointerBytes(stringPointer(at), _pointerWidth).AsSpan(0, Math.Min(_pointerWidth, ElementWidth)).CopyTo(image.AsSpan(at));
+                continue;
+            }
+
+            if (array.ItemType is VBUserDefinedType && array.ElementAt(index) is VBUserDefinedTypeValue record)
+            {
+                var fields = VBUserDefinedTypeImage.Of(record, _pointerWidth, offset => stringPointer(at + offset));
+                fields.AsSpan(0, Math.Min(fields.Length, ElementWidth)).CopyTo(image.AsSpan(at));
+                continue;
+            }
+
             if (array.ElementAt(index) is { } element
                 && VBUserDefinedTypeImage.Encode(array.ItemType, element, ElementWidth, _pointerWidth) is { } bytes)
             {
@@ -92,6 +112,55 @@ internal sealed class ArrayBlock
         }
 
         return array.TrySetElementAt(index, new ValueBindingHandle(VBUserDefinedTypeImage.Decode(array.ItemType, bytes).RuntimeValue));
+    }
+
+    /// <summary>
+    /// The variable-length <c>String</c> held at <paramref name="offset"/>: by an element of a <c>String</c> or a <c>Variant</c> array that begins there, or a
+    /// field of a record element.
+    /// </summary>
+    public bool TryFindStringAt(int offset, out IRuntimeValue text)
+    {
+        text = null!;
+        var index = offset / ElementWidth;
+        var within = offset % ElementWidth;
+        if (!TryGetArray(out var array) || index >= array.Length)
+        {
+            return false;
+        }
+
+        if (array.ItemType is VBUserDefinedType)
+        {
+            return array.ElementAt(index) is VBUserDefinedTypeValue record
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var owner, out var field)
+                && StringHolders.TryStringOf(owner.FieldAt(field), out text);
+        }
+
+        return within == 0 && array.CellAt(index) is { } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue)
+            && StringHolders.TryStringOf(cell.Value, out text);
+    }
+
+    /// <summary>
+    /// Makes what holds the <c>String</c> at <paramref name="offset"/> hold <paramref name="text"/> (<see cref="TryFindStringAt"/>).
+    /// </summary>
+    public bool TryWriteStringAt(int offset, IRuntimeValue text)
+    {
+        var index = offset / ElementWidth;
+        var within = offset % ElementWidth;
+        if (!TryGetArray(out var array) || index >= array.Length)
+        {
+            return false;
+        }
+
+        if (array.ItemType is VBUserDefinedType)
+        {
+            return array.ElementAt(index) is VBUserDefinedTypeValue record
+                && StringHolders.TryFindField(record, within, _pointerWidth, out var owner, out var field)
+                && owner.FieldAt(field) is { } held
+                && owner.TrySetFieldAt(field, StringHolders.Replacing(held, text));
+        }
+
+        return within == 0 && array.CellAt(index) is { } cell
+            && array.TrySetElementAt(index, new ValueBindingHandle(StringHolders.Replacing(cell.Value, text)));
     }
 
     /// <summary>
