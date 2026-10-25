@@ -108,51 +108,31 @@ field uses; one of a member of a class lives in the object heap, with the fields
 
 See [**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md) for `ScopeKind` and the allocation scopes.
 
-The session's address space begins above the first 64 KiB, so that no address is `0`. A variable is at an address whatever it holds, one that holds
-nothing being given a pointer's size. The elements of an array are not at an address each: the first time the address of one of them is asked for
-(`VarPtr`), the array is given a block of the session's memory as wide as all of its elements side by side, and every element is at its place in it, as
-**MS-VBA** lays them out ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#varptr)). The block belongs to the array, and does not keep it
-alive: an array that is gone - `ReDim`'d, assigned another, a local of an activation that returned - is let go of with its block, which the session frees
-when it next makes one. A `PEEK` reads the block as the elements' bytes, and a `POKE` writes the element the byte is part of; a record's address reads,
-and writes, its fields at their offsets.
-
-A variable-length `String` is a pointer, as in **MS-VBA**: the address of its characters, in a `BSTR` of the session's memory - a `Long` of its length in
-bytes, the characters, a null character ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#strptr)). The `BSTR` is made for what holds the `String`
-(a variable, an element, a field, a `Variant`) the first time the address is asked for, by `StrPtr` or by a `PEEK` of the pointer, and is that holder's for
-as long as it holds that `String`: a `String` assigned to it is in another `BSTR`, and the one it was is freed, as is the `BSTR` of a holder that is freed. A
-`POKE` into the characters changes the `String` in place, at the same address, and one into the length makes it as long as the length says. A `POKE` into a
-`String`'s pointer makes it the `String` of the `BSTR` the pointer points at - which the two holders then share, each change to the characters being the
-other's - or `vbNullString` for `0`; the `BSTR` it pointed at is let go of, not freed, as **MS-VBA** leaves it.
-
-An object is a pointer too: the address of an interface of the object, a block the session makes for each interface it is asked for through
-([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#objptr)) and frees when the object is destroyed. A dynamic array is the address of a
-`SAFEARRAY` the session makes for what holds it, which describes the array and points at its elements ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#safearray)).
-A `Variant` is a `VARIANT`: its type, then its data, a `String`'s, an object's or an array's being the pointer it is. A procedure of a standard module has an
-address too, what `AddressOf` gives ([**RD-VBAL §5.6.16.8**](rd-vbal.5.6.16.constrained-expressions.md#56168-addressof-expressions)): a block the session
-makes the first time it is asked for, which lasts as long as the session.
+What is at an address in these heaps, and what its bytes are, is the [memory model](#memory-model) below.
 
 The order in which names are looked up in these heaps is specified in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
 ## Memory addressing
 
-`ISessionMemoryAllocator` maintains an internal _address pointer_ that tracks the current _memory offset_.
-
-The current memory address pointer should be incremented by a _host-defined_ `IntPtrSize`, which represents the
-size of a pointer in the current environment (32 or 64 bits).
+`ISessionMemoryAllocator` reserves address space, never values: blocks carved from segments of 4 KiB (2 KiB in a 32-bit
+environment) that begin at `0x10000`, a block that is freed being reused for a later one that fits. The width of a pointer
+is the environment's (`IRuntimeEnvironmentProfile.Is64Bit`): 8 bytes, or 4.
 
 The _memory map_ (`MemoryAddress` → `IBindingHandle`) is held by the session storage (`SessionStorage`, below):
 it binds the `IBindingHandle` of a value to the
 [MemoryAddress](../api/RDCore.SDK.Runtime.Shared.MemoryAddress.html) reserved for it.
 
 > [!NOTE]
-> **Not implemented.** The _raw address map_ (`MemoryAddress` → `Uri`) is not implemented.
+> **Not implemented.** The _raw address map_ (`MemoryAddress` → `Uri`) is not implemented: what is at an address is
+> known by what is bound there, not by the name of a symbol.
 
 ## Session storage
 
-> [!NOTE]
-> **Not implemented.** A bound value is not stored as a byte block at its address: an `IBindingHandle` is itself
-> the value bound to a `Symbol`.
+A value is not stored as bytes: what is bound at an address is its cell - an `IBindingHandle` - or a block the session
+lays out for it (a `BSTR`, an interface, a `SAFEARRAY`), and the bytes at the address are what the value is in
+memory, laid out as **MS-VBA** lays it out when they are read (`PEEK`) and read back into the value when one of them is
+written (`POKE`). See the [memory model](#memory-model).
 
 A symbol's storage allocation is performed by `SymbolAddressTable`, which
 [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and the module/global resolver
@@ -166,26 +146,100 @@ share ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)
 `ISessionMemoryAllocator` refuses a zero-size allocation, as an enforced invariant: a 0-byte
 bump-pointer/free-list allocation would hand the same address to the next caller.
 
-For a non-positive size, `SessionStorage.TryAllocate` mints its own address and never passes the request to the
-session memory allocator. The following values have a non-positive storage size, and all of them take this path:
+For a non-positive size, `SessionStorage.TryAllocate` asks for a pointer's size instead - a `VARIANT`'s, for a `Variant` - : a variable has an address
+whatever it holds, which a program can take (`VarPtr`), and what holds nothing is a pointer in **MS-VBA** - a `String` or
+a dynamic array whose pointer is `0`. The following values have a non-positive storage size, and all of them take this
+path:
 
 |Value with a non-positive storage size|
 |---|
+|`vbNullString`|
 |`Nothing`|
 |`Null`|
 |`Empty`|
 |An uninitialized array|
 |An empty `ParamArray` array|
 
-Such a value still gets a binding that resolves by name, but never gets memory from the session memory allocator.
-
-The addresses `SessionStorage.TryAllocate` mints for non-positive sizes are negative, so that they can never collide
-with, or be mistaken for, an allocator address.
-
 Zero-size storage is supported because a `ParamArray` call with nothing left over is the most common
 `ParamArray` call shape: `Call Callee(100)` against a `ParamArray rest()` parameter with no arguments left over
 collects an empty array whose `Size` is 0
 ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
+
+## Memory model
+
+The session's memory is one address space, the one `VarPtr`, `StrPtr`, `ObjPtr` and `AddressOf` give addresses in, and
+`PEEK` and `POKE` read and write. What is in it is laid out as **MS-VBA** lays it out (recorded in Excel), so that what a
+program learns of it - an address, what is at an address - is what it would learn in **MS-VBA**, whatever the engine that
+runs it.
+
+### What has an address
+
+|What|Its address|
+|---|---|
+|A variable: a module's, a `Static` local, a field of an object in its own code|Its own, given when it is defined, the same for as long as it exists.|
+|A local, a parameter `ByVal`|Its own, given the first time it is asked for: for the whole activation, whatever is assigned to it.|
+|A parameter `ByRef`|The address of the variable it was given.|
+|An element of an array|In the block the array's elements are laid out in, side by side, made the first time the address of one of them is asked for ([`VarPtr`](rd-vbal.6.1.2.13.hidden-module.md#varptr)).|
+|A field of a record|The record's address, plus the field's offset; a fixed-size array field's elements are in the record.|
+|The result variable of a `Function` or a `Property Get`, in its own code|Its own, for the activation.|
+|What is no variable (a literal, an expression, a fixed-length `String` given to `VarPtr`)|A temporary's, until the statement is over.|
+|The characters of a `String`|In a `BSTR` ([`StrPtr`](rd-vbal.6.1.2.13.hidden-module.md#strptr)).|
+|An object|An interface of it, one for each it is asked for through ([`ObjPtr`](rd-vbal.6.1.2.13.hidden-module.md#objptr)).|
+|A dynamic array|Its `SAFEARRAY` ([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#safearray)).|
+|A procedure of a standard module|Its own ([`AddressOf`](rd-vbal.5.6.16.constrained-expressions.md#56168-addressof-expressions)).|
+
+### What the bytes are
+
+|A value of|Is, at its address|
+|---|---|
+|A number, `Boolean`, `Date`, `Currency`|Its bytes, little-endian: a `Boolean` two, `-1` for `True`; a `Date` a `Double`; a `Currency` a 64-bit integer of ten-thousandths.|
+|A fixed-length `String`|Its characters, two bytes each.|
+|A variable-length `String`|The address of its characters (`0` for `vbNullString`), which are in a `BSTR`: a `Long` of their length in bytes, the characters, a null character.|
+|An object|The address of the interface its declared type says (`0` for `Nothing`); the first pointer there is the class's.|
+|A `Variant`|A `VARIANT` - 24 bytes, 16 in a 32-bit environment: its `VarType` in the first two, its data eight bytes in, a pointer for a `String`, an object, an array.|
+|A dynamic array|The address of its `SAFEARRAY` (`0` for one of no dimensions): its dimensions, features, element width, locks, the address of its elements, and each dimension's count and lower bound, the last first.|
+|A record|Its fields, each at its offset - aligned as **MS-VBA** aligns it for the pointer width - each as its type is, and zeros between them.|
+
+### When what the session lays out is made and freed
+
+|Block|Made|Freed|
+|---|---|---|
+|An array's elements|The first time the address of an element is asked for.|When the array is gone - `ReDim`'d, assigned another, a local of an activation that returned - the next time a block is made.|
+|A `BSTR`|The first time the address of the characters is asked for, or the bytes of the `String`.|When a `String` is assigned to what holds it, or what holds it is freed; not when a pointer `POKE`d over it lets go of it.|
+|An interface|The first time its address is asked for.|When the object is destroyed.|
+|A `SAFEARRAY`|The first time its address is asked for.|A dynamic array's when it holds no array (`Erase`), a `Variant`'s when it holds another; not when a pointer `POKE`d over it lets go of it.|
+|A procedure's address|The first time it is asked for.|Never: it lasts as long as the session.|
+|A temporary|When it is passed.|When the statement is over.|
+
+A block never takes the address of the one it replaces: a new `BSTR`, a new array block, is made before the old one is
+freed, so that the two are never at one address (an array `ReDim`'d is elsewhere, as in **MS-VBA**). A block that is let
+go of is freed the next time it is asked for, or when what holds it is freed - which is what a program can tell.
+
+### What a POKE writes
+
+|A POKE into|Makes|
+|---|---|
+|A number's, a `Boolean`'s, a `Date`'s, a fixed-length `String`'s bytes|The value its bytes say.|
+|A `String`'s characters, a `BSTR`'s length|The `String` they say, at the same address, for everything that holds it.|
+|A `String`'s, an object's, a dynamic array's pointer|What it points at - another's `BSTR`, interface, `SAFEARRAY` - which the two then hold, without a reference of their own; `0` makes it `vbNullString`, `Nothing`, an array of no dimensions. A pointer is written a byte at a time, and one that points at nothing the session has leaves what it was.|
+|A `VARIANT`'s type or data|The value they say; its data, when it holds a `String`, an object or an array, is the pointer it is.|
+|A `SAFEARRAY`'s lower bound, or count|The array under those bounds, its elements where they are; never more elements than it has.|
+|An interface, a procedure's address, the rest of a `SAFEARRAY`|Nothing: the `POKE` is refused.|
+
+### Implementation-defined
+
+What **MS-VBA** leaves to the memory it runs in, and RD-VBA decides:
+
+- **The addresses are the session's.** The address space begins at `0x10000`, so that no address is `0` or a small number; where in it a block is depends on
+  what was made and freed before it, as it does in **MS-VBA**, and a program that compares two addresses for anything but equality learns nothing it can rely on.
+- **Native code does not share it.** An address given to a `Declare` is a number, not a pointer into memory the native code can read or write
+  (🚧 *Ptr plan phase B: a mirror of the session's memory around a native call, and callbacks for `AddressOf`).
+- **What MS-VBA leaves as it was is zeros.** The bytes past what a block holds, an interface's table, a procedure's address, and the upper bytes of a
+  `Single` passed `ByVal` to `VarPtr` (where **MS-VBA** leaves whatever the register held) read as zeros.
+- **What would be memory that is not the session's is refused.** A `POKE` whose result would point past a block - a `BSTR`'s length, a `SAFEARRAY`'s
+  count - or into what only the session writes is refused, rather than leaving something that points nowhere.
+- **A pointer `POKE`d over what it pointed at leaks it**, as it does in **MS-VBA**: the `BSTR` or `SAFEARRAY` stays where it was, and pointing at it again
+  is the value again. A weak reference made so - an interface's address `POKE`d into an object variable - counts no reference, as in **MS-VBA**.
 
 ## Call stack and file channels
 

@@ -15,8 +15,9 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// specification does name. What the hidden members share is that a hidden member is left out of a completion list and
 /// resolves anyway, being a member of a standard module like any other.
 /// <para>
-/// The pointer members (<c>ObjPtr</c>, <c>StrPtr</c>, <c>VarPtr</c>) are not documented by Microsoft even so; what they
-/// are is what the language has always done with them.
+/// The pointer members (<c>ObjPtr</c>, <c>StrPtr</c>, <c>VarPtr</c>) are not documented by Microsoft even so, nor specified by MS-VBAL; what they
+/// give is what <strong>MS-VBA</strong> gives, recorded in Excel: addresses in the session's memory, where a variable, a <c>String</c>'s characters and an
+/// object's interface are laid out as MS-VBA lays them out, and <c>PEEK</c> and <c>POKE</c> read and write them (RD-VBAL §2.3.1.2, the memory model).
 /// </para>
 /// </remarks>
 [StdLibModule("_HiddenModule", IsHidden = true)]

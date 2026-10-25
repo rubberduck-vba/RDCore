@@ -48,7 +48,8 @@ typed, or a member called that, is an ordinary name; arguments that are named or
 
 `VarPtr` is declared as the `VBA` type library declares it, `VarPtr(Ptr As Any) As LongPtr`: its parameter is `ByRef … As Any`, as a `Declare`'s can be
 ([StdLibAsAnyAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibAsAnyAttribute.html)). It takes a variable of any type and gives its address in
-the session's memory, which is where a `PEEK` or a `POKE` reads and writes it ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
+the session's memory, which is where a `PEEK` or a `POKE` reads and writes it ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#memory-model),
+which has what is at every address in one place).
 The address space begins above the first 64 KiB, so that no address is `0` or a small number.
 
 As in **MS-VBA** (recorded in Excel):
