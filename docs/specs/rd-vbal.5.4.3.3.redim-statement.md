@@ -18,20 +18,17 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 `VBResizableArrayValue`. It is invalid to use `ReDim` with a `VBFixedSizeArrayValue`. See
 [**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md).
 
-The target name of a `ReDim` statement decides what the statement is:
+The target name of a `ReDim` statement "is first matched as a simple name expression" (**MS-VBAL §5.4.3.3**), and
+what it matches decides what the statement is. A match is a variable or a constant - of the procedure, of the module,
+of another module, of a library - a member of an enumeration, or the result of the function the `ReDim` is in. A
+procedure, a function of a library, a module or a project is no match, as **MS-VBA** has it (recorded in Excel):
 
-|Target name|The `ReDim` statement is|
-|---|---|
-|Resolves to a local, a parameter, or a module field|A re-dimension of an existing array.|
-|Resolves to a constant (`ReDim Limit(1)`, for `Const Limit = 10`)|Invalid: the name a `ReDim` matches is the _redimensioned variable_ (**MS-VBAL §5.4.3.3**), and a constant is not one. [`VBC09333`](../diagnostics/vbc09333.md) (`VariableRequired`).|
-|Unqualified, and resolves to nothing|An implicit declaration.|
-
-> [!NOTE]
-> **Not implemented.** The declaration pass looks an unqualified `ReDim` target up among the procedure's names and its
-> module's, not the library's nor another module's: a target only the library or another module declares
-> (`ReDim vbCrLf(1)`, `ReDim Left(1)`, or `ReDim Limit(1)` for another module's `Public Const Limit`) is an implicit
-> declaration of a local array, where **MS-VBAL §5.4.3.3** makes the member the name matches the redimensioned
-> variable: a constant or a function can't be one, and another module's array is the one to redimension.
+|Target name|Example|The `ReDim` statement is|
+|---|---|---|
+|A resizable array or a `Variant`, of the procedure, the module or another module, bare or qualified|`ReDim Items(3)` of another module's `Public Items() As Long`|A re-dimension of that array.|
+|A fixed-size array|`ReDim Grid(3)` of `Public Grid(2) As Long`|[VBC09357](../diagnostics/vbc09357.md) _Array already dimensioned_.|
+|A variable of another type, a constant, a member of an enumeration, the function's own result|`ReDim Count(1)` of a `Long`, `ReDim vbCrLf(1)`, `ReDim Red(1)`|[VBC09307](../diagnostics/vbc09307.md) _Expected array_.|
+|Nothing that matches: no name, a procedure, a function of a library, a module|`ReDim Totals(12)`, `ReDim Left(1)`|An implicit declaration of a new array, which hides what the name otherwise is.|
 
 For an implicit `ReDim` declaration:
 
@@ -41,7 +38,12 @@ For an implicit `ReDim` declaration:
 - The implicit declaration is legal under `Option Explicit`; see
   [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md).
 - A later analysis pass raises a semantic flag at the site of the implicit declaration; see
-  [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
+  [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md). The declaration says so
+  (`DeclarationFact.DeclaredBy` is `ReDim`), and [RDC00114](../diagnostics/rdc00114.md) _Implicit array declaration_
+  suggests a `Dim` before it.
+- The declaration pass composes the workspace twice. In the second pass, the local the first pass declared for the
+  `ReDim` is the first thing its name resolves to; what else it matches is looked up from the module, past the
+  procedure's locals, so that a `ReDim` of another module's array is a re-dimension of it.
 
 ### The `As` clause
 

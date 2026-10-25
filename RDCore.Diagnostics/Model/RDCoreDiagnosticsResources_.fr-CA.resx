@@ -189,6 +189,9 @@
   <data name="ImplicitVariantDeclaration_Message" xml:space="preserve">
     <value>'{0}' est déclaré implicitement comme Variant. Indiquez son type avec une clause As (As Variant, si c'est voulu).</value>
   </data>
+  <data name="ImplicitArrayDeclaration_Message" xml:space="preserve">
+    <value>Ce ReDim déclare le tableau '{0}', dont le nom ne désigne rien d'autre. Déclarez-le avant, avec Dim {0}() As ..., pour qu'un nom mal orthographié ne déclare pas un nouveau tableau.</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c'est voulu).</value>
   </data>

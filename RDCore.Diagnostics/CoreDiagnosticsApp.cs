@@ -63,6 +63,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ImplicitByRefModifierAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitPublicMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitVariantDeclarationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplicitArrayDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitVariantReturnTypeAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IntegerDataTypeAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ModuleScopeDimAnalyzer>();

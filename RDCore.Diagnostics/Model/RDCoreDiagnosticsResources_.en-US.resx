@@ -189,6 +189,9 @@
   <data name="ImplicitVariantDeclaration_Message" xml:space="preserve">
     <value>'{0}' is implicitly declared as a Variant. State its type with an As clause (As Variant, if that is intended).</value>
   </data>
+  <data name="ImplicitArrayDeclaration_Message" xml:space="preserve">
+    <value>This ReDim declares the array '{0}', whose name matches nothing else. Declare it first, with Dim {0}() As ..., so that a misspelled name does not declare a new array.</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended).</value>
   </data>

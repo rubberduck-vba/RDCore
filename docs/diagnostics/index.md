@@ -234,6 +234,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00106](rdc00106.md)|Implicit Variant declaration — a variable or parameter declared without a type|
 |[RDC00107](rdc00107.md)|Implicit Variant return type — a function declared without a return type|
 |[RDC00112](rdc00112.md)|Implicit narrowing conversion — a value converted implicitly into a type that holds less of it|
+|[RDC00114](rdc00114.md)|Implicit array declaration — a `ReDim` that declares the array it re-dimensions|
 |[RDC00201](rdc00201.md)|Integer data type declaration — an As Integer clause|
 |[RDC00202](rdc00202.md)|Module-scope Dim declaration — a module-level variable declared with Dim|
 |[RDC00203](rdc00203.md)|Multiline parameter declaration — one parameter declared over several lines|

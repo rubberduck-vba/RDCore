@@ -84,6 +84,8 @@ public static class DeclarationUsage
                 symbol.SemanticId, symbol.Name, kind!.Value, AccessOf(symbol), IsImplicit(symbol), LocationOf(symbol), counted)
             {
                 Role = role,
+                // a parameter is a local of its procedure that no statement declares.
+                DeclaredBy = symbol is not VBParameterSymbol && symbol is VBLocalVariableSymbol local ? local.DeclaredBy : null,
             });
         }
 

@@ -239,6 +239,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitVariantDeclaration_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Ce ReDim déclare le tableau &apos;{0}&apos;, dont le nom ne désigne rien d&apos;autre. Déclarez-le avant, avec Dim {0}() As ..., pour qu&apos;un nom mal orthographié ne déclare pas un nouveau tableau..
+        /// </summary>
+        public static string ImplicitArrayDeclaration_Message {
+            get {
+                return ResourceManager.GetString("ImplicitArrayDeclaration_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; retourne implicitement un Variant. Indiquez son type de retour avec une clause As (As Variant, si c&apos;est voulu)..
