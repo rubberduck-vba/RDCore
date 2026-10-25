@@ -21,6 +21,7 @@ using RDCore.External.Client;
 using RDCore.External.Hosting;
 using RDCore.External.Native;
 using RDCore.External.Windows.Automation;
+using RDCore.External.Windows.Forms;
 using RDCore.External.Windows.Native;
 using RDCore.SDK;
 using RDCore.SDK.Client;
@@ -461,12 +462,16 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
                 provider.GetRequiredService<ILogger<ExternalHost>>()))
             // the dialogs and the desktop are the machine's, and are not reached through the external host: nothing about showing a message box can take a
             // process down. Whether the client answers the dialogs instead is the session's to say (EnvironmentSessionProvider).
-            .AddSingleton(provider => new ExternalWorld(
-                new RemoteAutomationServer(provider.GetRequiredService<ExternalHost>()),
-                new RemoteNativeLibraryHost(provider.GetRequiredService<ExternalHost>()))
+            // the forms are objects of the external host's servers, hosted there: the remote server is the form host too.
+            .AddSingleton(provider =>
             {
-                Interaction = MachinePlatform.Interaction,
-                Desktop = MachinePlatform.Desktop,
+                var servers = new RemoteAutomationServer(provider.GetRequiredService<ExternalHost>());
+                return new ExternalWorld(servers, new RemoteNativeLibraryHost(provider.GetRequiredService<ExternalHost>()))
+                {
+                    Forms = servers,
+                    Interaction = MachinePlatform.Interaction,
+                    Desktop = MachinePlatform.Desktop,
+                };
             })
             .AddSingleton<IEnvironmentSessionProvider, EnvironmentSessionProvider>();
     }
@@ -490,10 +495,21 @@ internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHost
     {
         base.ConfigureAdditionalExternalServices(services, configuration);
         services
-            .AddSingleton(new ExternalAutomationService(
-                OperatingSystem.IsWindows() ? new ComAutomationServer() : UnavailableAutomationServer.Instance))
+            .AddSingleton(AutomationService())
             .AddSingleton(new NativeCallService(
                 OperatingSystem.IsWindows() ? new WindowsNativePlatform() : UnsupportedNativePlatform.Instance));
+    }
+
+    // on Windows, the servers and the form host live on one apartment: a form's controls are objects of the servers, called on the thread its window is pumped on.
+    private static ExternalAutomationService AutomationService()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return new ExternalAutomationService(UnavailableAutomationServer.Instance);
+        }
+
+        var apartment = new ComApartment();
+        return new ExternalAutomationService(new ComAutomationServer(apartment), new WindowsFormHost(apartment));
     }
 
     protected override void ConfigureExternalLogging(IServiceCollection services, ILoggingBuilder builder, IConfiguration configuration)

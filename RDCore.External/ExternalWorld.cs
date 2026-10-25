@@ -1,4 +1,5 @@
 ﻿using RDCore.External.Automation;
+using RDCore.External.Forms;
 using RDCore.External.Interaction;
 using RDCore.External.Native;
 using RDCore.External.Settings;
@@ -18,6 +19,13 @@ namespace RDCore.External;
 /// <param name="Libraries">What calls the functions of the native libraries that <c>Declare</c> statements name.</param>
 public sealed record class ExternalWorld(IAutomationServer Automation, INativeLibraryHost Libraries)
 {
+    /// <summary>
+    /// What hosts the program's forms - its UserForms - in windows of their own. <see cref="UnavailableFormHost"/> unless the host says otherwise: a form's
+    /// members are then known, and showing it is a run-time error that says the platform hosts no forms.
+    /// </summary>
+    /// <remarks>A form is an object of <see cref="Automation"/>, whose members are called as any of its objects' are; the two are the same process's.</remarks>
+    public IFormHost Forms { get; init; } = UnavailableFormHost.Instance;
+
     /// <summary>
     /// Who answers the dialogs of <c>MsgBox</c> and <c>InputBox</c>. <see cref="NoUserInteraction"/> unless the host says otherwise.
     /// </summary>

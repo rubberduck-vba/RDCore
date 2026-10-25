@@ -19,6 +19,7 @@ using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution;
 
@@ -61,6 +62,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         {
             return [];
         }
+
+        // a form is created from what its designer declares when the program first uses it, whether or not its code loads: Form1.Show shows a form with no code.
+        image.DefineForm(module.Name, parseResult.Designer is { Kind: FormDesignerKind.MSForms } designer ? designer : null);
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.

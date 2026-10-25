@@ -365,12 +365,12 @@ public sealed class FormLanguageTests
     [TestMethod]
     public async Task ShowingAForm_WithNothingToHostIt_IsARunTimeError_NotAnInternalOne()
     {
+        // a platform with no form host: the machine's would show the form, modal, and wait for it.
         var printed = await ModuleWorkspace.RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\nOn Error Resume Next\r\nForm1.Show\r\nDebug.Print Err.Number\r\nEnd Sub\r\n",
-            References, [("Form1", Form(), Designer)]);
+            References with { Outside = RDCore.External.ExternalWorld.None }, [("Form1", Form(), Designer)]);
 
-        var number = int.Parse(Assert.ContainsSingle(printed));
-        Assert.AreNotEqual(0, number, "nothing hosts the form yet");
-        Assert.AreNotEqual(51, number, "a member the designer declares is dispatched outside the workspace's code, not looked for in it");
+        // 429, as MS-VBA says of a class it cannot get an object of: a member the designer declares is the form host's, not looked for in the workspace's code (51).
+        Assert.AreEqual("429", Assert.ContainsSingle(printed));
     }
 
     [TestMethod]

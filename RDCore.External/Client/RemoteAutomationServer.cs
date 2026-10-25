@@ -22,8 +22,12 @@ namespace RDCore.External.Client;
 /// A handler of an event runs while the external host waits for it, and the calls it makes say which event they are made for
 /// (<see cref="AutomationRequest.HandlingEvent"/>): the thread that runs the handler is the one that knows.
 /// </para>
+/// <para>
+/// It is the form host of the machine too (<see cref="Forms.IFormHost"/>): a form is an object of the external host's automation servers, whose members are called as
+/// any other's, and what the host adds - its window - is asked of the same process, for the same handle.
+/// </para>
 /// </remarks>
-public sealed class RemoteAutomationServer : IAutomationServer
+public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 {
     private const int CallFailed = unchecked((int)0x800706BE);
     private const int ServerUnavailable = unchecked((int)0x800706BA);
@@ -50,6 +54,57 @@ public sealed class RemoteAutomationServer : IAutomationServer
     // an external host that cannot be started is not a machine with no servers: the program that asks for one is told the server could not be started.
     /// <inheritdoc/>
     public bool IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsAutomationAvailable;
+
+    // as for the servers: an external host that cannot be started is not a machine with no forms, and the program that shows one is told it could not be started.
+    bool Forms.IFormHost.IsAvailable => !_host.TryConnect(out var incarnation) || incarnation!.IsFormHostAvailable;
+
+    /// <inheritdoc/>
+    public object Create(Forms.FormDefinition form)
+    {
+        var incarnation = Connect();
+        var created = Send<FormCreateParams, AutomationObjectResult>(incarnation, ExternalProtocol.FormCreate, FormCreateParams.Of(form, _handlingEvent));
+        return ObjectOf(incarnation, created.Handle);
+    }
+
+    /// <inheritdoc/>
+    public void Show(object form, bool modal)
+    {
+        var remote = Live(form);
+        _ = Send<FormShowParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormShow, new FormShowParams { Target = remote.Handle, Modal = modal, HandlingEvent = _handlingEvent });
+    }
+
+    /// <inheritdoc/>
+    public void Hide(object form)
+    {
+        var remote = Live(form);
+        _ = Send<FormParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.FormHide, new FormParams { Target = remote.Handle, HandlingEvent = _handlingEvent });
+    }
+
+    /// <inheritdoc/>
+    public bool IsShown(object form)
+    {
+        var remote = Live(form);
+        return Send<FormParams, FormIsShownResult>(remote.Incarnation, ExternalProtocol.FormIsShown, new FormParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).IsShown;
+    }
+
+    /// <inheritdoc/>
+    public string GetCaption(object form)
+    {
+        var remote = Live(form);
+        return Send<FormCaptionParams, FormCaptionResult>(remote.Incarnation, ExternalProtocol.FormCaption, new FormCaptionParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Caption;
+    }
+
+    /// <inheritdoc/>
+    public void SetCaption(object form, string caption)
+    {
+        var remote = Live(form);
+        _ = Send<FormCaptionParams, FormCaptionResult>(
+            remote.Incarnation, ExternalProtocol.FormCaption, new FormCaptionParams { Target = remote.Handle, Caption = caption, HandlingEvent = _handlingEvent });
+    }
+
+    // a form is destroyed when it is let go of, as any of the external host's objects is released: there is nothing to ask of it before.
+    /// <inheritdoc/>
+    public void Destroy(object form) => Release(form);
 
     // the external host is started on a thread of its own; a call that comes before it is up waits for it as it would have started it.
     /// <inheritdoc/>

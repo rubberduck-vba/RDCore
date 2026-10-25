@@ -32,7 +32,11 @@ internal static class ExternalHosts
     }
 
     /// <summary>
-    /// Everything a program reaches outside the platform, through <paramref name="host"/>.
+    /// Everything a program reaches outside the platform, through <paramref name="host"/>: its servers, which host its forms too, and its native libraries.
     /// </summary>
-    public static ExternalWorld WorldOf(ExternalHost host) => new(new RemoteAutomationServer(host), new RemoteNativeLibraryHost(host));
+    public static ExternalWorld WorldOf(ExternalHost host)
+    {
+        var servers = new RemoteAutomationServer(host);
+        return new(servers, new RemoteNativeLibraryHost(host)) { Forms = servers };
+    }
 }

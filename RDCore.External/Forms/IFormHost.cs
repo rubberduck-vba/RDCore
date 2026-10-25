@@ -42,6 +42,28 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
 
     /// <summary>Where a <see cref="FormStartUpPosition.Manual"/> form's window is, from the top of the desktop, in points.</summary>
     public double Top { get; init; }
+
+    /// <summary>
+    /// Whether <c>Show</c> without an argument shows the form modal: its designer's <c>ShowModal</c>, which is <c>True</c> unless the designer block says otherwise.
+    /// </summary>
+    public bool ShowModal { get; init; } = true;
+
+    /// <summary>
+    /// The definition of the form a form module's designer declares: its state, and what its designer block says of its window.
+    /// </summary>
+    /// <param name="name">The name of the form's module.</param>
+    /// <param name="designer">What the designer declares.</param>
+    public static FormDefinition Of(string name, SDK.Workspace.Forms.FormDescriptor designer) => new(name, designer.State)
+    {
+        Caption = designer.Caption,
+        StartUpPosition = designer.StartUpPosition is { } position && Enum.IsDefined((FormStartUpPosition)position) ? (FormStartUpPosition)position : FormStartUpPosition.CenterOwner,
+        Left = PointsOf(designer.Properties.GetValueOrDefault("Left")),
+        Top = PointsOf(designer.Properties.GetValueOrDefault("Top")),
+        ShowModal = designer.ShowModal ?? true,
+    };
+
+    private static double PointsOf(string? value)
+        => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var points) ? points : 0;
 }
 
 /// <summary>
