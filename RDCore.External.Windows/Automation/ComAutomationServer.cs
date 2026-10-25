@@ -14,9 +14,9 @@ namespace RDCore.External.Windows.Automation;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every call is made from one thread of its own, a single-threaded apartment, whatever thread the pipeline runs a program on. That is the apartment a
-/// server written for a desktop expects its client to be in, and it keeps an object on the one thread that created it: a program is a sequence of calls, and
-/// nothing about it is concurrent.
+/// Every call is made from one thread, a single-threaded apartment (<see cref="ComApartment"/>), whatever thread the pipeline runs a program on. That is the
+/// apartment a server written for a desktop expects its client to be in, and it keeps an object on the one thread that created it: a program is a sequence of
+/// calls, and nothing about it is concurrent. The forms of the program live there too, so that their controls are objects of this server like any other.
 /// </para>
 /// <para>
 /// The call itself is the runtime's own <c>IDispatch</c> binder (<see cref="Type.InvokeMember(string, BindingFlags, Binder, object, object[], ParameterModifier[], CultureInfo, string[])"/>),
@@ -33,22 +33,24 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private const int Unspecified = unchecked((int)0x80004005);
     private const int BadParameterCount = unchecked((int)0x8002000E);
 
-    private readonly BlockingCollection<Action> _work = [];
-    private readonly Lazy<Thread> _apartment;
+    private readonly ComApartment _apartment;
+    private readonly bool _ownsApartment;
 
     /// <summary>
-    /// Creates the server; the apartment is started by the first call that needs one.
+    /// Creates the server, on an apartment of its own; the apartment is started by the first call that needs one.
     /// </summary>
     public ComAutomationServer()
+        : this(new ComApartment())
     {
-        _apartment = new Lazy<Thread>(() =>
-        {
-            var thread = new Thread(Pump) { IsBackground = true, Name = "RDCore automation apartment" };
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            return thread;
-        });
+        _ownsApartment = true;
     }
+
+    /// <summary>
+    /// Creates the server, on <paramref name="apartment"/>: the one its objects share with whatever else lives there - the forms that host Microsoft Forms, whose
+    /// controls are its objects too.
+    /// </summary>
+    /// <param name="apartment">The apartment; whoever made it ends it.</param>
+    public ComAutomationServer(ComApartment apartment) => _apartment = apartment;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;
@@ -324,7 +326,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         var receiver = new EventReceiver(
             declaring,
             events,
-            (name, arguments) => sink.OnEvent(new AutomationEvent(name, arguments, Volatile.Read(ref _inCall) > 0, Serve)));
+            (name, arguments) => sink.OnEvent(new AutomationEvent(name, arguments, Volatile.Read(ref _inCall) > 0, _apartment.Serve)));
         point.Advise(receiver, out var cookie);
         _connections[source] = new Connection(point, cookie, receiver);
         return null;
@@ -636,9 +638,15 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     });
 
     /// <summary>
-    /// Ends the apartment. Every object that was made on it has been let go of by whatever held it.
+    /// Ends the apartment, when it is the server's own. Every object that was made on it has been let go of by whatever held it.
     /// </summary>
-    public void Dispose() => _work.CompleteAdding();
+    public void Dispose()
+    {
+        if (_ownsApartment)
+        {
+            _apartment.Dispose();
+        }
+    }
 
     // what the locale of a call is to a COM server: a language it has installed. The invariant culture's is not one - Excel answers "old format or invalid type
     // library" to it - so the neutral locale of the environment is the one that every server has, American English.
@@ -718,30 +726,6 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
     }
 
-    // A program makes its calls one after the other, so the next one comes as soon as the last one is answered: the apartment looks for it for a moment before it
-    // sleeps, so that a call that comes at once does not have to wake it. A wait that sleeps is the CLR's, which pumps what COM sends the apartment meanwhile.
-    private static readonly TimeSpan Spin = TimeSpan.FromMicroseconds(250);
-
-    private void Pump()
-    {
-        while (!_work.IsCompleted)
-        {
-            var idle = System.Diagnostics.Stopwatch.GetTimestamp();
-            Action? action;
-            while (!_work.TryTake(out action) && System.Diagnostics.Stopwatch.GetElapsedTime(idle) < Spin)
-            {
-                Thread.SpinWait(20);
-            }
-
-            if (action is null && !_work.TryTake(out action, Timeout.Infinite))
-            {
-                return;
-            }
-
-            action();
-        }
-    }
-
     // how many calls the program has made that are being made: an event the server raises while there is one is the answer to a call, and is handled inside it.
     private int _inCall;
 
@@ -758,16 +742,6 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
     }
 
-    // What the thread of the server does with the time it waits for the session to be open to an event that no call is waiting for: the program's own calls, which are made on this
-    // thread, and which it must not be kept from making.
-    private void Serve(TimeSpan time)
-    {
-        if (_work.TryTake(out var action, time))
-        {
-            action();
-        }
-    }
-
     // runs it on the apartment and waits: the pipeline is synchronous, and the object that a call is made on is on that thread.
     // A server calls the sink of its events on a thread of its own, not on the apartment, which is busy - it is inside the call that raised the event, waiting for the handlers.
     // What the handlers call is therefore called from where they run: COM carries it to the apartment, which handles it while it waits for the server, and the
@@ -777,47 +751,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     private static bool _handlingEvent;
 
     private T? OnApartment<T>(Func<T?> call)
-    {
-        _ = _apartment.Value;
-        if (_handlingEvent || Environment.CurrentManagedThreadId == _apartment.Value.ManagedThreadId)
-        {
-            return Counted(call);
-        }
-
-        T? result = default;
-        Exception? failure = null;
-        using var done = new ManualResetEventSlim();
-        _work.Add(() =>
-        {
-            try
-            {
-                result = Counted(call);
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-            finally
-            {
-                done.Set();
-            }
-        });
-
-        // most calls are answered at once: the caller looks for the answer for a moment before it sleeps, so that the apartment does not have to wake it.
-        var started = System.Diagnostics.Stopwatch.GetTimestamp();
-        while (!done.IsSet && System.Diagnostics.Stopwatch.GetElapsedTime(started) < Spin)
-        {
-            Thread.SpinWait(20);
-        }
-
-        done.Wait();
-        if (failure is not null)
-        {
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
-        }
-
-        return result;
-    }
+        => _handlingEvent ? Counted(call) : _apartment.Invoke(() => Counted(call));
 
     // IDispatch, for the one thing the runtime's binder does not offer: asking an object what it is. The members it is declared with are in the order of the
     // interface's table, and the ones that are not called are only there to keep the later ones where they belong.
