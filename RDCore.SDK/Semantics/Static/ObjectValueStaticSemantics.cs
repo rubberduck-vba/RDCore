@@ -298,6 +298,26 @@ public static class ObjectValueStaticSemantics
         return symbol is VBReturningMemberSymbol or VBProcedureMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
     }
 
+    /// <summary>
+    /// The control of a form that <paramref name="target"/> names - by its bare name in the form's code, or as a member of the form (<c>Me.TextBox1</c>,
+    /// <c>UserForm1.TextBox1</c>); <see langword="null"/> when it names something else (<see cref="SymbolProperties.DesignerControl"/>).
+    /// </summary>
+    /// <param name="context">The compile-time context the target is evaluated against.</param>
+    /// <param name="target">The expression an assignment is written on.</param>
+    public static VBTypeMemberSymbol? DesignerControlOf(StaticEvaluationContext context, ExpressionNode target)
+    {
+        var symbol = target switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when ExpressionStaticSemanticsEvaluator.Evaluate(Unrecorded(context), owner) is { IsSuccess: true, Result: VBClassType classType }
+                => (VBProjectSymbol.ResolveClass(context.Resolver, classType.Symbol) ?? classType.Symbol).DefaultInterfaceMembers.FirstOrDefault(member
+                    => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)),
+            _ => null,
+        };
+
+        return symbol is VBTypeMemberSymbol member && member.GetProperty(SymbolProperties.DesignerControl) ? member : null;
+    }
+
     // the member of a class a call or a read of the name invokes, as the class is declared now: a Sub, a Function or a Property Get - not a Property Let or
     // Set of the same name, which an assignment invokes.
     private static VBTypeMemberSymbol? CalledMemberOf(StaticEvaluationContext context, VBClassType classType, MemberAccessExpressionNode access)

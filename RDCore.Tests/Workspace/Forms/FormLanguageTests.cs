@@ -48,10 +48,21 @@ public sealed class FormLanguageTests
                 Name = "TextBox",
                 Members =
                 [
-                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyGet, Type = "String" },
-                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyLet, Parameters = [new ParameterDescription { Name = "Text", Type = "String" }] },
+                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyGet, Type = "String", DispId = 0 },
+                    new MemberDescription { Name = "Text", Kind = MemberKind.PropertyLet, DispId = 0, Parameters = [new ParameterDescription { Name = "Text", Type = "String" }] },
                 ],
                 Events = [new EventDescription { Name = "Change" }],
+            },
+            // the extender every control of a form is wrapped in
+            new ClassDescription
+            {
+                Name = "Control",
+                Members =
+                [
+                    new MemberDescription { Name = "Left", Kind = MemberKind.PropertyGet, Type = "Single" },
+                    new MemberDescription { Name = "SetFocus", Kind = MemberKind.Method },
+                ],
+                Events = [new EventDescription { Name = "Enter" }, new EventDescription { Name = "Exit" }],
             },
             new ClassDescription { Name = "OptionButton", Events = [new EventDescription { Name = "Click" }] },
             new ClassDescription { Name = "Frame", Events = [new EventDescription { Name = "Click" }] },
@@ -110,13 +121,15 @@ public sealed class FormLanguageTests
     }
 
     [TestMethod]
-    public void EveryControl_IsAPublicWithEventsFieldOfItsClass_ButTheMultiPagesPages()
+    public void EveryControl_IsAPublicReadOnlyPropertyOfItsClass_ButTheMultiPagesPages()
     {
         var form = ComposedForm(Form());
 
-        var fields = form.Members.OfType<VBModuleFieldVariableMemberSymbol>().ToDictionary(field => field.Name);
-        CollectionAssert.AreEquivalent(new[] { "TextBox1", "Frame1", "OptionButton1", "MultiPage1", "TextBox2" }, fields.Keys.ToArray());
-        var textBox = fields["TextBox1"];
+        // what the designer owns, the code reads and does not assign: a Property Get, and no Let or Set
+        var controls = form.Members.Where(member => member.GetProperty(SymbolProperties.DesignerControl)).ToDictionary(control => control.Name);
+        CollectionAssert.AreEquivalent(new[] { "TextBox1", "Frame1", "OptionButton1", "MultiPage1", "TextBox2" }, controls.Keys.ToArray());
+        Assert.IsTrue(controls.Values.All(control => control is VBPropertyGetMemberSymbol));
+        var textBox = (VBPropertyGetMemberSymbol)controls["TextBox1"];
         Assert.AreEqual(AccessModifier.Public, textBox.AccessModifier);
         Assert.IsTrue(textBox.GetProperty(SymbolProperties.WithEvents));
         Assert.IsTrue(textBox.GetProperty(SymbolProperties.DesignerControl));
@@ -271,6 +284,48 @@ public sealed class FormLanguageTests
 
         CollectionAssert.Contains(labels, "Text");
     }
+
+    [TestMethod]
+    [DataRow("    Me.TextBox1.|")]
+    [DataRow("    TextBox1.|")]
+    public async Task AControlDot_OffersTheMembersOfTheExtenderToo(string line)
+        => CollectionAssert.IsSubsetOf(new[] { "Text", "Left", "SetFocus" }, await CompletionAtAsync(Form("Private Sub Fill()", line, "End Sub")));
+
+    [TestMethod]
+    public async Task AVariableOfAControlsClass_IsNoControl_AndHasNoExtender()
+    {
+        var labels = await CompletionAtAsync(Form("Private Sub Fill()", "    Dim t As MSForms.TextBox", "    t.|", "End Sub"));
+
+        CollectionAssert.Contains(labels, "Text");
+        CollectionAssert.DoesNotContain(labels, "Left");
+    }
+
+    // ---- the extender's events, and Set ----
+
+    [TestMethod]
+    public async Task AHandlerOfAnExtendersEvent_IsAHandler_AndUnmatchedIsDead()
+    {
+        Assert.IsEmpty(await UnmatchedHandlersAsync("Private Sub TextBox1_Enter()", "End Sub"));
+
+        var finding = Assert.ContainsSingle(await UnmatchedHandlersAsync("Private Sub TextBox1_Exit(ByVal Value As Long)", "End Sub"));
+        Assert.AreEqual(RDCoreDiagnosticId.UnmatchedEventHandler, finding.Id);
+    }
+
+    [TestMethod]
+    [DataRow("Set Form1.TextBox1 = Nothing", "")]
+    [DataRow("", "Set Me.TextBox1 = Nothing")]
+    [DataRow("", "Set TextBox1 = Nothing")]
+    public async Task SettingAControl_IsAnInvalidUseOfProperty(string program, string form)
+    {
+        var errors = await DeclarationErrorsAsync(
+            Form("Public Sub Reset()", $"    {form}", "End Sub"), $"Public Sub Main()\r\n    {program}\r\nEnd Sub");
+
+        Assert.AreEqual(VBCompileErrorId.InvalidUseOfProperty, Assert.ContainsSingle(errors).Id);
+    }
+
+    [TestMethod]
+    public async Task LettingAControl_AssignsItsDefaultMember()
+        => Assert.IsEmpty(await DeclarationErrorsAsync(Form("Public Sub Reset()", "    TextBox1 = \"a\"", "End Sub"), "Public Sub Main()\r\n    Form1.TextBox1 = \"b\"\r\nEnd Sub"));
 
     // ---- the language server reads the companion file ----
 

@@ -182,8 +182,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     }
 
     /// <summary>
-    /// The field of a form's class that one of its controls is: a <c>Public</c>, <c>WithEvents</c> field of the control's class
-    /// (<see cref="SymbolProperties.DesignerControl"/>).
+    /// The member of a form's class that one of its controls is: a <c>Public</c>, read-only property of the control's class - a <c>Property Get</c> and no
+    /// <c>Property Let</c> or <c>Set</c> - whose events the form's procedures named for it handle (<see cref="SymbolProperties.DesignerControl"/>).
     /// </summary>
     /// <remarks>
     /// The designer declares it, so no text of the module does: it has no range of its own. A control whose class the designer names by its CLSID only (an
@@ -195,8 +195,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var type = control.Class.Name is { } className
             ? ResolveTypeName(className, moduleUri, control.Class.Library)
             : new VBUnresolvedType(control.Class.ToString());
-        return new VBModuleFieldVariableMemberSymbol(
-                workspaceRoot, moduleUri, control.Name, memberScope, type, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
+        return (new VBPropertyGetMemberSymbol(workspaceRoot, moduleUri, memberScope, control.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
+                with { ResolvedType = type })
             .With(SymbolProperties.WithEvents, true)
             .With(SymbolProperties.DesignerControl, true);
     }

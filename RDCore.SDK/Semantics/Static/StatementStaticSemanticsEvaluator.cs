@@ -1013,26 +1013,52 @@ public static class StatementStaticSemanticsEvaluator
             : null;
     }
 
-    // whether a member assigned to is a property of a class that declares a Property Get of its name and nothing a Let (or a Set) writes through: no
-    // Property Let (or Set), and no public variable.
+    // whether a property assigned to has a Property Get and nothing the assignment writes through - no Property Set for a Set (MS-VBAL §5.4.3.9); no
+    // Property Let for a Let, whose Get is then of a type that has no default member to assign instead: a type other than a class, Object or Variant
+    // (§5.4.3.8) - and no public variable of the name. A property of the class named by its bare name, from another of its procedures, is one too; in its
+    // own Property Get, the name is the result (§5.4.3.8, §5.4.3.9: "does not refer to the enclosing procedure").
     private static bool HasOnlyAPropertyGet(StaticEvaluationContext context, ExpressionNode target, bool isSet)
     {
-        if (target is not MemberAccessExpressionNode access)
+        VBTypeMemberSymbol[] members;
+        if (target is SimpleNameExpressionNode name)
+        {
+            // whichever accessor the name resolves to, the property is all of them. It is one of the module's own: a property of another module, or of the
+            // library, named by its bare name is called, as MS-VBA compiles `Set Now = Nothing` (oracle\s28 W5)
+            var module = context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?.Uri;
+            if (context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol is not VBTypeMemberSymbol { } property
+                || property is not IVBPropertyMemberSymbol
+                || property.Uri.AbsoluteUri == context.Scope.Uri.AbsoluteUri
+                || module is null || property.ParentUri.AbsoluteUri != module.AbsoluteUri)
+            {
+                return false;
+            }
+
+            // its accessors and whatever else the module declares of the name, as the module's scope has them
+            members = [.. context.Scope.SelfAndAncestors().SelectMany(scope => scope.DeclaredAs(property.Name)).OfType<VBTypeMemberSymbol>()
+                .Where(member => member.ParentUri.AbsoluteUri == property.ParentUri.AbsoluteUri)];
+        }
+        else if (target is MemberAccessExpressionNode access)
+        {
+            var owner = access.Owner is { } ownerExpression
+                ? ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, ownerExpression).Result
+                : context.EnclosingWithTargetType;
+            if (owner is not VBClassType { Symbol: var snapshot })
+            {
+                return false;
+            }
+
+            members = [.. (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
+                .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase))];
+        }
+        else
         {
             return false;
         }
 
-        var owner = access.Owner is { } ownerExpression
-            ? ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, ownerExpression).Result
-            : context.EnclosingWithTargetType;
-        if (owner is not VBClassType { Symbol: var snapshot })
-        {
-            return false;
-        }
-
-        var members = (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).DefaultInterfaceMembers
-            .Where(member => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)).ToArray();
-        return members.Any(member => member is VBPropertyGetMemberSymbol)
+        // a Variant one named by its bare name is called, and what it returns is assigned through, or is error 424 when it runs: a Set of it is a call of it too
+        // (MS-VBA, Excel-measured, oracle\s28 W4, against s30 C32 for one of a class and s28 W3 for a Long)
+        return members.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() is { } get
+            && (isSet ? !(target is SimpleNameExpressionNode && get.ResolvedType is VBVariantType) : get.ResolvedType is not (VBClassType or VBObjectType or VBVariantType))
             && !members.Any(member => member.Kind == SymbolKindExt.Field || (isSet ? member is VBPropertySetMemberSymbol : member is VBPropertyLetMemberSymbol));
     }
 

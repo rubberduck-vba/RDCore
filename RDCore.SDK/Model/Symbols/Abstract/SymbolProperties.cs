@@ -58,12 +58,13 @@ public static class SymbolProperties
     /// </remarks>
     public static readonly SymbolProperty<bool> ImplicitlyDeclared = new(nameof(ImplicitlyDeclared));
     /// <summary>
-    /// Whether a field of a form's class is one of the form's controls: declared by the form's designer, not by its code
+    /// Whether a member of a form's class is one of the form's controls: declared by the form's designer, not by its code
     /// (<see cref="Workspace.Forms.FormDescriptor.DeclaredControls"/>).
     /// </summary>
     /// <remarks>
-    /// A control is a <c>Public</c>, <c>WithEvents</c> field of the control's class, so the procedures named for it handle its events
-    /// (<c>TextBox1_Change</c>). It is not a variable the code can assign to: MS-VBA says "Invalid use of property" to <c>Set UserForm1.TextBox1 = …</c>.
+    /// A control is a <c>Public</c>, read-only property of the control's class: a <c>Property Get</c>, which the designer owns and the code does not assign, so
+    /// <c>Set TextBox1 = …</c> is an invalid use of the property (<strong>MS-VBAL §5.4.3.9</strong>), and <c>TextBox1 = "a"</c> assigns its default member
+    /// (§5.4.3.8). It is also <see cref="WithEvents"/>: the procedures named for it handle its events (<c>TextBox1_Change</c>).
     /// </remarks>
     public static readonly SymbolProperty<bool> DesignerControl = new(nameof(DesignerControl));
     /// <summary>

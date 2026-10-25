@@ -102,12 +102,15 @@ public static class SymbolDescriptorReader
             {
                 var symbol = new VBPropertyGetMemberSymbol(
                     workspaceRoot, parentUri, node.Scope, node.Name, node.Range, node.SelectionRange, node.AccessModifier);
-                yield return symbol with
+                Symbol property = symbol with
                 {
                     ResolvedType = Declared(node.DeclaredTypeName),
                     Parameters = Parameters(symbol.Uri),
                     Locals = Locals(symbol.Uri),
                 };
+
+                // a form's control is a property its designer declares, whose events the form's procedures handle
+                yield return node.IsDesignerControl ? property.With(SymbolProperties.WithEvents, true).With(SymbolProperties.DesignerControl, true) : property;
                 break;
             }
             case SymbolDescriptorKind.PropertyLet:
@@ -208,7 +211,6 @@ public static class SymbolDescriptorReader
                     node.Range, node.SelectionRange, node.AccessModifier);
                 field = WithArrayBounds(field, node.Array);
                 field = node.IsWithEvents ? field.With(SymbolProperties.WithEvents, true) : field;
-                field = node.IsDesignerControl ? field.With(SymbolProperties.DesignerControl, true) : field;
                 yield return node.IsAutoInstantiated ? field.With(SymbolProperties.AutoInstantiated, true) : field;
                 break;
             }
