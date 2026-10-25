@@ -174,6 +174,27 @@ public sealed class WindowsFormHostTests
         host.Forms.Destroy(form);
     }
 
+    // the active control is one the program may hold too: the automation server releasing the program's reference to it left the site's cut off, and the next
+    // activation of the window raised InvalidComObjectException in the window procedure - which takes the process down (found through the external host).
+    [TestMethod]
+    public void AControlTheProgramLetsGoOf_IsStillTheFormsActiveOne()
+    {
+        using var host = Host();
+        var caption = Unique();
+        var form = host.Forms.Create(ExampleView(caption));
+        host.Forms.Show(form, modal: false);
+
+        var control = host.Get(form, "AmountBox")!;
+        _ = host.Automation.Invoke(control, "SetFocus", AutomationInvocation.Method, [], [], CultureInfo.InvariantCulture);
+        host.Automation.Release(control);
+
+        // the window is activated again, which tells the active control.
+        host.Forms.Hide(form);
+        host.Forms.Show(form, modal: false);
+        Assert.AreEqual("AmountBox", host.Get(host.Get(form, "ActiveControl")!, "Name"));
+        host.Forms.Destroy(form);
+    }
+
     [TestMethod]
     public void AFormThatIsDestroyed_IsNoFormOfTheHost()
     {

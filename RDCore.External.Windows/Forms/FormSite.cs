@@ -112,6 +112,11 @@ public sealed class FormSite : IOleClientSite, IOleInPlaceSite, IOleInPlaceFrame
 
     int IOleInPlaceSite.OnInPlaceDeactivate()
     {
+        if (ActiveObject is { } previous)
+        {
+            _ = Marshal.ReleaseComObject(previous);
+        }
+
         ActiveObject = null;
         return 0;
     }
@@ -129,9 +134,16 @@ public sealed class FormSite : IOleClientSite, IOleInPlaceSite, IOleInPlaceFrame
 
     int IOleInPlaceFrame.SetBorderSpace(IntPtr widths) => 0;
 
+    // the active object is a control, which the program may hold too: the site's reference to it is a wrapper of its own, which the automation server releasing the
+    // program's cannot cut off from under it.
     int IOleInPlaceFrame.SetActiveObject(IntPtr activeObject, string? name)
     {
-        ActiveObject = activeObject == IntPtr.Zero ? null : (IOleInPlaceActiveObject)Marshal.GetObjectForIUnknown(activeObject);
+        if (ActiveObject is { } previous)
+        {
+            _ = Marshal.ReleaseComObject(previous);
+        }
+
+        ActiveObject = activeObject == IntPtr.Zero ? null : (IOleInPlaceActiveObject)Marshal.GetUniqueObjectForIUnknown(activeObject);
         return 0;
     }
 
