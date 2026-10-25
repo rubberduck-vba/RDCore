@@ -93,6 +93,7 @@ public record class CompileErrorDto(VBCompileErrorId Id, SourceLocation Location
 /// <param name="Binding">The address of the symbol it refers to, when it resolved to one.</param>
 /// <param name="Flags">What else is the case of it.</param>
 /// <param name="Error">Its compile error, when it has one.</param>
+/// <param name="Creates">The class of the object it creates by name, when that is known (<see cref="ExpressionFact.Creates"/>): for tooling only.</param>
 public record class ExpressionFactDto(
     SyntaxNodeId Node,
     SourceLocation Location,
@@ -100,7 +101,8 @@ public record class ExpressionFactDto(
     ExpressionClassification Classification,
     Uri? Binding,
     ValueExpressionSemanticFlags Flags,
-    CompileErrorDto? Error);
+    CompileErrorDto? Error,
+    ObjectCreationFact? Creates = null);
 
 /// <summary>
 /// A run-time error that code is guaranteed to raise, as it travels.
@@ -349,7 +351,7 @@ public record class ModuleSemanticsDto(
             procedure.IsFullyAnalyzed,
             [.. procedure.CompileErrors.Select(ErrorOf)],
             [.. procedure.Expressions.Values.Select(fact => new ExpressionFactDto(
-                fact.Node, fact.Location, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error)))],
+                fact.Node, fact.Location, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error), fact.Creates))],
             procedure.ReturnValue,
             procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime)))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(

@@ -55,6 +55,7 @@ public enum RDCoreDiagnosticId
     ObsoleteWhileWend = 308,
     ObsoleteOnLocalErrorStatement = 309,
     RedundantByValArgument = 310, // ByVal written before an argument of a ByVal parameter: MS-VBA compiles it, MS-VBAL refuses it, it changes nothing
+    EarlyBindingOpportunity = 311, // CreateObject of a class a referenced library declares: it could be New, and early-bound
 
     ObsoleteMemberUsage = 401, // members with an @Obsolete annotation
     InvalidAnnotation = 404, // @NotAnAnnotationButParsedLikeOne

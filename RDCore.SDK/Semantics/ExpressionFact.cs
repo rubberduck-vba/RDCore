@@ -86,7 +86,14 @@ public sealed record class ExpressionFact(
     ExpressionClassification Classification,
     SemanticId? Binding,
     ValueExpressionSemanticFlags Flags,
-    VBCompileErrorInfo? Error = null);
+    VBCompileErrorInfo? Error = null)
+{
+    /// <summary>
+    /// The class of the object the expression creates, when it is a <c>CreateObject</c> call given a constant programmatic identifier of a class that is
+    /// described: a fact for tooling only, never a declaration (<see cref="ObjectCreationFact"/>). <see langword="null"/> otherwise.
+    /// </summary>
+    public ObjectCreationFact? Creates { get; init; }
+}
 
 /// <summary>
 /// Takes the facts of the expressions the static pass evaluates.

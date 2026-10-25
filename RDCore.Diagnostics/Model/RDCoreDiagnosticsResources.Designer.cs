@@ -392,7 +392,16 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("RedundantByValArgument_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; est la classe {1}.{2}, d&apos;une bibliothèque référencée: déclarez l&apos;objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation..
+        /// </summary>
+        public static string EarlyBindingOpportunity_Message {
+            get {
+                return ResourceManager.GetString("EarlyBindingOpportunity_Message", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; est écrit avec un caractère de déclaration de type, ce qui est obsolète: indiquez son type avec une clause As là où il est déclaré..
         /// </summary>

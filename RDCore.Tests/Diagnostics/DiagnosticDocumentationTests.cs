@@ -129,6 +129,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ObsoleteWhileWend, 308),
         (RDCoreDiagnosticId.ObsoleteOnLocalErrorStatement, 309),
         (RDCoreDiagnosticId.RedundantByValArgument, 310),
+        (RDCoreDiagnosticId.EarlyBindingOpportunity, 311),
         (RDCoreDiagnosticId.ImplementationsShouldBePrivate, 405),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),

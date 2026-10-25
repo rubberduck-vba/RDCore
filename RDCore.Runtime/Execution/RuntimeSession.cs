@@ -49,6 +49,7 @@ internal sealed class RuntimeSession(
     public ISessionHalt Halt { get; init; } = halt;
     public IReadOnlyList<ReferencePriorityInfo> References { get; init; } = references;
     public IRuntimeOutput Output { get; init; } = output;
+    public RDCore.SDK.Runtime.Libraries.ILibrarySource? Libraries { get; init; }
 
     public IObjectLifecycle? Lifecycle { get; set; }
 

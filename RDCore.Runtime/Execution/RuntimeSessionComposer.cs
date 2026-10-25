@@ -5,6 +5,7 @@ using RDCore.Runtime.Execution.Files;
 using RDCore.Runtime.Execution.Memory;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Libraries;
 
 namespace RDCore.Runtime.Execution;
 
@@ -40,14 +41,18 @@ public static class RuntimeSessionComposer
     /// The file system the session's file statements act on. Omitted, the real one - a caller that wants file
     /// I/O to go nowhere real passes a fake, which is how a test opens a file without one existing.
     /// </param>
+    /// <param name="libraries">
+    /// The descriptions of the libraries the environment has, referenced or not (<see cref="IRuntimeSession.Libraries"/>). Omitted, none.
+    /// </param>
     public static IRuntimeSession Compose(
         IRuntimeEnvironmentProfile environment,
         IReadOnlyList<ReferencePriorityInfo> references,
         IEnumerable<ISymbolProvider> providers,
         IRuntimeOutput? output = null,
-        IFileSystem? fileSystem = null)
+        IFileSystem? fileSystem = null,
+        ILibrarySource? libraries = null)
     {
-        var session = Compose(environment, references, new SymbolTable(), output, fileSystem);
+        var session = Compose(environment, references, new SymbolTable(), output, fileSystem, libraries);
 
         foreach (var provider in providers)
         {
@@ -90,7 +95,7 @@ public static class RuntimeSessionComposer
 
         return Compose(
             staticContext.Environment, staticContext.References, declared.Table.Snapshot(), NullRuntimeOutput.Instance,
-            fileSystem ?? new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/"));
+            fileSystem ?? new MockFileSystem(new Dictionary<string, MockFileData>(), OperatingSystem.IsWindows() ? @"C:\" : "/"), staticContext.Libraries);
     }
 
     private static RuntimeSession Compose(
@@ -98,7 +103,8 @@ public static class RuntimeSessionComposer
         IReadOnlyList<ReferencePriorityInfo> references,
         SymbolTable declared,
         IRuntimeOutput? output,
-        IFileSystem? fileSystem)
+        IFileSystem? fileSystem,
+        ILibrarySource? libraries)
     {
         var memory = new SessionMemory(new FreeListManager(), environment.Is64Bit ? PointerSize.x64 : PointerSize.x86, SessionMemory.FirstAddress);
         var callStack = new RuntimeCallStack();
@@ -118,6 +124,9 @@ public static class RuntimeSessionComposer
         // text written to a file is in the environment's own ANSI code page (IRuntimeEnvironmentProfile.AnsiEncoding).
         var files = new SessionFileChannels(fileSystem ?? new FileSystem(), environment.AnsiEncoding);
 
-        return new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance);
+        return new RuntimeSession(environment, memory, storage, symbols, objects, errors, files, callStack, new SessionHalt(), references, output ?? NullRuntimeOutput.Instance)
+        {
+            Libraries = libraries,
+        };
     }
 }

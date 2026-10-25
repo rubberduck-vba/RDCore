@@ -25,6 +25,15 @@ public interface IRuntimeSession
     IRuntimeEnvironmentProfile Environment { get; }
 
     /// <summary>
+    /// The descriptions of the libraries the environment has, whether the project references them or not; <see langword="null"/> when it was given none.
+    /// </summary>
+    /// <remarks>
+    /// The libraries the project references are its symbols already (<see cref="Symbols"/>). This is what the facts for tooling read of a library it does
+    /// not reference - the class of an object a program creates by name (<see cref="SDK.Semantics.ObjectCreationFact"/>) - and it is never a name the code can use.
+    /// </remarks>
+    SDK.Runtime.Libraries.ILibrarySource? Libraries => null;
+
+    /// <summary>
     /// The session's memory allocator — tracks allocation size and fragmentation, MSVBVM-style.
     /// </summary>
     ISessionMemoryAllocator Memory { get; }

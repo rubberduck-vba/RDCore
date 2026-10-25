@@ -66,7 +66,7 @@ internal static class ExpressionFactDescriber
 
         if (ExpressionStaticSemanticsEvaluator.ProcedureNamedBy(context, index.Callee) is { } procedure)
         {
-            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall);
+            return Fact(procedure, ValueExpressionSemanticFlags.ProcedureCall) with { Creates = ObjectCreationFacts.Of(context, index, procedure) };
         }
 
         // an object that is indexed is a call of its default member, and an object of no particular class has one that is found out when it runs.

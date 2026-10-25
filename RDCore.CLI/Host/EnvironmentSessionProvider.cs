@@ -193,7 +193,8 @@ public sealed class EnvironmentSessionProvider(
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
 
         // and the libraries the project references, by name: the same symbols the language server bound the workspace's names to.
-        var referenced = LibrarySymbolProvider.Load(librarySource ?? new DirectoryLibrarySource(fileSystem, string.Empty), project.References);
+        var source = librarySource ?? new DirectoryLibrarySource(fileSystem, string.Empty);
+        var referenced = LibrarySymbolProvider.Load(source, project.References);
         foreach (var problem in referenced.Problems)
         {
             logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
@@ -203,7 +204,8 @@ public sealed class EnvironmentSessionProvider(
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);
 
         _world = ComposeWorld(project, workspaceRoot);
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, libraries, modules], Output);
+        // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, libraries, modules], Output, libraries: source);
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
         Image = new ProgramImage();

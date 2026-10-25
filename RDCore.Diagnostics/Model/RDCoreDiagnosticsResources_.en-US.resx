@@ -240,6 +240,9 @@
   <data name="RedundantByValArgument_Message" xml:space="preserve">
     <value>The parameter is ByVal: ByVal written before its argument changes nothing.</value>
   </data>
+  <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
+    <value>'{0}' is the class {1}.{2}, of a referenced library: declare the object As {1}.{2} and create it with New, and its members are bound when the code is compiled.</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implements a member of an interface, and is Public: it exposes that member on the default interface of this class, where it does not belong. Make it Private.</value>
   </data>

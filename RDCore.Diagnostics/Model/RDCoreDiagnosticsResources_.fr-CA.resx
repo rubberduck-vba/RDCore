@@ -240,6 +240,9 @@
   <data name="RedundantByValArgument_Message" xml:space="preserve">
     <value>Le paramètre est ByVal: ByVal écrit devant son argument ne change rien.</value>
   </data>
+  <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
+    <value>'{0}' est la classe {1}.{2}, d'une bibliothèque référencée: déclarez l'objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation.</value>
+  </data>
   <data name="ImplementationsShouldBePrivate_Interface_Message" xml:space="preserve">
     <value>'{0}' implémente un membre d'une interface, et est Public: il expose ce membre sur l'interface par défaut de cette classe, où il n'a pas sa place. Rendez-le Private.</value>
   </data>

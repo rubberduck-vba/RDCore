@@ -110,15 +110,17 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="moduleName">The module whose model is asked for, or empty for the models of every module.</param>
     /// <param name="language">The language the code is written in; RD-VBA unless said otherwise.</param>
+    /// <param name="libraries">The libraries the project references, and the source they and others are found in; only the standard library when omitted.</param>
     public static async Task<SemanticsPayload> SemanticsAsync(
-        IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null)
+        IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "", SupportedLanguage? language = null,
+        WorkspaceLibraries? libraries = null)
     {
         SemanticsPayload? payload = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             var result = await new HostSemanticsHandler(sessionProvider).Handle(new HostSemanticsParams { ModuleName = moduleName }, CancellationToken.None);
             payload = PlatformJson.Deserialize<SemanticsPayload>(result.Json);
-        }, language: language);
+        }, language: language, libraries: libraries);
 
         return payload!;
     }

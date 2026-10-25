@@ -17,4 +17,13 @@ public sealed record class StaticEnvironment(bool Is64Bit)
     /// The <c>LongPtr</c> of the environment: the declared type of a pointer, or of a handle.
     /// </summary>
     public VBType PointerType => Is64Bit ? VBLongPtrType_x64.TypeInfo : VBLongPtrType_x86.TypeInfo;
+
+    /// <summary>
+    /// The descriptions of the libraries the environment has, whether the project references them or not, or <see langword="null"/> when it has none to say.
+    /// </summary>
+    /// <remarks>
+    /// What a library the project does not reference declares is never a name the code can use: it is what the facts for tooling say of an object created by
+    /// name (<see cref="ObjectCreationFact"/>), and nothing else.
+    /// </remarks>
+    public SDK.Runtime.Libraries.ILibrarySource? Libraries { get; init; }
 }
