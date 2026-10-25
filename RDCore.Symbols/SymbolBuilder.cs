@@ -196,8 +196,14 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var type = control.Class.Name is { } className
             ? ResolveTypeName(className, moduleUri, control.Class.Library)
             : new VBUnresolvedType(control.Class.ToString());
-        return (new VBPropertyGetMemberSymbol(workspaceRoot, moduleUri, memberScope, control.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public)
-                with { ResolvedType = type })
+        var property = new VBPropertyGetMemberSymbol(workspaceRoot, moduleUri, memberScope, control.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
+
+        // the implicit parameter 0 a library's instance member has: the form the control is reached through, which is what the call is dispatched on.
+        return (property with
+                {
+                    ResolvedType = type,
+                    Parameters = [new VBParameterSymbol(workspaceRoot, property.Uri, "Me", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBObjectType.TypeInfo)],
+                })
             .With(SymbolProperties.WithEvents, true)
             .With(SymbolProperties.DesignerControl, true)
             .With(SymbolProperties.ExternalTarget, FormObject.TargetOf(form, control.Name, "get"));
